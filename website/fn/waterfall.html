@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>waterfall — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>waterfall</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>waterfall(x, Z)</code></pre>
+<p class="fnnote">Input: x, Z &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>x</code> is a Vec of numbers (shared horizontal axis); <code>Z</code> is a Mat where each row becomes its own line, each successive row offset up-and-right so traces read back-to-front. A 2-D approximation of the stacked-trace look — no true 3-D projection yet.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>waterfall(x, Z)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec or number</span><span class="iodesc"><code>x</code> is a Vec of numbers (shared horizontal axis).</span></div>
+<div class="ioitem"><code>Z</code> <span class="iotype">Mat</span><span class="iodesc"><code>Z</code> is a Mat where each row becomes its own line, each successive row offset up-and-right so traces read back-to-front.</span></div>
+</td><td><span class="ionone">no output</span></td><td>A 2-D approximation of the stacked-trace look — no true 3-D projection yet.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+y = <span class="f">sin</span>(x / <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">stem</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">stair</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">groupbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+<span class="f">stackbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+Z = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>; <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>; <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>]
+<span class="f">waterfall</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">4</span>, Z)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>waterfall(x, Z)</code> -- one line per row of <code>Z</code>, each successive row offset up-and-right so traces read back-to-front. True 3D approximation of the classic stacked-trace look.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

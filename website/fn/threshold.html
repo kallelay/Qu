@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>threshold — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>threshold</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>threshold(x, level)</code></pre>
+<p class="fnnote">Input: x, level &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code> is an <code>Image</code>, <code>Signal</code>, <code>Vec</code>, or scalar; <code>level</code> is a number, the cutoff. Elementwise binary threshold, general-purpose (not image-specific). <code>Image</code> → binary black/white image of the same dimensions (per-pixel BT.601 luma vs <code>level</code>); <code>Signal</code> → same-<code>Fs</code> <code>Signal</code> of 0.0/1.0; <code>Vec</code>/scalar → identical to <code>x &gt;= level</code> (a <code>Mask</code>/<code>Bool</code> via the shared <code>compare</code> path).</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be Image, Signal, Vec, or number; <code>level</code> can be Image, Signal, Mask, Vec, bool, or scalar.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-threshold-0" checked>
+<input type="radio" name="typetab" id="tt-threshold-1">
+<input type="radio" name="typetab" id="tt-threshold-2">
+<div class="tabbar">
+<label for="tt-threshold-0">Image</label>
+<label for="tt-threshold-1">Signal</label>
+<label for="tt-threshold-2">Vec or scalar</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = threshold(x, level)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Image</span><span class="iodesc"><code>x</code> an <code>Image</code>.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">Image</span><span class="iodesc">Compares each pixel's BT.601 luma against <code>level</code> and returns a new binary (0/255) <code>Image</code> of the same dimensions — the classic black-and-white segmentation mask.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image, Signal, Mask, Vec, or scalar</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>; <span class="n">50</span>, <span class="n">220</span>]
+img = <span class="f">image_from_matrix</span>(m)
+mask = <span class="f">threshold</span>(img, <span class="n">128</span>)
+<span class="f">imshow</span>(mask)
+<span class="f">print</span>(mask.width, mask.height)   <span class="c"># 2 2</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = threshold(x, level)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal</span><span class="iodesc"><code>x</code> a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">Signal or Mask</span><span class="iodesc">Elementwise compare against <code>level</code>, but returned as a same-<code>Fs</code> <code>Signal</code> of <code>0.0</code>/<code>1.0</code> values rather than a <code>Mask</code> — so it stays a <code>Signal</code> and can keep flowing through DSP functions that expect one.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image, Signal, Mask, Vec, or scalar</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>], <span class="n">100</span>)
+<span class="f">print</span>(<span class="f">threshold</span>(sig, <span class="n">4</span>))   <span class="c"># signal(Fs=100) [0, 1, 0, 1]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = threshold(x, level)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec or number</span><span class="iodesc"><code>x</code> a <code>Vec</code> or a plain number.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">Mask, Vec, bool, or scalar</span><span class="iodesc">Identical to <code>x &gt;= level</code> — a <code>Mask</code> for a <code>Vec</code>, a plain <code>bool</code> for a scalar — reusing the exact same shared <code>compare</code> path the <code>&gt;=</code> operator itself uses, rather than any image-specific logic.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image, Signal, Mask, Vec, or scalar</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">5</span>, <span class="n">10</span>, <span class="n">2</span>]
+<span class="f">print</span>(<span class="f">threshold</span>(v, <span class="n">4</span>))    <span class="c"># [F, T, T, F]</span>
+<span class="f">print</span>(<span class="f">threshold</span>(<span class="n">7</span>, <span class="n">4</span>))    <span class="c"># true</span>
+</code></pre>
+</div>
+<p><code>multithreshold</code> branches on <code>x</code>'s type the same way, but the results differ more: its <code>Image</code> case returns a posterized *image* (evenly-spaced gray bands), while its <code>Signal</code>/plain-numeric case returns a raw 0-based *band index* rather than anything image-shaped.</p>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>threshold(x, level)</code> (§ thresholding, 2026-08-24, Ahmed: "Threshold &amp; multithreshold should be implemented in signal too, [along with] Otsu method and better methods") — elementwise binary threshold. NOT the same job as <code>foreground_mask</code> above (that one is a blob/segmentation convenience — threshold + morphological opening in one call); this is the plain, general-purpose global threshold, with no morphology, usable on <code>Image</code>/<code>Vec</code>/<code>Signal</code> alike. <code>Value::Image</code> -&gt; a binary black/white image (per-pixel BT.601 luma vs <code>level</code>, not three independently-thresholded channels — the standard convention ahead of segmentation, same luma computation <code>foreground_mask</code>/<code>to_grayscale</code> already use); <code>Value::Signal</code> -&gt; a same-<code>Fs</code> Signal of 0.0/1.0; <code>Value::Vec</code>/scalar -&gt; reuses the exact <code>&gt;=</code> comparison operator's own output convention (a <code>Mask</code> for a vector, a <code>Bool</code> for a scalar) via <code>compare</code>, so <code>threshold(x, level)</code> and <code>x &gt;= level</code> agree exactly on anything that isn't an Image/Signal. See <code>apply_threshold</code>'s doc comment for the full rationale.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

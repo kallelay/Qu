@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Units & conversions — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Math &amp; linear algebra</p>
+<h1>Units &amp; conversions</h1>
+<p class="lede">tracked physical units for temperature (degC/ degF), an affine (not linear) scale.</p>
+<p class="srcpath">catalog/qu_temperature_units.qu</p>
+<p>A temperature literal (`10 degC`) stays a distinct unit-tagged value, not a bare number: it compares correctly across scales (through Kelvin internally), a plain-number shift keeps it a temperature ("5 degrees warmer"), but scaling one (`2 * (10 degC)`) is rejected outright, since doubling a Celsius reading isn't physically meaningful the way doubling a Kelvin one is -- the offset doesn't scale. Subtracting two temperatures IS meaningful (the affine offset cancels) and yields a plain number, a delta in Kelvin/Celsius-sized degrees, not a temperature itself.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>10 degC / 98.6 degF        -- unit literals</li>
+<li>(a degC) - (b degC)        -- a plain Num delta</li>
+<li>(a degC) + 5               -- stays a temperature</li>
+<li>(a degC) == (b degF)       -- cross-scale comparison via Kelvin</li>
+<li>try/catch on an affine-scale violation (2 * temperature)</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Unit literals and cross-scale comparison (converted through Kelvin)</h3>
+<pre class="hl"><code>room = <span class="n">21</span> degC
+body = <span class="n">98.6</span> degF
+<span class="f">print</span>(<span class="s">"room = {room}"</span>)
+<span class="f">print</span>(<span class="s">"body = {body}"</span>)
+<span class="f">print</span>(<span class="s">"body warmer than room: {body &gt; room}"</span>)
+
+freezing_c = <span class="n">0</span> degC
+freezing_f = <span class="n">32</span> degF
+<span class="f">print</span>(<span class="s">"0 degC == 32 degF: {freezing_c == freezing_f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Deltas: subtracting two temperatures cancels the offset -&gt; a plain number</h3>
+<pre class="hl"><code>morning = <span class="n">15</span> degC
+afternoon = <span class="n">23</span> degC
+warmup = afternoon - morning
+<span class="f">print</span>(<span class="s">"warmup = {warmup} degrees (a plain number, not itself a temperature)"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>A temperature shifted by a plain number stays a temperature</h3>
+<pre class="hl"><code>forecast = morning + <span class="n">5</span>
+<span class="f">print</span>(<span class="s">"forecast = {forecast}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Scaling a temperature is physically meaningless and rejected</h3>
+<pre class="hl"><code><span class="k">try</span>
+    doubled = <span class="n">2</span> * room
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"rejected as expected: {err.message}"</span>)
+<span class="k">end</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>room = 21 degC
+body = 98.6 degF
+body warmer than room: true
+0 degC == 32 degF: true
+warmup = 8 degrees (a plain number, not itself a temperature)
+forecast = 20 degC
+rejected as expected: operator `*` is not defined on a temperature — Celsius/Fahrenheit are affine scales, so scaling one is not physically meaningful (see docs/design/physical-units.md §2).</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_temperature_units.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_temperature_units.qu -- tracked physical units for temperature (degC/</span>
+<span class="c"># degF), an affine (not linear) scale.</span>
+<span class="c">#</span>
+<span class="c"># A temperature literal (`10 degC`) stays a distinct unit-tagged value, not</span>
+<span class="c"># a bare number: it compares correctly across scales (through Kelvin</span>
+<span class="c"># internally), a plain-number shift keeps it a temperature ("5 degrees</span>
+<span class="c"># warmer"), but scaling one (`2 * (10 degC)`) is rejected outright, since</span>
+<span class="c"># doubling a Celsius reading isn't physically meaningful the way doubling a</span>
+<span class="c"># Kelvin one is -- the offset doesn't scale. Subtracting two temperatures</span>
+<span class="c"># IS meaningful (the affine offset cancels) and yields a plain number, a</span>
+<span class="c"># delta in Kelvin/Celsius-sized degrees, not a temperature itself.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
+<span class="c">#   10 degC / 98.6 degF        -- unit literals</span>
+<span class="c">#   (a degC) - (b degC)        -- a plain Num delta</span>
+<span class="c">#   (a degC) + 5               -- stays a temperature</span>
+<span class="c">#   (a degC) == (b degF)       -- cross-scale comparison via Kelvin</span>
+<span class="c">#   try/catch on an affine-scale violation (2 * temperature)</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Unit literals and cross-scale comparison (converted through Kelvin)</span>
+room = <span class="n">21</span> degC
+body = <span class="n">98.6</span> degF
+<span class="f">print</span>(<span class="s">"room = {room}"</span>)
+<span class="f">print</span>(<span class="s">"body = {body}"</span>)
+<span class="f">print</span>(<span class="s">"body warmer than room: {body &gt; room}"</span>)
+
+freezing_c = <span class="n">0</span> degC
+freezing_f = <span class="n">32</span> degF
+<span class="f">print</span>(<span class="s">"0 degC == 32 degF: {freezing_c == freezing_f}"</span>)
+
+<span class="c">#%% Deltas: subtracting two temperatures cancels the offset -&gt; a plain number</span>
+morning = <span class="n">15</span> degC
+afternoon = <span class="n">23</span> degC
+warmup = afternoon - morning
+<span class="f">print</span>(<span class="s">"warmup = {warmup} degrees (a plain number, not itself a temperature)"</span>)
+
+<span class="c">#%% A temperature shifted by a plain number stays a temperature</span>
+forecast = morning + <span class="n">5</span>
+<span class="f">print</span>(<span class="s">"forecast = {forecast}"</span>)
+
+<span class="c">#%% Scaling a temperature is physically meaningless and rejected</span>
+<span class="k">try</span>
+    doubled = <span class="n">2</span> * room
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"rejected as expected: {err.message}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

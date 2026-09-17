@@ -1,0 +1,56 @@
+# image_io.qu -- image save/load round trip benchmark.
+#
+# Qu's `load_image` is BMP-only (see `load_image`'s doc comment in
+# lib.rs -- no PNG/JPEG decode, by design, to avoid a full decoder for a
+# format qu itself only writes in an uncompressed "stored block" form
+# anyway). So the round trip below is BMP -> BMP; PNG is timed as a
+# save-only (encode) path, with no matching Qu-side decode to compare
+# against Python/MATLAB's imread(.png).
+#
+# 2000x2000 grayscale-from-random-matrix image (4,000,000 pixels, 12MB RGB
+# raw) -- large enough that encode/decode cost is measurable, still fast
+# enough for a few-second run.
+#
+# Run: qu run benchmarks/file_io/image_io.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/file_io/image_io.qu)
+
+backend auto
+
+W = 2000
+H = 2000
+bmp_path = "benchmarks/file_io/qu_random.bmp"
+png_path = "benchmarks/file_io/qu_random.png"
+
+# --- data (untimed prep) -----------------------------------------------------
+seed(5)
+m = rand(H, W) * 255
+img = image_from_matrix(m)
+
+# --- save: BMP ----------------------------------------------------------------
+tic()
+save_image(bmp_path, img)
+t_save_bmp = toc()
+print("save_image .bmp ({W}x{H}) : {t_save_bmp:.4f} s")
+
+# --- save: PNG (encode-only, no matching Qu-side decode) ----------------------
+tic()
+save_image(png_path, img)
+t_save_png = toc()
+print("save_image .png ({W}x{H}) : {t_save_png:.4f} s")
+
+# --- load: BMP ------------------------------------------------------------------
+tic()
+img2 = load_image(bmp_path)
+t_load_bmp = toc()
+print("load_image .bmp ({W}x{H}) : {t_load_bmp:.4f} s")
+
+print("width={img2.width} height={img2.height}")
+g = grayscale(img2)
+hist = imhist(g, 256)
+total = sum(hist)
+acc = 0.0
+for bin = 0 to 255
+    acc = acc + bin * hist[bin]
+end for
+print("mean pixel (round-tripped) = {acc / total:.4f}")
+print("mean(original matrix)      = {mean(m):.4f}")

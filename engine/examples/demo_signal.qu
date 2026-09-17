@@ -1,0 +1,30 @@
+# demo_signal.qu — a script that runs end-to-end on the M2 interpreter.
+# Exercises: units, ranges, vectors, broadcasting, builtins, := functions,
+# string interpolation, and a for-loop.
+
+backend auto
+
+Fs = 5 kHz               # 5000 (units normalize to SI)
+N  = 16
+n  = 0 to N - 1          # a length-16 index vector
+
+# a decaying cosine, built with elementwise ops
+x = cos(2 * pi * n / N) * exp(-n / N)
+
+x -= mean(x)             # detrend in place (compound assign + broadcast)
+
+crest(v) := max(abs(v)) / rms(v)
+
+print("N      = {N}")
+print("mean x = {mean(x):.4f}")
+print("rms  x = {rms(x):.4f}")
+print("crest  = {crest(x):.3f}")
+
+acc = 0
+for k = 1 to N
+    acc += k
+end for
+print("sum 1..N = {acc}")
+
+plot(n, x)
+show plot

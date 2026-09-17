@@ -1,0 +1,5 @@
+# @name: Filter and group a table
+# @desc: Row-filter, sort, and per-group aggregate on a Table.
+good = filter(df, df.value > 0)
+top = head(sort_by(good, "value", true), 10)
+summary = group_by_agg(good, "group", (("value", "mean"), ("value", "std")))

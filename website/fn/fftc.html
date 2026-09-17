@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fftc — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fftc</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>rfft(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector (<code>rfft</code>) or real/complex vector (<code>fftc</code>). <code>rfft</code> returns a length-<code>floor(N/2)+1</code> complex vector, the one-sided half-spectrum; <code>fftc</code> returns a length-N complex vector, the full spectrum. <code>rfft</code> is about twice as fast on real data since it only computes the non-redundant half.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rfft(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">CVec</span></div>
+</td><td>Returns a <code>CVec</code>: length <code>floor(N/2)+1</code> from <code>rfft</code>, length N from <code>fftc</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">80</span>*t) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+
+X = <span class="f">fftc</span>(x)
+mag = <span class="f">abs</span>(X)[<span class="n">0</span>:<span class="n">512</span>]                 <span class="c"># positive-frequency half</span>
+freqs = <span class="f">linspace</span>(<span class="n">0</span>, Fs/<span class="n">2</span>, <span class="n">512</span>)
+peaks = <span class="f">find_peaks</span>(mag, <span class="a">min_height</span>=<span class="f">max</span>(mag)*<span class="n">0.2</span>, <span class="a">min_distance</span>=<span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"tones at: {freqs[peaks]} Hz"</span>)
+<span class="f">plot</span>(freqs, mag)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p>DFT: <code>fft(x)</code> or <code>fft(x, n)</code> (zero-pads/truncates to n samples). <code>fftc</code> is an explicit-complex alias of <code>fft</code> (same function).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="rfft.html"><code>rfft</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>filter_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>filter_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>filter_init(filt)</code></pre>
+<p class="fnnote">Input: filt &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-filter_init-0" checked>
+<input type="radio" name="typetab" id="tt-filter_init-1">
+<div class="tabbar">
+<label for="tt-filter_init-0">IIR filter (<code>sos</code>)</label>
+<label for="tt-filter_init-1">FIR filter (<code>b</code>)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = filter_init(filt)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model, matrix, or number</span></div>
+</td><td>Returns a <code>filter_state</code> <code>Model</code> whose <code>z</code> is an <code>(n_sections, 2)</code> all-zero biquad-state matrix — 2 numbers of memory per section.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+si = <span class="f">filter_init</span>(iir)
+<span class="f">print</span>(<span class="s">"IIR state shape: {shape(si.z)}"</span>)   <span class="c"># IIR state shape: [1, 2]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = filter_init(filt)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model or vector</span></div>
+</td><td>Returns a <code>filter_state</code> <code>Model</code> whose <code>z</code> is a plain length-<code>(len(b)-1)</code> all-zero delay vector — just the last few inputs, no feedback to track.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+sf = <span class="f">filter_init</span>(fir)
+<span class="f">print</span>(<span class="s">"FIR state length: {length(sf.z)}"</span>)   <span class="c"># FIR state length: 6</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p>The streaming (sample-at-a-time) filtering pair, for real-time/serial-fed data where a whole array isn't available up front: <code>state = filter_init(filt)</code> then repeatedly <code>state = filter_next(state, next_sample)</code>, reading <code>state.y</code> for each filtered output — the same "thread a new state through each call" idiom <code>kalman_predict</code>/<code>kalman_update</code> already use, not a mutable iterator object (Qu has no mutation-of-shared-state primitive for this, by design). <code>filter_init(filt)</code> — a fresh all-zero state: an <code>(n_sections, 2)</code> biquad-state matrix for an IIR (<code>sos</code>) filter, or a <code>len(b)-1</code>-long all-zero delay line for an FIR (<code>b</code>) filter — simpler, since there's no feedback state to track at all, just the last few inputs.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

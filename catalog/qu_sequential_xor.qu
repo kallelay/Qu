@@ -1,0 +1,40 @@
+# qu_sequential_xor.qu — a tiny Sequential neural net learns XOR.
+#
+# Exercises the Sequential/Keras-style neural-net surface: build a 2-layer
+# MLP from `dense_layer` specs, train it with `.fit(...)` (full-batch SGD,
+# autodiff under the hood), then read back the loss history and predict.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   dense_layer(in_dim, out_dim, activation=) — layer spec
+#   sequential(layers, seed=)                 — build the model
+#   net.fit(X, Y, epochs=, lr=, loss=)         — train, returns the fitted model
+#   trained.loss_history, trained.predict(X)
+
+backend auto
+
+#%% Setup — the XOR truth table
+X = [0, 0, 1, 1, 0, 1, 0, 1] as matrix(4, 2)
+Y = [0, 1, 1, 0] as matrix(4, 1)
+
+#%% Build the network
+layers = (dense_layer(2, 8, activation="relu"), dense_layer(8, 1, activation="none"))
+net = sequential(layers, seed=42)
+
+#%% Train
+trained = net.fit(X, Y, epochs=2000, lr=0.5, loss="mse")
+
+first_loss = trained.loss_history[0]
+last_loss = trained.loss_history[length(trained.loss_history) - 1]
+print("loss: {first_loss:.4f} -> {last_loss:.6f} over 2000 steps")
+
+#%% Evaluate
+pred = trained.predict(X)
+print("XOR predictions (want 0,1,1,0):")
+print(pred)
+
+#%% Plot the loss curve
+plot(trained.loss_history)
+xlabel("epoch")
+ylabel("MSE loss")
+title("Sequential XOR: training loss")
+show plot

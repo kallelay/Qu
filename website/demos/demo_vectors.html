@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectors & matrices — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Getting started</p>
+<h1>Vectors &amp; matrices</h1>
+<p class="lede">basic vector and matrix arithmetic.</p>
+<p class="srcpath">catalog/demo_vectors.qu</p>
+<p>A first look at Qu's arrays: a vector, a matrix, and the difference between `*` (matrix multiply) and `.*` (elementwise).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>vector literals, dot(), matrix literals, * vs .*, transpose</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Vectors</h3>
+<pre class="hl"><code>u = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+v = [<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="s">"u . v = {dot(u, v)}"</span>)
+<span class="f">print</span>(<span class="s">"u + v = {u + v}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Matrices</h3>
+<pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+B = [<span class="n">5</span>, <span class="n">6</span>; <span class="n">7</span>, <span class="n">8</span>]
+<span class="f">print</span>(<span class="s">"A * B  = {A * B}"</span>)
+<span class="f">print</span>(<span class="s">"A .* B = {A .* B}"</span>)
+<span class="f">print</span>(<span class="s">"A'     = {A'}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>u . v = 32
+u + v = [5, 7, 9]
+A * B  = [19, 22; 43, 50]
+A .* B = [5, 12; 21, 32]
+A'     = [1, 3; 2, 4]</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/demo_vectors.qu</code></p>
+<pre class="hl"><code><span class="c"># demo_vectors.qu — basic vector and matrix arithmetic.</span>
+<span class="c">#</span>
+<span class="c"># A first look at Qu's arrays: a vector, a matrix, and the difference</span>
+<span class="c"># between `*` (matrix multiply) and `.*` (elementwise).</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   vector literals, dot(), matrix literals, * vs .*, transpose</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Vectors</span>
+u = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+v = [<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="s">"u . v = {dot(u, v)}"</span>)
+<span class="f">print</span>(<span class="s">"u + v = {u + v}"</span>)
+
+<span class="c">#%% Matrices</span>
+A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+B = [<span class="n">5</span>, <span class="n">6</span>; <span class="n">7</span>, <span class="n">8</span>]
+<span class="f">print</span>(<span class="s">"A * B  = {A * B}"</span>)
+<span class="f">print</span>(<span class="s">"A .* B = {A .* B}"</span>)
+<span class="f">print</span>(<span class="s">"A'     = {A'}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+[package]
+name = "qu-xlsx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Excel .xlsx reading and writing for Qu, as an importable module."
+
+[dependencies]
+# Reading. Pure Rust, no system library, no build-time codegen -- the same
+# bar `quick-xml`/`regex`/`serialport` already clear as always-on
+# dependencies of `qu-interp`, and the reason this format is the one worth
+# doing first: an .xlsx is a ZIP of XML, not a C library with a build
+# system attached (see `hdf5-metno`, which needs cmake and an MSVC shell).
+# `calamine` also reads .xls/.xlsb/.ods, so the same entry point covers the
+# older files people actually still have.
+calamine = "0.26"
+# Writing. Kept separate from reading on purpose: `calamine` is a reader
+# only, and the alternative -- hand-rolling the ZIP + sheet XML -- is
+# exactly the from-scratch reimplementation of a real format that IMPL.md
+# §7's "call vendor libraries for a real FORMAT" rule exists to prevent.
+rust_xlsxwriter = "0.79"

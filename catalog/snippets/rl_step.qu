@@ -1,0 +1,7 @@
+# @name: Reinforcement learning environment step
+# @desc: Reset a gridworld and take one step, reading the reward/done flag.
+env = gridworld_env(6, goal=35)
+state = env.reset()
+result = env.step(state, 1)
+next_state = result.next_state
+reward = result.reward

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dense_layer — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>dense_layer</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>dense_layer(in_dim, out_dim, [activation=])</code></pre>
+<p class="fnnote">Input: in_dim, out_dim, activation &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds one unfitted dense-layer spec: <code>in_dim</code>/<code>out_dim</code> (positive integers) the layer's input and output widths, <code>activation</code> a string, <code>"relu"</code> or <code>"none"</code> (default <code>"none"</code>, a bare affine layer).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = dense_layer(in_dim, out_dim, [activation=])</code></td><td><div class="ioitem"><code>in_dim</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>out_dim</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>activation</code> <span class="iotype">string, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a layer-spec Record with no weights yet — <code>sequential</code> does the actual initialization. Piping several calls together (<code>dense_layer(2, 8, activation = "relu") |&gt; dense_layer(8, 1)</code>) accumulates them into a single list, ready for <code>sequential</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+Y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">1</span>)
+
+layers = (<span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>), <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>))
+net = <span class="f">sequential</span>(layers, <span class="a">seed</span> = <span class="n">42</span>)
+trained = net.<span class="f">fit</span>(X, Y, <span class="a">epochs</span> = <span class="n">2000</span>, <span class="a">lr</span> = <span class="n">0.5</span>, <span class="a">loss</span> = <span class="s">"mse"</span>)
+
+<span class="f">print</span>(<span class="s">"loss {trained.loss_history[0]:.4f} -&gt; {trained.loss_history[1999]:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"XOR predictions (want 0, 1, 1, 0): {trained.predict(X)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
+dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
+net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"layer count: {length(net.layers)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">optimizer</span> = <span class="f">adam</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"sequential + dropout_layer: loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+mc = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+Yc = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>]
+mc = mc.<span class="f">fit</span>(Xxor, Yc, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">loss</span> = <span class="s">"cross_entropy"</span>)
+nc = <span class="f">length</span>(mc.loss_history)
+<span class="f">print</span>(<span class="s">"mlp_classifier: loss {round(mc.loss_history[0], 4)} -&gt; {round(mc.loss_history[nc - 1], 4)}"</span>)
+preds = mc.<span class="f">predict</span>(Xxor)
+<span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>dense_layer(in_dim, out_dim, [activation="relu"|"none"])</code> — an UNINITIALIZED layer spec (no weights yet; <code>sequential(...)</code> does the actual init). <code>activation</code> defaults to <code>"none"</code> (a bare affine layer, e.g. a regression readout). Pipe-chain accumulation (2026-08-26): <code>dense_layer(2,8, activation="relu") |&gt; dense_layer(8,1) |&gt; sequential(seed=1)</code> needs zero new grammar because <code>eval_pipe</code> already inserts the piped-in value as arg0 (see its own doc comment) — so a SECOND <code>dense_layer</code> in a chain sees its predecessor's spec (or the growing chain so far) sitting in <code>arg_all(&amp;args)[0]</code>, with its own real <code>(in_dim, out_dim)</code> shifted right to <code>arg_all(&amp;args)[1]</code>/ <code>arg_all(&amp;args)[2]</code>. Detected by shape, not position: <code>arg_all(&amp;args)[0]</code> is either a bare layer-spec <code>Value::Record</code> (<code>kind="dense"| "dropout"</code>, from a single prior <code>dense_layer</code>/<code>dropout_layer</code> call) or a <code>Value::List</code> of them (a chain already 2+ long) — a shape a real <code>in_dim</code> (always numeric) can never take, so this can't misfire on the ordinary <code>dense_layer(2, 8)</code> direct-call form. Accumulation rule: always fold into and return a flat <code>Value::List</code> (never nest lists-of-lists) — a lone prior Record becomes a 2-element list, an existing list gets the new spec appended. <code>sequential(...)</code> separately accepts EITHER a <code>List</code> (the &gt;=2-layer case) or a lone <code>Record</code> (the never-piped <code>sequential(dense_layer(...))</code> one-layer case this rule never needs to produce) — see that arm's own doc comment.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

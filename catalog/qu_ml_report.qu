@@ -1,0 +1,101 @@
+# qu_ml_report.qu — battery health data: tables, an OLS model, and a report
+#
+# Exercises the real, currently-runnable data-science surface on a
+# realistic workflow: build a measurement table, explore it with the
+# working Table builtins, fit a statistical (OLS) aging model, and report
+# the result. The companion simulation script produces the data; this
+# analyzes). A synthetic in-script dataset stands in for a real CSV log so
+# the example is fully self-contained (no external data file needed).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   table(...)                 — typed columnar table literal
+#   filter(df, cond)           — boolean row filtering
+#   sort_by(df, col, desc)     — sort
+#   head(df, n)                — row slice
+#   group_by_agg(df, col, ...) — per-group aggregate (multi-spec form)
+#   ols_model(X, y)            — OLS fit; .predict / .score / .coef / .r2
+#   randperm                   — train/test split
+#   subplot, scatter, histogram, bar, legend, savefig
+
+backend auto
+
+seed(7)
+
+#%% Setup — a synthetic cell-aging measurement table
+N = 200
+cycles = randi(0, 2000, N)
+batch_id = randi(0, 2, N)                 # 0, 1, 2 -> three production batches
+soc = rand(N, 1) * 100
+noise = randn(N, 1) * 0.4
+
+# R0 grows with cycling and drifts slightly by batch (mOhm-scale, in Ohm).
+R0_true = 0.032 + 0.012 * (1 - exp(-cycles / 800)) + 0.0015 * batch_id
+R0_est = R0_true + 0.001 * noise
+
+df = table(cycles = cycles, soc = soc, batch = batch_id, R0_est = R0_est)
+print("{nrow(df)} rows: cycles, soc, batch, R0_est")
+
+#%% Explore — filter, sort, and a per-batch summary
+good = filter(df, df.soc > 10)             # drop near-empty-cell readings
+top5 = head(sort_by(good, "cycles", true), 5)
+print("top 5 by cycles:")
+print(top5)
+
+summary = group_by_agg(good, "batch",
+    (("R0_est", "mean"), ("R0_est", "std"), ("R0_est", "count")))
+print(summary)
+
+#%% Train/test split and the OLS fit
+n = nrow(good)
+idx = argsort(rand(n, 1))       # a random permutation of 0..n-1 via sort-by-random-key
+n_train = round(0.8 * n)
+
+gc = good.cycles
+gs = good.soc
+gc as vector(n, 1)
+gs as vector(n, 1)
+X = [gc, gs]                                # (n, 2) design matrix
+y = good.R0_est
+
+train_idx = idx[0:n_train - 1]
+test_idx = idx[n_train:end]
+
+Xtr = X[train_idx, :]
+ytr = y[train_idx]
+Xte = X[test_idx, :]
+yte = y[test_idx]
+
+model = ols_model(Xtr, ytr)
+yhat = model.predict(Xte)
+rmse = sqrt(mean((yhat - yte)^2))
+
+print("OLS r2 = {model.score(Xte, yte):.4f}, test RMSE = {rmse:.5f} Ohm")
+
+#%% Report figure
+subplot(2, 2, 1)
+scatter(good.cycles, good.R0_est, marker="o", alpha=0.4, label="measured")
+xlabel("cycles")
+ylabel("R0 (Ohm)")
+title("Cell aging: R0 vs cycles")
+legend()
+
+subplot(2, 2, 2)
+scatter(test_idx, yte, marker="o", label="actual", color="blue")
+scatter(test_idx, yhat, marker="x", label="OLS predicted", color="orange")
+xlabel("test row")
+ylabel("R0 (Ohm)")
+title("Held-out predictions")
+legend()
+
+subplot(2, 2, 3)
+histogram(yte - yhat, bins=15, label="OLS residuals")
+xlabel("prediction error (Ohm)")
+
+subplot(2, 2, 4)
+bar(0 to nrow(summary) - 1, summary.mean_R0_est)
+xlabel("batch group (row index)")
+ylabel("mean R0 (Ohm)")
+title("Mean R0 by batch")
+
+show plot
+savefig("aging_report.svg")

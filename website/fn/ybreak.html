@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ybreak — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>ybreak</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>ybreak(lo, hi)</code></pre>
+<p class="fnnote">Input: lo, hi &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Same as <code>xbreak</code>, on the y-axis: squeezes out <code>[lo, hi]</code> (numbers, data units).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>ybreak(lo, hi)</code></td><td><div class="ioitem"><code>lo</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>hi</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">200</span>)
+y = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+<span class="f">plot</span>(t, y)
+<span class="f">xspan</span>(<span class="n">0.2</span>, <span class="n">0.4</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">yspan</span>(-<span class="n">0.3</span>, <span class="n">0.3</span>, <span class="a">color</span> = <span class="s">"green"</span>)
+<span class="f">arrow</span>(<span class="n">0.6</span>, <span class="n">0</span>, <span class="n">0.8</span>, <span class="n">0.8</span>)
+<span class="f">arrowtext</span>(<span class="n">0.85</span>, -<span class="n">0.5</span>, <span class="n">0.95</span>, <span class="n">0.2</span>, <span class="s">"peak"</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, t)
+<span class="f">xbreak</span>(<span class="n">0.3</span>, <span class="n">0.6</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, t)
+<span class="f">ybreak</span>(<span class="n">0.3</span>, <span class="n">0.6</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, y)
+<span class="f">blur_backdrop</span>(<span class="n">0.2</span>, <span class="n">0.2</span>, <span class="n">0.8</span>, <span class="n">0.8</span>, <span class="a">radius</span> = <span class="n">4</span>)
+<span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]))
+<span class="f">printtex</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>])
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>xbreak(lo, hi)</code>/<code>ybreak(lo, hi)</code> — a sibling of <code>zoom_inset</code>, not the same feature: this reshapes the *main* axis's own coordinate mapping (a fixed-width "//" jag squeezes the skipped <code>(lo, hi)</code> range instead of giving it pixel space proportional to its span), it doesn't add a sub-panel. See <code>plotting::Panel.x_break</code>'s doc comment for the linear-scale- only scope limit.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

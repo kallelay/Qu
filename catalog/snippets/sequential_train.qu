@@ -1,0 +1,6 @@
+# @name: Train and predict with Sequential
+# @desc: Build a small MLP, train it, and predict on new inputs.
+layers = (dense_layer(2, 8, activation="relu"), dense_layer(8, 1, activation="none"))
+net = sequential(layers, seed=1)
+trained = net.fit(X, Y, epochs=500, lr=0.1, loss="mse")
+pred = trained.predict(Xnew)

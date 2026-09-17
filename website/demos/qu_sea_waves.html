@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A sea, from the wave equation — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Simulation</p>
+<h1>A sea, from the wave equation</h1>
+<p class="lede">an animated sea, from the wave equation rather than from a sine.</p>
+<p class="srcpath">catalog/qu_sea_waves.qu</p>
+<p>The point of doing this in a measurement language rather than a drawing one: the water is not decoration, it is a superposition of real gravity waves, and every number in it means something.</p>
+<h3>THE PHYSICS</h3>
+<p>Deep-water gravity waves are DISPERSIVE: a wave's speed depends on its wavelength. From the dispersion relation</p>
+<p>omega^2 = g * k         (deep water, k = 2*pi/wavelength)</p>
+<p>a long swell travels fast and a short chop travels slowly, so a sea built from several components never repeats its shape -- which is exactly why a single sine looks like a cartoon and this does not. Summing components with random phases is the standard model (a Pierson-Moskowitz-like spectrum), and the amplitudes here fall off with frequency the way a real wind sea's do.</p>
+<p>Foam appears where the surface slope is steepest, which is where a real wave breaks. Nothing chooses it by hand: it is a threshold on d(eta)/dx.</p>
+<p>THE HORIZON is a second, slower field drawn small and pale -- the same maths at a distance, which is all perspective is here.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>animate("frame", n, path, fps=)  — one figure per frame, one SVG</li>
+<li>polygon / plot / circle          — the surface, the crests, the sun</li>
+<li>hsv                              — a sky gradient whose bands all weigh</li>
+<li>the same</li>
+<li>the deep-water dispersion relation, honestly applied</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>The sea state</h3>
+<p>Eight components. Each carries a wavelength, an amplitude, and a phase; the frequency is not chosen, it FOLLOWS from the wavelength through the dispersion relation, which is the whole point.</p>
+<pre class="hl"><code>N_WAVES = <span class="n">8</span>
+lengths = ()
+amps = ()
+phases = ()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+    <span class="c"># Wavelengths from 24 m down to 2 m, geometrically spaced.</span>
+    wl = <span class="n">24.0</span> * (<span class="n">0.72</span> ^ i)
+    lengths = <span class="f">append</span>(lengths, wl)
+    <span class="c"># A wind sea's short waves are small: amplitude falls with wavelength.</span>
+    amps = <span class="f">append</span>(amps, <span class="n">0.34</span> * (wl / <span class="n">24.0</span>) ^ <span class="n">0.8</span>)
+    <span class="c"># Fixed phases, so the animation is reproducible frame for frame.</span>
+    phases = <span class="f">append</span>(phases, <span class="n">6.2831853</span> * ((i * <span class="n">0.6180339887</span>) - <span class="f">floor</span>(i * <span class="n">0.6180339887</span>)))
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="k">function</span> <span class="f">surface</span>(x, t, scale)
+    <span class="c"># eta(x, t) = sum a_i * cos(k_i * x - omega_i * t + phi_i),</span>
+    <span class="c"># with omega_i = sqrt(g * k_i) -- the deep-water dispersion relation.</span>
+    eta = <span class="n">0.0</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+        k = <span class="n">2</span> * pi / lengths[i]
+        omega = <span class="f">sqrt</span>(G * k)
+        eta = eta + amps[i] * <span class="f">cos</span>(k * x - omega * t + phases[i])
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> eta * scale
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">slope</span>(x, t, scale)
+    <span class="c"># d(eta)/dx, analytically rather than by differencing -- the derivative</span>
+    <span class="c"># of a sum of cosines is free, and a difference would need a step size</span>
+    <span class="c"># chosen against the shortest wavelength.</span>
+    d = <span class="n">0.0</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+        k = <span class="n">2</span> * pi / lengths[i]
+        omega = <span class="f">sqrt</span>(G * k)
+        d = d - amps[i] * k * <span class="f">sin</span>(k * x - omega * t + phases[i])
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> d * scale
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Drawing</h3>
+<p>Blend two colours the way the eye reads a gradient, not the way the numbers happen to sit.</p>
+<p>This is the whole argument for having Lab. Walking HUE from a warm horizon (24 degrees) to a blue zenith (218) passes through yellow and GREEN on the way -- the first version of this sky looked like a swamp. Lab is perceptually uniform, so a straight line through it is a straight line to the eye, and the blend goes warm-to-blue without visiting a colour nobody asked for.</p>
+<pre class="hl"><code><span class="k">function</span> <span class="f">mix_lab</span>(c1, c2, t)
+    a = <span class="f">to_lab</span>(c1)
+    b = <span class="f">to_lab</span>(c2)
+    <span class="k">return</span> <span class="f">lab</span>(a[<span class="n">0</span>] + (b[<span class="n">0</span>] - a[<span class="n">0</span>]) * t, a[<span class="n">1</span>] + (b[<span class="n">1</span>] - a[<span class="n">1</span>]) * t, a[<span class="n">2</span>] + (b[<span class="n">2</span>] - a[<span class="n">2</span>]) * t)
+<span class="k">end</span> <span class="k">function</span>
+
+HORIZON = <span class="s">"#ffb26b"</span>
+MIDSKY  = <span class="s">"#e2726b"</span>
+ZENITH  = <span class="s">"#1d3a63"</span>
+
+<span class="k">function</span> <span class="f">sky</span>(t)
+    steps = <span class="n">26</span>
+    <span class="k">for</span> k <span class="k">in</span> -<span class="n">1</span> <span class="k">to</span> steps + <span class="n">1</span>
+        u = k / steps
+        <span class="c"># Each band overlaps the next by a fifth of a step. Abutting</span>
+        <span class="c"># polygons leave an anti-aliased seam at every shared edge, which is</span>
+        <span class="c"># invisible once and reads as banding twenty times over.</span>
+        y0 = <span class="n">4.05</span> + (H - <span class="n">4.05</span>) * u
+        y1 = <span class="n">4.05</span> + (H - <span class="n">4.05</span>) * (u + <span class="n">1.2</span> / steps)
+        <span class="c"># Two segments: the warm band near the horizon is narrow and the</span>
+        <span class="c"># blue above it is wide, which is how a dusk sky actually divides.</span>
+        <span class="k">if</span> u &lt; <span class="n">0.30</span>
+            band = <span class="f">mix_lab</span>(HORIZON, MIDSKY, u / <span class="n">0.30</span>)
+        <span class="k">else</span>
+            band = <span class="f">mix_lab</span>(MIDSKY, ZENITH, (u - <span class="n">0.30</span>) / <span class="n">0.70</span>)
+        <span class="k">end</span> <span class="k">if</span>
+        <span class="f">polygon</span>((<span class="n">0</span>, W, W, <span class="n">0</span>), (y0, y0, y1, y1), <span class="a">fill</span> = band, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">sun</span>(t)
+    <span class="c"># Low and steady, with a halo. It does not move: the sea does.</span>
+    cx = <span class="n">14.4</span>
+    cy = <span class="n">4.9</span> + <span class="n">0.06</span> * <span class="f">sin</span>(t * <span class="n">0.5</span>)
+    <span class="k">for</span> k <span class="k">in</span> <span class="n">5</span> <span class="k">to</span> <span class="n">1</span> <span class="k">step</span> -<span class="n">1</span>
+        glow = <span class="f">hsv</span>(<span class="n">32</span>, <span class="n">0.55</span>, <span class="n">1.0</span>)
+        <span class="f">circle</span>(cx, cy, <span class="n">0.34</span> * k, <span class="a">fill</span> = glow, <span class="a">alpha</span> = <span class="n">0.055</span>, <span class="a">width</span> = <span class="n">0.2</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    disc = <span class="f">hsv</span>(<span class="n">38</span>, <span class="n">0.32</span>, <span class="n">1.0</span>)
+    <span class="f">circle</span>(cx, cy, <span class="n">0.42</span>, <span class="a">fill</span> = disc, <span class="a">alpha</span> = <span class="n">1.0</span>, <span class="a">width</span> = <span class="n">0.3</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">distant_sea</span>(t)
+    <span class="c"># The same maths at a tenth of the amplitude, drawn pale. Perspective,</span>
+    <span class="c"># cheaply and correctly: distant waves subtend a smaller angle.</span>
+    xs = ()
+    ys = ()
+    n = <span class="n">120</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">4.05</span> + <span class="f">surface</span>(x * <span class="n">3.0</span>, t, <span class="n">0.10</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i <span class="k">in</span> n <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+        xs = <span class="f">append</span>(xs, W * i / n)
+        ys = <span class="f">append</span>(ys, <span class="n">0.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    far = <span class="f">mix_lab</span>(ZENITH, <span class="s">"#2f6f96"</span>, <span class="n">0.55</span>)
+    <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = far, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">water</span>(t)
+    <span class="c"># The surface itself, as a filled polygon from the waterline down.</span>
+    n = <span class="n">300</span>
+    xs = ()
+    ys = ()
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i <span class="k">in</span> n <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+        xs = <span class="f">append</span>(xs, W * i / n)
+        ys = <span class="f">append</span>(ys, <span class="n">0.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    deep = <span class="f">hsv</span>(<span class="n">207</span>, <span class="n">0.70</span>, <span class="n">0.34</span>)
+    <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = deep, <span class="a">alpha</span> = <span class="n">1.0</span>)
+
+    <span class="c"># The sun's path on the water: a bright streak that follows the surface</span>
+    <span class="c"># and only shows where the slope tilts a facet toward the light.</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        s = <span class="f">slope</span>(x, t, <span class="n">1.0</span>)
+        <span class="k">if</span> <span class="f">abs</span>(x - <span class="n">14.4</span>) &lt; <span class="n">4.0</span> <span class="k">and</span> <span class="f">abs</span>(s) &lt; <span class="n">0.22</span>
+            y = <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>)
+            near = <span class="n">1.0</span> - <span class="f">abs</span>(x - <span class="n">14.4</span>) / <span class="n">4.0</span>
+            gleam = <span class="f">hsv</span>(<span class="n">40</span>, <span class="n">0.42</span>, <span class="n">1.0</span>)
+            <span class="f">circle</span>(x, y, <span class="n">0.055</span> + <span class="n">0.05</span> * near, <span class="a">fill</span> = gleam,
+                   <span class="a">alpha</span> = <span class="n">0.20</span> + <span class="n">0.55</span> * near, <span class="a">width</span> = <span class="n">0.1</span>)
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">foam</span>(t)
+    <span class="c"># Where the surface is steepest is where a real wave breaks, so that is</span>
+    <span class="c"># where the foam goes. A threshold on the analytic slope, not a</span>
+    <span class="c"># scattering of random dots.</span>
+    n = <span class="n">260</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        s = <span class="f">slope</span>(x, t, <span class="n">1.0</span>)
+        <span class="k">if</span> s &lt; -<span class="n">0.28</span>
+            y = <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>)
+            strength = <span class="f">min</span>((<span class="f">abs</span>(s) - <span class="n">0.28</span>) / <span class="n">0.35</span>, <span class="n">1.0</span>)
+            white = <span class="f">hsv</span>(<span class="n">200</span>, <span class="n">0.06</span>, <span class="n">1.0</span>)
+            <span class="f">circle</span>(x, y + <span class="n">0.02</span>, <span class="n">0.05</span> + <span class="n">0.09</span> * strength, <span class="a">fill</span> = white,
+                   <span class="a">alpha</span> = <span class="n">0.35</span> + <span class="n">0.5</span> * strength, <span class="a">width</span> = <span class="n">0.1</span>)
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+
+    <span class="c"># And the crest lines themselves, as a thin bright stroke on top of the</span>
+    <span class="c"># surface -- what catches the light on a real sea.</span>
+    xs = ()
+    ys = ()
+    n2 = <span class="n">300</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n2
+        x = W * i / n2
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="f">plot</span>(xs, ys, <span class="a">color</span> = <span class="f">hsv</span>(<span class="n">196</span>, <span class="n">0.22</span>, <span class="n">0.94</span>), <span class="a">width</span> = <span class="n">1.1</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">frame</span>(i)
+    <span class="c"># Time advances so the LONGEST wave completes exactly one period over</span>
+    <span class="c"># the animation, which is what makes the loop seamless: every other</span>
+    <span class="c"># component is faster, and the slowest one closing means the sea</span>
+    <span class="c"># returns to the pose it started in.</span>
+    k_long = <span class="n">2</span> * pi / lengths[<span class="n">0</span>]
+    period = <span class="n">2</span> * pi / <span class="f">sqrt</span>(G * k_long)
+    t = period * i / FRAMES
+
+    <span class="f">figure_size</span>(<span class="n">1100</span>, <span class="n">620</span>)
+    <span class="f">xlim</span>(<span class="n">0</span>, W)
+    <span class="f">ylim</span>(<span class="n">0</span>, H)
+    <span class="f">theme</span>(<span class="s">"bw"</span>)
+
+    <span class="f">sky</span>(t)
+    <span class="f">sun</span>(t)
+    <span class="f">distant_sea</span>(t)
+    <span class="f">water</span>(t)
+    <span class="f">foam</span>(t)
+
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Render</h3>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"sea state: {N_WAVES} components, {lengths[N_WAVES - 1]:.1f} m to {lengths[0]:.1f} m"</span>)
+k_long = <span class="n">2</span> * pi / lengths[<span class="n">0</span>]
+<span class="f">print</span>(<span class="s">"the longest wave has period {2 * pi / sqrt(G * k_long):.2f} s -- one loop"</span>)
+<span class="f">animate</span>(<span class="s">"frame"</span>, FRAMES, <span class="s">"sea_waves.svg"</span>, <span class="a">fps</span> = <span class="n">20</span>)
+<span class="f">print</span>(<span class="s">"open sea_waves.svg in a browser"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>sea state: 8 components, 2.4 m to 24.0 m
+the longest wave has period 3.92 s -- one loop
+open sea_waves.svg in a browser</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_sea_waves.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_sea_waves.qu — an animated sea, from the wave equation rather than</span>
+<span class="c"># from a sine.</span>
+<span class="c">#</span>
+<span class="c"># The point of doing this in a measurement language rather than a drawing</span>
+<span class="c"># one: the water is not decoration, it is a superposition of real gravity</span>
+<span class="c"># waves, and every number in it means something.</span>
+<span class="c">#</span>
+<span class="c"># THE PHYSICS</span>
+<span class="c">#</span>
+<span class="c"># Deep-water gravity waves are DISPERSIVE: a wave's speed depends on its</span>
+<span class="c"># wavelength. From the dispersion relation</span>
+<span class="c">#</span>
+<span class="c">#     omega^2 = g * k         (deep water, k = 2*pi/wavelength)</span>
+<span class="c">#</span>
+<span class="c"># a long swell travels fast and a short chop travels slowly, so a sea built</span>
+<span class="c"># from several components never repeats its shape -- which is exactly why a</span>
+<span class="c"># single sine looks like a cartoon and this does not. Summing components</span>
+<span class="c"># with random phases is the standard model (a Pierson-Moskowitz-like</span>
+<span class="c"># spectrum), and the amplitudes here fall off with frequency the way a real</span>
+<span class="c"># wind sea's do.</span>
+<span class="c">#</span>
+<span class="c"># Foam appears where the surface slope is steepest, which is where a real</span>
+<span class="c"># wave breaks. Nothing chooses it by hand: it is a threshold on d(eta)/dx.</span>
+<span class="c">#</span>
+<span class="c"># THE HORIZON is a second, slower field drawn small and pale -- the same</span>
+<span class="c"># maths at a distance, which is all perspective is here.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   animate("frame", n, path, fps=)  — one figure per frame, one SVG</span>
+<span class="c">#   polygon / plot / circle          — the surface, the crests, the sun</span>
+<span class="c">#   hsv                              — a sky gradient whose bands all weigh</span>
+<span class="c">#                                      the same</span>
+<span class="c">#   the deep-water dispersion relation, honestly applied</span>
+
+<span class="k">backend</span> auto
+
+FRAMES = <span class="n">60</span>
+W = <span class="n">20.0</span>
+H = <span class="n">11.0</span>
+G = <span class="n">9.81</span>
+
+<span class="c">#%% The sea state</span>
+<span class="c">#</span>
+<span class="c"># Eight components. Each carries a wavelength, an amplitude, and a phase;</span>
+<span class="c"># the frequency is not chosen, it FOLLOWS from the wavelength through the</span>
+<span class="c"># dispersion relation, which is the whole point.</span>
+
+N_WAVES = <span class="n">8</span>
+lengths = ()
+amps = ()
+phases = ()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+    <span class="c"># Wavelengths from 24 m down to 2 m, geometrically spaced.</span>
+    wl = <span class="n">24.0</span> * (<span class="n">0.72</span> ^ i)
+    lengths = <span class="f">append</span>(lengths, wl)
+    <span class="c"># A wind sea's short waves are small: amplitude falls with wavelength.</span>
+    amps = <span class="f">append</span>(amps, <span class="n">0.34</span> * (wl / <span class="n">24.0</span>) ^ <span class="n">0.8</span>)
+    <span class="c"># Fixed phases, so the animation is reproducible frame for frame.</span>
+    phases = <span class="f">append</span>(phases, <span class="n">6.2831853</span> * ((i * <span class="n">0.6180339887</span>) - <span class="f">floor</span>(i * <span class="n">0.6180339887</span>)))
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="k">function</span> <span class="f">surface</span>(x, t, scale)
+    <span class="c"># eta(x, t) = sum a_i * cos(k_i * x - omega_i * t + phi_i),</span>
+    <span class="c"># with omega_i = sqrt(g * k_i) -- the deep-water dispersion relation.</span>
+    eta = <span class="n">0.0</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+        k = <span class="n">2</span> * pi / lengths[i]
+        omega = <span class="f">sqrt</span>(G * k)
+        eta = eta + amps[i] * <span class="f">cos</span>(k * x - omega * t + phases[i])
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> eta * scale
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">slope</span>(x, t, scale)
+    <span class="c"># d(eta)/dx, analytically rather than by differencing -- the derivative</span>
+    <span class="c"># of a sum of cosines is free, and a difference would need a step size</span>
+    <span class="c"># chosen against the shortest wavelength.</span>
+    d = <span class="n">0.0</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N_WAVES - <span class="n">1</span>
+        k = <span class="n">2</span> * pi / lengths[i]
+        omega = <span class="f">sqrt</span>(G * k)
+        d = d - amps[i] * k * <span class="f">sin</span>(k * x - omega * t + phases[i])
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> d * scale
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c">#%% Drawing</span>
+
+<span class="c"># Blend two colours the way the eye reads a gradient, not the way the</span>
+<span class="c"># numbers happen to sit.</span>
+<span class="c">#</span>
+<span class="c"># This is the whole argument for having Lab. Walking HUE from a warm</span>
+<span class="c"># horizon (24 degrees) to a blue zenith (218) passes through yellow and</span>
+<span class="c"># GREEN on the way -- the first version of this sky looked like a swamp.</span>
+<span class="c"># Lab is perceptually uniform, so a straight line through it is a straight</span>
+<span class="c"># line to the eye, and the blend goes warm-to-blue without visiting a</span>
+<span class="c"># colour nobody asked for.</span>
+<span class="k">function</span> <span class="f">mix_lab</span>(c1, c2, t)
+    a = <span class="f">to_lab</span>(c1)
+    b = <span class="f">to_lab</span>(c2)
+    <span class="k">return</span> <span class="f">lab</span>(a[<span class="n">0</span>] + (b[<span class="n">0</span>] - a[<span class="n">0</span>]) * t, a[<span class="n">1</span>] + (b[<span class="n">1</span>] - a[<span class="n">1</span>]) * t, a[<span class="n">2</span>] + (b[<span class="n">2</span>] - a[<span class="n">2</span>]) * t)
+<span class="k">end</span> <span class="k">function</span>
+
+HORIZON = <span class="s">"#ffb26b"</span>
+MIDSKY  = <span class="s">"#e2726b"</span>
+ZENITH  = <span class="s">"#1d3a63"</span>
+
+<span class="k">function</span> <span class="f">sky</span>(t)
+    steps = <span class="n">26</span>
+    <span class="k">for</span> k <span class="k">in</span> -<span class="n">1</span> <span class="k">to</span> steps + <span class="n">1</span>
+        u = k / steps
+        <span class="c"># Each band overlaps the next by a fifth of a step. Abutting</span>
+        <span class="c"># polygons leave an anti-aliased seam at every shared edge, which is</span>
+        <span class="c"># invisible once and reads as banding twenty times over.</span>
+        y0 = <span class="n">4.05</span> + (H - <span class="n">4.05</span>) * u
+        y1 = <span class="n">4.05</span> + (H - <span class="n">4.05</span>) * (u + <span class="n">1.2</span> / steps)
+        <span class="c"># Two segments: the warm band near the horizon is narrow and the</span>
+        <span class="c"># blue above it is wide, which is how a dusk sky actually divides.</span>
+        <span class="k">if</span> u &lt; <span class="n">0.30</span>
+            band = <span class="f">mix_lab</span>(HORIZON, MIDSKY, u / <span class="n">0.30</span>)
+        <span class="k">else</span>
+            band = <span class="f">mix_lab</span>(MIDSKY, ZENITH, (u - <span class="n">0.30</span>) / <span class="n">0.70</span>)
+        <span class="k">end</span> <span class="k">if</span>
+        <span class="f">polygon</span>((<span class="n">0</span>, W, W, <span class="n">0</span>), (y0, y0, y1, y1), <span class="a">fill</span> = band, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">sun</span>(t)
+    <span class="c"># Low and steady, with a halo. It does not move: the sea does.</span>
+    cx = <span class="n">14.4</span>
+    cy = <span class="n">4.9</span> + <span class="n">0.06</span> * <span class="f">sin</span>(t * <span class="n">0.5</span>)
+    <span class="k">for</span> k <span class="k">in</span> <span class="n">5</span> <span class="k">to</span> <span class="n">1</span> <span class="k">step</span> -<span class="n">1</span>
+        glow = <span class="f">hsv</span>(<span class="n">32</span>, <span class="n">0.55</span>, <span class="n">1.0</span>)
+        <span class="f">circle</span>(cx, cy, <span class="n">0.34</span> * k, <span class="a">fill</span> = glow, <span class="a">alpha</span> = <span class="n">0.055</span>, <span class="a">width</span> = <span class="n">0.2</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    disc = <span class="f">hsv</span>(<span class="n">38</span>, <span class="n">0.32</span>, <span class="n">1.0</span>)
+    <span class="f">circle</span>(cx, cy, <span class="n">0.42</span>, <span class="a">fill</span> = disc, <span class="a">alpha</span> = <span class="n">1.0</span>, <span class="a">width</span> = <span class="n">0.3</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">distant_sea</span>(t)
+    <span class="c"># The same maths at a tenth of the amplitude, drawn pale. Perspective,</span>
+    <span class="c"># cheaply and correctly: distant waves subtend a smaller angle.</span>
+    xs = ()
+    ys = ()
+    n = <span class="n">120</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">4.05</span> + <span class="f">surface</span>(x * <span class="n">3.0</span>, t, <span class="n">0.10</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i <span class="k">in</span> n <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+        xs = <span class="f">append</span>(xs, W * i / n)
+        ys = <span class="f">append</span>(ys, <span class="n">0.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    far = <span class="f">mix_lab</span>(ZENITH, <span class="s">"#2f6f96"</span>, <span class="n">0.55</span>)
+    <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = far, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">water</span>(t)
+    <span class="c"># The surface itself, as a filled polygon from the waterline down.</span>
+    n = <span class="n">300</span>
+    xs = ()
+    ys = ()
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i <span class="k">in</span> n <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+        xs = <span class="f">append</span>(xs, W * i / n)
+        ys = <span class="f">append</span>(ys, <span class="n">0.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    deep = <span class="f">hsv</span>(<span class="n">207</span>, <span class="n">0.70</span>, <span class="n">0.34</span>)
+    <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = deep, <span class="a">alpha</span> = <span class="n">1.0</span>)
+
+    <span class="c"># The sun's path on the water: a bright streak that follows the surface</span>
+    <span class="c"># and only shows where the slope tilts a facet toward the light.</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        s = <span class="f">slope</span>(x, t, <span class="n">1.0</span>)
+        <span class="k">if</span> <span class="f">abs</span>(x - <span class="n">14.4</span>) &lt; <span class="n">4.0</span> <span class="k">and</span> <span class="f">abs</span>(s) &lt; <span class="n">0.22</span>
+            y = <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>)
+            near = <span class="n">1.0</span> - <span class="f">abs</span>(x - <span class="n">14.4</span>) / <span class="n">4.0</span>
+            gleam = <span class="f">hsv</span>(<span class="n">40</span>, <span class="n">0.42</span>, <span class="n">1.0</span>)
+            <span class="f">circle</span>(x, y, <span class="n">0.055</span> + <span class="n">0.05</span> * near, <span class="a">fill</span> = gleam,
+                   <span class="a">alpha</span> = <span class="n">0.20</span> + <span class="n">0.55</span> * near, <span class="a">width</span> = <span class="n">0.1</span>)
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">foam</span>(t)
+    <span class="c"># Where the surface is steepest is where a real wave breaks, so that is</span>
+    <span class="c"># where the foam goes. A threshold on the analytic slope, not a</span>
+    <span class="c"># scattering of random dots.</span>
+    n = <span class="n">260</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        x = W * i / n
+        s = <span class="f">slope</span>(x, t, <span class="n">1.0</span>)
+        <span class="k">if</span> s &lt; -<span class="n">0.28</span>
+            y = <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>)
+            strength = <span class="f">min</span>((<span class="f">abs</span>(s) - <span class="n">0.28</span>) / <span class="n">0.35</span>, <span class="n">1.0</span>)
+            white = <span class="f">hsv</span>(<span class="n">200</span>, <span class="n">0.06</span>, <span class="n">1.0</span>)
+            <span class="f">circle</span>(x, y + <span class="n">0.02</span>, <span class="n">0.05</span> + <span class="n">0.09</span> * strength, <span class="a">fill</span> = white,
+                   <span class="a">alpha</span> = <span class="n">0.35</span> + <span class="n">0.5</span> * strength, <span class="a">width</span> = <span class="n">0.1</span>)
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+
+    <span class="c"># And the crest lines themselves, as a thin bright stroke on top of the</span>
+    <span class="c"># surface -- what catches the light on a real sea.</span>
+    xs = ()
+    ys = ()
+    n2 = <span class="n">300</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n2
+        x = W * i / n2
+        xs = <span class="f">append</span>(xs, x)
+        ys = <span class="f">append</span>(ys, <span class="n">2.9</span> + <span class="f">surface</span>(x, t, <span class="n">1.0</span>))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="f">plot</span>(xs, ys, <span class="a">color</span> = <span class="f">hsv</span>(<span class="n">196</span>, <span class="n">0.22</span>, <span class="n">0.94</span>), <span class="a">width</span> = <span class="n">1.1</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">frame</span>(i)
+    <span class="c"># Time advances so the LONGEST wave completes exactly one period over</span>
+    <span class="c"># the animation, which is what makes the loop seamless: every other</span>
+    <span class="c"># component is faster, and the slowest one closing means the sea</span>
+    <span class="c"># returns to the pose it started in.</span>
+    k_long = <span class="n">2</span> * pi / lengths[<span class="n">0</span>]
+    period = <span class="n">2</span> * pi / <span class="f">sqrt</span>(G * k_long)
+    t = period * i / FRAMES
+
+    <span class="f">figure_size</span>(<span class="n">1100</span>, <span class="n">620</span>)
+    <span class="f">xlim</span>(<span class="n">0</span>, W)
+    <span class="f">ylim</span>(<span class="n">0</span>, H)
+    <span class="f">theme</span>(<span class="s">"bw"</span>)
+
+    <span class="f">sky</span>(t)
+    <span class="f">sun</span>(t)
+    <span class="f">distant_sea</span>(t)
+    <span class="f">water</span>(t)
+    <span class="f">foam</span>(t)
+
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c">#%% Render</span>
+<span class="f">print</span>(<span class="s">"sea state: {N_WAVES} components, {lengths[N_WAVES - 1]:.1f} m to {lengths[0]:.1f} m"</span>)
+k_long = <span class="n">2</span> * pi / lengths[<span class="n">0</span>]
+<span class="f">print</span>(<span class="s">"the longest wave has period {2 * pi / sqrt(G * k_long):.2f} s -- one loop"</span>)
+<span class="f">animate</span>(<span class="s">"frame"</span>, FRAMES, <span class="s">"sea_waves.svg"</span>, <span class="a">fps</span> = <span class="n">20</span>)
+<span class="f">print</span>(<span class="s">"open sea_waves.svg in a browser"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

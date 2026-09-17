@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xlsx.write — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>xlsx.write</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>xlsx.write(path, df, [sheet="Sheet1"])</code></pre>
+<p class="fnnote">Input: path, df, sheet &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes a <code>Table</code> out as a one-worksheet workbook. <code>path</code> (string) is the destination, overwritten if it exists. <code>df</code> (Table) is the data. <code>sheet</code> (string, optional, positional or <code>sheet=</code>, default <code>"Sheet1"</code>) names the worksheet inside the file.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>xlsx.write(path, df, [sheet="Sheet1"])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc"><code>path</code> (string) is the destination, overwritten if it exists.</span></div>
+<div class="ioitem"><code>df</code> <span class="iotype">Table</span><span class="iodesc"><code>df</code> (Table) is the data.</span></div>
+<div class="ioitem"><code>sheet</code> <span class="iotype">string, optional (default <code>"Sheet1"</code>)</span><span class="iodesc"><code>sheet</code> (string, optional, positional or <code>sheet=</code>, default <code>"Sheet1"</code>) names the worksheet inside the file.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Writes a <code>Table</code> out as a one-worksheet workbook.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">import</span> xlsx
+
+t = <span class="f">table</span>(<span class="a">city</span> = (<span class="s">"Aachen"</span>, <span class="s">"Bonn"</span>, <span class="s">"Cologne"</span>), <span class="a">pop</span> = (<span class="n">249</span>, <span class="n">331</span>, <span class="n">1087</span>))
+xlsx.<span class="f">write</span>(<span class="s">"cities.xlsx"</span>, t, <span class="a">sheet</span> = <span class="s">"Cities"</span>)
+
+<span class="f">print</span>(xlsx.<span class="f">sheets</span>(<span class="s">"cities.xlsx"</span>))          <span class="c"># ("Cities")</span>
+<span class="f">print</span>(xlsx.<span class="f">read</span>(<span class="s">"cities.xlsx"</span>))            <span class="c"># a Table, city/pop</span>
+<span class="f">print</span>(xlsx.<span class="f">read</span>(<span class="s">"cities.xlsx"</span>, <span class="a">headers</span> = <span class="k">false</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

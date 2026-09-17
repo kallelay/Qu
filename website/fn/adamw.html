@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>adamw — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>adamw</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>adam(params, [lr=0.001])</code></pre>
+<p class="fnnote">Input: params, lr &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The Adam family of per-parameter adaptive-learning-rate optimizers, given <code>params</code> (a Tensor to optimize) and a learning rate <code>lr</code> (a number, default 0.001). <code>adamw</code> decouples weight decay from the gradient update; <code>nadam</code> folds in Nesterov-style look-ahead momentum; <code>adamax</code> swaps Adam's second-moment estimate for an infinity norm.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = adam(params, [lr=0.001])</code></td><td><div class="ioitem"><code>params</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>lr</code> <span class="iotype">number, optional (default <code>0.001</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns an optimizer Record, or (with no <code>params</code>) a recipe Record for <code>optimizer=</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
+y_true = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
+w = <span class="f">param</span>(<span class="n">0.0</span>)
+<span class="k">function</span> <span class="f">loss_fn</span>(w)
+    pred = w * x
+    diff = pred - y_true
+    <span class="k">return</span> <span class="f">mean</span>(diff .^ <span class="n">2</span>)
+<span class="k">end</span> <span class="k">function</span>
+opt = <span class="f">sgd</span>(w, <span class="n">0.01</span>)
+losses = <span class="f">train_loop</span>(<span class="s">"loss_fn"</span>, w, <span class="n">100</span>, <span class="a">optimizer</span> = <span class="s">"opt"</span>)
+<span class="f">print</span>(<span class="s">"train_loop (sgd): loss {round(losses[0], 3)} -&gt; {round(losses[99], 5)}"</span>)
+<span class="f">tape_reset</span>()
+
+w2v = <span class="n">0.0</span>
+opt2 = <span class="f">adam</span>(<span class="f">param</span>(w2v), <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">19</span>
+    <span class="f">tape_reset</span>()
+    w2 = <span class="f">param</span>(w2v)
+    pred = w2 * x
+    loss2 = <span class="f">mean</span>((pred - y_true) .^ <span class="n">2</span>)
+    g = <span class="f">grad</span>(loss2, <span class="a">wrt</span> = w2)
+    opt2 = <span class="f">optimizer_step</span>(opt2, g)
+    w2v = opt2._params[<span class="n">0</span>]
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"optimizer_step (adam): w -&gt; {round(w2v, 4)} (target 2.0)"</span>)
+<span class="f">tape_reset</span>()
+
+<span class="c"># One step each from w=1.0, grad=3.0 -- same optimizer_step(opt, grad) call.</span>
+w3 = <span class="f">param</span>(<span class="n">1.0</span>)
+grad3 = [<span class="n">3.0</span>]
+r1 = <span class="f">optimizer_step</span>(<span class="f">nesterov_sgd</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>, <span class="a">momentum</span> = <span class="n">0.9</span>), grad3)
+r2 = <span class="f">optimizer_step</span>(<span class="f">adamw</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r3 = <span class="f">optimizer_step</span>(<span class="f">nadam</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r4 = <span class="f">optimizer_step</span>(<span class="f">adamax</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r5 = <span class="f">optimizer_step</span>(<span class="f">rmsprop</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r6 = <span class="f">optimizer_step</span>(<span class="f">adagrad</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r7 = <span class="f">optimizer_step</span>(<span class="f">adadelta</span>(w3), grad3)
+<span class="f">print</span>(<span class="s">"nesterov_sgd -&gt; {round(r1._params[0], 4)}, adamw -&gt; {round(r2._params[0], 4)}, nadam -&gt; {round(r3._params[0], 4)}"</span>)
+<span class="f">print</span>(<span class="s">"adamax -&gt; {round(r4._params[0], 4)}, rmsprop -&gt; {round(r5._params[0], 4)}, adagrad -&gt; {round(r6._params[0], 4)}, adadelta -&gt; {round(r7._params[0], 4)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = <span class="f">input</span>(<span class="n">2</span>) |&gt; <span class="f">dense</span>(<span class="n">4</span>, <span class="a">activation</span> = <span class="s">"relu"</span>) |&gt; <span class="f">dense</span>(<span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>) |&gt;
+      <span class="f">compile</span>(<span class="a">optimizer</span> = <span class="f">lr_plateau</span>(<span class="a">lr</span> = <span class="n">0.1</span>, <span class="a">patience</span> = <span class="n">5</span>, <span class="a">base</span> = <span class="s">"adam"</span>), <span class="a">loss</span> = <span class="s">"mse"</span>, <span class="a">seed</span> = <span class="n">7</span>)
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"compile + fit(lr_plateau): loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+net2 = <span class="f">input</span>(<span class="n">2</span>) |&gt; <span class="f">dense</span>(<span class="n">4</span>, <span class="a">activation</span> = <span class="s">"relu"</span>) |&gt; <span class="f">dense</span>(<span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>) |&gt;
+       <span class="f">compile</span>(<span class="a">optimizer</span> = <span class="f">lr_adaptive</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>, <span class="a">seed</span> = <span class="n">7</span>)
+net2 = net2.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>)
+n2 = <span class="f">length</span>(net2.loss_history)
+<span class="f">print</span>(<span class="s">"compile + fit(lr_adaptive): loss {round(net2.loss_history[0], 4)} -&gt; {round(net2.loss_history[n2 - 1], 4)}"</span>)
+
+quick = <span class="f">quick_mlp</span>(Xxor, Yxor, <span class="a">seed</span> = <span class="n">3</span>)
+nq = <span class="f">length</span>(quick.loss_history)
+<span class="f">print</span>(<span class="s">"quick_mlp: loss {round(quick.loss_history[0], 4)} -&gt; {round(quick.loss_history[nq - 1], 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>See also</h2>
+<p><a href="adam.html"><code>adam</code></a>, <a href="nadam.html"><code>nadam</code></a>, <a href="adamax.html"><code>adamax</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn Qu</title>
+<meta name="description" content="Four routes into Qu, from never having programmed to porting an existing analysis.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>Learn Qu</h1>
+  <p class="lede">Four routes in. Pick the one that describes you &mdash; they overlap on
+  purpose, so starting too early costs you twenty minutes, not a day.</p>
+</div></header>
+
+<section><div class="wrap">
+  <h2>Pick your starting point</h2>
+  <div class="cards">
+    <div><p class="eyebrow">Never programmed</p><h3>Start Here</h3>
+      <p>What a variable is, what an array is, why this beats a spreadsheet. Twenty
+      minutes, and it ends with a graph you made.</p>
+      <p style="margin-top:10px"><a href="docs/start-here.html">Read &rarr;</a></p></div>
+    <div><p class="eyebrow">Programmed before</p><h3>From Zero</h3>
+      <p>A complete first session: signal, spectrum, filter, curve fit, publication
+      figure, scope and tables. Runs as written, no data files.</p>
+      <p style="margin-top:10px"><a href="docs/from-zero.html">Read &rarr;</a></p></div>
+    <div><p class="eyebrow">Know MATLAB or NumPy</p><h3>Fundamentals</h3>
+      <p>The language properly: types, contracts, control flow, error handling. Then
+      numerics and DSP, then the specialised domains.</p>
+      <p style="margin-top:10px"><a href="docs/fundamentals.html">Read &rarr;</a></p></div>
+    <div><p class="eyebrow">Porting something</p><h3>The differences</h3>
+      <p>Written for AI assistants and just as useful to you: every place Qu differs from
+      what you would assume, with the error each mistake produces.</p>
+      <p style="margin-top:10px"><a href="agents.html">Read &rarr;</a></p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Twenty minutes, start to finish</h2>
+  <p class="sub">If you would rather just see it, this is the whole shape of the language.</p>
+  <ol class="steps">
+    <li><div><h3>Open the prompt</h3>
+      <pre>qu repl</pre></div></li>
+    <li><div><h3>Numbers have names, and many numbers are one value</h3>
+      <pre>fs = <span class="st">1000</span>
+t  = (<span class="st">0</span> <span class="kw">to</span> <span class="st">999</span>) / fs        <span class="cm"># a thousand time points</span>
+x  = <span class="fn">sin</span>(<span class="st">2</span> * pi * <span class="st">50</span> * t)   <span class="cm"># every one of them, at once</span></pre></div></li>
+    <li><div><h3>Ask the data a question</h3>
+      <pre>spectrum = <span class="fn">abs</span>(<span class="fn">rfft</span>(x))
+peak     = <span class="fn">argmax</span>(spectrum)
+<span class="fn">print</span>(<span class="st">"largest component at {peak * fs / len(x):.1f} Hz"</span>)</pre></div></li>
+    <li><div><h3>Fit a model to it</h3>
+      <pre><span class="kw">function</span> resid(p)
+    <span class="kw">return</span> p[<span class="st">0</span>] * <span class="fn">exp</span>(<span class="st">0</span> - t / p[<span class="st">1</span>]) - decay
+<span class="kw">end function</span>
+
+fit = <span class="fn">least_squares</span>(<span class="st">"resid"</span>, [<span class="st">1.0</span>, <span class="st">1.0</span>], lower = [<span class="st">0.0</span>, <span class="st">0.01</span>])</pre></div></li>
+    <li><div><h3>Make the figure</h3>
+      <pre><span class="fn">theme</span>(<span class="st">"publication"</span>)
+<span class="fn">plot</span>(t, x, color = <span class="st">"#0072BD"</span>, lw = <span class="fn">pt</span>(<span class="st">1.2</span>))
+<span class="fn">xlabel</span>(<span class="st">"time $t$ [s]"</span>)
+<span class="fn">savefig</span>(<span class="st">"figure.pdf"</span>)</pre></div></li>
+  </ol>
+  <div class="note"><p>Every example in the documentation is executed before it is
+  published. <code>tools/check_docs.sh</code> extracts each block and runs it, so a snippet
+  that does not work is a build failure rather than something you find out about.</p></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="agents.html">Agents</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

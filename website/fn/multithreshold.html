@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multithreshold — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>multithreshold</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>multithreshold(x, levels)</code></pre>
+<p class="fnnote">Input: x, levels &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code> is an <code>Image</code>, <code>Signal</code>, <code>Vec</code>, or scalar; <code>levels</code> is a <code>Vec</code>/matrix or tuple <code>List</code> of cut-point numbers (sorted ascending regardless of input order). Quantizes into <code>len(levels)+1</code> bands at the given cut points. <code>Image</code> → posterized image of the same dimensions with evenly-spaced gray levels per band; <code>Signal</code>/plain numeric → raw 0-based band index.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = multithreshold(x, levels)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Image, Signal, Vec, or scalar</span><span class="iodesc"><code>x</code> is an <code>Image</code>, <code>Signal</code>, <code>Vec</code>, or scalar.</span></div>
+<div class="ioitem"><code>levels</code> <span class="iotype">Vec, matrix, List, or number</span><span class="iodesc"><code>levels</code> is a <code>Vec</code>/matrix or tuple <code>List</code> of cut-point numbers (sorted ascending regardless of input order).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image, Signal, Vec, or Num</span></div>
+</td><td>Returns the same kind of value <code>x</code> was: an <code>Image</code> from an <code>Image</code>, a same-<code>Fs</code> <code>Signal</code> from a <code>Signal</code>, and otherwise a <code>Vec</code>/<code>Num</code> of 0-based band indices.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">220</span>; <span class="n">15</span>, <span class="n">25</span>, <span class="n">200</span>, <span class="n">230</span>; <span class="n">120</span>, <span class="n">130</span>, <span class="n">210</span>, <span class="n">225</span>; <span class="n">125</span>, <span class="n">135</span>, <span class="n">205</span>, <span class="n">215</span>]
+img = <span class="f">image_from_matrix</span>(m)
+
+seg = <span class="f">otsu</span>(img)                             <span class="c"># compute Otsu's level and apply it</span>
+<span class="f">imshow</span>(seg)
+
+cuts = <span class="f">multi_otsu</span>(img, <span class="n">3</span>)                   <span class="c"># two cut points -&gt; three bands</span>
+banded = <span class="f">multithreshold</span>(img, cuts)
+<span class="f">imshow</span>(banded)
+
+k = <span class="f">kapur_threshold</span>(img)                    <span class="c"># entropy-based single threshold</span>
+fg = <span class="f">foreground_mask</span>(img, k, <span class="a">radius</span>=<span class="n">1</span>)      <span class="c"># threshold + speck cleanup</span>
+<span class="f">print</span>(cuts, k, seg.width, banded.width, fg.width)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>multithreshold(x, levels)</code> — quantizes into <code>len(levels)+1</code> bands at the given cut points (<code>levels</code> a <code>Vec</code>/matrix literal or a <code>List</code> of numbers, sorted ascending regardless of input order); see <code>apply_multithreshold</code>'s doc comment for the per-kind output convention (0-based band index for Vec/Signal, evenly-spaced posterized gray levels for Image).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

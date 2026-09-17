@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR model forecast — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>AR model forecast</h1>
+<p class="lede">classical AR(2) autoregressive fitting via the Yule-Walker equations, recovering KNOWN generating coefficients from a synthetic series, then forecasting beyond the observed data.</p>
+<p class="srcpath">catalog/qu_ar_model_forecast.qu</p>
+<p>The synthetic series uses the exact generating formula from the engine's own regression test (`ar_model_recovers_known_ar2_coefficients_from_a_ synthetic_series` in engine/crates/qu-interp/src/lib.rs): x[t] = c1*x[t-1] + c2*x[t-2] + 0.1*randn(),  c1=0.6, c2=-0.3 a stationary AR(2) pair (characteristic roots outside the unit circle). That test measured (while writing it) that n=20000 recovers c1 within ~0.015 of the true 0.6 -- ordinary Yule-Walker finite-sample noise, not a fitting bug -- so this demo uses the same n and the same tolerance logic.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>seed(n)               -- fixes the interpreter's persistent RNG stream</li>
+<li>ar_model(x, order)     -- Yule-Walker AR(p) fit; fields coef/order/mean/</li>
+<li>history/fitted/residuals</li>
+<li>model.predict(n_ahead) -- recursive multi-step-ahead forecast</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Generate a synthetic AR(2) series with KNOWN coefficients.</h3>
+<pre class="hl"><code><span class="f">seed</span>(<span class="n">12345</span>)
+n = <span class="n">20000</span>
+c1 = <span class="n">0.6</span>
+c2 = -<span class="n">0.3</span>
+x = <span class="f">zeros</span>(n)
+x[<span class="n">0</span>] = <span class="f">randn</span>()
+x[<span class="n">1</span>] = <span class="f">randn</span>()
+<span class="k">for</span> t = <span class="n">2</span> <span class="k">to</span> n - <span class="n">1</span>
+    x[t] = c1 * x[t - <span class="n">1</span>] + c2 * x[t - <span class="n">2</span>] + <span class="n">0.1</span> * <span class="f">randn</span>()
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Fit an AR(2) model and compare recovered coefficients to the truth.</h3>
+<pre class="hl"><code>m = <span class="f">ar_model</span>(x, <span class="n">2</span>)
+c1_hat = m.coef[<span class="n">0</span>]
+c2_hat = m.coef[<span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"True coefficients:      c1={c1:.3f}, c2={c2:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"Yule-Walker recovered:  c1={c1_hat:.4f}, c2={c2_hat:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"Fitted mean: {m.mean:.4f} (series mean, series is zero-mean by construction)"</span>)
+
+<span class="k">if</span> <span class="f">abs</span>(c1_hat - c1) &lt; <span class="n">0.05</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"c1 recovered within the test suite's own 0.05 tolerance."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: c1_hat is further than 0.05 from the true c1!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+<span class="k">if</span> <span class="f">abs</span>(c2_hat - c2) &lt; <span class="n">0.05</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"c2 recovered within the test suite's own 0.05 tolerance."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: c2_hat is further than 0.05 from the true c2!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Forecast 20 steps beyond the observed series.</h3>
+<pre class="hl"><code>horizon = <span class="n">20</span>
+future = m.<span class="f">predict</span>(horizon)
+<span class="f">print</span>(<span class="s">"Last 5 observed values:   {x[n-5:end]}"</span>)
+<span class="f">print</span>(<span class="s">"Next {horizon} forecast values: {future}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot the tail of the observed series plus the forecast.</h3>
+<pre class="hl"><code>tail = <span class="n">100</span>
+history_x = (n - tail) <span class="k">to</span> (n - <span class="n">1</span>)
+future_x = n <span class="k">to</span> (n + horizon - <span class="n">1</span>)
+<span class="f">plot</span>(history_x, x[n-tail:<span class="k">end</span>], <span class="a">label</span>=<span class="s">"observed"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">plot</span>(future_x, future, <span class="a">label</span>=<span class="s">"AR(2) forecast"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">xlabel</span>(<span class="s">"t"</span>)
+<span class="f">ylabel</span>(<span class="s">"x"</span>)
+<span class="f">title</span>(<span class="s">"AR(2) Yule-Walker fit: history and forecast"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>True coefficients:      c1=0.600, c2=-0.300
+Yule-Walker recovered:  c1=0.5848, c2=-0.2929
+Fitted mean: 0.0003 (series mean, series is zero-mean by construction)
+c1 recovered within the test suite's own 0.05 tolerance.
+c2 recovered within the test suite's own 0.05 tolerance.
+Last 5 observed values:   [0.161765, 0.006374, 0.121317, 0.089219, -0.043995]
+Next 20 forecast values: [-0.051665, -0.017132, 0.005309, 0.008318, 0.003504, -0.000192, -0.000944, -0.000301, ... (20 elements)]</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="533.04" x2="866.00" y2="533.04" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="533.04" x2="86.00" y2="533.04" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="537.52" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.25</text>
+<line x1="86.00" y1="492.95" x2="866.00" y2="492.95" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="492.95" x2="86.00" y2="492.95" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="497.43" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.20</text>
+<line x1="86.00" y1="452.86" x2="866.00" y2="452.86" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="452.86" x2="86.00" y2="452.86" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="457.34" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.15</text>
+<line x1="86.00" y1="412.76" x2="866.00" y2="412.76" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="412.76" x2="86.00" y2="412.76" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="417.24" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.10</text>
+<line x1="86.00" y1="372.67" x2="866.00" y2="372.67" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="372.67" x2="86.00" y2="372.67" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="377.15" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.05</text>
+<line x1="86.00" y1="332.58" x2="866.00" y2="332.58" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="332.58" x2="86.00" y2="332.58" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="337.06" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="292.49" x2="866.00" y2="292.49" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="292.49" x2="86.00" y2="292.49" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="296.97" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.05</text>
+<line x1="86.00" y1="252.39" x2="866.00" y2="252.39" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="252.39" x2="86.00" y2="252.39" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="256.87" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.10</text>
+<line x1="86.00" y1="212.30" x2="866.00" y2="212.30" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="212.30" x2="86.00" y2="212.30" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="216.78" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.15</text>
+<line x1="86.00" y1="172.21" x2="866.00" y2="172.21" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="172.21" x2="86.00" y2="172.21" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="176.69" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.20</text>
+<line x1="86.00" y1="132.12" x2="866.00" y2="132.12" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="132.12" x2="86.00" y2="132.12" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="136.60" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.25</text>
+<line x1="86.00" y1="92.02" x2="866.00" y2="92.02" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="92.02" x2="86.00" y2="92.02" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="96.50" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.30</text>
+<line x1="86.00" y1="51.93" x2="866.00" y2="51.93" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="51.93" x2="86.00" y2="51.93" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="56.41" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.35</text>
+<line x1="121.45" y1="48.00" x2="121.45" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="121.45" y1="540.00" x2="121.45" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="121.45" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19900</text>
+<line x1="181.04" y1="48.00" x2="181.04" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="181.04" y1="540.00" x2="181.04" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="181.04" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19910</text>
+<line x1="240.63" y1="48.00" x2="240.63" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="240.63" y1="540.00" x2="240.63" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="240.63" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19920</text>
+<line x1="300.22" y1="48.00" x2="300.22" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="300.22" y1="540.00" x2="300.22" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="300.22" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19930</text>
+<line x1="359.80" y1="48.00" x2="359.80" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="359.80" y1="540.00" x2="359.80" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="359.80" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19940</text>
+<line x1="419.39" y1="48.00" x2="419.39" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="419.39" y1="540.00" x2="419.39" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="419.39" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19950</text>
+<line x1="478.98" y1="48.00" x2="478.98" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="478.98" y1="540.00" x2="478.98" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="478.98" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19960</text>
+<line x1="538.57" y1="48.00" x2="538.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="538.57" y1="540.00" x2="538.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="538.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19970</text>
+<line x1="598.15" y1="48.00" x2="598.15" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="598.15" y1="540.00" x2="598.15" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="598.15" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19980</text>
+<line x1="657.74" y1="48.00" x2="657.74" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="657.74" y1="540.00" x2="657.74" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="657.74" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">19990</text>
+<line x1="717.33" y1="48.00" x2="717.33" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="717.33" y1="540.00" x2="717.33" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="717.33" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">20000</text>
+<line x1="776.92" y1="48.00" x2="776.92" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="776.92" y1="540.00" x2="776.92" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="776.92" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">20010</text>
+<line x1="836.50" y1="48.00" x2="836.50" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="836.50" y1="540.00" x2="836.50" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="836.50" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">20020</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="121.45,322.53 127.41,272.69 133.37,293.01 139.33,180.45 145.29,327.33 151.25,394.12 157.21,337.72 163.17,260.04 169.12,249.38 175.08,308.37 181.04,469.86 187.00,342.92 192.96,422.31 198.92,509.91 204.88,442.07 210.84,325.33 216.79,346.49 222.75,311.53 228.71,294.21 234.67,371.95 240.63,348.36 246.59,463.04 252.55,419.00 258.51,285.37 264.46,247.10 270.42,369.05 276.38,426.65 282.34,436.95 288.30,380.04 294.26,493.90 300.22,461.12 306.18,369.89 312.13,421.86 318.09,365.06 324.05,274.55 330.01,482.98 335.97,415.05 341.93,353.31 347.89,425.62 353.85,301.77 359.80,279.09 365.76,229.63 371.72,279.43 377.68,247.40 383.64,297.57 389.60,329.43 395.56,284.50 401.52,241.01 407.47,303.12 413.43,424.07 419.39,391.31 425.35,328.56 431.31,308.59 437.27,70.36 443.23,101.11 449.19,204.37 455.14,415.80 461.10,418.43 467.06,377.38 473.02,234.89 478.98,284.43 484.94,390.55 490.90,413.81 496.86,286.45 502.81,249.54 508.77,303.46 514.73,517.64 520.69,406.95 526.65,283.40 532.61,218.00 538.57,255.67 544.53,190.57 550.48,316.61 556.44,245.71 562.40,294.72 568.36,341.36 574.32,406.39 580.28,238.46 586.24,320.11 592.20,347.20 598.15,288.68 604.11,206.72 610.07,138.12 616.03,167.03 621.99,345.92 627.95,366.90 633.91,203.92 639.87,220.36 645.82,341.79 651.78,447.80 657.74,441.47 663.70,301.50 669.66,343.42 675.62,355.89 681.58,320.80 687.54,202.87 693.49,327.47 699.45,235.30 705.41,261.04 711.37,367.86" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+<polyline points="717.33,374.01 723.29,346.32 729.25,328.32 735.21,325.91 741.16,329.77 747.12,332.73 753.08,333.34 759.04,332.82 765.00,332.34 770.96,332.21 776.92,332.28 782.88,332.35 788.83,332.38 794.79,332.37 800.75,332.36 806.71,332.36 812.67,332.36 818.63,332.36 824.59,332.36 830.55,332.36" fill="none" stroke="#ff0000" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">AR(2) Yule-Walker fit: history and forecast</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">t</text>
+<text x="34.47" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 34.47 294.00)">x</text>
+<rect x="735.55" y="56.00" width="122.45" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="742.55" y1="72.00" x2="762.55" y2="72.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="768.55" y="75.50" font-size="12" text-anchor="start" fill="#222">observed</text>
+<line x1="742.55" y1="90.00" x2="762.55" y2="90.00" stroke="#ff0000" stroke-width="2.2"/>
+<text x="768.55" y="93.50" font-size="12" text-anchor="start" fill="#222">AR(2) forecast</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_ar_model_forecast.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_ar_model_forecast.qu -- classical AR(2) autoregressive fitting via the</span>
+<span class="c"># Yule-Walker equations, recovering KNOWN generating coefficients from a</span>
+<span class="c"># synthetic series, then forecasting beyond the observed data.</span>
+<span class="c">#</span>
+<span class="c"># The synthetic series uses the exact generating formula from the engine's</span>
+<span class="c"># own regression test (`ar_model_recovers_known_ar2_coefficients_from_a_</span>
+<span class="c"># synthetic_series` in engine/crates/qu-interp/src/lib.rs):</span>
+<span class="c">#   x[t] = c1*x[t-1] + c2*x[t-2] + 0.1*randn(),  c1=0.6, c2=-0.3</span>
+<span class="c"># a stationary AR(2) pair (characteristic roots outside the unit circle).</span>
+<span class="c"># That test measured (while writing it) that n=20000 recovers c1 within</span>
+<span class="c"># ~0.015 of the true 0.6 -- ordinary Yule-Walker finite-sample noise, not a</span>
+<span class="c"># fitting bug -- so this demo uses the same n and the same tolerance logic.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   seed(n)               -- fixes the interpreter's persistent RNG stream</span>
+<span class="c">#   ar_model(x, order)     -- Yule-Walker AR(p) fit; fields coef/order/mean/</span>
+<span class="c">#                              history/fitted/residuals</span>
+<span class="c">#   model.predict(n_ahead) -- recursive multi-step-ahead forecast</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Generate a synthetic AR(2) series with KNOWN coefficients.</span>
+<span class="f">seed</span>(<span class="n">12345</span>)
+n = <span class="n">20000</span>
+c1 = <span class="n">0.6</span>
+c2 = -<span class="n">0.3</span>
+x = <span class="f">zeros</span>(n)
+x[<span class="n">0</span>] = <span class="f">randn</span>()
+x[<span class="n">1</span>] = <span class="f">randn</span>()
+<span class="k">for</span> t = <span class="n">2</span> <span class="k">to</span> n - <span class="n">1</span>
+    x[t] = c1 * x[t - <span class="n">1</span>] + c2 * x[t - <span class="n">2</span>] + <span class="n">0.1</span> * <span class="f">randn</span>()
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="c">#%% Fit an AR(2) model and compare recovered coefficients to the truth.</span>
+m = <span class="f">ar_model</span>(x, <span class="n">2</span>)
+c1_hat = m.coef[<span class="n">0</span>]
+c2_hat = m.coef[<span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"True coefficients:      c1={c1:.3f}, c2={c2:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"Yule-Walker recovered:  c1={c1_hat:.4f}, c2={c2_hat:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"Fitted mean: {m.mean:.4f} (series mean, series is zero-mean by construction)"</span>)
+
+<span class="k">if</span> <span class="f">abs</span>(c1_hat - c1) &lt; <span class="n">0.05</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"c1 recovered within the test suite's own 0.05 tolerance."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: c1_hat is further than 0.05 from the true c1!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+<span class="k">if</span> <span class="f">abs</span>(c2_hat - c2) &lt; <span class="n">0.05</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"c2 recovered within the test suite's own 0.05 tolerance."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: c2_hat is further than 0.05 from the true c2!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+
+<span class="c">#%% Forecast 20 steps beyond the observed series.</span>
+horizon = <span class="n">20</span>
+future = m.<span class="f">predict</span>(horizon)
+<span class="f">print</span>(<span class="s">"Last 5 observed values:   {x[n-5:end]}"</span>)
+<span class="f">print</span>(<span class="s">"Next {horizon} forecast values: {future}"</span>)
+
+<span class="c">#%% Plot the tail of the observed series plus the forecast.</span>
+tail = <span class="n">100</span>
+history_x = (n - tail) <span class="k">to</span> (n - <span class="n">1</span>)
+future_x = n <span class="k">to</span> (n + horizon - <span class="n">1</span>)
+<span class="f">plot</span>(history_x, x[n-tail:<span class="k">end</span>], <span class="a">label</span>=<span class="s">"observed"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">plot</span>(future_x, future, <span class="a">label</span>=<span class="s">"AR(2) forecast"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">xlabel</span>(<span class="s">"t"</span>)
+<span class="f">ylabel</span>(<span class="s">"x"</span>)
+<span class="f">title</span>(<span class="s">"AR(2) Yule-Walker fit: history and forecast"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

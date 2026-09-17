@@ -1,0 +1,54 @@
+# qu_curve_fit.qu -- nonlinear least-squares curve fitting and general
+# multivariate minimization.
+#
+# `curve_fit` wraps Levenberg-Marquardt around a user-defined model function
+# `f(x, params)`; `minimize` runs L-BFGS on any scalar objective of a
+# parameter vector. Both return a Model rather than a bare vector, since
+# each call's outputs (fitted params, cost/value, convergence flag) are one
+# related result, not independent ones -- Qu's usual named-return convention.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   curve_fit(model_fn, xdata, ydata, p0, max_iter=, tol=) -- Levenberg-Marquardt
+#   minimize(f, x0, max_iter=, tol=)                        -- L-BFGS
+#   randn                                                   -- synthetic measurement noise
+
+backend auto
+
+#%% Fit a damped-sinusoid model to noisy data
+function damped_sine(x, p)
+    return p[0] * exp(-x / p[1]) * sin(2*pi*p[2]*x + p[3])
+end function
+
+N = 80
+x = linspace(0, 4, N)
+true_params = [2.0, 1.5, 1.2, 0.3]
+y_clean = damped_sine(x, true_params)
+y = y_clean + 0.08 * randn(N)
+
+p0 = [1.0, 1.0, 1.0, 0.0]
+fit = curve_fit("damped_sine", x, y, p0, max_iter=300)
+print("converged={fit.converged}, cost={fit.cost:.4f}")
+print("true params:   {true_params}")
+print("fitted params: {fit.params}")
+
+#%% General minimization: find the minimum of a bowl-shaped objective
+function rosenbrock(p)
+    a = 1 - p[0]
+    b = p[1] - p[0] * p[0]
+    return a * a + 100 * b * b
+end function
+
+result = minimize("rosenbrock", [-1.2, 1.0], max_iter=500)
+print("minimize: converged={result.converged}, value={result.value:.6f}, params={result.params}")
+
+#%% Plot data vs the fitted curve
+xf = linspace(0, 4, 300)
+yf = damped_sine(xf, fit.params)
+
+plot(x, y, label="noisy data", color="gray")
+plot(xf, yf, label="curve_fit", color="blue")
+xlabel("x")
+ylabel("y")
+title("Levenberg-Marquardt fit of a damped sinusoid")
+legend()
+show plot

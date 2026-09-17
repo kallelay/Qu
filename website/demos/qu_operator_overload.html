@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operator overloading — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Language &amp; UI</p>
+<h1>Operator overloading</h1>
+<p class="lede">user-overloadable operators on a tagged record type (multiple dispatch phase 3).</p>
+<p class="srcpath">catalog/qu_operator_overload.qu</p>
+<p>A plain `{__type = "...", ...}` record with a `function +(a: record&lt;Tag&gt;, b: record&lt;Tag&gt;)` overload gets its own `+`/`-`/unary `-` behavior; every ordinary numeric/vector/matrix/string operator combination is completely unaffected (the overload only fires when the hardcoded operator cascade doesn't cover the operand types at all).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>Vec2(x, y) := {__type = "Vec2", x = x, y = y}   -- tagged-record constructor</li>
+<li>function +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)    -- binary operator overload</li>
+<li>function -(a: record&lt;Vec2&gt;)                     -- unary operator overload</li>
+<li>ordinary num/vec/mat/str operators, unchanged, in the same script</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A tiny 2-D vector type built from a tagged record</h3>
+<pre class="hl"><code><span class="f">Vec2</span>(x, y) := {__type = <span class="s">"Vec2"</span>, x = x, y = y}
+
+<span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(a.x + b.x, a.y + b.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> -(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(a.x - b.x, a.y - b.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> -(a: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(-a.x, -a.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(v: record&lt;Vec2&gt;)
+    print <span class="s">"Vec2({v.x}, {v.y})"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+p = <span class="f">Vec2</span>(<span class="n">1</span>, <span class="n">2</span>)
+q = <span class="f">Vec2</span>(<span class="n">3</span>, <span class="n">4</span>)
+<span class="f">describe</span>(p + q)
+<span class="f">describe</span>(p - q)
+<span class="f">describe</span>(-p)
+</code></pre>
+</section>
+<section class="step">
+<h3>Zero-regression: ordinary operators on ordinary types, same script</h3>
+<pre class="hl"><code>print <span class="f">str</span>(<span class="n">1</span> + <span class="n">2</span>)
+print <span class="f">str</span>([<span class="n">1</span>, <span class="n">2</span>] + [<span class="n">3</span>, <span class="n">4</span>])
+print <span class="s">"a"</span> + <span class="s">"b"</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Vec2(4, 6)
+Vec2(-2, -2)
+Vec2(-1, -2)
+3
+[4, 6]
+ab</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_operator_overload.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_operator_overload.qu -- user-overloadable operators on a tagged record</span>
+<span class="c"># type (multiple dispatch phase 3).</span>
+<span class="c">#</span>
+<span class="c"># A plain `{__type = "...", ...}` record with a `function +(a: record&lt;Tag&gt;,</span>
+<span class="c"># b: record&lt;Tag&gt;)` overload gets its own `+`/`-`/unary `-` behavior; every</span>
+<span class="c"># ordinary numeric/vector/matrix/string operator combination is completely</span>
+<span class="c"># unaffected (the overload only fires when the hardcoded operator cascade</span>
+<span class="c"># doesn't cover the operand types at all).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
+<span class="c">#   Vec2(x, y) := {__type = "Vec2", x = x, y = y}   -- tagged-record constructor</span>
+<span class="c">#   function +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)    -- binary operator overload</span>
+<span class="c">#   function -(a: record&lt;Vec2&gt;)                     -- unary operator overload</span>
+<span class="c">#   ordinary num/vec/mat/str operators, unchanged, in the same script</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A tiny 2-D vector type built from a tagged record</span>
+<span class="f">Vec2</span>(x, y) := {__type = <span class="s">"Vec2"</span>, x = x, y = y}
+
+<span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(a.x + b.x, a.y + b.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> -(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(a.x - b.x, a.y - b.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> -(a: record&lt;Vec2&gt;)
+    <span class="k">return</span> <span class="f">Vec2</span>(-a.x, -a.y)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(v: record&lt;Vec2&gt;)
+    print <span class="s">"Vec2({v.x}, {v.y})"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+p = <span class="f">Vec2</span>(<span class="n">1</span>, <span class="n">2</span>)
+q = <span class="f">Vec2</span>(<span class="n">3</span>, <span class="n">4</span>)
+<span class="f">describe</span>(p + q)
+<span class="f">describe</span>(p - q)
+<span class="f">describe</span>(-p)
+
+<span class="c">#%% Zero-regression: ordinary operators on ordinary types, same script</span>
+print <span class="f">str</span>(<span class="n">1</span> + <span class="n">2</span>)
+print <span class="f">str</span>([<span class="n">1</span>, <span class="n">2</span>] + [<span class="n">3</span>, <span class="n">4</span>])
+print <span class="s">"a"</span> + <span class="s">"b"</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

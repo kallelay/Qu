@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ridge_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>ridge_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>ridge_model(X, y, alpha)</code></pre>
+<p class="fnnote">Input: X, y, alpha &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The same fit as <code>ols_model</code> on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> <code>y</code>, but with L2 regularization strength <code>alpha</code> (a non-negative number) shrinking the coefficients toward zero; <code>ols_model</code> is this at <code>alpha = 0</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = ridge_model(X, y, alpha)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">number</span><span class="iodesc">The same fit as <code>ols_model</code> on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> <code>y</code>, but with L2 regularization strength <code>alpha</code> (a non-negative number) shrinking the coefficients toward zero.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">number</span><span class="iodesc">The same fit as <code>ols_model</code> on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> <code>y</code>, but with L2 regularization strength <code>alpha</code> (a non-negative number) shrinking the coefficients toward zero.</span></div>
+<div class="ioitem"><code>alpha</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>ols_model</code> is this at <code>alpha = 0</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a fitted model Record with the same fields as <code>ols_model</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
+k = <span class="f">kmeans_model</span>(X, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>)    <span class="c"># .predict assigns to the nearest centroid</span>
+p = <span class="f">pca_model</span>(X, <span class="n">1</span>)                  <span class="c"># .predict projects onto the fitted components</span>
+<span class="f">print</span>(<span class="s">"cluster of row 0: {k.predict(X)[0]}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+<span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(X, y)
+<span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
+<span class="f">final</span>(A, b) := <span class="f">ridge_model</span>(A, b, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"standardize_cols"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
+<span class="f">print</span>(<span class="s">"held-out R2: {round(fitted.score(split.X_test, split.y_test), 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>ridge_model(X, y, alpha)</code> — <code>ols_model</code> plus L2 regularization on the centered design, the model-protocol sibling of the flat <code>ridge</code> builtin (which has no automatic intercept).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

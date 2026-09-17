@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imerode — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imerode</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imerode(img, radius)</code></pre>
+<p class="fnnote">Input: img, radius &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is a binary <code>Image</code>; <code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code>. Binary morphological erosion — shrinks foreground regions and removes specks smaller than the element.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imerode(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is a binary <code>Image</code>.</span></div>
+<div class="ioitem"><code>radius</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
+img = <span class="f">image_from_matrix</span>(m)
+<span class="f">imshow</span>(img)
+
+eroded = <span class="f">imerode</span>(img, <span class="n">1</span>)
+dilated = <span class="f">imdilate</span>(img, <span class="n">1</span>)
+opened = <span class="f">imopen</span>(img, <span class="n">1</span>)                <span class="c"># drops the lone speck</span>
+closed = <span class="f">imclose</span>(img, <span class="n">1</span>)               <span class="c"># fills small gaps</span>
+bright = <span class="f">imtophat</span>(img, <span class="n">1</span>)              <span class="c"># small bright features</span>
+dark = <span class="f">imbothat</span>(img, <span class="n">1</span>)                <span class="c"># small dark features</span>
+<span class="f">imshow</span>(opened)
+<span class="f">print</span>(eroded.width, dilated.width, opened.width, closed.width, bright.width, dark.width)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p>and foreground/background separation (§ blob-manipulation pass, 2026-08-24). See <code>image::Image</code>'s own "Binary morphology..." doc-comment section for the full binary-mask convention this whole group shares: a <code>Value::Image</code> is treated as "binary" when every pixel is grayscale (R=G=B) with two intended levels, 0 = background / 255 = foreground (<code>is_foreground</code> actually reads <code>&gt;=128</code>, so a slightly antialiased mask still behaves sanely). No <code>threshold</code>/ <code>otsu_threshold</code> builtin existed in this shared working tree when this landed (a sibling agent's own lane) — this is a documented, independent design choice, not a guess at matching code that hadn't landed yet; reconcile if the sibling's own producer ends up using a different convention. <code>imerode(img, radius)</code> / <code>imdilate(img, radius)</code> — a square structuring element of side <code>2*radius+1</code> (documented choice over a disk — see <code>image::Image::erode</code>'s doc comment).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

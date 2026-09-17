@@ -1,0 +1,1171 @@
+/* ---- Token set ----------------------------------------------------
+ *
+ * These used to be declared on `.qu-inspector` only. That scoping was a
+ * silent bug rather than a decision: `VersionHistoryPanel`, `HelpBrowser`
+ * and the other overlays are `position: fixed` children of the app root,
+ * NOT of any inspector, so every `var(--qu-border, #d8d6cd)` in them
+ * resolved to its light-theme literal fallback -- in dark mode that is a
+ * near-white hairline on a near-black dialog, which is what those panels
+ * actually shipped as. Declaring the same set on `:root` (keyed off the
+ * `data-theme` attribute `ThemeProvider` already writes onto <html>)
+ * makes the fallbacks dead code again, the way they read as being.
+ *
+ * `.qu-inspector[data-theme=...]` is kept as a LOCAL override so an
+ * inspector explicitly themed against its host (a light panel inside a
+ * dark window) still works -- it just no longer has to exist for the
+ * tokens to resolve at all.
+ *
+ * The ramps themselves are one warm neutral scale in each theme. The
+ * app had three greys running side by side -- warm (#161615/#2c2c2a,
+ * top bar and sidebar), cool navy (#0e1524/#1c2740, editor, terminal,
+ * tab strip, status bar) and a third blue-grey here (#171b22/#303947) --
+ * meeting at panel seams where the mismatch is most visible. Light mode
+ * had no navy at all, which is the tell for which family is the app's
+ * own and which is leftover: the values below are pulled from the ones
+ * the light theme and the figure chrome were already using.
+ */
+:root,
+.qu-inspector[data-theme="light"] {
+  --qu-bg: #ffffff;
+  --qu-surface: #f7f6f2;
+  --qu-hover: #efece5;
+  --qu-border: #e1e0d9;
+  --qu-text: #33322e;
+  --qu-muted: #7a786f;
+  --qu-selected: #eaf2fd;
+  /* Two accents, deliberately. `--qu-accent` is the LINE/TEXT accent and
+     has to carry contrast against the page; `--qu-accent-solid` is the
+     FILL behind white label text and has to carry contrast against white.
+     One value cannot do both: the single old `--qu-accent` was #85b5ff in
+     dark, and `.qu-target-toggle .is-active` painted white text on it --
+     2.0:1, i.e. the selected state of a toggle was the unreadable one. */
+  --qu-accent: #2a6fc9;
+  --qu-accent-solid: #2a78d6;
+  --qu-accent-solid-hover: #3987e5;
+  --qu-accent-soft: rgba(42, 120, 214, 0.1);
+  --qu-danger: #c0392f;
+  --qu-warning: #b07400;
+  --qu-ok: #1f7a6d;
+  /* Inline-code and generated-source wells. Previously spelled as a bare
+     `rgba(0,0,0,0.2)` fallback in two components, which in light mode is
+     a grey-black slab that matches nothing else on the panel. */
+  --qu-code-bg: #f1eee6;
+  /* Alias: two rules in this file already say `--qu-text-muted` and no
+     one ever defined it, so both were pinned to a literal in BOTH
+     themes. Kept as an alias rather than rewritten at the call sites, so
+     a component reaching for either name lands somewhere real. */
+  --qu-text-muted: var(--qu-muted);
+  color-scheme: light;
+}
+:root[data-theme="dark"],
+.qu-inspector[data-theme="dark"] {
+  --qu-bg: #171716;
+  --qu-surface: #1f1f1d;
+  --qu-hover: #292927;
+  --qu-border: #343431;
+  --qu-text: #e6e4dd;
+  --qu-muted: #a3a19a;
+  --qu-selected: #1f2c3a;
+  --qu-accent: #7cb0f2;
+  --qu-accent-solid: #2a78d6;
+  --qu-accent-solid-hover: #3987e5;
+  --qu-accent-soft: rgba(124, 176, 242, 0.14);
+  --qu-danger: #e8705f;
+  --qu-warning: #e0a33a;
+  --qu-ok: #5cc0ac;
+  --qu-code-bg: #121211;
+  --qu-text-muted: var(--qu-muted);
+  color-scheme: dark;
+}
+/* ---- Shell surfaces ------------------------------------------------
+ * The chrome AROUND content (top bar, sidebar, terminal, status bar) is
+ * a separate ramp from the content surfaces above, because it has a
+ * different job: it should recede. The editor is the darkest plane in
+ * dark mode and the lightest in light mode -- i.e. content is the well,
+ * chrome is the frame -- which is the arrangement the light theme
+ * already had (white editor on #f9f9f7) and the dark theme did not. */
+:root {
+  --qu-shell-bg: #f9f9f7;
+  --qu-shell-panel: #ffffff;
+  --qu-shell-sunken: #f3f2ee;
+  /* The editor plane, shared by Monaco's theme (CodeEditor.tsx) and by
+     the active file tab, so the selected tab is literally continuous
+     with the document below it rather than approximately the same
+     colour. */
+  --qu-editor-bg: #ffffff;
+}
+:root[data-theme="dark"] {
+  --qu-shell-bg: #0d0d0d;
+  --qu-shell-panel: #161615;
+  --qu-shell-sunken: #121211;
+  --qu-editor-bg: #141413;
+}
+.qu-inspector {
+  color: var(--qu-text);
+  background: var(--qu-bg);
+  font:
+    12px/1.5 system-ui,
+    -apple-system,
+    sans-serif;
+  min-width: 0;
+}
+.qu-inspector *,
+.qu-inspector *::before,
+.qu-inspector *::after {
+  box-sizing: border-box;
+}
+
+/* Full-width list row in the overlays (help browser, version list).
+   Neither had a hover or a focus state, so a list of several hundred
+   builtins gave no feedback that a row was even a target. */
+.qu-help-row {
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.qu-help-row:hover {
+  background: var(--qu-hover);
+}
+.qu-help-row:focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: -2px;
+}
+.qu-help-row[aria-expanded="true"] {
+  background: var(--qu-selected);
+  box-shadow: inset 2px 0 var(--qu-accent);
+}
+/* Shared modal scrim -- see the same class in qu-studio-tauri/src/index.css;
+   declared here too so a component used outside that app still gets one. */
+.qu-scrim {
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(2px);
+}
+
+/* ---- Command palette ----------------------------------------------- */
+.qu-palette-input {
+  color: var(--qu-text);
+}
+.qu-palette-input::placeholder {
+  color: var(--qu-muted);
+}
+.qu-palette-row {
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+  box-shadow: inset 2px 0 transparent;
+}
+.qu-palette-row:hover {
+  background: var(--qu-hover);
+}
+.qu-palette-row[data-selected] {
+  background: var(--qu-selected);
+  box-shadow: inset 2px 0 var(--qu-accent);
+}
+/* Keycap. Three separate inline spellings of the same thing before --
+   two of them without a background, so the footer hints and the row
+   shortcuts didn't look like the same kind of object. */
+.qu-kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--qu-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--qu-surface);
+  color: var(--qu-muted);
+  font: 10.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: center;
+}
+
+/* ---- File tree ----------------------------------------------------- */
+.qu-file-heading {
+  padding: 2px 4px 8px;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--qu-muted);
+}
+.qu-file-row {
+  color: var(--qu-text);
+  background: transparent;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.qu-file-row:hover {
+  background: var(--qu-hover);
+}
+/* Selection was signalled by the same grey fill as hover PLUS a colour
+   change, so a hovered row and the selected row were hard to tell apart
+   while the pointer was in the tree. The accent rule on the left edge is
+   the same marker the variable explorer already uses for its expanded
+   row. */
+.qu-file-row[data-selected] {
+  background: var(--qu-selected);
+  color: var(--qu-accent);
+  box-shadow: inset 2px 0 var(--qu-accent);
+}
+.qu-file-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--qu-muted);
+  background: transparent;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.qu-file-action:hover {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-file-action.is-danger:hover {
+  color: var(--qu-danger);
+}
+
+/* ---- Editor file tabs (TabBar) ------------------------------------- */
+.qu-filetab {
+  color: var(--qu-muted);
+  border-color: var(--qu-border);
+  box-shadow: inset 0 -2px 0 transparent;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+.qu-filetab:hover {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-filetab[aria-selected="true"] {
+  color: var(--qu-text);
+  background: var(--qu-editor-bg);
+  box-shadow: inset 0 -2px 0 var(--qu-accent);
+}
+.qu-filetab-close {
+  color: var(--qu-muted);
+  opacity: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.qu-filetab:hover .qu-filetab-close,
+.qu-filetab-close:focus-visible {
+  opacity: 1;
+}
+/* The dot and the X occupy the same slot; whichever is showing, the tab
+   is the same width. */
+.qu-filetab:hover .qu-filetab-dot {
+  opacity: 0;
+}
+.qu-filetab-close:hover {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-inspector button,
+.qu-inspector input,
+.qu-inspector select {
+  font: inherit;
+}
+.qu-inspector button {
+  cursor: pointer;
+}
+.qu-inspector button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.qu-inspector :is(button, input, select):focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: 2px;
+}
+.qu-inspector :is(button, input, select) {
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.qu-section-header,
+.qu-toolbar,
+.qu-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.qu-section-header {
+  padding: 14px 14px 10px;
+}
+.qu-section-header h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.qu-section-header > svg {
+  color: var(--qu-muted);
+}
+.qu-count,
+.qu-badge {
+  color: var(--qu-muted);
+  background: var(--qu-surface);
+  border: 1px solid var(--qu-border);
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.qu-count {
+  font-variant-numeric: tabular-nums;
+  border-radius: 20px;
+}
+.qu-spacer {
+  flex: 1;
+}
+.qu-truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.qu-mono {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+.qu-note {
+  color: var(--qu-muted);
+  font-size: 10px;
+}
+.qu-icon-button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--qu-muted);
+  background: transparent;
+}
+.qu-icon-button:hover:not(:disabled),
+.qu-text-button:hover:not(:disabled) {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-icon-button[aria-pressed="true"] {
+  background: var(--qu-selected);
+  color: var(--qu-accent);
+}
+.qu-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--qu-muted);
+  background: transparent;
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+.qu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--qu-muted);
+}
+.qu-empty > svg {
+  color: var(--qu-accent);
+  opacity: 0.8;
+}
+.qu-empty strong {
+  color: var(--qu-text);
+  font-size: 12px;
+  font-weight: 550;
+}
+.qu-empty p {
+  margin: 0;
+  max-width: 270px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.qu-variable-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px 12px;
+}
+.qu-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+  background: var(--qu-surface);
+  border: 1px solid var(--qu-border);
+  border-radius: 7px;
+  padding: 0 8px;
+  color: var(--qu-muted);
+  height: 32px;
+}
+.qu-search:focus-within {
+  border-color: var(--qu-accent);
+}
+.qu-search input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: var(--qu-text);
+  border: 0;
+  padding: 5px 0;
+  outline: none;
+}
+.qu-search input::placeholder {
+  color: var(--qu-muted);
+}
+.qu-search .qu-icon-button {
+  width: 18px;
+  height: 22px;
+}
+.qu-inspector select {
+  background: var(--qu-surface);
+  border: 1px solid var(--qu-border);
+  color: var(--qu-text);
+  padding: 6px;
+  border-radius: 6px;
+}
+/* The 115px cap used to live on `.qu-inspector select`, i.e. on EVERY
+   select inside any panel wrapped in `.qu-inspector` -- which since the
+   DSP workbench and GUI Designer adopted that wrapper includes their
+   full-width dropdowns. It was written for the variable filter beside
+   the search box and only ever made sense there; at (0,1,1) it also
+   outranks the Tailwind width utilities those panels set, so it won
+   silently. Scoped back to the control it was written for. */
+.qu-variable-controls select {
+  max-width: 115px;
+}
+.qu-variable-columns {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 14px 7px 34px;
+  color: var(--qu-muted);
+  font-size: 10px;
+  background: var(--qu-surface);
+  border-block: 1px solid var(--qu-border);
+}
+.qu-variable-list {
+  max-height: 282px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--qu-border) transparent;
+}
+.qu-variable-row {
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  color: var(--qu-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--qu-border);
+  padding: 9px 14px 9px 12px;
+}
+.qu-variable-row:last-child {
+  border-bottom: 0;
+}
+.qu-variable-row:hover {
+  background: var(--qu-surface);
+}
+.qu-variable-row[aria-expanded="true"] {
+  background: var(--qu-selected);
+  box-shadow: inset 2px 0 var(--qu-accent);
+}
+.qu-row-chevron {
+  color: var(--qu-muted);
+}
+.qu-variable-row[aria-expanded="true"] .qu-row-chevron {
+  transform: rotate(90deg);
+  color: var(--qu-accent);
+}
+.qu-variable-name,
+.qu-variable-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+.qu-variable-name strong {
+  font:
+    550 12px/1.4 "Cascadia Code",
+    Consolas,
+    monospace;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qu-type {
+  color: var(--qu-muted);
+  font-size: 10px;
+}
+.qu-type[data-kind="vector"] {
+  color: #278b83;
+}
+.qu-type[data-kind="matrix"] {
+  color: #8960c2;
+}
+.qu-inspector[data-theme="dark"] .qu-type[data-kind="vector"] {
+  color: #78d2c1;
+}
+.qu-inspector[data-theme="dark"] .qu-type[data-kind="matrix"] {
+  color: #c7a1ee;
+}
+.qu-variable-value {
+  align-items: flex-end;
+  color: var(--qu-muted);
+  font:
+    11px/1.5 "Cascadia Code",
+    Consolas,
+    monospace;
+}
+.qu-variable-value > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qu-variable-value small {
+  font:
+    10px/1.5 system-ui,
+    sans-serif;
+}
+.qu-variable-detail {
+  padding: 12px;
+  border-top: 1px solid var(--qu-border);
+}
+.qu-variable-detail > .qu-toolbar {
+  margin-bottom: 10px;
+}
+.qu-segments {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--qu-surface);
+  border-radius: 7px;
+}
+.qu-segments button {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--qu-muted);
+  background: transparent;
+  font-size: 11px;
+}
+.qu-segments button[aria-pressed="true"] {
+  color: var(--qu-text);
+  background: var(--qu-bg);
+  border-color: var(--qu-border);
+  box-shadow: 0 1px 2px #00000008;
+}
+.qu-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.qu-stats > div {
+  padding: 8px;
+  background: var(--qu-surface);
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+}
+.qu-stats span {
+  display: block;
+  color: var(--qu-muted);
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+.qu-stats strong {
+  display: block;
+  font:
+    550 12px/1.5 "Cascadia Code",
+    Consolas,
+    monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qu-sparkline {
+  background: var(--qu-surface);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--qu-accent);
+}
+.qu-sparkline svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+}
+.qu-spark-grid {
+  stroke: var(--qu-border);
+  stroke-width: 0.8;
+}
+.qu-sparkline span {
+  color: var(--qu-muted);
+  font-size: 9px;
+}
+.qu-preview-label {
+  color: var(--qu-muted);
+  font-size: 10px;
+  margin: 12px 0 5px;
+}
+.qu-value-preview {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    11px/1.7 "Cascadia Code",
+    Consolas,
+    monospace;
+  max-height: 170px;
+  overflow-y: auto;
+}
+.qu-inspect-hint {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 12px;
+  color: var(--qu-muted);
+  font-size: 10px;
+  border-top: 1px solid var(--qu-border);
+}
+.qu-data-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+}
+.qu-data-table {
+  border-collapse: collapse;
+  width: 100%;
+  font:
+    11px/1.5 "Cascadia Code",
+    Consolas,
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+.qu-data-table :is(th, td) {
+  padding: 6px 9px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--qu-border);
+}
+.qu-data-table th {
+  color: var(--qu-muted);
+  font-weight: 400;
+  background: var(--qu-surface);
+}
+.qu-data-table tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+.qu-data-table tbody tr:hover td {
+  background: var(--qu-hover);
+}
+.qu-pagination {
+  padding: 6px 0;
+  font-size: 10px;
+  color: var(--qu-muted);
+}
+.qu-variables > .qu-pagination {
+  padding-inline: 12px;
+}
+.qu-figure-card {
+  margin: 0 12px 12px;
+  border: 1px solid var(--qu-border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.qu-figure-card > .qu-toolbar {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--qu-border);
+  background: var(--qu-surface);
+}
+.qu-figure-stage {
+  overflow: auto;
+  background-color: var(--qu-surface);
+  background-image: radial-gradient(var(--qu-border) 0.7px, transparent 0.7px);
+  background-size: 12px 12px;
+  padding: 14px;
+  height: 240px;
+}
+.qu-figure-paper {
+  margin: auto;
+  background: white;
+  box-shadow: 0 2px 12px #00000012;
+}
+.qu-figure-paper svg,
+.qu-figure-paper img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.qu-figure-paper > div {
+  width: 100%;
+}
+.qu-figure-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qu-figure-fit .qu-figure-paper {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  box-shadow: none;
+}
+.qu-figure-fit .qu-figure-paper > div {
+  height: 100%;
+}
+.qu-figure-fit .qu-figure-paper :is(svg, img) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.qu-figure-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--qu-border);
+  color: var(--qu-muted);
+  font-size: 10px;
+}
+.qu-thumbnails {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 12px;
+  overflow-x: auto;
+}
+.qu-thumbnails button {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+  background: var(--qu-surface);
+  color: var(--qu-muted);
+  font-size: 9px;
+}
+.qu-thumbnails button[aria-pressed="true"] {
+  border-color: var(--qu-accent);
+  color: var(--qu-accent);
+  background: var(--qu-selected);
+}
+.qu-thumbnails img {
+  width: 64px;
+  height: 40px;
+  object-fit: contain;
+  background: white;
+  border-radius: 2px;
+}
+.qu-figure-dialog {
+  padding: 0;
+  border: 1px solid var(--qu-border);
+  border-radius: 12px;
+  width: min(1200px, 94vw);
+  height: 90vh;
+  max-width: 94vw;
+  max-height: 94vh;
+  box-shadow: 0 24px 100px #00000055;
+}
+.qu-figure-dialog::backdrop {
+  background: #080f20b3;
+  backdrop-filter: blur(4px);
+}
+.qu-figure-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.qu-figure-dialog > .qu-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--qu-border);
+  flex-wrap: wrap;
+}
+.qu-figure-dialog .qu-figure-stage {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  padding: 24px;
+}
+.qu-plot {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--qu-border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.qu-plot > .qu-toolbar {
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--qu-border);
+  flex-shrink: 0;
+}
+.qu-plot-title {
+  font-weight: 600;
+  font-size: 11px;
+  max-width: 150px;
+}
+.qu-plot-canvas {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  position: relative;
+}
+.qu-plot-canvas > .js-plotly-plot {
+  position: absolute !important;
+  inset: 0;
+}
+.qu-plot-footer {
+  padding: 5px 10px;
+  border-top: 1px solid var(--qu-border);
+  color: var(--qu-muted);
+  font-size: 9px;
+}
+.qu-plot-error {
+  padding: 6px 10px;
+  color: var(--qu-danger);
+  font-size: 11px;
+}
+.qu-plot:fullscreen {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+}
+.qu-workspace-inspector {
+  width: clamp(330px, 29vw, 460px);
+  flex-shrink: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--qu-border);
+  scrollbar-width: thin;
+  scrollbar-color: var(--qu-border) transparent;
+}
+.qu-workspace-inspector > .qu-figures {
+  border-bottom: 1px solid var(--qu-border);
+}
+@media (max-width: 1100px) {
+  .qu-workspace-inspector {
+    width: 320px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qu-inspector * {
+    transition: none !important;
+  }
+}
+/* Figure controls stay outside the exported composition. */
+.qu-plot-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.qu-figure-design {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 100%;
+  background: var(--qu-bg);
+  border-left: 1px solid var(--qu-border);
+  box-shadow: -8px 0 24px #00000012;
+  display: flex;
+  flex-direction: column;
+}
+.qu-figure-design > .qu-toolbar {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--qu-border);
+  flex-shrink: 0;
+}
+.qu-design-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 14px;
+  scrollbar-width: thin;
+}
+.qu-design-scroll details {
+  border-bottom: 1px solid var(--qu-border);
+  padding: 8px 0;
+}
+.qu-design-scroll summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 0 8px;
+}
+.qu-design-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 6px 0 10px;
+  min-width: 0;
+}
+.qu-design-field > span {
+  color: var(--qu-muted);
+  font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+.qu-design-field input:not([type="range"]),
+.qu-design-field textarea,
+.qu-design-field select,
+.qu-design-layer input:not([type="color"]) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  border: 1px solid var(--qu-border);
+  border-radius: 5px;
+  background: var(--qu-surface);
+  color: var(--qu-text);
+  font: inherit;
+  padding: 6px 8px;
+}
+.qu-design-field textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+.qu-design-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--qu-accent);
+}
+.qu-design-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.qu-palette-swatches {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  margin: 0 0 12px;
+}
+.qu-palette-swatches span {
+  flex: 1;
+}
+.qu-design-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-block: 4px;
+}
+.qu-design-layer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qu-design-layer input[type="color"] {
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.qu-design-layer > .qu-note {
+  display: none;
+}
+.qu-plot .qu-text-button[aria-expanded="true"] {
+  background: var(--qu-selected);
+  border-color: var(--qu-accent);
+  color: var(--qu-accent);
+}
+.qu-figure-stage[data-zoomed="true"] {
+  cursor: grab;
+  touch-action: none;
+}
+.qu-figure-stage[data-dragging="true"] {
+  cursor: grabbing;
+  user-select: none;
+}
+.qu-figure-stage:focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: -3px;
+}
+
+/* The empty state now overlays the (always-mounted) figure rather than
+   replacing it -- see PlotViewer's own comment: unmounting the plot to show
+   this was what destroyed the WebGL scene and the user's camera on every
+   re-run. Pointer events pass through so the live figure underneath stays
+   interactive the moment data arrives. */
+.qu-empty-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: inherit;
+}
+
+/* ---- Figures panel: thumbnails only ------------------------------- */
+/* The panel is a contact sheet. Anything that needs room -- zoom, pan,
+   reading values off marks -- happens full screen. */
+.qu-figure-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
+}
+@media (min-width: 520px) {
+  /* Two up once the panel is wide enough for both to stay legible. */
+  .qu-figures .qu-figure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.qu-figure-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--qu-border);
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+.qu-figure-thumb:hover,
+.qu-figure-thumb:focus-visible {
+  border-color: var(--qu-accent);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+  transform: translateY(-1px);
+}
+.qu-figure-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #ffffff;
+}
+.qu-figure-thumb-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--qu-muted);
+  background: var(--qu-surface);
+  border-top: 1px solid var(--qu-border);
+}
+
+/* ---- Screen / publication target toggle --------------------------- */
+.qu-target-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--qu-border);
+  border-radius: 8px;
+}
+.qu-target-toggle .qu-text-button {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.qu-target-toggle .qu-text-button.is-active {
+  background: var(--qu-accent-solid);
+  border-color: var(--qu-accent-solid);
+  color: #ffffff;
+}
+
+/* ---- Figure tools (full screen only) ------------------------------- */
+.qu-tool-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--qu-border);
+  border-radius: 8px;
+}
+.qu-tool-group .qu-icon-button.is-active {
+  background: var(--qu-accent-solid);
+  color: #ffffff;
+}
+.qu-tool-group .qu-icon-button:disabled { opacity: .35; cursor: not-allowed; }
+
+/* The pointer says what a click will do. */
+.qu-figure-stage[data-tool="cursor"] { cursor: crosshair; }
+.qu-figure-stage[data-tool="annotate"] { cursor: crosshair; }
+.qu-figure-stage[data-tool="text"] { cursor: text; }
+.qu-figure-stage[data-tool="select"] { cursor: default; }
+.qu-figure-stage[data-tool="select"] svg text { cursor: text; }
+
+/* Monospace + tabular figures so a live readout does not jitter as digits
+   change width while the pointer moves. */
+.qu-readout {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--qu-accent);
+}
+
+/* In-place text editing, positioned over the text it replaces. */
+.qu-figure-text-edit {
+  position: absolute;
+  z-index: 20;
+  padding: 1px 5px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--qu-text);
+  background: var(--qu-surface);
+  border: 1.5px solid var(--qu-accent);
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 18%);
+}
+/* The stage scrolls; the input is placed in its scroll space. */
+.qu-figure-stage { position: relative; }
+
+/* Snap toggle sits with the tools and reads as on/off at a glance. */
+.qu-toolbar .qu-text-button.is-active {
+  background: var(--qu-accent-solid);
+  border-color: var(--qu-accent-solid);
+  color: #ffffff;
+}
+
+/* ---- Generated Qu from the shape tools ----------------------------- */
+/* Shown before insertion, always: the point of pointing at a figure is to
+   get the line you would have written, and you should read it first. */
+.qu-codegen {
+  border-top: 1px solid var(--qu-border);
+  background: var(--qu-surface);
+}
+.qu-codegen-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--qu-muted);
+}
+.qu-codegen-body {
+  margin: 0;
+  padding: 8px 12px 12px;
+  max-height: 140px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--qu-text);
+  white-space: pre;
+}
+
+/* Save-collection buttons sit with the other header controls. */
+.qu-save-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--qu-border);
+  border-radius: 8px;
+}
+.qu-save-group .qu-text-button { padding: 2px 7px; font-size: 11px; }

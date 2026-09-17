@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>progress — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>progress</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a></p>
+<pre class="fnsig"><code>progress(i, n)</code></pre>
+<p class="fnnote">Input: i, n &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>A tqdm-style progress bar, called once per loop iteration: <code>i</code> is the 0-based index (<code>0</code> through <code>n - 1</code>), <code>n</code> is the total count. Draws <code>[####------] 42% (420/1000) 123.4/s eta 4.7s</code> and redraws in place with a carriage return, throttled to at most once per 100ms (the first and last frame always draw regardless). Resets its own clock whenever <code>i</code> is <code>0</code>, so a second loop in the same script gets its own rate and ETA. Errors if <code>i</code> is out of <code>0..n-1</code> — the common mistake is calling it from <code>for i = 1 to n</code> instead of <code>for i = 0 to n - 1</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>progress(i, n)</code></td><td><div class="ioitem"><code>i</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>Draws <code>[####------] 42% (420/1000) 123.4/s eta 4.7s</code> and redraws in place with a carriage return, throttled to at most once per 100ms (the first and last frame always draw regardless).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>progress(i, n)</code> (a tqdm-style progress indicator, Ahmed's own request) — called once per loop iteration, <code>i</code> 0-based and <code>i &lt; n</code>: <code>for i = 0 to n - 1 ... progress(i, n) ... end for</code> is the idiom. Deliberately NOT a for-loop wrapper or new syntax (which would need real interpreter/parser surgery) — a single explicit builtin next to <code>tic</code>/<code>toc</code> does the same job with no new mechanism, and degrades gracefully: a script that never calls it pays nothing. Draws <code>[####------] 42% (420/1000) 123.4/s eta 4.7s</code> and redraws in place via <code>\r</code> -- a real terminal overwrites the line; a captured/report output just carries the <code>\r</code> characters, same trade-off <code>tic</code>/<code>toc</code> and friends already make for being terminal-shaped tools. Resets its own clock whenever <code>i == 0</code>, so a second loop in the same script gets its own rate/ETA rather than inheriting the first loop's elapsed time -- and throttles redraws to at most once per 100ms (always drawing the first and last frame regardless of the clock) so a tight loop over millions of items does not spend more time drawing the bar than doing the work it measures.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

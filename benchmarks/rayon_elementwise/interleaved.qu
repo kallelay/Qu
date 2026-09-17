@@ -1,0 +1,86 @@
+# Vec (always serial) vs Mat (rayon above 1<<20), INTERLEAVED.
+#
+# WHY INTERLEAVED, and this is the whole point of the file: an earlier
+# version of this measurement timed all the vector reps in one block and all
+# the matrix reps in a second block. On a shared machine that is wrong -- the
+# observed run-to-run drift on this box is 2-3x, so any drift between block
+# one and block two is charged entirely to whichever ran second. Measured
+# directly: three consecutive identical runs gave abs = 0.0092, 0.0047,
+# 0.0034 s. A block design would have reported that as a 2.7x "speedup".
+#
+# Here every variant is timed once per rep, in the same rep, microseconds
+# apart, and the minimum over reps is taken per variant. Drift now moves all
+# variants together instead of separating them.
+#
+# Both halves hold the SAME numbers: one randn, viewed as a vector and
+# reshaped as a matrix. Identical arithmetic, identical element count.
+
+n = 4000000
+reps = 15
+
+v = randn(n, 1)
+m = reshape(v, 2000, 2000)
+
+best_vsin = 1.0e9
+best_msin = 1.0e9
+best_vabs = 1.0e9
+best_mabs = 1.0e9
+best_vmul = 1.0e9
+best_mmul = 1.0e9
+
+for r = 0 to reps
+    tic()
+    a1 = sin(v)
+    t = toc()
+    if t < best_vsin and r > 0
+        best_vsin = t
+    end if
+
+    tic()
+    a2 = sin(m)
+    t = toc()
+    if t < best_msin and r > 0
+        best_msin = t
+    end if
+
+    tic()
+    a3 = abs(v)
+    t = toc()
+    if t < best_vabs and r > 0
+        best_vabs = t
+    end if
+
+    tic()
+    a4 = abs(m)
+    t = toc()
+    if t < best_mabs and r > 0
+        best_mabs = t
+    end if
+
+    tic()
+    a5 = v .* v
+    t = toc()
+    if t < best_vmul and r > 0
+        best_vmul = t
+    end if
+
+    tic()
+    a6 = m .* m
+    t = toc()
+    if t < best_mmul and r > 0
+        best_mmul = t
+    end if
+end for
+
+# r = 0 is the discarded warm-up: first touch of every output page and the
+# first rayon dispatch (which builds the global pool) both land there.
+
+print("{n} elements, best of {reps} interleaved reps (rep 0 discarded)")
+print("agreement: sin {a1[0]:.9f} / {a2[0,0]:.9f}   mul {a5[0]:.9f} / {a6[0,0]:.9f}")
+print("")
+print("op        path        Vec(serial)   Mat(rayon)    Mat/Vec")
+print("sin(x)    map1/map    {best_vsin:.4f} s      {best_msin:.4f} s      {best_msin/best_vsin:.2f}")
+print("abs(x)    map1/map    {best_vabs:.4f} s      {best_mabs:.4f} s      {best_mabs/best_vabs:.2f}")
+print("x .* x    map2/bcast  {best_vmul:.4f} s      {best_mmul:.4f} s      {best_mmul/best_vmul:.2f}")
+print("")
+print("Mat/Vec < 1 means the rayon path won; > 1 means the serial Vec won.")

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voronoi — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>voronoi</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>voronoi(points)</code></pre>
+<p class="fnnote">Input: points &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Computes the Voronoi diagram of an <code>(N, 2)</code> point matrix <code>points</code>, built on a real Delaunay triangulation.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = voronoi(points)</code></td><td><div class="ioitem"><code>points</code> <span class="iotype">matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>points</code> <span class="iotype">matrix</span><span class="iodesc">the input <code>(N, 2)</code> matrix, unchanged</span></div>
+<div class="ioitem"><code>cells</code> <span class="iotype">&mdash;</span><span class="iodesc">a length-<code>N</code> list, one entry per input point, each a list of <code>(x, y)</code> vertex coordinates outlining that point's Voronoi cell</span></div>
+<div class="ioitem"><code>bounded</code> <span class="iotype">vector</span><span class="iodesc">a length-<code>N</code> vector of 0/1 flags, one per point</span></div>
+</td><td>Returns a Record with fields <code>points</code> (the input <code>(N, 2)</code> matrix, unchanged), <code>cells</code> (a length-<code>N</code> list, one entry per input point, each a list of <code>(x, y)</code> vertex coordinates outlining that point's Voronoi cell), and <code>bounded</code> (a length-<code>N</code> vector of 0/1 flags, one per point).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>pts = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">2</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)   <span class="c"># the corners of a square</span>
+v = <span class="f">voronoi</span>(pts)
+<span class="f">print</span>(<span class="s">"bounded: {v.bounded}"</span>)      <span class="c"># every corner cell is unbounded</span>
+<span class="f">print</span>(<span class="s">"cell 0:  {v.cells[0]}"</span>)     <span class="c"># the one finite vertex: the centre</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>voronoi(points)</code> — the Voronoi diagram of an <code>(n,2)</code> point set, built on <code>spade</code>'s Delaunay triangulation (see this crate's <code>Cargo.toml</code> for why <code>spade</code>, not a hand-rolled Fortune's sweep). See <code>voronoi_diagram</code>'s own doc comment for the exact return shape and how unbounded cells are handled.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

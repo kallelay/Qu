@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden Markov model — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Statistics &amp; estimation</p>
+<h1>Hidden Markov model</h1>
+<p class="lede">the classic 2-state Hidden Markov Model ("a patient is Healthy or has a Fever; a doctor only observes symptoms") used to hand-verify HMM forward/Viterbi implementations against a well-known reference answer.</p>
+<p class="srcpath">catalog/qu_hmm_healthy_fever.qu</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>hmm(transition, emission, initial)  -- validates both matrices are</li>
+<li>row-stochastic</li>
+<li>model.forward(obs)                  -- total probability of an</li>
+<li>observation sequence</li>
+<li>model.viterbi(obs)                  -- most likely hidden-state path</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>States: Healthy=0, Fever=1. Symptoms: normal=0, cold=1, dizzy=2.</h3>
+<pre class="hl"><code>transition = [<span class="n">0.7</span>, <span class="n">0.3</span>; <span class="n">0.4</span>, <span class="n">0.6</span>]
+emission   = [<span class="n">0.5</span>, <span class="n">0.4</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.6</span>]
+initial    = [<span class="n">0.6</span>, <span class="n">0.4</span>]
+
+model = <span class="f">hmm</span>(transition, emission, initial)
+</code></pre>
+</section>
+<section class="step">
+<h3>Three days of symptoms: normal, then cold, then dizzy.</h3>
+<pre class="hl"><code>obs = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]
+
+likelihood = model.<span class="f">forward</span>(obs)
+path = model.<span class="f">viterbi</span>(obs)
+
+<span class="f">print</span>(<span class="s">"P(observing normal, cold, dizzy) = {likelihood:.5f}"</span>)   <span class="c"># hand-computed: 0.03628</span>
+<span class="f">print</span>(<span class="s">"Most likely state sequence: {path}"</span>)                    <span class="c"># hand-computed: [0, 0, 1]</span>
+<span class="f">print</span>(<span class="s">"  (0 = Healthy, 1 = Fever)"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Sanity check against the hand-derived reference values.</h3>
+<pre class="hl"><code>expected_likelihood = <span class="n">0.03628</span>
+expected_path = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>]
+<span class="k">if</span> <span class="f">abs</span>(likelihood - expected_likelihood) &lt; <span class="n">1e-6</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"forward() matches the hand-computed likelihood."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: forward() disagrees with the hand-computed likelihood!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+<span class="k">if</span> <span class="f">sum</span>(<span class="f">abs</span>(path - expected_path)) &lt; <span class="n">1e-9</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"viterbi() matches the hand-computed most-likely path."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: viterbi() disagrees with the hand-computed path!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>P(observing normal, cold, dizzy) = 0.03628
+Most likely state sequence: [0, 0, 1]
+  (0 = Healthy, 1 = Fever)
+forward() matches the hand-computed likelihood.
+viterbi() matches the hand-computed most-likely path.</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_hmm_healthy_fever.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_hmm_healthy_fever.qu -- the classic 2-state Hidden Markov Model</span>
+<span class="c"># ("a patient is Healthy or has a Fever; a doctor only observes symptoms")</span>
+<span class="c"># used to hand-verify HMM forward/Viterbi implementations against a</span>
+<span class="c"># well-known reference answer.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   hmm(transition, emission, initial)  -- validates both matrices are</span>
+<span class="c">#                                           row-stochastic</span>
+<span class="c">#   model.forward(obs)                  -- total probability of an</span>
+<span class="c">#                                           observation sequence</span>
+<span class="c">#   model.viterbi(obs)                  -- most likely hidden-state path</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% States: Healthy=0, Fever=1. Symptoms: normal=0, cold=1, dizzy=2.</span>
+transition = [<span class="n">0.7</span>, <span class="n">0.3</span>; <span class="n">0.4</span>, <span class="n">0.6</span>]
+emission   = [<span class="n">0.5</span>, <span class="n">0.4</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.6</span>]
+initial    = [<span class="n">0.6</span>, <span class="n">0.4</span>]
+
+model = <span class="f">hmm</span>(transition, emission, initial)
+
+<span class="c">#%% Three days of symptoms: normal, then cold, then dizzy.</span>
+obs = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]
+
+likelihood = model.<span class="f">forward</span>(obs)
+path = model.<span class="f">viterbi</span>(obs)
+
+<span class="f">print</span>(<span class="s">"P(observing normal, cold, dizzy) = {likelihood:.5f}"</span>)   <span class="c"># hand-computed: 0.03628</span>
+<span class="f">print</span>(<span class="s">"Most likely state sequence: {path}"</span>)                    <span class="c"># hand-computed: [0, 0, 1]</span>
+<span class="f">print</span>(<span class="s">"  (0 = Healthy, 1 = Fever)"</span>)
+
+<span class="c">#%% Sanity check against the hand-derived reference values.</span>
+expected_likelihood = <span class="n">0.03628</span>
+expected_path = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>]
+<span class="k">if</span> <span class="f">abs</span>(likelihood - expected_likelihood) &lt; <span class="n">1e-6</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"forward() matches the hand-computed likelihood."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: forward() disagrees with the hand-computed likelihood!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+<span class="k">if</span> <span class="f">sum</span>(<span class="f">abs</span>(path - expected_path)) &lt; <span class="n">1e-9</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"viterbi() matches the hand-computed most-likely path."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: viterbi() disagrees with the hand-computed path!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

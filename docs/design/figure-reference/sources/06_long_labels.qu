@@ -1,0 +1,9 @@
+x = linspace(1000000, 1200000, 50)
+y = 12345678.9 + 1000 * sin(x/10000)
+plot(x, y, label="measured accumulated charge transfer")
+xlabel("Cumulative elapsed measurement time since experiment start (seconds)")
+ylabel("Accumulated charge transferred through the working electrode (coulombs)")
+title("A deliberately long figure title that describes the whole measurement campaign in detail")
+grid on
+legend()
+savefig("06_long_labels.svg")

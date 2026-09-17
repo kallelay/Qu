@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>daily_profile — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>daily_profile</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>daily_profile(x, fs, [stat="std"])</code></pre>
+<p class="fnnote">Input: x, fs, stat &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector; <code>fs</code>: a number (Hz); <code>stat</code> (optional string).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = daily_profile(x, fs, [stat="std"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc"><code>fs</code>: a number (Hz).</span></div>
+<div class="ioitem"><code>stat</code> <span class="iotype">string, optional (default <code>"std"</code>)</span><span class="iodesc"><code>stat</code> (optional string).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-7 real vector, one bin per day-of-week -- so a weekday-against-weekend difference separates out.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c">## periodic_profile: a burst that recurs every 2 seconds, folded onto one cycle</span>
+fs = <span class="n">200</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1999</span>          <span class="c"># 10 seconds</span>
+t = n / fs
+x = <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">2000</span>, <span class="a">seed</span>=<span class="n">6</span>)
+x = x + <span class="f">where</span>((t <span class="k">mod</span> <span class="n">2.0</span>) &lt; <span class="n">0.1</span>, <span class="n">1.0</span>, <span class="n">0.0</span>)   <span class="c"># a short spike once per 2s cycle</span>
+prof = <span class="f">periodic_profile</span>(x, fs, <span class="n">2.0</span>, <span class="n">20</span>, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"periodic_profile bins: {length(prof)}, spike bin mean = {max(prof)}, baseline ~ {prof[10]}"</span>)
+
+<span class="c">## hourly_profile: a day/night sinusoid, sampled once per minute over 2 days</span>
+fs_h = <span class="n">1.0</span>/<span class="n">60.0</span>
+n_h = <span class="n">0</span>:<span class="n">1</span>:<span class="n">2879</span>        <span class="c"># 2 days at 1 sample/min</span>
+t_h = n_h / fs_h
+hour_of_day = (t_h/<span class="n">3600</span>) <span class="k">mod</span> <span class="n">24</span>
+xh = <span class="f">sin</span>(<span class="n">2</span>*pi*hour_of_day/<span class="n">24</span>) + <span class="n">0.1</span>*<span class="f">randn</span>(<span class="n">2880</span>, <span class="a">seed</span>=<span class="n">7</span>)
+hp = <span class="f">hourly_profile</span>(xh, fs_h, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"hourly_profile: {length(hp)} bins, quietest hour idx = {find_peaks(-hp)[0]}"</span>)
+
+<span class="c">## minutely_profile: activity concentrated in the first 5 minutes of each hour</span>
+fs_m = <span class="n">1.0</span>
+n_m = <span class="n">0</span>:<span class="n">1</span>:<span class="n">10799</span>       <span class="c"># 3 hours at 1 Hz</span>
+t_m = n_m / fs_m
+minute_of_hour = (t_m/<span class="n">60</span>) <span class="k">mod</span> <span class="n">60</span>
+xm = <span class="f">where</span>(minute_of_hour &lt; <span class="n">5</span>, <span class="n">1.0</span>, <span class="n">0.0</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">10800</span>, <span class="a">seed</span>=<span class="n">8</span>)
+mp = <span class="f">minutely_profile</span>(xm, fs_m, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"minutely_profile: {length(mp)} bins, busiest minute idx = {find_peaks(mp)[0]}"</span>)
+
+<span class="c">## daily_profile: weekday/weekend pattern, one sample per hour over 3 weeks</span>
+fs_d = <span class="n">1.0</span>/<span class="n">3600.0</span>
+n_d = <span class="n">0</span>:<span class="n">1</span>:<span class="n">503</span>         <span class="c"># 21 days at 1 sample/hour</span>
+t_d = n_d / fs_d
+day_of_week = (t_d/<span class="n">86400</span>) <span class="k">mod</span> <span class="n">7</span>
+xd = <span class="f">where</span>(day_of_week &lt; <span class="n">5</span>, <span class="n">1.0</span>, <span class="n">0.0</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">504</span>, <span class="a">seed</span>=<span class="n">9</span>)   <span class="c"># higher on weekdays</span>
+dp = <span class="f">daily_profile</span>(xd, fs_d, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"daily_profile: {length(dp)} bins (0=day0..6), values = {dp}"</span>)
+
+<span class="c">## monthly_profile: an annual cycle, one sample per day over ~2 years</span>
+fs_mo = <span class="n">1.0</span>/<span class="n">86400.0</span>
+n_mo = <span class="n">0</span>:<span class="n">1</span>:<span class="n">729</span>        <span class="c"># 2 years at 1 sample/day</span>
+t_mo = n_mo / fs_mo
+xmo = <span class="f">sin</span>(<span class="n">2</span>*pi*t_mo/<span class="n">31557600</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">730</span>, <span class="a">seed</span>=<span class="n">10</span>)
+mop = <span class="f">monthly_profile</span>(xmo, fs_mo, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"monthly_profile: {length(mop)} bins, values = {mop}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>daily_profile(x, fs, [stat="std"])</code> — <code>periodic_profile</code> preset: a 7-day (1-week) cycle cut into 7 day-of-week bins.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

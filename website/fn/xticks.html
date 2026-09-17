@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xticks — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>xticks</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>xticks(positions)</code></pre>
+<p class="fnnote">Input: positions &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Sets explicit x tick positions from <code>positions</code> (Vec of numbers, data units), paired in order with <code>xticklabels(...)</code> when both are set. <code>xticks(())</code> (empty) removes ticks entirely.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>xticks(positions)</code></td><td><div class="ioitem"><code>positions</code> <span class="iotype">Vec or number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>xticks(())</code> (empty) removes ticks entirely.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>Xc = <span class="f">randn</span>(<span class="n">200</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">41</span>)
+yc = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> Xc[i, <span class="n">0</span>] + Xc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        yc[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+s = <span class="f">train_test_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model)
+    yhat = model.<span class="f">predict</span>(s.X_test)
+    hit = yhat == s.y_test
+    <span class="k">return</span> <span class="f">len</span>(yhat[hit]) / <span class="f">len</span>(yhat)
+<span class="k">end</span> <span class="k">function</span>
+
+names = (<span class="s">"knn"</span>, <span class="s">"tree"</span>, <span class="s">"forest"</span>, <span class="s">"bayes"</span>)
+scores = (
+    <span class="f">accuracy</span>(<span class="f">knn_model</span>(s.X_train, s.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">tree_model</span>(s.X_train, s.y_train, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">random_forest_model</span>(s.X_train, s.y_train, <span class="n">40</span>, <span class="a">seed</span> = <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">naive_bayes_model</span>(s.X_train, s.y_train))
+)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">3</span>
+    <span class="f">print</span>(<span class="s">"{names[i]}: {round(scores[i], 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">bar</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>, scores, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">values</span> = <span class="k">true</span>)
+<span class="f">xticks</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>)
+<span class="f">xticklabels</span>(names)
+<span class="f">ylim</span>(<span class="n">0</span>, <span class="n">1</span>)
+<span class="f">ylabel</span>(<span class="s">"test accuracy"</span>)
+<span class="f">title</span>(<span class="s">"held-out accuracy, same split"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">200</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t))
+<span class="f">xticks</span>([<span class="n">0</span>, <span class="n">0.5</span>, <span class="n">1</span>])
+<span class="f">xticklabels</span>(<span class="s">"start"</span>, <span class="s">"mid"</span>, <span class="s">"end"</span>)
+<span class="f">yticks</span>([-<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>])
+<span class="f">yticklabels</span>(<span class="s">"low"</span>, <span class="s">"zero"</span>, <span class="s">"high"</span>)
+<span class="f">fontfamily</span>(<span class="s">"sans"</span>)
+<span class="f">fontsize</span>(<span class="a">tick</span> = <span class="n">10</span>, <span class="a">label</span> = <span class="n">12</span>, <span class="a">title</span> = <span class="n">14</span>)
+<span class="f">figure_background</span>(<span class="s">"#f7f7f7"</span>)
+<span class="f">colormap</span>(<span class="s">"viridis"</span>)
+<span class="f">colorbar</span>()
+<span class="f">grid</span>()
+<span class="f">box</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">xscale</span>(<span class="s">"linear"</span>)
+<span class="f">yscale</span>(<span class="s">"linear"</span>)
+<span class="f">title</span>(<span class="s">"Styled panel"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>xticks(positions)</code> — explicit tick positions, paired in order with <code>xticklabels(...)</code> when both are set (MATLAB semantics).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

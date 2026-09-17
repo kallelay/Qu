@@ -1,0 +1,57 @@
+# linalg_stress.qu -- QR, SVD, and the `\` linear-solve operator at a real
+# stress scale (n=300 and n=1000 -- beyond catalog/qu_qr_svd.qu's 4x2 toy,
+# in the same ballpark as benchmarks/linalg/bench.qu's own 100/500/1000
+# ladder), each checked against numpy.linalg on the EXACT SAME matrix,
+# loaded byte-for-byte via a column-major CSV round-trip (see README.md for
+# why column-major flattening is required to avoid a silent transpose).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   qr(A)  -> Model(.q, .r),      A = Q*R
+#   svd(A) -> Model(.u, .s, .vt), A = U*diag(s)*V'
+#   A \ b  -- MATLAB-style left division / linear solve
+#   reshape(vec, rows, cols) -- column-major fill
+#   tic()/toc(), read_csv, write_csv/table
+#
+# Run: qu run benchmarks/advanced_validation/linalg_stress/linalg_stress.qu
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/linalg_stress/"
+
+function run_size(n)
+    a_df = read_csv(DATA + "a_n{n}.csv")
+    b_df = read_csv(DATA + "b_n{n}.csv")
+    A = reshape(a_df.val, n, n)
+    b = b_df.val
+
+    # -- QR: A = Q*R -------------------------------------------------------
+    tic()
+    qrf = qr(A)
+    t_qr = toc()
+    qr_resid = max(abs(A - qrf.q * qrf.r))
+
+    # -- SVD: A = U*diag(s)*V' ----------------------------------------------
+    tic()
+    sv = svd(A)
+    t_svd = toc()
+    Sd = zeros(n, n)
+    for i = 0 to n - 1
+        Sd[i, i] = sv.s[i]
+    end for
+    svd_resid = max(abs(A - sv.u * Sd * sv.vt))
+
+    # -- Solve: x = A \ b -----------------------------------------------------
+    tic()
+    x = A \ b
+    t_solve = toc()
+
+    print("n={n}")
+    print("  qr    : {t_qr*1000:.3f} ms   max|A-Q*R|     = {qr_resid:.3e}")
+    print("  svd   : {t_svd*1000:.3f} ms   max|A-U*S*Vt| = {svd_resid:.3e}")
+    print("  solve : {t_solve*1000:.3f} ms")
+
+    write_csv(table(x=x), DATA + "x_qu_n{n}.csv")
+end function
+
+run_size(300)
+run_size(1000)

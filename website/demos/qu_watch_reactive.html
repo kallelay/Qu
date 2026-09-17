@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactive watch — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Language &amp; UI</p>
+<h1>Reactive watch</h1>
+<p class="lede">all three `watch` trigger forms (`watch file(path)`, `watch &lt;variable&gt;`, `watch url(...)`), each firing exactly once on a genuine change and staying silent on an unchanged `pump_watches()` call.</p>
+<p class="srcpath">catalog/qu_watch_reactive.qu</p>
+<p>`watch` never runs "in the background" -- Qu's interpreter is single- threaded with no event loop. `watch ... end` only registers a callback and records a baseline (a file's mtime, a variable's current value, or one real HTTP fetch); the body only ever runs when the script explicitly calls `pump_watches()`, which checks every registered watch's REAL current state exactly once. This script drives that loop by hand, exactly mirroring the mechanics of `watch_file_fires_once_on_a_real_ mtime_change_and_not_on_an_unchanged_pump` and `watch_var_fires_on_a_ genuine_value_change_and_not_on_a_same_value_reassignment` in `engine/crates/qu-interp/src/lib.rs`. `watch url(...)` needs a live server to show a genuine body change against, which this standalone demo doesn't stand up -- it's registered and pumped for real (proving registration + one real fetch actually work against a real, reachable URL) but is not exercised for the "fires on change" case the way the file/variable watches are.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>watch file(path) do ... end</li>
+<li>watch &lt;variable name&gt; do ... end</li>
+<li>watch url(url, [interval_seconds=]) do ... end</li>
+<li>pump_watches()</li>
+<li>touch(path)                    -- real mtime bump used to trigger the file watch</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>where nothing changed.</h3>
+<pre class="hl"><code>file_fires = <span class="n">0</span>
+watch <span class="f">file</span>(watch_target) <span class="k">do</span>
+    file_fires = file_fires + <span class="n">1</span>
+<span class="k">end</span>
+
+f1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #1 (nothing touched yet): fired={f1}, file_fires={file_fires}"</span>)
+
+<span class="f">touch</span>(watch_target)
+f2 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #2 (just touched the file): fired={f2}, file_fires={file_fires}"</span>)
+
+f3 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #3 (no change since pump #2): fired={f3}, file_fires={file_fires}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>same-value reassignment.</h3>
+<pre class="hl"><code>threshold = <span class="n">10</span>
+var_fires = <span class="n">0</span>
+watch threshold <span class="k">do</span>
+    var_fires = var_fires + <span class="n">1</span>
+<span class="k">end</span>
+
+g1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #4 (threshold unchanged): fired={g1}, var_fires={var_fires}"</span>)
+
+threshold = <span class="n">25</span>
+g2 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #5 (threshold changed to {threshold}): fired={g2}, var_fires={var_fires}"</span>)
+
+threshold = <span class="n">25</span>
+g3 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #6 (reassigned the SAME value, 25): fired={g3}, var_fires={var_fires}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>server).</h3>
+<pre class="hl"><code>url_fires = <span class="n">0</span>
+watch <span class="f">url</span>(<span class="s">"https://example.com/"</span>, <span class="a">interval_seconds</span>=<span class="n">3600</span>) <span class="k">do</span>
+    url_fires = url_fires + <span class="n">1</span>
+<span class="k">end</span>
+h1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #7 (url watch just registered, interval not elapsed yet): fired={h1}, url_fires={url_fires}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Summary</h3>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Total file watch fires: {file_fires} (expected 1)"</span>)
+<span class="f">print</span>(<span class="s">"Total variable watch fires: {var_fires} (expected 1)"</span>)
+<span class="f">print</span>(<span class="s">"Total url watch fires this run: {url_fires} (expected 0 -- baseline fetch only)"</span>)
+
+<span class="c"># Clean up the demo file this script created.</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>pump #1 (nothing touched yet): fired=0, file_fires=0
+pump #2 (just touched the file): fired=1, file_fires=1
+pump #3 (no change since pump #2): fired=0, file_fires=1
+pump #4 (threshold unchanged): fired=0, var_fires=0
+pump #5 (threshold changed to 25): fired=1, var_fires=1
+pump #6 (reassigned the SAME value, 25): fired=0, var_fires=1
+pump #7 (url watch just registered, interval not elapsed yet): fired=0, url_fires=0
+
+Total file watch fires: 1 (expected 1)
+Total variable watch fires: 1 (expected 1)
+Total url watch fires this run: 0 (expected 0 -- baseline fetch only)</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_watch_reactive.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_watch_reactive.qu -- all three `watch` trigger forms (`watch</span>
+<span class="c"># file(path)`, `watch &lt;variable&gt;`, `watch url(...)`), each firing exactly</span>
+<span class="c"># once on a genuine change and staying silent on an unchanged</span>
+<span class="c"># `pump_watches()` call.</span>
+<span class="c">#</span>
+<span class="c"># `watch` never runs "in the background" -- Qu's interpreter is single-</span>
+<span class="c"># threaded with no event loop. `watch ... end` only registers a callback</span>
+<span class="c"># and records a baseline (a file's mtime, a variable's current value, or</span>
+<span class="c"># one real HTTP fetch); the body only ever runs when the script explicitly</span>
+<span class="c"># calls `pump_watches()`, which checks every registered watch's REAL</span>
+<span class="c"># current state exactly once. This script drives that loop by hand,</span>
+<span class="c"># exactly mirroring the mechanics of `watch_file_fires_once_on_a_real_</span>
+<span class="c"># mtime_change_and_not_on_an_unchanged_pump` and `watch_var_fires_on_a_</span>
+<span class="c"># genuine_value_change_and_not_on_a_same_value_reassignment` in</span>
+<span class="c"># `engine/crates/qu-interp/src/lib.rs`. `watch url(...)` needs a live</span>
+<span class="c"># server to show a genuine body change against, which this standalone demo</span>
+<span class="c"># doesn't stand up -- it's registered and pumped for real (proving</span>
+<span class="c"># registration + one real fetch actually work against a real, reachable</span>
+<span class="c"># URL) but is not exercised for the "fires on change" case the way the</span>
+<span class="c"># file/variable watches are.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   watch file(path) do ... end</span>
+<span class="c">#   watch &lt;variable name&gt; do ... end</span>
+<span class="c">#   watch url(url, [interval_seconds=]) do ... end</span>
+<span class="c">#   pump_watches()</span>
+<span class="c">#   touch(path)                    -- real mtime bump used to trigger the file watch</span>
+
+<span class="k">backend</span> auto
+
+watch_target = <span class="s">"qu_watch_reactive_demo.txt"</span>
+<span class="c"># Start from a clean slate so this script is repeatable run after run.</span>
+<span class="k">if</span> <span class="f">file_exists</span>(watch_target)
+    f = <span class="f">fopen</span>(watch_target, <span class="s">"w"</span>)
+    <span class="f">write_line</span>(f, <span class="s">"reset"</span>)
+    <span class="f">close</span>(f)
+<span class="k">end</span> <span class="k">if</span>
+
+<span class="c">#%% Form 1: watch file(path) -- fires on a real mtime change, not on a pump</span>
+<span class="c">#%% where nothing changed.</span>
+file_fires = <span class="n">0</span>
+watch <span class="f">file</span>(watch_target) <span class="k">do</span>
+    file_fires = file_fires + <span class="n">1</span>
+<span class="k">end</span>
+
+f1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #1 (nothing touched yet): fired={f1}, file_fires={file_fires}"</span>)
+
+<span class="f">touch</span>(watch_target)
+f2 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #2 (just touched the file): fired={f2}, file_fires={file_fires}"</span>)
+
+f3 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #3 (no change since pump #2): fired={f3}, file_fires={file_fires}"</span>)
+
+<span class="c">#%% Form 2: watch &lt;variable&gt; -- fires on a genuine value change, not on a</span>
+<span class="c">#%% same-value reassignment.</span>
+threshold = <span class="n">10</span>
+var_fires = <span class="n">0</span>
+watch threshold <span class="k">do</span>
+    var_fires = var_fires + <span class="n">1</span>
+<span class="k">end</span>
+
+g1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #4 (threshold unchanged): fired={g1}, var_fires={var_fires}"</span>)
+
+threshold = <span class="n">25</span>
+g2 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #5 (threshold changed to {threshold}): fired={g2}, var_fires={var_fires}"</span>)
+
+threshold = <span class="n">25</span>
+g3 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #6 (reassigned the SAME value, 25): fired={g3}, var_fires={var_fires}"</span>)
+
+<span class="c">#%% Form 3: watch url(...) -- registers + performs one real baseline fetch</span>
+<span class="c">#%% against a real, reachable URL; not exercised for a body-change fire in</span>
+<span class="c">#%% this standalone demo (that needs a live server whose response actually</span>
+<span class="c">#%% changes between two fetches -- see lib.rs's own</span>
+<span class="c">#%% `watch_url_fires_on_a_real_body_change_over_loopback_and_not_on_an_</span>
+<span class="c">#%% unchanged_poll` test for that scenario against a controlled local</span>
+<span class="c">#%% server).</span>
+url_fires = <span class="n">0</span>
+watch <span class="f">url</span>(<span class="s">"https://example.com/"</span>, <span class="a">interval_seconds</span>=<span class="n">3600</span>) <span class="k">do</span>
+    url_fires = url_fires + <span class="n">1</span>
+<span class="k">end</span>
+h1 = <span class="f">pump_watches</span>()
+<span class="f">print</span>(<span class="s">"pump #7 (url watch just registered, interval not elapsed yet): fired={h1}, url_fires={url_fires}"</span>)
+
+<span class="c">#%% Summary</span>
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Total file watch fires: {file_fires} (expected 1)"</span>)
+<span class="f">print</span>(<span class="s">"Total variable watch fires: {var_fires} (expected 1)"</span>)
+<span class="f">print</span>(<span class="s">"Total url watch fires this run: {url_fires} (expected 0 -- baseline fetch only)"</span>)
+
+<span class="c"># Clean up the demo file this script created.</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>capture — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>capture</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig">result = <code>capture("fn", [args...])</code></pre>
+<p class="fnnote">Input: "fn", args... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Runs the named drawing function <code>"fn"</code> (string, a function you defined) into a scratch panel, passing along any further positional <code>args...</code>, and keeps what it drew as a value (a "layer"). See Layers, near the top of this chapter.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = capture("fn", [args...])</code></td><td><div class="ioitem"><code>"fn"</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>args...</code> <span class="iotype">string, optional, repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a layer value.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">function</span> <span class="f">sensor</span>()
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0.28</span>, <span class="a">fill</span> = <span class="s">"#4169e1"</span>, <span class="a">alpha</span> = <span class="n">0.9</span>)
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0.44</span>, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">1.2</span>)
+    <span class="f">plot</span>([<span class="n">0</span>, <span class="n">0</span>], [-<span class="n">0.44</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">1.2</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+s = <span class="f">capture</span>(<span class="s">"sensor"</span>)
+<span class="f">stamp</span>(s, <span class="n">2</span>, <span class="n">5</span>)
+<span class="f">stamp</span>(s, <span class="n">6</span>, <span class="n">5</span>, <span class="a">scale</span> = <span class="n">0.7</span>)
+<span class="f">stamp</span>(s, <span class="n">10</span>, <span class="n">5</span>, <span class="a">rotate</span> = <span class="n">180</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p>── layers ────────────────────────────────────────────────── <code>capture("draw_leaf")</code> runs your function into a scratch panel and keeps what it drew, as a VALUE. <code>stamp(l, x, y)</code> puts a transformed copy on the real panel. A value rather than a mode, deliberately: a layer can be passed, returned, held in a list, and duplicated by ordinary assignment, where a stateful recorder with a begin and an end is one more thing to forget to close. It separates WHAT is drawn from WHERE, which is the whole point -- a sensor symbol, a leaf, a bolt described once and placed forty times.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

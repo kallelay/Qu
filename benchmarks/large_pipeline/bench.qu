@@ -1,0 +1,92 @@
+# bench.qu -- large-scale full signal-processing pipeline, end to end.
+#
+# Same 7 stages as ../full_pipeline/bench.qu (load -> clean -> filter ->
+# spectral -> time-freq -> features -> export), scaled 25x: 5,000,000
+# samples instead of 200,000, to see whether Qu's relative standing against
+# Python holds, narrows, or widens once every stage is working on a much
+# bigger array (BACKLOG/README's own open question after the elementwise-
+# parallelization pass: "no fusion... every stage independently
+# parallelized" -- more samples should exercise that more, not less).
+#
+# `n = 0 to N - 1` (the original script's index-vector construction) is
+# NOT used here -- Qu's `for`/range-literal construct has a deliberate
+# 1,000,000-element safety cap (`qu-core::DEFAULT_ELEMENT_LIMIT`,
+# `NumericError::ElementLimit`), so a 5,000,000-element range literal
+# errors ("range would create 5000000 values; limit is 1000000"). `linspace`
+# has no such cap, and produces the identical time vector, so it's used
+# instead -- this is the same reason `benchmarks/file_io/binary_doubles.qu`
+# is capped at N=1,000,000 (a real, documented ceiling on Qu's eager range
+# construct, not an arbitrary choice) while this script isn't (it never
+# builds a qu-level range/for-loop over N elements -- every stage below is
+# a single call into a native Rust bulk operation).
+#
+# Run: qu run benchmarks/large_pipeline/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/large_pipeline/bench.qu)
+
+backend auto
+
+# --- acquire + write CSV (untimed prep: "data acquisition") -----------------
+Fs = 10000
+N = 5000000
+t = linspace(0, (N - 1) / Fs, N)
+seed(11)
+x_raw = sin(2 * pi * 60 * t) + 0.6 * sin(2 * pi * 440 * t) + 0.3 * sin(2 * pi * 1800 * t) + 0.15 * randn(N, 1) + 0.5
+x_raw as vector(1, N)
+csv_path = "benchmarks/large_pipeline/pipeline_signal.csv"
+write_csv(table(t=t, x=x_raw), csv_path)
+
+# --- stage 1: load ------------------------------------------------------
+tic()
+df = read_csv(csv_path)
+xs = df.x
+t_load = toc()
+
+# --- stage 2: clean (remove DC offset) -----------------------------------
+tic()
+xs_clean = xs - mean(xs)
+t_clean = toc()
+
+# --- stage 3: filter (bandpass, isolate 200-1000 Hz) ----------------------
+tic()
+bp = butter(4, "band", [200, 1000], Fs)
+xs_filt = sosfilt(bp, xs_clean)
+t_filter = toc()
+
+# --- stage 4: spectral analysis (rfft magnitude + peak-finding) -----------
+tic()
+spectrum = abs(rfft(xs_filt))
+peaks = find_peaks(spectrum, min_height=max(spectrum) * 0.1, min_distance=10)
+t_spectral = toc()
+
+# --- stage 5: time-frequency (STFT-derived spectrogram, spectral entropy) -
+tic()
+spec_img = spectrogram(xs_filt, 1024, 512, Fs)
+entropy = spectral_entropy(xs_filt, 1024, 512)
+t_timefreq = toc()
+
+# --- stage 6: feature extraction (STE, energy, crest factor, RMS) --------
+tic()
+energy_frames = ste(xs_filt, 1024, 512)
+sig_energy = energy(xs_filt)
+sig_rms = rms(xs_filt)
+sig_crest = max(abs(xs_filt)) / sig_rms
+t_features = toc()
+
+# --- stage 7: export extracted features (one-row wide table) -------------
+tic()
+features = table(rms=sig_rms, crest_factor=sig_crest, energy=sig_energy, n_peaks=length(peaks), mean_entropy=mean(entropy))
+write_csv(features, "benchmarks/large_pipeline/pipeline_features.csv")
+t_export = toc()
+
+t_total = t_load + t_clean + t_filter + t_spectral + t_timefreq + t_features + t_export
+
+print("load       : {t_load:.4f} s")
+print("clean      : {t_clean:.4f} s")
+print("filter     : {t_filter:.4f} s")
+print("spectral   : {t_spectral:.4f} s")
+print("timefreq   : {t_timefreq:.4f} s")
+print("features   : {t_features:.4f} s")
+print("export     : {t_export:.4f} s")
+print("TOTAL      : {t_total:.4f} s")
+print("")
+print("rms={sig_rms:.4f} crest={sig_crest:.4f} energy={sig_energy:.2f} n_peaks={length(peaks)} mean_entropy={mean(entropy):.4f}")

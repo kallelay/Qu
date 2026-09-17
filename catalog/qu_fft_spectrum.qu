@@ -1,0 +1,60 @@
+# qu_fft_spectrum.qu — complex numbers and the DFT on the reference engine.
+#
+# Builds a two-tone real signal, transforms it with `fft`, and reads the
+# one-sided magnitude and phase spectra. Runs end-to-end on `qu run`.
+#
+# Exercises:
+#   §7   imaginary literals (3 + 4i) and complex arithmetic
+#   §24  fft / ifft, abs, angle, real, imag, conj
+#   §15  slicing the one-sided spectrum X[0:N/2 - 1]
+#   §14  elementwise scaling of a complex vector
+
+backend auto
+
+#%% Complex-number warm-up
+# --- A little complex-number warm-up --------------------------------------
+z = 3 + 4i
+print("z          = {z}")
+print("|z|        = {abs(z)}")            # 5
+print("angle(z)   = {angle(z):.4f} rad")  # 0.9273
+print("conj(z)    = {conj(z)}")           # 3 - 4i
+print("z * conj z = {z * conj(z)}")       # 25
+
+#%% Build the signal
+# --- Sampling grid: N = 64 samples at Fs = 64 Hz --------------------------
+N  = 64
+Fs = 64
+dt = 1 / Fs
+n  = 0 to N - 1
+t  = n * dt
+
+# --- Two tones at bins 4 and 9 (exactly periodic in N) --------------------
+x = 1.0 * cos(2 * pi * 4 * t) + 0.5 * cos(2 * pi * 9 * t + pi / 3)
+
+#%% FFT and spectrum
+# --- Forward transform -----------------------------------------------------
+X = fft(x, N)
+
+# One-sided magnitude, scaled to amplitude (×2/N, DC excepted).
+half = X[0:N/2 - 1]
+mag  = abs(half) * 2 / N
+freq = range(0, N/2 - 1) * (Fs / N)
+
+print("N          = {N}, df = {Fs / N} Hz")
+print("peak mags  = {max(mag):.3f}")       # ~1.0 (dominant tone)
+print("bin 4 mag  = {mag[4]:.3f}")         # ~1.0
+print("bin 9 mag  = {mag[9]:.3f}")         # ~0.5
+print("bin 9 phase= {angle(half[9]):.4f}") # ~ pi/3
+
+#%% Round-trip check and plot
+# --- Round-trip: ifft(fft(x)) reconstructs x ------------------------------
+xr = ifft(X, N)
+recon_err = max(abs(real(xr) - x))
+print("recon err  = {recon_err:.2e}")
+
+plot(freq, mag)
+xlabel("Frequency (Hz)")
+ylabel("|X(f)|")
+title("Two-tone amplitude spectrum")
+grid on
+show plot

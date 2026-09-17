@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>interp1 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>interp1</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>interp1(x, y, xq, [method="linear"|"spline"|"nearest"])</code></pre>
+<p class="fnnote">Input: x, y, xq, method &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing); <code>xq</code>: a number or length-M vector, the query point(s); <code>method</code> (optional string). 1-D interpolation through <code>(x, y)</code> (MATLAB's <code>interp1</code>). Extrapolation beyond <code>x</code>'s range is always on — <code>"linear"</code> continues the boundary segment's own slope, <code>"spline"</code> extends the natural cubic spline's boundary segment, <code>"nearest"</code> just keeps returning the nearest endpoint's <code>y</code> — never a clamp or an error, matching what "interpolation *and* extrapolation" implies.</p>
+<h2>Overloads</h2>
+<p>The <code>method</code> string picks between three genuinely different curve shapes through the same six points — worth plotting side by side rather than trusting the names alone.</p>
+<p class="ioacross"><code>xq</code> can be number or vector.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-interp1-0" checked>
+<input type="radio" name="typetab" id="tt-interp1-1">
+<input type="radio" name="typetab" id="tt-interp1-2">
+<div class="tabbar">
+<label for="tt-interp1-0">linear</label>
+<label for="tt-interp1-1">spline</label>
+<label for="tt-interp1-2">nearest</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = interp1(x, y, xq, [method="linear"|"spline"|"nearest"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>xq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>xq</code>: a number or length-M vector, the query point(s).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"linear"|"spline"|"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional string).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>Straight segments between consecutive known points. Look for sharp corners at each of the six original samples (drawn as a separate scatter).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"linear"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = interp1(x, y, xq, [method="linear"|"spline"|"nearest"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>xq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>xq</code>: a number or length-M vector, the query point(s).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"linear"|"spline"|"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional string).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>A natural cubic spline through the same points. Look for a smooth curve with no corners, that can overshoot slightly between points the straight segments above would not.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"spline"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = interp1(x, y, xq, [method="linear"|"spline"|"nearest"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>, <code>y</code>: matching length-N vectors (the known points, <code>x</code> strictly increasing).</span></div>
+<div class="ioitem"><code>xq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>xq</code>: a number or length-M vector, the query point(s).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"linear"|"spline"|"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional string).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>Snaps each query point to whichever known sample is closest. Look for a blocky, staircase-like curve instead of anything smooth or straight.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"nearest"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>interp1(x, y, xq, [method])</code> — <code>method</code> is <code>"linear"</code> (default, extrapolates via the boundary segment's slope), <code>"spline"</code> (natural cubic, shares <code>splineplot</code>'s solver), or <code>"nearest"</code>. <code>xq</code> may be a scalar or a vector; extrapolation beyond <code>x</code>'s range is always on (there's no separate flag to opt in — a query point outside the data is still answered, never an error), matching what "interpolation *and* extrapolation" implies.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

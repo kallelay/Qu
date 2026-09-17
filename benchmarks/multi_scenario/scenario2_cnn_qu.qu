@@ -1,0 +1,93 @@
+# scenario2_cnn_qu.qu -- Scenario 2 (Image/CNN), Qu side.
+#
+# 16x16 single-channel synthetic images, 3 shape classes (square / plus /
+# diagonal bar), 240 train / 60 test (see scenario2_cnn_make_dataset.py).
+# Uses the model-zoo `simple_cnn(input_shape, n_classes, seed=)` constructor
+# -- fixed architecture: one 3x3 "valid" conv2d + bias -> relu -> 2x2
+# non-overlapping maxpool2d -> a per-class dense readout (see
+# `simple_cnn_init`'s own doc comment in
+# `engine/crates/qu-interp/src/lib.rs`). PyTorch/Keras sides build the
+# matching architecture by hand: Conv2d(1,1,kernel_size=3)/Conv2D(filters=1,
+# kernel_size=3) -> ReLU -> MaxPool2d(2)/MaxPooling2D(2) -> Flatten ->
+# Linear/Dense(n_classes).
+#
+# Data loading: Qu has no .npz reader, so scenario2_cnn_make_dataset.py also
+# writes each split's images stacked VERTICALLY into a plain, headerless CSV
+# (image i occupies rows [i*16, (i+1)*16), 16 columns -- the image's own
+# natural row/col layout, avoiding any flatten-order ambiguity). Read with
+# `read_csv(..., headers=false)` (auto column names col1..col16), assembled
+# into one big (n*16, 16) matrix via `hstack`, then each image is sliced out
+# with `Xall[i*16 : i*16+15, :]` -- Qu's `a:b` slice is INCLUSIVE of `b`
+# (`M[0:2,:]` returns rows 0, 1 AND 2), so the stop names the last row
+# wanted, not the one after it: exactly rows i*16..i*16+15, matching
+# numpy's own `X[i]` on the pre-stack 3-D array.
+#
+# `simple_cnn`'s `fit`/`predict` need X as a `List` of per-sample `Mat`s (not
+# a stacked batch matrix -- `conv2d` has no batch dimension), built here with
+# `append(...)` the same way the CNN acceptance test builds its own image
+# list.
+#
+# Run: qu run benchmarks/multi_scenario/scenario2_cnn_qu.qu
+# (or the prebuilt release binary: engine/target/release/qu.exe run benchmarks/multi_scenario/scenario2_cnn_qu.qu)
+
+backend auto
+
+DATA = "benchmarks/multi_scenario/"
+H = 16
+W = 16
+N_CLASSES = 3
+EPOCHS = 250
+LR = 0.3
+
+function load_images(path, h, w)
+    df = read_csv(path, headers=false)
+    rows_total = nrow(df)
+    n = rows_total / h
+    Xall = hstack(reshape(df.col1, rows_total, 1), reshape(df.col2, rows_total, 1), reshape(df.col3, rows_total, 1), reshape(df.col4, rows_total, 1), reshape(df.col5, rows_total, 1), reshape(df.col6, rows_total, 1), reshape(df.col7, rows_total, 1), reshape(df.col8, rows_total, 1), reshape(df.col9, rows_total, 1), reshape(df.col10, rows_total, 1), reshape(df.col11, rows_total, 1), reshape(df.col12, rows_total, 1), reshape(df.col13, rows_total, 1), reshape(df.col14, rows_total, 1), reshape(df.col15, rows_total, 1), reshape(df.col16, rows_total, 1))
+    images = (Xall[0 : h - 1, :],)
+    for i = 1 to n - 1
+        img = Xall[i * h : i * h + h - 1, :]
+        images = append(images, img)
+    end for
+    return images
+end function
+
+images_tr = load_images(DATA + "cnn_train_images.csv", H, W)
+images_te = load_images(DATA + "cnn_test_images.csv", H, W)
+lab_tr = read_csv(DATA + "cnn_train_labels.csv")
+lab_te = read_csv(DATA + "cnn_test_labels.csv")
+ytr = lab_tr.y
+yte = lab_te.y
+n = length(images_tr)
+nte = length(images_te)
+print("train {n} images {H}x{W}, test {nte} images")
+
+# =============================================================================
+# THE ENTIRE MODEL: simple_cnn(...) + net.fit(...) -- fixed 3x3 conv, 2x2 pool.
+# =============================================================================
+net = simple_cnn([H, W], N_CLASSES, seed=11)
+
+tic()
+trained = net.fit(images_tr, ytr, epochs=EPOCHS, lr=LR)
+train_time = toc()
+# =============================================================================
+
+losses = trained.loss_history
+print("first_loss={losses[0]:.6f}  last_loss={losses[EPOCHS - 1]:.6f}")
+print("train_time_s={train_time:.4f}  per_epoch_ms={1000 * train_time / EPOCHS:.4f}")
+
+function accuracy(net, images, y, rows)
+    logits = net.predict(images)
+    correct = 0
+    for i = 0 to rows - 1
+        row = logits[i, :]
+        if argmax(row) == y[i] then
+            correct = correct + 1
+        end if
+    end for
+    return correct / rows
+end function
+
+train_acc = accuracy(trained, images_tr, ytr, n)
+test_acc = accuracy(trained, images_te, yte, nte)
+print("train_accuracy={train_acc:.4f}  test_accuracy={test_acc:.4f}")

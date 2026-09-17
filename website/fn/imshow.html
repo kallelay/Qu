@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imshow — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imshow</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig"><code>imshow(img)</code></pre>
+<p class="fnnote">Input: img &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code> value (e.g. from <code>load_image</code>/<code>grayscale</code>/any transform below), of any size. Places it inline in the current plot panel as a native SVG <code>&lt;image&gt;</code> element at its own resolution. Takes an actual <code>Image</code>, not a scalar matrix — use <code>imagesc</code> for that.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>imshow(img)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image, scalar, or matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>from <code>load_image</code>/<code>grayscale</code>/any transform below), of any size. Places it inline in the current plot panel as a native SVG <code>&lt;image&gt;</code> element at its own resolution. Takes an actual <code>Image</code>, not a scalar matrix — use <code>imagesc</code> for that.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">load_image</span>(<span class="s">"sample.bmp"</span>)
+rotated = <span class="f">imrotate</span>(img, <span class="n">45</span>, <span class="a">method</span>=<span class="s">"bilinear"</span>, <span class="a">bbox</span>=<span class="s">"loose"</span>)
+<span class="f">imshow</span>(rotated)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>; <span class="n">50</span>, <span class="n">220</span>]
+img = <span class="f">image_from_matrix</span>(m)
+mask = <span class="f">threshold</span>(img, <span class="n">128</span>)
+<span class="f">imshow</span>(mask)
+<span class="f">print</span>(mask.width, mask.height)   <span class="c"># 2 2</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>img = <span class="f">load_image</span>(<span class="s">"sample.bmp"</span>)
+edges = <span class="f">edge_detect</span>(<span class="f">grayscale</span>(img))
+<span class="f">imshow</span>(edges)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>img = <span class="f">load_image</span>(<span class="s">"sample.bmp"</span>)
+
+<span class="c"># Rotate 30 degrees about the origin, then shift right/down by (50, 20).</span>
+M = <span class="f">affine_translate</span>(<span class="n">50</span>, <span class="n">20</span>) * <span class="f">affine_rotate</span>(<span class="n">30</span>)
+out = <span class="f">imwarp</span>(img, M, <span class="a">method</span>=<span class="s">"bilinear"</span>, <span class="a">bbox</span>=<span class="s">"loose"</span>, <span class="a">fill</span>=<span class="n">255</span>)
+<span class="f">imshow</span>(out)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>imshow(img)</code> — places a real <code>Value::Image</code> (actual loaded/ processed RGB pixels, not a colormap-mapped scalar grid — that's <code>imagesc</code>'s job) inline in a plot, via a single native SVG <code>&lt;image&gt;</code> element (see <code>plotting::image_ops</code>).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

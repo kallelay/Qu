@@ -1,0 +1,316 @@
+/* Qu — site styles.
+   One scale, one palette, three faces. Everything on the site is built
+   from the tokens in :root; nothing sets a colour that is not one. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Neutrals carry a slight blue bias, toward the accent, so the greys
+     read as chosen rather than inherited. */
+  --ground:   #f7f8fa;
+  --panel:    #ffffff;
+  --ink:      #12161d;
+  --muted:    #59616f;
+  --faint:    #8a92a0;
+  --rule:     #dde1e8;
+  --rule-soft:#eaedf2;
+
+  /* The accent is the blue the plotting theme uses for its first series,
+     so the site and the figures it shows are the same colour. */
+  --accent:   #0072bd;
+  --accent-2: #2e9e5b;
+  --warm:     #b5651d;
+  --code-bg:  #f0f2f6;
+
+  /* Syntax colours are the site palette put to work, not a second one:
+     calls take the accent, strings the secondary green, numbers the warm
+     tone, comments the faint grey. Only the keyword violet is new, and it
+     is the one hue no chart uses, so code never reads as a figure. */
+  --tok-key:  #7a45c4;
+  --tok-fn:   #0072bd;
+  --tok-str:  #1c7a45;
+  --tok-num:  #a2551c;
+  --tok-com:  #8a92a0;
+  --tok-arg:  #59616f;
+
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans:  "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --wrap: 1080px;
+
+  /* One easing curve for every transition and animation on the site: a
+     gentle deceleration (ease-out-ish, no overshoot) so hover, reveal and
+     the hero's rise-in all read as the same hand. */
+  --ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:   #0f1319;
+    --panel:    #161b23;
+    --ink:      #e6eaf0;
+    --muted:    #98a1b0;
+    --faint:    #6b7481;
+    --rule:     #29303b;
+    --rule-soft:#1f2530;
+    --accent:   #4ea6e6;
+    --accent-2: #5fc98c;
+    --warm:     #d79a5b;
+    --code-bg:  #1b212b;
+    --tok-key:  #b98cf0;
+    --tok-fn:   #62b3ea;
+    --tok-str:  #6cc890;
+    --tok-num:  #e0a56a;
+    --tok-com:  #6b7481;
+    --tok-arg:  #98a1b0;
+  }
+}
+:root[data-theme="dark"] {
+  --tok-key:  #b98cf0;
+  --tok-fn:   #62b3ea;
+  --tok-str:  #6cc890;
+  --tok-num:  #e0a56a;
+  --tok-com:  #6b7481;
+  --tok-arg:  #98a1b0;
+  --ground:   #0f1319;
+  --panel:    #161b23;
+  --ink:      #e6eaf0;
+  --muted:    #98a1b0;
+  --faint:    #6b7481;
+  --rule:     #29303b;
+  --rule-soft:#1f2530;
+  --accent:   #4ea6e6;
+  --accent-2: #5fc98c;
+  --warm:     #d79a5b;
+  --code-bg:  #1b212b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+
+/* ── header ──────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+.brand {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--serif); font-weight: 600; font-size: 22px;
+  letter-spacing: -.01em; color: var(--ink); text-decoration: none;
+}
+.brand span { color: var(--accent); }
+.brand-mark { width: 26px; height: 26px; flex: none; }
+.topnav { display: flex; gap: 22px; flex: 1; flex-wrap: wrap; }
+.topnav a {
+  color: var(--muted); text-decoration: none; font-size: 14.5px;
+  padding: 4px 0; border-bottom: 2px solid transparent;
+  transition: color .25s var(--ease), border-color .25s var(--ease);
+}
+.topnav a:hover { color: var(--ink); }
+.topnav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.iconbtn {
+  background: none; border: 1px solid var(--rule); color: var(--muted);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px;
+  font-family: var(--sans); transition: color .25s var(--ease), border-color .25s var(--ease);
+}
+.iconbtn:hover { color: var(--ink); border-color: var(--faint); }
+
+/* ── hero ────────────────────────────────────────────────────────── */
+.hero { padding: 72px 0 56px; border-bottom: 1px solid var(--rule); }
+.hero h1 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(34px, 5.5vw, 54px); line-height: 1.08;
+  letter-spacing: -.02em; margin: 0 0 18px; text-wrap: balance; max-width: 18ch;
+  animation: rise .8s var(--ease) both;
+}
+.hero p.lede {
+  font-family: var(--serif); font-size: 20px; color: var(--muted);
+  max-width: 58ch; margin: 0 0 28px;
+  animation: rise .8s var(--ease) .1s both;
+}
+.herogrid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 44px; align-items: start; }
+@media (max-width: 860px) { .herogrid { grid-template-columns: 1fr; } }
+.herogrid > div:first-child > .cta { animation: rise .8s var(--ease) .2s both; }
+.herogrid > div:last-child { animation: rise .8s var(--ease) .18s both; }
+
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-block; padding: 10px 20px; border-radius: 6px;
+  text-decoration: none; font-size: 15px; font-weight: 500;
+  border: 1px solid transparent; transition: filter .25s var(--ease), border-color .25s var(--ease);
+}
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: var(--rule); color: var(--ink); }
+.btn.ghost:hover { border-color: var(--faint); }
+
+/* ── code ────────────────────────────────────────────────────────── */
+/* Token classes are one letter because they appear thousands of times per
+   page and the file is served as-is: k keyword, f call, s string,
+   n number, c comment, a keyword-argument name, e error line. */
+.hl .k { color: var(--tok-key); }
+.hl .f { color: var(--tok-fn); }
+.hl .s { color: var(--tok-str); }
+.hl .n { color: var(--tok-num); }
+.hl .c { color: var(--tok-com); font-style: italic; }
+.hl .a { color: var(--tok-arg); }
+.hl .e { color: var(--warm); }
+
+/* An example and what it actually printed are one object. The output is
+   generated by running the block, so a stale figure in the prose is a
+   build failure rather than something a reader discovers. */
+.example { margin: 0 0 20px; }
+.example > pre { margin: 0; border-radius: 8px 8px 0 0; }
+.example.hasout > pre { border-bottom: none; border-radius: 8px 8px 0 0; }
+.example .out {
+  border: 1px solid var(--rule-soft); border-top: none;
+  border-left: 3px solid var(--accent-2);
+  border-radius: 0 0 8px 8px;
+  background: color-mix(in srgb, var(--accent-2) 5%, var(--panel));
+  padding: 10px 20px 12px;
+}
+.example .out .lbl {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--faint);
+  margin-bottom: 4px;
+}
+.example .out pre {
+  background: none; border: none; border-radius: 0; padding: 0;
+  font-size: 12.5px; line-height: 1.55; color: var(--muted); margin: 0;
+}
+.example .out .more { color: var(--faint); }
+
+/* The figure the example actually drew, inlined. It is the engine's own
+   SVG, so what the page shows is what `savefig` writes -- fonts, tick
+   values and all -- not a screenshot taken once and left to rot. Figures
+   are drawn light, so they keep a white ground in either theme rather than
+   sitting as a bright rectangle with dark text of their own. */
+.example figure.fig {
+  margin: 0; padding: 14px 16px;
+  border: 1px solid var(--rule-soft); border-top: none;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+}
+.example .out + figure.fig { border-radius: 0; border-bottom: none; }
+.example figure.fig svg { display: block; width: 100%; height: auto; }
+
+pre, code { font-family: var(--mono); }
+pre {
+  background: var(--code-bg); border: 1px solid var(--rule-soft);
+  border-radius: 8px; padding: 18px 20px; overflow-x: auto;
+  font-size: 13.5px; line-height: 1.6; margin: 0;
+}
+p code, li code, td code {
+  background: var(--code-bg); padding: 1.5px 5px; border-radius: 3px;
+  font-size: .88em;
+}
+.cm { color: var(--faint); }
+.kw { color: var(--warm); }
+.st { color: var(--accent-2); }
+.fn { color: var(--accent); }
+
+/* ── sections ────────────────────────────────────────────────────── */
+section { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+section:last-of-type { border-bottom: none; }
+h2 {
+  font-family: var(--serif); font-weight: 600; font-size: 28px;
+  letter-spacing: -.01em; margin: 0 0 8px; text-wrap: balance;
+}
+.sub { color: var(--muted); margin: 0 0 28px; max-width: 62ch; }
+h3 { font-size: 16.5px; font-weight: 600; margin: 0 0 6px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1px;
+         background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.cards > div {
+  background: var(--panel); padding: 22px 24px;
+  /* opacity/transform here duplicate .reveal's own transition: this rule's
+     higher specificity (.cards > div beats .reveal) would otherwise wipe
+     out .reveal's shorthand entirely and make the fade-in instant. */
+  transition: background .3s var(--ease), opacity .7s var(--ease), transform .7s var(--ease);
+  transition-delay: 0s, var(--reveal-delay, 0s), var(--reveal-delay, 0s);
+}
+.cards > div:hover { background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
+.cards p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint); margin: 0 0 10px;
+}
+
+.steps { counter-reset: step; display: grid; gap: 20px; }
+.steps > li {
+  list-style: none; display: grid; grid-template-columns: 34px 1fr; gap: 16px;
+}
+.steps > li::before {
+  counter-increment: step; content: counter(step);
+  font-family: var(--mono); font-size: 13px; color: var(--accent);
+  border: 1px solid var(--rule); border-radius: 50%;
+  width: 30px; height: 30px; display: grid; place-items: center;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint); text-align: left;
+  font-weight: 500; padding: 10px 14px; border-bottom: 1px solid var(--rule);
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+td.mono { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
+.note {
+  border-left: 3px solid var(--accent); background: var(--panel);
+  padding: 16px 20px; border-radius: 0 6px 6px 0; margin: 24px 0;
+}
+.note p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.note strong { color: var(--ink); }
+
+footer {
+  padding: 40px 0 64px; color: var(--faint);
+  font-size: 13.5px; border-top: 1px solid var(--rule);
+}
+footer .wrap { display: flex; gap: 28px; flex-wrap: wrap; justify-content: space-between; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ── motion ──────────────────────────────────────────────────────── */
+/* The hero's own rise-in above uses this keyframe directly. Everything
+   else — section and card reveal-on-scroll — is opt-in: site.js adds
+   .reveal only when it can also observe scroll position, so a page with
+   JS disabled never ships up hidden. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .7s var(--ease), transform .7s var(--ease);
+  transition-delay: var(--reveal-delay, 0s);
+}
+.reveal.in-view { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}

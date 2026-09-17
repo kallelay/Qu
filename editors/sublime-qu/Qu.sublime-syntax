@@ -1,0 +1,109 @@
+%YAML 1.2
+---
+# Sublime Text syntax definition for Qu (.qu).
+#
+# Keyword/type/operator lists are kept in sync with the canonical Monaco
+# grammar in qu-ui-components/src/components/CodeEditor.tsx
+# (QU_LANGUAGE_CONFIG), plus `layer` and `enum`, which are real Qu keywords
+# (see docs/qu-grammar.ebnf's LayerClause/SceneItem and
+# engine/crates/qu-syntax/src/lib.rs's enum_stmt) not yet present in that
+# list. Scope names follow conventional TextMate/Sublime naming so any
+# color scheme (not just a Qu-specific one) applies sensible default colors.
+name: Qu
+file_extensions:
+  - qu
+scope: source.qu
+version: 2
+
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: numbers
+    - include: types
+    - include: constants
+    - include: keywords
+    - include: functions
+    - include: operators
+
+  comments:
+    - match: '#'
+      scope: punctuation.definition.comment.qu
+      push: line-comment
+
+  line-comment:
+    - meta_scope: comment.line.number-sign.qu
+    - match: $\n?
+      pop: true
+
+  strings:
+    - match: '"'
+      scope: punctuation.definition.string.begin.qu
+      push: double-quoted-string
+    - match: "'"
+      scope: punctuation.definition.string.begin.qu
+      push: single-quoted-string
+
+  double-quoted-string:
+    - meta_scope: string.quoted.double.qu
+    - include: string-body
+    - match: '"'
+      scope: punctuation.definition.string.end.qu
+      pop: true
+
+  single-quoted-string:
+    - meta_scope: string.quoted.single.qu
+    - include: string-body
+    - match: "'"
+      scope: punctuation.definition.string.end.qu
+      pop: true
+
+  string-body:
+    - match: '\\(?:[abfnrtv\\"'']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})'
+      scope: constant.character.escape.qu
+    - match: '\{'
+      scope: punctuation.section.interpolation.begin.qu
+      push: interpolation
+
+  interpolation:
+    - meta_scope: meta.interpolation.qu
+    - meta_content_scope: source.qu.embedded.interpolation
+    - match: '\}'
+      scope: punctuation.section.interpolation.end.qu
+      pop: true
+    - include: numbers
+    - include: types
+    - include: constants
+    - include: keywords
+    - include: functions
+    - include: operators
+
+  numbers:
+    - match: '\b0[xX][0-9a-fA-F_]+\b'
+      scope: constant.numeric.hex.qu
+    - match: '\b\d[\d_]*(\.[\d_]+)?([eE][+-]?\d+)?[ij]?\b'
+      scope: constant.numeric.qu
+    - match: '(?<![\w.])\.\d[\d_]*([eE][+-]?\d+)?[ij]?\b'
+      scope: constant.numeric.qu
+
+  constants:
+    - match: '\b(true|false)\b'
+      scope: constant.language.boolean.qu
+
+  types:
+    - match: '\b(bool|int64|int|uint64|uint|float64|float|double|complex128|complex|string|str|array|vector|matrix|tensor|record|list|figure|frame|logical|integer)\b'
+      scope: storage.type.qu
+
+  keywords:
+    - match: '\b(and|as|break|case|cases|catch|continue|each|elif|else|elsewhere|end|for|from|if|in|loop|not|on|or|otherwise|repeat|return|select|skip|step|then|to|try|until|use|using|where|while|with)\b'
+      scope: keyword.control.qu
+    - match: '\b(after|animate|assert|async|await|backend|base|circuit|class|collect|compile|compose|const|constant|data|def|device|dimension|distributed|ease|elemental|enum|error|every|export|finetune|fit|flag|frame|function|hold|implements|import|inherits|input|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|param|parallel|project|property|pure|read|render|reserve|release|restore|run|scene3d|schedule|set|signal|simd|simulate|sketch|spawn|spectrum|stencil|sub|swap|table|train|tune|type|unit|vectorize|view|warn|watch|window)\b'
+      scope: keyword.other.qu
+
+  functions:
+    - match: '\b[A-Za-z_][A-Za-z0-9_]*(?=\s*\()'
+      scope: entity.name.function.qu
+
+  operators:
+    - match: ':=|==|!=|<=|>=|\+=|-=|\*=|/=|\.=|\*\*|\.\*|\./|\.\\|\|>|->|&&|\|\||\?\?|[=<>+\-*/\\^!&|~@?]'
+      scope: keyword.operator.qu

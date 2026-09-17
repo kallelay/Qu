@@ -1,0 +1,77 @@
+# scenario3_rnn_qu_torch.qu -- Scenario 3 (Sequence/RNN), Qu side, engine="torch".
+#
+# IDENTICAL to scenario3_rnn_qu.qu (same data, architecture, epochs, lr,
+# seed) except `simple_rnn_classifier(..., engine="torch")` -- trains
+# through `TorchBackend` (real libtorch autograd, see `tensor_backend.rs`'s
+# `train_gru_classifier`) instead of this crate's own native tape. NOTE:
+# unlike `simple_rnn_fit`'s native path (which has a batched-GRU fast path,
+# see ../multi_scenario/README.md's own "Why WAS Qu's RNN scenario so much
+# slower" section), `simple_rnn_fit_torch` always trains one sample at a
+# time (matching `train_gru_classifier`'s own per-sample loop) -- so this
+# script's wall-clock is not directly comparable to the native scenario's
+# post-batching-fix number, only to what an UNBATCHED native loop would
+# have taken. Requires a `qu.exe` built with `--features backend-torch`.
+#
+# Run: engine/target/release/qu.exe run benchmarks/multi_scenario/scenario3_rnn_qu_torch.qu
+
+backend auto
+
+DATA = "benchmarks/multi_scenario/"
+T = 20
+N_CLASSES = 3
+HIDDEN = 8
+EPOCHS = 200
+LR = 0.3
+
+function load_sequences(path, t)
+    df = read_csv(path, headers=false)
+    n = nrow(df)
+    Xall = hstack(reshape(df.col1, n, 1), reshape(df.col2, n, 1), reshape(df.col3, n, 1), reshape(df.col4, n, 1), reshape(df.col5, n, 1), reshape(df.col6, n, 1), reshape(df.col7, n, 1), reshape(df.col8, n, 1), reshape(df.col9, n, 1), reshape(df.col10, n, 1), reshape(df.col11, n, 1), reshape(df.col12, n, 1), reshape(df.col13, n, 1), reshape(df.col14, n, 1), reshape(df.col15, n, 1), reshape(df.col16, n, 1), reshape(df.col17, n, 1), reshape(df.col18, n, 1), reshape(df.col19, n, 1), reshape(df.col20, n, 1))
+    first = Xall[0, :] as matrix(1, t)
+    sequences = (first,)
+    for i = 1 to n - 1
+        row = Xall[i, :] as matrix(1, t)
+        sequences = append(sequences, row)
+    end for
+    return sequences
+end function
+
+seq_tr = load_sequences(DATA + "rnn_train_sequences.csv", T)
+seq_te = load_sequences(DATA + "rnn_test_sequences.csv", T)
+lab_tr = read_csv(DATA + "rnn_train_labels.csv")
+lab_te = read_csv(DATA + "rnn_test_labels.csv")
+ytr = lab_tr.y
+yte = lab_te.y
+n = length(seq_tr)
+nte = length(seq_te)
+print("train {n} sequences len {T}, test {nte} sequences")
+
+# =============================================================================
+# THE ENTIRE MODEL: simple_rnn_classifier(..., engine="torch") + net.fit(...).
+# =============================================================================
+net = simple_rnn_classifier(1, HIDDEN, N_CLASSES, seed=13, engine="torch")
+
+tic()
+trained = net.fit(seq_tr, ytr, epochs=EPOCHS, lr=LR)
+train_time = toc()
+# =============================================================================
+
+losses = trained.loss_history
+print("first_loss={losses[0]:.6f}  last_loss={losses[EPOCHS - 1]:.6f}")
+print("train_time_s={train_time:.4f}  per_epoch_ms={1000 * train_time / EPOCHS:.4f}")
+
+function accuracy(net, seqs, y, rows)
+    logits = net.predict(seqs)
+    correct = 0
+    for i = 0 to rows - 1
+        row = logits[i, :]
+        if argmax(row) == y[i] then
+            correct = correct + 1
+        end if
+    end for
+    return correct / rows
+end function
+
+train_acc = accuracy(trained, seq_tr, ytr, n)
+test_acc = accuracy(trained, seq_te, yte, nte)
+print("train_accuracy={train_acc:.4f}  test_accuracy={test_acc:.4f}")

@@ -1,0 +1,664 @@
+(* =====================================================================
+   Qu Programming Language — Formal Grammar, version 0.12.1
+   Normative companion to docs/qu-language-spec.md (0.12.1).
+
+   Style: W3C EBNF  ( `::=` define | alternatives ( ) group
+                       [ ] optional   { } repeat  (* comment *)
+                       'x' literal token, quoted )
+
+   Conventions:
+   - Token-based. Newlines end statements per spec §5; the lexer applies
+     the continuation rules (open brackets, trailing comma, trailing
+     binary operator), so newlines are not modeled here. The `#`
+     preprocessor pass (§7.A) runs BEFORE parsing and is out of scope.
+   - Productions are tagged with the spec chapter that defines their
+     semantics. Untagged = 0.1 core. Tags like (* 0.4 *) mark the spec
+     version that introduced the syntax.
+   - Productions marked (* draft *) cover syntax whose semantics has open
+     questions (spec §35). Parsers must accept them; runtimes may stub.
+   - KEYWORD AUSTURITY (spec §6, §34.C.1): 52 structural words are reserved;
+     all other statement/block introducers (fit, model, train, table, data,
+     signal, window, animate, class-member words, ...) are CONTEXTUAL —
+     recognized as the quoted tokens below only in statement or clause head
+     position, ordinary identifiers elsewhere. A binding that shadows a
+     contextual introducer makes a later introducer use a Q1015 rename
+     diagnostic, never a silent reinterpretation. Productions here show the
+     introducer words in quotes regardless of class; the lexer decides
+     recognition-by-position for the contextual ones.
+   - The eis library (§48) is stdlib, not core grammar; its verbs appear
+     here as ordinary calls. `fit ... to` is given a production since
+     §45.2 makes it language-level.
+
+   DUAL SURFACE (§42.6): every Unicode operator has an ASCII twin and the
+   two are the SAME token:  <= >=, >= <=, != !=, . .*, * *, . ./, sqrt,
+   sum sum, prod prod, integral integral, deriv deriv, grad grad,
+   in in, not in not in, -> ->, -> ->, and and, or or, not not,
+   plus_minus plus_minus, inf inf, pi pi, tau tau.
+   The lexer normalizes; the grammar below shows ASCII only. Greek
+   letters and Unicode subscripts are identifier characters (§42.1).
+
+   df/dx NOTATION (§43.3): recognized by the lexer as a single token of
+   the form  'd' Name '/' 'd' Name  (e.g. dv/dt, df/dx) when it appears
+   in expression position; otherwise d-prefixed names are ordinary names.
+   ===================================================================== *)
+
+Program        ::= Statement* EOF
+
+(* ------------------------------------------------------------------ *)
+(* Statements                                                           *)
+(* ------------------------------------------------------------------ *)
+
+Statement
+               ::= Assignment                       (* §11 *)
+                 | CompoundAssignment               (* §11, §44.3 *)
+                 | MultiAssignment                  (* §11 *)
+                 | ContractStatement                (* §8 *)
+                 | ConstStatement                   (* §11 *)
+                 | DeferredAssignment               (* §11 *)
+                 | PlacementStatement               (* §20 *)
+                 | BackendStatement                 (* §20 *)
+                 | WithStatement                    (* §20-§21, §44.6 *)
+                 | ImportStatement                  (* §18, §46.2 *)
+                 | ModuleStatement                  (* §18 *)
+                 | FunctionDefinition               (* §17 *)
+                 | MappingDefinition                (* §17.1, 0.8 *)
+                 | DefineFunction                   (* §41.1, 0.3 *)
+                 | SubDefinition                    (* §15.B *)
+                 | DefFn                            (* §15.A, alias of §41.1 *)
+                 | ClassDefinition                  (* §53, 0.8 *)
+                 | IfStatement                      (* §16 *)
+                 | SelectCase                       (* §44.2, 0.5 *)
+                 | ForStatement                     (* §16 *)
+                 | ParallelFor                      (* §46.5, 0.5 *)
+                 | WhileStatement                   (* §16 *)
+                 | RepeatUntil                      (* §44.2, 0.5 *)
+                 | EachStatement                    (* §16 *)
+                 | WhereBlock                       (* §44.4, 0.5 *)
+                 | TryStatement                     (* §18.B *)
+                 | DataTable                        (* §18.A, §36.1 *)
+                 | DataStream                       (* §18.A *)
+                 | ReadStatement                    (* §18.A *)
+                 | PlotBlock                        (* §18.C *)
+                 | ExportStatement                  (* §26 *)
+                 | RenderStatement                  (* §18.C, §27, §39.4 *)
+                 | FigureCommand                    (* §27 *)
+                 | ExplainStatement                 (* §20 *)
+                 | DimensionStatement               (* §8 *)
+                 | ImplicitNone                     (* §8 *)
+                 | LocalStatement                   (* §8 *)
+                 | ErrorStatement                   (* §18.B *)
+                 | PrintUsing                       (* §44.9, 0.5 *)
+                 | SwapStatement                    (* §44.6, 0.5 *)
+                 | RestoreStatement                 (* §44.6, 0.5 *)
+                 | TimerStatement                   (* §47.1, 0.6 *)
+                 | SpawnStatement                   (* §47.2, 0.6 *)
+                 | SketchDefinition                 (* §47.7, 0.6 *)
+                 | WindowDefinition                 (* §47.8, 0.6 *)
+                 | FitStatement                     (* §45.2, 0.5 *)
+                 | TrainStatement                   (* §38.3, draft *)
+                 | ModelDefinition                  (* §38.4, §45.3, draft *)
+                 | PipelineDefinition               (* §37.4, draft *)
+                 | TimelineDefinition               (* §39.2 *)
+                 | AnimateBlock                     (* §39.1 *)
+                 | SceneDefinition                  (* §39.3, draft *)
+                 | Scene3dDefinition                (* §51, §56, draft *)
+                 | ControlStatement                 (* §39.5 *)
+                 | JoinStatement                    (* §36.3, draft *)
+                 | ParamStatement                   (* §38.1 *)
+                 | SimulateBlock                    (* §52.1, 0.8 *)
+                 | CircuitDefinition                (* §52.3, 0.12.1 *)
+                 | OnEventStatement                 (* §50.6, 0.8 *)
+                 | PoolDefinition                   (* §54.2, 0.9 *)
+                 | ReserveStatement                 (* §54.2, 0.9 *)
+                 | RunStatement                     (* §47.3, §54.2 *)
+                 | StopStatement                    (* §47.1 *)
+                 | TestBlock                        (* §59, 0.12 *)
+                 | BenchBlock                       (* §59, 0.12 *)
+                 | TestbenchBlock                   (* §59, 0.12 *)
+                 | AssertStatement                  (* §59, 0.12 *)
+                 | ExpressionStatement
+
+Assignment     ::= LValue '=' AssignRhs
+MultiAssignment ::= NameList '=' AssignRhs
+NameList       ::= Name (',' Name)*
+CompoundAssignment
+               ::= LValue ('+=' | '-=' | '*=' | '/=' | '.=' ) Expression
+                 | LValue '++' | LValue '--'          (* §44.3 *)
+(* `:=` is "is defined as": a bare name binds a deferred value, a call head
+   defines a one-line (elemental, non-recursive) function — §41.1 / §15.A. *)
+DeferredAssignment ::= Name ':=' Expression          (* deferred value *)
+                 | Ident '(' [ParameterList] ')' ':=' Expression  (* expr fn *)
+AssignRhs      ::= CommaRange | RangeExpression | Expression
+LValue         ::= Name { '[' IndexList ']' | '.' Ident }
+
+(* `1, 2, ..., 50` — ellipsis required to make it a range (§12) *)
+CommaRange     ::= Expression ',' Expression ',' '...' ',' Expression
+
+RangeExpression
+               ::= Expression 'to' Expression
+                    [ 'step' Expression ] [ 'skip' Expression ]   (* §12 *)
+                 | Expression ':' Expression ':' Expression       (* compact
+                     `start:step:stop` literal, MATLAB order, inclusive —
+                     e.g. `1:0.1:3`; §12.A. Bare `:` is otherwise unused
+                     outside `[...]`, so this needs exactly two colons (three
+                     parts) to be unambiguous; it is reachable everywhere
+                     RangeExpression already is (assignment RHS, `for`
+                     ranges, call arguments) but — like `to`-ranges — not
+                     from inside an arbitrary parenthesized sub-expression. *)
+                 | Expression '..' Expression                      (* §42.4 *)
+
+(* a contract may stand alone, or declare-and-initialize with '= rhs' (§14) *)
+ContractStatement ::= Name 'as' Contract ['=' AssignRhs]
+ConstStatement ::= ('const' | 'constant') Name ['as' Contract] '=' Expression
+PlacementStatement ::= Name 'on' Device '=' Expression
+BackendStatement ::= 'backend' BackendName
+Device          ::= 'cpu' | 'gpu' | 'accel' | DeviceExpr            (* §54 *)
+DeviceExpr      ::= Ident | Ident '(' ')'                            (* gpu(2) *)
+BackendName     ::= 'auto' | 'cpu' | 'cuda' | 'opencl' | 'sycl' | 'vulkan'
+                 | 'cpu' '(' 'mkl' ')' | 'remote' '(' String ')'    (* 0.9 *)
+
+WithStatement  ::= 'with' (Policy (',' Policy)* | Expression)
+                    Statement* 'end' 'with'
+Policy          ::= 'backend' '=' BackendName
+                 | 'precision' '=' Precision
+                 | 'reduction' '=' ('deterministic' | 'fast')
+                 | 'fastmath' '=' ('true' | 'false')
+                 | Ident '=' Expression                             (* ext *)
+Precision       ::= 'float32' | 'float64' | 'complex64' | 'complex128'
+
+ImportStatement ::= 'import' (ModulePath | ModulePath '.*')
+                 | 'from' ModulePath 'import' (NameList | '*')
+                 | 'using' Ident [String]
+                 | 'use' 'python' [String]                          (* §46.2 *)
+ModulePath      ::= Ident ('.' Ident)*
+
+ModuleStatement ::= 'module' Ident ['(' CompatOption
+                    (',' CompatOption)* ')'] Statement* 'end' 'module'
+CompatOption    ::= 'compat' '=' String | 'index_base' '=' Expression
+
+DimensionStatement ::= ('dimension' | 'dim') Name ['[' Dimensions ']']
+                       ['as' Contract] ['=' Expression]             (* §53.1 *)
+ImplicitNone   ::= 'implicit' 'none'
+LocalStatement ::= 'local' Name '=' Expression
+
+(* ------------------------------------------------------------------ *)
+(* Functions — exactly three forms (§17, §17.1, §41.1) + sub + alias    *)
+(* ------------------------------------------------------------------ *)
+
+(* Form 1, canonical since 0.3: the one-line elemental definition *)
+DefineFunction ::= FuncHead ':=' (Expression | CasesExpression)
+                    ['where' WhereBinding (',' WhereBinding)*]      (* §42.3 *)
+
+(* Form 2 (0.8): the mapping form with named outputs *)
+MappingDefinition ::= Ident ':' Name '->' Name
+                    MappingBody 'end'
+                 | Ident ':' '(' NameList ')' '->' '(' NameList ')'
+                    MappingBody 'end'
+MappingBody    ::= Statement*
+
+(* Form 3: the full imperative function *)
+FunctionDefinition
+               ::= [FuncAttrs] 'function' FuncHead ['->' Contract]
+                    FunctionBody 'end' 'function'
+                 | [FuncAttrs] 'function' FuncHead '=' Expression
+                 | [FuncAttrs] 'function' RetNames '=' FuncHead
+                    FunctionBody 'end' 'function'
+FuncAttrs      ::= ('pure' | 'elemental' | 'async')+                 (* §44.5 *)
+RetNames       ::= Name (',' Name)*
+FuncHead       ::= Ident '(' [ParameterList] ')'
+ParameterList  ::= Parameter (',' Parameter)*
+Parameter      ::= '...' Ident
+                 | Ident ['as' Contract] ['optional'] ['=' Expression]
+FunctionBody   ::= Statement*
+Contract       ::= TypeName ['(' DimList ')'] [',' 'layout' '=' Layout]
+TypeName       ::= 'bool' | 'logical' | 'int64' | 'int' | 'integer'
+                 | 'uint64' | 'uint' | 'float64' | 'float' | 'double'
+                 | 'complex128' | 'complex' | 'cdouble' | 'string' | 'str'
+                 | 'int32' | 'uint32' | 'float32' | 'complex64'
+                 | 'array' | 'vector' | 'matrix' | 'tensor' | 'frame'
+                 | 'record' | 'list' | 'figure' | 'reshape'
+                 | 'signal' | 'spectrum'                             (* §41.2 *)
+                 | 'mesh' | 'scene3d' | 'transform' | 'animation'
+                 | 'hull'                                           (* §39, §51, §56 *)
+DimList        ::= DimItem (',' DimItem)*
+DimItem        ::= Expression
+Layout         ::= 'col_major' | 'row_major'
+
+SubDefinition  ::= 'sub' Ident '(' [ParameterList] ')' FunctionBody 'end' 'sub'
+DefFn          ::= 'def' 'fn' Ident '(' [ParameterList] ')'
+                    ['as' TypeName] '=' Expression   (* legacy alias §41.1 *)
+
+Lambda         ::= '(' [NameList] ')' '->' Expression                (* §44.5 *)
+                 | Name '->' Expression
+
+(* ------------------------------------------------------------------ *)
+(* Classes (§53, 0.8)                                                   *)
+(* ------------------------------------------------------------------ *)
+
+ClassDefinition ::= 'class' Ident ['inherits' Ident (',' Ident)*]
+                    ClassMember* 'end' 'class'
+ClassMember    ::= ['shared'] ClassMemberBody
+ClassMemberBody ::= DimensionStatement
+                 | 'new' '(' [ParameterList] ')' FunctionBody 'end' 'new'
+                 | FunctionDefinition
+                 | SubDefinition
+                 | MappingDefinition
+                 | 'property' Ident PropertyAccessor* 'end' 'property'
+PropertyAccessor ::= 'get' ':' Statement*
+                 | 'set' '(' Name ')' ':' Statement*
+NewExpression  ::= 'new' Ident '(' [ArgumentList] ')'                (* §53.1 *)
+
+(* ------------------------------------------------------------------ *)
+(* Control flow (§16, §44.2, §44.4)                                     *)
+(* ------------------------------------------------------------------ *)
+
+IfStatement    ::= 'if' Expression 'then' Statement*
+                    ('elif' Expression 'then' Statement*)*
+                    ['else' Statement*] 'end' 'if'
+                 | 'if' Expression 'then' Statement      (* single line *)
+
+SelectCase     ::= 'select' 'case' Expression
+                    CaseClause+ 'end' 'select'                        (* 0.5 *)
+CaseClause     ::= 'case' CaseLabel (',' CaseLabel)* [Statement*]
+                 | 'otherwise' [Statement*]
+CaseLabel      ::= Expression | Expression 'to' Expression
+
+ForStatement   ::= 'for' Name ('=' | 'in') RangeExpression
+                    Statement* 'end' 'for'
+(* The two spellings are one statement, not two: `=` and `in` parse to the
+   same node and differ only in what the expression evaluates to at run
+   time. A numeric range/`vector`/`signal` iterates its numbers under
+   either spelling (`for k = 0 to 9` and `for k in 0 to 9` are the same
+   loop); a `list` iterates its elements verbatim, whatever kind they are
+   -- `for t in ["a", "b"]`, `for f in list_dir(p)`, `for k in keys(d)`.
+   Anything else is a "cannot iterate a <kind>" error: a table's rows are
+   reached with the QueryExpression form (`from r in df`, §36.2), and a
+   dict's through `keys`/`values` (§47.4). *)
+ParallelFor    ::= 'parallel' 'for' Name 'in' (RangeExpression | Expression)
+                    ['on' DeviceExpr] Statement* 'end' 'parallel'   (* §46.5 *)
+WhileStatement ::= 'while' Expression Statement* 'end' 'while'
+RepeatUntil    ::= 'repeat' Statement* 'until' Expression             (* 0.5 *)
+EachStatement  ::= 'each' Name 'in' (RangeExpression | Expression)
+                    ['on' Device] Statement* 'end' 'each'
+
+WhereBlock     ::= 'where' '(' Expression ')' ['do'] Statement*
+                    ('elsewhere' ['(' Expression ')'] Statement*)*
+                    'end' 'where'                                   (* 0.5 *)
+
+TryStatement   ::= 'try' Statement*
+                    'catch' Name Statement*
+                    ['else' Statement*]
+                    ['finally' Statement*]
+                    'end'
+
+ErrorStatement ::= ('error' | 'warn') Expression
+SwapStatement  ::= 'swap' Name ',' Name
+RestoreStatement ::= 'restore'
+
+StopStatement  ::= 'stop' Expression                                (* §47.1 *)
+
+(* ------------------------------------------------------------------ *)
+(* Scientific testing, benchmarking, and testbenches (§59)             *)
+(* `test`, `bench`, and `testbench` are contextual block openers.       *)
+(* ------------------------------------------------------------------ *)
+
+TestBlock      ::= 'test' String
+                    ['for' 'all' Name 'in' Expression]
+                    Statement* 'end' 'test'
+BenchBlock     ::= 'bench' String [TestOptions]
+                    Statement* 'end' 'bench'
+TestbenchBlock ::= 'testbench' String [TestOptions]
+                    Statement* 'end' 'testbench'
+TestOptions    ::= 'with' OptionBinding (',' OptionBinding)*
+OptionBinding  ::= Ident '=' Expression
+AssertStatement ::= 'assert' Expression [',' Expression]
+
+(* ------------------------------------------------------------------ *)
+(* Runtime & systems (§47, §50, §52, §54)                               *)
+(* ------------------------------------------------------------------ *)
+
+TimerStatement ::= ('every' | 'after' | 'at') Expression
+                    ['do'] Statement* 'end'                          (* 0.6 *)
+
+SpawnStatement ::= 'spawn' Expression ['on' DeviceExpr]              (* §47.2 *)
+AwaitExpression ::= 'await' ('all' '(' Expression ')' | Expression)
+
+SketchDefinition ::= 'sketch' Ident SketchItem* 'end' 'sketch'      (* §47.7 *)
+SketchItem     ::= 'on' ('setup' | 'draw' | 'key' Name | Ident [Name])
+                    'do' Statement* 'end'
+                 | Statement
+
+WindowDefinition ::= 'window' String WindowItem* 'end' 'window'     (* §47.8 *)
+WindowItem     ::= ('row' | 'col' | 'grid' '(' Expression ',' Expression ')')
+                    WindowItem*
+                 | ControlStatement
+                 | 'button' String 'on' 'click' 'do' Statement* 'end'
+                 | 'meter' Name ['label' '=' String]
+                 | 'plot' 'of' Expression
+                 | Statement
+
+SimulateBlock  ::= 'simulate' Ident 'over' RangeExpression
+                    SimulateItem* 'end' 'simulate'                  (* §52.1 *)
+SimulateItem   ::= 'state' NameList
+                 | 'on' 'step' 'do' Statement* 'end'
+                 | Statement
+
+OnEventStatement ::= 'on' EventKind [Name] 'do' Statement* 'end'    (* §50.6 *)
+(* A SPICE-familiar, explicit-node circuit literal. Device kind is inferred *)
+(* from the component-name prefix by the spice library.                      *)
+CircuitDefinition ::= 'circuit' Ident CircuitDevice+ 'end' 'circuit'
+CircuitDevice  ::= Name NodeRef NodeRef {NodeRef} '=' Expression
+NodeRef        ::= Ident | String | '0'
+
+EventKind      ::= 'flag' | 'change' | 'signal' | 'socket' | 'key'
+                 | 'watch' '(' String ')' | 'file' | 'timer' | Ident
+
+PoolDefinition ::= 'pool' Ident 'with' PoolItem* 'end' 'pool'       (* §54.2 *)
+PoolItem       ::= 'node' (Ident | String | 'local')
+                    'cpu' '=' Expression [',' 'gpu' '=' Expression]
+                 | 'policy' '=' Ident
+                 | 'on' ('full' | 'drop') '=' Ident
+                 | Statement
+ReserveStatement ::= 'reserve' Expression ('gpu' | 'cpu') 'on' Ident
+RunStatement   ::= 'run' Expression 'on' (Ident | DeviceExpr)
+                 | 'run' ('sketch' | 'window' | 'queue') Ident      (* §47 *)
+
+(* ------------------------------------------------------------------ *)
+(* Model building (§37.4, §38, §45)                                     *)
+(* ------------------------------------------------------------------ *)
+
+ParamStatement ::= 'param' Name '=' Expression
+
+FitStatement   ::= 'fit' [Name '='] Expression 'to'
+                    '(' Expression (',' Expression)* ')'
+                    FitClause* 'end' 'fit'                          (* §45.2 *)
+FitClause      ::= 'start' FitBinding (',' FitBinding)*
+                 | 'bounds' BoundClause (',' BoundClause)*
+                 | 'weight' '=' Expression
+                 | 'loss' '=' Ident
+                 | 'method' '=' (String | Ident)
+FitBinding     ::= Name '=' Expression [UnitName]
+BoundClause    ::= Name 'in' '[' Expression ',' Expression ']' [UnitName]
+                 | Name ('<' | '>' | '<=' | '>=') Expression
+
+TrainStatement ::= [Name '='] 'train' Expression ['over' Expression]
+                    TrainClause* 'end' 'train'
+TrainClause    ::= 'loss' '=' Ident
+                 | 'optimizer' '=' Expression
+                 | 'epochs' '=' Expression
+                 | 'batch' '=' Expression
+                 | 'metric' Ident
+                 | 'parallel' 'across' Expression                  (* §45.5 *)
+                 | 'on' 'epoch' 'report' Expression (',' Expression)*
+                 | 'with' Ident '=' Expression
+
+ModelDefinition ::= 'model' Ident '(' [ParameterList] ')'
+                    LayerClause* 'end' 'model'                      (* §38.4 *)
+                 | 'model' Ident ['(' [ParameterList] ')'] ':=' Expression
+                                                                 (* §45.2 *)
+                 | 'model' Ident ProbabilisticClause* 'end' 'model'
+                                                                 (* §45.3 *)
+LayerClause    ::= 'layer' Name '=' Expression
+                    [',' 'activation' '=' Ident]
+ProbabilisticClause ::= Name '~' Expression                        (* §45.3 *)
+
+PipelineDefinition ::= [Name '='] 'pipeline' StageClause* 'end' 'pipeline'
+StageClause    ::= 'stage' Name '=' Expression
+
+(* ------------------------------------------------------------------ *)
+(* Animation & GUI (§39, §47.7-47.8)                                    *)
+(* ------------------------------------------------------------------ *)
+
+TimelineDefinition ::= 'timeline' Ident Keyframe* 'end' 'timeline'
+Keyframe       ::= 'at' Expression 'set' PropertyPath '=' Expression
+                    [',' 'ease' '=' EaseName]
+PropertyPath   ::= Name {'.' Name}
+EaseName       ::= 'linear' | 'in' | 'out' | 'in_out' | 'bounce'
+                 | 'elastic' | Ident
+
+AnimateBlock   ::= 'animate' Name 'from' Expression 'to' Expression
+                    [('step' Expression) | ('fps' Expression)]
+                    Statement* 'end' 'animate'
+                 | 'animate' 'over' Ident Statement* 'end' 'animate'
+
+SceneDefinition ::= 'scene' Ident SceneItem* 'end' 'scene'
+SceneItem      ::= 'layer' Ident PlotItem* [AnimateClause] 'end' 'layer'
+                 | 'camera' ('view2d' | 'view3d' | Ident)
+                 | 'axes' '{' AxesAttribute* '}'
+                 | 'duration' '=' Expression
+                 | 'export' '=' String ['fps' '=' Expression]
+AnimateClause  ::= 'animate' Name 'from' Expression 'to' Expression
+                    ['fps' Expression]
+
+(* Scene bodies use ordinary statements so mesh construction, physics calls,
+   nested animation blocks, and user functions remain one language. *)
+Scene3dDefinition ::= 'scene3d' Ident Statement* 'end' 'scene3d'
+
+ControlStatement ::= 'control' Name '=' ControlCall
+ControlCall    ::= ('slider' | 'toggle' | 'dropdown' | 'field')
+                    '(' [ParameterList] ')'
+
+(* ------------------------------------------------------------------ *)
+(* Data blocks & frames (§18.A, §36)                                    *)
+(* ------------------------------------------------------------------ *)
+
+DataTable      ::= [Name '='] 'data' 'table' TableRow* 'end' 'table'
+TableRow        ::= TableHeader | TableDataRow
+TableHeader     ::= ColumnDecl (','? ColumnDecl)*
+ColumnDecl      ::= Ident ['as' TypeName]
+TableDataRow    ::= Literal (','? Literal)*
+
+DataStream     ::= 'data' Literal (',' Literal)*
+ReadStatement  ::= 'read' Name (',' Name)*
+
+JoinStatement  ::= Name '=' 'join' 'left' '=' Expression 'right' '='
+                    Expression 'on' Expression 'kind' '='
+                    ('inner' | 'left' | 'right' | 'outer')
+
+(* ------------------------------------------------------------------ *)
+(* Plotting & output (§18.C, §26-§27, §44.9)                            *)
+(* ------------------------------------------------------------------ *)
+
+PlotBlock      ::= 'plot' '{' PlotItem* '}'
+PlotItem       ::= 'data' Expression (',' Expression)* PlotStyle*
+                 | 'axes' '{' AxesAttribute* '}'
+                 | 'title' '=' String
+                 | 'subtitle' '=' String
+                 | 'legend' 'loc' '=' String
+                 | 'export' '=' String ['dpi' '=' Expression]
+PlotStyle      ::= Ident '=' Expression
+AxesAttribute  ::= ('xlabel' | 'ylabel') '=' String
+                 | 'xlim' '=' Expression ',' Expression
+                 | 'grid' '=' 'on'
+                 | Ident '=' Expression
+
+ExportStatement ::= 'export' ('plot' | 'all' | Expression) 'to' String
+                    {ExportOption}
+ExportOption   ::= ('width' | 'height' | 'dpi') '=' Expression
+
+RenderStatement ::= 'render' 'plots' | 'render' 'plot' 'to' String
+                 | 'render' 'all' | 'render' 'scene' Ident
+                 | 'render' 'scene3d' Ident
+                 | 'render' 'animation'
+                 | 'play' 'animation' | 'pause' 'animation'
+                 | 'record' 'animation' 'to' String
+                    ['fps' '=' Expression] ['quality' '=' Expression]
+                 | 'snapshot' 'to' String ['at' Name '=' Expression]
+
+(* Implemented subset: qu-syntax::COMMAND_VERBS + qu-interp's
+   exec_plot_command (§18.D). Each bare word after the verb is a raw
+   Ident/Keyword/Number token (command_stmt doesn't know per-verb shape),
+   so this production names the accepted shapes rather than a stricter
+   per-verb grammar. `pan`/`zoom`/`colorbar`/`close` parse and are accepted
+   (a live-GUI vocabulary with no meaning for a headless static export). *)
+FigureCommand ::= 'grid' ('on' | 'off') | 'box' ('on' | 'off')
+                 | 'hold' ('on' | 'off')
+                 | 'next' 'plot' ['vertical' | 'horizontal']
+                 | 'show' 'plot'
+                 | 'close' ('figure' | 'all')
+                 | 'legend' [LegendArg]
+                 | 'clear' ['figure' | ('panel' | 'subplot') [Number [',' Number ',' Number]]]
+                 | 'axis' ('equal' | 'scale' ('x' | 'y' | 'z') ('log' | 'linear'))
+                 | 'pan' 'x' 'axis' | 'zoom' 'x' 'axis' | 'colorbar'
+
+LegendArg      ::= 'off' | 'best'
+                 | ('top' | 'bottom') ['left' | 'right']
+                 | ('left' | 'right') ['top' | 'bottom']
+
+ExplainStatement ::= 'explain' Expression
+PrintUsing     ::= 'print' 'using' String ';' Expression (',' Expression)*
+
+(* ------------------------------------------------------------------ *)
+(* Expressions (§7, §9, §12-§14, §19, §36.6, §41-§45)                   *)
+(* Precedence low -> high. The workflow pipe `|>` sits at the top;     *)
+(* conversion `x in Ohm` binds tighter than `|>` but looser than        *)
+(* comparisons. `in` as conversion is disambiguated from membership by  *)
+(* the right side being a unit name (§42.2).                            *)
+(* ------------------------------------------------------------------ *)
+
+Expression     ::= Ternary
+(* `cond ? then : else`, right-associative — §13.A. Lowest-precedence
+   expression operator; branches parse at `FramePipe` precedence, so a
+   compact range literal or a nested ternary inside a branch needs parens
+   to disambiguate its `:` from the ternary's own separator. `?` is a plain
+   1-char operator with no other meaning in the grammar. *)
+Ternary        ::= FramePipe ['?' Ternary ':' Ternary]
+FramePipe      ::= UnitExpr { '|>' PipeStage }                      (* §36.6, 0.11 *)
+UnitExpr       ::= OrExpression ['in' UnitName]                     (* §42.2 *)
+
+OrExpression   ::= AndExpression ('or' AndExpression)*
+AndExpression  ::= EqualityExpression ('and' EqualityExpression)*
+EqualityExpression ::= ComparisonExpression
+                    (('==' | '!=') ComparisonExpression)*
+ComparisonExpression
+               ::= AdditiveExpression
+                    (('<' | '<=' | '>' | '>=') AdditiveExpression)*  (* §42.5 *)
+AdditiveExpression
+               ::= MultiplicativeExpression
+                    (('+' | '-' | '|') MultiplicativeExpression)*
+                                                (* '|' is eis circuit-parallel
+                                                   composition, §48.3 *)
+MultiplicativeExpression
+               ::= UnaryExpression
+                    (('*' | '/' | '\' | '.*' | './' | '.\' | 'mod')
+                     UnaryExpression)*
+UnaryExpression ::= ('+' | '-' | 'not' | '~') UnaryExpression
+                 | ('deriv' | 'grad') PostfixExpression             (* §42.4 *)
+                 | PowerExpression
+PowerExpression ::= PostfixExpression (('^' | '**') UnaryExpression)?
+
+PostfixExpression ::= Primary { Postfix }
+Postfix         ::= '(' [ArgumentList] ')'
+                 | '[' IndexList ']'
+                 | '.' Ident
+                 | "'"                                             (* ctranspose *)
+ArgumentList   ::= Argument (',' Argument)*
+Argument        ::= Ident '=' Expression | Expression
+IndexList       ::= Index (',' Index)*
+Index           ::= Expression | Slice
+(* MATLAB order: the 3-part form is `start:step:stop`, e.g. `A[0:2:10]` is
+   start=0, step=2, stop=10 -> {0,2,4,6,8}. Half-open on `stop`, unlike the
+   inclusive `RangeExpression` compact literal above which looks identical
+   but lives outside `[...]` — same-looking `a:b:c`, two different meanings
+   depending on brackets; see §15 and §12.A. *)
+Slice           ::= [Expression] ':' [Expression] [':' [Expression]]
+
+Primary         ::= Literal
+                 | UnitLiteral                                     (* §42.2 *)
+                 | Name
+                 | NewExpression                                   (* §53.1 *)
+                 | AwaitExpression                                 (* §47.2 *)
+                 | '(' Expression ')'
+                 | Tuple
+                 | ArrayLiteral
+                 | RecordLiteral
+                 | Lambda
+                 | CasesExpression                                 (* §42.3 *)
+                 | BigOperator                                     (* §42.4 *)
+                 | WhereIndices                                    (* §15 *)
+                 | 'true' | 'false' | 'none'
+                 | QueryExpression
+WhereIndices   ::= 'where' ComparisonExpression
+
+(* Fluent pipeline stages (§36.6). Verbs are contextual in stage      *)
+(* position. Terminal plotting verbs consume the frame.                *)
+PipeStage      ::= PostfixExpression                               (* f or f(...) *)
+                 | 'where' UnitExpr
+                 | 'select' NameList
+                 | 'sort' 'by' Ident ['asc' | 'desc']
+                 | ('top' | 'head') Expression
+                 | 'group' 'by' NameList
+                 | 'aggregate' AggBinding (',' AggBinding)*
+AggBinding     ::= Expression 'as' Name
+
+(* Piecewise definition (§42.3) *)
+CasesExpression ::= 'cases' CaseArm+
+                    (('otherwise' | 'else') Expression)?
+                    ('end' | 'end' 'cases')
+CaseArm        ::= Expression 'if' Expression
+
+(* Local definitions (§42.3) *)
+WhereBinding   ::= Name '=' Expression
+
+(* Big operators (§42.4). ASCII twins shown; Unicode forms are the    *)
+(* same token per the dual-surface rule.                               *)
+BigOperator    ::= ('sum' | 'prod') Name 'in' RangeExpression ':'
+                    Expression
+                 | 'integral' Expression ['d' Name]
+                    ['from' Expression 'to' Expression]             (* §43.4 *)
+
+(* Unit-suffixed literal: 5 kHz, 35 mOhm, 20 s (§42.2) *)
+UnitLiteral    ::= (Integer | Float) UnitName
+UnitName       ::= 'Hz' | 'kHz' | 'MHz' | 'GHz' | 's' | 'ms' | 'us'
+                 | 'V' | 'mV' | 'A' | 'mA' | 'Ohm' | 'mOhm' | 'kOhm'
+                 | 'F' | 'uF' | 'nF' | 'H' | 'W' | 'dB' | 'degC'
+                 | 'cycles' | Ident                                 (* ext *)
+
+Tuple          ::= '(' Expression ',' Expression ','? ')'
+                 | '(' Expression ',' ')'
+ArrayLiteral   ::= '[' [MatrixRow (';' MatrixRow)*] ']'
+MatrixRow      ::= Expression (',' Expression)*
+(* A bracket literal is numeric when every cell is (scalar/complex, or a
+   `vector`/`matrix` block that concatenates MATLAB-style). One cell that
+   is none of those -- a string, a record, another list -- makes the whole
+   literal a heterogeneous `list` instead (§47.4): `["a", "b"]`. Only the
+   single-row and single-column forms have a list meaning; a 2-D grid of
+   non-numeric cells is an error, since no mixed-matrix value exists.
+   Nest with `[[a, b], [c, d]]` -- one row whose cells are themselves
+   lists. `[true, false]` stays NUMERIC (`[1, 0]`), as it always was. *)
+RecordLiteral  ::= '{' FieldInit (',' FieldInit)* '}'
+FieldInit      ::= Name '=' Expression
+
+QueryExpression ::= 'from' Name 'in' Expression
+                    'where' Expression
+                    'select' ('{' FieldInit (',' FieldInit)* '}' | Expression)
+                    [ 'order' 'by' NameList ]
+
+(* ------------------------------------------------------------------ *)
+(* Lexical classes (§6-§7, §42). Delivered by the lexer.               *)
+(* ------------------------------------------------------------------ *)
+
+Literal        ::= Integer | HexInteger | Float | Imaginary | String | DfdxToken
+Integer        ::= Digit { Digit | '_' }
+HexInteger     ::= ('0x' | '0X') HexDigit { HexDigit | '_' }
+HexDigit       ::= Digit | 'a'..'f' | 'A'..'F'
+Float          ::= [Digit { Digit | '_'}] '.' { Digit}
+                 | Digit { Digit | '_' } ('.' {Digit})? [Exponent]
+Exponent       ::= ('e' | 'E') ['+' | '-'] Digit { Digit }
+Imaginary      ::= (Integer | Float) 'i'
+String         ::= '"' {Char | Interp | Escape} '"'
+                 | "'" {Char | Escape} "'"
+Interp         ::= '{' Expression [':' FormatSpec] '}'
+FormatSpec     ::= [[Char] ('<' | '>' | '^')] Digit* ['.' Digit*] SpecType
+SpecType       ::= 'd' | 'f' | 'e' | 'g' | 's' | 'x' | '%'
+Escape         ::= '\' 'n' | '\' 't' | '\' '\' | '\' '"' | '\' "'"
+DfdxToken      ::= 'd' Name '/' 'd' Name                           (* §43.3 *)
+Name           ::= NameStart { NameChar }
+NameStart      ::= Letter | '_' | Greek
+NameChar       ::= Letter | Digit | '_' | Greek | Subscript         (* §42.1 *)
+Digit          ::= '0'..'9'
+Letter         ::= 'A'..'Z' | 'a'..'z'
+
+(* Built-in constants pi, e, inf, nan, i, tau and the EIS element     *)
+(* constructors R, C, L, Q, W, G, T are ordinary Names resolved by     *)
+(* name lookup (§7, §48.2).                                            *)

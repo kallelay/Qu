@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>medfilt — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>medfilt</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>medfilt(x, [window=3])</code></pre>
+<p class="fnnote">Input: x, window &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Replaces each sample by the median of <code>window</code> samples centred on it. <code>x</code> is a length-N number vector or an <code>Image</code> (filtered channel by channel); <code>window</code> is a positional integer, odd, default <code>3</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be number, vector, or Image.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-medfilt-0" checked>
+<input type="radio" name="typetab" id="tt-medfilt-1">
+<div class="tabbar">
+<label for="tt-medfilt-0">vector</label>
+<label for="tt-medfilt-1">image</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = medfilt(x, [window=3])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number or vector</span><span class="iodesc"><code>x</code> a length-N number vector.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">optional (default <code>3</code>)</span><span class="iodesc">Slides a <code>window</code>-wide 1-D neighbourhood and keeps the median.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
+<span class="f">print</span>(<span class="f">medfilt</span>(v, <span class="n">3</span>))   <span class="c"># [3, 5, 6, 6, 5, 4, 4] -- the spike at index 2 is gone</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = medfilt(x, [window=3])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Image</span><span class="iodesc"><code>x</code> an <code>Image</code>.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">optional (default <code>3</code>)</span><span class="iodesc">Runs the true 2-D median over a <code>window</code>×<code>window</code> square, channel by channel — not a row-by-row 1-D median, which would smear vertical structure it never looks at.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Only possible because the <code>Image</code> carries its own width and height. (<code>medfilt2</code>/<code>median_filter</code> are the exact same builtin under other names, so this case applies to them too.).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
+img = <span class="f">image_from_matrix</span>(m)
+cleaned = <span class="f">medfilt</span>(img, <span class="n">3</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(img, <span class="n">4</span>))       <span class="c"># [0, 0, 24, 1] -- one bright pixel</span>
+<span class="f">print</span>(<span class="f">imhist</span>(cleaned, <span class="n">4</span>))   <span class="c"># [0, 0, 25, 0] -- gone, over a 2-D neighbourhood this time</span>
+</code></pre>
+</div>
+<p>The paragraph and table above describe the removal tools individually; the example below chains several of them into one cleanup pipeline. First, <code>impulse(n, [index=], [amplitude=])</code> builds the spike to inject in the first place — a plain length-<code>n</code> zero vector with one sample set to <code>amplitude</code> at position <code>index</code>. <code>n</code> is a required positional integer, the output length; <code>index</code> is a named integer sample position, default <code>0</code>; <code>amplitude</code> is a named number, default <code>1</code>. It returns a length-<code>n</code> number vector, and is the natural way to add a single, controlled transient rather than reaching for <code>add_noise</code>'s random placement.</p>
+<p>A clean tone corrupted by both a single spike and a slow linear drift needs two different tools, applied in the right order — a median filter cannot see through a ramp, and a polynomial detrend cannot see through a spike, so the spike must go first:</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">500</span>
+t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
+
+spike = <span class="n">5</span> * <span class="f">impulse</span>(n, <span class="a">index</span> = <span class="n">200</span>)
+corrupted = clean + spike + <span class="n">0.01</span> * (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>)   <span class="c"># a spike, plus baseline drift</span>
+
+fixed = <span class="f">medfilt</span>(corrupted, <span class="n">5</span>)     <span class="c"># the spike</span>
+flat = <span class="f">detrend</span>(fixed, <span class="n">1</span>)          <span class="c"># the ramp</span>
+sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class="n">2</span>)          <span class="c"># a final polish, shape-preserving</span>
+sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
+<span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>medfilt(x, n)</code> on a vector, <code>medfilt(img, n)</code> on an image. The answer to salt-and-pepper, and the reason is worth knowing: an average is pulled by an outlier in proportion to how far out it is, while a median ignores it entirely as long as fewer than half the window is corrupt. Which is also why it keeps an edge that an average smears -- a step is not an outlier to a median.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

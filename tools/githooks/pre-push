@@ -1,0 +1,57 @@
+#!/bin/sh
+# Refuse the three push mistakes that have actually cost this project work.
+#
+# Enable once per clone:   git config core.hooksPath tools/githooks
+# Integration lane only:   git config qu.integrator true
+#
+# Nothing here is about trust. Every rule below exists because a competent
+# session did the thing it forbids, for a good reason, and lost work anyway.
+
+remote="$1"
+zero=$(git hash-object --stdin </dev/null | tr '[0-9a-f]' '0')
+integrator=$(git config --bool qu.integrator 2>/dev/null || echo false)
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+fail() { printf '\npre-push REFUSED: %s\n\n' "$1" >&2; exit 1; }
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue          # deletions: not our business
+
+  # 1. master is written by the integration lane, by nobody else.
+  #
+  # 2026-09-16: a feature branch was published as master on all four
+  # mirrors. The session verified the branch name earlier in the session,
+  # the shared worktree's HEAD moved in between, and the push named HEAD.
+  if [ "$remote_ref" = "refs/heads/master" ] && [ "$integrator" != "true" ]; then
+    fail "pushing master, but this clone is not the integration lane.
+  Push your own branch instead:
+      git push $remote refs/heads/$branch:refs/heads/$branch
+  Then request the merge. If you ARE the integrator:
+      git config qu.integrator true"
+  fi
+
+  # 2. Push an explicit ref. Never HEAD.
+  #
+  # A shared worktree's branch can change between two of your own commands
+  # -- observed twice in one evening, once between a merge and the push
+  # that followed it seconds later. A check that must be timed correctly is
+  # weaker than an operation that cannot be mistimed.
+  if [ "$local_ref" = "HEAD" ]; then
+    fail "pushed HEAD. Name the ref you mean:
+      git push $remote refs/heads/<branch>:refs/heads/<branch>"
+  fi
+
+  # 3. Do not push someone else's branch to a DIFFERENT name.
+  #
+  # Backing a branch up under its own name is good and encouraged. Pushing
+  # branch A to name B is how one commit ends up published under two
+  # labels, which happened to studio-keymap / studio-report-print.
+  case "$local_ref" in refs/heads/*)
+    if [ "$local_ref" != "$remote_ref" ]; then
+      fail "renaming on push: $local_ref -> $remote_ref
+  Push a branch to its own name, or you create a second label for one commit."
+    fi ;;
+  esac
+done
+
+exit 0

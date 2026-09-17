@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>interpolate_at — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>interpolate_at</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>interpolate_at(sig, t_query, [method="linear"|"spline"|"nearest"])</code></pre>
+<p class="fnnote">Input: sig, t_query, method &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>sig</code>: a length-N <code>Signal</code>; <code>t_query</code>: a number or length-M vector, query time(s) in seconds; <code>method</code> (optional string, <code>interp1</code>'s own three). A <code>Signal</code>-aware <code>interp1</code>: instead of an explicit <code>x</code>, the signal's OWN implicit time axis (<code>sig.t</code>, i.e. <code>i/Fs</code>) is used as <code>x</code> and <code>sig</code>'s samples as <code>y</code>. Shares <code>interp1</code>'s exact interpolation/extrapolation kernel, so the two never silently diverge in behavior. <code>sig.interpolate_at(t_query, [method])</code> also works via the generic method-chain sugar.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = interpolate_at(sig, t_query, [method="linear"|"spline"|"nearest"])</code></td><td><div class="ioitem"><code>sig</code> <span class="iotype">Signal</span><span class="iodesc"><code>sig</code>: a length-N <code>Signal</code>.</span></div>
+<div class="ioitem"><code>t_query</code> <span class="iotype">number or vector</span><span class="iodesc"><code>t_query</code>: a number or length-M vector, query time(s) in seconds.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"linear"|"spline"|"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional string, <code>interp1</code>'s own three).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number, vector, or Signal</span></div>
+</td><td>Returns a number (if <code>t_query</code> is a number) or a length-M vector (if <code>t_query</code> is a vector) — <strong>never</strong> re-wrapped as a <code>Signal</code>: a <code>Signal</code> is a promise of uniform sampling at a known <code>Fs</code>, but the query times here are arbitrary caller-chosen instants with no guaranteed spacing, so there is no honest <code>Fs</code> to attach.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
+mid = <span class="f">interpolate_at</span>(sig, <span class="n">0.75</span>)      <span class="c"># interior, halfway between samples 1 and 2</span>
+lo  = <span class="f">interpolate_at</span>(sig, -<span class="n">0.5</span>)      <span class="c"># extrapolated below t=0 via the boundary slope</span>
+hi  = sig.<span class="f">interpolate_at</span>(<span class="n">2.0</span>)        <span class="c"># extrapolated past the last sample</span>
+qs  = sig.<span class="f">interpolate_at</span>([<span class="n">0.0</span>, <span class="n">0.5</span>, <span class="n">1.0</span>], <span class="s">"nearest"</span>)
+<span class="f">print</span>(<span class="s">"mid={mid}, lo={lo}, hi={hi}, qs={qs}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
+mid = <span class="f">interpolate_at</span>(sig, <span class="n">0.75</span>)
+lo = <span class="f">interpolate_at</span>(sig, -<span class="n">0.5</span>)
+hi = <span class="f">interpolate_at</span>(sig, <span class="n">2.0</span>)
+qs = sig.<span class="f">interpolate_at</span>([<span class="n">0.0</span>, <span class="n">0.5</span>, <span class="n">1.0</span>], <span class="s">"nearest"</span>)
+<span class="f">print</span>(<span class="s">"mid = {mid}"</span>)
+<span class="f">print</span>(<span class="s">"lo = {lo}"</span>)
+<span class="f">print</span>(<span class="s">"hi = {hi}"</span>)
+<span class="f">print</span>(<span class="s">"qs = {qs}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>interpolate_at(sig, t_query, [method])</code> (§ signal builtins, 2026-09) — a signal-aware <code>interp1</code>: instead of the caller supplying an explicit <code>x</code> vector, <code>x</code> is the signal's OWN implicit time axis (<code>sig.t</code>, i.e. <code>[0, 1/Fs, 2/Fs, ...]</code> — reused directly via <code>eval_field</code>'s existing <code>(Signal, "t")</code> accessor rather than recomputed by hand here, so this can never drift from what <code>sig.t</code> itself reports), so the caller only supplies the query time(s) (a scalar or a vector — same shape rule as <code>interp1</code>'s own <code>xq</code>) and, optionally, a <code>method</code> (<code>"linear"</code>/<code>"spline"</code>/<code>"nearest"</code>, <code>interp1</code>'s exact set, sharing the same <code>interp1_eval</code> dispatch so the two never silently diverge in behavior). Returns a plain <code>Value::Num</code>/<code>Value::Vec</code> — deliberately NEVER re-wrapped as a <code>Value::Signal</code>. A <code>Signal</code> is a promise of uniform sampling at a known <code>Fs</code> (that's the entire reason <code>sig.t</code>/<code>resample_to</code>/<code>cut</code> can compute a time axis from just <code>Fs</code> and a length); the query times here are arbitrary, caller-chosen instants with no guaranteed spacing at all, so there is no honest <code>Fs</code> to attach — wrapping the result in a <code>Signal</code> anyway would silently claim a sample rate that isn't real. <code>interp1(x, y, xq)</code>'s own return type has the identical reasoning already (it returns <code>Num</code>/<code>Vec</code>, never a <code>Signal</code>, even when <code>y</code> came from one) — this just makes explicit for a <code>Signal</code>-rooted caller what was already true.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

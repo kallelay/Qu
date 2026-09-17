@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random walk — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Statistics &amp; estimation</p>
+<h1>Random walk</h1>
+<p class="lede">a discretized Wiener-process-style random walk with a real, nonzero drift, checking that the walk's mean per-step increment converges toward the specified drift as n_steps grows (the Law of Large Numbers applied to `random_walk`'s own definition).</p>
+<p class="srcpath">catalog/qu_random_walk.qu</p>
+<p>`random_walk(n_steps, drift=, volatility=, seed=)` builds x[0]=0, x[i] = x[i-1] + drift + volatility*randn(). Since x[n] is just the sum of n i.i.d. increments each with mean `drift` and variance `volatility^2`, the sample mean increment x[n]/n has mean `drift` and standard error `volatility/sqrt(n)` -- an exact, checkable statistical property (see book/src/stdlib/statistics-ml.md's own `random_walk_final_position_variance_grows_roughly_linearly_with_step_ count` reference and the `Var(x[n]) = n*volatility^2` note).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>random_walk(n_steps, drift, volatility, [seed=]) -- drift/volatility</li>
+<li>are positional (confirmed against the engine's own regression tests</li>
+<li>in engine/crates/qu-interp/src/lib.rs, e.g.</li>
+<li>`random_walk(30, 0, 1, seed=11)`), only `seed` is named.</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A walk with a real, nonzero drift and unit volatility.</h3>
+<pre class="hl"><code>true_drift = <span class="n">0.05</span>
+volatility = <span class="n">1.0</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Try a few step counts and show the estimated per-step drift converging,</h3>
+<p>each with its own 4-standard-error band (a generous, still-checkable bound: under the CLT, a sample mean landing outside +/-4 SE happens for well under 1% of seeds).</p>
+<pre class="hl"><code>step_counts = [<span class="n">1000</span>, <span class="n">100000</span>, <span class="n">4000000</span>]
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(step_counts) - <span class="n">1</span>
+    n_steps = step_counts[k]
+    path = <span class="f">random_walk</span>(n_steps, true_drift, volatility, <span class="a">seed</span>=k + <span class="n">1</span>)
+    est_drift = path[n_steps] / n_steps   <span class="c"># path[0] = 0, so this IS the mean increment</span>
+    se = volatility / <span class="f">sqrt</span>(n_steps)
+    err = <span class="f">abs</span>(est_drift - true_drift)
+    <span class="f">print</span>(<span class="s">"n_steps={n_steps:&gt;8}: estimated drift={est_drift:.5f}, true drift={true_drift:.5f}, |error|={err:.5f}, 4*SE={4.0*se:.5f}"</span>)
+    <span class="k">if</span> err &lt; <span class="n">4.0</span> * se <span class="k">then</span>
+        <span class="f">print</span>(<span class="s">"  -&gt; within the 4-standard-error band (converging as expected)."</span>)
+    <span class="k">else</span>
+        <span class="f">print</span>(<span class="s">"  -&gt; MISMATCH: estimated drift is further than 4 standard errors from the truth!"</span>)
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot the smallest walk (most visually interesting -- still noisy).</h3>
+<pre class="hl"><code>small_path = <span class="f">random_walk</span>(step_counts[<span class="n">0</span>], true_drift, volatility, <span class="a">seed</span>=<span class="n">1</span>)
+steps = <span class="n">0</span> <span class="k">to</span> step_counts[<span class="n">0</span>]
+<span class="f">plot</span>(steps, small_path, <span class="a">label</span>=<span class="s">"random walk (drift={true_drift})"</span>, <span class="a">color</span>=<span class="s">"purple"</span>)
+<span class="f">xlabel</span>(<span class="s">"step"</span>)
+<span class="f">ylabel</span>(<span class="s">"position"</span>)
+<span class="f">title</span>(<span class="s">"Random walk with drift: n_steps={step_counts[0]}"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>n_steps=1000: estimated drift=0.04732, true drift=0.05000, |error|=0.00268, 4*SE=0.12649
+  -&gt; within the 4-standard-error band (converging as expected).
+n_steps=100000: estimated drift=0.05080, true drift=0.05000, |error|=0.00080, 4*SE=0.01265
+  -&gt; within the 4-standard-error band (converging as expected).
+n_steps=4000000: estimated drift=0.05037, true drift=0.05000, |error|=0.00037, 4*SE=0.00200
+  -&gt; within the 4-standard-error band (converging as expected).</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="483.90" x2="866.00" y2="483.90" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="483.90" x2="86.00" y2="483.90" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="488.38" font-size="12.8" text-anchor="end" fill="#5a5a5a">-10</text>
+<line x1="86.00" y1="411.75" x2="866.00" y2="411.75" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="411.75" x2="86.00" y2="411.75" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="416.23" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="339.61" x2="866.00" y2="339.61" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="339.61" x2="86.00" y2="339.61" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="344.09" font-size="12.8" text-anchor="end" fill="#5a5a5a">10</text>
+<line x1="86.00" y1="267.46" x2="866.00" y2="267.46" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="267.46" x2="86.00" y2="267.46" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="271.94" font-size="12.8" text-anchor="end" fill="#5a5a5a">20</text>
+<line x1="86.00" y1="195.31" x2="866.00" y2="195.31" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="195.31" x2="86.00" y2="195.31" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="199.79" font-size="12.8" text-anchor="end" fill="#5a5a5a">30</text>
+<line x1="86.00" y1="123.16" x2="866.00" y2="123.16" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="123.16" x2="86.00" y2="123.16" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="127.64" font-size="12.8" text-anchor="end" fill="#5a5a5a">40</text>
+<line x1="86.00" y1="51.01" x2="866.00" y2="51.01" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="51.01" x2="86.00" y2="51.01" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="55.49" font-size="12.8" text-anchor="end" fill="#5a5a5a">50</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="160.29" y1="48.00" x2="160.29" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="160.29" y1="540.00" x2="160.29" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="160.29" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">100</text>
+<line x1="234.57" y1="48.00" x2="234.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="234.57" y1="540.00" x2="234.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="234.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">200</text>
+<line x1="308.86" y1="48.00" x2="308.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="308.86" y1="540.00" x2="308.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="308.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">300</text>
+<line x1="383.14" y1="48.00" x2="383.14" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="383.14" y1="540.00" x2="383.14" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="383.14" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">400</text>
+<line x1="457.43" y1="48.00" x2="457.43" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="457.43" y1="540.00" x2="457.43" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="457.43" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">500</text>
+<line x1="531.71" y1="48.00" x2="531.71" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="531.71" y1="540.00" x2="531.71" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="531.71" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">600</text>
+<line x1="606.00" y1="48.00" x2="606.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="606.00" y1="540.00" x2="606.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="606.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">700</text>
+<line x1="680.29" y1="48.00" x2="680.29" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="680.29" y1="540.00" x2="680.29" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="680.29" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">800</text>
+<line x1="754.57" y1="48.00" x2="754.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="754.57" y1="540.00" x2="754.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="754.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">900</text>
+<line x1="828.86" y1="48.00" x2="828.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="828.86" y1="540.00" x2="828.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="828.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1000</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,411.75 86.74,405.96 87.49,414.23 88.23,410.06 88.97,411.52 89.71,415.20 90.46,421.78 91.20,428.89 91.94,436.88 92.69,438.43 93.43,434.80 94.17,450.59 94.91,453.63 95.66,470.97 96.40,464.90 97.14,464.94 97.89,470.53 98.63,470.36 99.37,477.83 100.11,475.19 100.86,470.64 101.60,469.77 102.34,464.91 103.09,466.47 103.83,455.24 104.57,455.86 105.31,462.16 106.06,463.78 106.80,475.87 107.54,462.07 108.29,465.37 109.03,464.77 109.77,465.90 110.51,454.34 111.26,472.10 112.00,463.91 112.74,459.12 113.49,464.44 114.23,470.38 114.97,468.66 115.71,477.26 116.46,487.99 117.20,489.03 117.94,488.66 118.69,481.81 119.43,480.38 120.17,471.87 120.91,473.35 121.66,463.30 122.40,458.73 123.14,459.33 123.89,462.75 124.63,470.84 125.37,471.12 126.11,459.71 126.86,461.72 127.60,470.58 128.34,467.30 129.09,451.51 129.83,460.71 130.57,463.03 131.31,457.17 132.06,454.99 132.80,443.82 133.54,442.78 134.29,441.88 135.03,448.57 135.77,463.98 136.51,473.01 137.26,456.61 138.00,461.96 138.74,466.40 139.49,459.46 140.23,453.76 140.97,449.50 141.71,448.80 142.46,446.70 143.20,445.78 143.94,436.95 144.69,430.56 145.43,427.56 146.17,429.59 146.91,430.50 147.66,423.60 148.40,430.28 149.14,445.18 149.89,435.47 150.63,436.78 151.37,422.51 152.11,412.71 152.86,414.08 153.60,406.89 154.34,410.48 155.09,404.88 155.83,405.30 156.57,410.67 157.31,406.37 158.06,400.46 158.80,398.96 159.54,406.46 160.29,399.73 161.03,408.03 161.77,401.75 162.51,392.69 163.26,382.89 164.00,379.71 164.74,383.07 165.49,384.21 166.23,380.34 166.97,376.03 167.71,378.66 168.46,395.37 169.20,388.43 169.94,400.93 170.69,405.38 171.43,405.40 172.17,417.03 172.91,421.84 173.66,417.61 174.40,427.45 175.14,422.24 175.89,418.76 176.63,425.08 177.37,436.28 178.11,440.84 178.86,429.68 179.60,428.78 180.34,423.20 181.09,432.30 181.83,447.67 182.57,447.67 183.31,459.50 184.06,463.11 184.80,439.82 185.54,440.50 186.29,446.93 187.03,452.30 187.77,449.79 188.51,448.19 189.26,453.12 190.00,458.52 190.74,469.14 191.49,478.48 192.23,486.34 192.97,482.70 193.71,470.17 194.46,481.30 195.20,483.92 195.94,474.32 196.69,476.30 197.43,477.66 198.17,485.92 198.91,489.66 199.66,494.33 200.40,496.38 201.14,497.93 201.89,494.84 202.63,499.44 203.37,494.18 204.11,490.18 204.86,486.14 205.60,480.36 206.34,479.77 207.09,473.31 207.83,477.05 208.57,476.86 209.31,469.52 210.06,478.52 210.80,466.96 211.54,468.88 212.29,460.43 213.03,447.50 213.77,440.39 214.51,451.65 215.26,452.61 216.00,448.24 216.74,448.61 217.49,459.65 218.23,460.15 218.97,463.13 219.71,470.13 220.46,471.59 221.20,476.28 221.94,467.55 222.69,463.11 223.43,461.23 224.17,477.79 224.91,483.83 225.66,486.02 226.40,494.89 227.14,496.17 227.89,499.41 228.63,504.41 229.37,509.16 230.11,512.95 230.86,508.38 231.60,502.47 232.34,517.28 233.09,513.60 233.83,509.16 234.57,504.34 235.31,496.14 236.06,498.29 236.80,501.63 237.54,500.49 238.29,496.74 239.03,492.75 239.77,483.49 240.51,475.62 241.26,460.40 242.00,448.58 242.74,447.40 243.49,440.65 244.23,443.31 244.97,446.08 245.71,438.14 246.46,450.24 247.20,448.31 247.94,448.34 248.69,448.98 249.43,464.01 250.17,457.63 250.91,459.46 251.66,463.31 252.40,474.51 253.14,474.10 253.89,479.61 254.63,477.45 255.37,478.76 256.11,477.31 256.86,470.66 257.60,466.40 258.34,469.73 259.09,476.66 259.83,486.68 260.57,489.76 261.31,492.57 262.06,472.48 262.80,481.82 263.54,470.23 264.29,487.13 265.03,509.37 265.77,502.90 266.51,504.95 267.26,499.45 268.00,498.45 268.74,493.03 269.49,487.18 270.23,490.50 270.97,492.33 271.71,493.91 272.46,488.70 273.20,490.09 273.94,499.27 274.69,509.77 275.43,517.64 276.17,507.40 276.91,497.63 277.66,494.66 278.40,494.56 279.14,504.40 279.89,503.62 280.63,494.71 281.37,494.96 282.11,489.85 282.86,498.64 283.60,510.55 284.34,508.13 285.09,513.85 285.83,513.66 286.57,512.57 287.31,512.03 288.06,509.65 288.80,501.19 289.54,487.81 290.29,483.40 291.03,490.41 291.77,496.64 292.51,493.92 293.26,498.06 294.00,504.76 294.74,510.93 295.49,516.10 296.23,490.67 296.97,504.41 297.71,492.07 298.46,496.00 299.20,491.78 299.94,487.43 300.69,490.83 301.43,487.86 302.17,492.33 302.91,489.31 303.66,489.65 304.40,486.51 305.14,486.42 305.89,488.07 306.63,487.52 307.37,492.35 308.11,481.36 308.86,478.34 309.60,484.17 310.34,479.06 311.09,472.43 311.83,483.14 312.57,486.74 313.31,485.69 314.06,482.60 314.80,480.37 315.54,487.17 316.29,476.22 317.03,484.64 317.77,472.05 318.51,464.46 319.26,470.97 320.00,475.75 320.74,486.49 321.49,486.84 322.23,489.42 322.97,495.70 323.71,489.81 324.46,497.78 325.20,494.86 325.94,500.49 326.69,497.30 327.43,491.34 328.17,490.43 328.91,484.62 329.66,486.08 330.40,481.85 331.14,470.80 331.89,470.43 332.63,456.58 333.37,452.41 334.11,449.08 334.86,450.66 335.60,441.37 336.34,446.09 337.09,439.47 337.83,444.94 338.57,433.03 339.31,434.04 340.06,428.89 340.80,428.94 341.54,414.31 342.29,403.56 343.03,405.21 343.77,405.78 344.51,397.88 345.26,402.17 346.00,391.11 346.74,401.88 347.49,407.51 348.23,401.63 348.97,398.60 349.71,403.78 350.46,404.09 351.20,413.76 351.94,419.79 352.69,422.20 353.43,412.75 354.17,413.26 354.91,416.26 355.66,435.85 356.40,435.43 357.14,440.91 357.89,439.97 358.63,448.93 359.37,447.78 360.11,451.10 360.86,447.26 361.60,455.50 362.34,468.13 363.09,463.98 363.83,452.04 364.57,453.64 365.31,450.63 366.06,454.25 366.80,458.27 367.54,455.95 368.29,461.88 369.03,454.42 369.77,459.12 370.51,438.98 371.26,437.51 372.00,439.78 372.74,451.26 373.49,455.25 374.23,458.54 374.97,443.90 375.71,443.13 376.46,426.86 377.20,413.31 377.94,407.28 378.69,409.12 379.43,406.75 380.17,401.47 380.91,403.96 381.66,411.91 382.40,410.09 383.14,409.72 383.89,407.87 384.63,403.95 385.37,409.11 386.11,424.95 386.86,429.61 387.60,430.87 388.34,430.99 389.09,432.76 389.83,428.40 390.57,437.07 391.31,450.21 392.06,449.07 392.80,460.39 393.54,450.41 394.29,449.57 395.03,444.01 395.77,436.63 396.51,441.97 397.26,446.16 398.00,440.65 398.74,425.73 399.49,423.76 400.23,425.75 400.97,432.46 401.71,434.54 402.46,450.81 403.20,434.99 403.94,444.28 404.69,438.15 405.43,452.76 406.17,468.89 406.91,458.53 407.66,455.50 408.40,452.98 409.14,449.26 409.89,460.26 410.63,455.74 411.37,470.07 412.11,459.92 412.86,470.58 413.60,462.64 414.34,467.31 415.09,460.58 415.83,450.57 416.57,448.93 417.31,470.37 418.06,458.07 418.80,450.32 419.54,462.87 420.29,458.27 421.03,453.59 421.77,465.03 422.51,466.91 423.26,468.66 424.00,457.00 424.74,432.74 425.49,435.38 426.23,428.89 426.97,437.21 427.71,440.51 428.46,431.48 429.20,437.28 429.94,430.88 430.69,436.84 431.43,435.94 432.17,431.82 432.91,433.43 433.66,430.15 434.40,428.44 435.14,423.34 435.89,423.91 436.63,411.13 437.37,412.00 438.11,418.88 438.86,422.79 439.60,431.32 440.34,421.64 441.09,418.21 441.83,413.15 442.57,419.12 443.31,422.66 444.06,417.16 444.80,410.73 445.54,401.76 446.29,408.54 447.03,406.94 447.77,411.54 448.51,427.16 449.26,425.87 450.00,428.55 450.74,427.76 451.49,425.90 452.23,422.68 452.97,430.62 453.71,437.66 454.46,437.26 455.20,434.21 455.94,430.84 456.69,431.74 457.43,434.57 458.17,436.72 458.91,433.84 459.66,421.25 460.40,424.48 461.14,428.92 461.89,435.32 462.63,422.97 463.37,430.84 464.11,430.15 464.86,422.59 465.60,415.67 466.34,422.43 467.09,413.28 467.83,412.24 468.57,426.63 469.31,431.49 470.06,434.57 470.80,441.57 471.54,444.46 472.29,448.21 473.03,454.20 473.77,461.72 474.51,456.82 475.26,450.71 476.00,456.02 476.74,454.54 477.49,450.57 478.23,445.04 478.97,437.60 479.71,430.09 480.46,435.51 481.20,433.19 481.94,433.11 482.69,427.66 483.43,435.19 484.17,437.69 484.91,445.91 485.66,448.37 486.40,430.04 487.14,419.44 487.89,420.79 488.63,413.56 489.37,416.84 490.11,414.09 490.86,416.85 491.60,416.82 492.34,419.00 493.09,420.52 493.83,422.82 494.57,403.99 495.31,399.10 496.06,399.18 496.80,400.48 497.54,404.14 498.29,407.60 499.03,402.98 499.77,405.88 500.51,400.43 501.26,404.45 502.00,399.10 502.74,410.81 503.49,414.64 504.23,419.03 504.97,409.74 505.71,400.05 506.46,393.47 507.20,395.54 507.94,390.93 508.69,385.16 509.43,388.12 510.17,394.87 510.91,393.91 511.66,392.36 512.40,391.47 513.14,396.41 513.89,409.14 514.63,417.09 515.37,419.15 516.11,416.12 516.86,407.39 517.60,414.46 518.34,417.46 519.09,420.39 519.83,413.34 520.57,432.56 521.31,446.78 522.06,455.76 522.80,458.96 523.54,461.69 524.29,455.80 525.03,463.04 525.77,466.43 526.51,467.59 527.26,465.51 528.00,454.86 528.74,451.18 529.49,450.80 530.23,451.03 530.97,447.36 531.71,454.16 532.46,446.22 533.20,442.19 533.94,439.21 534.69,438.29 535.43,430.40 536.17,430.12 536.91,434.30 537.66,441.41 538.40,434.87 539.14,435.06 539.89,432.39 540.63,431.63 541.37,428.44 542.11,419.84 542.86,411.33 543.60,399.70 544.34,407.72 545.09,409.62 545.83,404.30 546.57,399.33 547.31,403.42 548.06,400.68 548.80,390.06 549.54,394.44 550.29,386.04 551.03,390.49 551.77,384.80 552.51,383.03 553.26,383.38 554.00,379.01 554.74,388.01 555.49,387.38 556.23,381.42 556.97,385.64 557.71,372.61 558.46,373.72 559.20,354.82 559.94,347.81 560.69,342.48 561.43,347.38 562.17,359.87 562.91,364.45 563.66,363.40 564.40,353.53 565.14,356.09 565.89,355.65 566.63,351.81 567.37,371.84 568.11,372.41 568.86,360.19 569.60,359.96 570.34,362.43 571.09,365.22 571.83,370.28 572.57,371.12 573.31,363.38 574.06,371.05 574.80,374.89 575.54,364.56 576.29,364.38 577.03,348.15 577.77,350.70 578.51,350.10 579.26,346.93 580.00,344.85 580.74,351.97 581.49,346.76 582.23,349.67 582.97,345.44 583.71,343.33 584.46,336.10 585.20,350.87 585.94,347.65 586.69,337.17 587.43,337.78 588.17,346.90 588.91,354.01 589.66,342.61 590.40,338.95 591.14,355.78 591.89,353.57 592.63,348.98 593.37,355.54 594.11,350.71 594.86,347.89 595.60,352.22 596.34,358.83 597.09,349.28 597.83,358.73 598.57,360.75 599.31,368.33 600.06,363.81 600.80,377.89 601.54,388.19 602.29,388.28 603.03,388.24 603.77,386.25 604.51,381.89 605.26,383.03 606.00,384.37 606.74,386.33 607.49,382.89 608.23,383.10 608.97,383.05 609.71,382.91 610.46,385.99 611.20,380.24 611.94,374.67 612.69,382.84 613.43,389.34 614.17,389.62 614.91,395.94 615.66,387.99 616.40,371.81 617.14,366.45 617.89,357.70 618.63,359.63 619.37,357.20 620.11,365.99 620.86,365.79 621.60,360.22 622.34,352.65 623.09,349.56 623.83,341.03 624.57,330.80 625.31,336.78 626.06,345.34 626.80,340.70 627.54,339.65 628.29,341.42 629.03,346.32 629.77,352.53 630.51,333.51 631.26,348.39 632.00,348.38 632.74,351.76 633.49,350.78 634.23,338.15 634.97,332.12 635.71,335.17 636.46,340.68 637.20,341.21 637.94,335.45 638.69,337.42 639.43,337.46 640.17,337.87 640.91,336.48 641.66,335.99 642.40,330.75 643.14,323.24 643.89,323.03 644.63,320.75 645.37,313.15 646.11,315.53 646.86,307.86 647.60,305.79 648.34,299.89 649.09,297.54 649.83,300.41 650.57,297.17 651.31,297.72 652.06,306.81 652.80,303.13 653.54,315.20 654.29,299.03 655.03,309.67 655.77,306.62 656.51,305.00 657.26,309.52 658.00,312.06 658.74,301.69 659.49,299.86 660.23,299.31 660.97,290.86 661.71,289.74 662.46,293.09 663.20,287.75 663.94,276.97 664.69,275.61 665.43,268.14 666.17,270.87 666.91,268.40 667.66,259.65 668.40,251.78 669.14,246.10 669.89,246.56 670.63,238.37 671.37,228.94 672.11,212.95 672.86,210.16 673.60,214.88 674.34,208.92 675.09,222.25 675.83,211.34 676.57,206.90 677.31,208.03 678.06,207.48 678.80,195.14 679.54,197.29 680.29,202.87 681.03,199.88 681.77,202.85 682.51,194.97 683.26,191.62 684.00,190.92 684.74,192.24 685.49,180.33 686.23,177.13 686.97,182.52 687.71,183.08 688.46,186.23 689.20,191.04 689.94,182.07 690.69,184.41 691.43,185.55 692.17,192.61 692.91,184.69 693.66,190.32 694.40,199.95 695.14,209.97 695.89,205.57 696.63,211.55 697.37,206.11 698.11,201.30 698.86,200.44 699.60,207.39 700.34,205.32 701.09,192.30 701.83,198.54 702.57,190.25 703.31,193.44 704.06,195.53 704.80,197.49 705.54,207.46 706.29,199.64 707.03,200.77 707.77,207.05 708.51,216.44 709.26,227.03 710.00,229.21 710.74,233.26 711.49,233.64 712.23,235.37 712.97,229.09 713.71,231.38 714.46,219.13 715.20,201.29 715.94,209.20 716.69,203.11 717.43,199.97 718.17,202.44 718.91,208.29 719.66,203.94 720.40,203.13 721.14,194.09 721.89,194.40 722.63,196.56 723.37,192.20 724.11,181.91 724.86,185.37 725.60,184.60 726.34,168.00 727.09,171.06 727.83,172.15 728.57,162.98 729.31,152.98 730.06,158.85 730.80,149.34 731.54,159.05 732.29,167.81 733.03,152.50 733.77,143.33 734.51,151.67 735.26,157.58 736.00,164.03 736.74,169.64 737.49,161.50 738.23,153.29 738.97,166.17 739.71,146.36 740.46,137.80 741.20,133.35 741.94,129.05 742.69,121.72 743.43,123.60 744.17,117.32 744.91,116.38 745.66,111.11 746.40,109.96 747.14,110.96 747.89,124.82 748.63,117.44 749.37,128.70 750.11,131.53 750.86,128.00 751.60,130.52 752.34,125.28 753.09,122.61 753.83,120.90 754.57,130.79 755.31,133.91 756.06,128.22 756.80,131.88 757.54,120.57 758.29,128.21 759.03,122.03 759.77,124.05 760.51,127.68 761.26,136.04 762.00,127.89 762.74,134.38 763.49,132.29 764.23,135.12 764.97,130.21 765.71,139.12 766.46,143.95 767.20,134.22 767.94,142.91 768.69,144.05 769.43,146.85 770.17,145.14 770.91,153.41 771.66,151.17 772.40,166.74 773.14,167.17 773.89,169.21 774.63,173.91 775.37,174.80 776.11,182.44 776.86,181.16 777.60,174.29 778.34,173.10 779.09,179.38 779.83,181.04 780.57,182.73 781.31,180.43 782.06,185.32 782.80,169.96 783.54,179.29 784.29,192.68 785.03,200.23 785.77,198.57 786.51,189.32 787.26,173.67 788.00,176.21 788.74,168.53 789.49,153.63 790.23,152.62 790.97,148.00 791.71,139.83 792.46,139.15 793.20,134.26 793.94,133.85 794.69,127.04 795.43,127.97 796.17,123.43 796.91,127.57 797.66,107.24 798.40,103.81 799.14,104.33 799.89,109.23 800.63,110.37 801.37,127.02 802.11,127.59 802.86,129.02 803.60,130.80 804.34,132.12 805.09,125.98 805.83,122.90 806.57,122.77 807.31,130.65 808.06,123.86 808.80,130.24 809.54,113.56 810.29,110.77 811.03,111.14 811.77,111.94 812.51,104.04 813.26,96.39 814.00,96.23 814.74,91.59 815.49,93.50 816.23,98.94 816.97,96.32 817.71,84.65 818.46,88.98 819.20,94.66 819.94,97.57 820.69,96.33 821.43,107.41 822.17,109.63 822.91,119.85 823.66,115.36 824.40,108.59 825.14,101.35 825.89,91.66 826.63,86.23 827.37,84.05 828.11,81.31 828.86,70.36" fill="none" stroke="#800080" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Random walk with drift: n_steps=1000</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">step</text>
+<text x="48.83" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 48.83 294.00)">position</text>
+<rect x="94.00" y="56.00" width="181.75" height="32.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="101.00" y1="72.00" x2="121.00" y2="72.00" stroke="#800080" stroke-width="2.2"/>
+<text x="127.00" y="75.50" font-size="12" text-anchor="start" fill="#222">random walk (drift=0.05)</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_random_walk.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_random_walk.qu -- a discretized Wiener-process-style random walk with</span>
+<span class="c"># a real, nonzero drift, checking that the walk's mean per-step increment</span>
+<span class="c"># converges toward the specified drift as n_steps grows (the Law of Large</span>
+<span class="c"># Numbers applied to `random_walk`'s own definition).</span>
+<span class="c">#</span>
+<span class="c"># `random_walk(n_steps, drift=, volatility=, seed=)` builds x[0]=0,</span>
+<span class="c"># x[i] = x[i-1] + drift + volatility*randn(). Since x[n] is just the sum</span>
+<span class="c"># of n i.i.d. increments each with mean `drift` and variance</span>
+<span class="c"># `volatility^2`, the sample mean increment x[n]/n has mean `drift` and</span>
+<span class="c"># standard error `volatility/sqrt(n)` -- an exact, checkable statistical</span>
+<span class="c"># property (see book/src/stdlib/statistics-ml.md's own</span>
+<span class="c"># `random_walk_final_position_variance_grows_roughly_linearly_with_step_</span>
+<span class="c"># count` reference and the `Var(x[n]) = n*volatility^2` note).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   random_walk(n_steps, drift, volatility, [seed=]) -- drift/volatility</span>
+<span class="c">#     are positional (confirmed against the engine's own regression tests</span>
+<span class="c">#     in engine/crates/qu-interp/src/lib.rs, e.g.</span>
+<span class="c">#     `random_walk(30, 0, 1, seed=11)`), only `seed` is named.</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A walk with a real, nonzero drift and unit volatility.</span>
+true_drift = <span class="n">0.05</span>
+volatility = <span class="n">1.0</span>
+
+<span class="c">#%% Try a few step counts and show the estimated per-step drift converging,</span>
+<span class="c"># each with its own 4-standard-error band (a generous, still-checkable</span>
+<span class="c"># bound: under the CLT, a sample mean landing outside +/-4 SE happens for</span>
+<span class="c"># well under 1% of seeds).</span>
+step_counts = [<span class="n">1000</span>, <span class="n">100000</span>, <span class="n">4000000</span>]
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(step_counts) - <span class="n">1</span>
+    n_steps = step_counts[k]
+    path = <span class="f">random_walk</span>(n_steps, true_drift, volatility, <span class="a">seed</span>=k + <span class="n">1</span>)
+    est_drift = path[n_steps] / n_steps   <span class="c"># path[0] = 0, so this IS the mean increment</span>
+    se = volatility / <span class="f">sqrt</span>(n_steps)
+    err = <span class="f">abs</span>(est_drift - true_drift)
+    <span class="f">print</span>(<span class="s">"n_steps={n_steps:&gt;8}: estimated drift={est_drift:.5f}, true drift={true_drift:.5f}, |error|={err:.5f}, 4*SE={4.0*se:.5f}"</span>)
+    <span class="k">if</span> err &lt; <span class="n">4.0</span> * se <span class="k">then</span>
+        <span class="f">print</span>(<span class="s">"  -&gt; within the 4-standard-error band (converging as expected)."</span>)
+    <span class="k">else</span>
+        <span class="f">print</span>(<span class="s">"  -&gt; MISMATCH: estimated drift is further than 4 standard errors from the truth!"</span>)
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="c">#%% Plot the smallest walk (most visually interesting -- still noisy).</span>
+small_path = <span class="f">random_walk</span>(step_counts[<span class="n">0</span>], true_drift, volatility, <span class="a">seed</span>=<span class="n">1</span>)
+steps = <span class="n">0</span> <span class="k">to</span> step_counts[<span class="n">0</span>]
+<span class="f">plot</span>(steps, small_path, <span class="a">label</span>=<span class="s">"random walk (drift={true_drift})"</span>, <span class="a">color</span>=<span class="s">"purple"</span>)
+<span class="f">xlabel</span>(<span class="s">"step"</span>)
+<span class="f">ylabel</span>(<span class="s">"position"</span>)
+<span class="f">title</span>(<span class="s">"Random walk with drift: n_steps={step_counts[0]}"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

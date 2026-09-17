@@ -1,0 +1,47 @@
+# 11 — a realistic three-panel measurement figure in the publication theme:
+# a raw trace with a glitch, the repaired trace, and the spectrum. This is
+# the closest case in the set to a figure that would actually go into a
+# paper, so it is the one to judge the publication theme by. Self-contained:
+# the signal is synthesised here rather than read from disk.
+Fs = 2000
+N  = 4000
+t  = (0 to N-1)/Fs
+v  = 1.0*sin(2*pi*50*t) + 0.25*sin(2*pi*150*t) + 0.08*randn(N)
+v[1200] = 6.5
+v[1201] = -5.9
+
+# robust glitch detection, then repair by averaging across the gap
+med   = median(v)
+madv  = median(abs(v - med))
+bad   = where abs(v - med) > 4 * 1.4826 * madv
+clean = v
+for k = 0 to length(bad)-1
+    i = bad[k]
+    clean[i] = (v[i-2] + v[i+2]) / 2
+end
+print("glitch samples repaired: {bad}")
+print("crest factor {max(abs(v))/rms(v):.3f} -> {max(abs(clean))/rms(clean):.3f}")
+
+P = welch(clean, Fs, nperseg=1024)
+f = linspace(0, Fs/2, length(P))
+
+theme("publication")
+figure_size(880, 620)
+subplot(3,1,1)
+plot(t[1150:1259], v[1150:1259], color="#A6392C")
+title("raw, glitch region")
+ylabel("v [V]")
+grid on
+subplot(3,1,2)
+plot(t[1150:1259], clean[1150:1259])
+title("after repair")
+ylabel("v [V]")
+xlabel("t [s]")
+grid on
+subplot(3,1,3)
+semilogy(f, P)
+title("Welch PSD, cleaned")
+xlabel("f [Hz]")
+ylabel("PSD [V^2/Hz]")
+grid on
+savefig("11_signal_qc_publication.svg")

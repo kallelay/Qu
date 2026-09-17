@@ -1,0 +1,315 @@
+# qu_bridge_shm.qu -- bridge structural health monitoring (SHM) via
+# distributed vibration sensors: synthetic-but-realistic simulation plus a
+# real spectral-analysis damage-detection pipeline.
+#
+# WHAT IS SIMULATED (all synthetic, generated below -- not real bridge
+# data, no hardware involved):
+#   - A bridge deck of span L, instrumented with `n_sensors` accelerometers
+#     at known fixed positions `xs` along the span.
+#   - Global standing-wave vibration: 3 illustrative modal frequencies
+#     (2.1, 5.8, 11.3 Hz -- picked to be representative of a real short-to-
+#     medium-span highway bridge's first few bending modes, NOT a fit to
+#     any specific named structure) with simply-supported-beam mode shapes
+#     phi_n(x) = sin(n*pi*x/L). Every sensor sees the SAME 3 frequencies at
+#     the SAME time (a global mode has no propagation delay), but each
+#     sensor's amplitude is scaled by its own phi_n(x) -- the standard,
+#     defensible simplification for "mode shapes aren't uniform along a
+#     span."
+#   - A SEPARATE, physically distinct traveling phenomenon: a vehicle
+#     crossing the bridge at constant speed produces a local deflection
+#     bump that reaches sensor i at time t0 + xs[i]/v_vehicle. This is a
+#     genuine moving-load traveling disturbance (unlike the modes above,
+#     which do NOT propagate) -- it is explicitly NOT a claim about
+#     elastic/guided wave speed in the deck material, just an honest
+#     "something physically arrives at known times, at a known apparent
+#     speed" signal used purely to sanity-check sensor-to-sensor timing via
+#     cross-correlation (TDOA).
+#   - One injected damage event at t_anomaly: mode 1's natural frequency
+#     drops from 2.10 Hz to 1.98 Hz (-5.7%), simulating a localized
+#     stiffness loss. A drop in natural frequency is one of the best-known,
+#     most-published real SHM damage indicators (structural damage reduces
+#     local stiffness, which lowers the associated modal frequency) --
+#     this script demonstrates detecting exactly that indicator, not a
+#     fabricated one.
+#   - Independent per-sensor measurement noise (deterministic, seeded via
+#     `randn(..., seed=)` so the recording is exactly reproducible).
+#
+# REAL SHM CONCEPT DEMONSTRATED:
+#   Modal-frequency-shift damage detection -- comparing a structure's
+#   natural frequencies before/after a suspected damage event and flagging
+#   a shift beyond some threshold. This is a real, widely published
+#   vibration-based SHM technique (see e.g. Salawu, O.S., "Detection of
+#   structural damage through changes in frequency: a review", Engineering
+#   Structures, 1997), used here on synthetic data as an honest worked
+#   example of the analysis, not a claim about any real bridge.
+#
+# ANALYSIS PIPELINE (all real, verified-working builtins -- see
+# book/src/stdlib/signal-processing.md):
+#   periodogram(x, fs)   -- per-sensor PSD, "before" vs "after" windows
+#   argmax / index math  -- pick the modal peak within a known frequency band
+#   hilbert, find_peaks  -- detect vehicle-crossing arrival envelopes
+#   xcorr                -- cross-correlate windowed sensor pairs for TDOA
+#
+# WHAT'S CHECKED: the detected before/after frequency shift on mode 1 must
+# be a real, negative shift of roughly the injected -0.12 Hz (within
+# 0.03 Hz), and must NOT trigger on the two unchanged modes; the
+# matched-filter TDOA estimate for each sensor, each vehicle-crossing
+# event, must land within 8 samples (40 ms at fs=200 Hz, under 2.5% of the
+# largest true delay) of the true geometric delay (xs[i]-xs[0])/v_vehicle.
+
+backend auto
+
+#%% ---- Bridge & sensor geometry ----
+# --- Bridge & sensor geometry --------------------------------------------
+L  = 40.0                                   # span (m), illustrative
+xs = [4.0, 10.0, 16.0, 24.0, 30.0, 36.0]    # known sensor positions (m)
+n_sensors = length(xs)
+
+fs       = 200.0                            # sampling rate (Hz)
+duration = 120.0                            # total record length (s)
+N        = round(duration * fs)             # 24000 samples
+N_half   = N / 2                            # 60s before / 60s after
+t        = (0 to N - 1) / fs
+t_local  = (0 to N_half - 1) / fs           # local clock within each half
+
+t_anomaly = 60.0                            # damage onset (s), = start of "after" half
+
+#%% ---- Modal content (standing waves, no propagation delay) ----
+# --- Illustrative modal content -------------------------------------------
+mode_n    = [1, 2, 3]
+f_healthy = [2.10, 5.80, 11.30]             # Hz
+f_damaged = [1.98, 5.80, 11.30]             # mode 1 softens: -5.7%
+A_mode    = [1.0, 0.6, 0.35]                # relative modal participation
+
+#%% ---- Moving-load traveling bump (separate physical picture, for TDOA) ----
+# --- Vehicle-crossing traveling bump (separate physics, used for TDOA) ---
+v_vehicle  = 20.0                           # vehicle speed (m/s), ~72 km/h
+t_events   = [20.0, 90.0]                   # crossing times at x=0 (s)
+bump_width = 0.10                           # pulse std-dev (s)
+bump_amp   = 8.0                            # pulse amplitude (relative units)
+
+noise_sigma     = 0.05                      # per-sensor measurement noise std
+noise_seed_base = 9001
+
+#%% ---- Build synthetic sensor recordings ----
+# --- Synthesize each sensor's recording -----------------------------------
+tic()
+Y = zeros(n_sensors, N)
+for si = 0 to n_sensors - 1
+    x_s = xs[si]
+
+    y_before = zeros(1, N_half)
+    y_after  = zeros(1, N_half)
+    for mi = 0 to length(mode_n) - 1
+        n   = mode_n[mi]
+        phi = sin(n * pi * x_s / L)         # mode shape amplitude at this sensor
+        amp = A_mode[mi]
+        y_before = y_before + amp * phi * sin(2 * pi * f_healthy[mi] * t_local)
+        y_after  = y_after  + amp * phi * sin(2 * pi * f_damaged[mi] * t_local)
+    end for
+    y_modal = hstack(y_before, y_after)     # length N, clean "before"/"after" halves
+
+    bump = zeros(1, N)
+    for ei = 0 to length(t_events) - 1
+        t_arrive = t_events[ei] + x_s / v_vehicle
+        bump = bump + bump_amp * exp(-((t - t_arrive)^2) / (2 * bump_width^2))
+    end for
+
+    noise = noise_sigma * randn(1, N, seed=noise_seed_base + si)
+
+    Y[si, :] = y_modal + bump + noise
+end for
+
+print("[Qu] synthesized {n_sensors} sensors x {N} samples ({duration} s at {fs} Hz)")
+
+#%% ---- Step 1-2: per-sensor spectral analysis + frequency-shift detection ----
+# --- Per-sensor periodogram, before vs after, mode-1 peak tracking --------
+band_lo = 1.5
+band_hi = 2.5
+df      = fs / N_half
+idx_lo  = round(band_lo / df)
+idx_hi  = round(band_hi / df)
+
+shift_threshold = 0.05                      # Hz; flag if |shift| exceeds this
+shifts = zeros(1, n_sensors)
+
+print("")
+print("=== Step 1-2: modal frequency-shift damage detection ===")
+for si = 0 to n_sensors - 1
+    before = Y[si, 0:N_half - 1]
+    after  = Y[si, N_half:end]
+
+    psd_before = periodogram(before, fs)
+    psd_after  = periodogram(after, fs)
+
+    band_before = psd_before[idx_lo:idx_hi - 1]
+    band_after  = psd_after[idx_lo:idx_hi - 1]
+
+    peak_before = idx_lo + argmax(band_before)
+    peak_after  = idx_lo + argmax(band_after)
+
+    f_before = peak_before * df
+    f_after  = peak_after * df
+    shift    = f_after - f_before
+    shifts[si] = shift
+
+    flag = "no significant shift"
+    if abs(shift) > shift_threshold then
+        flag = "damage suspected"
+    end if
+    print("sensor {si} (x={xs[si]:.0f} m): mode-1 peak before={f_before:.3f} Hz, after={f_after:.3f} Hz, shift={shift:.3f} Hz -> {flag}")
+end for
+
+mean_shift = mean(shifts)
+print("")
+print("mean detected mode-1 shift across sensors: {mean_shift:.3f} Hz (injected: {f_damaged[0] - f_healthy[0]:.3f} Hz)")
+
+expected_shift = f_damaged[0] - f_healthy[0]
+if abs(mean_shift - expected_shift) < 0.03 and mean_shift < -shift_threshold then
+    print("CHECK PASSED: detected frequency shift matches the injected damage within tolerance.")
+else
+    print("CHECK FAILED: detected shift does not match the injected damage.")
+end if
+
+#%% ---- Step 3: TDOA sanity check via cross-correlation ----
+# --- TDOA cross-correlation sanity check (moving-load bump) --------------
+print("")
+print("=== Step 3: TDOA sanity check (vehicle-bump cross-correlation) ===")
+
+ref = 0                                     # reference sensor: xs[0], first to feel a crossing
+
+# Cross-correlating raw sensor-vs-sensor waveforms (or even their
+# envelopes) would let the strong, purely periodic modal content --
+# present at EVERY sensor, undelayed, with no propagation lag -- dominate
+# the correlation and lock onto a beat-frequency sidelobe instead of the
+# true bump delay (measured directly: naive sensor-vs-sensor xcorr on this
+# same data is off by 40-100+ ms). Instead this uses a matched filter: the
+# amplitude envelope (|hilbert(y)|) suppresses the oscillatory carrier
+# while preserving the bump's slow energy hump, and each sensor's envelope
+# is cross-correlated against a clean Gaussian TEMPLATE of the known pulse
+# shape (matched filtering is the standard, textbook way to pick a weak,
+# known-shape arrival out of a noisy/interfered background -- radar,
+# seismology, and acoustics all use exactly this). Since every sensor's
+# delay is measured against the SAME template, the arbitrary template
+# placement cancels out of the sensor-to-sensor difference.
+Env = zeros(n_sensors, N)
+for si = 0 to n_sensors - 1
+    Env[si, :] = abs(hilbert(Y[si, :]))
+end for
+
+env_ref = Env[ref, :]
+
+detect_threshold = mean(env_ref) + 4 * std(env_ref)
+det = findpeaks(env_ref, min_peak_height=detect_threshold, min_peak_distance=round(5 * fs))
+print("detected {length(det.locations)} vehicle-crossing event(s) on the reference sensor")
+
+win_pre  = 1.0                              # seconds of context before the reference arrival
+win_post = 3.0                              # seconds of context after (covers max span delay)
+delay_errors = zeros(1, (n_sensors - 1) * length(det.locations))
+err_i = 0
+
+win_len_full = round((win_pre + win_post) * fs)
+tau_template = (0 to win_len_full - 1) / fs
+template = exp(-((tau_template - win_pre)^2) / (2 * bump_width^2))
+template = template - mean(template)
+
+for ev = 0 to length(det.locations) - 1
+    t_ref_arrive = det.locations[ev] / fs
+    lo = round((t_ref_arrive - win_pre) * fs)
+    hi = round((t_ref_arrive + win_post) * fs)
+    if lo < 0 then
+        lo = 0
+    end if
+    if hi > N then
+        hi = N
+    end if
+
+    w_ref = Env[ref, lo:hi - 1]
+    w_ref = w_ref - mean(w_ref)
+    win_len = length(w_ref)
+
+    c_ref = xcorr(template, w_ref)
+    peak_ref = argmax(c_ref)
+
+    print("")
+    print("event at t~{t_ref_arrive:.2f} s (window [{lo/fs:.2f}, {hi/fs:.2f}] s):")
+    for si = 1 to n_sensors - 1
+        w_i = Env[si, lo:hi - 1]
+        w_i = w_i - mean(w_i)
+
+        c_i = xcorr(template, w_i)
+        peak_i = argmax(c_i)
+        lag_samples = peak_ref - peak_i
+        tau_est = lag_samples / fs
+
+        tau_true = (xs[si] - xs[ref]) / v_vehicle
+        err = tau_est - tau_true
+        delay_errors[err_i] = err
+        err_i = err_i + 1
+        print("  sensor {si} (x={xs[si]:.0f} m): tau_est={tau_est:.4f} s, tau_true={tau_true:.4f} s, err={err*1000:.2f} ms")
+    end for
+end for
+
+# Tolerance: matched-filter TDOA on a noisy, modal-content-contaminated
+# envelope is not sub-sample-exact -- residual modal beating and envelope
+# smoothing set an achievable floor around a few samples at fs=200 Hz.
+# 8 samples = 40 ms, under 2.5% of the largest true delay (1.6 s) here --
+# tight enough to be a meaningful sanity check, loose enough to be honest
+# about the method's real precision.
+tdoa_tolerance_samples = 8
+max_abs_err_samples = max(abs(delay_errors)) * fs
+print("")
+print("max |TDOA error| across sensor pairs, all events: {max_abs_err_samples:.2f} samples ({max(abs(delay_errors))*1000:.2f} ms)")
+if max_abs_err_samples < tdoa_tolerance_samples then
+    print("CHECK PASSED: TDOA estimates match the known geometric delay within {tdoa_tolerance_samples} samples.")
+else
+    print("CHECK FAILED: TDOA estimates deviate from the known geometric delay by more than {tdoa_tolerance_samples} samples.")
+end if
+
+elapsed_ms = toc() * 1000
+print("")
+print("[Qu] elapsed={elapsed_ms:.2f} ms for simulate+analyze {n_sensors} sensors x {N} samples")
+
+#%% ---- Step 4: plots ----
+# --- Plot: time-domain traces + before/after PSD comparison --------------
+subplot(2, 2, 1)
+plot(t[0:1999], Y[0, 0:1999], label="sensor 0 (x={xs[0]:.0f} m)", color="blue")
+plot(t[0:1999], Y[3, 0:1999], label="sensor 3 (x={xs[3]:.0f} m)", color="red")
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("Time-domain traces (first 10 s)")
+legend()
+
+subplot(2, 2, 2)
+t_ev = t_events[0]
+lo2 = round((t_ev - 0.5) * fs)
+hi2 = round((t_ev + 3.0) * fs)
+plot(t[lo2:hi2 - 1], Y[0, lo2:hi2 - 1], label="sensor 0", color="blue")
+plot(t[lo2:hi2 - 1], Y[5, lo2:hi2 - 1], label="sensor 5 (x={xs[5]:.0f} m)", color="green")
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("Vehicle-crossing bump: arrival delay")
+legend()
+
+subplot(2, 2, 3)
+sensor_plot = 2
+before_p = Y[sensor_plot, 0:N_half - 1]
+after_p  = Y[sensor_plot, N_half:end]
+psd_b = periodogram(before_p, fs)
+psd_a = periodogram(after_p, fs)
+freq_axis = linspace(0, fs/2, length(psd_b))
+plot(freq_axis[0:299], psd_b[0:299], label="before (healthy)", color="blue")
+plot(freq_axis[0:299], psd_a[0:299], label="after (damaged)", color="red")
+xlabel("Frequency (Hz)")
+ylabel("PSD")
+title("sensor {sensor_plot}: before/after PSD (mode-1 shift)")
+legend()
+
+subplot(2, 2, 4)
+spectrogram(Y[sensor_plot, :], 4096, 1024, fs)
+title("sensor {sensor_plot}: spectrogram (mode-1 shift at t={t_anomaly:.0f} s)")
+xlabel("Time (s)")
+ylabel("Frequency (Hz)")
+
+show plot
+savefig("bridge_shm.svg")

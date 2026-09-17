@@ -1,0 +1,60 @@
+# qu_peak_finding.qu — findpeaks() on a noisy multi-tone signal + spectrum.
+#
+# Builds a three-tone signal buried in noise, finds its time-domain peaks
+# with `findpeaks`, and separately confirms the three tones show up as
+# spectral peaks in the FFT magnitude. Also exercises `figure_background`
+# and the `len`/`shape` spellings of `length`/`size` added alongside
+# `findpeaks` in this pass.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   findpeaks(x, min_peak_height=, min_peak_distance=) -> Model(.peaks, .locations)
+#   figure_background(color)
+#   len(x) / shape(x)   -- shorter spellings of length(x) / size(x)
+
+backend auto
+seed(42)
+
+#%% Setup — a noisy three-tone signal
+Fs = 500
+N  = 1000
+t  = (0 to N - 1) / Fs
+
+x = 1.0 * sin(2*pi*5*t) + 0.6 * sin(2*pi*17*t + 0.3) + 0.3 * sin(2*pi*41*t)
+x = x + 0.15 * randn(1, N)
+
+print("len(x)    = {len(x)}")       # alias for length(x)
+print("shape(x) = {shape(x)}")      # same builtin as size(x)
+
+#%% Time-domain peaks
+pk = findpeaks(x, min_peak_height=0.5, min_peak_distance=10)
+print("found {len(pk.peaks)} time-domain peaks")
+print("first 5 peak heights   = {pk.peaks[0:4]}")
+print("first 5 peak locations = {pk.locations[0:4]}")
+
+#%% Spectral peaks (cross-check via FFT)
+X   = abs(fft(x, N))
+half = X[0:N/2 - 1]
+freq = range(0, N/2 - 1) * (Fs / N)
+
+spec_pk = findpeaks(half, min_peak_height=max(half) * 0.2, min_peak_distance=5)
+print("spectral peak frequencies ~ {freq[spec_pk.locations]} Hz")   # ~ 5, 17, 41 Hz
+
+#%% Plot
+subplot(2, 1, 1)
+plot(t, x, label="signal", color="blue")
+scatter(t[pk.locations], pk.peaks, marker="o", color="red", label="findpeaks")
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("Noisy multi-tone signal with detected peaks")
+legend()
+
+subplot(2, 1, 2)
+plot(freq, half, label="|X(f)|", color="orange")
+scatter(freq[spec_pk.locations], half[spec_pk.locations], marker="x", color="black", label="spectral peaks")
+xlabel("Frequency (Hz)")
+ylabel("|X(f)|")
+title("Spectrum with detected tone peaks")
+legend()
+
+figure_background("#f5f5f0")
+show plot

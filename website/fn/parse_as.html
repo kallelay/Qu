@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>parse_as — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>parse_as</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>parse_as(s, template, [must_match=])</code></pre>
+<p class="fnnote">Input: s, template, must_match &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> and <code>template</code> are <code>Str</code>s. scanf backwards: <code>"hello world 12".parse_as("hello world %d")</code> gives 12. <code>%d</code> a whole number, <code>%f</code> any number, <code>%s</code> a run of non-space, <code>%*</code> anything. The template understands <code>\t</code>, <code>\n</code>, <code>\r</code> and <code>\\</code> in its literal parts, so <code>"%d\thello"</code> and <code>r"%d\thello"</code> mean the same thing; a literal backslash is doubled.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = parse_as(s, template, [must_match=])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> and <code>template</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>template</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> and <code>template</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>must_match</code> <span class="iotype">bool, optional</span><span class="iodesc">Optional named <code>must_match</code> (<code>bool</code>, default <code>false</code>) raises an error naming the missing part of the shape instead of returning <code>none</code> — see the limit noted below.</span></div>
+</td><td><div class="ioitem"><code>must_match</code> <span class="iotype">bool</span><span class="iodesc">default <code>false</code></span></div>
+</td><td>Returns the extracted value (a <code>number</code>, <code>Str</code>, or a <code>List</code>/tuple of them when <code>template</code> has more than one placeholder), or <code>none</code> if the line doesn't have the shape described — never numbers pulled from a different sentence. Optional named <code>must_match</code> (<code>bool</code>, default <code>false</code>) raises an error naming the missing part of the shape instead of returning <code>none</code> — see the limit noted below.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
+<span class="f">print</span>(n)                          <span class="c"># 12</span>
+reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <span class="s">"temp = %f %s"</span>)
+<span class="f">print</span>(reading)                    <span class="c"># (98.6, "F")</span>
+<span class="f">print</span>(<span class="f">format</span>(<span class="n">1234.5</span>, <span class="s">"#,##0.0"</span>))  <span class="c"># "1,234.5"</span>
+<span class="f">print</span>(<span class="f">format</span>(<span class="n">0.256</span>, <span class="s">"0.0%"</span>))      <span class="c"># "25.6%"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>parse_as(s, template)</code> — scanf backwards, and the reason it exists is that a measurement file's header is a fixed sentence with numbers in it. <code>"hello world 12".parse_as("hello world %d")</code> gives 12. <code>%d</code> a whole number, <code>%f</code> any number, <code>%s</code> a run of non-space, <code>%*</code> anything at all. Literal text between the placeholders must match exactly, which is the point: a line that does not have the shape you said returns <code>none</code> rather than numbers pulled out of a different sentence.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="scan.html"><code>scan</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

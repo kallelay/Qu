@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image_from_matrix — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>image_from_matrix</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>image_from_matrix(matrix)</code></pre>
+<p class="fnnote">Input: matrix &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds a grayscale <code>Image</code> directly from <code>matrix</code>, a 2-D <code>Mat</code> of numbers; each value is rounded and clamped to 0–255 and written to R=G=B for that pixel (matrix rows become image rows, columns become image columns).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = image_from_matrix(matrix)</code></td><td><div class="ioitem"><code>matrix</code> <span class="iotype">Image, matrix, Mat, or number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image or matrix</span></div>
+</td><td>Returns a new <code>Image</code> sized <code>cols</code> x <code>rows</code> to match the matrix's own shape. For a real pixel buffer you can further process/save, as opposed to <code>imagesc</code>'s colormap display.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>mb = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>]
+binary_img = <span class="f">image_from_matrix</span>(mb)
+grown = <span class="f">imdilate</span>(binary_img, <span class="n">1</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [16, 0, 0, 9] -- only the two extreme bins are ever used</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>mg = [<span class="n">10</span>, <span class="n">60</span>, <span class="n">110</span>, <span class="n">160</span>, <span class="n">210</span>; <span class="n">20</span>, <span class="n">70</span>, <span class="n">120</span>, <span class="n">170</span>, <span class="n">220</span>; <span class="n">30</span>, <span class="n">80</span>, <span class="n">130</span>, <span class="n">180</span>, <span class="n">230</span>; <span class="n">40</span>, <span class="n">90</span>, <span class="n">140</span>, <span class="n">190</span>, <span class="n">240</span>; <span class="n">50</span>, <span class="n">100</span>, <span class="n">150</span>, <span class="n">200</span>, <span class="n">250</span>]
+gray_img = <span class="f">image_from_matrix</span>(mg)
+grown = <span class="f">imdilate</span>(gray_img, <span class="n">1</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [0, 6, 7, 12] -- three separate bins in use, no black survives at all</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+img = <span class="f">image_from_matrix</span>(m)
+fixed = <span class="f">imadjust</span>(img, <span class="a">in_low</span>=<span class="n">0.0</span>, <span class="a">in_high</span>=<span class="n">1.0</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(fixed, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [0, 7, 0, 0, 0, 0, 0, 1] -- unchanged, still clustered in one bin</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+img = <span class="f">image_from_matrix</span>(m)
+auto = <span class="f">imadjust</span>(img)
+<span class="f">print</span>(<span class="f">imhist</span>(auto, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [7, 0, 0, 0, 0, 0, 0, 1] -- stretched out to both ends of the range</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>image_from_matrix(matrix)</code> — builds a grayscale <code>Value::Image</code> directly from a numeric matrix's own values (assumed already in the 0-255 range, clamped/rounded otherwise) — R=G=B per pixel, the same "grayscale is just RGB with equal channels" convention <code>image::Image::to_grayscale</code> uses. The false-color (colormap-mapped) equivalent for arbitrary-range data is <code>imagesc</code>, which pushes a plot <code>Heatmap</code> instead of a real <code>Value::Image</code> — this builtin is for when a real pixel buffer is actually wanted (to <code>save_image</code>/further process), not just to display.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

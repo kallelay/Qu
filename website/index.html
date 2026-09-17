@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qu — an array language for measurement science</title>
+<meta name="description" content="An array language for signals, spectra, impedance, and the figures that go in the paper.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">
+    <svg class="brand-mark" viewBox="9.5 5.5 75.64 65.76" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Qu logo">
+      <circle cx="42" cy="38" r="24" fill="none" stroke="currentColor" stroke-width="9"/>
+      <g transform="translate(54,47) rotate(35)" stroke="var(--accent)"
+         fill="none" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M0,0 L14,0 C17,0 18,-9 21,-9 C24,-9 25,0 28,0"/>
+      </g>
+      <circle cx="76.94" cy="63.06" r="4.2" fill="var(--accent)"/>
+    </svg>
+    Q<span>u</span>
+  </a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap"><div class="herogrid">
+  <div>
+    <h1>The measurement, the analysis, and the figure &mdash; in one file.</h1>
+    <p class="lede">Qu is an array language for signals, spectra and impedance. It reads
+    what your instrument wrote, computes what you need, and produces the PDF that goes in
+    the paper &mdash; with nothing copied by hand in between.</p>
+    <div class="cta">
+      <a class="btn primary" href="learn.html">Start learning</a>
+      <a class="btn ghost" href="download.html">Download</a>
+      <a class="btn ghost" href="docs.html">Documentation</a>
+    </div>
+  </div>
+  <div>
+<pre><span class="cm"># A noisy tone: measure it, clean it, plot it.</span>
+fs = <span class="st">1000</span>
+t  = (<span class="st">0</span> <span class="kw">to</span> <span class="st">999</span>) / fs
+y  = <span class="fn">sin</span>(<span class="st">2</span> * pi * <span class="st">50</span> * t) + <span class="st">0.2</span> * <span class="fn">randn</span>(<span class="st">1000</span>, seed = <span class="st">1</span>)
+
+lp = <span class="fn">butter</span>(<span class="st">4</span>, <span class="st">"low"</span>, <span class="st">120</span>, fs)
+z  = <span class="fn">filtfilt</span>(lp, y)
+
+<span class="fn">theme</span>(<span class="st">"publication"</span>)
+<span class="fn">plot</span>(t, z, color = <span class="st">"#0072BD"</span>, lw = <span class="fn">pt</span>(<span class="st">0.8</span>))
+<span class="fn">xlabel</span>(<span class="st">"time $t$ [s]"</span>)
+<span class="fn">savefig</span>(<span class="st">"figure.pdf"</span>)</pre>
+  </div>
+</div></div></header>
+
+<section><div class="wrap">
+  <h2>Why it exists</h2>
+  <p class="sub">The usual arrangement is to prototype in one language, plot in another,
+  and type the numbers into the manuscript by hand. Every one of those steps is a place
+  where a result can change without anyone noticing.</p>
+  <div class="cards">
+    <div><p class="eyebrow">One file</p><h3>No transcription step</h3>
+      <p>The figure is program output. Re-run it and you get the same figure, from the
+      same data, by the same route.</p></div>
+    <div><p class="eyebrow">Print-ready</p><h3>PDF that carries its fonts</h3>
+      <p>Embedded, subset fonts and real maths in labels &mdash; variables italic,
+      operators upright, the way LaTeX sets them. Also SVG and TikZ.</p></div>
+    <div><p class="eyebrow">Instrument data</p><h3>Reads what you already have</h3>
+      <p>MATLAB <code>.mat</code> natively, CSV with the provenance headers instruments
+      emit, raw binary arrays and structs.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Three things it will not do</h2>
+  <p class="sub">Stated so you can hold the language to them.</p>
+  <div class="cards">
+    <div><p class="eyebrow">Never</p><h3>Ignore what you wrote</h3>
+      <p>A keyword argument the function does not read is an error, not something quietly
+      dropped. Checked from the code itself, so it cannot drift.</p></div>
+    <div><p class="eyebrow">Never</p><h3>Change your variables</h3>
+      <p>A function cannot write to its caller's names. Assignment binds locally; say
+      <code>global</code> when you mean otherwise.</p></div>
+    <div><p class="eyebrow">Never</p><h3>Guess</h3>
+      <p>Where Qu could assume or say so, it says so. A wrong answer that looks right is
+      the failure this language is organised against.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Checked against the tools it replaces</h2>
+  <p class="sub">Ports of real analyses, run on the same inputs as their reference
+  implementations.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Analysis</th><th>Reference</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Per-tone impedance uncertainty</td><td class="mono">NumPy</td>
+          <td>all six reported figures reproduce exactly</td></tr>
+      <tr><td>Kramers-Kronig fit with automatic parameters</td><td class="mono">NumPy</td>
+          <td>every number exact, and 4&times; faster</td></tr>
+      <tr><td>Non-negative and nonlinear least squares</td><td class="mono">SciPy</td>
+          <td>matches to the digit, bounds included</td></tr>
+      <tr><td>Complex linear algebra</td><td class="mono">NumPy</td>
+          <td>matches; <em>L&middot;U</em> and <em>Q&middot;R</em> reproduce to 1e&minus;12</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><p><strong>Version 0.2.1, and honest about it.</strong> One
+  implementation, few users, and a specification that runs ahead of the engine in places
+  &mdash; the <a href="docs.html">builtin index</a> is the authority on what exists. It is
+  used for real work; it has not yet been used for yours.</p></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="agents.html">Agents</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

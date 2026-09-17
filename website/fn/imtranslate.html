@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imtranslate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imtranslate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imtranslate(img, dx, dy, [method=], [bbox="crop"], [fill=0])</code></pre>
+<p class="fnnote">Input: img, dx, dy, method, bbox, fill &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>; <code>dx</code>/<code>dy</code> are numbers, the horizontal/vertical pixel shift (positive = right/down). <code>method</code> is an optional named string (<code>"nearest"</code>/<code>"bilinear"</code>) controlling resampling. <code>bbox</code> is an optional named string, defaulting to <code>"crop"</code> (output stays the same size as the input, matching MATLAB <code>imtranslate</code>'s <code>'OutputView','same'</code>) — the opposite default from <code>imwarp</code>/<code>imscale</code>. <code>fill</code> is an optional named number 0–255 (default 0), the byte value used on all 3 channels for pixels that map outside the source. Implemented as <code>imwarp</code> + <code>affine_translate</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imtranslate(img, dx, dy, [method=], [bbox="crop"], [fill=0])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>dx</code> <span class="iotype">number</span><span class="iodesc"><code>dx</code>/<code>dy</code> are numbers, the horizontal/vertical pixel shift (positive = right/down).</span></div>
+<div class="ioitem"><code>dy</code> <span class="iotype">number</span><span class="iodesc"><code>dx</code>/<code>dy</code> are numbers, the horizontal/vertical pixel shift (positive = right/down).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional</span><span class="iodesc"><code>method</code> is an optional named string (<code>"nearest"</code>/<code>"bilinear"</code>) controlling resampling.</span></div>
+<div class="ioitem"><code>bbox</code> <span class="iotype">string, optional (default <code>"crop"</code>)</span><span class="iodesc"><code>bbox</code> is an optional named string, defaulting to <code>"crop"</code> (output stays the same size as the input, matching MATLAB <code>imtranslate</code>'s <code>'OutputView','same'</code>) — the opposite default from <code>imwarp</code>/<code>imscale</code>.</span></div>
+<div class="ioitem"><code>fill</code> <span class="iotype">number, optional (default <code>0</code>)</span><span class="iodesc"><code>fill</code> is an optional named number 0–255 (default 0), the byte value used on all 3 channels for pixels that map outside the source.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">image_new</span>(<span class="n">20</span>, <span class="n">20</span>, <span class="a">r</span>=<span class="n">0</span>, <span class="a">g</span>=<span class="n">0</span>, <span class="a">b</span>=<span class="n">0</span>)
+
+shifted = <span class="f">imtranslate</span>(img, <span class="n">5</span>, <span class="n">3</span>, <span class="a">fill</span>=<span class="n">255</span>)
+scaled = <span class="f">imscale</span>(img, <span class="n">1.5</span>, <span class="a">fill</span>=<span class="n">0</span>)
+<span class="f">imshow</span>(shifted)
+
+M = <span class="f">affine_scale</span>(<span class="n">2</span>, <span class="n">1.5</span>) * <span class="f">affine_shear</span>(<span class="n">0.2</span>, <span class="n">0</span>) * <span class="f">affine_identity</span>()
+<span class="f">print</span>(shifted.width, scaled.width, M)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>imtranslate(img, dx, dy, [fill=0])</code> — pure translation via <code>imwarp</code> + <code>affine_translate</code>. Defaults to <code>bbox="crop"</code> (the output stays the input's own size, matching MATLAB <code>imtranslate</code>'s default <code>'OutputView','same'</code>) rather than <code>imwarp</code>'s own <code>"loose"</code> default — a translation's "natural" canvas is the same one it started with, unlike a rotation or scale, which genuinely change the content's footprint.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

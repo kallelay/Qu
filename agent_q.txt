@@ -1,0 +1,802 @@
+=======================================================================
+REQUEST TO agent_q  --  from: version organizer (Qu maturity ladder)
+opened: 2026-09-10        reply: append below the REPLY line at the end
+=======================================================================
+
+WHAT THIS IS
+
+Qu tracks maturity per function on a seven-rung ladder. A generator
+(tools/gen_version_ladder.qu) computes rungs up to 0.1.0-4.aplus from
+evidence already in the tree -- tests, benchmarks, stdlib chapters,
+example code. It deliberately CANNOT compute Beta or above, because
+those rungs assert that something was tried with awkward inputs and
+behaved, and scraping a repo never shows that.
+
+That is the gap you are being asked to close.
+
+WHAT YOUR REPLY IS AND IS NOT
+
+Your results are EVIDENCE. They can move a function up to and including
+0.1.0-4.aplus, and they populate the review queue.
+
+Your results are NOT a signature. Beta (0.2.0-5.b), RC (0.3.0-6.rc) and
+Public (0.4.0) are granted by Ahmed alone, by a row in
+versions/ladder.tsv. This is not a slight to you -- it is the property
+that keeps the ladder honest, because a rung that anything can grant is
+a rung nothing checks. Report what happened; do not assign a rung.
+
+If you find a defect, say what you ran and what came back. A finding I
+cannot re-run is a finding I cannot record.
+
+-----------------------------------------------------------------------
+BATCH 1  --  ten functions, chosen by real usage, not by alphabet
+-----------------------------------------------------------------------
+
+These are the most-reached functions in the tree that are documented and
+carry three or more tests. If any of them is fragile, it is fragile
+under a great deal of existing code.
+
+  function   tests  bench   examples
+  abs         57     58      1487
+  print       28    681       457
+  plot       112      6      1001
+  max         36     52       589
+  fft         10     21       398
+  sum         44     37       305
+  mean        32     74       240
+  zeros       63     76       211
+  sqrt        27     10       248
+  min          8     15       225
+
+For each, try the input classes below. The existing tests overwhelmingly
+cover the ordinary path; what is unknown is the edge.
+
+  1. empty        ()  and a zero-length vector
+  2. single       one element, where a reduction has nothing to reduce
+  3. non-finite   NaN, Inf, -Inf -- both as the only element and mixed in
+  4. wrong type   a string where a number is expected, a list where a
+                  matrix is expected. The QUESTION is not whether it
+                  fails; it is whether the error names the real problem.
+  5. units        a unit-tagged quantity (Qu has ohm/kohm/Mohm literals).
+                  Does the unit survive the call, get stripped silently,
+                  or make the call fail?
+  6. negative     for sqrt and anything with a domain: does it give a
+                  complex result, an error, or NaN -- and is that
+                  DOCUMENTED behaviour or just what happens?
+  7. size         something large enough to be slow. Not a benchmark --
+                  just: does it complete, or does it panic?
+  8. keyword args Qu validates keyword arguments now; an unread kwarg is
+                  an error. Try a plausible-but-wrong one (e.g. dim= vs
+                  axis=) and check the message points somewhere useful.
+
+Two specific things I could not settle myself, if you have room:
+
+  A. It is claimed somewhere that tic()'s error text advertises
+     `available` as builtin introspection. I read tic (three lines) and
+     toc on master and neither mentions it. If you can reproduce the
+     misleading message on ANY path, that is a real bug and I will
+     record it. If you cannot, say so -- a negative result is useful.
+
+  B. `min` has only 8 test call sites against 225 example uses, the
+     thinnest test-to-use ratio in this batch. It is the one I would
+     bet on breaking.
+
+-----------------------------------------------------------------------
+HOW TO REPLY  --  one block per function, this exact shape
+-----------------------------------------------------------------------
+
+  FUNCTION: <name>
+  VERDICT: clean | defect | unclear
+  TRIED: <the input classes you actually exercised>
+  RAN: <the exact Qu source you ran, so I can re-run it>
+  GOT: <what came back, verbatim -- output or error text>
+  EXPECTED: <what you believe should have happened, and why>
+  NOTES: <anything else>
+
+If a function is clean, still send the block with VERDICT: clean and the
+TRIED line filled in. "Nothing broke" is only worth something when it
+says what was attempted; without TRIED it is indistinguishable from a
+check that never reached its subject, which is this repo's single most
+common defect.
+
+Do not edit anything above this line. Append below it.
+
+=======================================================================
+REPLY
+======================================================================
+
+from: agent_q, 2026-09-10
+Engine: engine/target/release/qu.exe (qu 0.1.0, release build already in tree)
+Method: every probe below was run in ISOLATION (one fresh process per
+line) so a failing probe can never mask a later one. Each line is the
+exact source, run as a one-line script:
+    engine/target/release/qu eval "<line>"
+"⇒" separates source from verbatim stdout+stderr. Exit status shown
+where non-zero. Lines marked (script) were two-line scripts via `qu run`.
+
+Cross-cutting results that apply to several functions:
+
+UNITS (class 5) -- answer to "survive, stripped, or fail?": ALL THREE,
+depending on function and shape. Linear-family units (ohm/kohm/Mohm,
+s/ms, Hz, V, A, F, H, W) are silently stripped to SI magnitude by most
+elementwise and reduction builtins. That part is DOCUMENTED and
+deliberate: docs/design/physical-units.md phase 2 (line 437) says
+"as_num (and map1, the elementwise-math helper) unwrap a Family-tagged
+quantity to its plain SI magnitude silently ... so sqrt(...)/etc. keep
+working". The inconsistencies (undocumented):
+  (a) abs(9 ohm) ERRORS ("cannot apply the operation to unit") while
+      sin(9 ohm) => 0.412118, exp(1 ohm) => 2.718282, log(9 ohm) =>
+      2.197225, sqrt(9 ohm) => 3 -- all other elementwise builtins
+      silently unwrap the same scalar.
+  (b) max(9 ohm) / min(9 ohm) / mean(9 ohm) / sum(9 ohm) ERROR ("expected
+      a numeric vector, found unit") while the SAME function on a
+      one-element unit vector or the two-argument form silently
+      unwraps: max([9 ohm]) => 9, max(9 ohm, 10 ohm) => 10,
+      min([9 ohm]) => 9, sum([9 ohm]) => 9.
+  (c) abs errors on a scalar unit but strips on a unit vector:
+      abs([1 ohm, -2.5 kohm]) => [1, 2500].
+  No wrong NUMBER is produced (the strip is a consistent SI
+  normalization), but the outcome for one and the same value depends on
+  function, scalar-vs-vector, and arity in a way no doc states.
+  Temperature stays loud, as designed: sqrt(9 degC) => "cannot apply a
+  numeric operation to unit", abs(9 degC) => "cannot apply the
+  operation to unit" (note the two different message strings for the
+  same class), mean([10 degC, 20 degC]) => "expected a numeric vector;
+  this list holds unit at position 0".
+  Arithmetic between units works as designed: 1 ohm + 2 kohm =>
+  2001 Ohm (tag kept); 1 ms + 2 s => 2.001 s; 5 V + 3 A => "operator
+  `+` cannot combine a V quantity and a A quantity -- different
+  physical-unit families don't add or subtract. See
+  docs/design/physical-units.md §8."; 100 Hz * 0.01 s => "operator `*`
+  cannot combine two unit-tracked quantities (Hz * s does not derive a
+  new unit) -- cross-unit derivation isn't implemented. See
+  docs/design/physical-units.md §3."
+
+KEYWORD ARGS (class 8) -- the `dim=` in your example is not a wrong
+kwarg: `dim=` is a language-level ALIAS of `axis=` (qu-interp/src/lib.rs
+line 7901, eval_call_args), pre-extracted with `seed=` before kwarg
+validation, so EVERY builtin accepts `dim=`/`axis=`/`seed=` and silently
+ignores them when it doesn't use one: abs(5, dim=1) => 5, print(1,
+dim=1) => 1, zeros(5, dim=2) => [0,0,0,0,0], all exit 0, no warning.
+That softens the "unread kwarg is an error" guarantee for exactly these
+three names. Genuine wrong kwargs are rejected with genuinely useful
+messages:
+  sqrt(16, wrong=1)  => "sqrt: unknown keyword argument `wrong=` -- sqrt
+    takes no keyword arguments, and one it does not read would
+    otherwise be silently ignored"
+  print(1, 2, sep=", ") => prints "1 2" FIRST, then "print: unknown
+    keyword argument `sep=` -- print takes no keyword arguments"
+    (note: the output happens before the error)
+  plot([1,2,3],[4,5,6], colr="red") => "plot: unknown keyword argument
+    `colr=` -- did you mean `color=`?"  (the did-you-mean works)
+
+----------------------------------------------------------------------
+FUNCTION: abs
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(abs([]))
+  2  print(abs(()))
+  3  print(abs(5), abs(-5), abs([3]))
+  4  print(abs(3+4j))
+  5  print(abs(nan))
+  6  print(abs(inf), abs(-inf))
+  7  print(abs([1, nan, -2]), abs([inf, -inf, 3]))
+  8  print(abs("5"))
+  9  print(abs(["a"]))
+  10 print(abs(-4.7 kohm))
+  11 print(abs([1 ohm, -2.5 kohm]))
+  12 print(abs(-5), abs([-3, 4]))
+  13 x = (0 to 999999) * -1 + 250000; a = abs(x); print(len(a), max(a), min(a))
+  14 print(abs(5, dim=1))
+  15 print(abs(-5, axis=1))
+GOT:
+  1  []                                   (exit 0)
+  2  qu: runtime error: cannot apply the operation to list    (exit 1)
+  3  5 5 [3]
+  4  5
+  5  NaN
+  6  inf inf
+  7  [1, NaN, 2] [inf, inf, 3]
+  8  qu: runtime error: cannot apply the operation to string   (exit 1)
+  9  qu: runtime error: cannot apply the operation to list     (exit 1)
+  10 qu: runtime error: cannot apply the operation to unit     (exit 1)
+  11 [1, 2500]
+  12 5 [3, 4]
+  13 1000000 749999 0                     (exit 0, completes)
+  14 5                                    (exit 0; dim= silently consumed as axis)
+  15 5                                    (exit 0)
+EXPECTED: all of the above except #10/#11, where the scalar/vector
+asymmetry is the one wart (see cross-cutting UNITS note): abs(-4.7 kohm)
+refusing while abs([1 ohm, -2.5 kohm]) strips. Every error that fires
+names the real problem (string/list/unit), which is what you asked the
+wrong-type class to check.
+NOTES: abs on () (empty LIST) is rejected, but on [] (empty VECTOR)
+returns []. Consistent enough, but the two empties behave differently
+across the batch -- see max/sum/fft below, where () and [] diverge
+sharper.
+
+----------------------------------------------------------------------
+FUNCTION: print
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print()
+  2  print([])
+  3  print(())
+  4  print(42)
+  5  print(nan)
+  6  print(inf, -inf)
+  7  print([1, nan, inf])
+  8  print("hello", 42, "world")
+  9  print(["a", 1, true])
+  10 print(4.7 kohm, 2 ms, 100 Hz)
+  11 print(-5)
+  12 print((0 to 499))
+  13 print(1, 2, sep=", ")
+  14 print(1, dim=1)
+GOT:
+  1  (empty line)                          (exit 0)
+  2  []
+  3  ()
+  4  42
+  5  NaN
+  6  inf -inf
+  7  [1, NaN, inf]
+  8  hello 42 world
+  9  ("a", 1, true)
+  10 4700 Ohm 0.002 s 100 Hz
+  11 -5
+  12 [0, 1, 2, 3, 4, 5, 6, 7, ... (500 elements)]
+  13 prints "1 2", then: qu: runtime error: print: unknown keyword argument
+     `sep=` -- print takes no keyword arguments                     (exit 1)
+  14 1                                    (exit 0)
+EXPECTED: exactly this. print's contract is "each x is any value"
+(book/src/stdlib/collections-strings.md line 786) and it holds for every
+class. Unit display normalizes to base with the family name (4700 Ohm),
+which is the documented unit display, not a strip.
+NOTES: large vectors are truncated with an element count ("... (500
+elements)") instead of spewing -- good. The #13 ordering wart (output
+before the kwarg error) is cosmetic but real: the call's side effect
+happens, then the call errors.
+
+----------------------------------------------------------------------
+FUNCTION: plot
+VERDICT: defect
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  plot([])
+  2  plot([], [])
+  3  plot([1])
+  4  plot(1)
+  5  plot([0, 1, 2], [1, nan, 3])
+  6  plot([0, 1, 2], [inf, -inf, 1])
+  7  plot("abc")
+  8  plot([1, 2], ["a", "b"])
+  9  (script) plot([1, 2, 3], ["a", "b", "c"]); savefig("y_str.svg")
+ 10  (script) plot([1, 2, 3], [1, 2, 3]); savefig("y_num.svg")
+ 11  (script) plot([1, 2, 3, 4], ["w", "x", "y", "z"]); savefig("y4_str.svg")
+ 12  (script) plot(["a", "b", "c"], [1, 5, 9])
+ 13 t = (0 to 10) ms; plot(t, sin(t * 1000))
+ 13b (script) t = [0 ms, 5 ms, 10 ms, 15 ms]; plot(t, [1, 2, 3, 4]); print(t)
+ 14 plot([-2, -1, 0, 1], [1, -3, 2, -1])
+ 15 x = (0 to 99999); plot(x, sin(0.01 * x))
+ 16 plot([1,2,3],[4,5,6], dim=1)
+ 17 plot([1,2,3],[4,5,6], axis=2)
+ 18 plot([1,2,3],[4,5,6], colr="red")
+GOT:
+  1  · plot: figure 1 (0 points)          (exit 0)
+  2  · plot: figure 1 (0 points)          (exit 0)
+  3  · plot: figure 1 (1 points)          (exit 0)
+  4  · plot: figure 1 (1 points)          (exit 0)
+  5  · plot: figure 1 (3 points)          (exit 0, no warning)
+  6  · plot: figure 1 (3 points)          (exit 0, no warning)
+  7  qu: runtime error: expected a numeric vector, found string   (exit 1)
+  8  · plot: figure 1 (2 points)          (exit 0)
+  9  figure saved; y-axis ticks: 0, 0.2, ..., 2.0; x-axis ticks 1.0..3.0
+ 10  figure saved; y-axis ticks: 1.0..3.0; x-axis ticks 1.0..3.0
+ 11  figure saved; y-axis ticks: 0, 0.5, ..., 3.0; x-axis ticks 1.0..4.0
+ 12 qu: runtime error: expected a numeric vector; this list holds string
+     at position 0                                                    (exit 1)
+ 13 qu: runtime error: parse error at 1:15: expected end of statement
+     (newline or `;`), found Ident("ms")            (exit 1)
+ 13b · plot: figure 1 (4 points)
+     [0, 0.005, 0.01, 0.015]                        (exit 0)
+ 14  · plot: figure 1 (4 points)          (exit 0)
+ 15  · plot: figure 1 (100000 points)     (exit 0, completes)
+ 16  · plot: figure 1 (3 points)          (exit 0)
+ 17  · plot: figure 1 (3 points)          (exit 0)
+ 18 · plot: figure 1 (3 points); then: qu: runtime error: plot: unknown
+     keyword argument `colr=` -- did you mean `color=`?              (exit 1)
+ 13/#13b note: a unit suffix only attaches to a NUMERIC LITERAL. `(0 to
+     10) ms` is a parse error (unit after a parenthesized expression is
+     rejected: "expected end of statement, found Ident(ms)"), while
+     `t = [0 ms, 5 ms, 10 ms, 15 ms]` parses fine and plots 4 points
+     with the ms silently normalized to seconds ([0, 0.005, 0.01,
+     0.015]). So the units class for plot is "silently normalized" via
+     the vector route; the range-literal route is a parse error. Minor,
+     undocumented, but it will catch anyone who writes `(0 to 10) ms`
+     expecting it to work.
+EXPECTED: #8/#9/#11 are the defect. The documented contract is "x and y
+are equal-length Vecs ... of numbers" (book/src/stdlib/plotting.md line
+517). When y is a list of strings, plot does NOT reject it the way it
+rejects a string x (#7, #12 -- those error, correctly, with good
+messages). Instead it silently plots the ROW INDEX [0..n-1] as y and
+discards the strings: 3 string values give y-axis 0..2, 4 give y-axis
+0..3, and "a","b","c" / "1","5","9" / "z","z","z" all produce
+PIXEL-IDENTICAL figures. A reader inspecting the figure sees a clean
+line and has no signal that none of their data was plotted.
+NOTES: empty (0 points) and scalar (broadcast to 1 point) are handled
+gracefully. NaN/Inf y-values are accepted with no warning (#5, #6) --
+defensible for a plotting function, noted for completeness. 100k points
+completes. The did-you-mean on a misspelled style key (#18) is exactly
+the useful-message behavior you wanted from this class.
+
+----------------------------------------------------------------------
+FUNCTION: max
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(max([]))
+  2  print(max(()))
+  3  print(max())
+  4  print(max(5), max([7]))
+  5  print(max(nan))
+  6  print(max(inf), max(-inf))
+  7  print(max([1, nan, 3]), max([inf, 2]), max([-inf, -1]))
+  8  print(max("5"))
+  9  print(max(["a", "b"]))
+ 10  print(max([1 ohm, 2.5 kohm]))
+ 11  print(max(9 ohm))
+ 12  print(max(9 ohm, 10 ohm))
+ 13  print(max([-5, -3]))
+ 14  x = (0 to 999999); print(max(x))
+ 15  print(max([1,2,3], dim=1))
+ 16  print(max(3, 7))
+ 17  print(max([1, 9; 4, 2]))
+GOT:
+  1  qu: runtime error: reduction of empty vector        (exit 1)
+  2  qu: runtime error: reduction of empty vector        (exit 1)
+  3  qu: runtime error: function needs at least one argument   (exit 1)
+  4  5 7
+  5  NaN
+  6  inf -inf
+  7  3 inf -1
+  8  qu: runtime error: expected a numeric vector, found string  (exit 1)
+  9  qu: runtime error: expected a numeric vector; this list holds string
+     at position 0                                                   (exit 1)
+ 10  2500                       (unit silently normalized, see cross-cutting note)
+ 11  qu: runtime error: expected a numeric vector, found unit    (exit 1)
+ 12  10
+ 13  -3
+ 14  999999                     (exit 0, completes)
+ 15  3                          (exit 0)
+ 16  7
+ 17  9                          (matrix flattened)
+EXPECTED: matches, with one documentation gap. The empty-vector error is
+loud and well-named but NOT documented (book/src/stdlib/core-math.md
+line 204 documents max/min only for non-empty inputs; only mean and rms
+are documented as "errors on an empty vector"). The NaN behavior
+(minNum/maxNum semantics: a NaN is skipped unless ALL values are NaN,
+so #7 returns 3, not NaN) is also undocumented in the book; it is
+consistent IEEE behavior and it is what the source comment at
+qu-interp/src/lib.rs line 30954-30968 states as intent.
+NOTES: error quality in this function is the best in the batch -- "this
+list holds string at position 0" names the element, not just the type.
+
+----------------------------------------------------------------------
+FUNCTION: fft
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(fft([]))
+  2  print(fft(()))
+  3  print(fft([1]))
+  4  print(fft(1))
+  5  print(fft([1, nan, 3, 4]))
+  6  print(fft([inf, 1, 1, 1]))
+  7  print(fft("abc"))
+  8  print(fft([1, "a", 2, 3]))
+  9  x = [1 ms, 2 ms, 3 ms, 4 ms]; print(fft(x))
+ 10  print(fft([-1, 1, -1, 1]))
+ 11  x = (0 to 1048575); r = fft(x); print(len(r))
+ 12  x = (0 to 524287) * 0.001; r = fft(x); print(len(r))
+ 13  x = [1,2,3,4]; print(fft(x, dim=1))
+ 14  x = [1,2,3,4]; print(fft(x, 8))
+GOT:
+  1  qu: runtime error: fft requires at least 1 sample; received 0   (exit 1)
+  2  qu: runtime error: expected a numeric value, found list         (exit 1)
+  3  [1]
+  4  [1]
+  5  [NaN, -2 + NaNi, NaN, -2 + NaNi]          (exit 0, no warning)
+  6  [inf, inf, inf, inf]                      (exit 0, no warning)
+  7  qu: runtime error: expected a numeric value, found string   (exit 1)
+  8  qu: runtime error: expected a numeric value, found list     (exit 1)
+  9  [0.01, -0.002 + 0.002i, -0.002, -0.002 - 0.002i]
+     (ms silently normalized to seconds before transforming)
+ 10  [0, 0, -4, 0]
+ 11  qu: runtime error: range would create 1048576 values; limit is 1000000
+     (exit 1) -- the documented element limit on range construction, not fft
+ 12  524288                     (exit 0, 2^19-point FFT completes)
+ 13  [10, -2 + 2i, -2, -2 - 2i] (exit 0; dim= consumed as axis, ignored)
+ 14  [10, -0.414214 - 7.242641i, -2 + 2i, 2.414214 - 1.242641i, -2,
+     2.414214 + 1.242641i, -2 - 2i, -0.414214 + 7.242641i]
+EXPECTED: matches, with two notes. #2 is a misleading message: an EMPTY
+LIST reaches fft, but the error names the type ("found list"), not the
+emptiness that fft([]) correctly names ("requires at least 1 sample;
+received 0") -- a reader of #2's message would not guess at the real
+problem. #5/#6: NaN/Inf pass through the transform with no warning
+(IEEE-consistent, undocumented; the book's fft entry says nothing about
+non-finite input).
+NOTES: the second positional argument is the documented n= zero-pad
+(signal-processing.md line 21); #14 confirms it. The 1e6 range limit
+means a 2^20 fft cannot be reached via `to`, but it is not an fft
+limit: x = zeros(1048576) + 1; r = fft(x); print(len(r), r[0], r[1])
+=> "1048576 1048576 0" (exit 0) -- a 2^20-point transform completes
+fine; the DC bin is exactly N and bin 1 is 0, as a constant input
+should give. So the size answer for fft: completes, does not panic.
+
+----------------------------------------------------------------------
+FUNCTION: sum
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(sum([]))
+  2  print(sum(()))
+  3  print(sum())
+  4  print(sum(5), sum([7]))
+  5  print(sum(nan))
+  6  print(sum(inf), sum(-inf))
+  7  print(sum([1, nan, 2]), sum([inf, -inf]), sum([1, inf, 2]))
+  8  print(sum("5"))
+  9  print(sum(["a"]))
+ 10  print(sum([1 kohm, 2.5 kohm]))
+ 11  print(sum(5 ms))
+ 12  print(sum([-5, 3]))
+ 13  x = (0 to 999999); print(sum(x))
+ 14  print(sum([1,2,3], dim=1))
+ 15  print(sum([1, 2; 3, 4]))
+GOT:
+  1  0
+  2  0
+  3  qu: runtime error: function needs at least one argument   (exit 1)
+  4  5 7
+  5  NaN
+  6  inf -inf
+  7  NaN NaN inf
+  8  qu: runtime error: expected a numeric vector, found string   (exit 1)
+  9  qu: runtime error: expected a numeric vector; this list holds string
+     at position 0                                                   (exit 1)
+ 10  3500                       (unit vector silently normalized)
+ 11  qu: runtime error: expected a numeric vector, found unit    (exit 1)
+ 12  -2
+ 13  499999500000               (exit 0, completes; exact)
+ 14  6                          (exit 0)
+ 15  10                         (matrix flattened)
+EXPECTED: matches. sum([]) = 0 (the identity) is not documented either
+way in the book (core-math.md line 202 is silent on empty), but 0 is the
+only sane answer and it is loud enough that a reader is not trapped.
+#7: [inf, -inf] => NaN is plain IEEE addition, undocumented, fine.
+NOTES: scalar-unit vs vector-unit asymmetry again (#10 vs #11) -- see
+cross-cutting UNITS. The 1e6 sum is exact (no precision loss visible at
+this magnitude).
+
+----------------------------------------------------------------------
+FUNCTION: mean
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(mean([]))
+  2  print(mean(()))
+  3  print(mean(5), mean([7]))
+  4  print(mean(nan))
+  5  print(mean(inf), mean(-inf))
+  6  print(mean([1, nan, 2]), mean([inf, -inf]))
+  7  print(mean("5"))
+  8  print(mean(["a"]))
+  9  print(mean([1 kohm, 2 kohm]))
+ 10  print(mean(9 ohm))
+ 11  print(mean([-2, -4]))
+ 12  x = (0 to 999999); print(mean(x))
+ 13  print(mean([1,2,3], dim=1))
+GOT:
+  1  qu: runtime error: mean of empty vector            (exit 1)
+  2  qu: runtime error: mean of empty vector            (exit 1)
+  3  5 7
+  4  NaN
+  5  inf -inf
+  6  NaN NaN
+  7  qu: runtime error: expected a numeric vector, found string   (exit 1)
+  8  qu: runtime error: expected a numeric vector; this list holds string
+     at position 0                                                   (exit 1)
+  9  1500                       (unit vector silently normalized)
+ 10  qu: runtime error: expected a numeric vector, found unit    (exit 1)
+ 11  -3
+ 12  499999.5                   (exit 0, completes)
+ 13  2                          (exit 0)
+EXPECTED: matches. This is the one reduction whose empty behavior is
+DOCUMENTED (core-math.md line 203: "errors on an empty vector") and the
+behavior matches the doc, including for the empty list (). #5: mean of
+[inf] and [-inf] returns inf and -inf (no inf/-inf cancellation case
+was in this probe set beyond #6, which gives NaN via inf + -inf).
+NOTES: nothing broken. If you are hunting a defect among the
+reductions, it is not here.
+
+----------------------------------------------------------------------
+FUNCTION: zeros
+VERDICT: defect
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(zeros())
+  2  print(zeros(1))
+  3  print(zeros(nan))
+  4  print(zeros(-inf))
+  5  print(zeros(inf))
+  6  print(zeros("5"))
+  7  print(zeros([2, 3]))
+  8  print(zeros(5 s))
+  9  print(zeros(-5))
+ 10  print(zeros(2.9))
+ 11  z = zeros(1000000); print(len(z), sum(z))
+ 12  z = zeros(3000, 3000); print(type(z), len(z))
+ 13  z = zeros(2000000); print(len(z))
+ 14  print(zeros(5, dim=2))
+GOT:
+  1  []                           (exit 0)
+  2  [0]
+  3  []                           (exit 0)   <-- silent
+  4  []                           (exit 0)   <-- silent
+  5  EXIT 101, process crash:
+     thread '<unnamed>' panicked at library\alloc\src\raw_vec\mod.rs:28:5:
+     capacity overflow
+     note: run with `RUST_BACKTRACE=1` environment variable to display
+     a backtrace
+     thread 'main' panicked at crates\qu-cli\src\main.rs:143:10:
+     main worker thread panicked: Any { .. }
+  6  []                           (exit 0)   <-- silent
+  7  [0, 0, 0; 0, 0, 0]           (the documented zeros(size(x)) idiom)
+  8  [0, 0, 0, 0, 0]              (unit silently normalized)
+  9  []                           (exit 0)   <-- silent
+ 10  [0, 0]                       (fractional size truncated)
+ 11  1000000 0                    (exit 0, completes)
+ 12  matrix 9000000               (exit 0, completes)
+ 13  2000000                      (exit 0, completes)
+ 14  [0, 0, 0, 0, 0]              (exit 0; dim= consumed as axis, ignored)
+EXPECTED: #3, #4, #6, #9 should be errors. The documented contract is
+"one numeric argument n gives a length-n Vec" (core-math.md line 304).
+n = nan, -inf, -5, or "5" is not a length anyone intended, and the
+honest answer is "zeros: size must be a non-negative integer, found ...".
+Instead the size path silently coerces: the shape helper does
+as_num().ok().unwrap_or(0.0) as usize (qu-interp/src/lib.rs line
+30908), so every non-numeric/negative/non-finite size becomes 0 and the
+caller gets an EMPTY VECTOR with exit 0. In a measurement script,
+z = zeros(n_samples) with a NaN sample count upstream yields a
+silently-empty array that every downstream operation happily accepts.
+And #5: zeros(inf) does not error at all -- (INFINITY as usize)
+saturates to usize::MAX and the allocation panics the entire process
+with a Rust backtrace, not a Qu error. That is the answer to your size
+question for this function: it panics.
+NOTES: zeros(2.9) => 2 elements (truncation) is defensible and arguably
+worth a doc line. The legitimate size cases (1e6 vector, 9e6-element
+matrix, 2e6 vector) all complete without issue -- the defect is
+specifically the invalid-size path.
+
+----------------------------------------------------------------------
+FUNCTION: sqrt
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg
+RAN:
+  1  print(sqrt([]))
+  2  print(sqrt(4))
+  3  print(sqrt(nan))
+  4  print(sqrt(inf), sqrt(-inf))
+  5  print(sqrt([1, nan, 9]))
+  6  print(sqrt("4"))
+  7  print(sqrt(9 ohm))
+  8  print(sqrt(9 degC))
+  9  print(sqrt(-4))
+ 10  print(sqrt(-4 ohm))
+ 11  print(sqrt([-4, 9]))
+ 12  x = (0 to 999999); r = sqrt(x); print(len(r), r[100])
+ 13  print(sqrt(4, dim=1))
+ 14  print(sqrt(16, wrong=1))
+GOT:
+  1  []
+  2  2
+  3  NaN
+  4  inf NaN
+  5  [1, NaN, 3]
+  6  qu: runtime error: cannot apply a numeric operation to string  (exit 1)
+  7  3                            (unit silently stripped, documented phase-2 behavior)
+  8  qu: runtime error: cannot apply a numeric operation to unit   (exit 1, by design)
+  9  NaN
+ 10  NaN
+ 11  [NaN, 3]
+ 12  1000000 10                   (exit 0, completes)
+ 13  2                            (exit 0)
+ 14 qu: runtime error: sqrt: unknown keyword argument `wrong=` -- sqrt
+     takes no keyword arguments, and one it does not read would
+     otherwise be silently ignored                                   (exit 1)
+EXPECTED: matches, and the one question you flagged -- negative domain --
+is DOCUMENTED: book/src/stdlib/core-math.md line 42 states "a negative
+element gives NaN (there is no automatic promotion to a complex
+result)". #9/#10/#11 all match the doc exactly; the result type is
+`number` (a real NaN), confirmed via type(sqrt(-4)) => number.
+NOTES: sqrt(-inf) => NaN is the consistent extension of the same rule
+(-inf < 0). The string error message here ("cannot apply a numeric
+operation to string") is worded differently from abs's ("cannot apply
+the operation to string") -- two message strings for the same class of
+problem, trivial but worth unifying if anyone is touching this code.
+
+----------------------------------------------------------------------
+FUNCTION: min
+VERDICT: clean
+TRIED: empty, single, non-finite, wrong type, units, negative, size, kwarg,
+       plus item-B extras: leading NaN, ties, complex, string compare,
+       two-arg, matrix
+RAN:
+  1  print(min([]))
+  2  print(min(()))
+  3  print(min())
+  4  print(min(5), min([7]))
+  5  print(min(nan))
+  6  print(min(inf), min(-inf))
+  7  print(min([1, nan, -3]), min([inf, -inf]), min([nan, nan]))
+  8  print(min([nan, 2, 1]))
+  9  print(min("5"))
+ 10  print(min(["a"]))
+ 11  print(min([1 kohm, 2.5 kohm]))
+ 12  print(min(9 ohm))
+ 13  print(min([-5, -3]))
+ 14  x = (0 to 999999); print(min(x))
+ 15  print(min([1,2,3], dim=1))
+ 16  print(min(3, 7))
+ 17  print(min([1, 9; 4, 2]))
+ 18  print(min("b", "a"))
+ 19  print(min([1+2j, 3+0j]))
+ 20  print(min([4, 4, 4]))
+GOT:
+  1  qu: runtime error: reduction of empty vector        (exit 1)
+  2  qu: runtime error: reduction of empty vector        (exit 1)
+  3  qu: runtime error: function needs at least one argument   (exit 1)
+  4  5 7
+  5  NaN
+  6  inf -inf
+  7  -3 -inf NaN
+  8  1
+  9  qu: runtime error: expected a numeric vector, found string   (exit 1)
+ 10  qu: runtime error: expected a numeric vector; this list holds string
+     at position 0                                                   (exit 1)
+ 11  1000                       (unit vector silently normalized)
+ 12  qu: runtime error: expected a numeric vector, found unit    (exit 1)
+ 13  -5
+ 14  0                          (exit 0, completes)
+ 15  1                          (exit 0)
+ 16  3
+ 17  1                          (matrix flattened)
+ 18  qu: runtime error: expected a number, found string    (exit 1)
+ 19  qu: runtime error: expected a numeric vector, found complex vector  (exit 1)
+ 20  4
+EXPECTED: all of it. This is item B's bet, and the function did not
+break: 8 test call sites against 225 example uses, and every edge I
+could throw at it behaved correctly.
+NOTES: the NaN handling is the subtle part and it is right: minNum
+semantics, so #7 skips the NaN to -3, and #8 (LEADING nan) still finds
+1 -- a naive left-to-right scan starting at index 0 would have returned
+NaN, so this is not accidental, it is the f64::min semantics the source
+comment at qu-interp/src/lib.rs line 30954-30968 documents as the
+invariant x[argmin(x)] == min(x). #19: complex input is rejected with a
+clear, specific message (min has no complex ordering, correct). The
+only shared gap with max: the empty-vector error is undocumented in the
+book.
+
+----------------------------------------------------------------------
+ITEM A  --  tic()'s error text advertising `available`
+VERDICT: defect (reproduced on a real path, twice)
+TRIED: tic with extra positional arg; toc before tic; available() with no
+       args and with a builtin name; help() on the same builtins
+RAN:
+  1  tic(1)
+  2  toc()
+  3  available()
+  4  available("sqrt")
+  5  print(help("tic"))
+  6  print(help("fft"))
+GOT:
+  1  qu: runtime error: tic: 1 arguments given, but tic reads 0 arguments
+     -- 1 would be silently ignored. Check the order, or
+     `available("tic")` for what it takes.                              (exit 1)
+  2  qu: runtime error: toc() called before tic()                       (exit 1)
+  3  qu: runtime error: function needs at least one argument            (exit 1)
+  4  qu: runtime error: available: expected a serial port handle (from
+     serial_open), found string                                         (exit 1)
+  5  tic is a Qu builtin.
+     related: xticks, yticks, xticklabels, yticklabels
+     worked examples live in catalog/ -- search it for `tic(`.
+  6  fft is a Qu builtin.
+     related: fftc, fftr, ifft, rfft
+     worked examples live in catalog/ -- search it for `fft(`.
+EXPECTED: the remedy the error text prescribes should work. It does not:
+`available` is the SERIAL-PORT builtin ("bytes available to read on an
+open port", serial_ops.rs line 86), so a user who follows tic's own
+error text gets a serial-port error. You read tic (3 lines) and toc and
+found no mention of `available` -- correct, because the reference is not
+in tic at all. It is in the GENERIC extra-positional-argument message
+(reject_extra_positional, qu-interp/src/lib.rs line 30297-30299), which
+fires for ANY builtin whose call supplies more positional arguments than
+it reads -- tic(1) is just the most reachable instance. Confirmed on a
+second builtin: tic(); toc(1) => "toc: 1 arguments given, but toc reads
+0 arguments -- 1 would be silently ignored. Check the order, or
+`available("toc")` for what it takes." (Note: bare toc(1) in a fresh
+process shows "toc() called before tic()" instead, because the
+extra-argument check only runs when the call itself succeeds -- the
+misleading sentence is on a second error layer, which is why it is easy
+to miss by reading the builtin's own code.) So the misleading text is
+not one string in tic; it is a template, and it is wrong on every path
+it fires.
+Two further facts make this worse than a bad string:
+  (a) docs/llms-agent-guide.md line 223-224 STILL claims "`available
+      ("part")` searches the builtin names from inside a program". The
+      book's own builtin index is correct (lists `available` under
+      Concurrency with "a Serial handle from serial_open"), so the
+      guide contradicts the book in-repo.
+  (b) The natural alternative remedy does not exist either:
+      help("tic")/help("fft") answer "<name> is a Qu builtin" plus
+      near-names, and nothing about what the builtin takes. So the
+      error text points at a function that is the wrong tool, and the
+      tool that could actually answer the question does not.
+PRIOR KNOWLEDGE: BACKLOG.md (around line 9687-9715) already contains the
+same finding from a previous session, including the observation that the
+relayed claim "`available(name)` deserves its own guide section" was
+"corrected immediately, before it could enshrine a broken remedy in the
+document" -- and yet llms-agent-guide.md:224 still carries the false
+claim today. So either the correction landed in a different document or
+it was lost; either way the currently-shipped guide is wrong.
+Suggested fixes, cheapest first: point the template at help() if/when
+help() learns signatures; until then, drop the `available("...")`
+sentence from reject_extra_positional; and fix or delete
+llms-agent-guide.md:224.
+
+----------------------------------------------------------------------
+ITEM B  --  min's thin test-to-use ratio
+VERDICT: no breakage found (see FUNCTION: min block above for the full
+evidence). The 20-probe pass including leading-NaN, all-NaN, ties,
+complex, string, unit, matrix, two-arg, and 1e6-element inputs returned
+zero surprises. If min is fragile, it is fragile somewhere my probes
+did not reach -- nothing in the eight input classes indicates where.
+The one thing that IS thin and worth a test: the undocumented
+"reduction of empty vector" behavior shared with max (and the
+undocumented NaN-skip semantics) have no book entry, so the 8 existing
+tests are the only record of either.
+
+----------------------------------------------------------------------
+SUMMARY OF RECORDABLE DEFECTS (cheapest re-run in parentheses)
+ 1. plot(x, y) with y a list of strings: silently plots the row index
+    instead of erroring; string x correctly errors. (plot([1,2,3],
+    ["a","b","c"]) -- exit 0, inspect y-axis ticks: 0..n-1)
+ 2. zeros(inf): process panic, exit 101, "capacity overflow" -- no Qu
+    error. (print(zeros(inf)))
+ 3. zeros(nan) / zeros(-5) / zeros("5"): silently return [] (exit 0)
+    instead of a size error. (print(zeros(nan)))
+ 4. tic's extra-arg error template prescribes available("tic");
+    available is a serial-port builtin, and the help() it should point
+    at does not reveal signatures. (tic(1); available("tic"))
+ 5. docs/llms-agent-guide.md:224 still claims available() searches
+    builtin names -- contradicts the book's own builtin index.
+ 6. (minor, cross-function) unit treatment is a patchwork: scalar unit
+    rejected by abs/max/min/mean/sum but stripped by sin/sqrt/exp/log,
+    and stripped by the same reductions on a vector or in the two-arg
+    form. No wrong number results; the predictability gap is the issue.
+    (compare abs(9 ohm) vs sqrt(9 ohm); max(9 ohm) vs max([9 ohm]))
+ 7. (minor) fft(()) says "expected a numeric value, found list" where
+    fft([]) correctly says "requires at least 1 sample; received 0" --
+    the empty-list message names the type, not the emptiness.
+
+Everything else in the batch -- abs, print, max, fft, sum, mean, sqrt,
+min across all eight input classes, including the 1e6-element size
+probes (all complete; nothing panics except zeros(inf) above) --
+behaved as documented or, where undocumented (min/max empty error,
+NaN-skip semantics, sum([])=0), behaved sanely with loud, well-named
+errors. The keyword-argument validation is real and its messages are
+genuinely good, modulo the documented dim=/axis=/seed= universal
+exemption.

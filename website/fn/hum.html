@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hum — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>hum</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>hum(x, fs, [freq=50], [harmonics=3], [snr=20], [amplitude=], [seed=])</code></pre>
+<p class="fnnote">Input: x, fs, freq, harmonics, snr, amplitude, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Adds simulated mains pickup to <code>x</code>, a length-N signal vector, given the sample rate <code>fs</code> in Hz. <code>freq</code> (number, Hz) is the mains fundamental, default <code>50</code>. <code>harmonics</code> (integer count) is how many <strong>odd</strong> harmonics to include — <code>3</code> means the 1st, 3rd and 5th, i.e. 50, 150 and 250 Hz — default <code>3</code>. <code>snr</code> (number, dB, default <code>20</code>) or <code>amplitude</code> (number, raw units) sets the interference level, one or the other, not both. <code>seed</code> (integer, optional) fixes the phase/noise draw for a reproducible run.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = hum(x, fs, [freq=50], [harmonics=3], [snr=20], [amplitude=], [seed=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc">Adds simulated mains pickup to <code>x</code>, a length-N signal vector, given the sample rate <code>fs</code> in Hz.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">vector</span><span class="iodesc">Adds simulated mains pickup to <code>x</code>, a length-N signal vector, given the sample rate <code>fs</code> in Hz.</span></div>
+<div class="ioitem"><code>freq</code> <span class="iotype">number, optional (default <code>50</code>)</span><span class="iodesc"><code>freq</code> (number, Hz) is the mains fundamental, default <code>50</code>.</span></div>
+<div class="ioitem"><code>harmonics</code> <span class="iotype">optional (default <code>3</code>)</span><span class="iodesc"><code>harmonics</code> (integer count) is how many <strong>odd</strong> harmonics to include — <code>3</code> means the 1st, 3rd and 5th, i.e.</span></div>
+<div class="ioitem"><code>snr</code> <span class="iotype">number, optional (default <code>20</code>)</span><span class="iodesc"><code>snr</code> (number, dB, default <code>20</code>) or <code>amplitude</code> (number, raw units) sets the interference level, one or the other, not both.</span></div>
+<div class="ioitem"><code>amplitude</code> <span class="iotype">number, optional</span><span class="iodesc"><code>snr</code> (number, dB, default <code>20</code>) or <code>amplitude</code> (number, raw units) sets the interference level, one or the other, not both.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc"><code>seed</code> (integer, optional) fixes the phase/noise draw for a reproducible run.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-N vector, <code>x</code> plus the interference.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
+
+h = <span class="f">hum</span>(clean, fs, <span class="a">freq</span> = <span class="n">50</span>, <span class="a">harmonics</span> = <span class="n">3</span>, <span class="a">snr</span> = <span class="n">6</span>)
+e = <span class="f">emf</span>(clean, fs, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"hum {measure_snr(clean, h):.2f} dB, emf {measure_snr(clean, e):.2f} dB"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<h2>How it works</h2>
+<p><code>hum(x, fs, freq = 50, harmonics = 3, snr = 20)</code> — mains pickup, with its ODD harmonics. <code>harmonics = 3</code> means 50, 150 and 250 Hz: mains arrives through a symmetric nonlinearity, which generates odd harmonics only, and a notch at the fundamental alone leaves the rest behind.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

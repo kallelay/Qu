@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCP echo server — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Data &amp; I/O</p>
+<h1>TCP echo server</h1>
+<p class="lede">a genuine client/server TCP round trip on loopback.</p>
+<p class="srcpath">catalog/qu_tcp_echo.qu</p>
+<p>`tcp_listen(0)` asks the OS for a free ephemeral port; the server function runs in a `spawn`'d worker thread so it can block on `tcp_accept`/ `tcp_recv` without blocking the script itself -- the same "spawn a function to run a long/blocking call in the background" idiom every other worker-based Qu builtin uses. `join(worker)` waits for the server to finish and returns whatever it `return`ed.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>tcp_listen(port) / tcp_port(listener)   -- bind an ephemeral port</li>
+<li>spawn(fnName, args...) / join(worker)   -- run the server without blocking</li>
+<li>tcp_connect / tcp_send / tcp_recv / tcp_close -- the client side</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A tiny echo server: reads one message, replies with it upper-cased</h3>
+<pre class="hl"><code><span class="k">function</span> <span class="f">echo_server</span>(listener)
+    conn = <span class="f">tcp_accept</span>(listener)
+    msg = <span class="f">tcp_recv</span>(conn)
+    <span class="f">tcp_send</span>(conn, <span class="f">upper</span>(msg))
+    <span class="f">tcp_close</span>(conn)
+    <span class="k">return</span> msg
+<span class="k">end</span> <span class="k">function</span>
+
+listener = <span class="f">tcp_listen</span>(<span class="n">0</span>)
+port = <span class="f">tcp_port</span>(listener)
+<span class="f">print</span>(<span class="s">"server listening on 127.0.0.1:{port}"</span>)
+
+worker = <span class="f">spawn</span>(<span class="s">"echo_server"</span>, listener)
+</code></pre>
+</section>
+<section class="step">
+<h3>Client side: connect, send, read the reply</h3>
+<pre class="hl"><code>conn = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, port)
+<span class="f">tcp_send</span>(conn, <span class="s">"hello from the qu client"</span>)
+reply = <span class="f">tcp_recv</span>(conn)
+<span class="f">tcp_close</span>(conn)
+
+server_saw = <span class="f">join</span>(worker)
+<span class="f">print</span>(<span class="s">"client received: {reply}"</span>)
+<span class="f">print</span>(<span class="s">"server originally saw: {server_saw}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>server listening on 127.0.0.1:55814
+client received: HELLO FROM THE QU CLIENT
+server originally saw: hello from the qu client</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_tcp_echo.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_tcp_echo.qu -- a genuine client/server TCP round trip on loopback.</span>
+<span class="c">#</span>
+<span class="c"># `tcp_listen(0)` asks the OS for a free ephemeral port; the server function</span>
+<span class="c"># runs in a `spawn`'d worker thread so it can block on `tcp_accept`/</span>
+<span class="c"># `tcp_recv` without blocking the script itself -- the same "spawn a</span>
+<span class="c"># function to run a long/blocking call in the background" idiom every other</span>
+<span class="c"># worker-based Qu builtin uses. `join(worker)` waits for the server to</span>
+<span class="c"># finish and returns whatever it `return`ed.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   tcp_listen(port) / tcp_port(listener)   -- bind an ephemeral port</span>
+<span class="c">#   spawn(fnName, args...) / join(worker)   -- run the server without blocking</span>
+<span class="c">#   tcp_connect / tcp_send / tcp_recv / tcp_close -- the client side</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A tiny echo server: reads one message, replies with it upper-cased</span>
+<span class="k">function</span> <span class="f">echo_server</span>(listener)
+    conn = <span class="f">tcp_accept</span>(listener)
+    msg = <span class="f">tcp_recv</span>(conn)
+    <span class="f">tcp_send</span>(conn, <span class="f">upper</span>(msg))
+    <span class="f">tcp_close</span>(conn)
+    <span class="k">return</span> msg
+<span class="k">end</span> <span class="k">function</span>
+
+listener = <span class="f">tcp_listen</span>(<span class="n">0</span>)
+port = <span class="f">tcp_port</span>(listener)
+<span class="f">print</span>(<span class="s">"server listening on 127.0.0.1:{port}"</span>)
+
+worker = <span class="f">spawn</span>(<span class="s">"echo_server"</span>, listener)
+
+<span class="c">#%% Client side: connect, send, read the reply</span>
+conn = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, port)
+<span class="f">tcp_send</span>(conn, <span class="s">"hello from the qu client"</span>)
+reply = <span class="f">tcp_recv</span>(conn)
+<span class="f">tcp_close</span>(conn)
+
+server_saw = <span class="f">join</span>(worker)
+<span class="f">print</span>(<span class="s">"client received: {reply}"</span>)
+<span class="f">print</span>(<span class="s">"server originally saw: {server_saw}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

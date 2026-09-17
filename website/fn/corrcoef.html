@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>corrcoef — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>corrcoef</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>corrcoef(M)</code></pre>
+<p class="fnnote">Input: M &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Called on an <code>N</code>-row, <code>D</code>-column matrix or table <code>M</code>, returns the full <code>(D, D)</code> matrix of pairwise Pearson correlations between its columns. For two length-<code>N</code> vectors <code>x</code>/<code>y</code>, use <code>corr(x, y)</code> instead, which returns their correlation as a single number. <code>corr_heatmap</code> draws the same <code>corrcoef</code> numbers as a plot.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = corrcoef(M)</code></td><td><div class="ioitem"><code>M</code> <span class="iotype">matrix, vector, or number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Mat</span></div>
+</td><td>Returns a <code>(D, D)</code> <code>Mat</code>, symmetric with ones down the diagonal.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+
+m = <span class="f">ols_model</span>(X, y)
+yhat = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"mae: {round(mae(y, yhat), 4)}, mse: {round(mse(y, yhat), 4)}"</span>)
+
+cm = <span class="f">knn_model</span>(Xc, yc, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+predc = cm.<span class="f">predict</span>(Xc)
+<span class="f">print</span>(<span class="s">"precision: {round(precision(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"recall:    {round(recall(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"f1:        {round(f1(yc, predc), 3)}"</span>)
+
+folds = <span class="f">k_fold</span>(X, y, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"k_fold: {len(folds)} folds, first fold trains on {rows(folds[0].X_train)} rows"</span>)
+
+stab = <span class="f">cv_stability</span>(Xc, yc, <span class="a">n_repeats</span> = <span class="n">5</span>, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"cv_stability: {round(mean(stab), 3)} +/- {round(std(stab), 3)}"</span>)
+
+ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"ablation_study scores: {round(ab, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"rfe keeps:             {rfe(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"mutual_info_classif:   {round(mutual_info_classif(Xc, yc, k = 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>corrcoef(X)</code> — the full pairwise Pearson correlation matrix of a data matrix <code>X</code> (rows = samples, cols = features): an NxN <code>Mat</code> (N = number of columns) whose [i,j] entry is <code>corr(X[:,i], X[:,j])</code>. Symmetric with a diagonal of 1s. Distinct from <code>corr_heatmap</code>/<code>corrplot</code>, which do the same computation over a <code>Table</code>'s numeric columns and push a plot <code>Heatmap</code> directly rather than returning the matrix value — <code>heatmap(corrcoef(X))</code> recombines the two.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

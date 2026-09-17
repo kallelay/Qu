@@ -1,0 +1,56 @@
+# qu_kalman_tracking.qu -- a constant-velocity Kalman filter tracking a
+# noisy 1-D position sensor.
+#
+# State is [position, velocity]; only position is measured (noisily). Each
+# step threads the filter state through `predict` then `update`, Qu's
+# named-return `Model` protocol for the linear Kalman filter (no separate
+# `kalman_predict`/`kalman_update` builtins -- `predict`/`update` dispatch
+# on the model's own `kind`, called via ordinary `state.method(args)`
+# sugar).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   kalman_init(x0, P0)               -- initial state estimate + covariance
+#   state.predict(F, Q)               -- F a matrix literal, constant-velocity model
+#   state.update(H, z, R)             -- H a 1x2 observation row, z a 1-vector
+#   rms                                -- comparing raw vs filtered error
+
+backend auto
+
+#%% Ground truth: constant velocity plus a noisy position sensor
+N = 60
+dt = 0.1
+true_v = 2.0
+t = (0 to N - 1) * dt
+true_pos = true_v * t
+measured = true_pos + 0.8 * randn(N)
+
+#%% Constant-velocity Kalman filter: state = [position, velocity]
+F = [1, dt; 0, 1]
+Q = [0.001, 0; 0, 0.001]
+H = reshape([1, 0], 1, 2)
+R = [0.64]
+
+s = kalman_init([0, 0], [10, 0; 0, 10])
+est_pos = zeros(1, N)
+est_vel = zeros(1, N)
+for k = 0 to N - 1
+    s = s.predict(F, Q)
+    s = s.update(H, [measured[k]], R)
+    est_pos[k] = s.x[0]
+    est_vel[k] = s.x[1]
+end for
+
+raw_err = rms(measured - true_pos)
+filt_err = rms(est_pos - true_pos)
+print("Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}")
+print("True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}")
+
+#%% Plot ground truth, raw measurements, and the filtered track
+plot(t, true_pos, label="true position", color="black")
+plot(t, measured, label="noisy sensor", color="gray")
+plot(t, est_pos, label="Kalman estimate", color="blue")
+xlabel("Time (s)")
+ylabel("Position")
+title("Constant-velocity Kalman tracking")
+legend()
+show plot

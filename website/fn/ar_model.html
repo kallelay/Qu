@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ar_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>ar_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>ar_model(x, order)</code></pre>
+<p class="fnnote">Input: x, order &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Fits an autoregressive AR(<code>p</code>) model by Yule-Walker to a length-<code>N</code> numeric vector <code>x</code>, using the integer lag order <code>order</code> (this is <code>p</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = ar_model(x, order)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>coef</code> <span class="iotype">vector</span><span class="iodesc">a length-<code>p</code> vector of AR coefficients</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>p</code> back</span></div>
+<div class="ioitem"><code>mean</code> <span class="iotype">scalar</span><span class="iodesc">the scalar series mean subtracted before fitting</span></div>
+<div class="ioitem"><code>history</code> <span class="iotype">&mdash;</span><span class="iodesc">the last <code>p</code> values of <code>x</code>, used to seed forecasting</span></div>
+<div class="ioitem"><code>fitted</code> <span class="iotype">vector</span><span class="iodesc">a length-<code>N</code> vector of in-sample fitted values</span></div>
+<div class="ioitem"><code>residuals</code> <span class="iotype">vector</span><span class="iodesc">a length-<code>N</code> vector, <code>x</code> minus <code>fitted</code></span></div>
+</td><td>Returns a fitted model Record with fields <code>coef</code> (a length-<code>p</code> vector of AR coefficients), <code>order</code> (<code>p</code> back), <code>mean</code> (the scalar series mean subtracted before fitting), <code>history</code> (the last <code>p</code> values of <code>x</code>, used to seed forecasting), <code>fitted</code> (a length-<code>N</code> vector of in-sample fitted values), and <code>residuals</code> (a length-<code>N</code> vector, <code>x</code> minus <code>fitted</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">zeros</span>(<span class="n">500</span>)
+x[<span class="n">0</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">21</span>)
+x[<span class="n">1</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">22</span>)
+<span class="k">for</span> t = <span class="n">2</span> <span class="k">to</span> <span class="n">499</span>
+    x[t] = <span class="n">0.6</span> * x[t - <span class="n">1</span>] - <span class="n">0.3</span> * x[t - <span class="n">2</span>] + <span class="n">0.1</span> * <span class="f">randn</span>()
+<span class="k">end</span> <span class="k">for</span>
+m = <span class="f">ar_model</span>(x, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"generating: [0.6, -0.3]"</span>)
+<span class="f">print</span>(<span class="s">"recovered:  {round(m.coef, 3)}"</span>)
+
+future = m.<span class="f">predict</span>(<span class="n">30</span>)
+<span class="f">plot</span>(<span class="n">460</span> <span class="k">to</span> <span class="n">499</span>, x[<span class="n">460</span>:<span class="n">499</span>], <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(<span class="n">500</span> <span class="k">to</span> <span class="n">529</span>, future, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"forecast"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"AR(2), 30 steps ahead"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>ar_model(x, order)</code> — classical AR(p) autoregressive time-series model, fit via the Yule-Walker equations rather than a fresh lagged-design-matrix least-squares fit: solves the <code>(order, order)</code> symmetric Toeplitz system built directly from <code>x</code>'s own autocorrelation (reusing the existing <code>acf</code> free function — <code>acf</code>'s already-normalized <code>rho[k]</code> values are exactly what the Yule-Walker normal equations are stated in terms of, so there was real solver code here to reuse rather than reinvent, per this task's own framing). Returns a <code>kind="ar"</code> model — see <code>ar_fit_model</code>'s own doc comment for the fitted fields and the equations themselves, and the <code>"predict"</code> builtin arm below for <code>.predict(n_ahead)</code> (a forecast horizon, NOT a regression <code>Xnew</code> — an AR model forecasts its own future from its own fitted history, it has no "new X" to evaluate against, so this is special-cased there exactly like <code>q_learning</code>/ <code>kalman</code>'s own non-regression <code>predict</code> meanings are).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

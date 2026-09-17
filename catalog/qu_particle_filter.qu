@@ -1,0 +1,62 @@
+# qu_particle_filter.qu -- a GPU-dispatchable particle filter tracking a
+# noisy 1-D constant-velocity target.
+#
+# Unlike `particle_filter_init` (the fully generic sequential-Monte-Carlo
+# filter, whose transition/likelihood are arbitrary Qu functions by name --
+# see qu_kalman_tracking.qu's sibling example for that one), `particle_filter`
+# hardcodes a constant-velocity position/velocity motion model. That's a
+# real, deliberate restriction: it turns the predict step into a single
+# matrix multiply (`particles * A^T`, `A` the constant-velocity transition
+# matrix) applied to every particle at once, instead of one interpreter
+# call-back per particle -- which is exactly what makes it eligible for
+# GPU dispatch (`--features gpu` builds route this matmul through the same
+# `qu-gpu`/`gpu_probe` machinery `gpu_matmul` uses, once the particle count
+# clears the measured crossover; see benchmarks/particle_filter_gpu/README.md
+# for the real numbers on this machine -- short version: GPU wins only at
+# particle counts far beyond what a position/velocity tracker realistically
+# needs, so this script's own 800 particles run entirely on the CPU path,
+# and that's the honest, expected outcome, not a missed optimization).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   particle_filter(n, x0, process_noise=, obs_noise=, spread=, seed=)
+#   state.move(dt)                    -- the constant-velocity time update
+#   state.update(observation)          -- Gaussian likelihood + resample
+#   state.estimate()                   -- weighted-mean [position, velocity]
+
+backend auto
+
+#%% Ground truth: constant velocity plus a noisy position-only sensor
+seed(3)
+N = 80
+dt = 0.05
+true_v = 1.5
+t = (0 to N - 1) * dt
+true_pos = true_v * t
+measured = true_pos + 0.4 * randn(N)
+
+#%% Particle filter: state = [position, velocity], 800 particles
+pf = particle_filter(800, [0, 0], process_noise=0.08, obs_noise=0.4, spread=2.0, seed=3)
+est_pos = zeros(1, N)
+est_vel = zeros(1, N)
+for k = 0 to N - 1
+    pf = pf.move(dt)
+    pf = pf.update([measured[k]])
+    est = pf.estimate()
+    est_pos[k] = est[0]
+    est_vel[k] = est[1]
+end for
+
+raw_err = rms(measured - true_pos)
+filt_err = rms(est_pos - true_pos)
+print("Position RMS error: raw sensor={raw_err:.3f}, particle filter estimate={filt_err:.3f}")
+print("True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}")
+
+#%% Plot ground truth, raw measurements, and the filtered track
+plot(t, true_pos, label="true position", color="black")
+plot(t, measured, label="noisy sensor", color="gray")
+plot(t, est_pos, label="particle filter estimate", color="red")
+xlabel("Time (s)")
+ylabel("Position")
+title("Constant-velocity particle filter tracking")
+legend()
+show plot

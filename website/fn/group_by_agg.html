@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>group_by_agg — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>group_by_agg</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>group_by_agg(df, "group_col", "value_col", "agg")</code></pre>
+<p class="fnnote">Input: df, "group_col", "value_col", "agg" &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>df</code> is a <code>Table</code>; <code>"group_col"</code>/<code>"value_col"</code> are <code>Str</code> column names; <code>agg</code> is a <code>Str</code> naming the aggregate (<code>"mean"</code> by default, plus <code>"sum"</code>, <code>"min"</code>, <code>"max"</code>, <code>"count"</code>, etc.).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = group_by_agg(df, "group_col", "value_col", "agg")</code></td><td><div class="ioitem"><code>df</code> <span class="iotype">Table</span><span class="iodesc"><code>df</code> is a <code>Table</code>.</span></div>
+<div class="ioitem"><code>"group_col"</code> <span class="iotype">Str</span><span class="iodesc"><code>"group_col"</code>/<code>"value_col"</code> are <code>Str</code> column names.</span></div>
+<div class="ioitem"><code>"value_col"</code> <span class="iotype">Str</span><span class="iodesc"><code>"group_col"</code>/<code>"value_col"</code> are <code>Str</code> column names.</span></div>
+<div class="ioitem"><code>"agg"</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Table</span></div>
+</td><td>Returns a <code>Table</code>: one row per distinct value of <code>group_col</code>, with <code>value_col</code> aggregated.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
+pos = <span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>)
+<span class="f">print</span>(pos)
+
+s = <span class="f">sort_by</span>(df, <span class="s">"y"</span>)
+<span class="f">print</span>(s)
+
+g = <span class="f">table</span>(<span class="a">grp</span>=[<span class="n">1</span>,<span class="n">1</span>,<span class="n">2</span>,<span class="n">2</span>], <span class="a">v</span>=[<span class="n">10</span>,<span class="n">20</span>,<span class="n">30</span>,<span class="n">40</span>])
+agg = <span class="f">group_by_agg</span>(g, <span class="s">"grp"</span>, <span class="s">"v"</span>, <span class="s">"mean"</span>)
+<span class="f">print</span>(agg)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>group_by_agg(table, "group_col", "value_col", "agg")</code> — the original single-<code>(col,agg)</code> form, unchanged — OR <code>group_by_agg(table, "group_col", [(col1,"agg1"), (col2,"agg2"), ...])</code> — a single call computing every listed <code>(column, aggregate)</code> pair in one pass over the table (<code>Table::group_by_agg_multi</code>; see its doc comment for why that's genuinely one pass, not the single-spec reduction called once per spec). The spec-list argument is a parenthesized <code>Value::List</code> of 2-element <code>Value::List</code> pairs, matching <code>drop</code>'s own "single list argument for several at once" convention (<code>[...]</code> is always a numeric literal in Qu, so a bracketed pair list isn't an option — see <code>drop</code>'s doc comment above).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

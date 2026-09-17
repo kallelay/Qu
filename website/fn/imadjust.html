@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imadjust — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imadjust</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imadjust(img, [in_low=], [in_high=], [out_low=0.0], [out_high=1.0], [gamma=1.0])</code></pre>
+<p class="fnnote">Input: img, in_low, in_high, out_low, out_high, gamma &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>. <code>in_low</code>/<code>in_high</code> are optional named numbers in <code>[0,1]</code>, the input intensity range to stretch from; when <strong>both</strong> are omitted they auto-default to the image's own 1st/99th percentile (all channel bytes pooled) — robust to outlier pixels, like MATLAB's <code>stretchlim</code>. <code>out_low</code>/<code>out_high</code> are optional named numbers in <code>[0,1]</code> (default 0.0/1.0), the output range to stretch to. <code>gamma</code> is an optional named number (default 1.0) applying a power-law curve after the linear stretch. MATLAB-style contrast stretch, applied identically and independently to each of R/G/B.</p>
+<h2>Overloads</h2>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-imadjust-0" checked>
+<input type="radio" name="typetab" id="tt-imadjust-1">
+<div class="tabbar">
+<label for="tt-imadjust-0">explicit range</label>
+<label for="tt-imadjust-1">auto range (both omitted)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imadjust(img, [in_low=], [in_high=], [out_low=0.0], [out_high=1.0], [gamma=1.0])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>in_low</code> <span class="iotype">number, optional</span><span class="iodesc"><code>in_low</code>/<code>in_high</code> given explicitly.</span></div>
+<div class="ioitem"><code>in_high</code> <span class="iotype">number, optional</span><span class="iodesc"><code>in_low</code>/<code>in_high</code> given explicitly.</span></div>
+<div class="ioitem"><code>out_low</code> <span class="iotype">number, optional (default <code>0.0</code>)</span><span class="iodesc">The stretch maps exactly that input range to <code>out_low..out_high</code> linearly — passing the image's own full byte range (<code>in_low=0.0, in_high=1.0</code>) is a no-op that leaves a low-contrast image just as flat as it started.</span></div>
+<div class="ioitem"><code>out_high</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc">The stretch maps exactly that input range to <code>out_low..out_high</code> linearly — passing the image's own full byte range (<code>in_low=0.0, in_high=1.0</code>) is a no-op that leaves a low-contrast image just as flat as it started.</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>gamma</code> is an optional named number (default 1.0) applying a power-law curve after the linear stretch.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+img = <span class="f">image_from_matrix</span>(m)
+fixed = <span class="f">imadjust</span>(img, <span class="a">in_low</span>=<span class="n">0.0</span>, <span class="a">in_high</span>=<span class="n">1.0</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(fixed, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [0, 7, 0, 0, 0, 0, 0, 1] -- unchanged, still clustered in one bin</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imadjust(img, [in_low=], [in_high=], [out_low=0.0], [out_high=1.0], [gamma=1.0])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>in_low</code> <span class="iotype">number, optional</span><span class="iodesc">When both <code>in_low</code> and <code>in_high</code> are left out, they default to the image's own 1st/99th percentile of pooled channel bytes rather than <code>0.0</code>/<code>1.0</code> — a robust, data-driven stretch (MATLAB's <code>stretchlim</code>), not a no-op.</span></div>
+<div class="ioitem"><code>in_high</code> <span class="iotype">number, optional</span><span class="iodesc">When both <code>in_low</code> and <code>in_high</code> are left out, they default to the image's own 1st/99th percentile of pooled channel bytes rather than <code>0.0</code>/<code>1.0</code> — a robust, data-driven stretch (MATLAB's <code>stretchlim</code>), not a no-op.</span></div>
+<div class="ioitem"><code>out_low</code> <span class="iotype">number, optional (default <code>0.0</code>)</span><span class="iodesc"><code>out_low</code>/<code>out_high</code> are optional named numbers in <code>[0,1]</code> (default 0.0/1.0), the output range to stretch to.</span></div>
+<div class="ioitem"><code>out_high</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>out_low</code>/<code>out_high</code> are optional named numbers in <code>[0,1]</code> (default 0.0/1.0), the output range to stretch to.</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>gamma</code> is an optional named number (default 1.0) applying a power-law curve after the linear stretch.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>The exact same source image that stayed flat above spreads across the full range once the percentile-based stretch kicks in.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+img = <span class="f">image_from_matrix</span>(m)
+auto = <span class="f">imadjust</span>(img)
+<span class="f">print</span>(<span class="f">imhist</span>(auto, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [7, 0, 0, 0, 0, 0, 0, 1] -- stretched out to both ends of the range</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>imadjust(img, [in_low=, in_high=, out_low=0.0, out_high=1.0], [gamma=1.0])</code> — MATLAB-style contrast stretch, applied identically and independently to each of R/G/B (see <code>image::Image::adjust</code>'s doc comment for why NOT luma-based). When BOTH <code>in_low</code>/<code>in_high</code> are omitted, they auto-default to the image's own 1st/99th percentile (all channel bytes pooled — see <code>percentile_range</code>'s doc comment for that simplification), robust to a few outlier pixels the way MATLAB's own <code>stretchlim</code> auto-range is, rather than the literal (outlier-sensitive) min/max.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

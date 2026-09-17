@@ -1,0 +1,323 @@
+# Build the Refs page: every builtin, with its signature and what it does,
+# searchable, on one page.
+#
+# The builtin index in the book answers "does this name exist". This
+# answers the question you actually have, which is "what is the name for
+# the thing I want" -- so it carries the signature and the one-line
+# description beside each name, grouped by subject rather than by letter,
+# and filters as you type.
+#
+# Two sources, and the seam between them is the point:
+#
+#   - `BUILTIN_NAMES` in the interpreter is the authority on what EXISTS.
+#   - the stdlib chapters' own tables are the authority on what each one
+#     DOES.
+#
+# A name in the first and not the second is undocumented, and this page
+# says so by name rather than quietly omitting it. That list is the
+# documentation backlog, computed rather than remembered.
+#
+# Run:  qu run tools/gen_refs.qu
+
+SRC  = "engine/crates/qu-interp/src/lib.rs"
+OUT  = "website/refs.html"
+BT   = substr("`x", 0, 1)
+
+# The chapters, in the order the page shows them: file, section title, and
+# the rendered documentation page a row links to.
+chapters = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+ch_titles = ("Core maths & linear algebra",
+             "Signal processing",
+             "Compressed sensing",
+             "Noise & distortion",
+             "Statistics & machine learning",
+             "Plotting",
+             "Images",
+             "Collections & strings",
+             "File I/O",
+             "Concurrency",
+             "REPL & diagnostics")
+
+ch_pages = ("docs/core-math.html",
+            "docs/signal-processing.html",
+            "docs/compressed-sensing.html",
+            "docs/noise.html",
+            "docs/statistics-ml.html",
+            "docs/plotting.html",
+            "docs/images.html",
+            "docs/collections-strings.html",
+            "docs/file-io.html",
+            "docs/concurrency.html",
+            "docs/repl-diagnostics.html")
+
+# `split_cells` and the other shared text helpers come from the module
+# rather than a fourth copy of each. The escaped-pipe bug was live in
+# three generators at once, which is the definition of something that
+# should exist once. A local definition below still wins over the
+# imported one, so this file keeps its own `md_inline` (which renders
+# bold) and its own `esc`.
+import "lib/text.qu"
+
+function esc(s)
+    # See gen_function_pages.qu's `esc` for why: a cell escapes a literal
+    # `|` as `\|` so the table splitter doesn't read it as a column
+    # boundary (e.g. `box`'s `box on\|off`), and that has to be undone
+    # before the text reaches a reader.
+    s = replace(s, "\\|", "|")
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    s = replace(s, ">", "&gt;")
+    return s
+end function
+
+# Text going INSIDE an attribute needs its quotes escaped too. Without
+# this a description containing a `"` closes `data-n="..."` early and the
+# rest of the sentence is parsed as stray attributes -- which is how this
+# page ended up requesting `/0),` and getting a 404.
+function attr(s)
+    return replace(esc(s), "\"", "&quot;")
+end function
+
+# Inline markup, for the descriptions: code spans first so nothing inside
+# them is touched, then bold.
+function inline(s)
+    out = ""
+    parts = split(esc(s), BT)
+    for i in 0 to len(parts) - 1
+        if i - 2 * floor(i / 2) == 1
+            out = out + "<code>" + parts[i] + "</code>"
+        else
+            seg = parts[i]
+            if contains(seg, "**")
+                bits = split(seg, "**")
+                seg = ""
+                for j in 0 to len(bits) - 1
+                    if j - 2 * floor(j / 2) == 1
+                        seg = seg + "<strong>" + bits[j] + "</strong>"
+                    else
+                        seg = seg + bits[j]
+                    end if
+                end for
+            end if
+            out = out + seg
+        end if
+    end for
+    return out
+end function
+
+function seen_name(xs, nm)
+    for x in xs
+        if x == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+# ── what exists ────────────────────────────────────────────────────────
+
+text = read_all_text(SRC)
+start = index_of(text, "pub const BUILTIN_NAMES")
+body = substr(text, start, len(text) - start)
+body = substr(body, 0, index_of(body, "];"))
+open_at = index_of(body, "&[")
+body = substr(body, open_at + 2, len(body) - open_at - 2)
+
+known = ()
+parts = split(body, "\"")
+i = 1
+while i < len(parts)
+    if len(parts[i]) > 0
+        known = append(known, parts[i])
+    end if
+    i = i + 2
+end while
+print("{len(known)} builtins in the engine")
+
+# ── what is documented ─────────────────────────────────────────────────
+#
+# The chapters' tables are `| name | signature | description |`. The first
+# cell may name several aliases, comma separated, each in backticks.
+
+documented = ()
+
+function strip_ticks(s)
+    s = trim(s)
+    out = ""
+    for k in 0 to len(s) - 1
+        c = substr(s, k, 1)
+        if c != BT
+            out = out + c
+        end if
+    end for
+    return trim(out)
+end function
+
+
+rows_html = ""
+sections = 0
+
+for ci in 0 to len(chapters) - 1
+    if not file_exists(chapters[ci])
+        continue
+    end if
+    rows = ""
+    n = 0
+    for raw in lines(read_all_text(chapters[ci]))
+        line = trim(raw)
+        if not starts_with(line, "|")
+            continue
+        end if
+        if is_separator_row(line)
+            continue
+        end if
+        cells = split_cells(line)
+        if len(cells) < 4
+            continue
+        end if
+        first = trim(cells[1])
+        if not contains(first, BT)
+            continue                       # a header row, or a stray table
+        end if
+        sig = trim(cells[2])
+        desc = trim(cells[3])
+        # Aliases: `substr`, `mid`
+        alias = ()
+        for a in split(first, ",")
+            nm = strip_ticks(a)
+            if len(nm) > 0
+                alias = append(alias, nm)
+            end if
+        end for
+        if len(alias) == 0
+            continue
+        end if
+        for nm in alias
+            documented = append(documented, nm)
+        end for
+        label = ""
+        for k in 0 to len(alias) - 1
+            if k > 0
+                label = label + ", "
+            end if
+            # Link only what has a page. The alias column carries
+            # signatures, units, method forms and parentheticals as well as
+            # names -- `butter(order`, `kHz`, `.push`, `predict (AR)` -- and
+            # linking those produced 229 targets that 404 for anyone who is
+            # not standing in this working copy. `known` is BUILTIN_NAMES,
+            # the authority on what exists.
+            if seen_name(known, alias[k])
+                label = label + "<a href=\"fn/" + alias[k] + ".html\">" + esc(alias[k]) + "</a>"
+            else
+                label = label + esc(alias[k])
+            end if
+        end for
+        # `data-n` is what the filter matches on: the names and the
+        # description, lower-cased once here rather than on every keystroke.
+        hay = lower(label + " " + strip_ticks(sig) + " " + desc)
+        rows = rows + "<tr data-n=\"" + attr(hay) + "\">"
+        rows = rows + "<td class=\"nm\"><code>" + label + "</code></td>"
+        rows = rows + "<td class=\"sg\">" + inline(sig) + "</td>"
+        rows = rows + "<td class=\"ds\">" + inline(desc) + "</td></tr>\n"
+        n = n + 1
+    end for
+    if n == 0
+        continue
+    end if
+    sections = sections + 1
+    rows_html = rows_html + "<section class=\"refgroup\" data-g=\"" + attr(ch_titles[ci]) + "\">"
+    rows_html = rows_html + "<h2>" + esc(ch_titles[ci])
+    rows_html = rows_html + " <a class=\"chap\" href=\"" + ch_pages[ci] + "\">chapter &rarr;</a>"
+    rows_html = rows_html + " <span class=\"cnt\">" + str(n) + "</span></h2>\n"
+    rows_html = rows_html + "<div class=\"tablewrap\"><table class=\"reftable\">\n" + rows
+    rows_html = rows_html + "</table></div></section>\n"
+end for
+
+function is_documented(nm)
+    for d in documented
+        if d == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+missing = ()
+for nm in known
+    if not is_documented(nm)
+        missing = append(missing, nm)
+    end if
+end for
+
+# `documented` holds one entry per ALIAS per ROW, so a name with several
+# call forms, or one appearing in two chapters, is in it more than once.
+# That is right for `is_documented`, which only asks "is this name in
+# there", and wrong for a count: it read 1216 against 832 builtins, and
+# the page published "1216 of them" about a set of 832. A number that is
+# true beside a word that makes it false.
+#
+# The page's sentence means "how many of the engine's builtins are
+# documented here", so count unique names that the engine actually has.
+documented_names = ()
+for d in documented
+    if not seen_name(documented_names, d)
+        if seen_name(known, d)
+            documented_names = append(documented_names, d)
+        end if
+    end if
+end for
+
+print("{len(documented)} documented rows covering {len(documented_names)} of the {len(known)} builtins, {len(missing)} names with no table entry")
+if len(documented_names) > len(known)
+    error("gen_refs: {len(documented_names)} documented builtins out of {len(known)} -- impossible; the dedupe above is wrong")
+end if
+
+undoc = ""
+if len(missing) > 0
+    undoc = undoc + "<section class=\"refgroup\" data-g=\"Not in a chapter table\">"
+    undoc = undoc + "<h2>Not in a chapter table <span class=\"cnt\">"
+    undoc = undoc + str(len(missing)) + "</span></h2>\n"
+    undoc = undoc + "<p class=\"note\">These names are in the engine and answer to a call, "
+    undoc = undoc + "but no chapter table describes them yet. The list is computed by "
+    undoc = undoc + "comparing the interpreter's own name table against the chapters, so "
+    undoc = undoc + "it is the documentation backlog rather than a claim about the "
+    undoc = undoc + "language. <code>apropos(\"filter\")</code> finds them from inside a "
+    undoc = undoc + "running program.</p>\n<p class=\"undoclist\">"
+    for nm in missing
+        undoc = undoc + "<code data-n=\"" + attr(lower(nm)) + "\"><a href=\"fn/" + nm + ".html\">" + esc(nm) + "</a></code> "
+    end for
+    undoc = undoc + "</p></section>\n"
+end if
+
+tpl = read_all_text("website/assets/refs-template.html")
+page = replace(tpl, "@@TOTAL@@", str(len(known)))
+# The lede used to promise that "the rest are listed at the bottom by
+# name" unconditionally. With the count fixed there is no rest -- every
+# one of the 832 is documented -- so the page was advertising a section
+# that is not rendered, in the same sentence that had just claimed more
+# documented builtins than the engine has.
+#
+# Which sentence is true depends on the numbers, so the generator picks
+# it rather than the template asserting one.
+if len(documented_names) >= len(known)
+    coverage = "Every one of them carries a signature and a description here."
+else
+    coverage = "{len(documented_names)} of them carry a signature and a description here; the rest are listed at the bottom by name, because a gap you can see is better than one you cannot."
+end if
+page = replace(page, "@@COVERAGE@@", coverage)
+page = replace(page, "@@BODY@@", rows_html + undoc)
+h = fopen(OUT, "w")
+write(h, page)
+close(h)
+print("wrote " + OUT + " ({sections} sections)")

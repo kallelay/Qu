@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>write</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a></p>
+<pre class="fnsig"><code>write(v1, v2, ...)</code> or <code>write(fileHandle, s)</code></pre>
+<p class="fnnote">Input: v1, v2, ... &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Dispatches on the type of the first argument. With ordinary values <code>v1, v2, ...</code> (any printable type): prints them space-joined, without a trailing newline (unlike <code>print</code>/<code>echo</code>). With a <code>fileHandle</code> (the handle object returned by <code>fopen</code>) as the first argument and a string <code>s</code> as the second: instead writes the raw string <code>s</code> to that open file, with no newline added and no console output.</p>
+<h2>Overloads</h2>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-write-0" checked>
+<input type="radio" name="typetab" id="tt-write-1">
+<div class="tabbar">
+<label for="tt-write-0"><code>write(v1, v2, ...)</code></label>
+<label for="tt-write-1"><code>write(fileHandle, s)</code></label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = write(v1, v2, ...)</code></td><td><div class="ioitem"><code>v1</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>v2</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Prints the values space-joined to the console, with no trailing newline — the ordinary-value form.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write</span>(f, <span class="s">"hello file"</span>)
+<span class="f">close</span>(f)
+g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"r"</span>)
+<span class="f">print</span>(<span class="f">read_all</span>(g))
+<span class="f">close</span>(g)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = write(fileHandle, s)</code></td><td><div class="ioitem"><code>fileHandle</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>s</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
+</td><td>Writes the string <code>s</code> verbatim to the already-open file <code>fileHandle</code>; no console output, no newline added.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
+<span class="f">print</span>(df2)
+table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
+df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
+<span class="f">print</span>(df3)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write</span>(f, <span class="s">"hello file"</span>)
+<span class="f">close</span>(f)
+g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"r"</span>)
+<span class="f">print</span>(<span class="f">read_all</span>(g))
+<span class="f">close</span>(g)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example norun"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<span class="f">print</span>(<span class="s">"found {length(ports)} port(s): {ports}"</span>)
+
+conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">115200</span>, <span class="a">timeout_ms</span> = <span class="n">1000</span>)
+<span class="f">write</span>(conn, <span class="s">"MEAS?\n"</span>)
+line = <span class="f">read_line</span>(conn) ?? <span class="s">"(timed out)"</span>
+<span class="f">print</span>(line)
+<span class="f">close</span>(conn)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/specialized.html">specialized</a></p>
+</div>
+</div>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plot — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>plot</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>plot(y)</code> / <code>plot(x, y)</code> / <code>plot(x, y, "o")</code></pre>
+<p class="fnnote">Input: y &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Draws a basic line (or, with a positional or <code>marker=</code> marker string such as <code>"o"</code>, a scatter-style) plot of <code>y</code> versus <code>x</code>. <code>x</code> and <code>y</code> are equal-length Vecs (or scalars broadcast to match) of numbers, data units; omitting <code>x</code> uses <code>0, 1, 2, ...</code>.</p>
+<h2>Overloads</h2>
+<p><code>plot</code>'s three call shapes are the most common overload in this chapter, and the marker-string form genuinely changes what gets drawn — a connected line versus discrete, unconnected points — not just its color or width.</p>
+<p class="ioacross"><code>y</code> can be Vec or string; <code>x</code> can be Vec or string.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-plot-0" checked>
+<input type="radio" name="typetab" id="tt-plot-1">
+<input type="radio" name="typetab" id="tt-plot-2">
+<div class="tabbar">
+<label for="tt-plot-0">y only</label>
+<label for="tt-plot-1">x and y (line)</label>
+<label for="tt-plot-2">marker string (scatter-style)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>plot(y)</code></td><td><div class="ioitem"><code>y</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>Look for a jagged line with no meaningful x-axis units.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>([<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>])   <span class="c"># x defaults to 0, 1, 2, 3, 4</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>plot(x, y)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec</span><span class="iodesc"><code>x</code> and <code>y</code> are equal-length Vecs (or scalars broadcast to match) of numbers, data units.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">Vec</span><span class="iodesc">Draws a basic line (or, with a positional or <code>marker=</code> marker string such as <code>"o"</code>, a scatter-style) plot of <code>y</code> versus <code>x</code>.</span></div>
+</td><td><span class="ionone">no output</span></td><td>With two equal-length Vecs it draws the default connected line. Look for a smooth curve with no dots at the sample points.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>))
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>plot(x, y, "o")</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">string</span><span class="iodesc"><code>x</code> and <code>y</code> are equal-length Vecs (or scalars broadcast to match) of numbers, data units.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">string</span><span class="iodesc">Draws a basic line (or, with a positional or <code>marker=</code> marker string such as <code>"o"</code>, a scatter-style) plot of <code>y</code> versus <code>x</code>.</span></div>
+<div class="ioitem"><code>"o"</code> <span class="iotype">string</span><span class="iodesc">A third positional string like <code>"o"</code> (or <code>marker="o"</code>) switches the exact same call to unconnected dots instead of a line.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Look for discrete points with no line joining them.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>), <span class="s">"o"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>stair</code> is the only callable spelling: <code>step</code> is already a reserved keyword (<code>to ... step ...</code> ranges), so <code>step(...)</code> can't be a function call — it lexes as a keyword, not an identifier. The rendered marker is internally still "step".</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

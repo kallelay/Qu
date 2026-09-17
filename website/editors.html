@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editors and tooling for Qu</title>
+<meta name="description" content="Syntax highlighting and editor support for VS Code, Sublime Text and Notepad++, plus Qu Studio.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>Editors</h1>
+  <p class="lede">Syntax highlighting for the three editors people asked for, and a
+  standalone environment if you would rather not configure anything.</p>
+</div></header>
+
+<section><div class="wrap">
+  <h2>Qu Studio</h2>
+  <p class="sub">A desktop application that bundles the engine, so nothing needs
+  installing separately. Editor, output pane, and figures rendered as you run.</p>
+  <div class="cards">
+    <div><p class="eyebrow">Included</p><h3>The engine, bundled</h3>
+      <p>Qu Studio ships its own <code>qu</code> binary. Installing Studio installs a
+      working Qu.</p></div>
+    <div><p class="eyebrow">Included</p><h3>Figures as you go</h3>
+      <p>Plots render in the pane beside the code, and interactive mode redraws when the
+      window changes size.</p></div>
+    <div><p class="eyebrow">Included</p><h3>Slash-command snippets</h3>
+      <p>Type <code>/</code> for the common shapes &mdash; a filter, a spectrum, a figure
+      set up for print.</p></div>
+  </div>
+  <p style="margin-top:22px"><a class="btn primary" href="download.html">Get Qu Studio</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Editor plugins</h2>
+  <p class="sub">Each lives in <code>editors/</code> in the repository. All three give
+  syntax highlighting for <code>.qu</code>; the VS&nbsp;Code one also knows the builtin
+  names.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Editor</th><th class="mono">Path</th><th>Install</th></tr></thead>
+    <tbody>
+      <tr><td>VS Code</td><td class="mono">editors/vscode-qu</td>
+          <td>Copy the folder into <code>~/.vscode/extensions/</code> and restart.</td></tr>
+      <tr><td>Sublime Text</td><td class="mono">editors/sublime-qu</td>
+          <td>Copy into <em>Packages/User</em> &mdash; Preferences &rarr; Browse Packages.</td></tr>
+      <tr><td>Notepad++</td><td class="mono">editors/notepadpp-qu</td>
+          <td>Language &rarr; User Defined Language &rarr; Import, then pick the XML.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><p><strong>Any editor at all.</strong> Qu files are plain text and the
+  interpreter is one binary. <code>qu run script.qu</code> from a terminal is a complete
+  workflow, and errors carry the line number.</p></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Command line</h2>
+  <div class="cards">
+    <div><p class="eyebrow">qu run</p><h3>Run a file</h3>
+      <pre>qu run analysis.qu</pre></div>
+    <div><p class="eyebrow">qu repl</p><h3>A prompt</h3>
+      <pre>qu repl</pre></div>
+    <div><p class="eyebrow">--sandbox</p><h3>Run untrusted code</h3>
+      <pre>qu run --sandbox theirs.qu</pre>
+      <p style="margin-top:8px">Network and writes denied; reads still work.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="agents.html">Agents</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

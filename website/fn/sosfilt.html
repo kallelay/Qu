@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sosfilt — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sosfilt</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>sosfilt(filt, x)</code></pre>
+<p class="fnnote">Input: filt, x &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>, field <code>sos</code> or <code>b</code>); <code>x</code>: a length-N vector or <code>Signal</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be vector or Signal.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-sosfilt-0" checked>
+<input type="radio" name="typetab" id="tt-sosfilt-1">
+<div class="tabbar">
+<label for="tt-sosfilt-0">IIR filter (<code>sos</code>)</label>
+<label for="tt-sosfilt-1">FIR filter (<code>b</code>)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sosfilt(filt, x)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code> a <code>Model</code> with a <code>sos</code> field (<code>butter</code>/<code>ellip</code>/<code>cheby1</code>/<code>cheby2</code>).</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc">Runs <code>x</code> through the biquad cascade section by section.</span></div>
+</td><td><div class="ioitem"><code>Signal</code> <span class="iotype">Signal</span><span class="iodesc">keeping <code>x</code>'s own <code>Fs</code> on the way out, when <code>x</code> is a <code>Signal</code></span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">FIR</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
+iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">20</span>, fs)
+y_iir = <span class="f">sosfilt</span>(iir, x)
+<span class="f">print</span>(<span class="s">"IIR-filtered length: {length(y_iir)}"</span>)   <span class="c"># IIR-filtered length: 20</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sosfilt(filt, x)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code> a <code>Model</code> with a <code>b</code> field (<code>fir1</code>/<code>firls</code>).</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc">Runs <code>x</code> through <code>conv(x, b, "full")</code>, truncated back to <code>length(x)</code> — no biquad state at all.</span></div>
+</td><td><div class="ioitem"><code>Signal</code> <span class="iotype">Signal</span><span class="iodesc">keeping <code>x</code>'s own <code>Fs</code> on the way out, when <code>x</code> is a <code>Signal</code></span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">FIR</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+y_fir = <span class="f">sosfilt</span>(fir, x)
+<span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

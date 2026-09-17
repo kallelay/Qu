@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>serial_ports — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>serial_ports</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>serial_ports()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Takes no arguments. Lists the short names of every serial device the OS currently reports (e.g. <code>"COM3"</code> on Windows, <code>"/dev/ttyUSB0"</code> on Linux/macOS).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = serial_ports()</code></td><td><span class="ionone">no input</span></td><td><div class="ioitem"><code>result</code> <span class="iotype">List or string</span></div>
+</td><td>Returns a <code>List</code> of strings. An empty list on a machine with no serial hardware attached is a correct, honest result, not an error.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
+conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">500</span>)
+line = <span class="f">read_line</span>(conn)                              <span class="c"># blocks up to 500ms; `none` if nothing arrived</span>
+<span class="k">if</span> line != <span class="k">none</span>
+    <span class="f">print</span>(<span class="s">"got: {line}"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"no line arrived within the timeout"</span>)
+<span class="k">end</span> <span class="k">if</span>
+<span class="f">close</span>(conn)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example norun"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<span class="f">print</span>(<span class="s">"found {length(ports)} port(s): {ports}"</span>)
+
+conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">115200</span>, <span class="a">timeout_ms</span> = <span class="n">1000</span>)
+<span class="f">write</span>(conn, <span class="s">"MEAS?\n"</span>)
+line = <span class="f">read_line</span>(conn) ?? <span class="s">"(timed out)"</span>
+<span class="f">print</span>(line)
+<span class="f">close</span>(conn)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<span class="k">if</span> <span class="f">length</span>(ports) &gt; <span class="n">0</span>
+    conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">200</span>)
+    n = <span class="f">available</span>(conn)                        <span class="c"># bytes waiting, non-blocking</span>
+    data = <span class="f">read_bytes</span>(conn, <span class="n">4</span>)                  <span class="c"># up to 4 bytes, short read on timeout</span>
+    <span class="f">print</span>(<span class="s">"available={n}, got {length(data)} byte(s)"</span>)
+    <span class="f">close</span>(conn)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"no serial hardware attached"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>serial_open(port, baud_rate, ...)</code> / <code>serial_ports()</code> (§ real module's own doc comment for the full builtin-by-builtin design. <code>read_bytes</code>/<code>available</code> are new method names (no other <code>Value</code> kind answers to them, unlike <code>read_line</code>/ <code>close</code>/<code>write</code> above, which are shared with <code>Value::File</code>/ <code>Value::UrlStream</code> and so are guarded arms further up this match instead).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

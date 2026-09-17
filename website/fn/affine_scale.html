@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>affine_scale — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>affine_scale</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>affine_scale(sx, [sy])</code></pre>
+<p class="fnnote">Input: sx, sy &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds a scaling transform for <code>imwarp</code>. <code>sx</code> is a number, the scale factor along x; <code>sy</code> is an optional number, the scale factor along y, defaulting to <code>sx</code> (uniform scale) when omitted — matching MATLAB <code>imresize(img, scale)</code>'s single-factor convention.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = affine_scale(sx, [sy])</code></td><td><div class="ioitem"><code>sx</code> <span class="iotype">number</span><span class="iodesc"><code>sx</code> is a number, the scale factor along x.</span></div>
+<div class="ioitem"><code>sy</code> <span class="iotype">number, optional</span><span class="iodesc"><code>sy</code> is an optional number, the scale factor along y, defaulting to <code>sx</code> (uniform scale) when omitted — matching MATLAB <code>imresize(img, scale)</code>'s single-factor convention.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Mat</span></div>
+</td><td>Returns a new 3x3 <code>Mat</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">image_new</span>(<span class="n">20</span>, <span class="n">20</span>, <span class="a">r</span>=<span class="n">0</span>, <span class="a">g</span>=<span class="n">0</span>, <span class="a">b</span>=<span class="n">0</span>)
+
+shifted = <span class="f">imtranslate</span>(img, <span class="n">5</span>, <span class="n">3</span>, <span class="a">fill</span>=<span class="n">255</span>)
+scaled = <span class="f">imscale</span>(img, <span class="n">1.5</span>, <span class="a">fill</span>=<span class="n">0</span>)
+<span class="f">imshow</span>(shifted)
+
+M = <span class="f">affine_scale</span>(<span class="n">2</span>, <span class="n">1.5</span>) * <span class="f">affine_shear</span>(<span class="n">0.2</span>, <span class="n">0</span>) * <span class="f">affine_identity</span>()
+<span class="f">print</span>(shifted.width, scaled.width, M)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>affine_scale(sx, [sy])</code> — uniform scale when <code>sy</code> is omitted (<code>sy = sx</code>), matching MATLAB <code>imresize(img, scale)</code>'s own single-factor convention.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

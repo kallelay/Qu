@@ -1,0 +1,23 @@
+[package]
+name = "qu-codec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Pure Rust, no system library, no build script -- the same bar `qu-xlsx`
+# clears. A codec that needed libFLAC would make the whole engine
+# unbuildable on a machine without it, for a feature most scripts never
+# touch.
+claxon = "0.4"
+# WAV. Tiny, exact, and it encodes too -- which is what lets the tests
+# build their own fixtures instead of committing binary blobs.
+hound = "3.5"
+# MP3. Symphonia is the maintained pure-Rust decoder.
+#
+# `features = ["mp3"]` with defaults off, NOT bare `default-features =
+# false`: the bundle's default is mp1+mp2+mp3, and turning defaults off
+# without naming mp3 compiles a crate with no decoder in it at all --
+# `MpaDecoder` simply stops existing. Asking for less quietly asked for
+# nothing.
+symphonia-core = { version = "0.6", default-features = false }
+symphonia-bundle-mp3 = { version = "0.6", default-features = false, features = ["mp3"] }

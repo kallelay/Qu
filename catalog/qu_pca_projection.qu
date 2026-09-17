@@ -1,0 +1,65 @@
+# qu_pca_projection.qu -- fitting PCA and projecting data onto its
+# principal components.
+#
+# `pca_model(X, k)` (see qu-interp/src/lib.rs's `pca_fit`) centers X by its
+# column means, runs an SVD on the centered data, and returns a
+# `Value::Model` (kind "pca") with three fields: `components` (the (k, d)
+# matrix of unit-norm loading vectors, one per row -- scikit-learn's own
+# `components_` convention), `explained_variance_ratio` (fraction of TOTAL
+# variance, over ALL singular values, each retained component accounts
+# for), and `mean` (the column means subtracted before the SVD).
+# `model.predict(Xnew)` re-centers Xnew by that stored mean and projects it
+# onto `components`, same generic `.predict` convention every other model
+# kind in this codebase uses. `pca(X, k)` and `pca_components(X, k)` are
+# thin wrappers that skip straight to the projected matrix / component
+# matrix without a Model handle, when the model object itself isn't needed.
+#
+# Two datasets:
+#   1. A noisy 2D cloud with an obvious dominant direction (near the
+#      y = x line) -- the realistic case: PCA finds that direction, but
+#      does NOT explain 100% of the variance (there is real orthogonal
+#      noise).
+#   2. Perfectly collinear data (every row is t*(1,1), zero noise) --
+#      mirrors this codebase's own
+#      `pca_on_perfectly_collinear_data_explains_all_variance_in_one_component`
+#      test: the single retained component must explain ~100% of variance.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   pca_model(X, k)                 -- fit, returns a Model (kind "pca")
+#   model.components / model.explained_variance_ratio / model.mean
+#   model.predict(Xnew)             -- project new/same data onto components
+#   pca_explained_variance(X, k)    -- standalone variance-ratio helper
+
+backend auto
+
+#%% 1) Noisy 2D cloud with a dominant direction along y = x
+X = [1, 1.1; 2, 1.9; 3, 3.2; 4, 3.8; 5, 5.3; 6, 5.7]
+m = pca_model(X, 1)
+print("noisy cloud: components = {m.components} (should point roughly along (0.707, 0.707))")
+print("noisy cloud: explained_variance_ratio = {m.explained_variance_ratio} (expect < 1.0 -- real orthogonal noise present)")
+print("noisy cloud: mean = {m.mean}")
+
+# unit-norm check on the component (PCA loading vectors are unit vectors)
+c = m.components
+norm_sq = c[0, 0] ^ 2 + c[0, 1] ^ 2
+print("component is unit-norm: |c|^2 = {norm_sq:.6f} (expect 1.0)")
+
+projected = m.predict(X)
+print("projected onto PC1 (6x1) = {projected}")
+print("projected shape = {rows(projected)}x{cols(projected)}")
+
+#%% 2) Perfectly collinear data -- every row is t*(1,1), zero orthogonal noise
+Xc = [0, 0; 2, 2; 4, 4; 6, 6]
+ratio = pca_explained_variance(Xc, 1)
+print("collinear data: pca_explained_variance(Xc, 1) = {ratio} (expect [1.0] -- ALL variance in one component)")
+
+mc = pca_model(Xc, 1)
+print("collinear data: model.explained_variance_ratio = {mc.explained_variance_ratio}")
+print("collinear data: components = {mc.components} (still points along (0.707, 0.707), the only direction with any spread)")
+
+# Independent check: total squared norm of the centered data should equal
+# the total squared norm of the 1D projection, since 100% of variance is
+# captured (centered rows are [-3,-3; -1,-1; 1,1; 3,3], total sq norm = 40).
+pc = pca(Xc, 1)
+sum_sq_projected = pc[0, 0] ^ 2 + pc[1, 0] ^ 2 + pc[2, 0] ^ 2 + pc[3, 0] ^ 2
+print("collinear data: sum of squared projections = {sum_sq_projected:.6f} (expect 40.0, the full centered variance)")

@@ -1,0 +1,45 @@
+# materialize_demo.qu -- demonstrates a real, separate cost from
+# binary_doubles.qu: building a vector one element at a time via
+# `y[k] = read_double(f)` inside a loop, instead of accumulating a scalar.
+#
+# FIXED 2026-08-26 (see IMPL.md's `exec_index_assign` O(N^2) -> O(N) entry
+# and this directory's README §1 for before/after numbers). `exec_index_assign`
+# (engine/crates/qu-interp/src/lib.rs) used to resolve the target with
+# `self.var_get(name).cloned()`, which cloned the `Arc<Vec<f64>>` handle
+# (bumping its refcount to 2, since the original was still live in
+# `self.env`) before calling `Arc::make_mut(&mut xs)`. `Arc::make_mut` only
+# mutates in place when the refcount is 1 -- it was always 2 at that point,
+# so EVERY indexed assignment deep-cloned the entire vector, making a "fill
+# this vector in a loop" pattern O(N^2), not O(N). Fixed via `var_take`,
+# which removes the target from its scope instead of cloning it, so
+# `Arc::make_mut` sees the real refcount (1 when uniquely owned -> in-place
+# mutation; 2+ only when genuinely aliased -> still correctly copies). This
+# script's own three sizes now run in well under a second combined, down
+# from the ~1.5s combined they used to take -- and the README documents a
+# 200,000-element run going from 126.06s to ~0.06s (~2050x) as the
+# headline before/after number.
+#
+# Run: qu run benchmarks/file_io/materialize_demo.qu
+
+backend auto
+
+path = "benchmarks/file_io/doubles.bin"
+
+function run_one(n)
+    tic()
+    f = fopen(path, "rb")
+    y = zeros(n, 1)
+    for k = 0 to n - 1
+        y[k] = read_double(f)
+    end for
+    close(f)
+    t = toc()
+    return t
+end function
+
+sizes = [20000, 40000, 80000]
+for i = 0 to length(sizes) - 1
+    n = sizes[i]
+    t = run_one(n)
+    print("materialize {n} doubles via y[k]=read_double(f): {t:.4f} s")
+end for

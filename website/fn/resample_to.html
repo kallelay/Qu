@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>resample_to — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>resample_to</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>resample_to(signal, new_fs)</code></pre>
+<p class="fnnote">Input: signal, new_fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>signal</code>: a length-N <code>Signal</code> (must carry a known <code>Fs</code>); <code>new_fs</code>: a number (Hz), the target sample rate.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = resample_to(signal, new_fs)</code></td><td><div class="ioitem"><code>signal</code> <span class="iotype">Signal</span><span class="iodesc"><code>signal</code>: a length-N <code>Signal</code> (must carry a known <code>Fs</code>).</span></div>
+<div class="ioitem"><code>new_fs</code> <span class="iotype">number</span><span class="iodesc"><code>new_fs</code>: a number (Hz), the target sample rate.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal or vector</span></div>
+</td><td>Returns a new <code>Signal</code> at <code>Fs=new_fs</code>, whose length is whatever it takes to span the *same* start/end time as the input (generally not N). Real resampling, not a relabel: evaluates the signal's own piecewise-linear waveform (through its samples at their original instants <code>i/Fs</code>, via the same kernel <code>interp1</code>'s <code>"linear"</code> method uses) at the new instants <code>j/new_fs</code> — e.g. a 4-sample, 1 Hz ramp <code>[0,10,20,30]</code> (spanning t=0..3s) resampled to 2 Hz becomes the 7-sample <code>[0,5,10,15,20,25,30]</code>, still spanning t=0..3s — never a same-length signal with <code>Fs</code> merely swapped out (which would silently misstate the recorded duration). <code>signal.resample_to(new_fs)</code> also works, via the generic method-chain sugar. Wrap a plain vector first with <code>signal(data, Fs)</code> if it isn't already a <code>Signal</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>])
+<span class="f">print</span>(x)
+<span class="f">print</span>(x.<span class="f">resample_to</span>(<span class="n">2</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>resample_to(signal, new_fs)</code> — REAL resampling, not a relabel: evaluates the original signal's implied continuous waveform (piecewise-linear through its own samples at their original sample instants <code>i/Fs</code>) at the new sample instants <code>j/new_fs</code>, via the same linear-interpolation kernel <code>interp1</code> already uses (<code>interp1_linear</code>) — reused rather than reimplemented. The new signal spans the SAME start/end time as the original (<code>t=0</code> to <code>t=(n-1)/Fs</code>), just resampled onto a different-density grid — e.g. a 4-sample signal at 1 Hz (<code>[0,10,20,30]</code>, spanning t=0..3s) resampled to 2 Hz becomes the 7-sample <code>[0,5,10,15,20,25,30]</code> spanning the same t=0..3s, not a 4-sample signal relabeled to claim 2 Hz (which would silently claim a 1.5s duration for data that was actually recorded over 3s). Functional/pure like every other Qu builtin (no in-place <code>Fs</code> mutation exists to abuse here anyway — <code>expr.field = value</code> doesn't parse).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

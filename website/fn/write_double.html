@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_double — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>write_double</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>write_double(f, n, [endian=])</code></pre>
+<p class="fnnote">Input: f, n, endian &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes <code>n</code> (number) to <code>f</code> (file handle, opened writable/appendable) as a 64-bit IEEE-754 float. <code>endian</code> (string, optional, default <code>"little"</code>, or <code>"big"</code>) selects byte order.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>write_double(f, n, [endian=])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">number</span><span class="iodesc">Writes <code>n</code> (number) to <code>f</code> (file handle, opened writable/appendable) as a 64-bit IEEE-754 float.</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc">Writes <code>n</code> (number) to <code>f</code> (file handle, opened writable/appendable) as a 64-bit IEEE-754 float.</span></div>
+<div class="ioitem"><code>endian</code> <span class="iotype">string, optional</span><span class="iodesc"><code>endian</code> (string, optional, default <code>"little"</code>, or <code>"big"</code>) selects byte order.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
+<span class="f">write_double</span>(f, <span class="n">20.5</span>)
+<span class="f">write_double</span>(f, <span class="n">21.0</span>)
+<span class="f">write_double</span>(f, <span class="n">19.8</span>)
+<span class="f">close</span>(f)
+
+<span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"temps.bin"</span>))            <span class="c"># 24 -- 3 doubles, 8 bytes each</span>
+
+g = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"rb"</span>)
+vals = <span class="f">read_values</span>(g, <span class="s">"f64"</span>, <span class="n">3</span>)
+<span class="f">close</span>(g)
+<span class="f">print</span>(vals)                              <span class="c"># [20.5, 21, 19.8]</span>
+
+whole = <span class="f">read_array</span>(<span class="s">"temps.bin"</span>, <span class="a">type</span>=<span class="s">"f64"</span>)
+<span class="f">print</span>(whole)                             <span class="c"># [20.5, 21, 19.8]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"wb"</span>)
+<span class="f">write_double</span>(f, <span class="n">0.0</span>)
+<span class="f">write_uint16</span>(f, <span class="n">12</span>)
+<span class="f">write_double</span>(f, <span class="n">0.5</span>)
+<span class="f">write_uint16</span>(f, <span class="n">15</span>)
+<span class="f">close</span>(f)
+
+fields = [[<span class="s">"t"</span>, <span class="s">"f64"</span>], [<span class="s">"ch"</span>, <span class="s">"u16"</span>]]
+
+g = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"rb"</span>)
+one = <span class="f">read_struct</span>(g, fields)
+<span class="f">close</span>(g)
+<span class="f">print</span>(one.t)                             <span class="c"># 0</span>
+<span class="f">print</span>(one.ch)                            <span class="c"># 12</span>
+
+h = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"rb"</span>)
+tbl = <span class="f">read_structs</span>(h, fields, <span class="n">2</span>)
+<span class="f">close</span>(h)
+<span class="f">print</span>(<span class="f">nrow</span>(tbl))                         <span class="c"># 2</span>
+<span class="f">print</span>(tbl.ch)                            <span class="c"># [12, 15]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample.bin"</span>, <span class="s">"wb"</span>)
+<span class="f">write_int16</span>(f, -<span class="n">5</span>)
+<span class="f">write_uint16</span>(f, <span class="n">300</span>)
+<span class="f">write_uint32</span>(f, <span class="n">70000</span>)
+<span class="f">write_double</span>(f, <span class="n">3.14159</span>)
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"sample.bin"</span>, <span class="s">"rb"</span>)
+a = <span class="f">read_int16</span>(g)
+b = <span class="f">read_uint16</span>(g)
+c = <span class="f">read_uint32</span>(g)
+d = <span class="f">read_double</span>(g)
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"{a} {b} {c} {d}"</span>)       <span class="c"># -5 300 70000 3.14159</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distributed worker pool — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Concurrency &amp; performance</p>
+<h1>Distributed worker pool</h1>
+<p class="lede">the local-worker half of Qu's distributed job-dispatch machinery (§ resource-limited pools/queues, see book/src/stdlib/concurrency.md's "Worker pools, deferred queues, and `run ... on`" section): a persistent, resource-limited `pool` of real</p>
+<p class="srcpath">catalog/qu_distributed_pool.qu</p>
+<p>`rayon` worker threads, a `queue()` of deferred jobs, and `run &lt;queue&gt; on &lt;pool&gt;` to drain the queue across it and block for every real result.</p>
+<p>This is deliberately the SELF-CONTAINED half of that feature -- the `remote=(...)`/`listen_pool` half needs a second live Qu process accepting TCP job requests (book/src/stdlib/concurrency.md's own "Distributed pools" section), which isn't something a single catalog script run in isolation can demonstrate honestly. What's shown below is the real underlying dispatch primitive that remote pools build on: named pools, `on="any"` auto-routing across every registered pool by free capacity, and ordered result collection -- all real threads, real work, real (not simulated) completion.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>pool &lt;name&gt; with cpu=N ... end pool   -- a persistent, registered worker pool</li>
+<li>queue() / q.push("fnName", args..., on=...) -- a deferred job list</li>
+<li>run &lt;queue&gt; on &lt;pool&gt;                  -- drain + block for real results, in submission order</li>
+<li>run &lt;queue&gt; on any                     -- auto-route across every registered pool</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A named pool with 2 real worker threads</h3>
+<pre class="hl"><code>pool workers <span class="k">with</span> cpu = <span class="n">2</span>
+<span class="k">end</span> pool
+
+<span class="k">function</span> <span class="f">square</span>(x)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">5</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(<span class="s">"run q on workers -&gt; {results}"</span>)
+expected = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">9</span>, <span class="n">16</span>, <span class="n">25</span>]
+matches = <span class="k">true</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">5</span>
+    <span class="k">if</span> results[i] != expected[i]
+        matches = <span class="k">false</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"results match expected squares in submission order: {matches}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Two more small pools, each with just 1 worker -- `run ... on any`</h3>
+<p>auto-routes each queued job to whichever registered pool currently has the most free capacity, so jobs genuinely spread across BOTH of them rather than piling onto a single default.</p>
+<pre class="hl"><code>pool p1 <span class="k">with</span> cpu = <span class="n">1</span>
+<span class="k">end</span> pool
+pool p2 <span class="k">with</span> cpu = <span class="n">1</span>
+<span class="k">end</span> pool
+
+<span class="k">function</span> <span class="f">cube</span>(x)
+    <span class="k">return</span> x * x * x
+<span class="k">end</span> <span class="k">function</span>
+
+q2 = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">4</span>
+    q2.<span class="f">push</span>(<span class="s">"cube"</span>, i, <span class="a">on</span>=<span class="s">"any"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+results2 = run q2 on any
+<span class="f">print</span>(<span class="s">"run q2 on any -&gt; {results2}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>run q on workers -&gt; (0, 1, 4, 9, 16, 25)
+results match expected squares in submission order: true
+run q2 on any -&gt; (1, 8, 27, 64)</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_distributed_pool.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_distributed_pool.qu -- the local-worker half of Qu's distributed</span>
+<span class="c"># job-dispatch machinery (§ resource-limited pools/queues, see</span>
+<span class="c"># book/src/stdlib/concurrency.md's "Worker pools, deferred queues, and</span>
+<span class="c"># `run ... on`" section): a persistent, resource-limited `pool` of real</span>
+<span class="c"># `rayon` worker threads, a `queue()` of deferred jobs, and `run &lt;queue&gt; on</span>
+<span class="c"># &lt;pool&gt;` to drain the queue across it and block for every real result.</span>
+<span class="c">#</span>
+<span class="c"># This is deliberately the SELF-CONTAINED half of that feature -- the</span>
+<span class="c"># `remote=(...)`/`listen_pool` half needs a second live Qu process</span>
+<span class="c"># accepting TCP job requests (book/src/stdlib/concurrency.md's own</span>
+<span class="c"># "Distributed pools" section), which isn't something a single catalog</span>
+<span class="c"># script run in isolation can demonstrate honestly. What's shown below is</span>
+<span class="c"># the real underlying dispatch primitive that remote pools build on: named</span>
+<span class="c"># pools, `on="any"` auto-routing across every registered pool by free</span>
+<span class="c"># capacity, and ordered result collection -- all real threads, real work,</span>
+<span class="c"># real (not simulated) completion.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins/forms):</span>
+<span class="c">#   pool &lt;name&gt; with cpu=N ... end pool   -- a persistent, registered worker pool</span>
+<span class="c">#   queue() / q.push("fnName", args..., on=...) -- a deferred job list</span>
+<span class="c">#   run &lt;queue&gt; on &lt;pool&gt;                  -- drain + block for real results, in submission order</span>
+<span class="c">#   run &lt;queue&gt; on any                     -- auto-route across every registered pool</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A named pool with 2 real worker threads</span>
+pool workers <span class="k">with</span> cpu = <span class="n">2</span>
+<span class="k">end</span> pool
+
+<span class="k">function</span> <span class="f">square</span>(x)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">5</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(<span class="s">"run q on workers -&gt; {results}"</span>)
+expected = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">9</span>, <span class="n">16</span>, <span class="n">25</span>]
+matches = <span class="k">true</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">5</span>
+    <span class="k">if</span> results[i] != expected[i]
+        matches = <span class="k">false</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"results match expected squares in submission order: {matches}"</span>)
+
+<span class="c">#%% Two more small pools, each with just 1 worker -- `run ... on any`</span>
+<span class="c"># auto-routes each queued job to whichever registered pool currently has</span>
+<span class="c"># the most free capacity, so jobs genuinely spread across BOTH of them</span>
+<span class="c"># rather than piling onto a single default.</span>
+pool p1 <span class="k">with</span> cpu = <span class="n">1</span>
+<span class="k">end</span> pool
+pool p2 <span class="k">with</span> cpu = <span class="n">1</span>
+<span class="k">end</span> pool
+
+<span class="k">function</span> <span class="f">cube</span>(x)
+    <span class="k">return</span> x * x * x
+<span class="k">end</span> <span class="k">function</span>
+
+q2 = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">4</span>
+    q2.<span class="f">push</span>(<span class="s">"cube"</span>, i, <span class="a">on</span>=<span class="s">"any"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+results2 = run q2 on any
+<span class="f">print</span>(<span class="s">"run q2 on any -&gt; {results2}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

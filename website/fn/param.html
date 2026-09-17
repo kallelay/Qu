@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>param — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>param</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>param(v)</code> / <code>track(v)</code></pre>
+<p class="fnnote">Input: v &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Wraps a plain number, vector, or matrix <code>v</code> as a fresh, differentiable Tensor — a new leaf node on the autodiff tape with no inputs of its own, so <code>grad</code> treats it as something to differentiate *with respect to* rather than something computed. <code>param</code> and <code>track</code> do exactly the same thing; the two names exist so a program can say which values are trainable weights (<code>param</code>) versus intermediate values you also want a gradient through (<code>track</code>) — a note to the reader, not a mechanical difference.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = param(v) / track(v)</code></td><td><div class="ioitem"><code>v</code> <span class="iotype">number, vector, or matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>v</code> <span class="iotype">vector or matrix</span><span class="iodesc">a bare vector is promoted to a column matrix, matching <code>to_matrix</code>'s convention</span></div>
+</td><td>Returns a Tensor of the same shape as <code>v</code> (a bare vector is promoted to a column matrix, matching <code>to_matrix</code>'s convention).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>wv = <span class="f">param</span>(<span class="n">1.0</span>)
+bound = <span class="f">sgd</span>(wv, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"bound optimizer's _params: {bound._params}"</span>)   <span class="c"># [1] -- ready for optimizer_step</span>
+
+recipe = <span class="f">sgd</span>(<span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(recipe)                                          <span class="c"># model(sgd) {lr} -- no _params yet</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
+     wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
+     wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
+     wg=<span class="f">param</span>(raw.wg), ug=<span class="f">param</span>(raw.ug), bg=<span class="f">param</span>(raw.bg)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">lstm_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)                <span class="c"># through time, on the same tape</span>
+<span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
+     wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
+     wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">gru_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"gru_forward last hidden state: {round(h_last, 4)}"</span>)
+
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
+<span class="f">print</span>(<span class="s">"dL/dwz: {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()
+
+h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
+<span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
+x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
+z = <span class="f">dense</span>(x, w, b)
+a = <span class="f">relu</span>(z)
+p = <span class="f">sigmoid</span>(a)
+loss = <span class="f">sum</span>(p .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w)
+<span class="f">print</span>(<span class="s">"relu:    {round(a, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"sigmoid: {round(p, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dw:   {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()                    <span class="c"># clear the tape before the next computation</span>
+
+scores = [<span class="n">2.0</span>, <span class="n">1.0</span>, <span class="n">0.1</span>; <span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">0.5</span>]
+probs = <span class="f">softmax_rows</span>(scores)
+<span class="f">print</span>(<span class="s">"softmax row 0: {round(probs[0, :], 4)}"</span>)
+
+<span class="f">seed</span>(<span class="n">3</span>)
+kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n">1</span>, <span class="n">8</span>), <span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
+<span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>param(v)</code>/<code>track(v)</code> (§38 autodiff): wraps a plain <code>Num</code>/ <code>Mat</code> (or promotes a <code>Vec</code>, matching <code>to_matrix</code>'s own Vec-as-column convention, so a param's shape is always matmul-ready) as a fresh, untracked-yet root <code>Value::Tensor</code> — a new tape node with no inputs, so <code>grad</code> treats it as a leaf. <code>param</code> and <code>track</code> are the same operation; two names because the spec uses <code>param</code> for trainable weights and <code>track</code> for "differentiate through this too" on an ordinary intermediate value — the distinction is documentation, not mechanism, until optimizers exist to actually read it.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="track.html"><code>track</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+# bench_fft_1m.qu -- does the FFT gap (Qu 2.57x behind MATLAB at the
+# matty_suite's 100k-point size) hold, shrink, or grow at 1,048,576
+# points (2^20)? Three different answers mean three different causes:
+# constant dispatch overhead (gap holds), amortized fixed cost (gap
+# shrinks), or an algorithmic/memory difference (gap grows) -- this
+# doesn't guess, it measures both a power-of-two and a non-power-of-two
+# size, since FFT implementations are known to diverge sharply there.
+#
+# Also checks the OUTPUT, not just the time: a benchmark that never
+# verifies its answer is the exact "check never reached its subject"
+# shape this session has caught repeatedly elsewhere tonight. The
+# ground truth is exact and closed-form -- three pure cosines placed at
+# EXACT integer FFT bins, so the true spectrum is a delta at each
+# signal bin and exactly zero everywhere else:
+#
+#   x[n] = sum_k A_k * cos(2*pi*k_bin*n/N + phi_k)
+#   X[k_bin]   = (N*A_k/2) * exp(+i*phi_k)      -- verified against
+#   X[N-k_bin] = (N*A_k/2) * exp(-i*phi_k)      -- Qu's real fft() at
+#                                                   N=1024 before this
+#                                                   file was written --
+#                                                   the phase SIGN in
+#                                                   this formula is the
+#                                                   opposite of the
+#                                                   first (wrong) guess,
+#                                                   caught by checking.
+#
+# Data is built OUTSIDE the timed region, one warm-up run is discarded
+# (MATLAB's FFTW plan cache makes the first call unrepresentative, same
+# trap as loop_performance's JIT warm-up -- already cost this suite
+# three published claims once), best of 3 reported.
+
+function make_signal(N)
+    k1 = 137
+    A1 = 1.0
+    phi1 = 0.0
+    k2 = 9973
+    A2 = 2.5
+    phi2 = pi / 3.0
+    k3 = round(N / 5.0) + 11   # away from any clean fraction of N
+    A3 = 0.7
+    phi3 = 0.0 - pi / 4.0
+
+    # `n = 0 to N - 1` materializes a range AS A VALUE and hits the
+    # 1,000,000-element range-literal guard at this size (a `for` loop
+    # over the same range has no such limit, but a plain Vec here does)
+    # -- linspace builds the same 0..N-1 integer sequence without it.
+    n = linspace(0.0, N - 1.0, N)
+    x = A1 * cos(2.0 * pi * k1 * n / N) + A2 * cos(2.0 * pi * k2 * n / N + phi2) + A3 * cos(2.0 * pi * k3 * n / N + phi3)
+    return {x = x, k1 = k1, A1 = A1, phi1 = phi1, k2 = k2, A2 = A2, phi2 = phi2, k3 = k3, A3 = A3, phi3 = phi3}
+end function
+
+function check_accuracy(X, sig, N)
+    max_signal_err = 0.0
+    bins = [sig.k1, N - sig.k1, sig.k2, N - sig.k2, sig.k3, N - sig.k3]
+    amps = [sig.A1, sig.A1, sig.A2, sig.A2, sig.A3, sig.A3]
+    phis = [sig.phi1, 0.0 - sig.phi1, sig.phi2, 0.0 - sig.phi2, sig.phi3, 0.0 - sig.phi3]
+    for i = 0 to 5
+        k = bins[i]
+        expected = (N * amps[i] / 2.0) * (cos(phis[i]) + (0 + 1i) * sin(phis[i]))
+        err = abs(X[k] - expected)
+        if err > max_signal_err then
+            max_signal_err = err
+        end if
+    end for
+
+    # Noise floor: sample every 997th bin away from the 6 signal bins
+    # (checking all N would dominate the timing of a 1M-point run).
+    max_noise = 0.0
+    for k = 0 to N - 1 step 997
+        is_signal = false
+        for i = 0 to 5
+            if k == bins[i] then
+                is_signal = true
+            end if
+        end for
+        if not is_signal then
+            m = abs(X[k])
+            if m > max_noise then
+                max_noise = m
+            end if
+        end if
+    end for
+    return {max_signal_err = max_signal_err, max_noise = max_noise}
+end function
+
+function run_case(N, label)
+    sig = make_signal(N)
+
+    X = fft(sig.x)          # warm-up, discarded
+    best_t = 1.0e9
+    for r = 1 to 3
+        tic()
+        X = fft(sig.x)
+        xr = ifft(X)
+        t = toc()
+        if t < best_t then
+            best_t = t
+        end if
+    end for
+
+    acc = check_accuracy(X, sig, N)
+    roundtrip_err = max(abs(xr - sig.x))
+
+    print("{label} (N={N}): time={best_t:.6f} s   max signal-bin error={acc.max_signal_err:e}   noise floor={acc.max_noise:e}   roundtrip |ifft(fft(x))-x|={roundtrip_err:e}")
+end function
+
+run_case(1048576, "power-of-two  ")
+run_case(1000000, "non-power-of-2")

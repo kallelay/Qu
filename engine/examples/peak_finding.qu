@@ -1,0 +1,76 @@
+# peak_finding.qu — find the dominant (global) peak of a noisy signal three
+# independent ways and cross-check that they agree, then annotate it on a
+# plot. Built for Ahmed: "a program that finds a peak via multiple ways and
+# presents the values and index to user, also with an annotated plot."
+#
+# Exercises:
+#   §24  find_peaks, argmax/max, elementwise exp/sin
+#   §16  for / if control flow (a hand-written brute-force scan)
+#   plotting: point()/annotate() callouts, title/xlabel/ylabel/legend, savefig
+
+backend auto
+seed(2026)
+
+N = 200
+n = 0 to N - 1
+
+# A single clear dominant peak: a Gaussian bump centered at n = 120 (well
+# away from either edge), amplitude 5.
+bump = 5 * exp(-((n - 120) ^ 2) / (2 * 15 ^ 2))
+
+# A handful of smaller local peaks riding on top: a lower-amplitude ripple,
+# amplitude 1.5, so no ripple crest can compete with the bump.
+ripple = 1.5 * sin(2 * pi * n / 25)
+
+# A little measurement noise, small enough that it can't create a new global
+# maximum away from the bump (noise + ripple crest ~= 1.5 + 3*0.3 < 5).
+noise = 0.3 * randn(N, seed=7)
+
+x = bump + ripple + noise
+
+# --- Method (a): max(x) + argmax(x) ----------------------------------------
+peak_val_a = max(x)
+peak_idx_a = argmax(x)
+
+# --- Method (b): find_peaks(x), reduced to its tallest candidate -----------
+candidates = find_peaks(x)
+peak_idx_b = candidates[0]
+peak_val_b = x[peak_idx_b]
+for k = 1 to length(candidates) - 1
+    idx = candidates[k]
+    if x[idx] > peak_val_b then
+        peak_val_b = x[idx]
+        peak_idx_b = idx
+    end if
+end for
+
+# --- Method (c): brute-force manual scan, no max/argmax/find_peaks at all --
+peak_idx_c = 0
+peak_val_c = x[0]
+for i = 1 to N - 1
+    if x[i] > peak_val_c then
+        peak_val_c = x[i]
+        peak_idx_c = i
+    end if
+end for
+
+print("Method a (max + argmax):  index = {peak_idx_a}, value = {peak_val_a:.4f}")
+print("Method b (find_peaks):    index = {peak_idx_b}, value = {peak_val_b:.4f}")
+print("Method c (manual scan):   index = {peak_idx_c}, value = {peak_val_c:.4f}")
+
+if peak_idx_a == peak_idx_b and peak_idx_a == peak_idx_c then
+    print("All three methods agree: peak at index {peak_idx_a}, value {peak_val_a:.4f}")
+else
+    print("DISAGREEMENT between methods -- inspect the candidates above")
+end if
+
+label = "peak: n=" + str(peak_idx_a) + ", x=" + str(peak_val_a)
+
+plot(n, x, label="signal")
+point(peak_idx_a, peak_val_a)
+annotate(peak_idx_a, peak_val_a + 0.7, label)
+title("Peak finding: dominant bump + ripple + noise")
+xlabel("sample index n")
+ylabel("x[n]")
+legend top right
+savefig("engine/examples/peak_finding.svg")

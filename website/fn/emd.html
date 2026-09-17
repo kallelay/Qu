@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>emd — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>emd</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>emd(x, [max_imfs=])</code></pre>
+<p class="fnnote">Input: x, max_imfs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector. <code>max_imfs</code> (optional number): caps the number of IMFs extracted. Empirical Mode Decomposition: splits <code>x</code> into oscillatory intrinsic mode functions (IMFs, highest frequency first) plus a residual trend, via the standard sifting algorithm.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = emd(x, [max_imfs=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector.</span></div>
+<div class="ioitem"><code>max_imfs</code> <span class="iotype">number, optional</span><span class="iodesc"><code>max_imfs</code> (optional number): caps the number of IMFs extracted.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"emd"</code></span></div>
+<div class="ioitem"><code>imfs</code> <span class="iotype">matrix</span><span class="iodesc">a <code>K</code>×N matrix, one IMF per row</span></div>
+<div class="ioitem"><code>residual</code> <span class="iotype">vector</span><span class="iodesc">a length-N vector</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">number</span><span class="iodesc">a number, <code>K</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"emd"</code>) with fields <code>imfs</code> (a <code>K</code>×N matrix, one IMF per row), <code>residual</code> (a length-N vector), <code>count</code> (a number, <code>K</code>). <code>sum(e.imfs, axis=0) + e.residual</code> reconstructs <code>x</code> exactly.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>  e = <span class="f">emd</span>(signal)
+  recon = <span class="f">sum</span>(e.imfs, <span class="a">axis</span>=<span class="n">0</span>) + e.residual   <span class="c"># == signal, to floating precision</span>
+  first_imf = e.imfs[<span class="n">0</span>, :]                    <span class="c"># the highest-frequency mode</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<h2>How it works</h2>
+<p><code>emd(x, [max_imfs=])</code> — Empirical Mode Decomposition: splits <code>x</code> into a small number of oscillatory intrinsic mode functions (IMFs, highest frequency first) plus a residual trend, via the standard sifting algorithm. Model kind <code>"emd"</code>, fields <code>imfs</code> (a matrix, one IMF per row — <code>e.imfs</code> has zero rows if <code>x</code> had no oscillation to extract at all), <code>residual</code> (a <code>Vec</code>), and <code>count</code> (the number of IMFs). <code>sum(e.imfs, axis=0) + e.residual</code> reconstructs <code>x</code> exactly.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

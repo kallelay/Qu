@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stratified_split — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>stratified_split</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>stratified_split(X, y, [test_size=0.2], [seed=])</code></pre>
+<p class="fnnote">Input: X, y, test_size, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The same shape as <code>train_test_split</code> on <code>X</code>/<code>y</code>/<code>test_size</code>/<code>seed=</code>, but splits each class of <code>y</code> separately before combining, so a rare class keeps its proportion in both sets every time rather than only on average.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = stratified_split(X, y, [test_size=0.2], [seed=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>test_size</code> <span class="iotype">optional (default <code>0.2</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a Record with <code>X_train</code>, <code>X_test</code>, <code>y_train</code>, <code>y_test</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>seq = <span class="f">sequential_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.2</span>)
+<span class="f">print</span>(<span class="s">"sequential_split train rows: {rows(seq.X_train)}"</span>)
+
+strat = <span class="f">stratified_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"stratified_split train rows: {rows(strat.X_train)}"</span>)
+
+tvt = <span class="f">train_val_test_split</span>(Xc, yc, <span class="a">val_size</span> = <span class="n">0.2</span>, <span class="a">test_size</span> = <span class="n">0.2</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"train/val/test rows: {rows(tvt.X_train)}, {rows(tvt.X_val)}, {rows(tvt.X_test)}"</span>)
+
+m = <span class="f">knn_model</span>(strat.X_train, strat.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+<span class="f">confusion_matrix</span>(strat.y_test, m.<span class="f">predict</span>(strat.X_test), <span class="n">2</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>stratified_split(X, y, [test_size=0.2], [seed=])</code> — scikit-learn's <code>train_test_split(..., stratify=y)</code>: rows are first grouped by their exact <code>y</code> value (first-seen group order), each group is independently shuffled (one seeded RNG stream shared across all groups, so <code>seed=</code> still reproduces the whole split byte-for-byte) and split at the same <code>test_size</code> fraction, then every group's train/test rows are concatenated. The point (unlike a plain random split, which only preserves class proportions *on average*): a rare class is split into the same proportions in both train and test every time, not just "some points from each class landed somewhere" — worth checking with real numbers, not just "didn't crash", on any dataset with unequal class sizes.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks &amp; accuracy — Qu</title>
+<meta name="description" content="Qu measured against MATLAB and NumPy on speed and on numerical accuracy, with the methodology, the losses, and the things that nearly went wrong.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .bm { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  .bm th, .bm td { padding: 8px 12px; border-bottom: 1px solid var(--rule); text-align: right; }
+  .bm th:first-child, .bm td:first-child { text-align: left; }
+  .bm thead th { font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .bm tbody tr:last-child td { border-bottom: none; }
+  .bm tfoot td { border-top: 2px solid var(--rule); font-weight: 600; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .win { color: #1a7f45; font-weight: 600; }
+  .loss { color: #a33; }
+  :root:not([data-theme="light"]) .win { color: #5fcf8e; }
+  :root:not([data-theme="light"]) .loss { color: #e98a8a; }
+  :root[data-theme="dark"] .win { color: #5fcf8e; }
+  :root[data-theme="dark"] .loss { color: #e98a8a; }
+  h2 { margin-top: 2.6rem; }
+  h3 { margin-top: 1.8rem; font-size: 17px; }
+  .stamp { color: var(--muted); font-size: 13.5px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>Measured, including the losses</h1>
+  <p class="lede">Qu against MATLAB R2025b and NumPy, on the same machine, in the same
+  session — on speed and, separately, on whether the answers are right. Qu loses four
+  of five speed kernels to MATLAB. It ties every accuracy test to the last digit that
+  matters. Both of those are the result.</p>
+  <p class="stamp">2026-09-11 &middot; Ryzen 9700X, 16 logical cores &middot; Qu release build, MATLAB R2025b, CPython + NumPy</p>
+</div></header>
+
+<main class="wrap">
+
+<h2>How these were measured</h2>
+
+<div class="note"><p><strong>Data allocated outside the clock, one warm-up discarded,
+best of three, languages interleaved.</strong> This matters more than it sounds. An
+earlier version of this suite timed one cold run per language and had Qu winning four
+of five kernels. Measured fairly, Qu won none of those four. MATLAB's JIT needs one
+call to warm up and then wins; a single cold trial cannot see that. Three published
+claims on this site did not survive the correction, and were withdrawn rather than
+quietly dropped.</p></div>
+
+<h2>Speed</h2>
+
+<p>Five kernels, identical sizes across the three languages. Lower is better; the
+ratio columns are Qu divided by the other, so under 1.00 means Qu is faster.</p>
+
+<div class="tablewrap">
+<table class="bm">
+  <thead>
+    <tr><th>Kernel</th><th>Qu</th><th>MATLAB</th><th>NumPy</th><th>Qu / MATLAB</th><th>Qu / NumPy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>matrix_multiply</td><td class="num">0.0076</td><td class="num">0.0090</td><td class="num">0.0054</td><td class="num win">0.84&times;</td><td class="num loss">1.41&times;</td></tr>
+    <tr><td>element_wise_ops</td><td class="num">0.0698</td><td class="num">0.0391</td><td class="num">0.1664</td><td class="num loss">1.79&times;</td><td class="num win">0.42&times;</td></tr>
+    <tr><td>fft</td><td class="num">0.0018</td><td class="num">0.0007</td><td class="num">0.0036</td><td class="num loss">2.57&times;</td><td class="num win">0.50&times;</td></tr>
+    <tr><td>array_creation</td><td class="num">0.0265</td><td class="num">0.0238</td><td class="num">0.0287</td><td class="num loss">1.11&times;</td><td class="num win">0.92&times;</td></tr>
+    <tr><td>loop_performance</td><td class="num">0.0009</td><td class="num">0.0003</td><td class="num">0.0019</td><td class="num loss">3.00&times;</td><td class="num win">0.47&times;</td></tr>
+  </tbody>
+  <tfoot>
+    <tr><td>total</td><td class="num">0.1066</td><td class="num">0.0729</td><td class="num">0.2060</td><td class="num loss">1.46&times;</td><td class="num win">0.52&times;</td></tr>
+  </tfoot>
+</table>
+</div>
+
+<p><strong>Against NumPy, Qu is 48% faster overall</strong> and wins three kernels of
+five. <strong>Against MATLAB, Qu wins only matrix multiplication and is 46% behind
+overall.</strong> Seconds, best of three.</p>
+
+<h3>Where the MATLAB gap actually lives</h3>
+
+<p><code>element_wise_ops</code> is <strong>65.5% of the total runtime</strong> and
+carries a 1.79&times; gap. Everything else is rounding error by comparison —
+<code>loop_performance</code>, for instance, is 0.8% of total, so even a large
+improvement there cannot move the headline.</p>
+
+<p>Separately measured, in three interleaved pairs: <strong>Qu's elementwise kernel
+alone runs about 8% faster than MATLAB's entire <code>element_wise_ops</code>
+computation</strong>, and <strong>interpreter dispatch accounts for 48% of Qu's wall
+time</strong> — 48%, 48%, 48% across the three pairs. So the gap is not numerics. It
+is the cost of deciding what to call before calling it.</p>
+
+<h2>The 1,048,576-point FFT</h2>
+
+<p>Scaling one kernel up asks a question the small sizes cannot: does the gap grow,
+hold, or close? It does both, depending on the length.</p>
+
+<div class="tablewrap">
+<table class="bm">
+  <thead><tr><th>Transform length</th><th>Qu / MATLAB</th><th>Reading</th></tr></thead>
+  <tbody>
+    <tr><td>100k (baseline)</td><td class="num">2.57&times;</td><td>—</td></tr>
+    <tr><td>1,048,576 = 2<sup>20</sup></td><td class="num">2.50&times;</td><td>gap <strong>holds</strong></td></tr>
+    <tr><td>3-smooth (2<sup>12</sup>&middot;3<sup>5</sup>)</td><td class="num">2.75&times;</td><td>gap <strong>holds</strong></td></tr>
+    <tr><td>5-smooth (2<sup>6</sup>&middot;5<sup>6</sup>)</td><td class="num">1.32&times;</td><td>gap <strong>narrows</strong></td></tr>
+    <tr><td>1,000,003 (prime)</td><td class="num win">0.51&times;</td><td><strong>Qu is faster</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>On power-of-two and 3-smooth lengths the ratio is flat at about 2.7&times; across
+four orders of magnitude, which is the signature of a constant per-call overhead — the
+same dispatch cost as above, not an algorithmic one. As the factorisation gets rougher
+the gap closes, and at a genuine prime length it reverses: <strong>both languages pay a
+large penalty on prime-length transforms, and MATLAB's is far worse</strong> — roughly
+26&times; its own power-of-two time against Qu's 5&times;, leaving Qu about twice as
+fast there.</p>
+
+<div class="note"><p><strong>A retraction, kept rather than quietly edited out.</strong>
+An earlier version of this page reported that the gap <em>grew</em> to 3.14&times; at
+1,000,000 points, citing two interleaved passes. It does not reproduce. Re-measured
+against live MATLAB at the same length, best of three, it is 1.32&times;. Qu's own
+timings for that single length moved about 40% from pass to pass on this shared
+machine — enough to account for the original figure entirely. The number was ours, the
+error was ours, and the correction is ours to publish.</p></div>
+
+<div class="note"><p>Two things were checked before blaming the FFT implementation.
+Qu already caches its plan — <code>FFT_PLANNER</code> is a reused thread-local, so
+there is no per-call planning cost to remove. And Qu's own wrapper overhead (the
+complex-number copy in and out) measured 0.96&times;–1.22&times; of raw library time
+at every size, which is not where the difference lives.</p></div>
+
+<h2>Accuracy</h2>
+
+<p>Speed comparisons are common; accuracy comparisons are rarer, and for anyone who
+publishes numbers they are the ones that matter. Each test below has a
+<strong>closed-form ground truth</strong> — an answer known exactly in advance,
+independent of all three implementations.</p>
+
+<h3>FFT against an analytic spectrum</h3>
+
+<p>Three cosines placed on exact bin centres, so the true transform is known in
+closed form. All three languages agree with it — and with each other — to the
+<strong>identical</strong> absolute error:</p>
+
+<div class="tablewrap">
+<table class="bm">
+  <thead><tr><th>Quantity</th><th>Qu</th><th>MATLAB</th><th>NumPy</th></tr></thead>
+  <tbody>
+    <tr><td>max error, signal bins</td><td class="num">9.20e-6</td><td class="num">9.20e-6</td><td class="num">9.20e-6</td></tr>
+    <tr><td>noise floor, other bins</td><td class="num">1.55e-7</td><td class="num">1.55e-7</td><td class="num">1.55e-7</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Identical, not merely close: the same transform computed to the same precision.</p>
+
+<h3>Filter design against closed-form poles and zeros</h3>
+
+<p>Qu's <code>freqz</code> against the analytic frequency response, over a 513-point
+sweep: <strong>2&times;10<sup>-15</sup> maximum error at order 6</strong>, still
+<strong>8&times;10<sup>-15</sup> at order 20</strong>. No conditioning trouble at
+these orders.</p>
+
+<div class="note"><p><strong>MATLAB is absent from this comparison, and the reason is
+worth stating plainly:</strong> <code>butter</code> and <code>freqz</code> require the
+Signal Processing Toolbox, which is not licensed on this machine. Hand-rolling a
+bilinear transform to stand in for MATLAB's answer would have meant comparing Qu
+against our own code and labelling it MATLAB. The column is marked unavailable
+instead. Qu ships filter design in the base language.</p></div>
+
+<h3>Equivalent-circuit fitting: recovering known parameters</h3>
+
+<p>A Randles circuit with known component values, synthesised into an impedance
+spectrum, then fitted back by Nelder–Mead in all three languages. Same algorithm
+class everywhere, deliberately: letting each language reach for its own best
+optimiser would measure the optimisers rather than the languages.</p>
+
+<p>After the fit, all three agree on the residual (6.11e-17), on the recovered
+values, and — more tellingly — on the <strong>iteration count</strong>. Identical
+trajectories, not merely identical answers.</p>
+
+<h2>A model can fit beautifully and still be wrong</h2>
+
+<p>The same fit, run twice. Everything is held constant except the measured frequency
+range.</p>
+
+<div class="tablewrap">
+<table class="bm">
+  <thead><tr><th>Frequency sweep</th><th>Residual</th><th>R<sub>ct</sub> error</th><th>Iterations</th></tr></thead>
+  <tbody>
+    <tr><td>1–10 kHz — stops short of the ~159 kHz RC knee</td><td class="num">2.01e-10</td><td class="num loss">42.4%</td><td class="num">126</td></tr>
+    <tr><td>Full range — covers the knee</td><td class="num">6.11e-17</td><td class="num win">2.3e-05%</td><td class="num">159</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The bad sweep fits the data it was given almost perfectly and gets a component
+value wrong by 42%. Nothing in the residual warns you. The information needed to
+determine <code>Rct</code> lives near the RC knee, and a sweep that never reaches it
+cannot recover the parameter no matter how well the curve matches.</p>
+
+<p>This is what parameter-significance testing exists to detect, and it is why a
+fitting tool should report whether a parameter is <em>identifiable</em> rather than
+only how small the residual got.</p>
+
+<h2>Two things that nearly became false claims</h2>
+
+<p>Both were caught by the ground truth, and both are worth recording because neither
+would have looked like a mistake.</p>
+
+<h3>A bug in our own MATLAB port</h3>
+
+<p>The MATLAB implementation of the circuit fit had a redundant <code>+1</code> in an
+index helper, on top of callers that were already passing 1-based indices. Every
+update wrote to a phantom cell, so the optimiser sat at its starting guess for 2000
+iterations and never moved.</p>
+
+<p><strong>That is indistinguishable from “MATLAB is worse at this”</strong>, and it
+would have been published as a cross-language accuracy gap — except Qu and NumPy had
+already converged to the exact known answer, so a MATLAB result that did not could
+only be our own error. A timing-only benchmark has nothing to contradict it with.</p>
+
+<h3>A library default that silently moved the goalposts</h3>
+
+<p>SciPy's <code>sosfreqz</code>, given an integer <code>worN</code>, excludes the
+Nyquist endpoint. Qu's convention includes it. Every comparison point would have been
+misaligned by one bin — surfacing not as an obvious crash but as a small, plausible
+<em>accuracy</em> disagreement. Caught by checking the convention instead of assuming
+it, and the axes are now passed explicitly.</p>
+
+<h2>What this does not tell you</h2>
+
+<ul>
+  <li>One machine, one session. Ratios on other hardware will differ.</li>
+  <li>Five kernels and three accuracy tests are not a workload. They were chosen to
+      be measurable and checkable, not representative.</li>
+  <li>MATLAB's Signal Processing and Optimization Toolboxes are not licensed here, so
+      two comparisons are two-language rather than three.</li>
+  <li>Qu is faster than NumPy overall and slower than MATLAB overall. Neither
+      sentence is the whole picture, and the per-kernel table is the honest version of
+      both.</li>
+</ul>
+
+</main>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="refs.html">Refs</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

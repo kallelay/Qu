@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>transformer_block — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>transformer_block</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>transformer_block(x, weights)</code></pre>
+<p class="fnnote">Input: x, weights &middot; Output: result</p>
+<h2>What it is</h2>
+<p>One transformer block on an <code>(N, D)</code> input <code>x</code>: multi-head self-attention plus a two-layer feed-forward network, each wrapped in a residual connection and a <code>layer_norm</code>. <code>weights</code> is a Record with fields <code>heads</code> (the tuple <code>multi_head_attention</code> expects), <code>ln1_gamma</code>/<code>ln1_beta</code> and <code>ln2_gamma</code>/<code>ln2_beta</code> (length-<code>D</code> layer-norm parameters for the two sublayers), and <code>w1</code>/<code>b1</code>/<code>w2</code>/<code>b2</code> (the feed-forward layer's weights and biases).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = transformer_block(x, weights)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">One transformer block on an <code>(N, D)</code> input <code>x</code>: multi-head self-attention plus a two-layer feed-forward network, each wrapped in a residual connection and a <code>layer_norm</code>.</span></div>
+<div class="ioitem"><code>weights</code> <span class="iotype">Record</span><span class="iodesc"><code>weights</code> is a Record with fields <code>heads</code> (the tuple <code>multi_head_attention</code> expects), <code>ln1_gamma</code>/<code>ln1_beta</code> and <code>ln2_gamma</code>/<code>ln2_beta</code> (length-<code>D</code> layer-norm parameters for the two sublayers), and <code>w1</code>/<code>b1</code>/<code>w2</code>/<code>b2</code> (the feed-forward layer's weights and biases).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">matrix</span></div>
+</td><td>Returns an <code>(N, D)</code> matrix, the same shape as <code>x</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
+<span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
+
+q = [<span class="n">1.0</span>, <span class="n">0.5</span>; -<span class="n">0.5</span>, <span class="n">1.0</span>; <span class="n">0.2</span>, -<span class="n">0.3</span>]
+k = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+v = [<span class="n">1.0</span>, <span class="n">2.0</span>; <span class="n">3.0</span>, <span class="n">4.0</span>; <span class="n">5.0</span>, <span class="n">6.0</span>]
+attn = <span class="f">scaled_dot_product_attention</span>(q, k, v)
+<span class="f">print</span>(<span class="s">"attention output: {round(attn, 3)}"</span>)
+
+eye2 = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>]
+head = {wq = eye2, wk = eye2, wv = eye2, wo = eye2}
+mh = <span class="f">multi_head_attention</span>(q, (head,), <span class="n">1</span>)
+plain = <span class="f">scaled_dot_product_attention</span>(q, q, q)
+<span class="f">print</span>(<span class="s">"multi_head_attention with 1 identity head matches plain self-attention: {sum(abs(mh - plain)) &lt; 1e-9}"</span>)
+
+weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln1_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w1 = [<span class="n">0.2</span>, -<span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>], b1 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w2 = [<span class="n">0.1</span>, -<span class="n">0.2</span>; <span class="n">0.3</span>, <span class="n">0.1</span>], b2 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           ln2_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln2_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>]}
+block_out = <span class="f">transformer_block</span>(q, weights)
+<span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>transformer_block(x, weights)</code> — one post-norm Transformer encoder block (Vaswani et al. 2017, §3.1): multi-head self- attention, a residual add + <code>layer_norm</code>, a two-layer ReLU feedforward (reusing the EXISTING <code>dense</code>/<code>relu</code> builtins — no new layer primitive needed here either), then a second residual add + <code>layer_norm</code>: <code></code><code>text a  = multi_head_attention(x, weights.heads, len(weights.heads)) h1 = layer_norm(x + a, weights.ln1_gamma, weights.ln1_beta) f  = dense(relu(dense(h1, weights.w1, weights.b1)), weights.w2, weights.b2) h2 = layer_norm(h1 + f, weights.ln2_gamma, weights.ln2_beta) </code><code></code> <code>weights</code> is a <code>Value::Record</code> with fields <code>heads</code> (the <code>multi_head_attention</code> weights list — <code>n_heads</code> is read straight off its length, never a separate argument), <code>ln1_gamma</code>/<code>ln1_beta</code>/<code>ln2_gamma</code>/<code>ln2_beta</code>, and <code>w1</code>/<code>b1</code>/ <code>w2</code>/<code>b2</code> (the feedforward's two <code>dense</code> layers). Not its own tape op: every step below calls an already-tracked builtin, so backprop through the whole block falls out of the tape's ordinary reverse walk with no bespoke <code>tensor_vjp</code> rule — the same "compose, don't reimplement" argument <code>dense</code>/ <code>gru_cell_compute</code> already make.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

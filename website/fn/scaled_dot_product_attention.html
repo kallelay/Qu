@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scaled_dot_product_attention — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>scaled_dot_product_attention</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>scaled_dot_product_attention(q, k, v, [mask=])</code></pre>
+<p class="fnnote">Input: q, k, v, mask &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Core attention computation: an <code>(Nq, D)</code> query matrix <code>q</code>, an <code>(Nk, D)</code> key matrix <code>k</code>, and an <code>(Nk, Dv)</code> value matrix <code>v</code> (<code>k</code> and <code>v</code> share the same row count <code>Nk</code>). Scores are <code>q * kᵀ</code> scaled by <code>1/sqrt(D)</code> before the softmax, so the softmax does not saturate as <code>D</code> grows; an optional <code>mask</code> matrix (same shape as the score matrix, <code>(Nq, Nk)</code>) adds large negative values to positions that should not be attended to before the softmax.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = scaled_dot_product_attention(q, k, v, [mask=])</code></td><td><div class="ioitem"><code>q</code> <span class="iotype">matrix</span><span class="iodesc">Core attention computation: an <code>(Nq, D)</code> query matrix <code>q</code>, an <code>(Nk, D)</code> key matrix <code>k</code>, and an <code>(Nk, Dv)</code> value matrix <code>v</code> (<code>k</code> and <code>v</code> share the same row count <code>Nk</code>).</span></div>
+<div class="ioitem"><code>k</code> <span class="iotype">matrix</span><span class="iodesc">Core attention computation: an <code>(Nq, D)</code> query matrix <code>q</code>, an <code>(Nk, D)</code> key matrix <code>k</code>, and an <code>(Nk, Dv)</code> value matrix <code>v</code> (<code>k</code> and <code>v</code> share the same row count <code>Nk</code>).</span></div>
+<div class="ioitem"><code>v</code> <span class="iotype">matrix</span><span class="iodesc">Core attention computation: an <code>(Nq, D)</code> query matrix <code>q</code>, an <code>(Nk, D)</code> key matrix <code>k</code>, and an <code>(Nk, Dv)</code> value matrix <code>v</code> (<code>k</code> and <code>v</code> share the same row count <code>Nk</code>).</span></div>
+<div class="ioitem"><code>mask</code> <span class="iotype">matrix, optional</span><span class="iodesc">an optional <code>mask</code> matrix (same shape as the score matrix, <code>(Nq, Nk)</code>) adds large negative values to positions that should not be attended to before the softmax.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">matrix</span></div>
+</td><td>Returns an <code>(Nq, Dv)</code> matrix.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
+<span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
+
+q = [<span class="n">1.0</span>, <span class="n">0.5</span>; -<span class="n">0.5</span>, <span class="n">1.0</span>; <span class="n">0.2</span>, -<span class="n">0.3</span>]
+k = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+v = [<span class="n">1.0</span>, <span class="n">2.0</span>; <span class="n">3.0</span>, <span class="n">4.0</span>; <span class="n">5.0</span>, <span class="n">6.0</span>]
+attn = <span class="f">scaled_dot_product_attention</span>(q, k, v)
+<span class="f">print</span>(<span class="s">"attention output: {round(attn, 3)}"</span>)
+
+eye2 = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>]
+head = {wq = eye2, wk = eye2, wv = eye2, wo = eye2}
+mh = <span class="f">multi_head_attention</span>(q, (head,), <span class="n">1</span>)
+plain = <span class="f">scaled_dot_product_attention</span>(q, q, q)
+<span class="f">print</span>(<span class="s">"multi_head_attention with 1 identity head matches plain self-attention: {sum(abs(mh - plain)) &lt; 1e-9}"</span>)
+
+weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln1_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w1 = [<span class="n">0.2</span>, -<span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>], b1 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w2 = [<span class="n">0.1</span>, -<span class="n">0.2</span>; <span class="n">0.3</span>, <span class="n">0.1</span>], b2 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           ln2_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln2_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>]}
+block_out = <span class="f">transformer_block</span>(q, weights)
+<span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>scaled_dot_product_attention(q, k, v, [mask])</code> — <code>softmax(Q K^T / sqrt(d_k)) V</code> (Vaswani et al. 2017, eq. 1). <code>q</code>/<code>k</code>/<code>v</code> are <code>(seq_len_q, d_k)</code>/<code>(seq_len_k, d_k)</code>/ <code>(seq_len_k, d_v)</code> matrices (or <code>Tensor</code>s wrapping them); an optional 0/1 <code>mask</code> of the raw scores' own <code>(seq_len_q, seq_len_k)</code> shape (<code>1</code> = attend, <code>0</code> = block) is added as a large negative bias BEFORE the softmax — the standard "additive mask" convention, not zeroing probabilities after the fact (which would leave blocked entries still skewing the row's normalization). <code>K^T</code> uses <code>tt</code> (this session's new tracked transpose, so gradient flows back into <code>k</code> too); the two matmuls (<code>Q@K^T</code>, <code>probs@V</code>) reuse <code>tb</code>'s <code>"*"</code>, and so <code>Matrix::matmul</code>'s own existing rayon parallelism above its size threshold — the actual CPU-parallel win for this op. True head-level parallelism (see <code>multi_head_attention</code>) can't extend down into this call too: every tracked op here mutates <code>self.tape</code> behind one shared <code>&amp;mut self</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+# binary_doubles.qu -- packed float64 binary file round trip.
+#
+# Qu has no bulk fread/fwrite-style vectorized binary I/O (its file library
+# is scalar-call-based: write_double(f, x)/read_double(f), one value per
+# call -- see IMPL.md "File I/O library" 2026-08-24). This benchmarks that
+# real, only-available API against numpy's/MATLAB's/Matty's vectorized
+# tofile/fromfile/fwrite/fread.
+#
+# Two read variants are timed, both real, for an honest picture:
+#   - `read_streaming`: read_double in a loop, accumulate a running sum only
+#     (no array materialization) -- the fast path.
+#   - a SEPARATE, much smaller `materialize` demo below shows what happens
+#     if the loop instead stores each value into a pre-sized vector via
+#     `y[k] = read_double(f)` -- see materialize_demo.qu / the README. This
+#     used to hit a real, documented O(N^2) cost in Qu's Arc-COW vector
+#     index-assignment; FIXED 2026-08-26 (IMPL.md), now genuinely O(N) --
+#     kept as a separate smaller-N script mainly for historical before/
+#     after comparison, not because it's still slow at this N.
+#
+# Run: qu run benchmarks/file_io/binary_doubles.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/file_io/binary_doubles.qu)
+
+backend auto
+
+# N is capped at 1,000,000 by Qu's `for k = 0 to N-1` range construct
+# (qu-core::DEFAULT_ELEMENT_LIMIT, a deliberate safety cap on eager range
+# materialization) -- this IS the ceiling for a scalar-call read/write loop
+# in Qu today, not an arbitrary choice; see the README for what this means
+# at the "10M+" scale the task originally asked for.
+N = 1000000
+path = "benchmarks/file_io/doubles.bin"
+
+# --- data (untimed prep) -----------------------------------------------------
+seed(42)
+x = randn(N, 1)
+x as vector(1, N)
+
+# --- write: N scalar write_double calls --------------------------------------
+tic()
+f = fopen(path, "wb")
+for k = 0 to N - 1
+    write_double(f, x[k])
+end for
+close(f)
+t_write = toc()
+print("write_doubles ({N} values) : {t_write:.4f} s")
+
+# --- read: N scalar read_double calls, streaming sum (no array store) --------
+tic()
+f2 = fopen(path, "rb")
+s = 0.0
+ssq = 0.0
+for k = 0 to N - 1
+    v = read_double(f2)
+    s = s + v
+    ssq = ssq + v * v
+end for
+close(f2)
+t_read = toc()
+print("read_doubles  ({N} values) : {t_read:.4f} s")
+
+mean_written = mean(x)
+mean_read = s / N
+print("mean(written) = {mean_written:.6f}")
+print("mean(read)    = {mean_read:.6f}")
+print("sumsq(read)   = {ssq:.6f}")

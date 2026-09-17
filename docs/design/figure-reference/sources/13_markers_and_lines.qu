@@ -1,0 +1,196 @@
+# 13 — Markers and line styles: the whole vocabulary on one sheet.
+#
+# Every marker glyph the engine will draw, every line style, and the three
+# things that change how both READ on the page: line weight, marker size,
+# and the contrast edge. This is the reference you want open while
+# choosing how to separate six series.
+#
+# It is also the case the collection was missing. Until this figure there
+# was no dashed line anywhere in the reference set, which is exactly why a
+# bug that painted a solid line over every dash survived in it.
+#
+# Names here are the canonical spelling; most glyphs also answer to
+# Unicode and to words ("losange" for "D"). `marker_polygon` and
+# `marker_overlay` in plotting.rs hold the full alias list.
+#
+# Run:  qu run docs/design/figure-reference/sources/13_markers_and_lines.qu
+
+figure_size(10.0, 15.5, unit = "in")
+
+INK  = "#1a1a1a"
+BLUE = "#1f77b4"
+BAND = "#f2a154"
+
+# A gallery cell: the glyph at a grid position with its spelling under it.
+# Axes are blanked rather than hidden -- the engine has no `axis off`, and
+# blank tick LABELS is the supported way to get there.
+function gallery(names, cols, filled)
+    for i in 0 to len(names) - 1
+        col = i - cols * floor(i / cols)
+        row = floor(i / cols)
+        plot([col], [0 - row], marker = names[i], color = BLUE,
+             ms = pt(5.5), fill = filled)
+        text(col, 0 - row - 0.40, names[i], color = INK)
+    end for
+    xlim(-0.75, cols - 0.25)
+    ylim(0 - floor((len(names) - 1) / cols) - 0.75, 0.5)
+    # One tick, no label, on each axis. `xticklabels` alone cannot blank
+    # an axis: the labels are matched against however many ticks were
+    # chosen automatically, so a short list leaves the rest showing.
+    xticks([0])
+    xticklabels(("",))
+    yticks([0])
+    yticklabels(("",))
+    grid off
+end function
+
+# ------------------------------------------------- (a) the plain shapes
+subplot(4, 2, 1)
+gallery(("o", "s", "D", "^", "v", "<",
+         ">", "p", "h", "8", "P", "X"), 6, true)
+title("(a) Plain shapes, filled")
+
+# ------------------------------------------------------- (b) the stars
+subplot(4, 2, 2)
+gallery(("*", "star4", "star6", "star8",
+         "star12", "asterisk", "doublestar", "klee3",
+         "klee4", "flower", "daisy", "astroid"), 4, true)
+title("(b) Stars, clovers and rosettes")
+
+# ------------------------------------------------ (c) composite glyphs
+#
+# HOLLOW, and not as a style choice: these are a shape plus an overlay
+# drawn in the same ink, so filling the body hides the very mark that
+# tells them apart -- a filled `boxplus` and a filled `boxtimes` are both
+# just a square.
+subplot(4, 2, 3)
+gallery(("+", "x", "boxplus", "boxtimes",
+         "boxdiamond", "circleplus", "circletimes", "crosshair",
+         "snowflake", "flag", "heart", "gear"), 4, false)
+title("(c) Composite glyphs, hollow")
+
+# ------------------------------------------------------ (d) line styles
+subplot(4, 2, 4)
+
+x = linspace(0, 10, 400)
+specs = ("-", "--", ":", "-.")
+names = ("\"-\"  solid", "\"--\"  dashed", "\":\"  dotted", "\"-.\"  dashdot")
+cols  = ("#1f77b4", "#2e7d32", "#d62728", "#b8860b")
+for i in 0 to 3
+    plot(x, sin(x) + 6 - 2 * i, marker = specs[i], color = cols[i], lw = pt(1.2))
+    text(10.5, 6 - 2 * i, names[i], color = cols[i])
+end for
+xlim(0, 16.5)
+ylim(-2.2, 8.2)
+yticks([0])
+yticklabels(("",))
+xlabel("$x$")
+title("(d) Line styles")
+
+# ------------------------------------------------------ (e) line weight
+#
+# One dash pattern at six weights. A pattern that does not follow the
+# weight stops being a dash somewhere along this ladder -- it did, once:
+# at pt(2) the mark was shorter than the line was thick and read as dots.
+subplot(4, 2, 5)
+
+widths = (0.4, 0.8, 1.2, 1.8, 2.6, 3.6)
+for i in 0 to 5
+    y = 0 - i
+    plot([0, 10], [y, y], marker = "--", color = INK, lw = pt(widths[i]))
+    text(10.6, y, "lw = pt({widths[i]})", color = INK)
+end for
+xlim(-0.4, 17.5)
+ylim(-5.7, 0.7)
+xticks([0])
+xticklabels(("",))
+yticks([0])
+yticklabels(("",))
+grid off
+title("(e) Line weight, one dash pattern")
+
+# ---------------------------------------- (f) marker size, fill and edge
+subplot(4, 2, 6)
+
+sizes = (1.5, 2.5, 3.5, 5.0, 7.0, 9.0)
+for i in 0 to 5
+    plot([i * 2], [1], marker = "o", color = BLUE, ms = pt(sizes[i]), fill = true)
+    text(i * 2, 0.30, "pt({sizes[i]})", color = INK)
+end for
+
+# The edge is what keeps a marker legible ON something -- a filled
+# contour, a dense cloud, another series. It is the paper's own answer for
+# the regime map's operating points, which sit on saturated colour.
+#
+# It is an OUTLINE, in the marker's own place. There is no drop shadow in
+# this engine; an offset copy is not something you can ask for yet.
+demos = ("fill = true", "fill = false", "edge = \"#ffffff\"", "edge = ink")
+for i in 0 to 3
+    y = 0 - 1 - i * 1.2
+    plot([0, 8], [y, y], marker = "-", color = BAND, lw = pt(7.0))
+    text(8.6, y, demos[i], color = INK)
+end for
+plot([1.6, 4.0, 6.4], [-1, -1, -1], marker = "o", color = BLUE, ms = pt(5.5), fill = true)
+plot([1.6, 4.0, 6.4], [-2.2, -2.2, -2.2], marker = "o", color = BLUE, ms = pt(5.5), fill = false)
+plot([1.6, 4.0, 6.4], [-3.4, -3.4, -3.4], marker = "o", color = BLUE, ms = pt(5.5),
+     fill = true, edge = "#ffffff")
+plot([1.6, 4.0, 6.4], [-4.6, -4.6, -4.6], marker = "o", color = BLUE, ms = pt(5.5),
+     fill = true, edge = INK)
+
+xlim(-1.2, 16.0)
+ylim(-5.4, 1.9)
+xticks([0])
+xticklabels(("",))
+yticks([0])
+yticklabels(("",))
+grid off
+title("(f) Marker size, fill and contrast edge")
+
+# ------------------------------------ (g) keeping a mark on a busy field
+#
+# Two answers, and they compose. `edge=` outlines the marker IN PLACE;
+# `shadow=` casts an offset translucent copy underneath it. The band is
+# there because on white paper every one of these looks fine -- the
+# problem only exists on something.
+subplot(4, 2, 7)
+
+ways = ("plain", "edge = white", "shadow = true", "both")
+for i in 0 to 3
+    y = 0 - i
+    plot([0, 7], [y, y], marker = "-", color = BAND, lw = pt(7.0))
+    text(7.6, y, ways[i], color = INK)
+end for
+plot([1.4, 3.2, 5.0], [0, 0, 0], marker = "o", color = BLUE, ms = pt(5.5), fill = true)
+plot([1.4, 3.2, 5.0], [-1, -1, -1], marker = "o", color = BLUE, ms = pt(5.5),
+     fill = true, edge = "#ffffff")
+plot([1.4, 3.2, 5.0], [-2, -2, -2], marker = "o", color = BLUE, ms = pt(5.5),
+     fill = true, shadow = true)
+plot([1.4, 3.2, 5.0], [-3, -3, -3], marker = "o", color = BLUE, ms = pt(5.5),
+     fill = true, edge = "#ffffff", shadow = true)
+xlim(-0.5, 14.0)
+ylim(-3.8, 0.8)
+xticks([0])
+xticklabels(("",))
+yticks([0])
+yticklabels(("",))
+grid off
+title("(g) Contrast edge and drop shadow")
+
+# ------------------------------------------- (h) showing a distribution
+#
+# Four readings of the same three samples. The box is the summary; the
+# violin adds the shape the summary hides; the raincloud adds the samples
+# the shape is estimated FROM. Which one is right depends on how much the
+# reader is being asked to take on trust.
+subplot(4, 2, 8)
+
+d1 = randn(300, seed = 11)
+d2 = randn(300, seed = 12) * 1.6 + 2
+d3 = randn(300, seed = 13) * 0.6 - 1
+violin(d1, d2, d3)
+xlabel("also: boxplot, raincloud, histogram")
+title("(h) Distributions")
+
+savefig("13_markers_and_lines.svg")
+savefig("13_markers_and_lines.pdf")
+print("glyphs shown: 36, line styles: 4, weights: 6, sizes: 6")

@@ -1,0 +1,48 @@
+# benchmarks/particle_filter_gpu/bench.qu
+#
+# Real, measured answer to one question: does GPU-dispatching
+# `particle_filter`'s `.move(dt)` step actually help, and at what particle
+# count -- for the realistic hundreds-to-low-thousands range a position/
+# velocity tracker normally uses, or only far beyond it?
+#
+# `.move(dt)`'s deterministic half is `particles * A^T`, an `(n, 4) x (4, 4)`
+# matmul (2-D constant-velocity state: [x, y, vx, vy]) -- GPU-dispatched
+# (behind `--features gpu`) through the SAME `qu_gpu::GpuContext::matmul`/
+# `gpu_probe` crossover machinery `gpu_matmul`/`svm_cross_term` already use,
+# once `n*4*4` clears the measured crossover. There is no explicit
+# "force GPU" switch: this script just times `.move(dt)` at a sweep of `n`
+# and reports both what `gpu_probe_info()` says (available? crossover?) and
+# the raw wall-clock numbers, so the comparison is the SAME script run
+# against two different `qu.exe` builds:
+#
+#   qu.exe                (no gpu feature -> .move always runs on CPU)
+#   qu.exe --features gpu (GPU used automatically once n clears crossover)
+#
+# Run:
+#   <plain-build>/qu.exe run benchmarks/particle_filter_gpu/bench.qu
+#   <gpu-build>/qu.exe   run benchmarks/particle_filter_gpu/bench.qu
+# then diff the two runs' printed timings by hand -- see this directory's
+# README.md for this machine's actual numbers and the honest conclusion.
+
+backend auto
+
+print("gpu_probe_info() = {gpu_probe_info()}")
+
+# Particle counts spanning "realistic tracker" (hundreds to low thousands)
+# up to "comfortably past the measured square-matmul crossover" (millions),
+# so the sweep can show BOTH ends: whether GPU ever wins at a realistic
+# count, and where (if anywhere) it eventually does.
+counts = [100, 500, 2000, 10000, 100000, 500000, 2000000]
+reps = 5
+
+for i = 0 to length(counts) - 1
+    n = counts[i]
+    pf = particle_filter(n, [0, 0, 1, 1], process_noise=0.05, obs_noise=1.0, spread=1.0, seed=1)
+    tic()
+    for r = 1 to reps
+        pf = pf.move(0.1)
+    end for
+    elapsed = toc()
+    per_call_ms = 1000 * elapsed / reps
+    print("n={n}: {per_call_ms:.4f} ms/call ({reps} reps, {elapsed:.4f} s total)")
+end for

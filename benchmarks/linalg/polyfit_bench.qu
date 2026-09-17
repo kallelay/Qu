@@ -1,0 +1,46 @@
+# polyfit_bench.qu — large-N least-squares polynomial fit, Qu vs numpy vs
+# MATLAB vs matty, all four consuming a BIT-IDENTICAL (formula-generated,
+# no RNG) dataset, so the fitted coefficients can be checked for numerical
+# agreement, not just timed.
+#
+# x = linspace(-1, 1, N); y = polyval(true_coeffs, x) + 0.01*sin(1000*x) --
+# the sin term is a deterministic, non-polynomial perturbation (not RNG
+# noise) so every language builds the exact same y, and there's a genuine
+# nonzero least-squares residual (a degree-5 fit can't reproduce it exactly)
+# rather than a trivial exact-interpolation problem.
+#
+# This is a direct (non-iterative) linear solve, not a gradient-descent
+# loop, so there's no "same iteration count / same starting point"
+# ambiguity to get wrong across languages -- the whole point of picking
+# `polyfit` for this slot, per the benchmark brief.
+#
+# Run: qu run benchmarks/linalg/polyfit_bench.qu
+
+backend auto
+
+N = 3000000
+degree = 5
+true_coeffs = [2, -4, 1, 0.5, -2, 3]   # highest-degree-first (polyfit convention)
+
+x = linspace(-1, 1, N)
+y_true = polyval(true_coeffs, x)
+noise = 0.01 * sin(1000 * x)
+y = y_true + noise
+
+tic()
+c = polyfit(x, y, degree)
+t_fit = toc()
+
+tic()
+yhat = polyval(c, x)
+t_eval = toc()
+
+resid = norm(y - yhat)
+max_abs_err = max(abs(y - yhat))
+
+print("N={N}  degree={degree}")
+print("polyfit : {t_fit:.4f} s")
+print("polyval : {t_eval:.4f} s")
+print("coeffs  : {c}")
+print("resid (||y - yhat||_2) = {resid:.6f}")
+print("max_abs_err            = {max_abs_err:.6f}")

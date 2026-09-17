@@ -1,0 +1,77 @@
+# bench.qu — CSV load + multi-filter benchmark.
+#
+# Scenario: a real analysis workflow, not a synthetic microbenchmark —
+# generate a signal, write it to CSV once (the "data acquisition" step,
+# untimed), then time (a) reading it back from disk and (b) applying five
+# different filters to it. Same dataset/filters as bench.py, for a direct
+# Qu-vs-Python comparison.
+#
+# Run: qu run benchmarks/csv_filters/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/csv_filters/bench.qu)
+
+backend auto
+
+# --- dataset (untimed prep: this is "data acquisition", not the benchmark) -
+Fs = 10000
+N = 500000
+n = 0 to N - 1
+t = n / Fs
+seed(7)
+x = sin(2 * pi * 50 * t) + 0.5 * sin(2 * pi * 500 * t) + 0.25 * sin(2 * pi * 2000 * t) + 0.1 * randn(N, 1)
+x as vector(1, N)
+
+csv_path = "benchmarks/csv_filters/signal.csv"
+df_out = table(t=t, x=x)
+write_csv(df_out, csv_path)
+
+# --- load: read the CSV back from disk --------------------------------------
+tic()
+df = read_csv(csv_path)
+t_load = toc()
+print("csv_load          : {t_load:.4f} s  ({nrow(df)} rows)")
+
+xs = df.x
+
+# filter designs (untimed — designed once, applied to the whole signal)
+lp = butter(4, "low", 200, Fs)
+hp = butter(4, "high", 1000, Fs)
+bp = butter(4, "band", [300, 800], Fs)
+mavg_kernel = ones(51, 1) / 51
+
+# --- filter 1: Butterworth lowpass (causal, sosfilt) -------------------------
+tic()
+y_lp = sosfilt(lp, xs)
+t_lp = toc()
+print("butter_lowpass     : {t_lp:.4f} s")
+
+# --- filter 2: Butterworth highpass (causal, sosfilt) -------------------------
+tic()
+y_hp = sosfilt(hp, xs)
+t_hp = toc()
+print("butter_highpass    : {t_hp:.4f} s")
+
+# --- filter 3: Butterworth bandpass (causal, sosfilt) -------------------------
+tic()
+y_bp = sosfilt(bp, xs)
+t_bp = toc()
+print("butter_bandpass    : {t_bp:.4f} s")
+
+# --- filter 4: Butterworth lowpass, zero-phase (filtfilt: forward+backward) --
+tic()
+y_ff = filtfilt(lp, xs)
+t_ff = toc()
+print("butter_filtfilt    : {t_ff:.4f} s")
+
+# --- filter 5: FIR moving-average (conv, "same") ------------------------------
+tic()
+y_ma = conv(xs, mavg_kernel, mode="same")
+t_ma = toc()
+print("moving_average_fir : {t_ma:.4f} s")
+
+total = t_load + t_lp + t_hp + t_bp + t_ff + t_ma
+print("total              : {total:.4f} s")
+
+# sanity: the lowpass output's RMS should be close to the 50 Hz tone's own
+# amplitude (1/sqrt(2) ~= 0.7071) since it strips the 500/2000 Hz tones and
+# most of the noise.
+print("rms(y_lp)          = {rms(y_lp):.4f}")

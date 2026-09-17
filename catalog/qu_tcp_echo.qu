@@ -1,0 +1,40 @@
+# qu_tcp_echo.qu -- a genuine client/server TCP round trip on loopback.
+#
+# `tcp_listen(0)` asks the OS for a free ephemeral port; the server function
+# runs in a `spawn`'d worker thread so it can block on `tcp_accept`/
+# `tcp_recv` without blocking the script itself -- the same "spawn a
+# function to run a long/blocking call in the background" idiom every other
+# worker-based Qu builtin uses. `join(worker)` waits for the server to
+# finish and returns whatever it `return`ed.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   tcp_listen(port) / tcp_port(listener)   -- bind an ephemeral port
+#   spawn(fnName, args...) / join(worker)   -- run the server without blocking
+#   tcp_connect / tcp_send / tcp_recv / tcp_close -- the client side
+
+backend auto
+
+#%% A tiny echo server: reads one message, replies with it upper-cased
+function echo_server(listener)
+    conn = tcp_accept(listener)
+    msg = tcp_recv(conn)
+    tcp_send(conn, upper(msg))
+    tcp_close(conn)
+    return msg
+end function
+
+listener = tcp_listen(0)
+port = tcp_port(listener)
+print("server listening on 127.0.0.1:{port}")
+
+worker = spawn("echo_server", listener)
+
+#%% Client side: connect, send, read the reply
+conn = tcp_connect("127.0.0.1", port)
+tcp_send(conn, "hello from the qu client")
+reply = tcp_recv(conn)
+tcp_close(conn)
+
+server_saw = join(worker)
+print("client received: {reply}")
+print("server originally saw: {server_saw}")

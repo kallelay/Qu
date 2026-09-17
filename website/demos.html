@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demos — Qu</title>
+<meta name="description" content="66 complete programs, each one runnable as it stands, with the output and the figure it produced.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html" aria-current="page">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>66 programs, whole</h1>
+  <p class="lede">Not fragments. Each one is a file in <code>catalog/</code> that runs as
+  it stands — a real problem from measurement, signals, or data, solved end to end.
+  The build runs every one of them, so the printed output and the figure on each page
+  are what the engine produced, not what someone typed.</p>
+  <p class="lede">Read one near your own work and change it. That is the fastest way
+  into the language, and it is why these exist.</p>
+</div></header>
+
+<section class="demogroup"><div class="wrap">
+<h2>Getting started</h2>
+<div class="demogrid">
+<a class="demo" href="demos/demo_hello.html"><h3>Hello, Qu</h3><p>hello, world, and a bit of arithmetic.</p><p class="file">demo_hello.qu</p></a>
+<a class="demo" href="demos/demo_sine.html"><h3>Plot a sine wave</h3><p>plot a sine wave.</p><p class="file">demo_sine.qu</p></a>
+<a class="demo" href="demos/demo_vectors.html"><h3>Vectors &amp; matrices</h3><p>basic vector and matrix arithmetic.</p><p class="file">demo_vectors.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Signal processing</h2>
+<div class="demogrid">
+<a class="demo" href="demos/demo_signal.html"><h3>Signal basics</h3><p>a script that runs end-to-end on the M2 interpreter.</p><p class="file">demo_signal.qu</p></a>
+<a class="demo" href="demos/qu_bilinear_interp2.html"><h3>Bilinear interpolation</h3><p>2D grid interpolation with `interp2`.</p><p class="file">qu_bilinear_interp2.qu</p></a>
+<a class="demo" href="demos/qu_compressed_sensing.html"><h3>Compressed sensing</h3><p>recovering a signal from far fewer samples than Nyquist demands, six different ways.</p><p class="file">qu_compressed_sensing.qu</p></a>
+<a class="demo" href="demos/qu_fft_spectrum.html"><h3>FFT spectrum</h3><p>complex numbers and the DFT on the reference engine.</p><p class="file">qu_fft_spectrum.qu</p></a>
+<a class="demo" href="demos/qu_filter_design.html"><h3>Filter design</h3><p>digital IIR filter design, diagnostics, and zero-phase filtering of a noisy signal.</p><p class="file">qu_filter_design.qu</p></a>
+<a class="demo" href="demos/qu_interpolate_apply_cut.html"><h3>Interpolate, apply &amp; cut</h3><p>signal-aware interpolation, elementwise transforms, and range extraction (commit 48ea648).</p><p class="file">qu_interpolate_apply_cut.qu</p></a>
+<a class="demo" href="demos/qu_multisine.html"><h3>Multisine excitation</h3><p>multisine synthesis with a per-tone figure breakdown.</p><p class="file">qu_multisine.qu</p></a>
+<a class="demo" href="demos/qu_multisine_acceleration.html"><h3>Multisine acceleration</h3><p>51-tone multisine, the "no explicit acceleration" baseline.</p><p class="file">qu_multisine_acceleration.qu</p></a>
+<a class="demo" href="demos/qu_noise_and_removal.html"><h3>Noise, in and out</h3><p>putting noise in, and taking it out again.</p><p class="file">qu_noise_and_removal.qu</p></a>
+<a class="demo" href="demos/qu_peak_finding.html"><h3>Peak finding</h3><p>findpeaks() on a noisy multi-tone signal + spectrum.</p><p class="file">qu_peak_finding.qu</p></a>
+<a class="demo" href="demos/qu_rc_filter.html"><h3>RC filter response</h3><p>RC low-pass filter: transient step response and Bode plot.</p><p class="file">qu_rc_filter.qu</p></a>
+<a class="demo" href="demos/qu_signal_explorer.html"><h3>Signal explorer (sliders)</h3><p>a filter you can feel, as a page you can send.</p><p class="file">qu_signal_explorer.qu</p></a>
+<a class="demo" href="demos/qu_signal_generators.html"><h3>Waveform generators</h3><p>the `signals.` namespace sugar for the five periodic-waveform generators (square, impulse, pwm, sawtooth, triangle).</p><p class="file">qu_signal_generators.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Measurement &amp; instrumentation</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_bridge_shm.html"><h3>Bridge health monitoring</h3><p>bridge structural health monitoring (SHM) via distributed vibration sensors: synthetic-but-realistic simulation plus a real spectral-analysis damage-detection pipeline.</p><p class="file">qu_bridge_shm.qu</p></a>
+<a class="demo" href="demos/qu_impedance_rlkk.html"><h3>Impedance (rLKK)</h3><p>regularized linear Kramers-Kronig (rLKK) validation and reconstruction of an impedance spectrum.</p><p class="file">qu_impedance_rlkk.qu</p></a>
+<a class="demo" href="demos/qu_serial_ports_discovery.html"><h3>Serial port discovery</h3><p>a lighter-weight, general-purpose companion to qu_serial_realtime.qu, focused specifically on `serial_ports()` discovery and on `serial_open`/`.write()`/`.close()` in isolation, WITHOUT the full real-time acquisition loop (that's already</p><p class="file">qu_serial_ports_discovery.qu</p></a>
+<a class="demo" href="demos/qu_serial_realtime.html"><h3>Real-time serial capture</h3><p>a genuine real-time serial capture + processing demo: open a real UART/RS-232/USB-serial port, read incoming lines AS THEY ARRIVE (a blocking read bounded by a timeout, not a fixed-length buffer), convert each one to a number, and print running statistics (a moving</p><p class="file">qu_serial_realtime.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Statistics &amp; estimation</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_corrcoef_heatmap.html"><h3>Correlation heatmap</h3><p>corrcoef(X) + heatmap(corrcoef(X)).</p><p class="file">qu_corrcoef_heatmap.qu</p></a>
+<a class="demo" href="demos/qu_hmm_healthy_fever.html"><h3>Hidden Markov model</h3><p>the classic 2-state Hidden Markov Model ("a patient is Healthy or has a Fever; a doctor only observes symptoms") used to hand-verify HMM forward/Viterbi implementations against a well-known reference answer.</p><p class="file">qu_hmm_healthy_fever.qu</p></a>
+<a class="demo" href="demos/qu_kalman_tracking.html"><h3>Kalman tracking</h3><p>a constant-velocity Kalman filter tracking a noisy 1-D position sensor.</p><p class="file">qu_kalman_tracking.qu</p></a>
+<a class="demo" href="demos/qu_markov_weather.html"><h3>Markov chain</h3><p>a two-state Markov chain modeling Sunny/Rainy weather, simulated forward in time and compared against its analytically hand-solved stationary (long-run) distribution.</p><p class="file">qu_markov_weather.qu</p></a>
+<a class="demo" href="demos/qu_particle_filter.html"><h3>Particle filter</h3><p>a GPU-dispatchable particle filter tracking a noisy 1-D constant-velocity target.</p><p class="file">qu_particle_filter.qu</p></a>
+<a class="demo" href="demos/qu_random_walk.html"><h3>Random walk</h3><p>a discretized Wiener-process-style random walk with a real, nonzero drift, checking that the walk's mean per-step increment converges toward the specified drift as n_steps grows (the Law of Large Numbers applied to `random_walk`'s own definition).</p><p class="file">qu_random_walk.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Machine learning</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_ar_model_forecast.html"><h3>AR model forecast</h3><p>classical AR(2) autoregressive fitting via the Yule-Walker equations, recovering KNOWN generating coefficients from a synthetic series, then forecasting beyond the observed data.</p><p class="file">qu_ar_model_forecast.qu</p></a>
+<a class="demo" href="demos/qu_classification_report.html"><h3>Classification report</h3><p>train a k-NN classifier on two synthetic clusters, evaluate on a held-out split, and inspect a confusion matrix.</p><p class="file">qu_classification_report.qu</p></a>
+<a class="demo" href="demos/qu_curve_fit.html"><h3>Curve fitting</h3><p>nonlinear least-squares curve fitting and general multivariate minimization.</p><p class="file">qu_curve_fit.qu</p></a>
+<a class="demo" href="demos/qu_gridworld_rl.html"><h3>Reinforcement learning</h3><p>tabular reinforcement learning on a grid world: Q-learning (off-policy) vs SARSA (on-policy), trained side by side.</p><p class="file">qu_gridworld_rl.qu</p></a>
+<a class="demo" href="demos/qu_lstm_forecast.html"><h3>LSTM forecast</h3><p>an LSTM cell/sequence unroll over a short, real noisy sine wave, checking that the resulting hidden-state sequence is well-behaved (finite, non-exploding) rather than just "it runs".</p><p class="file">qu_lstm_forecast.qu</p></a>
+<a class="demo" href="demos/qu_ml_report.html"><h3>ML report</h3><p>battery health data: tables, an OLS model, and a report</p><p class="file">qu_ml_report.qu</p></a>
+<a class="demo" href="demos/qu_naive_bayes_classifier.html"><h3>Naive Bayes classifier</h3><p>Gaussian Naive Bayes on a small, hand- understandable 2-feature, 3-class dataset: three well-separated clusters arranged so the correct class for any held-out point is obvious by eye.</p><p class="file">qu_naive_bayes_classifier.qu</p></a>
+<a class="demo" href="demos/qu_pca_projection.html"><h3>PCA projection</h3><p>fitting PCA and projecting data onto its principal components.</p><p class="file">qu_pca_projection.qu</p></a>
+<a class="demo" href="demos/qu_sequential_xor.html"><h3>Neural net: XOR</h3><p>a tiny Sequential neural net learns XOR.</p><p class="file">qu_sequential_xor.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Computer vision</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_image_blobs.html"><h3>Blob detection</h3><p>synthetic binary image, morphological cleanup, and connected-component (blob) analysis.</p><p class="file">qu_image_blobs.qu</p></a>
+<a class="demo" href="demos/qu_voronoi_diagram.html"><h3>Voronoi diagram</h3><p>the Voronoi diagram of a small, hand-chosen 2-D point set, built on a real Delaunay triangulation (the `spade` crate), checked against a hand-derivable geometric fact rather than just printed.</p><p class="file">qu_voronoi_diagram.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Math &amp; linear algebra</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_linear_algebra.html"><h3>Linear algebra</h3><p>a tour of Qu's M2 matrix surface.</p><p class="file">qu_linear_algebra.qu</p></a>
+<a class="demo" href="demos/qu_qr_svd.html"><h3>QR &amp; SVD</h3><p>QR and SVD decompositions, and a least-squares solve.</p><p class="file">qu_qr_svd.qu</p></a>
+<a class="demo" href="demos/qu_temperature_units.html"><h3>Units &amp; conversions</h3><p>tracked physical units for temperature (degC/ degF), an affine (not linear) scale.</p><p class="file">qu_temperature_units.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Data &amp; I/O</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_fifo_double_buffer.html"><h3>FIFO &amp; double buffer</h3><p>a small acquisition-loop simulation showing why a real sensor pipeline needs BOTH a `fifo` and a `double_buffer`, not just one or the other.</p><p class="file">qu_fifo_double_buffer.qu</p></a>
+<a class="demo" href="demos/qu_file_extensions.html"><h3>File formats</h3><p>three real filesystem extensions in one flow: `touch(path)` (Unix `touch` semantics), streaming reads via ordinary `fopen`/`read_line` (no longer an eager whole-file load internally), and read-only memory-mapped random access (`mmap_open`/`mmap_len`/</p><p class="file">qu_file_extensions.qu</p></a>
+<a class="demo" href="demos/qu_format_conversion.html"><h3>JSON / CSV / XML</h3><p>the data-format conversion builtin family (§ format conversion builtins, 2026-09-01, Ahmed's ask -- BACKLOG.md's "Format conversion builtins" entry): three formats (JSON/CSV/XML), each with an `xify(value) -&gt; str` / `parse_x(str) -&gt; value` primitive pair,</p><p class="file">qu_format_conversion.qu</p></a>
+<a class="demo" href="demos/qu_http_get.html"><h3>HTTP requests</h3><p>a genuine HTTP(S) GET over the real network, using Qu's `http_get(url)` builtin (§ HTTP fetch, see docs/qu-language-tour.md §21). `http_get` is GET-only, has a fixed 30-second connect+read timeout, and always returns the response body as</p><p class="file">qu_http_get.qu</p></a>
+<a class="demo" href="demos/qu_linked_list_and_graph.html"><h3>Linked list &amp; graph</h3><p>a double-ended `linked_list` used to build a small road network's edge list, then a weighted `graph` over the same five towns, solved with Dijkstra's algorithm via `.shortest_path`.</p><p class="file">qu_linked_list_and_graph.qu</p></a>
+<a class="demo" href="demos/qu_streamfile_streamurl.html"><h3>Streaming files &amp; URLs</h3><p>`StreamFile(path)` and `StreamURL(url)` (§ StreamFile/StreamURL polymorphic streams, see docs/qu-language-tour.md §23) are two different constructors that expose the SAME method names -- `read_line`/`read_all`/`eof`/`close` -- so one</p><p class="file">qu_streamfile_streamurl.qu</p></a>
+<a class="demo" href="demos/qu_tcp_echo.html"><h3>TCP echo server</h3><p>a genuine client/server TCP round trip on loopback.</p><p class="file">qu_tcp_echo.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Concurrency &amp; performance</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_distributed_pool.html"><h3>Distributed worker pool</h3><p>the local-worker half of Qu's distributed job-dispatch machinery (§ resource-limited pools/queues, see book/src/stdlib/concurrency.md's "Worker pools, deferred queues, and `run ... on`" section): a persistent, resource-limited `pool` of real</p><p class="file">qu_distributed_pool.qu</p></a>
+<a class="demo" href="demos/qu_gpu_matmul.html"><h3>GPU matrix multiply</h3><p>explicit GPU matrix multiplication, with an honest CPU fallback when the GPU feature isn't compiled in.</p><p class="file">qu_gpu_matmul.qu</p></a>
+<a class="demo" href="demos/qu_memoize_lazy.html"><h3>Memoize &amp; lazy eval</h3><p>`memoize function` result-caching and `lazy` deferred-variable evaluation, each proven with real evidence rather than just asserted: a memoized recursive Fibonacci is timed with `tic()`/ `toc()` to show the cached second call is essentially instant, and a</p><p class="file">qu_memoize_lazy.qu</p></a>
+<a class="demo" href="demos/qu_mutex_semaphore.html"><h3>Mutex &amp; semaphore</h3><p>shared mutable state across real worker threads.</p><p class="file">qu_mutex_semaphore.qu</p></a>
+<a class="demo" href="demos/qu_sandbox_profiling.html"><h3>Sandbox &amp; profiling</h3><p>`sandbox_mode(on)`, `profiling_mode(on)`, and `profile_stats()` as in-program controls, distinct from the CLI's process-wide `--sandbox`/`--profile` flags: a script can profile or sandbox just the one section it cares about, mid-run, and read the</p><p class="file">qu_sandbox_profiling.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Simulation</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_fluid_simulation.html"><h3>Fluid simulation</h3><p>2D scalar diffusion (heat equation), explicit FTCS</p><p class="file">qu_fluid_simulation.qu</p></a>
+<a class="demo" href="demos/qu_sea_waves.html"><h3>A sea, from the wave equation</h3><p>an animated sea, from the wave equation rather than from a sine.</p><p class="file">qu_sea_waves.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Language &amp; UI</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_gui_controls.html"><h3>GUI controls</h3><p>a GUI declared by the script itself.</p><p class="file">qu_gui_controls.qu</p></a>
+<a class="demo" href="demos/qu_interactive_sliders.html"><h3>Interactive sliders</h3><p>QuStudio's Interactive Mode, as an actual catalog demo (previously this feature had NO dedicated demo -- only an inline default script baked into QuStudio's InteractiveModePanel.tsx component, never saved as a real, standalone .qu file anyone could open,</p><p class="file">qu_interactive_sliders.qu</p></a>
+<a class="demo" href="demos/qu_layers_schematic.html"><h3>Layers: a rig schematic</h3><p>describe a symbol once, place it forty times.</p><p class="file">qu_layers_schematic.qu</p></a>
+<a class="demo" href="demos/qu_multiple_dispatch.html"><h3>Multiple dispatch</h3><p>user-overloadable functions, dispatched on type.</p><p class="file">qu_multiple_dispatch.qu</p></a>
+<a class="demo" href="demos/qu_operator_overload.html"><h3>Operator overloading</h3><p>user-overloadable operators on a tagged record type (multiple dispatch phase 3).</p><p class="file">qu_operator_overload.qu</p></a>
+<a class="demo" href="demos/qu_starry_night.html"><h3>Starry Night, animated</h3><p>an animated Starry Night, drawn entirely in Qu.</p><p class="file">qu_starry_night.qu</p></a>
+<a class="demo" href="demos/qu_watch_reactive.html"><h3>Reactive watch</h3><p>all three `watch` trigger forms (`watch file(path)`, `watch &lt;variable&gt;`, `watch url(...)`), each firing exactly once on a genuine change and staying silent on an unchanged `pump_watches()` call.</p><p class="file">qu_watch_reactive.qu</p></a>
+</div></div></section>
+<section class="demogroup"><div class="wrap">
+<h2>Uncategorised</h2>
+<div class="demogrid">
+<a class="demo" href="demos/qu_line_styles.html"><h3>qu_line_styles</h3><p>Every line style Qu draws.</p><p class="file">qu_line_styles.qu</p></a>
+<a class="demo" href="demos/qu_markers.html"><h3>qu_markers</h3><p>Every marker Qu draws, at the size a figure actually uses.</p><p class="file">qu_markers.qu</p></a>
+<a class="demo" href="demos/qu_plot_types.html"><h3>qu_plot_types</h3><p>Every kind of plot Qu draws, one panel each.</p><p class="file">qu_plot_types.qu</p></a>
+<a class="demo" href="demos/qu_spectrogram_interactive.html"><h3>qu_spectrogram_interactive</h3><p>Spectrogram - Time-Frequency Analysis</p><p class="file">qu_spectrogram_interactive.qu</p></a>
+<a class="demo" href="demos/qu_twin_axis_reference.html"><h3>qu_twin_axis_reference</h3><p>A two-panel figure of the shape journals actually print: a distribution with its two summary statistics called out, and a dual-axis panel whose axes are colour-bound to their own series.</p><p class="file">qu_twin_axis_reference.qu</p></a>
+</div></div></section>
+
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="refs.html">Refs</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

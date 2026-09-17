@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pool — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pool</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>pool(n)</code></pre>
+<p class="fnnote">Input: n &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>n</code> (integer, number of local cpu workers).</p>
+<h2>Overloads</h2>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-pool-0" checked>
+<input type="radio" name="typetab" id="tt-pool-1">
+<div class="tabbar">
+<label for="tt-pool-0">named</label>
+<label for="tt-pool-1">anonymous</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pool(n)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td><code>pool &lt;name&gt; with cpu=N ... end pool</code> is a statement, not an expression — it registers a persistent pool under the bare identifier <code>name</code>, so more than one later <code>run ... on name</code> call (or <code>run ... on any</code>) can share the same fixed set of worker threads instead of each spinning up its own.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>
+<span class="k">end</span> pool
+q = <span class="f">queue</span>()
+q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
+<span class="f">print</span>(run q on workers)   <span class="c"># (9)</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pool(n)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>end pool<code> registration step at all.</code></td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+q = <span class="f">queue</span>()
+q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
+<span class="f">print</span>(run q on <span class="f">pool</span>(<span class="n">2</span>))   <span class="c"># (9)</span>
+</code></pre>
+</div>
+<p>A named pool is worth registering when more than one <code>run</code> call — maybe across different stages of a script — should share the same fixed set of worker threads rather than each spinning up its own. The example below defines a pure function, builds a 4-worker pool named <code>workers</code>, queues five calls to it with <code>.push</code>, then drains the whole queue at once with <code>run ... on</code>, printing the resulting list of squares in submission order:</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div>
+<p>The anonymous form skips the <code>pool ... end pool</code> registration entirely -- handy when nothing else needs to share the same workers, since <code>pool(n)</code> can be written directly inline as the target of <code>run ... on</code>:</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on <span class="f">pool</span>(<span class="n">2</span>)  <span class="c"># 2 local cpu workers, scoped to this one call</span>
+<span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>pool(n)</code> (§47.3) — the anonymous pool shorthand: <code>n</code> cpu workers, fixed <code>round_robin</code> policy, <code>on full = queue</code>, scoped to whichever single <code>run</code> call uses it (never registered — see <code>Interp::pool_registry</code>'s doc comment). The NAMED form (<code>pool &lt;name&gt; with cpu = ... end pool</code>) is a statement (<code>Stmt::Pool</code>, executed directly in <code>exec</code>), not this builtin — this arm only ever fires for the bare-call shorthand <code>pool(8)</code> used as an expression (typically right inside <code>run jobs on pool(8)</code>).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

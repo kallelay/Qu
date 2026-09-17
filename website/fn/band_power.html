@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>band_power — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>band_power</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>band_power(X, f0, f1)</code></pre>
+<p class="fnnote">Input: X, f0, f1 &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>X</code>: a <code>spectrum</code>; <code>f0</code>, <code>f1</code>: numbers (Hz, <code>f1 &gt;= f0</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = band_power(X, f0, f1)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>X</code>: a <code>spectrum</code>.</span></div>
+<div class="ioitem"><code>f0</code> <span class="iotype">number</span><span class="iodesc"><code>f0</code>, <code>f1</code>: numbers (Hz, <code>f1 &gt;= f0</code>).</span></div>
+<div class="ioitem"><code>f1</code> <span class="iotype">number</span><span class="iodesc"><code>f0</code>, <code>f1</code>: numbers (Hz, <code>f1 &gt;= f0</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the power in that frequency band by Parseval, normalised by <code>N^2</code> so a tone of amplitude <code>A</code> reads <code>A^2/2</code>. On a full spectrum each conjugate pair is counted once, since the pair is one physical tone.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs  = <span class="n">1000</span>
+t   = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+x   = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+sig = <span class="f">signal</span>(x, fs)
+
+X = <span class="f">fft</span>(sig)
+<span class="f">print</span>(<span class="s">"df = {X.df} Hz, Nyquist = {X.nyquist} Hz"</span>)
+<span class="f">print</span>(<span class="s">"power at 100 Hz: {band_power(X, 90, 110)}"</span>)     <span class="c"># 0.5  = 1.0^2/2</span>
+<span class="f">print</span>(<span class="s">"power at 300 Hz: {band_power(X, 290, 310)}"</span>)    <span class="c"># 0.125 = 0.5^2/2</span>
+
+clean = <span class="f">ifft</span>(<span class="f">band_zero</span>(X, <span class="n">250</span>, <span class="n">350</span>))                    <span class="c"># notch out the 300 Hz tone</span>
+<span class="f">print</span>(<span class="s">"residual imaginary part: {max(abs(imag(clean)))}"</span>)   <span class="c"># ~1e-16, still real</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p>§41.2, frequency side -- the twin of <code>signal_slice_time</code> above: address a spectrum in Hz instead of in bin indices, which is the single most error-prone step in DSP code (<code>round(f * N / fs)</code> written out by hand on every script). These deliberately do NOT include a "slice out a band" verb. Slicing bins would leave bin 0 of the result no longer at DC, silently invalidating <code>.freq</code> -- an axis that lies is worse than no axis. <code>band_zero</code> keeps the full axis intact, and <code>.mag</code>/ <code>.freq</code> return plain vectors that can be sliced safely.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

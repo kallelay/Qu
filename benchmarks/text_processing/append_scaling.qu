@@ -1,0 +1,28 @@
+# Is building a list with `append` in a loop linear or quadratic?
+#
+# Found while writing the text benchmark: 200,000 appends did not finish in
+# TEN MINUTES, while Python built the same 200,000-element list instantly.
+# That is the single most common way anyone builds a collection, so if it is
+# quadratic it is worth knowing precisely rather than as an impression.
+#
+# Doubling n should roughly double a linear cost and roughly quadruple a
+# quadratic one.
+
+sizes = [2000, 4000, 8000, 16000]
+prev = 0.0
+for s in sizes
+    xs = ["seed"]
+    tic()
+    for i = 1 to s - 1
+        xs = append(xs, "item")
+    end for
+    t = toc()
+    if prev > 0.0
+        print("n = {s:6.0f}  {t:.4f} s   ratio vs previous = {t / prev:.2f}x")
+    else
+        print("n = {s:6.0f}  {t:.4f} s")
+    end if
+    prev = t
+end for
+print("")
+print("~2x per doubling = linear;  ~4x = quadratic")

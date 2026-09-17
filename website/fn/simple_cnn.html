@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>simple_cnn — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>simple_cnn</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>simple_cnn([height, width], n_classes, [seed=])</code></pre>
+<p class="fnnote">Input: height, width, n_classes, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds an untrained conv → relu → maxpool → dense image classifier: <code>[height, width]</code> a 2-element vector giving the image size, <code>n_classes</code> a positive integer, and an optional integer <code>seed=</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = simple_cnn([height, width], n_classes, [seed=])</code></td><td><div class="ioitem"><code>height, width</code> <span class="iotype">vector, optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_classes</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">vector, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model, vector, or number</span></div>
+</td><td>Returns a <code>kind="simple_cnn"</code> Model with <code>.fit(images, labels, [epochs=], [lr=])</code>, where <code>images</code> is a tuple of <code>height</code> x <code>width</code> matrices (one per sample) and <code>labels</code> a length-<code>M</code> integer vector, <code>epochs</code> an integer and <code>lr</code> a number (learning rate); <code>.fit</code> returns the trained Model, and <code>.predict(images)</code> on it returns a length-<code>M</code> vector of predicted classes.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+img1 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img1[<span class="n">2</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img2[<span class="n">1</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">1</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+net = net.<span class="f">fit</span>((img1, img2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_cnn predict rows: {rows(net.predict((img1, img2)))}"</span>)
+
+rnn = <span class="f">simple_rnn_classifier</span>(<span class="n">1</span>, <span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+seq1 = [<span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.5</span>, <span class="n">0.7</span>, <span class="n">0.9</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+seq2 = [<span class="n">0.9</span>, <span class="n">0.7</span>, <span class="n">0.5</span>, <span class="n">0.3</span>, <span class="n">0.1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+rnn = rnn.<span class="f">fit</span>((seq1, seq2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_rnn_classifier predict rows: {rows(rnn.predict((seq1, seq2)))}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>simple_cnn(input_shape, n_classes, [seed=])</code> — <code>input_shape</code> is <code>[height, width]</code> (single-channel images only, matching <code>conv2d</code>'s own scope). Architecture: one <code>conv2d</code> (fixed 3x3 kernel, "valid" padding) -&gt; <code>relu</code> -&gt; <code>maxpool2d</code> (2x2, non-overlapping) -&gt; a fully-connected softmax-ready readout — per-class <code>sum(pooled .* w_c) + b_c</code>, the exact "dense layer without a stack primitive" trick the CNN acceptance test's own doc comment works out, generalized from that test's binary case to <code>n_classes</code> independent weight maps. Deliberately tiny (this is a from-scratch interpreter, not meant to rival a real deep CNN) — see <code>simple_cnn_init</code>'s own doc comment for the exact shape math and its error cases.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

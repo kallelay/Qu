@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imdilate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imdilate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imdilate(img, radius)</code></pre>
+<p class="fnnote">Input: img, radius &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is a binary (0/255 mask-style) <code>Image</code>; <code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code> (a documented choice over a disk element). Performs binary morphological dilation, growing foreground regions.</p>
+<h2>Overloads</h2>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-imdilate-0" checked>
+<input type="radio" name="typetab" id="tt-imdilate-1">
+<div class="tabbar">
+<label for="tt-imdilate-0">binary mask</label>
+<label for="tt-imdilate-1">grayscale image</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imdilate(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a binary (0/255) <code>Image</code>.</span></div>
+<div class="ioitem"><code>radius</code> <span class="iotype">&mdash;</span><span class="iodesc">Dilation/erosion/opening/closing/top-hat/bottom-hat all reduce to their textbook binary definitions on a genuine mask: the foreground blob grows outward by <code>radius</code>, and every output pixel stays exactly <code>0</code> or <code>255</code> — no new grey levels ever appear.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>mb = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>]
+binary_img = <span class="f">image_from_matrix</span>(mb)
+grown = <span class="f">imdilate</span>(binary_img, <span class="n">1</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [16, 0, 0, 9] -- only the two extreme bins are ever used</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imdilate(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a genuine grayscale (or color) <code>Image</code> with more than two intensity levels.</span></div>
+<div class="ioitem"><code>radius</code> <span class="iotype">Image</span><span class="iodesc"><code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code> (a documented choice over a disk element).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td><code>imdilate</code>/<code>imerode</code>/<code>imopen</code>/<code>imclose</code>/<code>imtophat</code>/<code>imbothat</code> are all implemented as a per-channel MAX (dilate) or MIN (erode) over the structuring window — true grayscale morphology, not "threshold then grow." Fed a smooth image, the intermediate grey levels shift around instead of snapping everything to black/white.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>mg = [<span class="n">10</span>, <span class="n">60</span>, <span class="n">110</span>, <span class="n">160</span>, <span class="n">210</span>; <span class="n">20</span>, <span class="n">70</span>, <span class="n">120</span>, <span class="n">170</span>, <span class="n">220</span>; <span class="n">30</span>, <span class="n">80</span>, <span class="n">130</span>, <span class="n">180</span>, <span class="n">230</span>; <span class="n">40</span>, <span class="n">90</span>, <span class="n">140</span>, <span class="n">190</span>, <span class="n">240</span>; <span class="n">50</span>, <span class="n">100</span>, <span class="n">150</span>, <span class="n">200</span>, <span class="n">250</span>]
+gray_img = <span class="f">image_from_matrix</span>(mg)
+grown = <span class="f">imdilate</span>(gray_img, <span class="n">1</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [0, 6, 7, 12] -- three separate bins in use, no black survives at all</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p>and foreground/background separation (§ blob-manipulation pass, 2026-08-24). See <code>image::Image</code>'s own "Binary morphology..." doc-comment section for the full binary-mask convention this whole group shares: a <code>Value::Image</code> is treated as "binary" when every pixel is grayscale (R=G=B) with two intended levels, 0 = background / 255 = foreground (<code>is_foreground</code> actually reads <code>&gt;=128</code>, so a slightly antialiased mask still behaves sanely). No <code>threshold</code>/ <code>otsu_threshold</code> builtin existed in this shared working tree when this landed (a sibling agent's own lane) — this is a documented, independent design choice, not a guess at matching code that hadn't landed yet; reconcile if the sibling's own producer ends up using a different convention. <code>imerode(img, radius)</code> / <code>imdilate(img, radius)</code> — a square structuring element of side <code>2*radius+1</code> (documented choice over a disk — see <code>image::Image::erode</code>'s doc comment).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

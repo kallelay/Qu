@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>enob — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>enob</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>enob(x, [tones=|freqs=], [fs=|rate=], [bins=], [leak=0])</code></pre>
+<p class="fnnote">Input: x, tones, fs, bins, leak &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector, same optional keywords as <code>snr</code> above. Returns a single number, bits — effective number of bits, inverting <code>6.02·bits + 1.76</code> on the measured SINAD. What a converter actually delivers, as opposed to what its datasheet says. <code>enob_estimate(bits, crest_factor)</code> is the separate closed-form estimator, documented in the next row.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = enob(x, [tones=|freqs=], [fs=|rate=], [bins=], [leak=0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector, same optional keywords as <code>snr</code> above.</span></div>
+<div class="ioitem"><code>tones</code> <span class="iotype">optional (default <code>|freqs=</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">optional (default <code>|rate=</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>bins</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>leak</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
+</td><td>Returns a scalar <code>Num</code>, in bits.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / fs
+f0 = <span class="n">99</span> * fs / <span class="n">1024</span>          <span class="c"># exactly 99 cycles in the record -- coherent sampling</span>
+clean = <span class="f">sin</span>(<span class="n">2</span>*pi*f0*t)
+x = clean + <span class="n">0.01</span> * <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">3</span>*f0*t) + <span class="n">0.001</span> * <span class="f">randn</span>(<span class="n">1024</span>, <span class="a">seed</span>=<span class="n">3</span>)
+
+r = <span class="f">sinad</span>(x)     <span class="c"># full breakdown: r.sinad, r.enob, r.snr, r.thd, r.sfdr</span>
+<span class="f">print</span>(<span class="s">"THD  = {thd(x)} dB"</span>)
+<span class="f">print</span>(<span class="s">"SNR  = {snr(x)} dB"</span>)
+<span class="f">print</span>(<span class="s">"SINAD = {r.sinad} dB, ENOB = {r.enob} bits, SFDR = {sfdr(x)} dB"</span>)
+<span class="f">print</span>(<span class="s">"ENOB (from thd/sinad breakdown) = {enob(x)} bits"</span>)
+
+<span class="c"># closed-form estimates: what an ideal N-bit converter would show for a</span>
+<span class="c"># signal of a given crest factor, no record needed -- the number sinad(x)</span>
+<span class="c"># above is checked against. Signature is (bits, crest_factor).</span>
+est_sinad = <span class="f">sinad_estimate</span>(<span class="n">12</span>, <span class="f">sqrt</span>(<span class="n">2</span>))    <span class="c"># 12-bit ADC, sine-wave crest factor</span>
+est_enob  = <span class="f">enob_estimate</span>(<span class="n">12</span>, <span class="f">sqrt</span>(<span class="n">2</span>))
+<span class="f">print</span>(<span class="s">"ideal 12-bit ADC: SINAD = {est_sinad} dB, ENOB = {est_enob} bits"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p>Real-optimized half-spectrum FFT (NumPy/MATLAB <code>rfft</code>/<code>irfft</code> convention: a real signal's spectrum is Hermitian-symmetric, so only the non-negative-frequency half is returned/needed). <code>sinad(x)</code> / <code>sinad(x, fs=, tones=, bins=, leak=)</code> -- signal-to-noise-and-distortion of a sampled record, plus the SNR, THD, SFDR and ENOB that come with it. With no excitation named, the largest non-DC bin is taken as the fundamental: the single-tone case. Name the tones for a multisine, in Hz via <code>tones=</code> (with <code>fs=</code>) or directly as bin indices via <code>bins=</code> -- treating a multisine as one tone counts every other tone as noise and reads tens of dB low, which is the whole reason the excitation set is a parameter. <code>leak=</code> widens each tone by that many bins either side, for a record that is not exactly coherent. It defaults to 0 because widening hides close-in noise inside the signal and flatters the answer; that has to be the caller's decision.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="enob_estimate.html"><code>enob_estimate</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

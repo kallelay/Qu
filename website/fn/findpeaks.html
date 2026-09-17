@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>findpeaks — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>findpeaks</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></pre>
+<p class="fnnote">Input: x, min_peak_height, min_peak_distance &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code> is a length-N vector; <code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above. MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment, so this returns a <code>Model</code> (kind <code>"findpeaks"</code>) with fields <code>peaks</code> (a vector of the peak values) and <code>locations</code> (a vector of their 0-indexed integer indices into <code>x</code> — not MATLAB's 1-indexing) — the same named-field convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> use. Shares its peak-finding/non-max-suppression logic with <code>find_peaks</code> above.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N vector.</span></div>
+<div class="ioitem"><code>min_peak_height</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above.</span></div>
+<div class="ioitem"><code>min_peak_distance</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above.</span></div>
+</td><td><div class="ioitem"><code>peaks</code> <span class="iotype">Vec</span><span class="iodesc">a <code>Vec</code> of the peak values</span></div>
+<div class="ioitem"><code>locations</code> <span class="iotype">Vec</span><span class="iodesc">a <code>Vec</code> of the matching 0-based integer indices into <code>x</code></span></div>
+</td><td>Returns a <code>Model</code> of kind <code>"findpeaks"</code>, with fields <code>peaks</code> (a <code>Vec</code> of the peak values) and <code>locations</code> (a <code>Vec</code> of the matching 0-based integer indices into <code>x</code>), both the same length — the number of peaks found.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+res = <span class="f">qr</span>(M)
+<span class="f">print</span>(res)
+<span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
+<span class="f">print</span>(<span class="s">"r = {res.r}"</span>)
+
+x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">0</span>]
+pk = <span class="f">findpeaks</span>(x)
+<span class="f">print</span>(pk)
+<span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
+<span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">512</span>
+Fs = <span class="n">512</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">40</span>*t) + <span class="n">0.6</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">90</span>*t)
+
+X = <span class="f">fft</span>(x)
+mag = <span class="f">abs</span>(X)
+half = mag[<span class="n">0</span>:N/<span class="n">2</span>]
+
+pk = <span class="f">findpeaks</span>(half, <span class="a">min_peak_height</span>=<span class="n">20</span>, <span class="a">min_peak_distance</span>=<span class="n">5</span>)
+<span class="f">print</span>(pk)
+freqs = pk.locations * (Fs / N)
+<span class="f">print</span>(<span class="s">"Peak bin locations: {pk.locations}"</span>)
+<span class="f">print</span>(<span class="s">"Peak frequencies (Hz): {freqs}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+    <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"svd"</span>&gt;)
+    <span class="k">return</span> <span class="s">"svd: singular values = {m.s}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model)
+    <span class="k">return</span> <span class="s">"generic model, kind unhandled"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+A = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+qres = <span class="f">qr</span>(A)
+sres = <span class="f">svd</span>(A)
+pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">1</span>,<span class="n">3</span>,<span class="n">1</span>,<span class="n">0</span>,<span class="n">2</span>,<span class="n">4</span>,<span class="n">2</span>,<span class="n">0</span>])
+
+<span class="f">print</span>(<span class="f">summarize</span>(qres))
+<span class="f">print</span>(<span class="f">summarize</span>(sres))
+<span class="f">print</span>(<span class="f">summarize</span>(pk))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code> — MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment (see the <code>argmin</code>/<code>argmax</code>/<code>median</code>/... doc comment history), so this returns a <code>Value::Model</code> instead, the same named-field multi-return convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> already use: kind <code>"findpeaks"</code>, fields <code>peaks</code> (the values) and <code>locations</code> (their 0-indexed positions in <code>x</code> — Qu is 0-indexed everywhere, unlike MATLAB's 1-indexing, so there is deliberately no +1 offset here). Shares its actual peak- finding/non-max-suppression logic with <code>find_peaks</code> above (<code>numeric::transforms::find_peaks</code>) rather than a second implementation; <code>min_prominence</code> isn't exposed here since MATLAB's own <code>findpeaks</code> kwarg vocabulary this is modeled on is <code>MinPeakHeight</code>/<code>MinPeakDistance</code>, not prominence.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

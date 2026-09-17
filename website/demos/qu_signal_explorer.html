@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal explorer (sliders) — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Signal explorer (sliders)</h1>
+<p class="lede">a filter you can feel, as a page you can send.</p>
+<p class="srcpath">catalog/qu_signal_explorer.qu</p>
+<p>Three sliders over a band-pass: where it sits, how wide it is, and how sharp. Drag any of them and the whole figure -- the time record, the spectrum, the poles -- responds at once.</p>
+<p>WHAT THIS IS FOR. Reading a transfer function tells you what a filter does. Widening the band from 20 Hz to 200 and watching the ringing shorten while the skirts fall away tells you what it MEANS, and the second is the one that stays learned. It is also how you hand a colleague a result they can interrogate rather than a figure they can only look at.</p>
+<p>HOW IT WORKS, AND ITS LIMIT. There is no Qu in a browser. `explore` renders every combination up front and the sliders CHOOSE among them, so the cost is the product of the step counts and it is capped. Ten by six by four is 240 figures: a large page, an instant response, and no server, no network, no install.</p>
+<p>`ui_slider` is the other half of this story -- it declares a control for a HOST to render, which is right when QuStudio is running the script and useless when you want to email someone a file. Both exist because both questions are real.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>explore(fn, path, names=, from=, to=, steps=)  — the interactive export</li>
+<li>butter / sosfilt / freqz / poles / is_stable   — the real filter API</li>
+<li>panel(3, 1, k)                                 — three views, one figure</li>
+<li>circle / axis off                              — the unit circle</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A test signal worth filtering: three tones and noise.</h3>
+<p>Built once, outside the explorer, so every combination sees exactly the same input -- otherwise a slider would appear to change the noise as well as the filter, and the comparison would be worthless.</p>
+<pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / FS
+x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">60</span> * t) + <span class="n">0.8</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">180</span> * t) + <span class="n">0.6</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">340</span> * t)
+x = x + <span class="n">0.35</span> * <span class="f">randn</span>(N, <span class="a">seed</span> = <span class="n">4</span>)
+
+<span class="k">function</span> <span class="f">explorer</span>(centre, width, order)
+    n = <span class="f">round</span>(order)
+    lo = <span class="f">max</span>(centre - width / <span class="n">2</span>, <span class="n">5.0</span>)
+    hi = <span class="f">min</span>(centre + width / <span class="n">2</span>, FS / <span class="n">2</span> - <span class="n">5.0</span>)
+    filt = <span class="f">butter</span>(n, <span class="s">"bandpass"</span>, [lo, hi], FS)
+    y = <span class="f">sosfilt</span>(filt, x)
+</code></pre>
+</section>
+<section class="step">
+<h3>The time record, before and after</h3>
+<pre class="hl"><code>    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">1</span>)
+    <span class="f">plot</span>(t, x, <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"input"</span>)
+    <span class="f">plot</span>(t, y, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.3</span>, <span class="a">label</span> = <span class="s">"filtered"</span>)
+    <span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+    <span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+    <span class="f">title</span>(<span class="s">"band-pass {lo:.0f}-{hi:.0f} Hz, order {n}"</span>)
+    <span class="f">ylim</span>(-<span class="n">3.2</span>, <span class="n">3.2</span>)
+    <span class="f">legend</span>()
+</code></pre>
+</section>
+<section class="step">
+<h3>The spectrum, with the filter drawn over it</h3>
+<pre class="hl"><code>    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>)
+    spec = <span class="f">abs</span>(<span class="f">rfft</span>(y)) / (N / <span class="n">2</span>)
+    freqs = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spec) - <span class="n">1</span>) * FS / N
+    <span class="f">plot</span>(freqs, <span class="f">mag2db</span>(spec + <span class="n">1e-9</span>), <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"output spectrum"</span>)
+
+    fr = <span class="f">abs</span>(<span class="f">freqz</span>(filt, <span class="n">400</span>))
+    ff = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(fr) - <span class="n">1</span>) * (FS / <span class="n">2</span>) / (<span class="f">len</span>(fr) - <span class="n">1</span>)
+    <span class="f">plot</span>(ff, <span class="f">mag2db</span>(fr + <span class="n">1e-9</span>), <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"filter"</span>)
+
+    <span class="c"># The three tones, so you can see which survive.</span>
+    <span class="f">vline</span>(<span class="n">60</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">180</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">340</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">xlabel</span>(<span class="s">"frequency [Hz]"</span>)
+    <span class="f">ylabel</span>(<span class="s">"[dB]"</span>)
+    <span class="f">ylim</span>(-<span class="n">70</span>, <span class="n">10</span>)
+    <span class="f">xlim</span>(<span class="n">0</span>, FS / <span class="n">2</span>)
+    <span class="f">legend</span>()
+</code></pre>
+</section>
+<section class="step">
+<h3>Where the poles are</h3>
+<p>The whole behaviour above is these dots. A narrower band pushes them toward the unit circle and the ringing lengthens; a higher order adds more of them and the skirts steepen. Watching the three panels move together is the point of the page.</p>
+<pre class="hl"><code>    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">3</span>)
+    <span class="c"># `axis equal` matters here and nowhere else on this figure: the unit</span>
+    <span class="c"># circle is only a circle if the two scales agree, and without it the</span>
+    <span class="c"># panel's width turns it into a very flat ellipse.</span>
+    axis equal
+    <span class="f">xlim</span>(-<span class="n">1.25</span>, <span class="n">1.25</span>)
+    <span class="f">ylim</span>(-<span class="n">1.25</span>, <span class="n">1.25</span>)
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"#c0c8d4"</span>, <span class="a">width</span> = <span class="n">1.0</span>)
+    <span class="f">hline</span>(<span class="n">0</span>, <span class="a">color</span> = <span class="s">"#e2e6ec"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">0</span>, <span class="a">color</span> = <span class="s">"#e2e6ec"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+
+    p = <span class="f">poles</span>(filt)
+    <span class="f">scatter</span>(<span class="f">re</span>(p), <span class="f">im</span>(p), <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">marker</span> = <span class="s">"x"</span>, <span class="a">size</span> = <span class="n">80</span>)
+    worst = <span class="f">max</span>(<span class="f">abs</span>(p))
+    <span class="f">text</span>(<span class="n">0.0</span>, -<span class="n">1.16</span>, <span class="s">"largest |pole| = {worst:.4f}"</span>, <span class="a">size</span> = <span class="n">11</span>, <span class="a">color</span> = <span class="s">"#59616f"</span>)
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Build the page</h3>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"rendering the parameter grid -- this takes a moment"</span>)
+<span class="f">explore</span>(<span class="s">"explorer"</span>, <span class="s">"signal_explorer.html"</span>,
+        <span class="a">names</span> = (<span class="s">"centre [Hz]"</span>, <span class="s">"bandwidth [Hz]"</span>, <span class="s">"order"</span>),
+        <span class="a">from</span>  = (<span class="n">80</span>, <span class="n">20</span>, <span class="n">2</span>),
+        <span class="k">to</span>    = (<span class="n">350</span>, <span class="n">220</span>, <span class="n">5</span>),
+        <span class="a">steps</span> = (<span class="n">10</span>, <span class="n">6</span>, <span class="n">4</span>))
+<span class="f">print</span>(<span class="s">"open signal_explorer.html and drag -- no server, no network"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>rendering the parameter grid -- this takes a moment
+open signal_explorer.html and drag -- no server, no network</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_signal_explorer.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_signal_explorer.qu — a filter you can feel, as a page you can send.</span>
+<span class="c">#</span>
+<span class="c"># Three sliders over a band-pass: where it sits, how wide it is, and how</span>
+<span class="c"># sharp. Drag any of them and the whole figure -- the time record, the</span>
+<span class="c"># spectrum, the poles -- responds at once.</span>
+<span class="c">#</span>
+<span class="c"># WHAT THIS IS FOR. Reading a transfer function tells you what a filter</span>
+<span class="c"># does. Widening the band from 20 Hz to 200 and watching the ringing</span>
+<span class="c"># shorten while the skirts fall away tells you what it MEANS, and the</span>
+<span class="c"># second is the one that stays learned. It is also how you hand a colleague</span>
+<span class="c"># a result they can interrogate rather than a figure they can only look at.</span>
+<span class="c">#</span>
+<span class="c"># HOW IT WORKS, AND ITS LIMIT. There is no Qu in a browser. `explore`</span>
+<span class="c"># renders every combination up front and the sliders CHOOSE among them, so</span>
+<span class="c"># the cost is the product of the step counts and it is capped. Ten by six</span>
+<span class="c"># by four is 240 figures: a large page, an instant response, and no server,</span>
+<span class="c"># no network, no install.</span>
+<span class="c">#</span>
+<span class="c"># `ui_slider` is the other half of this story -- it declares a control for</span>
+<span class="c"># a HOST to render, which is right when QuStudio is running the script and</span>
+<span class="c"># useless when you want to email someone a file. Both exist because both</span>
+<span class="c"># questions are real.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   explore(fn, path, names=, from=, to=, steps=)  — the interactive export</span>
+<span class="c">#   butter / sosfilt / freqz / poles / is_stable   — the real filter API</span>
+<span class="c">#   panel(3, 1, k)                                 — three views, one figure</span>
+<span class="c">#   circle / axis off                              — the unit circle</span>
+
+<span class="k">backend</span> auto
+
+FS = <span class="n">1000.0</span>
+N = <span class="n">512</span>
+
+<span class="c">#%% A test signal worth filtering: three tones and noise.</span>
+<span class="c">#</span>
+<span class="c"># Built once, outside the explorer, so every combination sees exactly the</span>
+<span class="c"># same input -- otherwise a slider would appear to change the noise as well</span>
+<span class="c"># as the filter, and the comparison would be worthless.</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / FS
+x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">60</span> * t) + <span class="n">0.8</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">180</span> * t) + <span class="n">0.6</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">340</span> * t)
+x = x + <span class="n">0.35</span> * <span class="f">randn</span>(N, <span class="a">seed</span> = <span class="n">4</span>)
+
+<span class="k">function</span> <span class="f">explorer</span>(centre, width, order)
+    n = <span class="f">round</span>(order)
+    lo = <span class="f">max</span>(centre - width / <span class="n">2</span>, <span class="n">5.0</span>)
+    hi = <span class="f">min</span>(centre + width / <span class="n">2</span>, FS / <span class="n">2</span> - <span class="n">5.0</span>)
+    filt = <span class="f">butter</span>(n, <span class="s">"bandpass"</span>, [lo, hi], FS)
+    y = <span class="f">sosfilt</span>(filt, x)
+
+    <span class="c">#%% The time record, before and after</span>
+    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">1</span>)
+    <span class="f">plot</span>(t, x, <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"input"</span>)
+    <span class="f">plot</span>(t, y, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.3</span>, <span class="a">label</span> = <span class="s">"filtered"</span>)
+    <span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+    <span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+    <span class="f">title</span>(<span class="s">"band-pass {lo:.0f}-{hi:.0f} Hz, order {n}"</span>)
+    <span class="f">ylim</span>(-<span class="n">3.2</span>, <span class="n">3.2</span>)
+    <span class="f">legend</span>()
+
+    <span class="c">#%% The spectrum, with the filter drawn over it</span>
+    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>)
+    spec = <span class="f">abs</span>(<span class="f">rfft</span>(y)) / (N / <span class="n">2</span>)
+    freqs = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spec) - <span class="n">1</span>) * FS / N
+    <span class="f">plot</span>(freqs, <span class="f">mag2db</span>(spec + <span class="n">1e-9</span>), <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"output spectrum"</span>)
+
+    fr = <span class="f">abs</span>(<span class="f">freqz</span>(filt, <span class="n">400</span>))
+    ff = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(fr) - <span class="n">1</span>) * (FS / <span class="n">2</span>) / (<span class="f">len</span>(fr) - <span class="n">1</span>)
+    <span class="f">plot</span>(ff, <span class="f">mag2db</span>(fr + <span class="n">1e-9</span>), <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"filter"</span>)
+
+    <span class="c"># The three tones, so you can see which survive.</span>
+    <span class="f">vline</span>(<span class="n">60</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">180</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">340</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">color</span> = <span class="s">"#8a92a0"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">xlabel</span>(<span class="s">"frequency [Hz]"</span>)
+    <span class="f">ylabel</span>(<span class="s">"[dB]"</span>)
+    <span class="f">ylim</span>(-<span class="n">70</span>, <span class="n">10</span>)
+    <span class="f">xlim</span>(<span class="n">0</span>, FS / <span class="n">2</span>)
+    <span class="f">legend</span>()
+
+    <span class="c">#%% Where the poles are</span>
+    <span class="c">#</span>
+    <span class="c"># The whole behaviour above is these dots. A narrower band pushes them</span>
+    <span class="c"># toward the unit circle and the ringing lengthens; a higher order adds</span>
+    <span class="c"># more of them and the skirts steepen. Watching the three panels move</span>
+    <span class="c"># together is the point of the page.</span>
+    <span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">3</span>)
+    <span class="c"># `axis equal` matters here and nowhere else on this figure: the unit</span>
+    <span class="c"># circle is only a circle if the two scales agree, and without it the</span>
+    <span class="c"># panel's width turns it into a very flat ellipse.</span>
+    axis equal
+    <span class="f">xlim</span>(-<span class="n">1.25</span>, <span class="n">1.25</span>)
+    <span class="f">ylim</span>(-<span class="n">1.25</span>, <span class="n">1.25</span>)
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"#c0c8d4"</span>, <span class="a">width</span> = <span class="n">1.0</span>)
+    <span class="f">hline</span>(<span class="n">0</span>, <span class="a">color</span> = <span class="s">"#e2e6ec"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+    <span class="f">vline</span>(<span class="n">0</span>, <span class="a">color</span> = <span class="s">"#e2e6ec"</span>, <span class="a">width</span> = <span class="n">0.8</span>)
+
+    p = <span class="f">poles</span>(filt)
+    <span class="f">scatter</span>(<span class="f">re</span>(p), <span class="f">im</span>(p), <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">marker</span> = <span class="s">"x"</span>, <span class="a">size</span> = <span class="n">80</span>)
+    worst = <span class="f">max</span>(<span class="f">abs</span>(p))
+    <span class="f">text</span>(<span class="n">0.0</span>, -<span class="n">1.16</span>, <span class="s">"largest |pole| = {worst:.4f}"</span>, <span class="a">size</span> = <span class="n">11</span>, <span class="a">color</span> = <span class="s">"#59616f"</span>)
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c">#%% Build the page</span>
+<span class="f">print</span>(<span class="s">"rendering the parameter grid -- this takes a moment"</span>)
+<span class="f">explore</span>(<span class="s">"explorer"</span>, <span class="s">"signal_explorer.html"</span>,
+        <span class="a">names</span> = (<span class="s">"centre [Hz]"</span>, <span class="s">"bandwidth [Hz]"</span>, <span class="s">"order"</span>),
+        <span class="a">from</span>  = (<span class="n">80</span>, <span class="n">20</span>, <span class="n">2</span>),
+        <span class="k">to</span>    = (<span class="n">350</span>, <span class="n">220</span>, <span class="n">5</span>),
+        <span class="a">steps</span> = (<span class="n">10</span>, <span class="n">6</span>, <span class="n">4</span>))
+<span class="f">print</span>(<span class="s">"open signal_explorer.html and drag -- no server, no network"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

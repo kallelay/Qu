@@ -1,0 +1,10 @@
+f = logspace(1, 7, 300)
+tau = 1e-4
+H = 1 ./ (1 + 2i*pi*f*tau)
+semilogx(f, 20*log10(abs(H)), label="|H|")
+xlabel("Frequency (Hz)")
+ylabel("Magnitude (dB)")
+title("Log-x Bode")
+grid on
+legend()
+savefig("04_log_x_bode.svg")

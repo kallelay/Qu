@@ -1,0 +1,2026 @@
+# gen_function_pages.qu — a page per builtin, with real examples.
+#
+# Asked for directly: "where can I find the documentation for each function
+# in own page? with examples". Until now the answer was two half-answers --
+# `refs.html` has every signature and `builtin-index.html` a line each, but
+# neither shows you the function being used.
+#
+# Nothing here is written twice. The signature and the description come from
+# the chapter tables, the same single source the builtin index reads. The
+# examples are the documentation's own code blocks, already run by
+# `tools/run_doc_outputs.sh`, so each one arrives with the output it really
+# printed and the figure it really drew -- an example on a function's page
+# cannot claim a result the engine does not produce, because the build
+# produced it.
+#
+#   bash tools/build_function_pages.sh
+
+OUT_DIR = getenv("QU_FN_OUT_DIR") ?? "website/fn"
+RUN = ".doc-run"
+BT = "`"
+
+chapters = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+chapter_names = ("Core maths", "Signal processing", "Compressed sensing",
+                 "Noise", "Statistics & ML", "Plotting", "Images",
+                 "Collections & strings", "File I/O", "Concurrency",
+                 "REPL & diagnostics")
+
+chapter_pages = ("core-math", "signal-processing", "compressed-sensing",
+                 "noise", "statistics-ml", "plotting", "images",
+                 "collections-strings", "file-io", "concurrency",
+                 "repl-diagnostics")
+
+# `split_cells` and the other shared text helpers come from the module
+# rather than a fourth copy of each. The escaped-pipe bug was live in
+# three generators at once, which is the definition of something that
+# should exist once. A local definition below still wins over the
+# imported one, so this file keeps its own `md_inline` (which renders
+# bold) and its own `esc`.
+import "lib/text.qu"
+
+IDENT = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+function is_ident(c)
+    return contains(IDENT, c)
+end function
+
+function esc(s)
+    # A cell that needs a literal `|` escapes it as `\|` in the markdown
+    # source so `split_cells` doesn't read it as a column boundary (see
+    # `box`'s `box on\|off`). That escaping is only meaningful for
+    # parsing the table -- once the cell is a Qu string it has to be
+    # undone before display, or the reader sees the backslash. Done
+    # first, before `&` is escaped, so it cannot interact with entities.
+    s = replace(s, "\\|", "|")
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    return replace(s, ">", "&gt;")
+end function
+
+function strip_ticks(s)
+    out = ""
+    for k in 0 to len(s) - 1
+        c = substr(s, k, 1)
+        if c != BT
+            out = out + c
+        end if
+    end for
+    return trim(out)
+end function
+
+# `sqrt` in `sqrt(x)`, but not in `mysqrt(` or `x.sqrt`.
+# `sqrt` in `sqrt(x)`, but not in a comment that merely mentions
+# `sqrt(3^2 + 4^2)` while explaining a DIFFERENT function's output --
+# a comment naming another builtin must not inflate this block's
+# complexity score, nor wrongly attribute it to that other builtin's page.
+function calls_in(text)
+    out = ()
+    tok = ""
+    in_comment = false
+    for i in 0 to len(text) - 1
+        c = substr(text, i, 1)
+        if c == "\n"
+            in_comment = false
+        end if
+        if in_comment
+            continue
+        end if
+        if c == "#"
+            in_comment = true
+            tok = ""
+            continue
+        end if
+        if is_ident(c)
+            tok = tok + c
+        else
+            # A dot continues the token, so `xlsx.read(...)` is recognised
+            # as the MODULE's `read` rather than the builtin of that name.
+            # A method-style call on a variable (`s.substr(0, 2)`) makes a
+            # dotted token too; the caller reduces that one back to the
+            # part after the dot, because no module claims it.
+            if c == "." and len(tok) > 0
+                tok = tok + c
+                continue
+            end if
+            if c == "(" and len(tok) > 0
+                out = append(out, tok)
+            end if
+            tok = ""
+        end if
+    end for
+    return out
+end function
+
+
+function seen(xs, nm)
+    for x in xs
+        if x == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+function index_of_name(xs, nm)
+    for k in 0 to len(xs) - 1
+        if xs[k] == nm
+            return k
+        end if
+    end for
+    return -1
+end function
+
+# Markdown inline code and bold, enough for a one-line description.
+#
+# Bold applies only OUTSIDE a code span, by the same alternating split the
+# chapter renderer uses -- so a description reads the same on its
+# function page as in the chapter it came from. Without it the `**` in a
+# chapter's table cell was printed at the reader: `reshape` announced
+# "**Reshaping a matrix ... does not relayout the data**" with the
+# asterisks still in it.
+function md_inline(s)
+    out = ""
+    parts = split(esc(s), BT)
+    for i in 0 to len(parts) - 1
+        if i - 2 * floor(i / 2) == 1
+            out = out + "<code>" + parts[i] + "</code>"
+        else
+            seg = parts[i]
+            if contains(seg, "**")
+                bits = split(seg, "**")
+                seg = ""
+                for j in 0 to len(bits) - 1
+                    if j - 2 * floor(j / 2) == 1
+                        seg = seg + "<strong>" + bits[j] + "</strong>"
+                    else
+                        seg = seg + bits[j]
+                    end if
+                end for
+            end if
+            out = out + seg
+        end if
+    end for
+    return out
+end function
+
+# Pulls the trailing "Returns ..." sentence(s) off a description, so
+# "what it is" and "what comes back" render as separate sections instead
+# of one paragraph running both questions together. Takes the LAST
+# sentence that starts with "Returns" as the cut point (a return
+# description can itself run more than one sentence, e.g. naming a
+# Record's fields), so an earlier, unrelated use of the word does not
+# truncate the description early.
+function split_returns(blurb)
+    sentences = split(blurb, ". ")
+    cut = -1
+    for i in 0 to len(sentences) - 1
+        s = trim(sentences[i])
+        if starts_with(s, "Returns ") or s == "Returns" or starts_with(s, "Returns:")
+            cut = i
+        end if
+    end for
+    if cut < 0
+        return {rest = blurb, ret = ""}
+    end if
+    before = ()
+    for i in 0 to cut - 1
+        before = append(before, sentences[i])
+    end for
+    after = ()
+    for i in cut to len(sentences) - 1
+        after = append(after, sentences[i])
+    end for
+    rest = join(before, ". ")
+    if len(rest) > 0 and not ends_with(rest, ".")
+        rest = rest + "."
+    end if
+    return {rest = trim(rest), ret = trim(join(after, ". "))}
+end function
+
+SRC = "engine/crates/qu-interp/src/lib.rs"
+QT = chr(34)
+
+# A comment line that is a section banner, a file path, or an editorial
+# note to whoever is next in the file -- not documentation for a reader.
+function is_noise(c)
+    if len(c) == 0
+        return true
+    end if
+    if starts_with(c, "----") or starts_with(c, "====")
+        return true
+    end if
+    if contains(c, "engine/crates/") or contains(c, ".rs`") or contains(c, "IMPL.md")
+        return true
+    end if
+    return false
+end function
+
+function clean_comment(line)
+    c = trim(line)
+    while starts_with(c, "/")
+        c = trim(substr(c, 1, len(c) - 1))
+    end while
+    if starts_with(c, "!")
+        c = trim(substr(c, 1, len(c) - 1))
+    end if
+    return c
+end function
+
+# The quoted names on a match-arm line: `"kmeans" | "kmedians" => {`.
+function quoted_names(line)
+    out = ()
+    tok = ""
+    inside = false
+    for i in 0 to len(line) - 1
+        c = substr(line, i, 1)
+        if c == QT
+            if inside
+                out = append(out, tok)
+                tok = ""
+            end if
+            inside = not inside
+            continue
+        end if
+        if inside
+            tok = tok + c
+        end if
+    end for
+    return out
+end function
+
+# Split an argument list on commas that are not inside brackets or quotes.
+function split_args(s)
+    out = ()
+    cur = ""
+    depth = 0
+    inq = false
+    for i in 0 to len(s) - 1
+        c = substr(s, i, 1)
+        if c == QT
+            inq = not inq
+        end if
+        if not inq
+            if c == "[" or c == "(" or c == "{{"
+                depth = depth + 1
+            end if
+            if c == "]" or c == ")" or c == "}}"
+                depth = depth - 1
+            end if
+            if c == "," and depth == 0
+                out = append(out, trim(cur))
+                cur = ""
+                continue
+            end if
+        end if
+        cur = cur + c
+    end for
+    if len(trim(cur)) > 0
+        out = append(out, trim(cur))
+    end if
+    return out
+end function
+
+# The part between the first `(` and the last `)` of a signature.
+# The matching close paren for the FIRST open paren, not just "the last
+# close paren anywhere in the string" -- a few builtins (`plot`, ...)
+# document more than one call form in one signature cell, e.g.
+# `` `plot(y)` / `plot(x, y)` / `plot(x, y, "o")` ``, and the old
+# last-close-paren version swallowed everything from the first form's
+# open paren through the last form's close paren as one garbled argument
+# list. Only the FIRST form is used for argument extraction; it is
+# consistently the simplest/most representative one in this codebase.
+function arg_text(sig)
+    open_at = index_of(sig, "(") ?? -1
+    if open_at < 0
+        return ""
+    end if
+    depth = 0
+    close_at = -1
+    for i in open_at to len(sig) - 1
+        c = substr(sig, i, 1)
+        if c == "("
+            depth = depth + 1
+        end if
+        if c == ")"
+            depth = depth - 1
+            if depth == 0
+                close_at = i
+                break
+            end if
+        end if
+    end for
+    if close_at <= open_at
+        return ""
+    end if
+    return substr(sig, open_at + 1, close_at - open_at - 1)
+end function
+
+# The first sentence of `text` that names `word` as a word of its own.
+# Argument names are short (`n`, `x`, `k`), so a bare substring search
+# would match inside half the words on the page.
+function names_word(s, word)
+    at = index_of(s, word) ?? -1
+    while at >= 0
+        before_ok = true
+        if at > 0
+            before_ok = not is_ident(substr(s, at - 1, 1))
+        end if
+        after = at + len(word)
+        after_ok = true
+        if after < len(s)
+            after_ok = not is_ident(substr(s, after, 1))
+        end if
+        if before_ok and after_ok
+            return true
+        end if
+        if after >= len(s)
+            return false
+        end if
+        rest = substr(s, after, len(s) - after)
+        nxt = index_of(rest, word) ?? -1
+        if nxt < 0
+            return false
+        end if
+        at = after + nxt
+    end while
+    return false
+end function
+
+# The smallest piece of `text` that names `word` as a word of its own:
+# the sentence, then the semicolon clause inside it when there is a tighter
+# one. Argument names are short (`n`, `x`, `k`), so a bare substring search
+# would match inside half the words on the page.
+# Qu's own type vocabulary, in no particular order -- matched as whole
+# words (backticks and punctuation are not word characters, so `Vec`
+# matches inside `` `Vec` `` markdown too) and re-ordered to the sequence
+# they actually appear in, so "a real scalar/`Vec`/`Mat`" comes back as
+# ("scalar", "Vec", "Mat"), not alphabetical or declaration order.
+TYPE_WORDS = ("Num", "Vec", "Mat", "Signal", "Complex", "CVec", "CMat",
+              "Str", "List", "Table", "DataFrame", "Record", "Model",
+              "Dict", "Image", "bool", "Fifo", "Mask", "Graph", "Queue",
+              "Mutex", "Semaphore", "Channel", "Worker", "TcpConn",
+              "TcpListener", "Serial", "scalar", "vector", "matrix",
+              "number", "string", "boolean")
+
+function type_tokens_in(text)
+    hits = ()
+    for w in TYPE_WORDS
+        # "two equal-length Vecs" names the same type as "a `Vec`" -- the
+        # plural is prose, not a different type -- and matching only the
+        # exact word left those sentences with no type at all.
+        if names_word(text, w) or names_word(text, w + "s")
+            p = index_of(text, w) ?? 999999
+            placed = ()
+            inserted = false
+            for e in hits
+                if not inserted and p < e.pos
+                    placed = append(placed, {pos = p, word = w})
+                    inserted = true
+                end if
+                placed = append(placed, e)
+            end for
+            if not inserted
+                placed = append(placed, {pos = p, word = w})
+            end if
+            hits = placed
+        end if
+    end for
+    out = ()
+    for e in hits
+        out = append(out, e.word)
+    end for
+    return out
+end function
+
+function join_or(xs)
+    if len(xs) == 0
+        return ""
+    end if
+    if len(xs) == 1
+        return xs[0]
+    end if
+    if len(xs) == 2
+        return xs[0] + " or " + xs[1]
+    end if
+    head = ()
+    for i in 0 to len(xs) - 2
+        head = append(head, xs[i])
+    end for
+    return join(head, ", ") + ", or " + xs[len(xs) - 1]
+end function
+
+# Pulls `` `name` (description) `` pairs out of a "Returns ... with
+# fields: `u` (`r×k` `Mat`), `s` (...), ..." sentence -- the shape this
+# codebase already writes for anything returning a multi-field Record
+# (svd/qr/lu/eig's Model, an estimation filter's state, ...). Only a
+# backtick-name IMMEDIATELY followed by `(` counts as a field marker, so
+# an ordinary backticked type mention elsewhere in the sentence (` `Mat``
+# on its own) is never mistaken for one. Returns () if the text doesn't
+# have this shape -- the caller falls back to a single generic row.
+function extract_field_list(text)
+    fields = ()
+    i = 0
+    n = len(text)
+    while i < n
+        bt1 = index_of(substr(text, i, n - i), BT) ?? -1
+        if bt1 < 0
+            break
+        end if
+        nm_start = i + bt1 + 1
+        bt2 = index_of(substr(text, nm_start, n - nm_start), BT) ?? -1
+        if bt2 < 0
+            break
+        end if
+        nm = substr(text, nm_start, bt2)
+        after_name = nm_start + bt2 + 1
+        # A field marker allows one space before its `(...)` ("`u` (`r×k`
+        # `Mat`)"); anything else at this position means this backtick
+        # pair was just an ordinary type/value mention, not a field.
+        paren_at = after_name
+        if paren_at < n and substr(text, paren_at, 1) == " "
+            paren_at = paren_at + 1
+        end if
+        if paren_at >= n or substr(text, paren_at, 1) != "("
+            i = after_name
+            continue
+        end if
+        after_name = paren_at
+        depth = 0
+        close_at = -1
+        for k in after_name to n - 1
+            c = substr(text, k, 1)
+            if c == "("
+                depth = depth + 1
+            end if
+            if c == ")"
+                depth = depth - 1
+                if depth == 0
+                    close_at = k
+                    break
+                end if
+            end if
+        end for
+        if close_at < 0
+            break
+        end if
+        desc = substr(text, after_name + 1, close_at - after_name - 1)
+        if len(nm) > 0 and len(nm) <= 20 and is_ident(substr(nm, 0, 1))
+            fields = append(fields, {name = nm, desc = desc})
+        end if
+        i = close_at + 1
+    end while
+    return fields
+end function
+
+# Does this clause OPEN with `word` -- is it about that argument, rather
+# than merely mentioning it?
+function opens_with_word(s, word)
+    c = trim(s)
+    if starts_with(c, BT)
+        c = substr(c, 1, len(c) - 1)
+    end if
+    if not starts_with(c, word)
+        return false
+    end if
+    if len(c) == len(word)
+        return true
+    end if
+    return not is_ident(substr(c, len(word), 1))
+end function
+
+function sentence_about(text, word)
+    # First choice, wherever it sits: the clause that opens with the
+    # argument's own name. A clause that merely mentions it is usually
+    # about a different argument -- "`src` is a file with more than one
+    # channel" names `channel` only in passing, and taking it for
+    # `channel`'s row printed one sentence across two rows.
+    for part in split(text, ". ")
+        for piece in split(trim(part), "; ")
+            c = trim(piece)
+            if opens_with_word(c, word)
+                if ends_with(c, ".") or ends_with(c, ";")
+                    return c
+                end if
+                return c + "."
+            end if
+        end for
+    end for
+    for part in split(text, ". ")
+        s = trim(part)
+        if len(s) == 0 or not names_word(s, word)
+            continue
+        end if
+        best = s
+        for piece in split(s, "; ")
+            c = trim(piece)
+            if names_word(c, word) and len(c) < len(best)
+                best = c
+            end if
+        end for
+        if ends_with(best, ".") or ends_with(best, ";")
+            return best
+        end if
+        return best + "."
+    end for
+    return ""
+end function
+
+# ── what exists ────────────────────────────────────────────────────────
+
+names = builtins()
+print("{len(names)} builtins")
+
+# ── and what the native modules add ─────────────────────────────────────
+#
+# `builtins()` deliberately does not list `codec.decode_flac` or
+# `xlsx.read`: they are not in the interpreter's dispatch table, they come
+# from modules `import` opens. But they are functions a reader calls and
+# needs documented, so a reference that skips them is incomplete.
+#
+# `MODULE_EXPORTS` in the interpreter is the authority -- it is declared
+# rather than derived, because the bare-name form has to know a module's
+# surface before dispatch in order to refuse an ambiguous name, and a test
+# walks it against the dispatch arms so it cannot drift silently.
+mod_names = ()
+mod_body = read_all_text(SRC)
+mod_at = index_of(mod_body, "pub const MODULE_EXPORTS") ?? -1
+if mod_at >= 0
+    mod_body = substr(mod_body, mod_at, len(mod_body) - mod_at)
+    mod_body = substr(mod_body, 0, index_of(mod_body, "];") ?? len(mod_body))
+    for line in lines(mod_body)
+        if not contains(line, "(" + QT)
+            continue
+        end if
+        cells = split(line, QT)
+        ns = ""
+        k = 1
+        while k < len(cells)
+            if len(cells[k]) > 0
+                if len(ns) == 0
+                    ns = cells[k]
+                else
+                    qualified = ns + "." + cells[k]
+                    names = append(names, qualified)
+                    mod_names = append(mod_names, qualified)
+                end if
+            end if
+            k = k + 2
+        end while
+    end for
+end if
+print("{len(mod_names)} module functions")
+
+# ── signature, description and home chapter, from the chapter tables ────
+
+# Keyed by name rather than by position: the chapters are read in their
+# own order, and a Qu list cannot be assigned into by index.
+sig = dict()
+desc = dict()
+home = dict()
+family = dict()   # every name that shares a table row with this one
+
+function desc_column(header)
+    cells = split_cells(header)
+    n = len(cells) - 2
+    if n < 2
+        return 2
+    end if
+    for i in 2 to n
+        h = lower(trim(cells[i]))
+        if contains(h, "description") or contains(h, "what it") or contains(h, "meaning") or contains(h, "models") or contains(h, "result") or contains(h, "properties")
+            return i
+        end if
+    end for
+    if n >= 3
+        return 3
+    end if
+    return 2
+end function
+
+for ci in 0 to len(chapters) - 1
+    if not file_exists(chapters[ci])
+        continue
+    end if
+    prev = ""
+    col = 3
+    for raw in lines(read_all_text(chapters[ci]))
+        line = trim(raw)
+        if not starts_with(line, "|")
+            prev = line
+            continue
+        end if
+        if is_separator_row(line)
+            col = desc_column(prev)
+            prev = line
+            continue
+        end if
+        prev = line
+        cells = split_cells(line)
+        if len(cells) < 4 or col > len(cells) - 2
+            continue
+        end if
+        first = trim(cells[1])
+        if not contains(first, BT)
+            continue
+        end if
+        # Not every table whose first cell holds backticked names is a
+        # table OF FUNCTIONS. The noise chapter's "Kind | Models |
+        # Spectrum" lists what each noise kind models, the plotting
+        # chapter's "Handle | Properties" lists what a handle carries, and
+        # the compressed-sensing chapter's "Parameter | Type | Meaning"
+        # describes `cs_recover`'s arguments -- reading those as entries
+        # gave `uniform` "A bounded error source", `text` a bare property
+        # list, and `step` the description of a step SIZE. A function
+        # entry has a signature column, and that signature names the
+        # function; nothing else here does both.
+        if col <= 2
+            continue
+        end if
+        sigcell = cells[2]
+        named = false
+        for a in split(first, ",")
+            cand = strip_ticks(a)
+            if len(cand) > 0 and contains(sigcell, cand)
+                named = true
+            end if
+        end for
+        if not named
+            continue
+        end if
+        kin = ()
+        for a in split(first, ",")
+            nm = strip_ticks(a)
+            if index_of_name(names, nm) >= 0
+                kin = append(kin, nm)
+            end if
+        end for
+        for nm in kin
+            if has_key(desc, nm)
+                continue
+            end if
+            desc = set(desc, nm, trim(cells[col]))
+            if col > 2
+                sig = set(sig, nm, trim(cells[2]))
+            end if
+            home = set(home, nm, ci)
+            family = set(family, nm, kin)
+        end for
+    end for
+end for
+
+print("{len(keys(desc))} carry a description")
+
+# ── the documentation's own examples ────────────────────────────────────
+#
+# Read back out of the built pages. Each `<div class="example">` there is
+# already highlighted and already carries the output the block printed and
+# the figure it drew, so a function's page shows exactly what the chapter
+# shows -- and the highlighter is not copied into this file to drift.
+
+doc_pages = ("start-here", "from-zero", "quickstart", "fundamentals",
+             "numerics-dsp", "specialized", "stdlib-overview",
+             "core-math", "signal-processing", "compressed-sensing", "noise",
+             "statistics-ml", "plotting", "images", "collections-strings",
+             "file-io", "concurrency", "repl-diagnostics", "agent-guide",
+             "tour")
+
+function strip_tags(s)
+    out = ""
+    inside = false
+    for i in 0 to len(s) - 1
+        c = substr(s, i, 1)
+        if c == "<"
+            inside = true
+        else
+            if c == ">"
+                inside = false
+            else
+                if not inside
+                    out = out + c
+                end if
+            end if
+        end if
+    end for
+    return out
+end function
+
+# Rendered HTML back to the sentence its author wrote. A `<code>` span
+# becomes the backtick pair it came from -- so `type_tokens_in`,
+# `sentence_about` and `md_inline` all keep working on it exactly as they
+# do on a chapter table cell -- every other tag disappears, and the
+# entities the renderer escapes are put back. An overload's prose lives
+# only in the RENDERED chapter (that is where the run outputs are), so
+# this is the way back to text for it.
+function html_to_text(s)
+    s = replace(s, "<code>", BT)
+    s = replace(s, "</code>", BT)
+    s = replace(s, "<br>", " ")
+    s = replace(s, "</p>", " ")
+    s = strip_tags(s)
+    s = replace(s, "&lt;", "<")
+    s = replace(s, "&gt;", ">")
+    s = replace(s, "&quot;", QT)
+    s = replace(s, "&#39;", "'")
+    s = replace(s, "&amp;", "&")
+    s = replace(s, "\n", " ")
+    while contains(s, "  ")
+        s = replace(s, "  ", " ")
+    end while
+    return trim(s)
+end function
+
+# The `<tr>` cells of the first table in a fragment, as raw inner HTML.
+# The header row is dropped by the caller, not here.
+function table_rows(html)
+    rows = ()
+    for chunk in split(html, "<tr>")
+        if not contains(chunk, "</td>")
+            continue
+        end if
+        body = substr(chunk, 0, index_of(chunk, "</tr>") ?? len(chunk))
+        cells = ()
+        for cell in split(body, "<td>")
+            if not contains(cell, "</td>")
+                continue
+            end if
+            cells = append(cells, substr(cell, 0, index_of(cell, "</td>") ?? len(cell)))
+        end for
+        if len(cells) > 0
+            rows = append(rows, cells)
+        end if
+    end for
+    return rows
+end function
+
+# How many arguments an example block passes to `nm`, at every place it
+# calls it. This is what decides WHICH overload an example demonstrates
+# when the forms differ by argument count -- `substr(s, 7)` belongs under
+# `substr(s, start)` and `substr(s, 7, 5)` under the three-argument form
+# -- rather than repeating every block under every tab and leaving the
+# reader to work out which is which. Every call is counted, not just the
+# first, because one block often walks through both forms in turn.
+function call_arities(text, nm)
+    out = ()
+    n = len(text)
+    probe = nm + "("
+    i = 0
+    while i < n
+        at = index_of(substr(text, i, n - i), probe) ?? -1
+        if at < 0
+            return out
+        end if
+        p = i + at
+        if p > 0 and is_ident(substr(text, p - 1, 1))
+            i = p + len(probe)
+            continue
+        end if
+        k = p + len(probe)
+        depth = 1
+        count = 1
+        empty = true
+        while k < n
+            c = substr(text, k, 1)
+            # `{{`/`}}` are how a brace is written in a Qu string: a bare
+            # `{` opens an interpolation.
+            if c == "(" or c == "[" or c == "{{"
+                depth = depth + 1
+            end if
+            if c == ")" or c == "]" or c == "}}"
+                depth = depth - 1
+                if depth == 0
+                    break
+                end if
+            end if
+            if c == "," and depth == 1
+                count = count + 1
+            end if
+            if c != " " and c != "\n"
+                empty = false
+            end if
+            k = k + 1
+        end while
+        if empty
+            count = 0
+        end if
+        out = append(out, count)
+        i = p + len(probe)
+    end while
+    return out
+end function
+
+# The arguments of a call shape, each with whether it is optional and what
+# it defaults to. Read off the signature itself, so the table below can
+# never disagree with the call above it.
+function parse_args(signature)
+    out = ()
+    inner = arg_text(signature)
+    if len(trim(inner)) == 0
+        return out
+    end if
+    for a in split_args(inner)
+        spec = trim(a)
+        optional = false
+        if starts_with(spec, "[")
+            optional = true
+            spec = trim(substr(spec, 1, len(spec) - 1))
+            if ends_with(spec, "]")
+                spec = trim(substr(spec, 0, len(spec) - 1))
+            end if
+        end if
+        aname = spec
+        adefault = ""
+        eq = index_of(spec, "=") ?? -1
+        if eq > 0
+            aname = trim(substr(spec, 0, eq))
+            adefault = trim(substr(spec, eq + 1, len(spec) - eq - 1))
+        end if
+        if len(aname) > 0
+            out = append(out, {name = aname, optional = optional, default = adefault})
+        end if
+    end for
+    return out
+end function
+
+# A signature cell sometimes documents more than one call form at once:
+# `` `plot(y)` / `plot(x, y)` / `plot(x, y, "o")` ``. Split it apart, so a
+# form with a tab of its own can list ITS arguments instead of the first
+# form's -- `plot`'s "x and y" tab named only `y` because everything read
+# the leading form.
+function sig_forms(signature)
+    out = ()
+    for piece in split(signature, "/")
+        f = trim(strip_ticks(piece))
+        if len(f) > 0 and contains(f, "(") and contains(f, ")")
+            out = append(out, f)
+        end if
+    end for
+    return out
+end function
+
+# How many arguments a call shape requires, and how many it will take --
+# `sort(vec, [descending])` is 1 to 2. An example whose call falls in that
+# range is an example OF this form.
+function arity_range(args)
+    lo = 0
+    for a in args
+        if not a.optional
+            lo = lo + 1
+        end if
+    end for
+    hi = len(args)
+    for a in args
+        if contains(a.name, "...")
+            hi = 99
+        end if
+    end for
+    return {lo = lo, hi = hi}
+end function
+
+# Does this "Returns ..." sentence describe a value, or say there isn't
+# one? A function with no result says so in words ("Returns nothing",
+# "Returns none") rather than naming a type, and a row reading
+# `result | -- | Returns Nothing.` is worse than a sentence saying so.
+function yields_value(ret)
+    r = lower(strip_ticks(trim(ret)))
+    if len(r) == 0
+        return false
+    end if
+    # The PHRASE, not the bare word. Looking for "nothing" anywhere in the
+    # sentence read "each channel already carries the rate, with nothing to
+    # reassemble" as a function that returns no value at all.
+    for said in ("returns nothing", "returns none", "returns no value")
+        if contains(r, said)
+            return false
+        end if
+    end for
+    return true
+end function
+
+# The Input table for one call shape. Types and meanings are read off
+# THAT shape's own prose where it has some -- which is the whole point of
+# splitting the page by overload: `abs` on a `Complex` takes a `Complex`
+# and the complex tab should say so, not "scalar, Vec, Mat or Complex"
+# merged from every form at once. Falls back to the general description
+# for an argument its own case never mentions.
+# `prose` is the input side of the form's description -- the "Returns ..."
+# sentence removed -- so a type named only on the way OUT does not end up
+# in the Input column: `abs` of a `Complex` returns a real `Num`, and the
+# complex tab used to read "x: Complex or Num" because of it. `full` is
+# the same text with the return sentence back, consulted only when the
+# input side names no type at all.
+# The type this form accepts for one argument, as the Input cell states
+# it: the type words, then optional/repeatable/default folded in.
+function arg_type_words(a, args, prose, full, fallback, formwords)
+    own = sentence_about(prose, a.name)
+    about = own
+    if len(about) == 0
+        about = sentence_about(full, a.name)
+    end if
+    if len(about) == 0
+        about = sentence_about(fallback, a.name)
+    end if
+    type_source = about
+    if len(args) == 1
+        type_source = prose
+    end if
+    words = type_tokens_in(type_source)
+    # This form states its own types and its prose never singles this
+    # argument out. The form is the reason the tab exists, so what it says
+    # outranks the entry-wide sentence, which describes every form at once
+    # -- `plot(x, y)` takes "two equal-length `Vec`s", not the `Str` that
+    # the entry's "marker string" aside mentions.
+    if len(own) == 0 and len(formwords) > 0
+        words = formwords
+    end if
+    if len(words) == 0 and len(args) == 1
+        words = type_tokens_in(full)
+    end if
+    if len(words) == 0
+        words = type_tokens_in(sentence_about(fallback, a.name))
+    end if
+    return words
+end function
+
+function arg_type_of(a, args, prose, full, fallback, formwords)
+    cell = join_or(arg_type_words(a, args, prose, full, fallback, formwords))
+    if len(cell) == 0
+        cell = "&mdash;"
+    end if
+    if a.optional
+        if cell == "&mdash;"
+            cell = "optional"
+        else
+            cell = cell + ", optional"
+        end if
+    end if
+    if contains(a.name, "...")
+        if cell == "&mdash;"
+            cell = "repeatable"
+        else
+            cell = cell + ", repeatable"
+        end if
+    end if
+    if len(a.default) > 0
+        cell = cell + " (default <code>" + esc(a.default) + "</code>)"
+    end if
+    return cell
+end function
+
+# What goes in, for one call form: a line per argument -- its name, the
+# type THIS form takes, and the sentence about it. One cell rather than a
+# table of its own, so a form's input and its output sit on one row and
+# read as the two halves of one call.
+function input_cell(args, prose, full, fallback, formwords)
+    if len(args) == 0
+        return "<span class=\"ionone\">no input</span>"
+    end if
+
+    # Which sentence describes each argument -- decided for ALL of them
+    # first, because the test for "this is not about the argument" is a
+    # comparison between them.
+    abouts = ()
+    for a in args
+        about = sentence_about(prose, a.name)
+        if len(about) == 0
+            about = sentence_about(full, a.name)
+        end if
+        if len(about) == 0
+            about = sentence_about(fallback, a.name)
+        end if
+        abouts = append(abouts, about)
+    end for
+
+    out = ""
+    for i in 0 to len(args) - 1
+        a = args[i]
+        about = abouts[i]
+        # A sentence that serves MORE THAN ONE argument is a description of
+        # the call, not of any one parameter. `arc`'s entry is one sentence
+        # naming all five -- "Draws part of a circle of radius `r` centered
+        # at (`cx`, `cy`), swept from angle `from` to angle `to`" -- and
+        # printing it against each of them filled five rows while telling
+        # the reader nothing about any single one: not what `from` is
+        # measured from, not which way it sweeps, not what `r` is in.
+        # Length was the old test and it is the wrong one; a short sentence
+        # can still be about the whole call, and a long one can be about a
+        # single argument.
+        # Shared by EVERY argument, not merely by some. "`cx` and `cy` are
+        # the centre" genuinely describes both and belongs on both rows;
+        # what is worthless is a sentence that stands against all of them
+        # at once, because then it distinguishes none of them.
+        shared = 0
+        for other in abouts
+            if other == about
+                shared = shared + 1
+            end if
+        end for
+        if len(args) < 2
+            shared = 1
+        end if
+        type_cell = arg_type_of(a, args, prose, full, fallback, formwords)
+        out = out + "<div class=\"ioitem\"><code>" + esc(a.name) + "</code> "
+        out = out + "<span class=\"iotype\">" + type_cell + "</span>"
+        if len(about) > 0 and shared < len(args)
+            out = out + "<span class=\"iodesc\">" + md_inline(about) + "</span>"
+        else
+            # An empty slot that looks filled is worse than a slot that
+            # says it is empty -- the reader cannot tell the difference
+            # between "documented" and "documented badly" otherwise. The
+            # refs page already names its undocumented builtins at the
+            # bottom for the same reason.
+            out = out + "<span class=\"iogap\">not documented yet</span>"
+        end if
+        out = out + "</div>\n"
+    end for
+    return out
+end function
+
+# What comes back, for one call form. A form returning a multi-field
+# Record ("with fields: `u` (...), `s` (...)") names each field, so the
+# cell says what the reader actually unpacks rather than one generic
+# placeholder.
+#
+# "The entry never said" and "the entry said there is none" are different
+# answers, and printing the second for the first is a wrong claim rather
+# than a missing one -- `add` returns a sum, and its chapter row simply
+# has no "Returns ..." sentence yet.
+function output_cell(ret, tfall)
+    if len(trim(ret)) == 0
+        return "<span class=\"ionone\">not documented yet</span>"
+    end if
+    if not yields_value(ret)
+        return "<span class=\"ionone\">no output</span>"
+    end if
+    out = ""
+    fields = extract_field_list(ret)
+    if len(fields) > 0
+        for fld in fields
+            words = type_tokens_in(fld.desc)
+            ftype = join_or(words)
+            fdesc = fld.desc
+            if len(words) > 0
+                # A field is written `` `fs` (`Num`, the sample rate) ``,
+                # so its type is in the description as well. The type is
+                # already beside the name; printing it twice is noise.
+                for lead in (BT + words[0] + BT + ", ", words[0] + ", ")
+                    if starts_with(trim(fdesc), lead)
+                        fdesc = trim(substr(trim(fdesc), len(lead), len(fdesc)))
+                    end if
+                end for
+            end if
+            if len(ftype) == 0
+                ftype = "&mdash;"
+            end if
+            out = out + "<div class=\"ioitem\"><code>" + esc(fld.name) + "</code> "
+            out = out + "<span class=\"iotype\">" + ftype + "</span>"
+            if len(trim(fdesc)) > 0
+                out = out + "<span class=\"iodesc\">" + md_inline(fdesc) + "</span>"
+            end if
+            out = out + "</div>\n"
+        end for
+        return out
+    end if
+    rtype = join_or(type_tokens_in(ret))
+    if len(rtype) == 0
+        # A per-form cell often says what comes back without naming its
+        # type ("everything from `start` to the end of `s`"); the
+        # function's own return sentence is where the type is written.
+        rtype = join_or(type_tokens_in(tfall))
+    end if
+    if len(rtype) == 0
+        rtype = "&mdash;"
+    end if
+    out = out + "<div class=\"ioitem\"><code>result</code> "
+    return out + "<span class=\"iotype\">" + rtype + "</span></div>\n"
+end function
+
+# One row: the call, what goes in, what comes out, and what it does.
+# Ahmed's shape -- "code input output description", "put input and output
+# same table (row)" -- because the two halves of a call are one thing, and
+# two tables side by side made the reader carry the argument list in their
+# head to read the result.
+function io_table(code, incell, outcell, desc)
+    out = "<div class=\"tablewrap\"><table class=\"iotable\">\n"
+    out = out + "<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>\n"
+    out = out + "<tr><td class=\"iocode\"><code>" + esc(code) + "</code></td>"
+    out = out + "<td>" + incell + "</td><td>" + outcell + "</td>"
+    out = out + "<td>" + desc + "</td></tr>\n"
+    return out + "</table></div>\n"
+end function
+
+# The part of a form's prose that neither table picked up. A sentence
+# naming no argument and not starting "Returns" still says something real
+# -- `angle` on a real number "degrades to 0 or pi; a convention, not a
+# measurement" -- and the tables have nowhere to put it. Shown once under
+# them rather than repeating the whole paragraph above them.
+function leftover_prose(prose, args, ret)
+    body = prose
+    if len(ret) > 0
+        at = index_of(prose, ret) ?? -1
+        if at >= 0
+            body = trim(substr(prose, 0, at))
+        end if
+    end if
+    keep = ()
+    for part in split(body, ". ")
+        s = trim(part)
+        if len(s) == 0
+            continue
+        end if
+        used = false
+        for a in args
+            if names_word(s, a.name)
+                used = true
+            end if
+        end for
+        if not used
+            keep = append(keep, s)
+        end if
+    end for
+    if len(keep) == 0
+        return ""
+    end if
+    out = trim(join(keep, ". "))
+    if not ends_with(out, ".")
+        out = out + "."
+    end if
+    return out
+end function
+
+ex_page = ()
+ex_html = ()
+ex_code = ()
+ex_uses = ()
+ex_rank = ()
+
+for pi in 0 to len(doc_pages) - 1
+    path = "website/docs/" + doc_pages[pi] + ".html"
+    if not file_exists(path)
+        continue
+    end if
+    page_html = read_all_text(path)
+    # Every example block starts with this div. Splitting on it costs one
+    # pass; the old code searched with `index_of` over a fresh `substr` of
+    # the remaining page each time, which is quadratic once a page carries
+    # inline SVG figures.
+    chunks = split(page_html, "<div class=\"example")
+    for ch in 1 to len(chunks) - 1
+        # The block ends at the `</div>` that closes the example itself,
+        # not at the one closing its nested output div. Count the opens in
+        # each segment as the closes are consumed.
+        segs = split(chunks[ch], "</div>")
+        depth = 1
+        block = "<div class=\"example"
+        for si in 0 to len(segs) - 1
+            block = block + segs[si]
+            depth = depth + len(split(segs[si], "<div")) - 1
+            depth = depth - 1
+            block = block + "</div>"
+            if depth == 0
+                break
+            end if
+        end for
+
+        code_at = index_of(block, "<code>") ?? -1
+        code_end = index_of(block, "</code>") ?? -1
+        if code_at < 0 or code_end < code_at
+            continue
+        end if
+        code = strip_tags(substr(block, code_at + 6, code_end - code_at - 6))
+
+        used = ()
+        for tok in calls_in(code)
+            nm = tok
+            # A dotted token is a module's function when a module claims
+            # it (`xlsx.read`), and a method-style call on an ordinary
+            # value otherwise (`s.substr(0, 2)`) -- in which case the
+            # builtin being demonstrated is the part after the dot.
+            if contains(nm, ".") and index_of_name(names, nm) < 0
+                while contains(nm, ".")
+                    at = index_of(nm, ".") ?? -1
+                    nm = substr(nm, at + 1, len(nm) - at - 1)
+                end while
+            end if
+            if not seen(used, nm) and index_of_name(names, nm) >= 0
+                used = append(used, nm)
+            end if
+        end for
+        if len(used) == 0
+            continue
+        end if
+
+        # `print`/`disp` are boilerplate that almost every good example
+        # calls to show its result -- like a REPL's implicit echo -- not
+        # an extra concept the reader has to hold in mind. Counting it
+        # toward complexity would make a plain, printed call to `nm` score
+        # WORSE than a silent one-liner that merely composes `nm` with
+        # something advanced, which is backwards.
+        weighted = ()
+        for nm in used
+            if nm != "print" and nm != "disp"
+                weighted = append(weighted, nm)
+            end if
+        end for
+
+        # Simplest first, like a real reference (numpy's scalar-then-matrix
+        # progression, MATLAB's vector-then-matrix one): a block naming
+        # fewer builtins and fewer lines is the more focused explanation of
+        # THIS function, regardless of whether it happens to draw a figure.
+        # A rich multi-function demo is still useful -- it just belongs
+        # after the plain case, not before it, the way a page that leads
+        # with an FFT spectrogram to explain `abs` does today.
+        lines_in_code = len(split(code, "\n"))
+        complexity = len(weighted) * 1000 + lines_in_code
+
+        ex_page = append(ex_page, doc_pages[pi])
+        ex_html = append(ex_html, block)
+        ex_code = append(ex_code, code)
+        ex_uses = append(ex_uses, used)
+        ex_rank = append(ex_rank, complexity)
+    end for
+end for
+
+nfig = 0
+for k in 0 to len(ex_html) - 1
+    if contains(ex_html[k], "<figure")
+        nfig = nfig + 1
+    end if
+end for
+print("{len(ex_html)} example blocks, {nfig} with a figure")
+
+# ── overload tables, from a marked heading + the table right after it ───
+#
+# A chapter marks one with `#### Overloads: `name`` immediately followed
+# by a markdown table; that renders to `<h4>Overloads: <code>name</code>
+# </h4>` then a `<div class="tablewrap">...</div>`, both plain constructs
+# the renderer already supports, so nothing new can render wrong. Only a
+# genuinely polymorphic builtin (`abs`, `matmul`, `substr`, ...) needs one
+# -- most builtins take one shape of argument and the Arguments table
+# above already says what it is.
+
+overloads = dict()
+MARK = "<h4>Overloads: <code>"
+
+for pi in 0 to len(doc_pages) - 1
+    path = "website/docs/" + doc_pages[pi] + ".html"
+    if not file_exists(path)
+        continue
+    end if
+    page_html = read_all_text(path)
+    at = 0
+    while true
+        found = index_of(substr(page_html, at, len(page_html) - at), MARK) ?? -1
+        if found < 0
+            break
+        end if
+        mstart = at + found
+        nm_start = mstart + len(MARK)
+        nm_end = index_of(substr(page_html, nm_start, len(page_html) - nm_start), "</code></h4>") ?? -1
+        if nm_end < 0
+            break
+        end if
+        nm = substr(page_html, nm_start, nm_end)
+        after_head = nm_start + nm_end + len("</code></h4>")
+        after = substr(page_html, after_head, len(page_html) - after_head)
+        tbl_at = index_of(after, "<div class=\"tablewrap\">") ?? -1
+        # `index_of` searches the WHOLE rest of the page, not just "right
+        # after this heading" -- so a heading marked for a table that
+        # never actually follows (this builtin uses `#### Case:` tabs
+        # instead) would otherwise silently grab the next unrelated table
+        # anywhere further down the chapter. What rules that out is the
+        # heading check below: no other heading may sit in between. Prose
+        # may -- an entry is allowed to introduce its forms in a sentence
+        # before listing them.
+        if tbl_at < 0
+            at = after_head
+            continue
+        end if
+        next_head = index_of(after, "<h2") ?? 999999999
+        h3at = index_of(after, "<h3") ?? 999999999
+        h4at = index_of(after, "<h4") ?? 999999999
+        if h3at < next_head
+            next_head = h3at
+        end if
+        if h4at < next_head
+            next_head = h4at
+        end if
+        if next_head < tbl_at
+            at = after_head
+            continue
+        end if
+        tbl_start = after_head + tbl_at
+        tbl_end = index_of(substr(page_html, tbl_start, len(page_html) - tbl_start), "</table></div>") ?? -1
+        if tbl_end < 0
+            at = after_head
+            continue
+        end if
+        table_html = substr(page_html, tbl_start, tbl_end + len("</table></div>"))
+        if index_of_name(names, nm) >= 0
+            overloads = set(overloads, nm, table_html)
+        end if
+        at = tbl_start + tbl_end
+    end while
+end for
+
+print("{len(keys(overloads))} carry an overload table")
+
+# ── overload tabs, from `#### Overloads: `name`` + `#### Case: label` ───
+#
+# A genuinely polymorphic builtin -- `abs` on a real scalar vs. a complex
+# one, say -- reads better as C#/.NET's own per-overload sections do: one
+# small validated example per type, switchable rather than stacked. Both
+# heading levels are plain h4 (the renderer supports no h5), so a case is
+# told apart from an ordinary h4 purely by its "Case: " prefix; the whole
+# group ends at the first h4 that lacks one (or a h2/h3).
+
+overload_tabs = dict()
+overload_intro = dict()
+CASE_MARK = "<h4>Case: "
+
+for pi in 0 to len(doc_pages) - 1
+    path = "website/docs/" + doc_pages[pi] + ".html"
+    if not file_exists(path)
+        continue
+    end if
+    page_html = read_all_text(path)
+    at = 0
+    while true
+        found = index_of(substr(page_html, at, len(page_html) - at), MARK) ?? -1
+        if found < 0
+            break
+        end if
+        mstart = at + found
+        nm_start = mstart + len(MARK)
+        nm_end = index_of(substr(page_html, nm_start, len(page_html) - nm_start), "</code></h4>") ?? -1
+        if nm_end < 0
+            break
+        end if
+        nm = substr(page_html, nm_start, nm_end)
+        cursor = nm_start + nm_end + len("</code></h4>")
+
+        # An entry is allowed to introduce its forms in a sentence or two
+        # before listing them -- `plot` explains that its marker-string
+        # form changes WHAT is drawn, not merely how, which is the reason
+        # to read the tabs at all. That intro is kept and shown under the
+        # Overloads heading. What may not sit in between is another
+        # heading: that would mean this entry has no cases of its own and
+        # the ones about to be read belong to a different function.
+        gap = substr(page_html, cursor, len(page_html) - cursor)
+        first_h4 = index_of(gap, "<h4") ?? -1
+        if first_h4 > 0 and substr(gap, first_h4, len(CASE_MARK)) == CASE_MARK
+            h2g = index_of(gap, "<h2") ?? 999999999
+            h3g = index_of(gap, "<h3") ?? 999999999
+            if h2g > first_h4 and h3g > first_h4
+                lead = trim(substr(gap, 0, first_h4))
+                if index_of_name(names, nm) >= 0 and len(lead) > 0
+                    overload_intro = set(overload_intro, nm, lead)
+                end if
+                cursor = cursor + first_h4
+            end if
+        end if
+
+        cases = ()
+        while true
+            here = substr(page_html, cursor, len(page_html) - cursor)
+            case_at = index_of(here, CASE_MARK) ?? -1
+            # Markdown's blank line between two headings renders as a
+            # literal newline in the HTML between `</h4>` and the next
+            # `<h4>` -- so "immediately follows" means "nothing but
+            # whitespace between them", not literally position 0.
+            if case_at < 0 or len(trim(substr(here, 0, case_at))) > 0
+                break
+            end if
+            label_start = cursor + case_at + len(CASE_MARK)
+            label_end = index_of(substr(page_html, label_start, len(page_html) - label_start), "</h4>") ?? -1
+            if label_end < 0
+                break
+            end if
+            label = substr(page_html, label_start, label_end)
+            body_start = label_start + label_end + len("</h4>")
+            next_h4 = index_of(substr(page_html, body_start, len(page_html) - body_start), "<h4") ?? (len(page_html) - body_start)
+            next_h2 = index_of(substr(page_html, body_start, len(page_html) - body_start), "<h2") ?? (len(page_html) - body_start)
+            next_h3 = index_of(substr(page_html, body_start, len(page_html) - body_start), "<h3") ?? (len(page_html) - body_start)
+            body_len = next_h4
+            if next_h2 < body_len
+                body_len = next_h2
+            end if
+            if next_h3 < body_len
+                body_len = next_h3
+            end if
+            body = substr(page_html, body_start, body_len)
+            cases = append(cases, {label = label, content = body})
+            cursor = body_start + body_len
+        end while
+
+        if len(cases) > 0 and index_of_name(names, nm) >= 0
+            overload_tabs = set(overload_tabs, nm, cases)
+        end if
+        at = cursor
+    end while
+end for
+
+print("{len(keys(overload_tabs))} carry overload tabs")
+
+# ── how each one works, from the engine's own doc comments ──────────────
+#
+# The comment above a builtin's dispatch arm is where the reasoning was
+# written down while the thing was being built: what it does, which
+# convention it follows and why, what it deliberately does not do. That is
+# the "how it works" a reader wants, and it is already maintained, because
+# it sits in the file anyone changing the behaviour has to edit.
+
+# A handful of names label TWO unrelated match arms -- `"split"` is both
+# the ordinary string-split function and, far earlier in the file, a
+# plotting word-command's arm that happens to share the literal token.
+# Picking "whichever comes first" would silently attach the wrong arm's
+# comment to the wrong function; picking the wrong note is worse than
+# picking none, so a name that resolves to two DIFFERENT comment texts is
+# suppressed entirely rather than guessed at.
+howto = dict()
+howto_conflict = dict()
+pending = ()
+for raw in lines(read_all_text(SRC))
+    line = trim(raw)
+    if starts_with(line, "//")
+        c = clean_comment(line)
+        if not is_noise(c)
+            pending = append(pending, c)
+        end if
+        continue
+    end if
+    if starts_with(line, QT) and contains(line, "=>")
+        if len(pending) > 0
+            text = join(pending, " ")
+            for raw_nm in quoted_names(line)
+                # A module's arm is matched as `"codec::flac_info"`, but a
+                # page and a call both spell it `codec.flac_info`.
+                nm = replace(raw_nm, "::", ".")
+                if index_of_name(names, nm) < 0 or has_key(howto_conflict, nm)
+                    continue
+                end if
+                if has_key(howto, nm)
+                    if get(howto, nm) != text
+                        howto_conflict = set(howto_conflict, nm, true)
+                    end if
+                else
+                    howto = set(howto, nm, text)
+                end if
+            end for
+        end if
+    end if
+    pending = ()
+end for
+
+for nm in keys(howto_conflict)
+    howto = set(howto, nm, "")
+end for
+
+print("{len(keys(howto))} carry an engine doc comment")
+
+# ── the pages ──────────────────────────────────────────────────────────
+
+head = read_all_text("website/assets/doc-head.html")
+foot = read_all_text("website/assets/doc-foot.html")
+
+MAX_EXAMPLES = 4
+written = 0
+pages_all_undoc = 0
+pages_some_undoc = 0
+with_example = 0
+with_howto = 0
+with_args = 0
+
+for i in 0 to len(names) - 1
+    nm = names[i]
+    h = fopen(OUT_DIR + "/" + nm + ".html", "w")
+
+    page_head = replace(head, "@@TITLE@@", nm)
+    page_head = replace(page_head, "@@SIDEBAR@@", "")
+    page_head = replace(page_head, "@@TOC@@", "")
+    write(h, page_head)
+
+    ci = get(home, nm) ?? -1
+    write(h, "<p class=\"fnback\"><a href=\"../docs/builtin-index.html\">Builtin index</a>")
+    if ci >= 0
+        write(h, " &middot; <a href=\"../docs/" + chapter_pages[ci] + ".html\">" + chapter_names[ci] + "</a>")
+    end if
+    write(h, "</p>\n")
+
+    signature = get(sig, nm) ?? ""
+    blurb = get(desc, nm) ?? ""
+    split_r = split_returns(blurb)
+    rest = split_r.rest
+    ret = split_r.ret
+    # A no-return function's Returns sentence, when there is one at all,
+    # says so in words ("Returns nothing", "Returns none") rather than
+    # naming a type/shape.
+    has_output = yields_value(ret)
+
+    inner = arg_text(signature)
+    parts = ()
+    if len(trim(inner)) > 0
+        parts = split_args(inner)
+    end if
+    arg_names = ()
+    for a in parts
+        spec = trim(a)
+        if starts_with(spec, "[")
+            spec = trim(substr(spec, 1, len(spec) - 1))
+            if ends_with(spec, "]")
+                spec = trim(substr(spec, 0, len(spec) - 1))
+            end if
+        end if
+        aname = spec
+        eq = index_of(spec, "=") ?? -1
+        if eq > 0
+            aname = trim(substr(spec, 0, eq))
+        end if
+        arg_names = append(arg_names, aname)
+    end for
+
+    # `y = abs(x)` reads, at a glance, as "x goes in, y comes out" -- the
+    # same assignment-form signature numpy/MATLAB both use -- rather than
+    # a bare call whose input/output shape isn't visible until reading
+    # the prose below it. A function with no meaningful return keeps its
+    # bare call form instead (assigning its result to a name would claim
+    # a value that isn't there).
+    if len(signature) > 0
+        display_sig = signature
+        if has_output
+            display_sig = "result = " + signature
+        end if
+        write(h, "<pre class=\"fnsig\">" + md_inline(display_sig) + "</pre>\n")
+        input_desc = "no input"
+        if len(arg_names) > 0
+            input_desc = join(arg_names, ", ")
+        end if
+        output_desc = "no output"
+        if has_output
+            output_desc = "result"
+        end if
+        write(h, "<p class=\"fnnote\">Input: " + esc(input_desc) + " &middot; Output: " + esc(output_desc) + "</p>\n")
+    end if
+
+    # ── what it is / returns ─────────────────────────────────────────────
+    #
+    # A description wave-2 wrote consistently ends in a sentence starting
+    # "Returns ..." -- split that off into its own section, the same
+    # Parameters/Returns shape numpy and MATLAB's Input/Output Arguments
+    # both use, rather than one paragraph that runs the two questions
+    # ("what is this" and "what do I get back") together.
+    write(h, "<h2>What it is</h2>\n")
+    if len(rest) > 0
+        write(h, "<p>" + md_inline(rest) + "</p>\n")
+    else
+        write(h, "<p>No chapter describes this one yet. It exists -- the name comes ")
+        write(h, "from the interpreter's own table -- but the prose has not been ")
+        write(h, "written. That is a gap in the documentation, not in the engine.</p>\n")
+    end if
+    note = get(howto, nm) ?? ""
+
+    # ── overloads: one heading, then one tab per call shape ──────────────
+    #
+    # The first question a reference page has to answer is "which form of
+    # this do I want", and everything after that question differs per
+    # form: `abs` of a `Complex` takes something different and hands back
+    # something different than `abs` of a `Vec`. So the inputs, the
+    # outputs AND the worked example all live inside the form they belong
+    # to -- the way .NET puts each overload's parameters and remarks under
+    # that overload -- instead of one merged table above that accurately
+    # describes no form in particular.
+    #
+    # Three sources, in order of how much each knows:
+    #   `#### Case: label`         a chapter wrote the form out, with
+    #                              prose and a run example of its own.
+    #   `#### Overloads:` + table  a chapter listed the call shapes; the
+    #                              examples are matched to them by how
+    #                              many arguments they pass.
+    #   neither                    one form, the signature itself.
+    variants = ()
+    tabs = get(overload_tabs, nm) ?? ()
+    ov = get(overloads, nm) ?? ""
+    if len(tabs) > 0
+        for t in tabs
+            body = t.content
+            cut = index_of(body, "<div class=\"example") ?? -1
+            prose_html = body
+            ex_part = ""
+            if cut >= 0
+                prose_html = substr(body, 0, cut)
+                ex_part = substr(body, cut, len(body) - cut)
+            end if
+            # Which of the entry's call forms is this case? Its own
+            # example says so: `plot(x, sin(x / 2))` passes two arguments,
+            # so this tab is `plot(x, y)` and its Input table should have
+            # a row for `x`.
+            vs = signature
+            forms = sig_forms(signature)
+            if len(forms) > 1
+                for a in call_arities(html_to_text(ex_part), nm)
+                    for f in forms
+                        span = arity_range(parse_args(f))
+                        if a >= span.lo and a <= span.hi and vs == signature
+                            vs = f
+                        end if
+                    end for
+                end for
+            end if
+            # The label is rendered HTML (`Greedy (<code>omp</code>)`), so
+            # it goes back through text before `md_inline` re-renders it;
+            # escaping it as-is printed the tags at the reader.
+            variants = append(variants, {label = html_to_text(t.label),
+                                         vsig = vs,
+                                         prose = html_to_text(prose_html),
+                                         inpre = "", ownret = false,
+                                         exhtml = ex_part, exidx = ()})
+        end for
+    else
+        rows = ()
+        if len(ov) > 0
+            rows = table_rows(ov)
+        end if
+        if len(rows) > 1
+            for ri in 1 to len(rows) - 1
+                cells = rows[ri]
+                shape = html_to_text(cells[0])
+                what = ""
+                if len(cells) > 1
+                    what = html_to_text(cells[1])
+                end if
+                # The column is headed "What it returns", so the cell is
+                # the OUTPUT description for this form. Its arguments are
+                # described by the entry's own prose, which names them
+                # clause by clause -- so that goes in front when the Input
+                # table looks for the sentence about each one.
+                variants = append(variants, {label = shape, vsig = shape,
+                                             prose = what, inpre = rest,
+                                             ownret = true, exhtml = "",
+                                             exidx = ()})
+            end for
+        end if
+    end if
+    if len(variants) == 0
+        variants = append(variants, {label = signature, vsig = signature,
+                                     prose = blurb, inpre = "",
+                                     ownret = false, exhtml = "", exidx = ()})
+    end if
+    if len(variants) > 12
+        capped = ()
+        for vi in 0 to 11
+            capped = append(capped, variants[vi])
+        end for
+        variants = capped
+    end if
+    nvar = len(variants)
+
+    # ── which example belongs under which form ───────────────────────────
+    #
+    # Every block that calls `nm`, sorted simplest-first (fewest builtins
+    # named, then fewest lines), not by how much it happens to draw -- a
+    # plain `abs(-5)` earns the top slot over a spectrogram that also
+    # happens to call `abs` once. Simple insertion sort: at most a few
+    # dozen candidates per function, so O(n^2) is nothing. Lists have no
+    # index-assignment in Qu, so this builds the sorted order by insertion
+    # into a fresh list rather than swapping in place.
+    candidates = ()
+    for k in 0 to len(ex_html) - 1
+        if not seen(ex_uses[k], nm)
+            continue
+        end if
+        inserted = false
+        placed = ()
+        for existing in candidates
+            if not inserted and ex_rank[k] < ex_rank[existing]
+                placed = append(placed, k)
+                inserted = true
+            end if
+            placed = append(placed, existing)
+        end for
+        if not inserted
+            placed = append(placed, k)
+        end if
+        candidates = placed
+    end for
+
+    # A form that spells out its own example keeps it. Otherwise the
+    # argument count picks: a block calling `substr` with two arguments
+    # demonstrates the two-argument form, and one calling it both ways
+    # demonstrates both. Where counting cannot tell the forms apart --
+    # `sort(vec)` and `sort(list_of_str)` are both one-argument calls --
+    # every form shows the same blocks, which is honest, rather than
+    # splitting them on a guess.
+    assigned = ()
+    for v in variants
+        picked = ()
+        if len(v.exhtml) == 0
+            span = arity_range(parse_args(v.vsig))
+            for k in candidates
+                for a in call_arities(ex_code[k], nm)
+                    if a >= span.lo and a <= span.hi and not seen(picked, k)
+                        picked = append(picked, k)
+                    end if
+                end for
+            end for
+            if len(picked) == 0
+                picked = candidates
+            end if
+        end if
+        assigned = append(assigned, picked)
+    end for
+
+    # ── the panels ───────────────────────────────────────────────────────
+    bodies = ()
+    any_example = false
+    argorder = ()
+    argtypes = dict()
+    for vi in 0 to nvar - 1
+        v = variants[vi]
+        vargs = parse_args(v.vsig)
+        if vi == 0 and len(vargs) > 0
+            with_args = with_args + 1
+        end if
+        vsplit = split_returns(v.prose)
+        vret = vsplit.ret
+        if len(vret) == 0
+            if v.ownret
+                vret = v.prose
+            else
+                vret = ret
+            end if
+        end if
+        inprose = trim(v.inpre + " " + vsplit.rest)
+        # Types this form states about itself. Only a `#### Case:` form
+        # has any -- a row of an overload table describes what comes back,
+        # and the arguments are the entry's to describe.
+        formwords = ()
+        if len(v.inpre) == 0 and nvar > 1
+            formwords = type_tokens_in(vsplit.rest)
+        end if
+
+        # The function-wide return sentence stands in for a type only where
+        # the form's own text left one out because the table it came from
+        # had no column for it. A `#### Case:` form that names no return
+        # type gets a dash: `abs` of a scalar returns a number, and
+        # borrowing the entry's "`CVec` or `Vec`" would be a wrong answer
+        # rather than a missing one.
+        tfall = ""
+        if v.ownret
+            tfall = ret
+        end if
+
+        # `y = abs(x)` reads as "x goes in, y comes out" at a glance. Each
+        # form shows its OWN call that way, so the row and the code above
+        # it cannot disagree about which overload is being described.
+        code = v.vsig
+        if yields_value(vret)
+            code = "result = " + strip_ticks(v.vsig)
+        else
+            code = strip_ticks(v.vsig)
+        end if
+
+        # What this form does -- the part of its prose the Input and
+        # Output cells did NOT already carry. Printing the whole case text
+        # here repeated every argument's sentence one column to the right.
+        # A form with no return sentence of its own contributes none: the
+        # entry-wide one would then read the same in every tab.
+        vdesc = ""
+        if v.ownret
+            # A row of an overload table IS the description of that form --
+            # the column it came from is headed "What it returns".
+            vdesc = md_inline(v.prose)
+        else
+        if nvar > 1
+            said = ()
+            if len(trim(vsplit.ret)) > 0
+                said = append(said, trim(vsplit.ret))
+            end if
+            extra = leftover_prose(v.prose, vargs, vsplit.ret)
+            if len(extra) > 0
+                said = append(said, extra)
+            end if
+            if len(said) > 0
+                vdesc = md_inline(join(said, " "))
+            end if
+        else
+            if yields_value(vret)
+                vdesc = md_inline(vret)
+            else
+                # A form that returns nothing still DOES something, and the
+                # Description column was showing an em dash for all of them
+                # -- `arc`'s page said "no output" and then nothing at all.
+                # What is left of the prose once the argument rows have
+                # taken their sentences is exactly the part that describes
+                # the behaviour.
+                extra = leftover_prose(v.prose, vargs, vret)
+                if len(extra) > 0
+                    vdesc = md_inline(extra)
+                end if
+            end if
+        end if
+        end if
+        if len(vdesc) == 0
+            vdesc = "&mdash;"
+        end if
+
+        in_cell = input_cell(vargs, inprose, v.prose, blurb, formwords)
+        # The documentation backlog, counted rather than remembered. A
+        # number written into a file goes stale the moment someone writes a
+        # sentence; this one is recomputed every build, so the next person
+        # inherits the measurement instead of yesterday's figure.
+        if vi == 0 and len(vargs) >= 2
+            gaps = len(split(in_cell, "class=\"iogap\"")) - 1
+            said = len(split(in_cell, "class=\"iodesc\"")) - 1
+            if gaps > 0 and said == 0
+                pages_all_undoc = pages_all_undoc + 1
+            end if
+            if gaps > 0
+                pages_some_undoc = pages_some_undoc + 1
+            end if
+        end if
+        b = io_table(code, in_cell, output_cell(vret, tfall), vdesc)
+
+        # The union of what each argument accepts, across every form --
+        # "before it you can say that x can be ...", so a reader sees the
+        # whole surface before picking a tab.
+        for a in vargs
+            ws = arg_type_words(a, vargs, inprose, v.prose, blurb, formwords)
+            if not seen(argorder, a.name)
+                argorder = append(argorder, a.name)
+            end if
+            cur = get(argtypes, a.name) ?? ()
+            for w in ws
+                if not seen(cur, w)
+                    cur = append(cur, w)
+                end if
+            end for
+            argtypes = set(argtypes, a.name, cur)
+        end for
+
+        shown_ex = 0
+        if len(v.exhtml) > 0
+            b = b + "<h3>Examples</h3>\n"
+            b = b + "<p class=\"fnnote\">Written for this form"
+            # A form whose example the chapter marked not-runnable cannot
+            # be promised as run. `codec.decode_flac` needs a FLAC file no
+            # repository carries, and claiming the engine produced an
+            # output it never produced is worse than having no output.
+            if contains(v.exhtml, "example norun")
+                b = b + ". Not run by the build &mdash; it needs something "
+                b = b + "the repository cannot supply, so there is no "
+                b = b + "captured output below.</p>\n"
+            else
+                b = b + " and run by the build -- the output below is what "
+                b = b + "the engine actually produced.</p>\n"
+            end if
+            b = b + v.exhtml + "\n"
+            shown_ex = 1
+        else
+            for k in assigned[vi]
+                if shown_ex >= MAX_EXAMPLES
+                    break
+                end if
+                if shown_ex == 0
+                    b = b + "<h3>Examples</h3>\n"
+                    b = b + "<p class=\"fnnote\">From the documentation, and run "
+                    b = b + "by the build -- the output and the figure below are "
+                    b = b + "what the engine actually produced. Simplest first.</p>\n"
+                end if
+                shown_ex = shown_ex + 1
+                b = b + ex_html[k]
+                b = b + "<p class=\"fnfrom\">"
+                # The section above promises these were run. A block the
+                # chapter marked not-runnable was not, and saying so under
+                # it is the difference between an example and a claim --
+                # `codec.decode_flac` needs a FLAC file no repository
+                # carries, so its block can only ever be shown.
+                if contains(ex_html[k], "example norun")
+                    b = b + "not run by the build &mdash; this one needs "
+                    b = b + "something the repository cannot supply &middot; "
+                end if
+                b = b + "from <a href=\"../docs/" + ex_page[k]
+                b = b + ".html\">" + ex_page[k] + "</a></p>\n"
+            end for
+        end if
+        if shown_ex == 0
+            b = b + "<h3>Examples</h3>\n"
+            b = b + "<p class=\"fnnote\">No documentation example calls this form "
+            if ci >= 0
+                b = b + "yet. The <a href=\"../docs/" + chapter_pages[ci] + ".html\">"
+                b = b + chapter_names[ci] + "</a> chapter is where one belongs.</p>\n"
+            else
+                b = b + "yet.</p>\n"
+            end if
+        else
+            any_example = true
+        end if
+        bodies = append(bodies, b)
+    end for
+
+    if any_example
+        with_example = with_example + 1
+    end if
+
+    write(h, "<h2>Overloads</h2>\n")
+    lead = get(overload_intro, nm) ?? ""
+    if len(lead) > 0
+        write(h, lead + "\n")
+    end if
+    if nvar > 1
+        # What each argument may be, taken across every form, before the
+        # reader has to pick one: "x can be a scalar, Vec, or Complex".
+        across = ""
+        for nm2 in argorder
+            ws = get(argtypes, nm2) ?? ()
+            # Only an argument that really changes between forms earns a
+            # line here. "`s` can be `Str`" when every form says `Str` is
+            # noise the tabs below already carry.
+            if len(ws) < 2
+                continue
+            end if
+            if len(across) > 0
+                across = across + "; "
+            end if
+            across = across + "<code>" + esc(nm2) + "</code> can be " + join_or(ws)
+        end for
+        if len(across) > 0
+            write(h, "<p class=\"ioacross\">" + across + ".</p>\n")
+        end if
+        write(h, "<p class=\"fnnote\">" + str(nvar) + " forms. Each carries its ")
+        write(h, "own inputs, outputs and worked example &mdash; pick the tab ")
+        write(h, "for the one you are calling.</p>\n")
+        write(h, "<div class=\"typetabs\">\n")
+        for ti in 0 to nvar - 1
+            checked = ""
+            if ti == 0
+                checked = " checked"
+            end if
+            write(h, "<input type=\"radio\" name=\"typetab\" id=\"tt-" + nm + "-" + str(ti) + "\"" + checked + ">\n")
+        end for
+        write(h, "<div class=\"tabbar\">\n")
+        for ti in 0 to nvar - 1
+            write(h, "<label for=\"tt-" + nm + "-" + str(ti) + "\">" + md_inline(variants[ti].label) + "</label>\n")
+        end for
+        write(h, "</div>\n<div class=\"panels\">\n")
+        for ti in 0 to nvar - 1
+            write(h, "<div class=\"panel\">\n" + bodies[ti] + "</div>\n")
+        end for
+        write(h, "</div>\n</div>\n")
+    else
+        write(h, "<p class=\"fnnote\">One call shape &mdash; this function is not ")
+        write(h, "overloaded.</p>\n")
+        write(h, bodies[0])
+    end if
+
+    # ── how it works ───────────────────────────────────────────────────
+    #
+    # Only when the interpreter really carries a note. A section whose
+    # whole content is "no note was written" tells the reader nothing and
+    # pushes what they came for further down the page.
+    if len(note) > 0
+        with_howto = with_howto + 1
+        write(h, "<h2>How it works</h2>\n")
+        write(h, "<p>" + md_inline(note) + "</p>\n")
+        write(h, "<p class=\"fnnote\">From the note above this builtin in the ")
+        write(h, "interpreter, where the reasoning was written down as it was built.</p>\n")
+    end if
+
+    # ── see also ───────────────────────────────────────────────────────
+    kin = get(family, nm) ?? ()
+    if len(kin) > 1
+        write(h, "<h2>See also</h2>\n<p>")
+        first = true
+        for other in kin
+            if other == nm
+                continue
+            end if
+            if not first
+                write(h, ", ")
+            end if
+            first = false
+            write(h, "<a href=\"" + other + ".html\"><code>" + other + "</code></a>")
+        end for
+        write(h, " &mdash; documented in the same entry.</p>\n")
+    end if
+
+    write(h, foot)
+    close(h)
+    written = written + 1
+end for
+
+print("wrote {written} function pages into " + OUT_DIR)
+print("  {with_howto} explain how they work")
+print("  {with_args} document their arguments")
+print("  {pages_all_undoc} have two or more parameters and NOT ONE documented")
+print("  {pages_some_undoc} have at least one parameter undocumented")
+print("  {with_example} carry a worked example")

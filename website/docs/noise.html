@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noise & Distortion — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html" class="here">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Noise & Distortion</h1>
+<nav class="onthispage"><a href="#s0">Noise is specified in decibels</a><a href="#s48">The kinds, and what each one models</a><a href="#s102">Quantisation, as an instrument does it</a><a href="#s160">Interference is not noise</a><a href="#s205">Distortion is neither</a><a href="#s246">Taking it out again</a><a href="#s285">More functions</a></nav>
+<p>Putting them in, and taking them out.</p>
+<p>The point of a noise module is not to make a signal look untidy. It is to state exactly how hard a problem is, hand the same problem to several methods, and see which one wins and where.</p>
+<h2 id="s0">Noise is specified in decibels</h2>
+<p>"Add Gaussian noise of amplitude 0.1" is not a statement about a measurement — it depends entirely on how big the signal is. "Add Gaussian noise at 3 dB SNR" is, and it is what a datasheet, a standard and a reviewer all speak.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">2047</span>) / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
+
+noisy = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"asked for 3 dB, measured {measure_snr(clean, noisy):.2f} dB"</span>)
+</code></pre>
+</div>
+<p>Yes, 3 dB is possible, and so is 0, and so is −6. The amplitude is worked out from the signal:</p>
+<pre><code>SNR_dB = 10·log10(P_signal / P_noise)   ⟹   P_noise = P_signal / 10^(SNR/10)
+</code></pre>
+<p><code>amplitude=</code> is there for when a raw figure is what you were actually given — a specified 2 mV of pickup, say. Give one or the other, never both: they are two ways of saying the same thing and they would disagree.</p>
+<p><strong>Every kind honours that number</strong>, including the four whose noise is not linear in their own parameter. Shot noise scales with the signal, quantisation error is bounded by the step, salt-and-pepper's parameter is a corruption *rate* — for those the level is found by bisection, so <code>snr = 3</code> means one thing across the whole module and the kinds can be compared.</p>
+<h2 id="s48">The kinds, and what each one models</h2>
+<p>Noise is not one thing. Using white noise for all of it is how a method comes to look robust in simulation and fail on the bench.</p>
+<div class="tablewrap"><table>
+<tr><td>Kind</td><td>Models</td><td>Spectrum</td></tr>
+<tr><td><code>gaussian</code>, <code>white</code></td><td>Thermal (Johnson–Nyquist) noise; the sum of many small independent causes</td><td>Flat</td></tr>
+<tr><td><code>pink</code>, <code>flicker</code></td><td>Flicker noise in semiconductors, sensor drift</td><td>1/f</td></tr>
+<tr><td><code>brown</code>, <code>red</code></td><td>A random walk — baseline wander</td><td>1/f²</td></tr>
+<tr><td><code>blue</code></td><td>What dithering and noise shaping produce</td><td>f</td></tr>
+<tr><td><code>uniform</code></td><td>A bounded error source; matched in *power* to a Gaussian of the same level, so the two are comparable</td><td>Flat</td></tr>
+<tr><td><code>shot</code>, <code>poisson</code></td><td>Discrete quanta arriving — photons, electrons across a junction. Variance equals mean, so it grows *with* the signal</td><td>—</td></tr>
+<tr><td><code>salt_pepper</code></td><td>Dead and stuck pixels, bit errors</td><td>—</td></tr>
+<tr><td><code>impulse</code>, <code>spike</code></td><td>Switching transients, ESD events</td><td>—</td></tr>
+<tr><td><code>quantize</code>, <code>adc</code></td><td>The error an ADC makes</td><td>—</td></tr>
+</table></div>
+<p>Two of these are not additive at all, and that is the important part: <strong>salt-and-pepper *replaces* samples</strong> rather than adding to them, which is exactly why a linear filter cannot remove it and a median filter can. Quantisation error is *correlated* with the signal, which is why it sounds worse than its power suggests and why dither exists.</p>
+<h4>Overloads: <code>add_noise</code></h4>
+<h4>Case: additive kinds (<code>gaussian</code>, <code>pink</code>, <code>uniform</code>, ...)</h4>
+<p>Every sample is perturbed by a little: none of the output matches the clean input exactly.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+g = <span class="f">add_noise</span>(x, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
+untouched = <span class="n">0</span>
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> g[i] == x[i]
+        untouched = untouched + <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(untouched)   <span class="c"># 0 -- every sample was perturbed a little</span>
+</code></pre>
+</div>
+<h4>Case: replacing (<code>salt_pepper</code>)</h4>
+<p>The same <code>snr</code> targets a corruption *rate* instead: most samples are left bit-for-bit alone, and a fraction are slammed to an extreme.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+sp = <span class="f">add_noise</span>(x, <span class="s">"salt_pepper"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
+untouched = <span class="n">0</span>
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> sp[i] == x[i]
+        untouched = untouched + <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(untouched)   <span class="c"># 184 -- ~8% got slammed to an extreme, the rest untouched</span>
+</code></pre>
+</div>
+<p>Pink noise is worth a second look: it dominates at low frequencies, which is why a slow measurement is harder than a fast one and a long integration is not free.</p>
+<p>Works on a vector and on an image alike — every kind is per-sample, so one function covers 1-D and 2-D rather than two that drift apart.</p>
+<h2 id="s102">Quantisation, as an instrument does it</h2>
+<p><code>add_noise(x, "quantize", ...)</code> takes a step size, which is the mathematician's parameter. A converter has a <strong>reference range</strong> and a <strong>resolution</strong>, and the difference is not cosmetic: outside the range it *clips*, and a step-based model cannot express that at all — it will happily quantise a signal ten times the converter's range and report no problem.</p>
+<pre><code>adc(x, [bits = 12], [vmin =], [vmax =], [dither = false], [seed =])
+</code></pre>
+<ul>
+<li><code>x</code> — the signal to quantise, a length-N numeric vector (or scalar-per-sample image data), in the same units as <code>vmin</code>/<code>vmax</code>.</li>
+<li><code>bits</code> — named, an integer word length of at least 1, default <code>12</code>. Fixes the number of codes, <code>2^bits</code>, and therefore the LSB.</li>
+<li><code>vmin</code>, <code>vmax</code> — named numbers, the converter's reference range in the signal's own units. Default to <code>-peak</code>/<code>+peak</code> of <code>x</code> itself (symmetric full scale), so a first run shows quantisation with nothing clipping.</li>
+<li><code>dither</code> — named boolean, default <code>false</code>. When <code>true</code>, adds two-LSB peak-to-peak triangular (TPDF) noise before quantising.</li>
+<li><code>seed</code> — named integer, the RNG seed used only when <code>dither = true</code>; omit it and a run is still reproducible against the module's default seed.</li>
+<li>Returns a record — see the fields below — not a bare vector, because whether anything clipped is part of the answer.</li>
+</ul>
+<p>A single sine run shows what the record gives back: not just the quantised signal, but whether the chosen range fit it and what an ideal converter of that word length could have done. Here a 1.2 V peak tone is digitised on a 0–4.096 V, 12-bit reference:</p>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
+v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
+
+c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
+<span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
+</code></pre>
+</div>
+<p>The LSB is the range over <code>2^bits</code> — not <code>2^bits − 1</code>, which is the off-by-one that puts every reading half a step out. A 0–4.096 V 12-bit converter therefore has an LSB of exactly 1 mV, which is why that reference is so common.</p>
+<p>It returns a record, not a bare signal, because <code>.clipped</code> is not a detail:</p>
+<div class="tablewrap"><table>
+<tr><td>Field</td><td>Type/shape</td><td>Description</td></tr>
+<tr><td><code>.x</code></td><td>length-N number vector</td><td>The quantised signal, same length as the input <code>x</code></td></tr>
+<tr><td><code>.lsb</code></td><td>number</td><td>One least-significant bit, <code>(vmax - vmin) / 2^bits</code>, in the signal's own units</td></tr>
+<tr><td><code>.clipped</code></td><td>integer count</td><td>How many input samples fell outside <code>[vmin, vmax]</code> and were clamped to it</td></tr>
+<tr><td><code>.snr_ideal</code></td><td>number, dB</td><td><code>6.02·bits + 1.76</code> dB — what an ideal converter of this word length would give on a full-scale sine</td></tr>
+<tr><td><code>.vmin</code>, <code>.vmax</code></td><td>numbers</td><td>The reference range actually used — the given values, or the signal's own full scale when left to default</td></tr>
+<tr><td><code>.bits</code></td><td>integer</td><td>The word length actually used, echoed back for convenience</td></tr>
+</table></div>
+<p><strong>A converter that clips has stopped measuring.</strong> A script that never looks at <code>.clipped</code> will report a flat-topped waveform as data.</p>
+<p><code>.snr_ideal</code> is the number to compare a measurement against. Falling short means something else dominates; beating it means the signal is not full-scale, or the arithmetic is wrong. Measured on a 1.5 V-range converter with a 1.2 V peak sine:</p>
+<pre><code> 6 bits  LSB  46875.0 µV   ideal 37.9   measured 35.6 dB
+ 8 bits  LSB  11718.8 µV   ideal 49.9   measured 48.1 dB
+10 bits  LSB   2929.7 µV   ideal 62.0   measured 59.9 dB
+12 bits  LSB    732.4 µV   ideal 74.0   measured 72.0 dB
+16 bits  LSB     45.8 µV   ideal 98.1   measured 96.1 dB
+</code></pre>
+<h3>Dither</h3>
+<p><code>dither = true</code> adds triangular (TPDF) noise of two LSB peak-to-peak *before* quantising — where it goes in a real instrument, added to the analogue signal rather than to the codes.</p>
+<p>It raises the noise floor slightly and, in exchange, decorrelates the error from the signal. Undithered quantisation error is a *function* of the signal, so it appears as harmonics rather than as noise and no amount of averaging removes it. Dithered, it becomes genuine noise — and averaging then buys resolution, which is how a 12-bit converter is made to resolve better than 12 bits.</p>
+<p>TPDF specifically, not a single uniform: the triangular distribution is the one that makes both the mean *and* the variance of the error independent of the signal. A single uniform fixes the mean only.</p>
+<h2 id="s160">Interference is not noise</h2>
+<p>Hum and EMI are <strong>deterministic</strong>. They have structure, and that structure is what lets you remove them.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>hum</code></td><td><code>hum(x, fs, [freq=50], [harmonics=3], [snr=20], [amplitude=], [seed=])</code></td><td>Adds simulated mains pickup to <code>x</code>, a length-N signal vector, given the sample rate <code>fs</code> in Hz. <code>freq</code> (number, Hz) is the mains fundamental, default <code>50</code>. <code>harmonics</code> (integer count) is how many <strong>odd</strong> harmonics to include — <code>3</code> means the 1st, 3rd and 5th, i.e. 50, 150 and 250 Hz — default <code>3</code>. <code>snr</code> (number, dB, default <code>20</code>) or <code>amplitude</code> (number, raw units) sets the interference level, one or the other, not both. <code>seed</code> (integer, optional) fixes the phase/noise draw for a reproducible run. Returns a length-N vector, <code>x</code> plus the interference.</td></tr>
+<tr><td><code>emf</code></td><td><code>emf(x, fs, [carrier=], [bursts=], [snr=20], [amplitude=], [seed=])</code></td><td>Adds simulated switching/EMI interference to <code>x</code>, a length-N signal vector, given the sample rate <code>fs</code> in Hz: an amplitude-modulated carrier plus damped bursts at each switching edge. <code>carrier</code> (number, Hz) is the switching frequency, default <code>fs / 20</code>. <code>bursts</code> (number, burst events per second) sets how often a ringing transient fires, default <code>carrier / 50</code>. <code>snr</code> (number, dB, default <code>20</code>) or <code>amplitude</code> (number, raw units) sets the interference level, one or the other, not both. <code>seed</code> (integer, optional) fixes the random draw. Returns a length-N vector, <code>x</code> plus the interference.</td></tr>
+</table></div>
+<p><code>hum</code> adds <strong>odd</strong> harmonics: mains pickup arrives through a symmetric nonlinearity — a rectifier, a saturating core — and a symmetric nonlinearity generates odd harmonics only. So <code>harmonics = 3</code> means 50, 150 and 250 Hz, not 50, 100 and 150. That matters: a notch at the fundamental alone leaves two thirds of the problem behind, and a model without the harmonics makes every notch filter look better than it is.</p>
+<p><code>emf</code> is two things at once, because real EMI is: a carrier at the switching frequency, amplitude-modulated because the coupling is never constant, *plus* a damped ring at each switching edge from the <code>di/dt</code> of the commutation. A method tested against only one of those fails on the other.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
+
+h = <span class="f">hum</span>(clean, fs, <span class="a">freq</span> = <span class="n">50</span>, <span class="a">harmonics</span> = <span class="n">3</span>, <span class="a">snr</span> = <span class="n">6</span>)
+e = <span class="f">emf</span>(clean, fs, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"hum {measure_snr(clean, h):.2f} dB, emf {measure_snr(clean, e):.2f} dB"</span>)
+</code></pre>
+</div>
+<h2 id="s205">Distortion is neither</h2>
+<p>Distortion is a <strong>function of the signal</strong>. Noise is independent of it, so averaging a hundred records reduces noise; distortion is identical in every record and averaging is powerless against it. The only cure is not to distort.</p>
+<pre><code>distort(x, kind, [amount = 0.3])
+</code></pre>
+<ul>
+<li><code>x</code> — the signal to distort, a length-N number vector.</li>
+<li><code>kind</code> — a string naming the nonlinearity: <code>"clip"</code>/<code>"hard"</code>, <code>"soft"</code>/<code>"saturate"</code>, <code>"crossover"</code>, <code>"harmonic"</code>/<code>"cubic"</code>, or <code>"quantize"</code> (see the table below).</li>
+<li><code>amount</code> — an optional positional number from 0 (no effect) to 1 (maximum), default <code>0.3</code>. Runs the same 0–1 range for every kind, so different kinds at the same <code>amount</code> are comparable.</li>
+<li>Returns a length-N number vector, the distorted signal — same length as <code>x</code>.</li>
+</ul>
+<p><code>amount</code> runs 0 to 1 for every kind, so they can be compared.</p>
+<div class="tablewrap"><table>
+<tr><td>Kind</td><td>What it is</td></tr>
+<tr><td><code>clip</code>, <code>hard</code></td><td>The amplifier ran out of rail. Odd harmonics, abruptly</td></tr>
+<tr><td><code>soft</code>, <code>saturate</code></td><td>A tanh curve — a transformer, a valve. The same harmonics, arriving gradually</td></tr>
+<tr><td><code>crossover</code></td><td>A dead zone at zero, from a class-B stage whose halves do not meet. Worst on <strong>small</strong> signals, the opposite of clipping</td></tr>
+<tr><td><code>harmonic</code>, <code>cubic</code></td><td>A weakly nonlinear amplifier; a cubic term</td></tr>
+<tr><td><code>quantize</code></td><td>Word length, 16 bits down to 2</td></tr>
+</table></div>
+<p>Two kinds on the same clean tone show why "distortion" is not one number: hard clipping and soft saturation both add odd harmonics at the same <code>amount</code>, but clipping does it abruptly and saturation gradually, and <code>thd</code> (total harmonic distortion, in dB below the fundamental) shows the gap between them directly:</p>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
+pure = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">31</span> * t)
+
+clipped = <span class="f">distort</span>(pure, <span class="s">"clip"</span>, <span class="n">0.4</span>)
+soft = <span class="f">distort</span>(pure, <span class="s">"soft"</span>, <span class="n">0.4</span>)
+<span class="f">print</span>(<span class="s">"clip {thd(clipped):.1f} dB, soft {thd(soft):.1f} dB, below the fundamental"</span>)
+</code></pre>
+</div>
+<p>Measured on a single 31 Hz tone, <code>thd</code> in dB below the fundamental:</p>
+<pre><code>clean tone          -44.5 dB
+soft         0.4    -20.3 dB
+crossover    0.4    -33.8 dB
+harmonic     0.4    -34.8 dB
+clip         0.4    -25.6 dB
+</code></pre>
+<h2 id="s246">Taking it out again</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>For</td></tr>
+<tr><td><code>medfilt</code></td><td><code>medfilt(x, [window=3])</code></td><td>Replaces each sample by the median of <code>window</code> samples centred on it. <code>x</code> is a length-N number vector or an <code>Image</code> (filtered channel by channel); <code>window</code> is a positional integer, odd, default <code>3</code>. Returns a value the same shape as <code>x</code>: salt-and-pepper, spikes.</td></tr>
+<tr><td><code>smooth</code></td><td><code>smooth(x, [window=5], [method="savgol"], [order=2])</code></td><td>One word for the smoothers. <code>x</code> is a length-N number vector; <code>window</code> is a named/positional odd integer, default <code>5</code>; <code>method</code> is a named string, one of <code>"savgol"</code> (default), <code>"moving"</code>, <code>"median"</code>; <code>order</code> is a named integer, the polynomial order, used only by <code>"savgol"</code>, default <code>2</code>. Returns a length-N vector.</td></tr>
+<tr><td><code>savgol</code></td><td><code>savgol(x, window, [order=2])</code></td><td>Savitzky-Golay: fits a degree-<code>order</code> polynomial over each <code>window</code>-wide neighbourhood and keeps its centre value, preserving peak height/width that a moving average would flatten. <code>x</code> is a length-N number vector; <code>window</code> is a required positional odd integer; <code>order</code> is an optional positional integer, default <code>2</code>. Returns a length-N vector. When the *shape* matters.</td></tr>
+<tr><td><code>hampel</code></td><td><code>hampel(x, [window=7], [n_sigma=3])</code></td><td>Outlier removal: replaces a sample by the local median only when it is more than <code>n_sigma</code> robust deviations (<code>1.4826 × MAD</code>) from it. <code>x</code> is a length-N number vector; <code>window</code> is an optional positional odd integer, default <code>7</code>; <code>n_sigma</code> is an optional positional number, default <code>3</code>. Returns a record <code>{x, replaced}</code> — the cleaned length-N vector and the integer count of samples actually changed.</td></tr>
+<tr><td><code>detrend</code></td><td><code>detrend(x, [order=1])</code></td><td>Subtracts a least-squares polynomial trend from <code>x</code>, a length-N number vector. <code>order</code> is an optional positional integer: <code>0</code> removes the mean, <code>1</code> (default) a linear drift, <code>2</code> a quadratic bow. Returns a length-N vector. For baseline wander.</td></tr>
+<tr><td><code>measure_snr</code></td><td><code>measure_snr(clean, noisy)</code></td><td>Computes the achieved signal-to-noise ratio by treating <code>noisy - clean</code> as the noise. <code>clean</code> and <code>noisy</code> are two length-N number vectors of equal length. Returns a single number, in dB. Closing the loop.</td></tr>
+</table></div>
+<h4>Overloads: <code>medfilt</code></h4>
+<h4>Case: vector</h4>
+<p><code>x</code> a length-N number vector. Slides a <code>window</code>-wide 1-D neighbourhood and keeps the median.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
+<span class="f">print</span>(<span class="f">medfilt</span>(v, <span class="n">3</span>))   <span class="c"># [3, 5, 6, 6, 5, 4, 4] -- the spike at index 2 is gone</span>
+</code></pre>
+</div>
+<h4>Case: image</h4>
+<p><code>x</code> an <code>Image</code>. Runs the true 2-D median over a <code>window</code>×<code>window</code> square, channel by channel — not a row-by-row 1-D median, which would smear vertical structure it never looks at. Only possible because the <code>Image</code> carries its own width and height. (<code>medfilt2</code>/<code>median_filter</code> are the exact same builtin under other names, so this case applies to them too.)</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
+img = <span class="f">image_from_matrix</span>(m)
+cleaned = <span class="f">medfilt</span>(img, <span class="n">3</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(img, <span class="n">4</span>))       <span class="c"># [0, 0, 24, 1] -- one bright pixel</span>
+<span class="f">print</span>(<span class="f">imhist</span>(cleaned, <span class="n">4</span>))   <span class="c"># [0, 0, 25, 0] -- gone, over a 2-D neighbourhood this time</span>
+</code></pre>
+</div>
+<p>The paragraph and table above describe the removal tools individually; the example below chains several of them into one cleanup pipeline. First, <code>impulse(n, [index=], [amplitude=])</code> builds the spike to inject in the first place — a plain length-<code>n</code> zero vector with one sample set to <code>amplitude</code> at position <code>index</code>. <code>n</code> is a required positional integer, the output length; <code>index</code> is a named integer sample position, default <code>0</code>; <code>amplitude</code> is a named number, default <code>1</code>. It returns a length-<code>n</code> number vector, and is the natural way to add a single, controlled transient rather than reaching for <code>add_noise</code>'s random placement.</p>
+<p>A clean tone corrupted by both a single spike and a slow linear drift needs two different tools, applied in the right order — a median filter cannot see through a ramp, and a polynomial detrend cannot see through a spike, so the spike must go first:</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">500</span>
+t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
+
+spike = <span class="n">5</span> * <span class="f">impulse</span>(n, <span class="a">index</span> = <span class="n">200</span>)
+corrupted = clean + spike + <span class="n">0.01</span> * (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>)   <span class="c"># a spike, plus baseline drift</span>
+
+fixed = <span class="f">medfilt</span>(corrupted, <span class="n">5</span>)     <span class="c"># the spike</span>
+flat = <span class="f">detrend</span>(fixed, <span class="n">1</span>)          <span class="c"># the ramp</span>
+sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class="n">2</span>)          <span class="c"># a final polish, shape-preserving</span>
+sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
+<span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
+</code></pre>
+</div>
+<h3>Why a median, and when not</h3>
+<p>An average is pulled by an outlier in proportion to how far out it is. A median ignores it entirely, as long as fewer than half the window is corrupt. On salt-and-pepper at 8%:</p>
+<pre><code>as measured          3.97 dB
+median filter (5)   28.52 dB
+moving average (5)  10.65 dB
+</code></pre>
+<p>Twenty decibels. It is also why a median preserves an edge that an average smears — a step is not an outlier to a median.</p>
+<p>But the reverse holds too, and neither should be mistaken for a universal answer. On plain Gaussian noise the moving average wins, because it is the optimal linear estimator for it:</p>
+<pre><code>gaussian at 6 dB
+  moving average (11)  15.74 dB
+  median filter (11)   14.13 dB
+</code></pre>
+<p>A median is for <strong>outliers</strong>. Using one for noise costs you.</p>
+<h3>Why Savitzky-Golay</h3>
+<p>A moving average is a low-pass filter, and a peak is high-frequency, so it flattens the peak while removing the noise. Savitzky-Golay fits a local polynomial instead and keeps the height and width. On a Gaussian peak under 10 dB of noise, both with a 61-point window:</p>
+<pre><code>true height       1.000
+Savitzky-Golay    1.000
+moving average    0.907
+</code></pre>
+<p>The average removed more noise and destroyed the measurement. That is why Savitzky-Golay is the default <code>smooth</code> method, and why it is standard in every spectroscopy package.</p>
+<p><code>window</code> must be odd for all of these, so there is a middle sample; an even one is refused rather than silently rounded, because which way it rounds changes the answer.</p>
+<h3>Hampel, when the data are good apart from a few spikes</h3>
+<p><code>hampel</code> replaces a sample by the local median <strong>only</strong> when it lies more than <code>n_sigma</code> robust deviations from it, and leaves everything else bit for bit. That is the difference from <code>medfilt</code>, which rewrites every sample whether it needed it or not.</p>
+<div class="example"><pre class="hl"><code>spiky = <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> <span class="n">499</span>) / <span class="n">100</span>)
+spiky[<span class="n">120</span>] = <span class="n">6.0</span>
+spiky[<span class="n">300</span>] = -<span class="n">7.0</span>
+
+r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"replaced {r.replaced} samples of {len(spiky)}"</span>)
+</code></pre>
+</div>
+<p>It returns both the cleaned signal and the count, because "it removed 3 outliers" and "it rewrote 400 samples" are very different results and should not look the same.</p>
+<p>The scale is <code>1.4826 × MAD</code> — the constant that makes the median absolute deviation an unbiased estimate of the standard deviation on Gaussian data, so <code>n_sigma</code> means what it says.</p>
+<p><code>catalog/qu_noise_and_removal.qu</code> runs all of this on one signal.</p>
+<h2 id="s285">More functions</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>adc</code></td><td><code>adc(x, [bits=12], [vmin=], [vmax=], [dither=false], [seed=])</code></td><td>Quantises <code>x</code> (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside <code>[vmin, vmax]</code> <strong>clips</strong> instead of being quantised as if the range were infinite. <code>bits</code> (positional or named integer, at least 1, default <code>12</code>) fixes the code count <code>2^bits</code>; <code>vmin</code>/<code>vmax</code> (named numbers) default to <code>-peak</code>/<code>+peak</code> of <code>x</code> itself; <code>dither</code> (named boolean, default <code>false</code>) adds two-LSB peak-to-peak TPDF noise before quantising, with <code>seed</code> (named integer) the RNG seed it uses. See the section above for the full field-by-field discussion. Returns a <code>Record</code> with fields <code>x</code> (a length-N <code>Vec</code>, the quantised signal), <code>lsb</code> (a <code>Num</code>, <code>(vmax - vmin) / 2^bits</code>), <code>clipped</code> (a <code>Num</code>, how many samples fell outside the range), <code>snr_ideal</code> (a <code>Num</code>, dB), <code>vmin</code> (a <code>Num</code>, the low end of the range actually used), <code>vmax</code> (a <code>Num</code>, the high end) and <code>bits</code> (a <code>Num</code>, the word length actually used).</td></tr>
+<tr><td><code>add_noise</code></td><td><code>add_noise(x, kind, [snr=], [amplitude=], [seed=])</code></td><td>Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel). <code>snr</code> (named number, dB) or <code>amplitude</code> (named number, raw units) sets the level — give one or the other, never both; with neither, defaults to 20 dB. <code>seed</code> is a named integer for a reproducible draw, default <code>1</code>. Returns a value the same shape as <code>x</code>.</td></tr>
+<tr><td><code>distort</code></td><td><code>distort(x, kind, [amount=0.3])</code></td><td>Put the signal through a nonlinearity: <code>clip</code>, <code>soft</code>, <code>crossover</code>, <code>harmonic</code>, <code>quantize</code>. See the dedicated table and signature above for the full parameter breakdown. Returns a plain length-N <code>Vec</code> — a <code>Signal</code> argument comes back as a bare vector, so re-wrap it with <code>signal(...)</code> if you need the sample rate.</td></tr>
+<tr><td><code>medfilt2</code>, <code>median_filter</code></td><td><code>medfilt2(x, [window=3])</code></td><td>Synonyms for <code>medfilt</code> at the Qu level: <code>x</code> is a length-N number vector or an <code>Image</code>, <code>window</code> an optional positional/named odd integer, default <code>3</code>. On a plain vector the result is identical to <code>medfilt(x, window)</code> (a 1-D median); the two-dimensional median — over a <code>window</code>×<code>window</code> square, channel by channel, not separable, so the median of medians is never substituted for the real thing — only happens when <code>x</code> is an <code>Image</code>, since the image itself carries its own width and height. Returns a value the same shape as <code>x</code>.</td></tr>
+<tr><td><code>tv_denoise</code></td><td><code>tv_denoise(y, [lambda=1.0])</code></td><td>Total-variation denoising: <code>y</code> is a length-N number vector; <code>lambda</code> is an optional positional number, the smoothing penalty, default <code>1.0</code> — larger values remove more variation. Assumes few CHANGES rather than few non-zeros, so a step survives where an l1 method would flatten it. Condat's direct algorithm, one pass. Returns a length-N vector.</td></tr>
+<tr><td><code>coherence</code></td><td><code>coherence(A)</code></td><td><code>A</code> is an M×N sensing matrix. Returns a single number: the largest inner product between any two different normalised columns of <code>A</code>. Small is good.</td></tr>
+<tr><td><code>cs_recover</code></td><td><code>cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td>Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>. <code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros); the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead. <code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>; <code>debias=true</code> re-fits the recovered support by plain least squares afterwards. Returns a record <code>{x, support, residual, iterations, converged, method}</code>: the recovered length-N vector, the integer indices of its non-zero support, the final residual norm, the iteration count, whether it converged, and the method name used.</td></tr>
+<tr><td><code>cs_guarantee</code></td><td><code>cs_guarantee(A)</code></td><td><code>A</code> is an M×N sensing matrix. Returns a single number: the largest sparsity level that the matrix's coherence alone can *prove* recoverable. Badly pessimistic, and the only certificate that is computable at all.</td></tr>
+</table></div>
+<p>On an <code>Image</code>, <code>medfilt2</code> (and its synonym <code>median_filter</code>) run the true 2-D median over a square window, channel by channel, rather than the 1-D <code>medfilt</code> above. A 1-D median taken row-by-row on a 2-D image would smear vertical structure it never looks at, which is why the two-dimensional version exists as its own function rather than a loop over <code>medfilt</code>. The example below builds a small, badly salt-and-peppered checkerboard as a matrix, turns it into an <code>Image</code>, and runs both names of the filter over it — the point being that they are the same function, so nothing about choosing one name over the other changes the result:</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
+img = <span class="f">image_from_matrix</span>(m)
+
+a = <span class="f">medfilt2</span>(img, <span class="n">3</span>)
+b = <span class="f">median_filter</span>(img, <span class="n">3</span>)      <span class="c"># same filter, other name</span>
+<span class="f">print</span>(<span class="s">"{a.width}x{a.height} cleaned, {b.width}x{b.height} cleaned"</span>)
+</code></pre>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

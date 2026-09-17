@@ -1,0 +1,29 @@
+# map1_complex has no rayon path at all: CVec is `zs.iter()...` and CMat is
+# `m.as_slice().iter()...`, both plain serial iterators with no threshold.
+# So a complex matrix gets NO parallelism where the same-size real matrix
+# does. Verified by timing, not just by reading the source.
+n = 4000000
+reps = 7
+re = reshape(randn(n, 1), 2000, 2000)
+cm = re + 1i * re            # same element count, complex
+print("real: {type(re)}   complex: {type(cm)}")
+
+br = 1.0e9
+bc = 1.0e9
+for r = 0 to reps
+    tic()
+    a = exp(re)
+    t = toc()
+    if t < br and r > 0
+        br = t
+    end if
+    tic()
+    b = exp(cm)
+    t = toc()
+    if t < bc and r > 0
+        bc = t
+    end if
+end for
+print("exp(real 2000x2000, rayon above 1<<20) : {br:.4f} s")
+print("exp(cplx 2000x2000, always serial)     : {bc:.4f} s")
+print("ratio complex/real                     : {bc/br:.2f}x")

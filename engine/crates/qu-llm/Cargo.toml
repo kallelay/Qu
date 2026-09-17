@@ -1,0 +1,36 @@
+[package]
+name = "qu-llm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Local, in-process LLM inference for Qu's AI core (feature `llm` on qu-interp) -- loads a small quantized GGUF chat model via `candle` (pure-Rust, no libtorch/llama.cpp C++ toolchain) and runs greedy text generation entirely on-device. See this crate's `lib.rs` module doc comment for the model-choice investigation (why a standard 4-bit GGUF, not the ternary Bonsai model originally proposed) and IMPL.md's dated entry for the full feasibility trail."
+
+[dependencies]
+# Pure-Rust GGUF quantized-model runtime -- see `lib.rs`'s own doc comment
+# for why `candle`, not `llama-cpp-rs`/`tch` (this repo's whole ethos is
+# "cargo build just works," and llama.cpp's cmake/C++ toolchain has been a
+# real source of Windows build friction elsewhere in this repo already).
+candle-core = "0.11"
+candle-nn = "0.11"
+# `quantized_llama::ModelWeights` -- the actual GGUF-quantized Llama-family
+# forward pass this crate drives.
+candle-transformers = "0.11"
+tokenizers = "0.20"
+# Sync-only (`ureq`-backed) HF Hub client, for the one file this crate DOES
+# hand to it -- the big LFS-tracked `.gguf` blob, which downloads fine
+# through hf-hub's normal metadata/redirect path (LFS files redirect to a
+# fully-qualified CloudFront URL). hf-hub 0.3.2's DEFAULT feature is
+# `online` (ureq-backed sync client only) -- there's a SEPARATE, non-default
+# `tokio` feature for an async reqwest-based client, which this crate never
+# enables: no reason to pull an async runtime into `qu-interp`'s dependency
+# tree just for a model download. See `lib.rs`'s `fetch_tokenizer_json` doc
+# comment for why the tokenizer file is fetched by hand instead of through
+# this same client.
+hf-hub = "0.3"
+# Used directly (not just transitively via hf-hub's `ureq` feature) to fetch
+# `tokenizer.json` by hand -- see `lib.rs`'s `fetch_tokenizer_json` doc
+# comment for the hf-hub 0.3.2 bug this works around (its own redirect-
+# metadata code fails on a small, non-LFS file's relative `Location`
+# header; a plain `ureq::get(...).call()` follows the SAME redirect
+# correctly since it doesn't hand-parse the header at all).
+ureq = "2"

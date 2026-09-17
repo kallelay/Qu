@@ -1,0 +1,128 @@
+function is_even(n)
+    return n mod 2 == 0
+end function
+
+function add2(a, b)
+    return a + b
+end function
+
+# Every example that will appear in the guide, in one runnable file.
+# Written BEFORE the prose, so the prose can only describe what ran.
+
+print("-- quick arithmetic --")
+bytes_moved = 1500000 * 51 * 8
+gb = bytes_moved / 1e9
+print("moved {gb} GB")
+secs = 0.0269
+print("effective {bytes_moved / secs / 1e9} GB/s")
+
+print("-- reading a whole file --")
+tmp = tmp_file()
+write_text(tmp, "alpha,2\nbeta,5\ngamma,11\n")
+txt = read_all_text(tmp)
+print("chars: {len(txt)}")
+
+print("-- line by line --")
+for line in lines(trim(txt))
+    parts = split(line, ",")
+    print("  {parts[0]} -> {parts[1]}")
+end for
+
+print("-- csv straight to a table --")
+csvp = tmp_file()
+write_text(csvp, "name,score\na,1\nb,4\nc,9\n")
+t = read_csv(csvp, headers = true)
+print("rows: {nrow(t)}")
+print(head(t, 2))
+
+print("-- collections: build, filter, fold --")
+acc = ()
+for i = 1 to 6
+    acc = append(acc, i * i)
+end for
+print(acc)
+print("len {len(acc)}")
+evens = filter(acc, "is_even")
+print(evens)
+total = fold(acc, "add2", 0)
+print("fold total {total}")
+
+print("-- strings --")
+s = "  Measurement Lane  "
+print("[{trim(s)}]")
+print(upper(trim(s)))
+print(contains(s, "Lane"))
+print(replace(s, "Lane", "Window"))
+
+print("-- regex: STRING first --")
+print(regex_match("abc123", "[0-9]+"))
+print(regex_count("a1b22c333", "[0-9]+"))
+print(regex_find("a1b22c333", "[0-9]+"))
+
+print("-- timing --")
+tic()
+z = 0
+for i = 1 to 20000
+    z = z + i
+end for
+dt = toc()
+print("elapsed is a number: {type(dt)}")
+
+print("-- finding a builtin without leaving Qu --")
+print(apropos("csv"))
+
+print("-- traps --")
+print(shape([[1, 2], [3, 4]]))
+print(shape([1, 2, 3, 4] as matrix(2, 2)))
+
+print("-- shadowing: only `where`, and only its subscript --")
+where = [10, 20, 30]
+print("len {len(where)} subscript {where[0]}")
+filter = [10, 20, 30]
+print("filter is fine: {filter[0]}")
+at = [10, 20, 30]
+print("at is fine: {at[0]}")
+
+print("-- interpolation of a live name is silent --")
+set = 42
+print("the {set} of values")
+
+print("-- help() answers what a builtin takes --")
+print(help("tic"))
+
+print("-- a filled shape is not opaque by default --")
+tmp_svg = tmp_file() + ".svg"
+figure()
+figure_size(200, 150, unit = "mm")
+polygon([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], fill = "#ff0000")
+savefig(tmp_svg)
+txt1 = read_all_text(tmp_svg)
+print(contains(txt1, "opacity=\"0.18\""))
+figure()
+figure_size(200, 150, unit = "mm")
+polygon([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], fill = "#ff0000", alpha = 1.0)
+savefig(tmp_svg)
+txt2 = read_all_text(tmp_svg)
+print(contains(txt2, "opacity=\"1\""))
+
+print("-- figure_size does not clear the canvas, only figure() does --")
+figure()
+figure_size(200, 150, unit = "mm")
+polygon([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], fill = "#00ff00", alpha = 1.0)
+figure_size(200, 150, unit = "mm")
+polygon([2.0, 3.0, 3.0], [0.0, 0.0, 1.0], fill = "#0000ff", alpha = 1.0)
+savefig(tmp_svg)
+txt3 = read_all_text(tmp_svg)
+n3 = regex_count(txt3, "<polygon")
+print("shapes after figure_size alone (accumulated): {n3}")
+figure()
+figure_size(200, 150, unit = "mm")
+polygon([2.0, 3.0, 3.0], [0.0, 0.0, 1.0], fill = "#0000ff", alpha = 1.0)
+savefig(tmp_svg)
+txt4 = read_all_text(tmp_svg)
+n4 = regex_count(txt4, "<polygon")
+print("shapes after a fresh figure(): {n4}")
+
+print("-- bitwise ops round-trip through f64 on the way OUT too --")
+r_bitor = bitor(9007199254740992, 1)
+print("bitor(2^53, 1) = {r_bitor} (true answer 9007199254740993, odd and past exact range)")

@@ -1,0 +1,55 @@
+[package]
+name = "qu-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The `qu` command — run scripts, start a REPL, or dump tokens/AST."
+
+[[bin]]
+name = "qu"
+path = "src/main.rs"
+
+[dependencies]
+qu-lexer = { path = "../qu-lexer" }
+qu-syntax = { path = "../qu-syntax" }
+qu-interp = { path = "../qu-interp" }
+
+# `qu mcp` speaks JSON-RPC. Hand-rolling a JSON *parser* to avoid one
+# dependency would be a worse trade than it looks: qu-interp already
+# depends on this exact version, so the CLI adds nothing to the build.
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# Forwards qu-interp's own `gpu` feature (off by default — see its own
+# Cargo.toml for why) so it's actually reachable from the `qu` binary
+# itself: without this, `cargo build -p qu-cli --features gpu` fails
+# ("qu-cli does not contain this feature"), and the GPU path in
+# gram_matrix/svm_cross_term/etc. is unreachable no matter how the CLI is
+# built — the actual product entry point, not just the library crate.
+[features]
+# ON BY DEFAULT, unlike every other forward below.
+#
+# `xlsx` and `codec` are pure Rust with no system library and no build
+# script, so they cost a compile and nothing else -- and the module system
+# already gates their NAMES, which is the thing it exists to gate. A script
+# still has to write `import xlsx` before `xlsx.read(...)` resolves.
+# Leaving them off meant `import xlsx` answered "rebuild with
+# `--features xlsx`" and that rebuild did not work, because qu-cli never
+# forwarded the feature: the module was unreachable from the actual `qu`
+# binary, which is the only place anyone runs Qu. Found 2026-09-09 while
+# adding `codec`.
+default = ["xlsx", "codec"]
+xlsx = ["qu-interp/xlsx"]
+codec = ["qu-interp/codec"]
+gpu = ["qu-interp/gpu"]
+# Forwards qu-interp's own `backend-torch` feature (off by default), same
+# "reachable from the actual `qu` binary, not just the library crate" reason
+# as `gpu` just above.
+backend-torch = ["qu-interp/backend-torch"]
+# Forwards qu-interp's own `h5-models` feature (off by default — `save_model`
+# /`load_model`, see qu-interp's Cargo.toml), same reason as `gpu`/
+# `backend-torch` just above.
+h5-models = ["qu-interp/h5-models"]
+# Forwards qu-interp's own `llm` feature (off by default — `llm_load(...)`/
+# `.generate(...)`, see qu-interp's Cargo.toml), same reason as `gpu`/
+# `backend-torch`/`h5-models` just above.
+llm = ["qu-interp/llm"]

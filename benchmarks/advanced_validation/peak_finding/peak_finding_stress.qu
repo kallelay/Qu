@@ -1,0 +1,81 @@
+# peak_finding_stress.qu -- findpeaks() stress test: multiple SNR levels, a
+# distance-suppression boundary case, an ambiguous near-tied pair, and a
+# flat-topped plateau -- each read from the SAME CSVs
+# peak_finding_stress.py reads (generated once by make_signals.py), same
+# min_peak_height/min_peak_distance parameters passed on both sides, for a
+# real accuracy + speed cross-check against scipy.signal.find_peaks.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   read_csv(path)                                  -- shared CSV data
+#   findpeaks(x, min_peak_height=, min_peak_distance=) -> Model(.peaks, .locations)
+#   tic()/toc()                                      -- MATLAB-compatible wall-clock timing
+#
+# Run: qu run benchmarks/advanced_validation/peak_finding/peak_finding_stress.qu
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/peak_finding/"
+
+function report(name, pk)
+    n = length(pk.peaks)
+    print("{name}: n_peaks={n}")
+    k = min(n, 10)
+    print("  locations (first {k}) = {pk.locations[0:k - 1]}")
+    print("  heights   (first {k}) = {pk.peaks[0:k - 1]}")
+end function
+
+# --- low/medium/high noise: SAME detector settings (min_peak_height=0.5,
+# min_peak_distance=10) across all three, so any degradation with SNR is
+# the signal/noise itself, not re-tuned thresholds. -------------------------
+low = read_csv(DATA + "low_noise.csv").x
+tic()
+pk_low = findpeaks(low, min_peak_height=0.5, min_peak_distance=10)
+t_low = toc()
+report("low_noise", pk_low)
+print("  time={t_low*1000:.3f} ms")
+
+medium = read_csv(DATA + "medium_noise.csv").x
+tic()
+pk_medium = findpeaks(medium, min_peak_height=0.5, min_peak_distance=10)
+t_medium = toc()
+report("medium_noise", pk_medium)
+print("  time={t_medium*1000:.3f} ms")
+
+high = read_csv(DATA + "high_noise.csv").x
+tic()
+pk_high = findpeaks(high, min_peak_height=0.5, min_peak_distance=10)
+t_high = toc()
+report("high_noise", pk_high)
+print("  time={t_high*1000:.3f} ms")
+
+# --- close_peaks: min_peak_distance=5 -- 3-sample-apart bumps must be
+# suppressed (keeping the taller of each pair), 5-sample-apart (at the
+# threshold) must both survive -- expect 22 of 30 raw bumps. ---------------
+close = read_csv(DATA + "close_peaks.csv").x
+tic()
+pk_close = findpeaks(close, min_peak_distance=5)
+t_close = toc()
+report("close_peaks (min_peak_distance=5)", pk_close)
+print("  time={t_close*1000:.3f} ms")
+
+# --- ambiguous_pair: min_peak_distance=6 forces exactly one of the two
+# near-tied peaks (heights differ by 1e-6, 4 samples apart) to be dropped.
+amb = read_csv(DATA + "ambiguous_pair.csv").x
+tic()
+pk_amb = findpeaks(amb, min_peak_distance=6)
+t_amb = toc()
+report("ambiguous_pair (min_peak_distance=6)", pk_amb)
+print("  time={t_amb*1000:.3f} ms")
+
+# --- plateau: no filters -- does a flat-topped (2-sample) peak get found
+# at all, and where does the reported location land? ------------------------
+plat = read_csv(DATA + "plateau.csv").x
+tic()
+pk_plat = findpeaks(plat)
+t_plat = toc()
+report("plateau (no filters)", pk_plat)
+print("  time={t_plat*1000:.3f} ms")
+
+total_t = t_low + t_medium + t_high + t_close + t_amb + t_plat
+print("")
+print("total_time_s={total_t:.4f}")

@@ -1,0 +1,62 @@
+# qu_image_blobs.qu -- synthetic binary image, morphological cleanup, and
+# connected-component (blob) analysis.
+#
+# Builds a small grayscale image entirely in Qu (a few rectangular "blobs"
+# painted onto a noisy background), thresholds it with Otsu's method, cleans
+# up salt-and-pepper noise with an opening, then labels and measures the
+# surviving blobs -- a minimal machine-vision pipeline with no image file on
+# disk needed.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   image_from_matrix(mat)      -- build a Value::Image straight from a matrix
+#   otsu_threshold / threshold  -- automatic binarization
+#   imopen(img, radius)         -- erosion+dilation to remove speckle noise
+#   label_blobs / bwlabel       -- connected-component labeling, model kind "blobs"
+#   blob_stats / regionprops    -- per-blob area/centroid/bounding box
+
+backend auto
+
+#%% Paint a few rectangular blobs onto a noisy background
+W = 64
+H = 48
+canvas = 20 * ones(H, W)
+
+canvas[5:14, 8:19] = 200 * ones(10, 12)
+canvas[25:39, 5:17] = 180 * ones(15, 13)
+canvas[10:29, 40:54] = 220 * ones(20, 15)
+
+canvas = canvas + 15 * randn(H, W)
+img = image_from_matrix(canvas)
+print("Synthetic image: {img.width}x{img.height}")
+
+#%% Otsu binarization, then morphological cleanup
+t = otsu_threshold(img)
+binary = threshold(img, t)
+print("Otsu threshold = {t:.1f}")
+
+clean = imopen(binary, 1)
+
+#%% Connected-component labeling and per-blob measurements
+labeled = label_blobs(clean)
+print("Blobs found: {labeled.count}")
+
+stats = blob_stats(labeled)
+for i = 0 to length(stats) - 1
+    b = stats[i]
+    print("blob {b.label}: area={b.area} centroid=({b.centroid_x:.1f}, {b.centroid_y:.1f}) bbox={b.bbox_width}x{b.bbox_height}")
+end for
+
+#%% Show the pipeline stages
+subplot(1, 3, 1)
+imshow(img)
+title("Noisy source")
+
+subplot(1, 3, 2)
+imshow(binary)
+title("Otsu + threshold")
+
+subplot(1, 3, 3)
+imshow(clean)
+title("After imopen")
+
+show plot

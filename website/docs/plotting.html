@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plotting — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html" class="here">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Plotting</h1>
+<nav class="onthispage"><a href="#s0">Animation</a><a href="#s27">Layers</a><a href="#s52">Interactive export</a><a href="#s89">Shapes</a><a href="#s114">Colours</a><a href="#s141">Handles: tying one mark to another</a><a href="#s195">Example data</a><a href="#s227">Figure &amp; Axes Control</a><a href="#s272">Chart Types</a><a href="#s303">Annotations &amp; Overlays</a><a href="#s349">Interpolation for plotting</a><a href="#s395">Saving &amp; Export</a><a href="#s434">Markers &amp; Styling reference</a><a href="#s485">Worked examples</a><a href="#s520">More functions</a></nav>
+<p>The tables below are generated from the interpreter's own builtin dispatch table (<code>fn call_builtin</code> and <code>fn exec_plot_command</code> in <code>engine/crates/qu-interp/src/lib.rs</code>), not written speculatively ahead of the implementation — every function and command listed here runs today and produces a real <code>Figure</code>/<code>Panel</code> state that <code>savefig(...)</code> can export to SVG, HTML, or TikZ. A browser-based interactive Playground (<code>docs/ide.html</code>) also exists separately for live plot rendering — see its own chapter in this book.</p>
+<p>Most chart-type and annotation calls accept trailing <strong>named style arguments</strong> collected into a small key/value bag — commonly <code>color=</code>, <code>label=</code>, <code>marker=</code>; a few calls have their own extras (<code>bins=</code>, <code>colormap=</code>, <code>values=</code>, <code>hatch=</code>, <code>align=</code>, <code>position=</code>, <code>outside=</code>, <code>radius=</code>). These are noted per-row only when a call has something beyond the common trio. <code>hold on</code> (the default) overlays successive calls on the current panel; <code>hold off</code> gives each call its own panel.</p>
+<h2 id="s0">Animation</h2>
+<pre><code>animate(function_name, frames, path, [fps=24], [embed_fonts=])
+</code></pre>
+<p>Calls a function you wrote once per frame, with the frame number, and writes the sequence as one animated SVG.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">function</span> <span class="f">frame</span>(i)
+    t = <span class="n">2</span> * pi * i / <span class="n">60</span>
+    x = (<span class="n">0</span> <span class="k">to</span> <span class="n">200</span>) / <span class="n">20</span>
+    <span class="f">plot</span>(x, <span class="f">sin</span>(x - t), <span class="a">color</span> = <span class="s">"royalblue"</span>)
+    <span class="f">ylim</span>(-<span class="n">1.2</span>, <span class="n">1.2</span>)
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">animate</span>(<span class="s">"frame"</span>, <span class="n">60</span>, <span class="s">"wave.svg"</span>, <span class="a">fps</span> = <span class="n">24</span>)
+</code></pre>
+</div>
+<p><strong>Why SVG and not GIF.</strong> A GIF needs an LZW encoder, caps the palette at 256 colours, and produces a raster that is wrong at any size but the one it was made at. An animated SVG is one file, opens in any browser, stays sharp at any size, and reuses the renderer that already exists — the frames *are* ordinary Qu figures.</p>
+<p><strong>It animates without JavaScript.</strong> Each frame becomes a <code>&lt;g&gt;</code> carrying a CSS animation that shows it for its own slot of the cycle. No SMIL, no script, so the file works opened from disk, embedded in a page, or dropped into a slide.</p>
+<p>The cost is size: a hundred frames is a hundred figures in one file. That is the honest trade, and the frame count is yours to choose. A frame draws into a *fresh* figure, so it cannot inherit marks from the one before it, and the per-frame <code>· plot</code> chatter is suppressed — the animation reports itself once.</p>
+<p><code>catalog/qu_starry_night.qu</code> and <code>catalog/qu_sea_waves.qu</code> are the two worked examples. The sea is built from the deep-water dispersion relation rather than from a sine, which is why it never repeats its shape.</p>
+<h2 id="s27">Layers</h2>
+<p>Describe a set of marks once, place it as many times as you like.</p>
+<pre><code>l = capture(function_name, [extra arguments...])
+stamp(l, x, y, [scale=], [rotate=])
+</code></pre>
+<p><code>capture</code> runs your function into a scratch panel and keeps what it drew. <code>stamp</code> puts a transformed copy on the real one.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">function</span> <span class="f">sensor</span>()
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0.28</span>, <span class="a">fill</span> = <span class="s">"#4169e1"</span>, <span class="a">alpha</span> = <span class="n">0.9</span>)
+    <span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0.44</span>, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">1.2</span>)
+    <span class="f">plot</span>([<span class="n">0</span>, <span class="n">0</span>], [-<span class="n">0.44</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">1.2</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+s = <span class="f">capture</span>(<span class="s">"sensor"</span>)
+<span class="f">stamp</span>(s, <span class="n">2</span>, <span class="n">5</span>)
+<span class="f">stamp</span>(s, <span class="n">6</span>, <span class="n">5</span>, <span class="a">scale</span> = <span class="n">0.7</span>)
+<span class="f">stamp</span>(s, <span class="n">10</span>, <span class="n">5</span>, <span class="a">rotate</span> = <span class="n">180</span>)
+</code></pre>
+</div>
+<p><strong>A layer is a value, not a mode.</strong> It can be passed to a function, returned from one, held in a list, and duplicated by ordinary assignment — where a recorder with a <code>begin</code> and an <code>end</code> is one more thing to forget to close. It separates *what* is drawn from *where*, which is the whole reason to want it: a sensor symbol, a leaf, a bolt described once and placed forty times.</p>
+<p>Extra arguments go to the function, so one definition makes a family: <code>capture("sensor", 0.8)</code> if <code>sensor</code> takes a size.</p>
+<p>The transform is translate, then scale, then rotate about the layer's own origin — the order that makes <code>stamp(l, 3, 4, rotate = 30)</code> mean "put it there, turned". A stamped copy scales its stroke widths with it, so a shrunk symbol does not read as a blob, and drops its legend label, so one thing is not keyed twice.</p>
+<p>Two things do not rotate, and say so rather than pretending: <code>vline</code> and <code>hline</code> are defined as spanning the whole panel in one direction, so a turned one is not a line of that kind any more. They translate and scale. A rotated rule is a <code>polygon</code> or a two-point <code>plot</code>. A rotated <code>rectangle</code> becomes the polygon it actually is.</p>
+<p>Error bars and contours inside a layer keep their own geometry rather than moving: both are measurements of specific data, and a copy of one somewhere else would be a claim about data that is not there.</p>
+<h2 id="s52">Interactive export</h2>
+<pre><code>explore(function_name, path, names=, from=, to=, steps=)
+</code></pre>
+<p>Writes a self-contained HTML page with one slider per parameter and the figure updating as they move.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">function</span> <span class="f">view</span>(frequency, damping)
+    ...draw...
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">explore</span>(<span class="s">"view"</span>, <span class="s">"explorer.html"</span>,
+        <span class="a">names</span> = (<span class="s">"frequency [Hz]"</span>, <span class="s">"damping"</span>),
+        <span class="a">from</span>  = (<span class="n">10</span>, <span class="n">0.02</span>),
+        <span class="k">to</span>    = (<span class="n">400</span>, <span class="n">0.5</span>),
+        <span class="a">steps</span> = (<span class="n">12</span>, <span class="n">8</span>))
+</code></pre>
+</div>
+<p><strong>The limit is worth understanding before you reach it.</strong> There is no Qu in a browser, so the page computes nothing: every combination is rendered up front and the sliders *choose* among them. The cost is therefore the product of the step counts, and it is capped at 400 — two parameters at ten steps each is a hundred figures, three at ten is a thousand, which is not a web page. Within that limit the file needs no server, no network and no install.</p>
+<p><code>ui_slider</code> is the other half of this story. It *declares* a control for a host to render, which is right when Qu Studio is running the script and useless when you want to email someone a file. Both exist because both questions are real.</p>
+<p><code>catalog/qu_signal_explorer.qu</code> is the worked example: three sliders over a band-pass, with the time record, the spectrum and the pole positions all moving together.</p>
+<h2 id="s89">Shapes</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>circle</code></td><td><code>circle(cx, cy, r, [segments=128])</code></td><td>Draws a circle centered at <code>(cx, cy)</code> (numbers, data units) with radius <code>r</code> (number, data units). <code>segments=</code> (integer, default 128) is how many straight edges approximate the curve — raise it for a very large circle, lower it for a deliberately faceted look. Returns nothing; adds a shape to the current panel.</td></tr>
+<tr><td><code>ellipse</code></td><td><code>ellipse(cx, cy, rx, ry, [rotate=])</code></td><td>Draws an ellipse centered at <code>(cx, cy)</code> (numbers) with semi-axis radii <code>rx</code> and <code>ry</code> (numbers, data units along x and y respectively). <code>rotate=</code> (number, degrees, anticlockwise, default 0) tilts the whole ellipse about its center. Returns nothing.</td></tr>
+<tr><td><code>arc</code></td><td><code>arc(cx, cy, r, from, to)</code></td><td>Draws part of a circle, as an open stroke. <code>cx</code> and <code>cy</code> (numbers) are the centre, in data coordinates; <code>r</code> (number, positive — a zero or negative radius is an error) is the radius, applied as the same figure to both axes, so a panel whose x and y scales differ draws an ellipse rather than a round arc — a square canvas is what makes it round, not <code>axis equal</code>, which only equalises the ranges; <code>from</code> (number, degrees) is the angle the sweep starts at, measured counterclockwise from the positive x axis, so <code>0</code> is the three-o'clock position; <code>to</code> (number, degrees) is the angle it ends at, and a <code>to</code> smaller than <code>from</code> sweeps clockwise instead. Optional <code>segments=</code> (number, default <code>128</code>) is how many straight pieces approximate the curve, and <code>rotate=</code> (number, degrees) turns the whole arc about its centre. Unlike <code>circle</code>, an arc is open — it renders as a stroke (<code>color=</code>/<code>width=</code>/<code>dash=</code>), not a fillable shape. Returns nothing.</td></tr>
+<tr><td><code>rectangle</code>, <code>rect</code></td><td><code>rectangle(x0, y0, x1, y1)</code></td><td>Draws an axis-aligned rectangle. <code>x0</code> and <code>y0</code> (numbers, data units) are one corner; <code>x1</code> and <code>y1</code> (numbers, data units) are the corner diagonally opposite it, and which of the two you give first does not matter. <code>rect</code> is a plain alias. Returns nothing.</td></tr>
+<tr><td><code>polygon</code></td><td><code>polygon(xs, ys)</code></td><td>Draws a closed shape connecting the points <code>(xs[i], ys[i])</code> in order and back to the first. <code>xs</code> and <code>ys</code> are equal-length Vecs of numbers (data units). Returns nothing.</td></tr>
+<tr><td><code>point</code></td><td><code>point(x, y)</code></td><td>Marks a single position <code>(x, y)</code> (numbers, data units) with a dot. Returns nothing. Note: in the Annotations table below, <code>point</code> additionally auto-labels itself with its own coordinates — same builtin, described twice because it serves both roles.</td></tr>
+</table></div>
+<p>A shape given only <code>fill=</code> is filled and <strong>not</strong> outlined; give it <code>color=</code> to outline it. That matters more than it sounds: stroking a fill anyway put a hairline on every edge, which is invisible on one shape and reads as banding when twenty of them tile a gradient.</p>
+<p><code>axis off</code> removes the spines, ticks, tick labels and grid — for an inset, a sparkline, a schematic, or drawing that is not a plot at all, where the panel is simply a coordinate system. <code>axis on</code> restores them. The decoration is built and then dropped rather than skipped, so turning it off moves nothing else on the figure.</p>
+<p>All take <code>color=</code>, <code>fill=</code>, <code>alpha=</code>, <code>width=</code> and <code>dash=</code>.</p>
+<p><strong>These are drawn in data coordinates, and that has a consequence worth knowing.</strong> The outline is sampled in data space and each sample is then mapped through the axis transform — so <code>circle(0, 0, 1)</code> on a panel whose x and y scales differ draws the correct *ellipse*, not a round blob. That is geometrically right and it is what every plotting library does.</p>
+<p>To get a round circle you need the two axes at the same number of data units per pixel, and that is decided by the panel's shape as much as by its ranges. <code>axis equal</code> widens the narrower RANGE until both spans match; it does not reshape the panel, so on a panel wider than it is tall — the default — matching ranges still leave the x axis more spread out than the y, and the circle is still an ellipse. A square canvas is what actually does it, which is why the example below sets one.</p>
+<p>The alternative — emitting an SVG <code>&lt;circle&gt;</code> at a pixel radius — would be simpler and would draw the wrong shape on any panel with unequal scales, which is most of them, and something that is not an ellipse at all on a log axis.</p>
+<div class="example"><pre class="hl"><code><span class="c"># A square canvas, so that equal ranges really are equal scales and the</span>
+<span class="c"># circle below comes out round. Without it the figure would render an</span>
+<span class="c"># ellipse while the paragraph above it explained how to avoid one.</span>
+<span class="f">figure_size</span>(<span class="n">560</span>, <span class="n">560</span>)
+<span class="f">xlim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+<span class="f">ylim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+axis equal
+<span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">fill</span> = <span class="s">"royalblue"</span>)
+<span class="f">ellipse</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.6</span>, <span class="n">0.7</span>, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">rotate</span> = <span class="n">30</span>)
+<span class="f">arc</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.3</span>, <span class="n">0</span>, <span class="n">120</span>, <span class="a">color</span> = <span class="s">"seagreen"</span>, <span class="a">width</span> = <span class="n">2</span>)
+<span class="f">polygon</span>([<span class="n">0.8</span>, <span class="n">1.6</span>, <span class="n">1.2</span>], [-<span class="n">1.6</span>, -<span class="n">1.6</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"purple"</span>, <span class="a">fill</span> = <span class="s">"plum"</span>)
+<span class="f">rectangle</span>(-<span class="n">1.8</span>, -<span class="n">1.8</span>, -<span class="n">1.2</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">rect</span>(<span class="n">1.0</span>, -<span class="n">1.8</span>, <span class="n">1.8</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"teal"</span>)
+<span class="f">point</span>(<span class="n">0</span>, <span class="n">1.9</span>)
+</code></pre>
+</div>
+<h2 id="s114">Colours</h2>
+<p>Anywhere a colour is taken — <code>color=</code>, <code>edgecolor=</code>, <code>background=</code>, <code>fill=</code> — you may write:</p>
+<div class="tablewrap"><table>
+<tr><td>Form</td><td>Example</td></tr>
+<tr><td>A CSS colour name</td><td><code>color = "royalblue"</code> — all 148 of them</td></tr>
+<tr><td>Hex</td><td><code>color = "#4169e1"</code>, or the <code>#abc</code> shorthand</td></tr>
+<tr><td>Hex with alpha</td><td><code>color = "#4169e180"</code></td></tr>
+<tr><td>Built from numbers</td><td><code>color = rgb(65, 105, 225)</code></td></tr>
+<tr><td>With opacity</td><td><code>color = rgba(255, 0, 0, 0.5)</code> — a fraction is an opacity, a whole number 0–255 is a byte</td></tr>
+</table></div>
+<p>Every one of these is resolved to <code>#rrggbb</code> at the moment the argument is read, before any renderer sees it, and a colour that does not resolve is an error naming the nearest real one:</p>
+<pre><code><span class="e">qu: runtime error: plot: color=: `royalbleu` is not a colour -- did you mean `royalblue`?</span>
+</code></pre>
+<h4>Overloads: <code>rgba</code></h4>
+<p><code>rgba(r, g, b, a)</code> reads its fourth channel <code>a</code> two different ways depending on its own magnitude, so the same call can be written either the "raw byte" way or the CSS "opacity fraction" way and land on the same colour.</p>
+<h4>Case: byte alpha</h4>
+<p>Written as a whole number sharing the other three channels' 0–255 range, <code>a</code> is read as a raw alpha byte.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">rgba</span>(<span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">128</span>))   <span class="c"># "#ff000080" -- half-transparent red, byte alpha</span>
+</code></pre>
+</div>
+<h4>Case: fractional alpha</h4>
+<p>Written as a number 0–1 instead, <code>a</code> is read as an opacity fraction — the CSS convention — so <code>0.5</code> here lands on the exact same byte as <code>128</code> above. The boundary sits at <code>1</code>: <code>rgba(r, g, b, 1)</code> is read as the fraction (fully opaque), never as the barely-visible byte value <code>1</code>.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">rgba</span>(<span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.5</span>))   <span class="c"># "#ff000080" -- the same colour, from the CSS-style opacity fraction</span>
+</code></pre>
+</div>
+<h3>Colour spaces</h3>
+<p>RGB is what a screen takes and a poor space to think in. Each of these separates one perceptual question from the others, and hands back the <code>#rrggbb</code> every colour argument accepts — so they compose with everything without a colour type needing to exist.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>hsv</code></td><td><code>hsv(h, s, v)</code></td><td>Builds a colour from hue <code>h</code> (number, degrees, 0–360), saturation <code>s</code> (number, 0–1) and value/brightness <code>v</code> (number, 0–1). Returns a <code>"#rrggbb"</code> string usable anywhere a colour is taken.</td></tr>
+<tr><td><code>hsl</code></td><td><code>hsl(h, s, l)</code></td><td>Builds a colour from hue <code>h</code> (number, degrees, 0–360), saturation <code>s</code> (number, 0–1) and lightness <code>l</code> (number, 0–1, symmetric about 0.5 — "the same colour, lighter" is one number going up). Returns a <code>"#rrggbb"</code> string.</td></tr>
+<tr><td><code>lab</code></td><td><code>lab(L, a, b)</code></td><td>Builds a colour from CIE L\*a\*b\* coordinates: <code>L</code> (number, lightness, 0–100), <code>a</code> and <code>b</code> (numbers, roughly -128..127, green–red and blue–yellow axes). This is the only space here that is perceptually uniform. Returns a <code>"#rrggbb"</code> string.</td></tr>
+<tr><td><code>cmyk</code></td><td><code>cmyk(c, m, y, k)</code></td><td>Builds a colour from the printer's subtractive space: cyan <code>c</code>, magenta <code>m</code>, yellow <code>y</code>, key/black <code>k</code>, each a number 0–1. Returns a <code>"#rrggbb"</code> string.</td></tr>
+<tr><td><code>to_hsv</code></td><td><code>to_hsv(color)</code></td><td>Takes <code>color</code> (any string/value the language accepts as a colour — name, hex, <code>rgb(...)</code>, etc.) and returns its <code>(h, s, v)</code> triple as a Vec of numbers. Also <code>to_hsl</code>, <code>to_lab</code>, <code>to_cmyk</code>, <code>to_rgb</code>, each returning that space's own coordinate tuple as a Vec. Returns a 3-element <code>Vec</code> of numbers, <code>[h, s, v]</code>.</td></tr>
+<tr><td><code>delta_e</code></td><td><code>delta_e(a, b)</code></td><td>Compares colours <code>a</code> and <code>b</code> (each any accepted colour string) in CIE76 Lab space and returns a single number: the perceptual distance. Under 1 is invisible, 2–3 is where people start to notice, over 10 is plainly a different colour. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>palette</code></td><td><code>palette(n, [saturation=, value=, start=])</code></td><td>Generates <code>n</code> (integer) categorical colours of equal perceptual weight by walking hue at fixed saturation/value. <code>saturation=</code> (default 0.62) and <code>value=</code> (default 0.78) are numbers 0–1; <code>start=</code> (default 215, degrees) is the first colour's hue. Returns a List of <code>n</code> <code>"#rrggbb"</code> strings.</td></tr>
+</table></div>
+<p>HSV is the one that earns its place: fix saturation and value, walk the hue, and every colour in the set carries the same weight. That is what <code>palette(n)</code> does, and it is why a categorical palette picked by hand in RGB always has one colour that shouts.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">palette</span>(<span class="n">5</span>))
+<span class="f">print</span>(<span class="f">to_hsv</span>(<span class="s">"royalblue"</span>))
+<span class="f">print</span>(<span class="f">delta_e</span>(<span class="s">"royalblue"</span>, <span class="s">"crimson"</span>))
+<span class="f">print</span>(<span class="f">hsv</span>(<span class="n">210</span>, <span class="n">0.7</span>, <span class="n">0.9</span>))
+<span class="f">print</span>(<span class="f">hsl</span>(<span class="n">210</span>, <span class="n">0.7</span>, <span class="n">0.5</span>))
+<span class="f">print</span>(<span class="f">lab</span>(<span class="n">50</span>, <span class="n">20</span>, -<span class="n">30</span>))
+<span class="f">print</span>(<span class="f">cmyk</span>(<span class="n">0.1</span>, <span class="n">0.2</span>, <span class="n">0</span>, <span class="n">0.05</span>))
+<span class="f">print</span>(<span class="f">rgb</span>(<span class="n">65</span>, <span class="n">105</span>, <span class="n">225</span>))
+<span class="f">print</span>(<span class="f">rgba</span>(<span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.5</span>))
+<span class="f">print</span>(<span class="f">to_rgb</span>(<span class="s">"royalblue"</span>))
+<span class="f">print</span>(<span class="f">to_hsl</span>(<span class="s">"royalblue"</span>))
+<span class="f">print</span>(<span class="f">to_lab</span>(<span class="s">"royalblue"</span>))
+<span class="f">print</span>(<span class="f">to_cmyk</span>(<span class="s">"royalblue"</span>))
+</code></pre>
+</div>
+<p><code>delta_e</code> is the check to run before claiming two series can be told apart. Under 1 is invisible, 2–3 is where people start to notice, over 10 is plainly a different colour. Two RGB values differing is not the same question, and is often reassuring when it should not be.</p>
+<p>The Lab conversions go through linear light rather than the gamma-encoded sRGB values. That step is what separates a correct conversion from the common wrong one: interpolating encoded values gives a colour that is visibly too dark, which is the classic fault in every hand-rolled gradient.</p>
+<p>That check is not pedantry. Colour strings used to reach the backends untouched, and the backends disagree: an SVG viewer knows what <code>royalblue</code> means, and the PDF writer reads the first two characters as hex, fails, and falls back to zero. The same figure came out blue on screen and <strong>black in the paper</strong>, with nothing printed either time.</p>
+<h2 id="s141">Handles: tying one mark to another</h2>
+<p><code>text</code>, <code>annotate</code>, <code>vline</code> and <code>hline</code> return a <strong>handle</strong> to what they drew. Reading a property tells you what was set; assigning one changes the drawing.</p>
+<div class="example"><pre class="hl"><code>lab  = <span class="f">text</span>(<span class="n">120</span>, <span class="n">5.35</span>, <span class="s">"6 dB = 1 bit"</span>, <span class="a">color</span> = <span class="s">"#0E7C86"</span>)
+rule = <span class="f">hline</span>(<span class="n">6</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">width</span> = <span class="n">1.4</span>)
+rule.color = lab.color        <span class="c"># one ink, stated once</span>
+<span class="f">print</span>(rule.color)             <span class="c"># "#0e7c86" -- the rule really did pick up the label's colour</span>
+</code></pre>
+</div>
+<p>The alternative is to quote the same colour at both call sites and trust they stay equal. They do not: a restated value drifts the first time one of the two is edited.</p>
+<div class="tablewrap"><table>
+<tr><td>Handle</td><td>Properties</td></tr>
+<tr><td><code>text</code>, <code>annotate</code></td><td><code>color</code>, <code>text</code>, <code>x</code>, <code>y</code>, <code>size</code>, <code>italic</code></td></tr>
+<tr><td><code>vline</code>, <code>hline</code></td><td><code>color</code>, <code>width</code>, <code>dash</code>, <code>dot</code>, <code>at</code></td></tr>
+</table></div>
+<p>Reading a property the call never set gives <code>none</code>, because what it will actually be drawn in is the theme's choice, made at render time. Assigning that <code>none</code> onward is refused rather than accepted, since the two defaults are different inks and accepting it would produce exactly the mismatch the assignment was written to prevent — set an explicit value on the source first.</p>
+<p>Handles are positions in the figure being built, so they stop being valid once <code>figure()</code> starts a new one.</p>
+<h2 id="s195">Example data</h2>
+<p>Every example on this page runs against this, so you can paste any of them into a file and see the figure. Nothing here needs a data file.</p>
+<div class="example"><pre class="hl"><code>t  = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">500</span>)                  <span class="c"># one second at 500 Hz</span>
+y  = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t) + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">1</span>)
+mag  = <span class="f">abs</span>(<span class="f">rfft</span>(y))                       <span class="c"># 251 bins for 500 samples</span>
+f    = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">250</span>, <span class="f">len</span>(mag))         <span class="c"># the matching frequency axis</span>
+yhat = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)                <span class="c"># a "model" to compare against</span>
+losses = <span class="n">1</span> ./ (<span class="n">1</span> <span class="k">to</span> <span class="n">40</span>)                   <span class="c"># a decaying training curve</span>
+</code></pre>
+</div>
+<h2 id="s227">Figure &amp; Axes Control</h2>
+<div class="tablewrap"><table>
+<tr><td>Function/Command</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>hold</code></td><td><code>hold on</code> / <code>hold off</code> (bare command)</td><td>Toggles overlay mode: <code>on</code> (default) overlays successive plot calls on the current panel, <code>off</code> gives each call a fresh panel.</td></tr>
+<tr><td><code>next</code></td><td><code>next plot [vertical|horizontal]</code> (bare command)</td><td>Starts a new panel unconditionally (ignores <code>hold</code>), stacked below (<code>vertical</code>, default) or beside (<code>horizontal</code>) the previous one. <code>next layer</code> / <code>next layer N</code> instead stays in the same cell and moves through the deck a <code>split plot</code> grid gave it.</td></tr>
+<tr><td><code>split</code> (command)</td><td><code>split plot R C [L]</code> (bare command)</td><td>Lays the whole figure out as an <code>R</code>×<code>C</code> grid up front and puts the cursor on the first cell, so the plots that follow read as a sequence instead of as separate calls that happen to agree about the shape — the same grid <code>panel(R, C, i)</code> builds, said once. A third number is a LAYER count, not a starting cell: <code>split plot 3 2 2</code> is that grid two decks deep, twelve panels in six rectangles. <code>panel</code>, <code>subplot</code> and <code>figure</code> are accepted in place of <code>plot</code>.</td></tr>
+<tr><td><code>pan</code>, <code>zoom</code></td><td><code>pan</code> / <code>zoom</code> (bare command)</td><td><strong>Accepted and ignored.</strong> Both parse and do nothing, so a script written for a live GUI still runs headless — there is no viewport to move when the output is a static file. Documented so that a reader porting such a script learns it here rather than from a <code>pan</code> that silently does not pan. <code>zoom_inset(x0, x1, y0, y1)</code> is a different, static-friendly feature and a real function call, not this command.</td></tr>
+<tr><td><code>clear</code></td><td><code>clear</code> / <code>clear figure</code> / <code>clear panel</code> / <code>clear panel N</code> / <code>clear panel R, C, I</code> (bare command)</td><td>Resets figure/panel state: everything, the current panel, a panel by creation index, or a panel by grid coordinate (even before that cell has been visited). <code>subplot</code> is an accepted alias of <code>panel</code> in this form too.</td></tr>
+<tr><td><code>axis</code></td><td><code>axis equal</code> / <code>axis tight</code> / <code>axis auto</code> / <code>axis origin</code> / <code>axis edge</code> / <code>axis scale x|y log|linear</code> (bare command)</td><td><code>equal</code>: equal data units per pixel on both axes. <code>tight</code>: fit exactly to the data (no 5% padding); <code>auto</code> restores the default padding. <code>origin</code>: axis spines cross through data <code>(0,0)</code> (clamped to the nearest edge if 0 is out of range) instead of framing a box; <code>edge</code> restores the box. <code>scale x/y log</code>: sets that axis's scale (<code>z</code> is accepted as a no-op, reserved for a future 3-D milestone).</td></tr>
+<tr><td><code>legend</code> (command)</td><td><code>legend</code> / <code>legend off</code> / <code>legend top|bottom|left|right|best [outside]</code> (bare command)</td><td>Bare form toggles visibility and/or sets position; <code>outside</code> is an order-independent modifier reserving margin outside the plot. <code>best</code> scores the four corners by how many plotted points fall in each quadrant and picks the emptiest.</td></tr>
+<tr><td><code>legend</code> (function)</td><td><code>legend("label1", "label2", ...)</code></td><td>Labels the trailing N series of the current panel (N = number of arguments given, in call order) and turns the legend on.</td></tr>
+<tr><td><code>grid</code></td><td><code>grid on|off</code> / <code>grid minor [off]</code> (bare command)</td><td><code>on</code>/<code>off</code> toggles major gridlines. <code>minor</code>/<code>minor off</code> independently toggles dotted minor gridlines (MATLAB allows minor grid without major grid too, so this never forces major grid on). Calling <code>grid(...)</code> as a <strong>function</strong> is accepted but is a no-op — only the bare command form actually changes anything. Returns <code>Nothing</code>, in both the command and the (no-op) function form.</td></tr>
+<tr><td><code>box</code></td><td><code>box on|off</code> (bare command)</td><td>Toggles the panel's bounding box. As a <strong>function</strong> call, <code>box(...)</code> is accepted but is a no-op. Returns <code>Nothing</code>, in both the command and the (no-op) function form.</td></tr>
+<tr><td><code>yyaxis</code></td><td><code>yyaxis left|right</code> (bare command)</td><td>Every series plotted from this point on (until the next switch) targets that y-axis; recorded as a switch-point list, not a per-series flag.</td></tr>
+<tr><td><code>xxaxis</code></td><td><code>xxaxis top|bottom</code> (bare command)</td><td>Qu's own name (not a MATLAB spelling) for a secondary, independently-scaled x-axis, mirroring <code>yyaxis</code>.</td></tr>
+<tr><td><code>show</code></td><td><code>show plot</code> (bare command)</td><td>Marks a figure as rendered/finalized (increments the figure counter); headless bookkeeping today, not a live GUI pop-up.</td></tr>
+<tr><td><code>close</code> (command)</td><td><code>close</code> (bare command)</td><td>Accepted as a no-op for figures (so scripts written for a live GUI still parse and run). <strong>Note:</strong> <code>close(handle)</code> as a *function call* is unrelated — it closes a file handle opened by <code>fopen</code>, not a figure. Returns <code>Nothing</code> either way — the figure command does nothing at all, and <code>close(f)</code> releases the handle.</td></tr>
+<tr><td><code>subplot</code> / <code>panel</code></td><td><code>panel(rows, cols, index)</code></td><td>Selects grid cell <code>index</code> (integer, 1-based, row-major) of a <code>rows</code>-by-<code>cols</code> (integers) grid on the current figure as the panel further drawing targets. MATLAB-<code>subplot</code>-style. <code>subplot(...)</code> is a plain alias of <code>panel(...)</code>, same arguments. Returns nothing.</td></tr>
+<tr><td><code>figure</code></td><td><code>figure()</code></td><td>Clears/resets the whole figure (all panels), starting a fresh one. Takes no arguments. Must be called with parentheses — bare <code>figure</code> (no parens) is not a recognized command verb. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>xlabel</code></td><td><code>xlabel(text, [align=])</code></td><td>Labels the current panel's x-axis with <code>text</code> (string). <code>align=</code> (string, one of <code>"left"</code>/<code>"center"</code>/<code>"right"</code>, default <code>"center"</code>) sets the label's horizontal alignment. While <code>xxaxis top</code> is active, labels the *top* axis instead of the bottom one. Returns nothing.</td></tr>
+<tr><td><code>ylabel</code></td><td><code>ylabel(text, [align=])</code></td><td>Labels the current panel's y-axis with <code>text</code> (string). <code>align=</code> (string, <code>"left"</code>/<code>"center"</code>/<code>"right"</code>, plus <code>"bottom"</code>/<code>"top"</code> for the rotated text, default <code>"center"</code>) sets alignment. While <code>yyaxis right</code> is active, labels the *right* axis instead of the left one. Returns nothing.</td></tr>
+<tr><td><code>title</code></td><td><code>title(text, [align=])</code></td><td>Sets the current panel's title to <code>text</code> (string). <code>align=</code> (string, <code>"left"</code>/<code>"center"</code>/<code>"right"</code>, default <code>"center"</code>) sets its horizontal alignment. Returns nothing.</td></tr>
+<tr><td><code>fontfamily</code></td><td><code>fontfamily(name)</code></td><td>Sets the figure-wide font (string <code>name</code>, inherited by every title/label/tick/legend). <code>"default"</code>/<code>"sans"</code> and <code>"print"</code>/<code>"serif"</code> are curated stacks (screen sans, paper/journal serif); any other string passes through verbatim as a literal CSS <code>font-family</code>. Every curated stack falls back to Latin Modern Math for Greek letters and mathematical operators, because none of the text faces covers them — Latin Modern has no <code>μ</code> at all — and <code>savefig(embed_fonts=true)</code> embeds that fallback too, but only for the symbols a given figure actually paints. Returns nothing.</td></tr>
+<tr><td><code>fontsize</code></td><td><code>fontsize(n)</code> / <code>fontsize(tick=, label=, title=)</code></td><td>A bare number <code>n</code> scales tick/label/title text together (in points); named arguments <code>tick=</code>, <code>label=</code>, <code>title=</code> (each a number, points) override each independently (and win over the positional value if both are given). Returns nothing.</td></tr>
+<tr><td><code>figure_background</code></td><td><code>figure_background(color)</code></td><td>Sets the current figure's SVG background fill to <code>color</code> (string: <code>"#rrggbb"</code> hex or a CSS named colour; default <code>"#ffffff"</code>), passed straight through, unparsed. Figure-wide, like <code>fontfamily</code>/<code>fontsize</code>. Does not auto-invert axis/gridline/text colors for a dark background — that's a bigger "themeable plot" feature, not built here. Returns nothing.</td></tr>
+<tr><td><code>xticks</code></td><td><code>xticks(positions)</code></td><td>Sets explicit x tick positions from <code>positions</code> (Vec of numbers, data units), paired in order with <code>xticklabels(...)</code> when both are set. <code>xticks(())</code> (empty) removes ticks entirely. Returns nothing.</td></tr>
+<tr><td><code>xticklabels</code></td><td><code>xticklabels("a", "b", ...)</code></td><td>Sets categorical x tick labels from the given strings (variadic positional arguments); without an <code>xticks(...)</code> call, spread evenly across the current x-extent. Returns nothing.</td></tr>
+<tr><td><code>ylim</code> / <code>xlim</code></td><td><code>ylim(lo, hi)</code> / <code>ylim()</code></td><td>Sets explicit axis limits <code>lo</code> and <code>hi</code> (numbers, data units); calling with no arguments clears them and restores auto-scaling. Returns nothing.</td></tr>
+<tr><td><code>colormap</code></td><td><code>colormap(name)</code></td><td>Sets the current panel's categorical/sequential palette to <code>name</code> (string — see the Markers &amp; Styling reference below for the full list). An unknown name silently resolves to <code>"default"</code> rather than erroring. Returns nothing.</td></tr>
+<tr><td><code>colorbar</code></td><td><code>colorbar</code> (bare command) or <code>colorbar()</code> (function)</td><td>Accepted, with or without a <code>[extend=]</code>-style argument in the function form (so MATLAB-style scripts parse) but currently a documented no-op in both forms — no colorbar is actually drawn. Returns nothing.</td></tr>
+</table></div>
+<h4>Overloads: <code>axis</code></h4>
+<p><code>axis</code> is one verb with several keyword arguments that switch it to fundamentally different behavior, not variations on one theme — worth seeing side by side rather than picking one and assuming the rest are similar.</p>
+<h4>Case: equal</h4>
+<p><code>axis equal</code> forces equal data units per pixel on both axes. Look for the circle actually looking round, not stretched to whatever aspect ratio the panel happens to have.</p>
+<div class="example"><pre class="hl"><code><span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>)
+axis equal
+</code></pre>
+</div>
+<h4>Case: origin</h4>
+<p><code>axis origin</code> moves the axis spines to cross through data <code>(0, 0)</code> instead of framing the panel in a box. Look for the spines meeting in the middle of the plot instead of at its edges.</p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>([-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>], [-<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, -<span class="n">1</span>])
+axis origin
+</code></pre>
+</div>
+<h4>Case: scale log</h4>
+<p><code>axis scale y log</code> switches only the named axis to a log scale, leaving the other one linear. Look for the exponential curve straightening into a line.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+<span class="f">plot</span>(x, <span class="f">exp</span>(<span class="n">0.1</span> * x))
+axis scale y log
+</code></pre>
+</div>
+<h4>Overloads: <code>legend</code></h4>
+<p><code>legend</code> is two unrelated builtins sharing one name: the bare command form controls the legend box itself (on/off/position), and the function-call form instead labels the panel's own series. Neither one does the other's job.</p>
+<h4>Case: function form — label series</h4>
+<p><code>legend("sin(x)", "cos(x)")</code> labels the trailing two series of the current panel, in call order, and turns the legend on. Look for a legend box carrying those two exact strings.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t))
+<span class="f">plot</span>(t, <span class="f">cos</span>(t))
+<span class="f">legend</span>(<span class="s">"sin(x)"</span>, <span class="s">"cos(x)"</span>)
+</code></pre>
+</div>
+<h4>Case: bare command — position/visibility</h4>
+<p><code>legend top left</code> is unrelated to labeling — it only moves (or, with <code>off</code>, hides) whatever legend already exists, using whatever labels <code>plot</code>'s own <code>label=</code> set. Look for the box relocating to the top-left corner.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t), <span class="a">label</span> = <span class="s">"sin(x)"</span>)
+legend top left
+</code></pre>
+</div>
+<h4>Overloads: <code>grid</code></h4>
+<h4>Case: bare command</h4>
+<p><code>grid off</code> (bare) is the real toggle — it actually removes the panel's gridlines.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t))
+grid off
+</code></pre>
+</div>
+<h4>Case: function call (no-op)</h4>
+<p><code>grid(...)</code> called with parentheses, as a function, is accepted so a MATLAB-style script still parses — but it changes nothing. Calling it after <code>grid off</code> does <strong>not</strong> turn the grid back on; the gridlines stay off, exactly as <code>grid off</code> left them.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t))
+grid off
+<span class="f">grid</span>()   <span class="c"># no-op -- gridlines stay off, not re-enabled</span>
+</code></pre>
+</div>
+<p>These figure/axes calls are meant to be composed, not used one at a time, so here is a single panel exercising most of the row above: it renames the tick positions to words instead of numbers on both axes, swaps the figure's font and background, turns on the (currently non-drawing) colormap/colorbar pair, and explicitly restates grid/box/scale even though they are already at their defaults, to show that calling them is always safe. Run it and look at the labels — <code>"start"</code>/<code>"mid"</code>/<code>"end"</code> and <code>"low"</code>/<code>"zero"</code>/<code>"high"</code> should sit exactly where <code>0, 0.5, 1</code> and <code>-1, 0, 1</code> used to, against a warm off-white page instead of pure white:</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">200</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t))
+<span class="f">xticks</span>([<span class="n">0</span>, <span class="n">0.5</span>, <span class="n">1</span>])
+<span class="f">xticklabels</span>(<span class="s">"start"</span>, <span class="s">"mid"</span>, <span class="s">"end"</span>)
+<span class="f">yticks</span>([-<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>])
+<span class="f">yticklabels</span>(<span class="s">"low"</span>, <span class="s">"zero"</span>, <span class="s">"high"</span>)
+<span class="f">fontfamily</span>(<span class="s">"sans"</span>)
+<span class="f">fontsize</span>(<span class="a">tick</span> = <span class="n">10</span>, <span class="a">label</span> = <span class="n">12</span>, <span class="a">title</span> = <span class="n">14</span>)
+<span class="f">figure_background</span>(<span class="s">"#f7f7f7"</span>)
+<span class="f">colormap</span>(<span class="s">"viridis"</span>)
+<span class="f">colorbar</span>()
+<span class="f">grid</span>()
+<span class="f">box</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">xscale</span>(<span class="s">"linear"</span>)
+<span class="f">yscale</span>(<span class="s">"linear"</span>)
+<span class="f">title</span>(<span class="s">"Styled panel"</span>)
+</code></pre>
+</div>
+<h2 id="s272">Chart Types</h2>
+<p>Unless noted otherwise, each of these draws into the figure's *current panel* (<code>self.figure.panel_for_new_series()</code>), increments the figure/point counter, and accepts the common <code>color=</code>/<code>label=</code>/<code>marker=</code> style trio where relevant. <code>plot_xy</code>-style calls accept either <code>f(y)</code> (x defaults to <code>0, 1, 2, ...</code>) or <code>f(x, y)</code>.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>plot</code></td><td><code>plot(y)</code> / <code>plot(x, y)</code> / <code>plot(x, y, "o")</code></td><td>Draws a basic line (or, with a positional or <code>marker=</code> marker string such as <code>"o"</code>, a scatter-style) plot of <code>y</code> versus <code>x</code>. <code>x</code> and <code>y</code> are equal-length Vecs (or scalars broadcast to match) of numbers, data units; omitting <code>x</code> uses <code>0, 1, 2, ...</code>. Returns nothing; adds one series to the current panel.</td></tr>
+<tr><td><code>scatter</code></td><td><code>scatter(x, y)</code></td><td>Same machinery as <code>plot</code> — <code>x</code>, <code>y</code> are equal-length Vecs of numbers — but defaults its marker to <code>"o"</code> (dots) instead of <code>"line"</code>. Returns nothing.</td></tr>
+<tr><td><code>stem</code></td><td><code>stem(x, y)</code></td><td>Discrete stem plot: <code>x</code>, <code>y</code> are equal-length Vecs of numbers; draws a vertical line plus a dot from the baseline up to each <code>(x[i], y[i])</code> (marker <code>"stem"</code>). Returns nothing.</td></tr>
+<tr><td><code>bar</code></td><td><code>bar(x, y, [values=true], [hatch=true])</code></td><td>Bar chart: <code>x</code> (Vec of numbers or strings, category positions/labels) and <code>y</code> (Vec of numbers, bar heights) must be equal length. <code>values=true</code> (bool, default false) prints each bar's height above it; <code>hatch=true</code> (bool, default false) fills bars with a diagonal hatch instead of solid colour. Returns nothing.</td></tr>
+<tr><td><code>stackbar</code></td><td><code>stackbar(x, y)</code></td><td>Stacked bar chart: <code>x</code> (Vec, category positions) and <code>y</code> (Mat or list of Vecs, one row/series per stack segment) with the same <code>values=</code>/<code>hatch=</code> options as <code>bar</code>. Returns nothing.</td></tr>
+<tr><td><code>groupbar</code></td><td><code>groupbar(x, y)</code></td><td>Grouped (side-by-side) bar chart: <code>x</code> (Vec, category positions) and <code>y</code> (Mat or list of Vecs, one series per group of bars). Returns nothing.</td></tr>
+<tr><td><code>stair</code></td><td><code>stair(x, y)</code></td><td>Step (staircase) plot of equal-length numeric Vecs <code>x</code>, <code>y</code>. <code>stair</code> is the only callable spelling — <code>step</code> is a reserved keyword (<code>to ... step ...</code> ranges) so it can't be a function name; the series is still internally marked marker <code>"step"</code>. Returns nothing.</td></tr>
+<tr><td><code>hist</code> / <code>histogram</code></td><td><code>hist(samples, [bins])</code> or <code>hist(samples, bins=)</code></td><td>Bins raw <code>samples</code> (Vec of numbers) into equal-width buckets and renders as bars. <code>bins</code> (integer, positional or <code>bins=</code> keyword) sets the bucket count; defaults to <code>ceil(sqrt(n))</code> where <code>n = len(samples)</code>. Distinct from <code>bar</code>, which takes already-aggregated <code>(x, height)</code> pairs. Returns nothing.</td></tr>
+<tr><td><code>boxplot</code></td><td><code>boxplot(data)</code> / <code>boxplot(data1, data2, ...)</code></td><td>One group per argument (each a Vec of numbers), placed at <code>x = 0, 1, 2, ...</code>; draws a Tukey five-number summary (min/Q1/median/Q3/max plus outliers) per group as a box-and-whisker. Returns nothing.</td></tr>
+<tr><td><code>waterfall</code></td><td><code>waterfall(x, Z)</code></td><td><code>x</code> is a Vec of numbers (shared horizontal axis); <code>Z</code> is a Mat where each row becomes its own line, each successive row offset up-and-right so traces read back-to-front. A 2-D approximation of the stacked-trace look — no true 3-D projection yet. Returns nothing.</td></tr>
+<tr><td><code>scatterfit</code></td><td><code>scatterfit(x, y, [degree])</code></td><td>Draws a scatter of equal-length numeric Vecs <code>x</code>, <code>y</code> plus a <code>polyfit</code> trend line. <code>degree</code> (integer, positional, default 1) is the polynomial degree, sampled densely over <code>x</code>'s range. Returns nothing.</td></tr>
+<tr><td><code>splineplot</code></td><td><code>splineplot(x, y)</code></td><td>Natural cubic spline through the control points <code>(x[i], y[i])</code> (equal-length numeric Vecs), resampled onto 200 points for a smooth line. Returns nothing.</td></tr>
+<tr><td><code>pwl</code></td><td><code>pwl(x, y, [n_segments])</code></td><td>Continuous piecewise-linear least-squares fit through equal-length numeric Vecs <code>x</code>, <code>y</code>. <code>n_segments</code> (integer, positional, default 4) sets how many straight segments approximate the data; plotted through its own fitted breakpoints. Returns nothing.</td></tr>
+<tr><td><code>spiderplot</code></td><td><code>spiderplot(values)</code> / <code>spiderplot(v1, v2, ...)</code></td><td>Radar chart; each argument (a Vec of numbers, one value per spoke/category) becomes its own series, layered onto the current panel's spider chart (repeated calls add more series). Category axis labels aren't wired up yet — spokes are unlabeled. Returns nothing.</td></tr>
+<tr><td><code>polarplot</code></td><td><code>polarplot(theta, r)</code></td><td>Converts polar coordinates <code>theta</code> (Vec of numbers, radians) and <code>r</code> (Vec of numbers, radius) to Cartesian (<code>x=r·cos θ</code>, <code>y=r·sin θ</code>) and draws an ordinary line/scatter series. <strong>Not</strong> a native polar-axis renderer — no circular gridlines, angular ticks, or radial axis; it's a correctly-shaped curve on Cartesian-looking axes. Returns nothing.</td></tr>
+<tr><td><code>raincloud</code></td><td><code>raincloud(data)</code> / <code>raincloud(data1, ...)</code></td><td>Allen et al. (2019) raincloud plot: one group per argument (each a Vec of numbers) at <code>x = 0, 1, 2, ...</code>, each rendered as a Gaussian KDE "cloud" + boxplot + jittered raw points ("rain"). Returns nothing.</td></tr>
+<tr><td><code>violin</code></td><td><code>violin(data)</code> / <code>violin(data1, ...)</code></td><td>The same Gaussian KDE and Tukey summary as <code>raincloud</code>, arranged the other way: the density is MIRRORED about the category into the closed symmetric shape, with the box inside it and the raw points omitted. <code>rain=true</code> puts them back. One group per argument at <code>x = 0, 1, 2, ...</code>. Shares <code>raincloud</code>'s code path, so the two can never disagree about the density of a given sample. Returns nothing.</td></tr>
+<tr><td><code>beeswarm</code></td><td><code>beeswarm(data, ...)</code>, <code>[spread=]</code>, <code>[ms=]</code>, <code>[marker=]</code>, <code>[fill=]</code></td><td>Every sample drawn, nudged sideways only as far as it must be to clear its neighbours, so the WIDTH is the count. The middle ground between a box (hides the sample) and a raincloud (shows it, but scattered at random). Best below a few hundred points per group. Returns nothing.</td></tr>
+<tr><td><code>ecdf</code></td><td><code>ecdf(data)</code> / <code>ecdf(data1, ...)</code></td><td>Empirical cumulative distribution, one staircase per argument. The honest two-distribution comparison: a density estimate's shape is partly its bandwidth's, and an ECDF has no such parameter. The step rises AT the observation (<code>i/n</code>), so the curve reaches 1 at the largest value. Returns nothing.</td></tr>
+<tr><td><code>hexbin</code></td><td><code>hexbin(x, y, [bins=], [colormap=], [mincount=])</code></td><td>The plane tiled with hexagons, each shaded by how many points fell in it — for the case a scatter cannot do, where past a few thousand marks the picture saturates into a blob. <code>x</code> and <code>y</code> are equal-length numeric <code>Vec</code>s giving the point coordinates; <code>bins=</code> (number, default 30, minimum 2) is how many hexagons span the x range; the row count follows from it at three quarters of that, which is the spacing that makes the offset rows interlock rather than overlap; <code>colormap=</code> (string) names the shading ramp; <code>mincount=</code> (number) leaves a cell unpainted until at least that many points land in it, which is what keeps a sparse tail from covering the plane in near-empty hexagons. Hexagons rather than squares because a hexagon's centre is equidistant from all six neighbours, so a cell's count does not depend on which way the data runs. Returns nothing.</td></tr>
+<tr><td><code>smith</code></td><td><code>smith(Z, [z0=], [grid=], [color=], [lw=], [ms=])</code></td><td>Impedance on the reflection-coefficient plane: <code>z = Z/z0</code>, <code>Γ = (z−1)/(z+1)</code>, drawn on the unit disc ruled by constant-resistance circles and constant-reactance arcs. Both families are exact — the Möbius map takes circles to circles. <code>z0=</code> defaults to 50 Ω; <code>grid=false</code> draws the locus alone. Sets equal aspect, because on unequal axes the circles become ellipses and every angle on the chart is wrong. Returns nothing.</td></tr>
+<tr><td><code>errorbar</code></td><td><code>errorbar(x, y, yerr)</code></td><td>Draws one capped whisker plus a marker per sample: <code>x</code>, <code>y</code>, <code>yerr</code> are equal-length numeric Vecs, <code>yerr</code> the (symmetric) half-height of each whisker in data units. For uncertainty bars on top of a scatter/bar/line plot. Returns nothing.</td></tr>
+<tr><td><code>area</code></td><td><code>area(x, y)</code></td><td>Filled area under the curve <code>(x, y)</code> (equal-length numeric Vecs) down to <code>y=0</code>; the zero-baseline special case of <code>fill_between</code>. Returns nothing.</td></tr>
+<tr><td><code>fill_between</code></td><td><code>fill_between(x, y_lo, y_hi)</code></td><td>A filled band between two curves: <code>x</code>, <code>y_lo</code>, <code>y_hi</code> are equal-length numeric Vecs giving the lower and upper boundary at each <code>x</code>, e.g. a confidence interval. It's the general form <code>area</code> calls into. Returns nothing.</td></tr>
+<tr><td><code>bubble</code></td><td><code>bubble(x, y, sizes)</code></td><td>Scatter where marker radius encodes a third variable: <code>x</code>, <code>y</code>, <code>sizes</code> are equal-length numeric Vecs; the drawn radius is scaled from <code>sizes</code>'s own min/max. Returns nothing.</td></tr>
+<tr><td><code>donut</code></td><td><code>donut(values, [label1, label2, ...])</code></td><td>Pie chart with a hollow center. <code>values</code> is a Vec of numbers (slice magnitudes); trailing string arguments (variadic, optional) label the slices in order. Returns nothing.</td></tr>
+<tr><td><code>pie</code></td><td><code>pie(values, [label1, label2, ...])</code></td><td>Ordinary pie chart — same call shape as <code>donut</code> (<code>values</code> a Vec of numbers, trailing strings optional slice labels) with <code>donut=false</code>. Returns nothing.</td></tr>
+<tr><td><code>heatmap</code></td><td><code>heatmap(matrix, [colormap=])</code></td><td>Grid of colored cells: <code>matrix</code> is a Mat, each cell coloured by its own value scaled to the matrix's own min/max. <code>colormap=</code> (string, default <code>"blues"</code>) picks the palette. Returns nothing.</td></tr>
+<tr><td><code>semilogy</code></td><td><code>semilogy(x, y)</code></td><td>Plots equal-length numeric Vecs <code>x</code>, <code>y</code> like <code>plot</code> and additionally sets the y-axis to log scale. Returns nothing.</td></tr>
+<tr><td><code>semilogx</code></td><td><code>semilogx(x, y)</code></td><td>Plots equal-length numeric Vecs <code>x</code>, <code>y</code> like <code>plot</code> and additionally sets the x-axis to log scale. Returns nothing.</td></tr>
+<tr><td><code>loglog</code></td><td><code>loglog(x, y)</code></td><td>Plots equal-length numeric Vecs <code>x</code>, <code>y</code> like <code>plot</code> and additionally sets both axes to log scale. (<code>semilogx</code>/<code>semilogy</code>/<code>loglog</code> share one implementation, differing only in which axis/axes get <code>Scale::Log</code>). Returns <code>Nothing</code> — this call is made for what it draws.</td></tr>
+<tr><td><code>corrplot</code> / <code>corr_heatmap</code></td><td><code>corrplot(table)</code></td><td><code>table</code> is a Table (record of equal-length numeric columns). Computes the pairwise Pearson correlation of its numeric columns and renders the resulting square matrix as a heatmap. Both spellings call the same code. Returns nothing.</td></tr>
+<tr><td><code>eda</code></td><td><code>eda(table)</code></td><td><code>table</code> is a Table. One-call exploratory overview: a correlation heatmap in the first grid cell, plus one histogram per numeric column in the remaining cells, auto-gridded (<code>ceil(sqrt(n))</code> columns for <code>n</code> numeric columns). Returns nothing.</td></tr>
+<tr><td><code>sns_scatter</code></td><td><code>sns_scatter(df, xcol, ycol, [huecol])</code></td><td>Seaborn-style scatter pulling columns from Table <code>df</code>: <code>xcol</code>, <code>ycol</code> (strings, column names) give the coordinates; optional <code>huecol</code> (string, column name) draws one series per distinct hue value (first-seen order) and turns the legend on. Returns nothing.</td></tr>
+<tr><td><code>sns_box</code></td><td><code>sns_box(df, groupcol, valuecol)</code></td><td>One <code>boxplot</code> group per distinct value of column <code>groupcol</code> (string, first-seen order) in Table <code>df</code>, each group's values drawn from column <code>valuecol</code> (string) and labeled with the group's name. Returns nothing.</td></tr>
+<tr><td><code>sns_bar</code></td><td><code>sns_bar(df, groupcol, valuecol, [agg])</code></td><td>Aggregates column <code>valuecol</code> (string, column name) within each distinct value of <code>groupcol</code> (string, column name) of Table <code>df</code>, using aggregator <code>agg</code> (string, positional, default <code>"mean"</code>; also accepts things like <code>"sum"</code>/<code>"median"</code> depending on what the underlying aggregation supports), and plots the one resulting number per group as bars. Returns nothing.</td></tr>
+</table></div>
+<h4>Overloads: <code>plot</code></h4>
+<p><code>plot</code>'s three call shapes are the most common overload in this chapter, and the marker-string form genuinely changes what gets drawn — a connected line versus discrete, unconnected points — not just its color or width.</p>
+<h4>Case: y only</h4>
+<p>Called with a single Vec, <code>plot</code> treats it as <code>y</code> and fills in <code>x</code> as <code>0, 1, 2, ...</code>. Look for a jagged line with no meaningful x-axis units.</p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>([<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>])   <span class="c"># x defaults to 0, 1, 2, 3, 4</span>
+</code></pre>
+</div>
+<h4>Case: x and y (line)</h4>
+<p>With two equal-length Vecs it draws the default connected line. Look for a smooth curve with no dots at the sample points.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>))
+</code></pre>
+</div>
+<h4>Case: marker string (scatter-style)</h4>
+<p>A third positional string like <code>"o"</code> (or <code>marker="o"</code>) switches the exact same call to unconnected dots instead of a line. Look for discrete points with no line joining them.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>), <span class="s">"o"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>boxplot</code></h4>
+<p><code>boxplot</code>'s argument count, not a keyword, decides how many groups are drawn side by side — the same pattern also used by <code>spiderplot</code> and <code>raincloud</code>, shown once here rather than three times.</p>
+<h4>Case: one group</h4>
+<p>A single Vec argument draws one box.</p>
+<div class="example"><pre class="hl"><code><span class="f">boxplot</span>(<span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">20</span>))
+</code></pre>
+</div>
+<h4>Case: multiple groups</h4>
+<p>Each further Vec argument adds its own box at the next integer x position. Look for three boxes side by side instead of one.</p>
+<div class="example"><pre class="hl"><code><span class="f">boxplot</span>(<span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">20</span>), <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">21</span>) + <span class="n">0.5</span>, <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">22</span>) - <span class="n">0.3</span>)
+</code></pre>
+</div>
+<p>The line/scatter family covers continuous data; these five cover data that is naturally discrete or already summed. Reach for <code>stem</code> when each sample is its own event (a Kronecker-delta-like sequence, an impulse response) and a connecting line would misleadingly imply values in between; for <code>stair</code> when the value is genuinely constant between changes (a clock signal, a piecewise-constant control setpoint); for <code>groupbar</code>/<code>stackbar</code> when you have several numbers per category and want them either side-by-side (comparing magnitudes) or stacked (comparing a total and its composition); and for <code>waterfall</code> when you have several related traces (successive measurement passes, a parameter sweep) and want each to stay legible instead of drawing directly on top of the last. Six figures come out of this block — look for the stem's lollipops, the stair's right-angle corners, the two bar layouts' different use of the same three numbers, and the waterfall's traces climbing up and to the right of one another:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+y = <span class="f">sin</span>(x / <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">stem</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">stair</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">groupbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+<span class="f">stackbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+Z = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>; <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>; <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>]
+<span class="f">waterfall</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">4</span>, Z)
+</code></pre>
+</div>
+<p>These four fit or summarize data rather than drawing it raw. <code>splineplot</code> and <code>pwl</code> both take a handful of control points and turn them into a smooth curve, but for different reasons: a spline is for when the points *are* the truth and you want a visually smooth curve through all of them exactly, while <code>pwl</code> is for when the underlying process is closer to piecewise-linear and you want a *fit* — its four segments won't pass through every point. <code>spiderplot</code> and <code>raincloud</code> are both about a shape rather than a fit: <code>spiderplot</code> compares several quantities on one radar chart, <code>raincloud</code> shows the full distribution (not just mean and spread) of two or more samples side by side, with the boxplot's summary, the KDE cloud's shape, and the individual jittered points all in one figure. Watch for the spline bending smoothly through the same five points <code>pwl</code> approximates with straight segments, and the raincloud's two "clouds" leaning the same direction as their generating distribution:</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">splineplot</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], [<span class="n">0</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+<span class="f">pwl</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>], [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1.5</span>, <span class="n">3</span>, <span class="n">3.2</span>, <span class="n">3.5</span>, <span class="n">5</span>])
+<span class="f">figure</span>()
+<span class="f">spiderplot</span>([<span class="n">3</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">5</span>, <span class="n">4</span>])
+<span class="f">figure</span>()
+<span class="f">raincloud</span>(<span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">6</span>), <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">7</span>))
+</code></pre>
+</div>
+<p>Two different kinds of "more than one number per point" live here. <code>errorbar</code> and <code>fill_between</code> both communicate uncertainty around a central curve — a whisker per sample versus a continuous shaded band — and <code>bubble</code> communicates a third *dimension* by encoding it as marker size rather than position. <code>donut</code> and <code>pie</code> are the odd ones out: they show how a whole splits into parts, which is a fundamentally different question ("what fraction is this?") from everything else on this page ("how does this vary against that?"), which is also why pie/donut charts are worth reaching for sparingly. In the rendered figures, check that the error whiskers and the <code>fill_between</code> band both widen and narrow with the same <code>0.1</code>/<code>±0.2</code> envelope around the same sine wave, and that the donut's hollow center is the only visual difference from the plain pie beside it:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+y = <span class="f">sin</span>(x / <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">errorbar</span>(x, y, <span class="n">0.1</span> * <span class="f">ones</span>(<span class="n">10</span>))
+<span class="f">figure</span>()
+<span class="f">fill_between</span>(x, y - <span class="n">0.2</span>, y + <span class="n">0.2</span>)
+<span class="f">figure</span>()
+<span class="f">bubble</span>(x, y, <span class="f">abs</span>(y) * <span class="n">20</span> + <span class="n">5</span>)
+<span class="f">figure</span>()
+<span class="f">donut</span>([<span class="n">30</span>, <span class="n">20</span>, <span class="n">50</span>], <span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>)
+<span class="f">figure</span>()
+<span class="f">pie</span>([<span class="n">30</span>, <span class="n">20</span>, <span class="n">50</span>], <span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>)
+</code></pre>
+</div>
+<p>Four unrelated needs share this block only because they all involve a transform of the axes or the data before plotting. <code>semilogx</code>/<code>semilogy</code>/ <code>loglog</code> are for data that spans decades — a Bode magnitude, an exponential growth curve — where a linear axis would crush most of the interesting structure into a few pixels at one end. <code>hist</code> turns raw samples into a distribution shape. <code>contour</code>/<code>contourf</code> need a full 2-D field: note that <code>meshgrid</code> returns one <code>Record</code> with <code>.x</code>/<code>.y</code> fields (not two separate values), and that <code>contour</code>/<code>contourf</code> always take three arguments — <code>(X, Y, Z)</code> — never <code>Z</code> alone, because Qu has no notion of "the implicit grid a matrix was measured on". <code>corr_heatmap</code>/<code>corrplot</code> close the block by turning a table's numeric columns into a single correlation matrix. In the output, the semilog plot should look straight (or straighten a curve that was exponential), the log-log Bode-style curve should show a shallow slope rather than a hooked one, and the correlation heatmap's diagonal should read as the same colour throughout — a column is always perfectly correlated with itself:</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">200</span>)
+mag = <span class="n">1</span> ./ <span class="f">sqrt</span>(<span class="n">1</span> + (f / <span class="n">100</span>) .^ <span class="n">2</span>)
+<span class="f">semilogx</span>(f, mag)
+<span class="f">figure</span>()
+x = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+<span class="f">semilogy</span>(x, <span class="f">exp</span>(<span class="n">0.1</span> * x))
+<span class="f">figure</span>()
+<span class="f">loglog</span>(f, mag)
+<span class="f">figure</span>()
+samples = <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">2</span>)
+<span class="f">hist</span>(samples, <span class="a">bins</span> = <span class="n">15</span>)
+<span class="f">figure</span>()
+g = <span class="f">meshgrid</span>(-<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>, -<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>)
+Z = <span class="f">sin</span>(<span class="f">sqrt</span>(g.x .^ <span class="n">2</span> + g.y .^ <span class="n">2</span>))
+<span class="f">contour</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+<span class="f">contourf</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+tbl = <span class="f">table</span>(<span class="a">a</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">3</span>), <span class="a">b</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">4</span>), <span class="a">c</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">5</span>))
+<span class="f">corr_heatmap</span>(tbl)
+<span class="f">figure</span>()
+<span class="f">corrplot</span>(tbl)
+</code></pre>
+</div>
+<p>If your data already lives in a <code>table(...)</code> (a data frame, in other languages' terms), the <code>sns_*</code> family saves you the step of pulling columns out into loose vectors by hand — you name the columns and Qu does the grouping. <code>sns_scatter</code> colours points by a categorical column, <code>sns_box</code> draws one boxplot group per category, and <code>sns_bar</code> aggregates a numeric column within each category before plotting the result. This example builds one small table with a numeric <code>x</code>, <code>y</code> and a two-level categorical <code>grp</code> column, then feeds it to all three; look for the scatter's two colours (<code>"a"</code> vs <code>"b"</code>), the two boxplot groups, and the two bars showing each group's mean <code>y</code>:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">1</span>), <span class="a">y</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">2</span>),
+           <span class="a">grp</span> = [<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,
+                  <span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,
+                  <span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>])
+<span class="f">sns_scatter</span>(df, <span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"grp"</span>)
+<span class="f">figure</span>()
+<span class="f">sns_box</span>(df, <span class="s">"grp"</span>, <span class="s">"y"</span>)
+<span class="f">figure</span>()
+<span class="f">sns_bar</span>(df, <span class="s">"grp"</span>, <span class="s">"y"</span>)
+<span class="f">print</span>(<span class="s">"rows: "</span> + <span class="f">str</span>(<span class="f">rows</span>(df)))
+</code></pre>
+</div>
+<h2 id="s303">Annotations &amp; Overlays</h2>
+<p>All of these attach shapes/callouts to the *current panel* (or, for <code>blur_backdrop</code>, to the whole figure).</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>vline</code></td><td><code>vline(x, [color=])</code></td><td>Draws a vertical reference line spanning the whole panel at <code>x</code> (number, data units). <code>color=</code> (string, colour, default the theme's rule colour). Returns a <strong>handle</strong> (see "Handles" above) whose <code>color</code>/<code>width</code>/<code>dash</code>/<code>dot</code>/<code>at</code> properties can be read or reassigned.</td></tr>
+<tr><td><code>hline</code></td><td><code>hline(y, [color=])</code></td><td>Draws a horizontal reference line spanning the whole panel at <code>y</code> (number, data units). <code>color=</code> (string, colour). Returns a handle, same properties as <code>vline</code>.</td></tr>
+<tr><td><code>rectangle</code></td><td><code>rectangle(x0, y0, x1, y1, [color=])</code></td><td>Draws a translucent highlighted box from corner <code>(x0, y0)</code> to <code>(x1, y1)</code> (numbers, data units). <code>color=</code> (string, colour) tints the fill. Returns nothing.</td></tr>
+<tr><td><code>xspan</code></td><td><code>xspan(x0, x1, [color=])</code></td><td>Draws a translucent vertical band covering <code>x</code> in <code>[x0, x1]</code> (numbers, data units) across the panel's full height. <code>color=</code> (string, colour). Returns nothing.</td></tr>
+<tr><td><code>yspan</code></td><td><code>yspan(y0, y1, [color=])</code></td><td>Draws a translucent horizontal band covering <code>y</code> in <code>[y0, y1]</code> (numbers, data units) across the panel's full width. <code>color=</code> (string, colour). Returns nothing.</td></tr>
+<tr><td><code>zoom_inset</code></td><td><code>zoom_inset(x0, x1, y0, y1, [position=], [outside=], [clip=])</code></td><td>Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it. <code>position=</code> (string, reuses the legend's keyword vocabulary: <code>"top right"</code>, <code>"best"</code>, ...) chooses where the inset sits; <code>outside=true</code> (bool, default false) reserves margin and places the inset entirely outside the plot area instead of overlapping it; <code>clip=</code> (bool) controls whether the inset's own contents are clipped to its box. Returns nothing.</td></tr>
+<tr><td><code>xbreak</code></td><td><code>xbreak(lo, hi)</code></td><td>Reshapes the *main* x-axis's coordinate mapping with a fixed-width "//" jag that squeezes out the skipped range <code>[lo, hi]</code> (numbers, data units) — linear-scale axes only. Not a sub-panel (unlike <code>zoom_inset</code>). Returns nothing.</td></tr>
+<tr><td><code>ybreak</code></td><td><code>ybreak(lo, hi)</code></td><td>Same as <code>xbreak</code>, on the y-axis: squeezes out <code>[lo, hi]</code> (numbers, data units). Returns nothing.</td></tr>
+<tr><td><code>blur_backdrop</code></td><td><code>blur_backdrop(x0, y0, x1, y1, [radius=])</code></td><td>Figure-level (not per-panel) depth-of-field effect: <code>(x0,y0)</code>–<code>(x1,y1)</code> (numbers, fractions <code>0..1</code> of the whole rendered canvas) name the rectangle that stays sharp; everything else is Gaussian-blurred. <code>radius=</code> (number, blur strength). SVG-native (<code>&lt;feGaussianBlur&gt;</code>); the TikZ export has no filter-primitive equivalent so it degrades to an unblurred render plus an explanatory comment. Returns nothing.</td></tr>
+<tr><td><code>text</code></td><td><code>text(x, y, text)</code></td><td>Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot. Returns a handle with <code>color</code>/<code>text</code>/<code>x</code>/<code>y</code>/<code>size</code>/<code>italic</code> properties.</td></tr>
+<tr><td><code>annotate</code></td><td><code>annotate(x, y, text)</code></td><td>Same as <code>text</code> — label <code>text</code> (string) at <code>(x, y)</code> (numbers, data units) — but also draws a marker dot at that point. Returns a handle with the same properties as <code>text</code>.</td></tr>
+<tr><td><code>arrow</code></td><td><code>arrow(x0, y0, x1, y1)</code></td><td>Draws an arrow from <code>(x0, y0)</code> to <code>(x1, y1)</code> (numbers, data units), no label. Returns nothing.</td></tr>
+<tr><td><code>arrowtext</code></td><td><code>arrowtext(x0, y0, x1, y1, text)</code></td><td>Same as <code>arrow</code> — from <code>(x0, y0)</code> to <code>(x1, y1)</code> (numbers, data units) — but the arrowhead ends in a point labeled with <code>text</code> (string). Returns nothing.</td></tr>
+<tr><td><code>point</code></td><td><code>point(x, y)</code></td><td>Draws a highlighted "radioactive" callout marker at <code>(x, y)</code> (numbers, data units), auto-labeled with its own coordinates, e.g. <code>"(3, 4)"</code> — for calling out one sample without a separate <code>text(...)</code> call. Returns nothing.</td></tr>
+</table></div>
+<p>These overlays exist for the moment a plain line/scatter isn't enough to make a point: <code>xspan</code>/<code>yspan</code> shade a region you want the reader to notice without drawing a whole extra series over it (a resonance band, a confidence window); <code>arrow</code>/<code>arrowtext</code> point at a specific feature instead of relying on the reader to find it; <code>xbreak</code>/<code>ybreak</code> compress a wide but uninteresting stretch of an axis so the parts that matter both get more room; and <code>blur_backdrop</code> throws everything except one rectangle out of focus, the way a camera would, to pull the eye toward it. The example below touches all of these across four figures — in the first, look for the two tinted rectangles and the labeled arrow pointing at "peak"; in the second and third, a straight <code>y = x</code> line should visibly bend at the "//" jag where the break swallows <code>[0.3, 0.6]</code>; in the fourth, only the rendered figure's own center square stays sharp. The trailing <code>tex</code>/<code>printtex</code> calls are unrelated to any of this — included here only to print something concrete for the block, not to demonstrate an overlay:</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">200</span>)
+y = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+<span class="f">plot</span>(t, y)
+<span class="f">xspan</span>(<span class="n">0.2</span>, <span class="n">0.4</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">yspan</span>(-<span class="n">0.3</span>, <span class="n">0.3</span>, <span class="a">color</span> = <span class="s">"green"</span>)
+<span class="f">arrow</span>(<span class="n">0.6</span>, <span class="n">0</span>, <span class="n">0.8</span>, <span class="n">0.8</span>)
+<span class="f">arrowtext</span>(<span class="n">0.85</span>, -<span class="n">0.5</span>, <span class="n">0.95</span>, <span class="n">0.2</span>, <span class="s">"peak"</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, t)
+<span class="f">xbreak</span>(<span class="n">0.3</span>, <span class="n">0.6</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, t)
+<span class="f">ybreak</span>(<span class="n">0.3</span>, <span class="n">0.6</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, y)
+<span class="f">blur_backdrop</span>(<span class="n">0.2</span>, <span class="n">0.2</span>, <span class="n">0.8</span>, <span class="n">0.8</span>, <span class="a">radius</span> = <span class="n">4</span>)
+<span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]))
+<span class="f">printtex</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>])
+</code></pre>
+</div>
+<h2 id="s349">Interpolation for plotting</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>interp1</code></td><td><code>interp1(x, y, xq, [method])</code></td><td>Interpolates (and freely extrapolates — there's no opt-in flag, a query point outside <code>x</code>'s range is always answered) <code>y</code> at query point(s) <code>xq</code>. <code>x</code>, <code>y</code> are equal-length Vecs of numbers (the known samples); <code>xq</code> is a number or a Vec of numbers (the query point(s)), and the return type matches: a number for a scalar <code>xq</code>, a Vec for a vector one. <code>method</code> (string, positional, default <code>"linear"</code>) is <code>"linear"</code> (extrapolates via the boundary segment's slope), <code>"spline"</code> (natural cubic, shares <code>splineplot</code>'s solver), or <code>"nearest"</code> — these are string arguments to <code>interp1</code>, not separate functions.</td></tr>
+</table></div>
+<h4>Overloads: <code>interp1</code></h4>
+<p>The <code>method</code> string picks between three genuinely different curve shapes through the same six points — worth plotting side by side rather than trusting the names alone.</p>
+<h4>Case: linear</h4>
+<p>Straight segments between consecutive known points. Look for sharp corners at each of the six original samples (drawn as a separate scatter).</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"linear"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+<h4>Case: spline</h4>
+<p>A natural cubic spline through the same points. Look for a smooth curve with no corners, that can overshoot slightly between points the straight segments above would not.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"spline"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+<h4>Case: nearest</h4>
+<p>Snaps each query point to whichever known sample is closest. Look for a blocky, staircase-like curve instead of anything smooth or straight.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<span class="f">plot</span>(xq, <span class="f">interp1</span>(x, y, xq, <span class="s">"nearest"</span>))
+<span class="f">scatter</span>(x, y)
+</code></pre>
+</div>
+<h2 id="s395">Saving &amp; Export</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>savefig</code></td><td><code>savefig(path, [embed_fonts=])</code></td><td>Exports the current figure to <code>path</code> (string, a filesystem path); format is chosen by the file extension. <code>.svg</code>, <code>.html</code>/<code>.htm</code> (an SVG embedded in a minimal page), <code>.tikz</code>/<code>.tex</code> (LaTeX/TikZ source) and <code>.pdf</code> are implemented and share one draw-command list so they never visually disagree. <code>.png</code> is <strong>not implemented</strong> for a whole figure (it needs a real 2-D rasterizer) and raises a clear error saying so; <code>save_image(path, img)</code> does write a PNG of raster <code>Value::Image</code> content. <code>embed_fonts=</code> (bool) inlines the actual font bytes (only possible for the curated <code>fontfamily(...)</code> presets), subset to the glyphs the figure actually draws so a journal-theme figure costs tens of kilobytes rather than the whole font file; it defaults to on under a print-ready theme and off otherwise. A <code>.pdf</code> always embeds its faces, and subsets them the same way. Returns <code>Nothing</code>; the file on disk is the result.</td></tr>
+<tr><td><code>save</code> / <code>save_all</code></td><td><code>save(path, "name1", "name2", ...)</code> / <code>save_all(path)</code></td><td>Not figure-specific: serializes named top-level variables — <code>path</code> (string) plus variadic string variable names for <code>save</code>, or every top-level variable for <code>save_all(path)</code> — to a human-readable JSON file. Operates on the base workspace only, like MATLAB's own <code>save</code>. Included here because it's the companion of <code>savefig</code> for round-tripping plotted *data* rather than the rendered figure; <code>load(path)</code> restores it. Returns nothing.</td></tr>
+<tr><td><code>tex</code></td><td><code>tex(x)</code></td><td><strong>Not figure export</strong> — converts a single Qu value <code>x</code> (number, Vec, Mat, or complex) to a LaTeX math-mode string (e.g. a matrix becomes a <code>bmatrix</code> environment) and returns it as a string. Pairs with <code>str</code> the way <code>printtex</code> pairs with <code>print</code>. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>printtex</code></td><td><code>printtex(x)</code></td><td>Same conversion as <code>tex(x)</code> on value <code>x</code> (number, Vec, Mat, or complex), but prints it directly instead of returning a string. Returns nothing.</td></tr>
+</table></div>
+<p>The actual <strong>figure</strong>-to-LaTeX export path is <code>savefig("plot.tikz")</code> or <code>savefig("plot.tex")</code> (see the <code>savefig</code> row above) — <code>tex</code>/<code>printtex</code> are a separate, value-level feature that happens to share the "LaTeX" theme, not alternate spellings of figure export.</p>
+<h2 id="s434">Markers &amp; Styling reference</h2>
+<p>Marker strings (passed as <code>marker="..."</code> or, for a few chart calls, as a bare positional string like <code>plot(x, y, "o")</code>):</p>
+<ul>
+<li><code>"line"</code> — the default for <code>plot</code>/<code>splineplot</code>/<code>pwl</code>/<code>waterfall</code>/etc.</li>
+<li><code>"o"</code> — circle marker (scatter-style).</li>
+<li><code>"x"</code> / <code>"+"</code> — cross marker (both render identically).</li>
+<li><code>"s"</code> / <code>"square"</code> — square marker.</li>
+<li><code>"stem"</code> — vertical stem-and-marker (set automatically by <code>stem(...)</code>).</li>
+<li><code>"bar"</code> / <code>"stackbar"</code> / <code>"groupbar"</code> — bar-family renderings (set automatically by the matching chart-type call).</li>
+<li><code>"step"</code> — staircase line (set automatically by <code>stair(...)</code>; not independently callable as a marker name since <code>step</code> is a reserved keyword).</li>
+</ul>
+<p>A marker spec may also carry a <strong>line style suffix</strong>, and then the series is drawn as markers joined by that line: <code>"o-"</code> (circles, solid), <code>"s--"</code> (squares, dashed), <code>"^:"</code> (triangles, dotted), <code>"D-."</code> (diamonds, dash-dot). A spec that is all line and no glyph — <code>"-"</code>, <code>"--"</code>, <code>":"</code>, <code>"-."</code> — draws the line alone. Dash patterns scale with the line's weight, so a dash stays longer than the line is thick at any <code>lw</code>.</p>
+<p>Keeping a marker readable on a busy background — a filled contour, a dense cloud, another series — has two answers, and they compose:</p>
+<div class="tablewrap"><table>
+<tr><td>Keyword</td><td>Effect</td></tr>
+<tr><td><code>edge=</code> (or <code>mec=</code>)</td><td>Outlines the marker <strong>in place</strong>, in the colour given. <code>edge = "#ffffff"</code> is the usual choice on a saturated field.</td></tr>
+<tr><td><code>shadow=true</code></td><td>Casts an <strong>offset, translucent copy</strong> of the marker underneath it. Scales with the marker's own size, so a 2pt dot and a 9pt star are shadowed in proportion.</td></tr>
+</table></div>
+<p><code>fill=true</code>/<code>false</code> (alias <code>mfc=</code>) chooses filled or hollow; hollow is the default for most glyphs. Composite glyphs (<code>boxplus</code>, <code>circletimes</code>, <code>crosshair</code>, …) are a shape plus an overlay in the same ink, so filling them hides the mark that distinguishes them — draw those hollow.</p>
+<p>See <code>docs/design/figure-reference/svg/13_markers_and_lines.svg</code> for every glyph, line style, weight and size on one sheet.</p>
+<p>Named colormaps (<code>colormap(name)</code> or a chart's own <code>colormap=</code>), from <code>plotting::PALETTES</code>:</p>
+<ul>
+<li><code>"default"</code> — Qu's own curated 8-color mix; used implicitly whenever no <code>colormap(...)</code> call has run.</li>
+<li><code>"kay"</code> — the same 8 colors as <code>"default"</code>, reordered.</li>
+<li><code>"qu"</code> — the "Qu Best" palette: hues spaced 45° apart, reordered so consecutive entries sit roughly 180° apart (better for a cycling series palette than a plain hue sort).</li>
+<li><code>"tableau10"</code> — the standard Tableau 10 / matplotlib <code>tab10</code> cycle.</li>
+<li><code>"viridis"</code>, <code>"plasma"</code> — perceptually-uniform sequential scales; <code>"viridis"</code> is the default for <code>corr_heatmap</code>/<code>corrplot</code>/<code>eda</code>'s correlation panel.</li>
+<li><code>"warm"</code>, <code>"cool"</code>, <code>"mono"</code> — small curated sequential scales.</li>
+<li><code>"matlab"</code> — MATLAB's own default <code>ColorOrder</code> (R2014b+), for porting a MATLAB figure's familiar blue/orange-red/yellow/purple line cycle.</li>
+<li><code>"blues"</code> — ColorBrewer "Blues"; the default for plain <code>heatmap(...)</code>.</li>
+</ul>
+<p>An unrecognized colormap name is accepted and silently resolves to <code>"default"</code> rather than erroring the whole script over a typo.</p>
+<h2 id="s485">Worked examples</h2>
+<p>The examples below are the smallest complete scripts each showing one common task end to end, rather than one call in isolation. Each is self-contained except where it says otherwise — it either defines its own data or reuses the vectors from the "Example data" section above (<code>t</code>, <code>y</code>, <code>mag</code>, <code>f</code>, <code>yhat</code>, <code>losses</code>), so pasting the Example data block once and then any one of these below it should reproduce exactly what's described.</p>
+<p>A basic plot with labels, legend, and export — the shape almost every script starts from: two series on one panel, both axes labeled, a legend to tell them apart, and a save to disk. Look for two full sine/cosine periods sharing one set of axes, colour-coded and named in the legend box:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">2</span>*pi <span class="k">step</span> <span class="n">0.05</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x), <span class="a">label</span>=<span class="s">"sin(x)"</span>)
+<span class="f">plot</span>(x, <span class="f">cos</span>(x), <span class="a">label</span>=<span class="s">"cos(x)"</span>)   <span class="c"># hold on (default) overlays on the same panel</span>
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Two waves"</span>)
+legend
+grid on
+show plot
+<span class="f">savefig</span>(<span class="s">"waves.svg"</span>)
+</code></pre>
+</div>
+<p>A 2x2 subplot grid, for laying out several related views of the same dataset — here a signal's time-domain trace, its frequency spectrum, an actual-vs-predicted scatter, and a training-loss curve, the four views a typical signal-processing or model-fitting report wants side by side. Each <code>panel(2, 2, k)</code> call selects a cell before the plot call that fills it; expect four small, independent-looking charts sharing one figure, not one chart repeated four times:</p>
+<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t, y)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">plot</span>(f, mag)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">3</span>)
+<span class="f">scatter</span>(y, yhat)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">4</span>)
+<span class="f">plot</span>(losses, <span class="a">color</span>=<span class="s">"orange"</span>)
+</code></pre>
+</div>
+<p>A scatter with a fitted trend line, for the everyday question "is there a relationship here, and if so, roughly what shape?" <code>scatterfit</code> draws the raw points and a <code>polyfit</code> curve through them in one call instead of two. Reusing the shared noisy sine <code>t</code>/<code>y</code> here is a deliberately awkward choice to make a point: a periodic signal has no real quadratic trend, so the fitted degree-2 curve should come out nearly flat while the scatter itself keeps oscillating around it — a reminder that <code>scatterfit</code> will always draw *a* line, whether or not a polynomial is the right model for the data:</p>
+<div class="example"><pre class="hl"><code><span class="f">scatterfit</span>(t, y, <span class="n">2</span>)   <span class="c"># degree-2 polynomial fit through the scatter</span>
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"y"</span>)
+</code></pre>
+</div>
+<p>A histogram plus boxplot side by side, for comparing a distribution's overall shape against a per-group five-number summary in one figure. The histogram (left) bins the shared noisy sine <code>y</code> into 20 buckets; the boxplot (right) compares three freshly generated groups so the two panels are visibly independent of each other:</p>
+<div class="example"><pre class="hl"><code>group_a = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">11</span>)
+group_b = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">12</span>) + <span class="n">0.5</span>
+group_c = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">13</span>) - <span class="n">0.3</span>
+<span class="f">panel</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">histogram</span>(y, <span class="n">20</span>)
+<span class="f">panel</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">boxplot</span>(group_a, group_b, group_c)
+</code></pre>
+</div>
+<p>An annotated series with a zoomed inset, for the common case of a feature — a transient, a peak, a glitch — that is too small on the full-range plot to read its value off directly. This example builds its own decaying oscillation (rather than reusing the shared data, since the reference point at <code>x=3</code> needs an axis that actually reaches past 3), marks that point with a vertical rule and a text callout, and then magnifies the region right around it into an inset panel in the top-right corner. Look for the small dashed box around <code>x=3</code> on the main curve, connector lines running to a zoomed-in copy of that same region, and the callout text sitting at the curve's value there:</p>
+<div class="example"><pre class="hl"><code>xs = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">400</span>)
+ys = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1.2</span> * xs) .* <span class="f">exp</span>(-<span class="n">0.3</span> * xs)
+y_at_3 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1.2</span> * <span class="n">3</span>) * <span class="f">exp</span>(-<span class="n">0.3</span> * <span class="n">3</span>)
+<span class="f">plot</span>(xs, ys)
+<span class="f">vline</span>(<span class="n">3</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">annotate</span>(<span class="n">3</span>, y_at_3, <span class="s">"transient"</span>)
+<span class="f">zoom_inset</span>(<span class="n">2.8</span>, <span class="n">3.2</span>, -<span class="n">0.1</span>, <span class="n">0.1</span>, <span class="a">position</span>=<span class="s">"top right"</span>, <span class="a">outside</span>=<span class="k">true</span>)
+<span class="f">print</span>(y_at_3)
+</code></pre>
+</div>
+<p>A heatmap, for any matrix where the *pattern* of values matters more than reading off individual numbers — a correlation matrix, a confusion matrix, a physical field. <code>colorbar</code> (the bare command; see the Figure &amp; Axes Control table above) is accepted here for MATLAB-style familiarity, though today it doesn't change the rendered figure. Expect a 10x10 grid of cells shaded from the <code>"viridis"</code> scale according to each cell's own value:</p>
+<div class="example"><pre class="hl"><code>m = <span class="f">randn</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="a">seed</span> = <span class="n">4</span>)
+<span class="f">heatmap</span>(m, <span class="a">colormap</span>=<span class="s">"viridis"</span>)
+colorbar
+<span class="f">title</span>(<span class="s">"Random field"</span>)
+<span class="f">print</span>(<span class="s">"value range: ["</span> + <span class="f">str</span>(<span class="f">min</span>(m)) + <span class="s">", "</span> + <span class="f">str</span>(<span class="f">max</span>(m)) + <span class="s">"]"</span>)
+</code></pre>
+</div>
+<p>A correlation overview of a table in one call, for the first-look pass over a new dataset before anything else — <code>eda</code> puts a correlation heatmap and one histogram per numeric column on a single auto-gridded figure, which is usually enough to spot an obviously skewed column or an unexpectedly strong pairwise correlation before writing any analysis code:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">a</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">3</span>), <span class="a">b</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">4</span>), <span class="a">c</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">5</span>))
+<span class="f">eda</span>(df)   <span class="c"># correlation heatmap + one histogram per numeric column, auto-gridded</span>
+<span class="f">print</span>(<span class="s">"columns: "</span> + <span class="f">str</span>(<span class="f">cols</span>(df)))
+</code></pre>
+</div>
+<p>Interpolating between measured points before plotting, for the case where you have a handful of measurements and want a continuous curve to compare them against a model, or simply to make a sparse instrument reading look like a continuous signal. <code>interp1</code> fills in the query points <code>xq</code>; the example then plots the smooth <code>"spline"</code> fit as a line with the original six measurements overlaid as a separate scatter series, so both the raw data and the interpolation are visible on the same axes:</p>
+<div class="example"><pre class="hl"><code>x_measured = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">10</span>]
+y_measured = [<span class="n">0</span>, <span class="n">1.8</span>, <span class="n">1.2</span>, <span class="n">3.5</span>, <span class="n">3.0</span>, <span class="n">4.8</span>]
+xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+yq = <span class="f">interp1</span>(x_measured, y_measured, xq, <span class="s">"spline"</span>)
+<span class="f">plot</span>(xq, yq, <span class="a">label</span>=<span class="s">"spline fit"</span>)
+<span class="f">scatter</span>(x_measured, y_measured, <span class="a">label</span>=<span class="s">"measurements"</span>)
+legend
+</code></pre>
+</div>
+<h2 id="s520">More functions</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>panel</code>, <code>subplot</code></td><td><code>panel(rows, cols, k)</code></td><td>Selects cell <code>k</code> (integer, 1-based, row-major) of a <code>rows</code>-by-<code>cols</code> (integers) grid as the target for further drawing. <code>subplot</code> is the same call under MATLAB's name. Returns nothing.</td></tr>
+<tr><td><code>legend</code></td><td><code>legend()</code> or <code>legend off</code></td><td>Shows or hides the key for the current panel. With no argument it turns on and places itself where it overlaps least; <code>legend outside</code> (bare command) reserves margin instead. See also the function form <code>legend("label1", ...)</code> in the Figure &amp; Axes Control table above, which labels series rather than toggling visibility. Returns nothing.</td></tr>
+<tr><td><code>theme</code></td><td><code>theme(name)</code></td><td>Sets the whole-figure visual theme from <code>name</code> (string): one of <code>"default"</code>, <code>"publication"</code>, <code>"bw"</code>, <code>"minimal"</code>, <code>"grey"</code>, <code>"classic"</code>. <code>"publication"</code> also embeds fonts, because a figure asked to be print-ready has to look the same wherever it lands. Returns nothing.</td></tr>
+<tr><td><code>figure_size</code></td><td><code>figure_size(w, h)</code> or <code>figure_size("ieee1")</code></td><td>Sets canvas size either from <code>w</code>, <code>h</code> (numbers, raw units) or from a named journal-column preset string (e.g. <code>"ieee1"</code>). Type sizes scale with the square root of the area, so a figure shrunk to a column keeps its proportions. Returns nothing.</td></tr>
+<tr><td><code>xlim</code>, <code>ylim</code></td><td><code>xlim(lo, hi)</code></td><td>Fixes an axis range from <code>lo</code>, <code>hi</code> (numbers, data units). After <code>yyaxis right</code> these apply to the right-hand axis. Returns nothing.</td></tr>
+<tr><td><code>xscale</code>, <code>yscale</code></td><td><code>xscale("log")</code></td><td>Sets that axis's scale from a string, <code>"linear"</code> or <code>"log"</code>. A log axis draws minor ticks per decade without being asked. Returns nothing.</td></tr>
+<tr><td><code>yticks</code>, <code>yticklabels</code></td><td><code>yticks([0, 1, 2])</code></td><td><code>yticks</code> takes a Vec of numbers (tick positions, data units); <code>yticklabels</code> takes variadic strings to relabel them in order. <code>yticks(())</code> (empty) removes ticks entirely; <code>axis off</code> removes the whole frame instead. Returns nothing.</td></tr>
+<tr><td><code>hist</code>, <code>histogram</code></td><td><code>hist(samples, [bins])</code></td><td>Bins <code>samples</code> (Vec of numbers) into equal-width buckets and renders as bars; <code>bins</code> (integer, positional or <code>bins=</code> keyword) defaults to <code>ceil(sqrt(n))</code> for <code>n = len(samples)</code>. Returns nothing. (Same builtin as the <code>hist</code>/<code>histogram</code> row in the Chart Types table above.)</td></tr>
+<tr><td><code>meshgrid</code></td><td><code>meshgrid(x, y)</code></td><td>Builds the pair of coordinate matrices a scalar-field plot needs from axis vectors <code>x</code> (Vec of numbers, length <code>nx</code>) and <code>y</code> (Vec of numbers, length <code>ny</code>): every <code>(x[i], y[j])</code> combination, laid out as two <code>ny</code>-by-<code>nx</code> matrices. <strong>Returns a single Record</strong> with fields <code>.x</code> and <code>.y</code> (each a Mat) — not two separate values, so <code>g = meshgrid(xs, ys)</code> then <code>g.x</code>, <code>g.y</code> is the pattern, never a multi-assignment like <code>[X, Y] = meshgrid(...)</code> (Qu has no destructuring assignment). Typically consumed directly by <code>contour</code>/<code>contourf</code>.</td></tr>
+<tr><td><code>contour</code>, <code>contourf</code></td><td><code>contour(x, y, Z)</code></td><td>Iso-lines through scalar field <code>Z</code> (a Mat with <code>len(y)</code> rows and <code>len(x)</code> columns) over axis vectors <code>x</code>, <code>y</code> (Vecs of numbers); <code>contourf</code> fills the bands between levels instead of only outlining them. <strong>All three arguments are always required</strong> — <code>contour(Z)</code> alone is a runtime error (<code>contour(x, y, Z) needs three arguments</code>), even though <code>Z</code> alone is enough information for some other libraries' contour calls. <code>levels=</code> (integer count, or a Vec of explicit level values) controls how many iso-lines are drawn or exactly which. Returns nothing.</td></tr>
+<tr><td><code>corr_heatmap</code>, <code>corrplot</code>, <code>corrmat</code></td><td><code>corr_heatmap(t)</code></td><td>Computes the pairwise Pearson correlation of Table <code>t</code>'s numeric columns. <code>corr_heatmap</code>/<code>corrplot</code> render it directly as a heatmap and return nothing; <code>corrmat(t)</code> instead returns a tagged Model (<code>.matrix</code>, an <code>n</code>-by-<code>n</code> Mat of correlation values, plus <code>.labels</code>, a List of the <code>n</code> column names) for when you want the numbers rather than a picture — calling <code>.plot()</code> on that Model also renders the labeled heatmap. Returns a tagged <code>Model</code> from <code>corrmat</code> — <code>.matrix</code>, an <code>n</code>-by-<code>n</code> <code>Mat</code> of correlations, plus <code>.labels</code>, a <code>List</code> of the <code>n</code> column names; <code>corr_heatmap</code>/<code>corrplot</code> draw instead and hand back no value.</td></tr>
+<tr><td><code>capture</code></td><td><code>capture("fn", [args...])</code></td><td>Runs the named drawing function <code>"fn"</code> (string, a function you defined) into a scratch panel, passing along any further positional <code>args...</code>, and keeps what it drew as a value (a "layer"). See Layers, near the top of this chapter. Returns a layer value.</td></tr>
+<tr><td><code>stamp</code></td><td><code>stamp(layer, x, y, [scale=], [rotate=])</code></td><td>Places a transformed copy of a captured <code>layer</code> (the value <code>capture</code> returned) at position <code>(x, y)</code> (numbers, data units). <code>scale=</code> (number, default 1) and <code>rotate=</code> (number, degrees, default 0) transform the copy: translate, then scale, then rotate about the layer's own origin. Returns nothing.</td></tr>
+<tr><td><code>animate</code></td><td><code>animate("fn", frames, path, [fps=])</code></td><td>Calls function <code>"fn"</code> (string) once per frame index from <code>0</code> to <code>frames - 1</code> (integer) and writes the sequence to <code>path</code> (string) as one animated SVG, no JavaScript. <code>fps=</code> (number, default 24) sets playback speed. Returns nothing.</td></tr>
+<tr><td><code>explore</code></td><td><code>explore("fn", path, names=, from=, to=, steps=)</code></td><td>Writes a self-contained HTML page to <code>path</code> (string) with one slider per parameter of function <code>"fn"</code> (string). <code>names=</code> (List of strings, slider labels), <code>from=</code>/<code>to=</code> (Lists/tuples of numbers, per-parameter ranges), <code>steps=</code> (List of integers, per-parameter step counts) are parallel, one entry per parameter. Every combination is rendered up front (capped at 400 total), because a browser cannot run Qu. Returns nothing.</td></tr>
+<tr><td><code>rgb</code>, <code>rgba</code></td><td><code>rgb(r, g, b)</code></td><td>Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>) — a fractional 0–1 fourth channel is an opacity, a whole number 0–255 is a byte value like the other three. For channels that are computed rather than typed literally. Returns a <code>"#rrggbb"</code> (or with-alpha) string.</td></tr>
+<tr><td><code>to_rgb</code>, <code>to_hsl</code>, <code>to_lab</code>, <code>to_cmyk</code></td><td><code>to_rgb(color)</code></td><td>Takes apart any colour the language accepts (<code>color</code>, a string) into that space's own coordinates, returned as a Vec of numbers — <code>to_rgb</code> gives <code>(r,g,b)</code>, <code>to_hsl</code> gives <code>(h,s,l)</code>, <code>to_lab</code> gives <code>(L,a,b)</code>, <code>to_cmyk</code> gives <code>(c,m,y,k)</code>. See also <code>to_hsv</code> in the Colour spaces table above, which is the same idea. Returns a <code>Vec</code> of numbers — 3 elements for <code>to_rgb</code>/<code>to_hsl</code>/<code>to_lab</code>, 4 for <code>to_cmyk</code>.</td></tr>
+<tr><td><code>sweep</code></td><td><code>sweep(f0, f1, fs, n, [method=])</code></td><td>Generates a linear (or, with <code>method="logarithmic"</code>, log) frequency sweep from <code>f0</code> to <code>f1</code> (numbers, Hz) sampled at rate <code>fs</code> (number, Hz) for <code>n</code> (integer) samples. <code>chirp</code> is the exact same call under a second name — both share one implementation. Returns a <code>Signal</code> (a tagged Vec carrying its own sample rate) of length <code>n</code>.</td></tr>
+<tr><td><code>chirp</code></td><td><code>chirp(f0, f1, fs, n, [method=])</code></td><td>Identical to <code>sweep</code> above — same four positional arguments (start frequency, end frequency, sample rate, sample count) and the same <code>method=</code> (string, <code>"linear"</code> default or <code>"logarithmic"</code>/<code>"log"</code>/<code>"exponential"</code>). Returns a <code>Signal</code> of length <code>n</code>.</td></tr>
+<tr><td><code>triangle</code>, <code>sawtooth</code></td><td><code>triangle(freq, fs, n)</code> / <code>sawtooth(freq, fs, n)</code></td><td>Each generates one period-repeating waveform: <code>freq</code> (number, Hz), <code>fs</code> (number, sample rate in Hz), <code>n</code> (integer, sample count) are all scalars, in that order. <code>sawtooth</code> ramps linearly from -1 up to (but not including) +1 each period then drops back to -1; <code>triangle</code> rises and falls symmetrically. Both are band-unlimited — they carry every harmonic, which is the point when testing a filter. Returns a <code>Signal</code> of length <code>n</code>.</td></tr>
+<tr><td><code>square</code></td><td><code>square(freq, fs, n, [duty=])</code></td><td>A bipolar (±1) periodic pulse train. <code>freq</code> (number, Hz) is the repetition rate; <code>fs</code> (number, Hz) is the sample rate the train is generated at; <code>n</code> (number) is how many samples to produce; <code>duty=</code> (number, 0–1, default 0.5) is the fraction of each period spent at <code>+1</code> rather than <code>-1</code>. Returns a <code>Signal</code> of length <code>n</code>.</td></tr>
+<tr><td><code>pwm</code></td><td><code>pwm(modulator, carrier_freq, fs, [carrier=])</code></td><td>Natural-sampling pulse-width modulation: <code>modulator</code> is a Vec of numbers (any signal, conventionally in <code>[-1, 1]</code>), <code>carrier_freq</code> and <code>fs</code> are numbers (Hz). Emits <code>+1</code> where the modulator exceeds a carrier wave oscillating in <code>[-1, 1]</code> at <code>carrier_freq</code>, else <code>-1</code>. <code>carrier=</code> (string, <code>"triangle"</code> default or <code>"sawtooth"</code>/<code>"saw"</code>) picks the carrier shape. Returns a <code>Signal</code> the same length as <code>modulator</code>.</td></tr>
+<tr><td><code>signal</code></td><td><code>signal(x, fs)</code></td><td>Tags Vec <code>x</code> (numbers) with sample rate <code>fs</code> (number, Hz), so later calls (like <code>rfft</code>) do not have to be told it again. Returns a <code>Signal</code>.</td></tr>
+<tr><td><code>ui_slider</code></td><td><code>ui_slider(label, min, max, [default], [step=], [id=])</code></td><td>Declares a slider control (for a value you sweep) in an <code>explore</code> page or Qu Studio, labeled <code>label</code> (string) with range <code>min</code>..<code>max</code> (numbers). <code>default</code> (number, positional, default <code>min</code>) is the starting value; <code>step=</code> (number) sets the increment; <code>id=</code> (string, default <code>label</code>) is the identifier the host uses to persist/report a value, useful when two sliders would otherwise share a label. Outside a host, returns the current (or default) value as a number — arguments are positional, not <code>steps=</code>-style keywords, and <code>min</code>/<code>max</code> (not <code>from</code>/<code>to</code>) are the names that matter. Returns a scalar <code>Num</code> — the host's current value for this control, or <code>default</code> outside one.</td></tr>
+<tr><td><code>ui_number</code></td><td><code>ui_number(label, [default], [id=])</code></td><td>Declares a free-entry number box (for a value you type exactly rather than sweep), labeled <code>label</code> (string). <code>default</code> (number, positional, default 0) is the starting value; <code>id=</code> (string) as with <code>ui_slider</code>. Returns the current (or default) value as a number.</td></tr>
+<tr><td><code>ui_select</code></td><td><code>ui_select(label, options, [default], [id=])</code></td><td>Declares a dropdown, labeled <code>label</code> (string), choosing among <code>options</code> (a List of strings — or of any values, displayed via their string form). <code>default</code> (positional, default <code>options</code>'s first entry) and <code>id=</code> (string) as above. Returns the current (or default) choice as a string.</td></tr>
+<tr><td><code>ui_checkbox</code></td><td><code>ui_checkbox(label, [default], [id=])</code></td><td>Declares an on/off toggle, labeled <code>label</code> (string). <code>default</code> (bool, positional, default false) and <code>id=</code> (string) as above. Returns the current (or default) value as a bool. These two (<code>ui_select</code>/<code>ui_checkbox</code>) are for a parameter that is a mode rather than a magnitude.</td></tr>
+<tr><td><code>ui_button</code></td><td><code>ui_button(label, [id=])</code></td><td>Declares a push-button, labeled <code>label</code> (string); <code>id=</code> (string) as above. Returns <code>true</code> only on the run the host reports it as pressed, <code>false</code> otherwise — it does not stay <code>true</code> on later re-runs, so <code>if ui_button("Reset") ... end</code> reads naturally. Unlike the other UI widgets, it takes no <code>default=</code>.</td></tr>
+<tr><td><code>ui_text</code></td><td><code>ui_text(label, [default], [id=])</code></td><td>Declares a free-text field, labeled <code>label</code> (string). <code>default</code> (string, positional, default <code>""</code>) and <code>id=</code> (string) as above. Returns the current (or default) text as a string.</td></tr>
+</table></div>
+<p>There is deliberately no <code>step</code> row in the table above: a control-systems step response isn't implemented under any name in this chapter, and <code>step</code> the identifier is already spoken for twice over — it's a reserved keyword (<code>to ... step ...</code> range syntax), so <code>step(...)</code> can't even parse as a function call, and the one runtime function actually named <code>step</code> is <code>env.step(state, action)</code>, an unrelated reinforcement-learning method on a <code>gridworld_env</code> model that returns a <code>{next_state, reward, done}</code> record. For a staircase plot of data you already have, see <code>stair</code> in the Chart Types table above.</p>
+<p>Three periodic-waveform generators, plotted as ordinary vectors. <code>triangle</code> and <code>sawtooth</code> take <code>(freq, fs, n)</code> — a frequency, a sample rate, and a sample count, all scalars — while <code>sweep</code>/<code>chirp</code> need a start *and* end frequency, so their positional order is <code>(f0, f1, fs, n)</code>. Reach for <code>triangle</code>/<code>sawtooth</code>/<code>square</code> when you need a fixed-frequency test signal rich in harmonics (for exercising a filter's whole passband at once), and for <code>sweep</code>/<code>chirp</code> when you need the frequency itself to move over time (for measuring a frequency response by scanning it). In the three resulting figures, the triangle should look like a symmetric zig-zag, the sawtooth a one-sided ramp that snaps back, and the sweep a sine whose visible period visibly shortens as it runs from 10 Hz toward 100 Hz:</p>
+<div class="example"><pre class="hl"><code>tri = <span class="f">triangle</span>(<span class="n">5</span>, <span class="n">500</span>, <span class="n">200</span>)
+<span class="f">plot</span>(tri, <span class="a">label</span> = <span class="s">"triangle"</span>)
+<span class="f">figure</span>()
+saw = <span class="f">sawtooth</span>(<span class="n">5</span>, <span class="n">500</span>, <span class="n">200</span>)
+<span class="f">plot</span>(saw, <span class="a">label</span> = <span class="s">"sawtooth"</span>)
+<span class="f">figure</span>()
+s = <span class="f">sweep</span>(<span class="n">10</span>, <span class="n">100</span>, <span class="n">500</span>, <span class="n">400</span>)
+<span class="f">plot</span>(s, <span class="a">label</span> = <span class="s">"sweep"</span>)
+</code></pre>
+</div>
+<p>Every <code>ui_*</code> call does two things at once: it *declares* a control for a host (Qu Studio, or an <code>explore(...)</code> page) to render, and it *returns* that control's current value right away — the host isn't required for the script to run, which is what "headless" means here. That dual nature is why each one takes a <code>default</code> positional argument rather than a <code>default=</code> keyword: outside a host, the default *is* the value, so a script can be developed and tested from the command line, then handed to a host later without changing a line. This example declares one of each of the six widget kinds and prints what each one currently holds, which — run without a host — should simply echo back the defaults given:</p>
+<div class="example"><pre class="hl"><code>freq = <span class="f">ui_slider</span>(<span class="s">"freq"</span>, <span class="n">1</span>, <span class="n">20</span>, <span class="n">5</span>)
+gain = <span class="f">ui_number</span>(<span class="s">"gain"</span>, <span class="n">1.0</span>)
+mode = <span class="f">ui_select</span>(<span class="s">"mode"</span>, [<span class="s">"fast"</span>, <span class="s">"slow"</span>])
+enabled = <span class="f">ui_checkbox</span>(<span class="s">"enabled"</span>, <span class="k">true</span>)
+pressed = <span class="f">ui_button</span>(<span class="s">"reset"</span>)
+label = <span class="f">ui_text</span>(<span class="s">"label"</span>, <span class="s">"wave"</span>)
+<span class="f">print</span>(freq)
+<span class="f">print</span>(gain)
+<span class="f">print</span>(mode)
+<span class="f">print</span>(enabled)
+<span class="f">print</span>(pressed)
+<span class="f">print</span>(label)
+</code></pre>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

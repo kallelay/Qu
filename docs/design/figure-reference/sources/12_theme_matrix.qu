@@ -1,0 +1,31 @@
+# 12 — the same figure under every theme name Qu accepts, written out
+# side by side. This case exists to make a defect visible and to prove it
+# fixed later: as of 2026-09-05, `default`, `bw`, `grey`, `classic` and an
+# arbitrary misspelling all render BYTE-IDENTICAL output: 7 theme names
+# produce only 3 distinct figures. The title is held constant on purpose --
+# vary it and the files differ trivially, which hides the defect.
+# Only `minimal` and `publication` change anything, and those two are
+# driven by separate flags rather than by the theme table.
+#
+# Run this after any theme work: the six files should differ from each
+# other, and the misspelling should warn rather than silently fall back.
+function one(name)
+    figure()
+    theme(name)
+    x = linspace(0, 10, 50)
+    plot(x, sin(x), label="sin")
+    xlabel("x")
+    ylabel("y")
+    title("identical title")           # constant, so ONLY the theme varies
+    grid on
+    legend()
+    savefig("12_theme_" + name + ".svg")
+end
+
+one("default")
+one("bw")
+one("grey")
+one("classic")
+one("minimal")
+one("publication")
+one("no_such_theme")

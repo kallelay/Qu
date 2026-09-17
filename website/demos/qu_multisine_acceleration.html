@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multisine acceleration — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Multisine acceleration</h1>
+<p class="lede">51-tone multisine, the "no explicit acceleration" baseline.</p>
+<p class="srcpath">catalog/qu_multisine_acceleration.qu</p>
+<p>Companion to benchmarks/multisine_acceleration/: that directory times FIVE ways of computing this exact same signal (this loop, full broadcast/matmul vectorization, `parallel for`, a pool/queue job split, and `gpu_matmul`) against each other and cross-checks that they all produce the numerically identical waveform. This file is just the reference workload on its own, runnable standalone with `qu run`.</p>
+<p>The workload: x(t) = sum_{k=1..51} A_k * sin(2*pi*f_k*t + phi_k), Fs = 5000 Hz, duration = 300 s (N = 1,500,000 samples). 51 tones log-spaced from 5 Hz to 2000 Hz (comfortably under Nyquist), unit-ish RMS amplitude, phases drawn from a fixed seed so the signal is reproducible run to run.</p>
+<p>Construct exercised (spec section -&gt; use): §12  logspace, ranges §21  seed()/rand() for reproducible phases §16  for loop, vectorized per-tone (the "baseline" idiom: a scalar loop over the 51 tones, each iteration itself vectorized over the N-length time axis — Qu has no reasonable scalar-loop-over-N alternative, so this IS the right "unaccelerated" reference, not a strawman) §24  rms, crest factor via max/abs</p>
+<h2>How it works</h2>
+<section class="step">
+<h3>Setup</h3>
+<pre class="hl"><code><span class="f">seed</span>(<span class="n">2026</span>)
+
+Fs = <span class="n">5000</span>                      <span class="c"># sample rate (Hz)</span>
+duration = <span class="n">300</span>                 <span class="c"># record length (s)</span>
+N = <span class="f">round</span>(Fs * duration)       <span class="c"># 1,500,000 samples</span>
+K = <span class="n">51</span>                         <span class="c"># number of tones</span>
+
+dt = <span class="n">1</span> / Fs
+t = <span class="f">linspace</span>(<span class="n">0</span>, (N - <span class="n">1</span>) * dt, N)   <span class="c"># N-length time vector -- plain `to`/`step`</span>
+                                    <span class="c"># ranges cap out at 1,000,000 elements</span>
+                                    <span class="c"># (qu-core::DEFAULT_ELEMENT_LIMIT), so</span>
+                                    <span class="c"># `linspace`, which has no such cap, is</span>
+                                    <span class="c"># used here to reach N = 1,500,000</span>
+
+f   = <span class="f">logspace</span>(<span class="f">log10</span>(<span class="n">5</span>), <span class="f">log10</span>(<span class="n">2000</span>), K)   <span class="c"># 51 tones, 5 Hz .. 2000 Hz</span>
+A   = <span class="f">ones</span>(K) / <span class="f">sqrt</span>(K)                    <span class="c"># unit-ish RMS amplitude budget</span>
+phi = <span class="f">rand</span>(K) * <span class="n">2</span> * pi                     <span class="c"># reproducible random phases</span>
+
+<span class="f">print</span>(<span class="s">"N = {N} samples, K = {K} tones, Fs = {Fs} Hz, duration = {duration} s"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Synthesize (baseline: loop over tones, vectorized per tone over N)</h3>
+<pre class="hl"><code><span class="f">tic</span>()
+x = <span class="f">zeros</span>(N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> K - <span class="n">1</span>
+    x = x + A[k] * <span class="f">sin</span>(<span class="n">2</span> * pi * f[k] * t + phi[k])
+<span class="k">end</span> <span class="k">for</span>
+t_baseline = <span class="f">toc</span>()
+
+<span class="f">print</span>(<span class="s">"baseline synth time = {t_baseline:.4f} s"</span>)
+<span class="f">print</span>(<span class="s">"rms(x)   = {rms(x):.6f}"</span>)
+<span class="f">print</span>(<span class="s">"crest(x) = {max(abs(x)) / rms(x):.4f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot (first 0.05 s only -- 1.5M points is too dense to eyeball otherwise)</h3>
+<pre class="hl"><code>n_show = <span class="f">round</span>(<span class="n">0.05</span> * Fs)
+<span class="f">plot</span>(t[<span class="n">0</span>:n_show - <span class="n">1</span>], x[<span class="n">0</span>:n_show - <span class="n">1</span>])
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Multisine, K={K} tones (first 0.05 s)"</span>)
+grid on
+box on
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>N = 1500000 samples, K = 51 tones, Fs = 5000 Hz, duration = 300 s
+baseline synth time = 0.9395 s
+rms(x)   = 0.707099
+crest(x) = 4.6611</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="483.16" x2="866.00" y2="483.16" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="483.16" x2="86.00" y2="483.16" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="487.64" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.5</text>
+<line x1="86.00" y1="407.51" x2="866.00" y2="407.51" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="407.51" x2="86.00" y2="407.51" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="411.99" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.0</text>
+<line x1="86.00" y1="331.86" x2="866.00" y2="331.86" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="331.86" x2="86.00" y2="331.86" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="336.34" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.5</text>
+<line x1="86.00" y1="256.21" x2="866.00" y2="256.21" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="256.21" x2="86.00" y2="256.21" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="260.69" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="180.56" x2="866.00" y2="180.56" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="180.56" x2="86.00" y2="180.56" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="185.04" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.5</text>
+<line x1="86.00" y1="104.91" x2="866.00" y2="104.91" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="104.91" x2="86.00" y2="104.91" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="109.39" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="160.58" y1="48.00" x2="160.58" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="160.58" y1="540.00" x2="160.58" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="160.58" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.005</text>
+<line x1="235.17" y1="48.00" x2="235.17" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="235.17" y1="540.00" x2="235.17" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="235.17" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.010</text>
+<line x1="309.75" y1="48.00" x2="309.75" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="309.75" y1="540.00" x2="309.75" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="309.75" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.015</text>
+<line x1="384.34" y1="48.00" x2="384.34" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="384.34" y1="540.00" x2="384.34" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="384.34" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.020</text>
+<line x1="458.92" y1="48.00" x2="458.92" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="458.92" y1="540.00" x2="458.92" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="458.92" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.025</text>
+<line x1="533.50" y1="48.00" x2="533.50" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="533.50" y1="540.00" x2="533.50" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="533.50" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.030</text>
+<line x1="608.09" y1="48.00" x2="608.09" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="608.09" y1="540.00" x2="608.09" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="608.09" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.035</text>
+<line x1="682.67" y1="48.00" x2="682.67" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="682.67" y1="540.00" x2="682.67" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="682.67" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.040</text>
+<line x1="757.26" y1="48.00" x2="757.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="757.26" y1="540.00" x2="757.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="757.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.045</text>
+<line x1="831.84" y1="48.00" x2="831.84" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="831.84" y1="540.00" x2="831.84" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="831.84" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.050</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,319.84 88.98,335.56 91.97,356.06 94.95,404.40 97.93,419.91 100.92,300.19 103.90,246.81 106.88,257.07 109.87,335.38 112.85,409.09 115.83,379.41 118.82,389.18 121.80,307.62 124.78,302.92 127.77,330.78 130.75,158.65 133.73,224.95 136.72,296.42 139.70,160.69 142.68,223.27 145.67,326.10 148.65,321.25 151.63,234.56 154.62,171.76 157.60,219.49 160.58,266.23 163.57,335.90 166.55,349.53 169.53,358.16 172.52,380.18 175.50,371.85 178.48,463.82 181.47,445.91 184.45,374.55 187.43,356.21 190.42,316.89 193.40,381.33 196.38,269.80 199.37,162.15 202.35,298.67 205.33,306.01 208.32,367.29 211.30,432.83 214.28,300.72 217.27,259.86 220.25,277.76 223.23,212.87 226.22,120.68 229.20,180.14 232.18,242.89 235.17,121.46 238.15,70.36 241.13,74.78 244.12,126.15 247.10,167.89 250.08,133.28 253.07,233.09 256.05,236.18 259.03,204.45 262.02,287.17 265.00,296.07 267.99,391.76 270.97,355.10 273.95,204.20 276.94,241.34 279.92,206.74 282.90,221.34 285.89,366.34 288.87,382.80 291.85,306.51 294.84,312.16 297.82,396.17 300.80,355.85 303.79,342.28 306.77,344.74 309.75,261.84 312.74,371.79 315.72,453.69 318.70,401.52 321.69,334.90 324.67,271.40 327.65,384.70 330.64,357.49 333.62,254.53 336.60,346.54 339.59,336.67 342.57,320.96 345.55,287.35 348.54,207.53 351.52,271.32 354.50,283.92 357.49,267.78 360.47,365.64 363.45,489.72 366.44,465.02 369.42,398.50 372.40,446.54 375.39,339.23 378.37,288.55 381.35,387.62 384.34,338.87 387.32,357.92 390.30,367.90 393.29,341.19 396.27,372.00 399.25,347.40 402.24,459.83 405.22,497.74 408.20,416.96 411.19,437.92 414.17,335.67 417.15,286.79 420.14,420.73 423.12,517.64 426.10,488.22 429.09,384.20 432.07,370.50 435.05,408.90 438.04,459.85 441.02,364.78 444.00,220.76 446.99,341.01 449.97,326.62 452.95,244.78 455.94,352.49 458.92,340.83 461.90,337.14 464.89,337.33 467.87,317.18 470.85,339.76 473.84,264.00 476.82,305.26 479.80,358.00 482.79,333.54 485.77,430.44 488.75,459.62 491.74,396.87 494.72,355.62 497.70,347.89 500.69,285.83 503.67,227.09 506.65,292.93 509.64,244.49 512.62,240.95 515.60,302.82 518.59,229.35 521.57,283.02 524.55,248.44 527.54,186.18 530.52,355.84 533.50,380.06 536.49,330.78 539.47,359.05 542.45,420.83 545.44,409.28 548.42,197.93 551.40,142.05 554.39,253.13 557.37,310.29 560.35,343.92 563.34,315.07 566.32,246.62 569.30,189.36 572.29,286.17 575.27,347.74 578.25,281.23 581.24,352.64 584.22,282.80 587.20,192.45 590.19,266.21 593.17,205.15 596.15,229.87 599.14,259.54 602.12,209.50 605.10,294.96 608.09,320.11 611.07,321.68 614.06,356.50 617.04,387.35 620.02,382.29 623.01,289.28 625.99,299.80 628.97,287.46 631.96,166.62 634.94,117.26 637.92,193.15 640.91,271.16 643.89,148.30 646.87,170.34 649.86,310.65 652.84,241.03 655.82,273.57 658.81,255.63 661.79,198.10 664.77,329.35 667.76,312.36 670.74,268.05 673.72,308.17 676.71,357.74 679.69,453.58 682.67,442.00 685.66,368.90 688.64,288.91 691.62,274.42 694.61,287.37 697.59,218.04 700.57,218.35 703.56,204.15 706.54,211.54 709.52,288.78 712.51,352.42 715.49,401.98 718.47,213.51 721.46,130.25 724.44,249.86 727.42,154.30 730.41,212.07 733.39,361.62 736.37,296.46 739.36,229.24 742.34,163.54 745.32,178.57 748.31,236.24 751.29,243.26 754.27,250.97 757.26,276.72 760.24,355.53 763.22,317.21 766.21,260.74 769.19,279.32 772.17,283.32 775.16,352.22 778.14,295.16 781.12,224.24 784.11,242.28 787.09,212.71 790.07,269.97 793.06,173.83 796.04,100.48 799.02,265.79 802.01,221.67 804.99,187.54 807.97,289.51 810.96,271.05 813.94,264.31 816.92,348.15 819.91,422.88 822.89,340.01 825.87,280.57 828.86,340.49" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Multisine, K=51 tones (first 0.05 s)</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Time (s)</text>
+<text x="42.76" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 42.76 294.00)">Amplitude</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_multisine_acceleration.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_multisine_acceleration.qu — 51-tone multisine, the "no explicit</span>
+<span class="c"># acceleration" baseline.</span>
+<span class="c">#</span>
+<span class="c"># Companion to benchmarks/multisine_acceleration/: that directory times</span>
+<span class="c"># FIVE ways of computing this exact same signal (this loop, full</span>
+<span class="c"># broadcast/matmul vectorization, `parallel for`, a pool/queue job split,</span>
+<span class="c"># and `gpu_matmul`) against each other and cross-checks that they all</span>
+<span class="c"># produce the numerically identical waveform. This file is just the</span>
+<span class="c"># reference workload on its own, runnable standalone with `qu run`.</span>
+<span class="c">#</span>
+<span class="c"># The workload: x(t) = sum_{k=1..51} A_k * sin(2*pi*f_k*t + phi_k),</span>
+<span class="c"># Fs = 5000 Hz, duration = 300 s (N = 1,500,000 samples). 51 tones</span>
+<span class="c"># log-spaced from 5 Hz to 2000 Hz (comfortably under Nyquist), unit-ish</span>
+<span class="c"># RMS amplitude, phases drawn from a fixed seed so the signal is</span>
+<span class="c"># reproducible run to run.</span>
+<span class="c">#</span>
+<span class="c"># Construct exercised (spec section -&gt; use):</span>
+<span class="c">#   §12  logspace, ranges</span>
+<span class="c">#   §21  seed()/rand() for reproducible phases</span>
+<span class="c">#   §16  for loop, vectorized per-tone (the "baseline" idiom: a scalar loop</span>
+<span class="c">#        over the 51 tones, each iteration itself vectorized over the</span>
+<span class="c">#        N-length time axis — Qu has no reasonable scalar-loop-over-N</span>
+<span class="c">#        alternative, so this IS the right "unaccelerated" reference, not</span>
+<span class="c">#        a strawman)</span>
+<span class="c">#   §24  rms, crest factor via max/abs</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Setup</span>
+<span class="f">seed</span>(<span class="n">2026</span>)
+
+Fs = <span class="n">5000</span>                      <span class="c"># sample rate (Hz)</span>
+duration = <span class="n">300</span>                 <span class="c"># record length (s)</span>
+N = <span class="f">round</span>(Fs * duration)       <span class="c"># 1,500,000 samples</span>
+K = <span class="n">51</span>                         <span class="c"># number of tones</span>
+
+dt = <span class="n">1</span> / Fs
+t = <span class="f">linspace</span>(<span class="n">0</span>, (N - <span class="n">1</span>) * dt, N)   <span class="c"># N-length time vector -- plain `to`/`step`</span>
+                                    <span class="c"># ranges cap out at 1,000,000 elements</span>
+                                    <span class="c"># (qu-core::DEFAULT_ELEMENT_LIMIT), so</span>
+                                    <span class="c"># `linspace`, which has no such cap, is</span>
+                                    <span class="c"># used here to reach N = 1,500,000</span>
+
+f   = <span class="f">logspace</span>(<span class="f">log10</span>(<span class="n">5</span>), <span class="f">log10</span>(<span class="n">2000</span>), K)   <span class="c"># 51 tones, 5 Hz .. 2000 Hz</span>
+A   = <span class="f">ones</span>(K) / <span class="f">sqrt</span>(K)                    <span class="c"># unit-ish RMS amplitude budget</span>
+phi = <span class="f">rand</span>(K) * <span class="n">2</span> * pi                     <span class="c"># reproducible random phases</span>
+
+<span class="f">print</span>(<span class="s">"N = {N} samples, K = {K} tones, Fs = {Fs} Hz, duration = {duration} s"</span>)
+
+<span class="c">#%% Synthesize (baseline: loop over tones, vectorized per tone over N)</span>
+<span class="f">tic</span>()
+x = <span class="f">zeros</span>(N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> K - <span class="n">1</span>
+    x = x + A[k] * <span class="f">sin</span>(<span class="n">2</span> * pi * f[k] * t + phi[k])
+<span class="k">end</span> <span class="k">for</span>
+t_baseline = <span class="f">toc</span>()
+
+<span class="f">print</span>(<span class="s">"baseline synth time = {t_baseline:.4f} s"</span>)
+<span class="f">print</span>(<span class="s">"rms(x)   = {rms(x):.6f}"</span>)
+<span class="f">print</span>(<span class="s">"crest(x) = {max(abs(x)) / rms(x):.4f}"</span>)
+
+<span class="c">#%% Plot (first 0.05 s only -- 1.5M points is too dense to eyeball otherwise)</span>
+n_show = <span class="f">round</span>(<span class="n">0.05</span> * Fs)
+<span class="f">plot</span>(t[<span class="n">0</span>:n_show - <span class="n">1</span>], x[<span class="n">0</span>:n_show - <span class="n">1</span>])
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Multisine, K={K} tones (first 0.05 s)"</span>)
+grid on
+box on
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

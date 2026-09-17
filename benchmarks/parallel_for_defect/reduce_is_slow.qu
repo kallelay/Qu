@@ -1,0 +1,49 @@
+# demo_parallel_reduce.qu — adding things up across CPU cores.
+#
+# A `parallel for` runs its iterations at the same time on different cores.
+# That is fine while each iteration writes to its own slot, but a running
+# TOTAL is shared, and two cores adding to it at once would lose updates.
+#
+# `with reduce(+: total)` is how you say "this one is a running total":
+# each core keeps its own private copy and they are added together at the
+# end. Correct by construction, and no slower for it.
+#
+# Exercises:
+#   parallel for ... with reduce(+: name)
+#   timer()  to measure the difference honestly
+#
+# NOTE the `with`. `parallel for i in 1 to N reduce(...)` without it is a
+# parse error, because `100 reduce` reads as a number with a unit attached
+# (like `100 Hz`) before it can read as a clause.
+
+n = 1000000
+
+# --- serial ------------------------------------------------------------
+st = timer(1)
+st.start()
+serial_total = 0
+for i = 1 to n
+    serial_total = serial_total + sqrt(i) * sin(i)
+end for
+serial_s = st.elapsed()
+
+# --- the same sum, in parallel -----------------------------------------
+pt = timer(1)
+pt.start()
+par_total = 0
+parallel for i in 1 to n with reduce(+: par_total)
+    par_total = par_total + sqrt(i) * sin(i)
+end parallel
+par_s = pt.elapsed()
+
+print("serial   : {serial_total:.4f}   in {serial_s:.4f} s")
+print("parallel : {par_total:.4f}   in {par_s:.4f} s")
+print("")
+
+# Floating-point addition is not associative, so summing in a different
+# ORDER gives a very slightly different answer. That is expected and not a
+# bug -- but it means you compare with a tolerance, never with ==.
+diff = abs(serial_total - par_total)
+print("difference : {diff:.2e}  (reordered addition, not an error)")
+print("agree to 1e-6 relative: {diff / abs(serial_total) < 1e-6}")
+print("speedup    : {serial_s / par_s:.2f}x")

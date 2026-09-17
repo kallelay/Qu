@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arc — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>arc</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>arc(cx, cy, r, from, to)</code></pre>
+<p class="fnnote">Input: cx, cy, r, from, to &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Draws part of a circle, as an open stroke. <code>cx</code> and <code>cy</code> (numbers) are the centre, in data coordinates; <code>r</code> (number, positive — a zero or negative radius is an error) is the radius, applied as the same figure to both axes, so a panel whose x and y scales differ draws an ellipse rather than a round arc — a square canvas is what makes it round, not <code>axis equal</code>, which only equalises the ranges; <code>from</code> (number, degrees) is the angle the sweep starts at, measured counterclockwise from the positive x axis, so <code>0</code> is the three-o'clock position; <code>to</code> (number, degrees) is the angle it ends at, and a <code>to</code> smaller than <code>from</code> sweeps clockwise instead. Optional <code>segments=</code> (number, default <code>128</code>) is how many straight pieces approximate the curve, and <code>rotate=</code> (number, degrees) turns the whole arc about its centre. Unlike <code>circle</code>, an arc is open — it renders as a stroke (<code>color=</code>/<code>width=</code>/<code>dash=</code>), not a fillable shape.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>arc(cx, cy, r, from, to)</code></td><td><div class="ioitem"><code>cx</code> <span class="iotype">number</span><span class="iodesc"><code>cx</code> and <code>cy</code> (numbers) are the centre, in data coordinates.</span></div>
+<div class="ioitem"><code>cy</code> <span class="iotype">number</span><span class="iodesc"><code>cx</code> and <code>cy</code> (numbers) are the centre, in data coordinates.</span></div>
+<div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iodesc"><code>r</code> (number, positive — a zero or negative radius is an error) is the radius, applied as the same figure to both axes, so a panel whose x and y scales differ draws an ellipse rather than a round arc — a square canvas is what makes it round, not <code>axis equal</code>, which only equalises the ranges.</span></div>
+<div class="ioitem"><code>from</code> <span class="iotype">number</span><span class="iodesc"><code>from</code> (number, degrees) is the angle the sweep starts at, measured counterclockwise from the positive x axis, so <code>0</code> is the three-o'clock position.</span></div>
+<div class="ioitem"><code>to</code> <span class="iotype">number</span><span class="iodesc"><code>to</code> (number, degrees) is the angle it ends at, and a <code>to</code> smaller than <code>from</code> sweeps clockwise instead.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Draws part of a circle, as an open stroke. Optional <code>segments=</code> (number, default <code>128</code>) is how many straight pieces approximate the curve, and <code>rotate=</code> (number, degrees) turns the whole arc about its centre. Unlike <code>circle</code>, an arc is open — it renders as a stroke (<code>color=</code>/<code>width=</code>/<code>dash=</code>), not a fillable shape.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c"># A square canvas, so that equal ranges really are equal scales and the</span>
+<span class="c"># circle below comes out round. Without it the figure would render an</span>
+<span class="c"># ellipse while the paragraph above it explained how to avoid one.</span>
+<span class="f">figure_size</span>(<span class="n">560</span>, <span class="n">560</span>)
+<span class="f">xlim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+<span class="f">ylim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+axis equal
+<span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">fill</span> = <span class="s">"royalblue"</span>)
+<span class="f">ellipse</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.6</span>, <span class="n">0.7</span>, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">rotate</span> = <span class="n">30</span>)
+<span class="f">arc</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.3</span>, <span class="n">0</span>, <span class="n">120</span>, <span class="a">color</span> = <span class="s">"seagreen"</span>, <span class="a">width</span> = <span class="n">2</span>)
+<span class="f">polygon</span>([<span class="n">0.8</span>, <span class="n">1.6</span>, <span class="n">1.2</span>], [-<span class="n">1.6</span>, -<span class="n">1.6</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"purple"</span>, <span class="a">fill</span> = <span class="s">"plum"</span>)
+<span class="f">rectangle</span>(-<span class="n">1.8</span>, -<span class="n">1.8</span>, -<span class="n">1.2</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">rect</span>(<span class="n">1.0</span>, -<span class="n">1.8</span>, <span class="n">1.8</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"teal"</span>)
+<span class="f">point</span>(<span class="n">0</span>, <span class="n">1.9</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p>── shapes ────────────────────────────────────────────── <code>circle(cx, cy, r)</code>, <code>ellipse(cx, cy, rx, ry)</code>, <code>arc(cx, cy, r, from_deg, to_deg)</code>, <code>polygon(xs, ys)</code>. All are sampled in DATA space and mapped through the axis transform, so a circle stays a circle when the axes are equal and becomes the correct ellipse when they are not. Emitting an SVG <code>&lt;circle&gt;</code> at a pixel radius would be simpler and would draw the wrong shape on any panel whose scales differ -- which is most of them. <code>segments=</code> controls the sampling; 128 is smooth at any figure size a paper uses and cheap enough not to think about.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

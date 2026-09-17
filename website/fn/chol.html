@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chol — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>chol</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>chol(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Lower-triangular Cholesky factor <code>L</code> of <code>A = L·Lᵀ</code>, where <code>A</code> is a symmetric positive-definite <code>n×n</code> <code>Mat</code>; errors clearly if <code>A</code> isn't positive-definite.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = chol(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Mat</span></div>
+</td><td>Returns an <code>n×n</code> <code>Mat</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">25</span>, <span class="n">15</span>, -<span class="n">5</span>; <span class="n">15</span>, <span class="n">18</span>, <span class="n">0</span>; -<span class="n">5</span>, <span class="n">0</span>, <span class="n">11</span>]
+L = <span class="f">chol</span>(A)
+<span class="f">print</span>(<span class="s">"L * L' == A: {L * L'}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+L = <span class="f">chol</span>(A)
+<span class="f">print</span>(L * L.<span class="f">ctranspose</span>())   <span class="c"># reproduces A</span>
+
+r = <span class="f">svd</span>(A)
+<span class="f">print</span>(r.s)   <span class="c"># singular values</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<h2>How it works</h2>
+<p><code>chol(A)</code> — the lower-triangular factor <code>L</code> of <code>A = L * L^T</code> for a symmetric positive-definite <code>A</code> (a covariance matrix is the common case). Errors clearly (not a NaN-filled result) if <code>A</code> isn't positive-definite — the same discipline <code>inv</code> already applies to a singular matrix.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

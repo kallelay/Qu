@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download Qu</title>
+<meta name="description" content="Builds for Windows, Linux and macOS, and how to build from source.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>Download</h1>
+  <p class="lede">One binary, no runtime to install. Releases are built and published by
+  CI for every platform below.</p>
+</div></header>
+
+<section><div class="wrap">
+  <h2>Binaries</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Platform</th><th class="mono">Target</th><th>Package</th></tr></thead>
+    <tbody>
+      <tr><td>Windows (Intel / AMD)</td><td class="mono">x86_64-pc-windows-msvc</td><td>.zip</td></tr>
+      <tr><td>Windows on ARM</td><td class="mono">aarch64-pc-windows-msvc</td><td>.zip</td></tr>
+      <tr><td>Linux (Intel / AMD)</td><td class="mono">x86_64-unknown-linux-gnu</td><td>.tar.gz and .deb</td></tr>
+      <tr><td>Linux on ARM</td><td class="mono">aarch64-unknown-linux-gnu</td><td>.tar.gz and .deb</td></tr>
+      <tr><td>Linux, any distribution</td><td class="mono">x86_64-unknown-linux-musl</td>
+          <td>.tar.gz, statically linked</td></tr>
+      <tr><td>macOS (Apple silicon)</td><td class="mono">aarch64-apple-darwin</td><td>.tar.gz</td></tr>
+      <tr><td>macOS (Intel)</td><td class="mono">x86_64-apple-darwin</td><td>.tar.gz</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:20px"><a class="btn primary" href="#">Latest release</a>
+     <a class="btn ghost" href="changelog.html">What changed</a></p>
+  <div class="note"><p>Every release carries <code>SHA256SUMS</code>. The static musl
+  build is the one to reach for on an older enterprise distribution or in a minimal
+  container &mdash; it depends on nothing.</p></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>iPad and phones</h2>
+  <p class="sub">Not yet, and it is worth being specific about why rather than leaving it
+  off the list.</p>
+  <div class="cards">
+    <div><p class="eyebrow">iPadOS / iOS</p><h3>Needs an app, or a browser build</h3>
+      <p>iOS has no terminal and no subprocesses, so a command-line binary is not a thing
+      that can be installed. The routes are an app with the engine embedded, or compiling
+      the interpreter to WebAssembly and running it in Safari. The WebAssembly crate today
+      wraps only the numeric core, so neither is done.</p></div>
+    <div><p class="eyebrow">Android</p><h3>Works under Termux</h3>
+      <p>The Linux ARM64 build runs in Termux today. There is no packaged app.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>From source</h2>
+  <p class="sub">Rust stable, and nothing else. The optional GPU and deep-learning
+  backends are feature flags and off by default.</p>
+  <pre>git clone &lt;repository&gt;
+cd qu
+cargo build --release --manifest-path engine/Cargo.toml
+
+engine/target/release/qu run examples/hello.qu
+engine/target/release/qu repl</pre>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
+    <a href="docs.html">Docs</a> &nbsp; <a href="agents.html">Agents</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>timer — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>timer</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a></p>
+<h2>What it is</h2>
+<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">timer</span>()
+<span class="f">start</span>(t)
+lap1 = <span class="f">restart</span>(t)
+lap2 = <span class="f">restart</span>(t)
+<span class="f">pause</span>(t)
+<span class="f">print</span>(<span class="s">"lap1={lap1}, lap2={lap2}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<h2>How it works</h2>
+<p><code>timer([interval])</code> / <code>preciseTimer([interval])</code> — a real, controllable stopwatch (2026-08-24): the fix for <code>tic()</code>/ <code>toc()</code>'s one real limitation, a single global slot that a nested or second concurrent timing region silently clobbers. Starts NOT running — <code>start(t)</code> begins counting — so construction and "begin counting" stay two explicit steps (every stopwatch API in wide use works this way, e.g. C#'s <code>new Stopwatch()</code> then <code>.Start()</code>; MATLAB's auto-starting <code>tic</code> is the outlier, not the norm). <code>interval</code>, if given, is the tick period <code>on elapsed(t)</code>/<code>on elapsedOnce(t)</code> fire at — irrelevant to plain <code>elapsed()</code>-only profiling use. <code>preciseTimer</code> sets a <code>precise</code> marker but is otherwise identical: both use the same monotonic <code>Instant</code> clock on this platform, so there is no actual precision difference today — the separate name exists for intent-signaling and forward compatibility, stated here plainly rather than quietly implied.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

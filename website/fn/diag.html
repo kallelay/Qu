@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>diag — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>diag</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>diag(M)</code> or <code>diag(v)</code></pre>
+<p class="fnnote">Input: M &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Overloaded on argument type: <code>diag(M)</code>, where <code>M</code> is an <code>r×c</code> <code>Mat</code>, returns its main diagonal as a length-<code>min(r,c)</code> <code>Vec</code>; <code>diag(v)</code>, where <code>v</code> is a length-<code>n</code> <code>Vec</code> (or scalar/other coercible value), returns an <code>n×n</code> <code>Mat</code> with <code>v</code>'s entries on the diagonal and zeros elsewhere.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>M</code> can be Mat, Vec, scalar, or matrix.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-diag-0" checked>
+<input type="radio" name="typetab" id="tt-diag-1">
+<div class="tabbar">
+<label for="tt-diag-0">matrix</label>
+<label for="tt-diag-1">vector</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = diag(M) or diag(v)</code></td><td><div class="ioitem"><code>M</code> <span class="iotype">Mat or Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec or Mat</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">diag</span>(M))   <span class="c"># [1, 4]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = diag(M) or diag(v)</code></td><td><div class="ioitem"><code>M</code> <span class="iotype">Vec, scalar, Mat, or matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec or Mat</span></div>
+</td><td><code>v</code> a length-<code>n</code> <code>Vec</code> (or scalar/other coercible value). Builds a new <code>n×n</code> <code>Mat</code> with <code>v</code>'s entries on the diagonal and zeros elsewhere — construction, the opposite direction from the matrix case.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">diag</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [1, 0, 0; 0, 2, 0; 0, 0, 3]</span>
+</code></pre>
+</div>
+<h2>How it works</h2>
+<p><code>diag(v)</code> builds a diagonal matrix from a vector; <code>diag(A)</code> extracts the diagonal of a matrix. Both spellings, because both are what the name means and which one applies is unambiguous from the argument -- the same convention numpy and MATLAB use.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

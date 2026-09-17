@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tcp_send — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>tcp_send</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>tcp_send(sock, data)</code>, <code>tcp_recv(sock, [max_bytes=4096])</code></pre>
+<p class="fnnote">Input: sock, data &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>tcp_send</code>: <code>sock</code> (a <code>TcpConn</code> handle) and <code>data</code> (string, written as UTF-8 bytes) — returns <code>none</code>. <code>tcp_recv</code>: <code>sock</code> (a <code>TcpConn</code> handle) and an optional integer kwarg <code>max_bytes</code> (default <code>4096</code>) — blocks until at least one byte arrives, reads up to <code>max_bytes</code>, and returns it as a string (UTF-8, decoded lossily), or <code>none</code> if the peer closed the connection (a zero-byte read). Neither call frames the message for you — TCP is a stream, so a length prefix or delimiter is yours to add if you need distinct messages.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = tcp_send(sock, data), tcp_recv(sock, [max_bytes=4096])</code></td><td><div class="ioitem"><code>sock</code> <span class="iotype">TcpConn or string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>data</code> <span class="iotype">TcpConn or string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td>Returns a <code>Str</code> of the bytes read from <code>tcp_recv</code>, or <code>none</code> once the peer has closed; <code>tcp_send</code> hands back no value.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">echo_once</span>(listener)
+    conn = <span class="f">tcp_accept</span>(listener)        <span class="c"># blocks for the one client</span>
+    msg = <span class="f">tcp_recv</span>(conn)
+    <span class="f">tcp_send</span>(conn, msg)
+    <span class="f">tcp_close</span>(conn)
+<span class="k">end</span> <span class="k">function</span>
+
+listener = <span class="f">tcp_listen</span>(<span class="n">0</span>)               <span class="c"># 0 -- let the OS pick a free port</span>
+port = <span class="f">tcp_port</span>(listener)
+w = <span class="f">spawn</span>(<span class="s">"echo_once"</span>, listener)
+
+client = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, port)
+<span class="f">tcp_send</span>(client, <span class="s">"hello"</span>)
+<span class="f">print</span>(<span class="f">tcp_recv</span>(client))                <span class="c"># "hello" -- echoed back</span>
+<span class="f">tcp_close</span>(client)
+<span class="f">join</span>(w)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>tcp_send(conn, data)</code> writes <code>data</code>'s UTF-8 bytes to the connection, no added newline or framing — as bare as <code>write(f, s)</code> above. A script that needs message boundaries adds its own (a trailing delimiter, a length prefix, ...).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="tcp_recv.html"><code>tcp_recv</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

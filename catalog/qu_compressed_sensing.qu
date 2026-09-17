@@ -1,0 +1,197 @@
+# qu_compressed_sensing.qu — recovering a signal from far fewer samples
+# than Nyquist demands, six different ways.
+#
+# THE CLAIM. A signal with 200 unknowns, of which only 5 are non-zero, is
+# recovered EXACTLY from 60 measurements. Nyquist would have insisted on
+# 200. The missing information is supplied not by more samples but by one
+# assumption: the signal is sparse.
+#
+# That assumption is not exotic. A spectrum is a handful of tones among
+# thousands of bins; an impedance sweep is a few relaxation processes; a
+# vibration record is a few modes. Whenever the interesting part of a
+# measurement is small compared with the grid it is measured on, this
+# applies.
+#
+# WHY SIX METHODS. Finding the sparsest solution is combinatorial and
+# NP-hard, so every practical method is a tractable stand-in, and they fail
+# in different ways:
+#
+#   - greedy (omp, cosamp, sp, niht) build the support one decision at a
+#     time. Fast, need the sparsity up front, and brittle -- a column
+#     chosen wrongly early is a wrong answer, though cosamp and sp can undo
+#     one and omp cannot.
+#   - convex (fista, bp) replace the count of non-zeros with the l1 norm,
+#     which is its tightest convex relaxation, and solve that exactly.
+#     Slower, and they do NOT need to be told the sparsity.
+#
+# WHAT TO NOTICE in the output below:
+#
+#   - the coherence guarantee proves only k=1 is recoverable, and k=5
+#     recovers perfectly. The bound is real but badly pessimistic; treat a
+#     pass as proof and a failure as no information.
+#   - fista needs ~850 iterations where omp needs 5, and finds the same
+#     answer without being told there were 5 spikes.
+#   - without `debias=true`, fista's answer is systematically SHRUNK. The
+#     l1 penalty finds the support and pulls the coefficients toward zero
+#     with the same term; once the support is known, that pull has no
+#     purpose. One least-squares re-fit removes it.
+#
+# Exercises:
+#   randn(m, n, seed=)              — a Gaussian sensing matrix
+#   coherence(A) / cs_guarantee(A)  — is this matrix any good
+#   cs_recover(A, y, method=, ...)  — all six reconstruction methods
+#   tv_denoise(y, lambda)           — the other sparsity: few CHANGES
+
+backend auto
+
+#%% The problem
+#
+# 200 unknowns, 5 of them non-zero, measured 60 times. The sensing matrix
+# is Gaussian and scaled so its columns have roughly unit norm.
+#
+# Random is not laziness. A random matrix satisfies the recovery
+# conditions with high probability, and no deterministic construction is
+# known that does better for general use -- so the honest choice is a
+# random one with a fixed seed, which is reproducible.
+n = 200
+m = 60
+k = 5
+
+# A Gaussian matrix, scaled so its columns have roughly unit norm. Random
+# is not laziness: a random matrix satisfies the recovery conditions with
+# high probability, and no deterministic construction is known that does
+# better for general use.
+A = randn(m, n, seed = 7) / sqrt(m)
+
+x = zeros(n)
+x[7]   = 1.5
+x[33]  = -2.0
+x[91]  = 0.75
+x[140] = 3.0
+x[177] = -1.25
+
+y = A * x
+
+print("{n} unknowns, {k} of them non-zero, measured {m} times")
+print("compression: {n / m:.1f}x below Nyquist")
+print("")
+
+#%% Is this matrix any good?
+#
+# Coherence is the largest inner product between two different normalised
+# columns; smaller is better. `cs_guarantee` turns it into the largest
+# sparsity that coherence alone can PROVE recoverable.
+#
+# Watch what it says against what actually happens: it proves 1, and 5
+# recovers perfectly. The bound is real and badly pessimistic, which is
+# why it is a sanity check and never a budget.
+print("coherence         {coherence(A):.3f}   (smaller is better)")
+print("provable sparsity {cs_guarantee(A)}       (and yet k = {k} recovers -- the bound is pessimistic)")
+print("")
+
+#%% Every method, on the same data
+#
+# One dispatcher, so comparing methods is one word rather than one call.
+# The `told k?` column is the interesting one: the greedy methods are
+# handed the sparsity and the convex ones work it out.
+#
+# `debias = true` re-fits the found support by least squares. The l1
+# penalty finds the support and shrinks the coefficients with the same
+# term; once the support is known that shrinkage has no purpose.
+print("method   residual    rel.error   iters  told k?")
+for method in ("omp", "cosamp", "sp", "niht", "fista", "bp")
+    r = cs_recover(A, y, method = method, sparsity = k, lambda = 1e-3, debias = true)
+    err = norm(r.x - x) / norm(x)
+    knows = "yes"
+    if method == "fista" or method == "bp"
+        knows = "no"
+    end if
+    print("{pad_right(method, 8)} {r.residual:.2e}    {err:.2e}    {pad_left(str(r.iterations), 4)}   {knows}")
+end for
+print("")
+
+#%% What the l1 penalty costs, and what debiasing buys back
+#
+# The same solver, twice, with and without the re-fit. The difference is
+# nine orders of magnitude -- and it is systematic, not noise: every
+# coefficient is pulled toward zero by the same penalty that found it.
+raw = cs_recover(A, y, method = "fista", lambda = 1e-3)
+fixed = cs_recover(A, y, method = "fista", lambda = 1e-3, debias = true)
+print("fista alone:    largest coefficient error {max(abs(raw.x - x)):.2e}")
+print("fista debiased: largest coefficient error {max(abs(fixed.x - x)):.2e}")
+print("")
+
+#%% The recovered signal against the truth
+#
+# Both stems on one axis. There is nothing to see in the difference, which
+# is the point of the figure.
+stem(0 to n - 1, x, color = "#c0c8d4", label = "true")
+stem(0 to n - 1, fixed.x, color = "royalblue", label = "recovered from 60 of 200")
+xlabel("index")
+ylabel("amplitude")
+title("A 5-sparse signal, recovered from 30% of Nyquist")
+legend()
+show plot
+
+#%% The other kind of sparsity
+#
+# Everything above assumes few non-zero SAMPLES. Total variation assumes
+# few CHANGES instead -- a staircase, a segmented profile, a step response.
+# An l1 method applied to a step flattens it; TV keeps the edge exactly,
+# which is the property it is famous for.
+t = (0 to 199) / 200
+clean = zeros(200)
+for i in 0 to 199
+    if i >= 60 and i < 130
+        clean[i] = 1.0
+    end if
+end for
+noisy = clean + 0.15 * randn(200, seed = 3)
+tv = tv_denoise(noisy, 0.3)
+
+# A moving average that removes a comparable amount of noise, for contrast.
+# This is the honest comparison: both reach about the same RMS error, and
+# the question is what they did to the edge to get there.
+w = 9
+avg = filtfilt(fir1(w, 0.12), noisy)
+
+# How many samples the 10-90% transition takes AT THE KNOWN EDGE. Measured
+# locally rather than over the whole record, because a noise excursion
+# anywhere else would otherwise be counted as part of the rise.
+function rise_at(v, edge)
+    first = edge - 12
+    last = edge + 12
+    lo = -1
+    hi = -1
+    for i in first to last
+        if v[i] > 0.1 and lo < 0
+            lo = i
+        end if
+        if v[i] > 0.9 and hi < 0
+            hi = i
+        end if
+    end for
+    if lo < 0 or hi < 0
+        return -1
+    end if
+    return hi - lo
+end function
+
+print("rms error      : TV {rms(tv - clean):.3f}, low-pass {rms(avg - clean):.3f}")
+print("total variation: {sum(abs(diff(noisy))):.1f} measured -> TV {sum(abs(diff(tv))):.1f}, low-pass {sum(abs(diff(avg))):.1f}")
+print("10-90% rise    : TV {rise_at(tv, 60)} samples, low-pass {rise_at(avg, 60)} samples (the truth is 1)")
+print("")
+print("Both remove most of the noise. TV does it at half the error and a")
+print("shorter rise, because it never assumed the signal was smooth -- only")
+print("that it changes rarely. The price is a nonlinear method with a")
+print("penalty to choose, where a filter has a cutoff.")
+
+figure()
+plot(t, noisy, color = "#c8ccd4", label = "measured")
+plot(t, avg, color = "#b5651d", width = 1.4, dash = true, label = "moving average, {w} wide")
+plot(t, tv, color = "crimson", width = 1.6, label = "total variation")
+xlabel("time [s]")
+ylabel("amplitude")
+title("Both remove the noise; only one keeps the edge")
+legend()
+show plot

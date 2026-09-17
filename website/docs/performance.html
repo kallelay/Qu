@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance & Optimization — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html" class="here">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Performance & Optimization</h1>
+<nav class="onthispage"><a href="#s0">The one-line version</a><a href="#s38">Loop constructs: <code>for</code> vs <code>while</code> vs vectorized</a><a href="#s126">Vectorization: avoid the per-element loop entirely</a><a href="#s196">Method call (<code>x.f(y)</code>) vs function call (<code>f(x,y)</code>) vs native operator</a><a href="#s307">Loop unrolling: measured, doesn't help</a><a href="#s365">Reference variables: Qu doesn't have them, and that's fine</a><a href="#s443">Compound assignment (<code>+=</code>, <code>-=</code>, ...): sugar today, not a guaranteed in-place win</a><a href="#s566"><code>parallel for</code>: real speedup, real restrictions</a><a href="#s644">The concurrency toolkit: what else there is besides <code>parallel for</code></a><a href="#s741">Matmul: naive vs blocked vs parallel</a><a href="#s797">GPU vs CPU: the transfer-time curse, made concrete</a><a href="#s867">Sparse vs dense matrices: not implemented yet</a></nav>
+<p>Every number on this page was measured just now, on this machine (16 logical cores, no GPU feature compiled in), against the actual <code>qu.exe</code> this build produces — not assumed, not carried over from a different language's intuition. Re-run any of it yourself; the scripts are short enough to retype. Numbers will differ on your hardware, but the *shape* of each result — which technique wins and by roughly how much — is the part worth trusting.</p>
+<h2 id="s0">The one-line version</h2>
+<div class="tablewrap"><table>
+<tr><td>Do this</td><td>Not this</td><td>Why</td></tr>
+<tr><td><code>for i = 1 to n</code></td><td><code>while i &lt;= n ... i = i + 1</code></td><td><code>for</code> has a fast register path; <code>while</code> currently does not (~30x)</td></tr>
+<tr><td><code>xs .* xs</code></td><td><code>for i ...: ys[i] = xs[i]*xs[i]</code></td><td>vectorized ops skip per-element interpreter dispatch (~250x+)</td></tr>
+<tr><td>Pass big <code>Vec</code>/<code>Mat</code> args freely</td><td>Hand-roll a "pass by reference" workaround</td><td>Qu is copy-on-write; nothing is deep-copied until it is actually mutated</td></tr>
+<tr><td><code>parallel for</code> over independent iterations</td><td>a serial <code>for</code> over the same work</td><td>real multi-threading when each iteration is heavy enough (~7x on 16 cores)</td></tr>
+<tr><td>Native operator (<code>+</code>, <code>.*</code>, ...)</td><td><code>x.apply(lambda)</code> / <code>apply(x, lambda)</code> for the same elementwise op</td><td>dot-call and function-call cost the same (~0), but *any* lambda-per-element call is ~420x slower than the native vectorized operator</td></tr>
+<tr><td>Don't bother manually unrolling</td><td>manually unrolling a <code>for</code> loop body</td><td>measured no benefit — the fast path's loop overhead is already negligible</td></tr>
+<tr><td>Know your data's sparsity pattern</td><td>assume <code>Mat</code> scales like the real world's <code>A</code></td><td>Qu has <strong>no sparse matrix type today</strong> — every <code>Mat</code> is dense, always</td></tr>
+</table></div>
+<h2 id="s38">Loop constructs: <code>for</code> vs <code>while</code> vs vectorized</h2>
+<p>Summing the integers 1..500,000 three ways:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">500000</span>
+
+t = <span class="f">timer</span>()
+<span class="f">start</span>(t)
+s1 = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> N
+    s1 = s1 + i
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"for            : {elapsed(t)} s"</span>)
+
+t2 = <span class="f">timer</span>()
+<span class="f">start</span>(t2)
+s2 = <span class="n">0.0</span>
+i = <span class="n">1</span>
+<span class="k">while</span> i &lt;= N
+    s2 = s2 + i
+    i = i + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">print</span>(<span class="s">"while          : {elapsed(t2)} s"</span>)
+
+t3 = <span class="f">timer</span>()
+<span class="f">start</span>(t3)
+s3 = <span class="f">sum</span>(<span class="n">1</span> <span class="k">to</span> N)
+<span class="f">print</span>(<span class="s">"vectorized sum : {elapsed(t3)} s"</span>)
+</code></pre>
+</div>
+<pre><code>for            : 0.0047-0.0077 s
+while          : 0.163-0.198 s
+vectorized sum : 0.0018-0.0025 s
+</code></pre>
+<p><code>while</code> is <strong>25-40x slower</strong> than the equivalent <code>for</code> here, for identical work — a real, currently-open interpreter gap (tracked as F-07 in this project's own bug log). The precise mechanism (confirmed by reading <code>qu-interp</code>'s actual fast-path compiler, not guessed): <strong></strong><code>while</code> *does* have the same kind of register fast path <code>for</code> does<strong> (</strong><code>try_fast_while_ plan</code>), but that compiler only harvests loop-body *assignment targets* into its register table — it never scans the loop *condition* for the names it reads. <code>while i &lt;= N ...</code> reads <code>N</code>, which the body never reassigns, so <code>N</code> is absent from the register table, the condition can't be compiled to fast registers, and the whole loop silently falls back to the slow, fully tree-walked path — for every single iteration, not just the first. (<code>wait until</code> has a second, independent reason: its desugared condition is wrapped in a <code>not(...)</code>, which the fast-path condition compiler rejects outright, regardless of what's inside it.)</p>
+<p>That mechanism gives a concrete, usable-today workaround, confirmed by measurement — comparing against a literal/counter instead of an external bound:</p>
+<div class="example"><pre class="hl"><code>i = N
+<span class="k">while</span> i &gt; <span class="n">0</span>        <span class="c"># no external name in the condition</span>
+    s1 = s1 + i
+    i = i - <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+</code></pre>
+</div>
+<pre><code>while i &gt; 0 (no external name in cond) : 0.011-0.013 s
+while i &lt;= N (N is external)           : 0.16-0.31 s
+</code></pre>
+<p>Rewriting the condition to avoid naming an outer variable recovers most of the gap (still ~2x behind <code>for</code>'s fast path, but ~20x+ faster than the naive version) — <strong>because it engages the SAME fast-path mechanism </strong><code>for</code> uses<strong>, not a different one. Until the condition-scanning gap is closed in the interpreter, treat this as the practical rule: </strong>prefer <code>for</code> whenever the loop has a known bound; if you must write <code>while</code>, keep the condition free of outer-scope names<strong> (compare against a literal or a variable the loop body itself reassigns every iteration).</strong></p>
+<p>The vectorized <code>sum(...)</code> beats even the fast <code>for</code> path by another 2-3x, because it never enters the tree-walking evaluator per element at all — see the next section for why that gap gets dramatically wider for anything more than accumulation.</p>
+<p><code>wait until &lt;cond&gt; ... end until</code> is Qu's "do-until" — and it is not a separate construct performance-wise at all: the parser desugars it directly into the identical <code>Stmt::While</code> AST node with the condition negated (<code>qu-syntax</code>'s <code>wait_until_stmt</code>, confirmed by reading it). Whatever makes <code>while</code> slow above, <code>wait until</code> inherits exactly, for the same reason.</p>
+<h2 id="s126">Vectorization: avoid the per-element loop entirely</h2>
+<p>Squaring every element of a 500,000-length vector, indexed loop vs vectorized:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">500000</span>
+xs = <span class="n">1</span> <span class="k">to</span> N
+
+t = <span class="f">timer</span>(); <span class="f">start</span>(t)
+ys = <span class="f">zeros</span>(N)
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    ys[i] = xs[i] * xs[i]
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"manual indexed loop : {elapsed(t)} s"</span>)
+
+t2 = <span class="f">timer</span>(); <span class="f">start</span>(t2)
+zs = xs .* xs
+<span class="f">print</span>(<span class="s">"vectorized .*       : {elapsed(t2)} s"</span>)
+</code></pre>
+</div>
+<pre><code>manual indexed loop : 0.199-0.200 s
+vectorized .*        : 0.0007-0.0009 s
+</code></pre>
+<p><strong>~275x.</strong> This is a bigger gap than the <code>for</code>/<code>while</code> one above because two costs stack: every iteration now pays for two index reads and an index write (each a bounds-checked, interpreter-dispatched operation), not just a register accumulate. <code>xs .* xs</code> compiles down to one call into <code>qu-core</code>'s native elementwise kernel (SIMD-friendly, rayon-parallel above a measured size threshold — the same kernel <code>+</code>, <code>-</code>, <code>.^</code>, and every other elementwise operator use), which never re-enters the tree-walking evaluator per element.</p>
+<p><strong>Rule of thumb: if you're writing </strong><code>for i ...: result[i] = f(x[i])</code>, there is almost always a vectorized spelling, and it will not be a close contest.<strong> </strong><code>map</code>, elementwise operators (<code>+ - * / .* ./ .^</code>), and the builtin math functions (<code>sin</code>, <code>sqrt</code>, <code>abs</code>, ...) all take whole <code>Vec</code>/<code>Mat</code> arguments and vectorize automatically — reach for those before reaching for an explicit loop with an index.</p>
+<h2 id="s196">Method call (<code>x.f(y)</code>) vs function call (<code>f(x,y)</code>) vs native operator</h2>
+<p><code>x.method(...)</code> is pure syntax sugar for <code>method(x, ...)</code> in Qu — no separate dispatch mechanism, so it costs nothing extra. What *does* cost something is going through any user-defined function/lambda at all instead of a native vectorized operator, even for trivial per-element work:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">500000</span>
+xs = <span class="n">1</span> <span class="k">to</span> N
+inc = (v) := v + <span class="n">1.0</span>
+
+t = <span class="f">timer</span>(); <span class="f">start</span>(t)
+r1 = xs + <span class="n">1.0</span>
+<span class="f">print</span>(<span class="s">"operator   x + 1           : {elapsed(t)} s"</span>)
+
+t2 = <span class="f">timer</span>(); <span class="f">start</span>(t2)
+r2 = xs.<span class="f">apply</span>(inc)
+<span class="f">print</span>(<span class="s">"method     x.apply(lambda) : {elapsed(t2)} s"</span>)
+
+t3 = <span class="f">timer</span>(); <span class="f">start</span>(t3)
+r3 = <span class="f">apply</span>(xs, inc)
+<span class="f">print</span>(<span class="s">"function   apply(x, lambda): {elapsed(t3)} s"</span>)
+</code></pre>
+</div>
+<pre><code>operator   x + 1           : 0.0008 s
+method     x.apply(lambda) : 0.336-0.341 s
+function   apply(x, lambda): 0.348-0.366 s
+</code></pre>
+<p>The method and function forms are statistically identical (confirming dot-call sugar has zero overhead) — but both are <strong>~420x slower</strong> than the operator, because <code>apply</code> calls back into the tree-walking evaluator once per element (500,000 individual lambda invocations) instead of running the native SIMD/rayon kernel <code>+</code> uses. This generalizes: any elementwise-style helper written as "call a lambda per element" pays the interpreter-dispatch cost per call no matter how it's spelled (<code>x.f(y)</code>, <code>f(x,y)</code>, a plain <code>for</code> loop calling a function) — the only way out is a native vectorized operator/builtin that never re-enters the evaluator per element. Named arithmetic wrappers like <code>add</code>/<code>mul</code> (routing straight into the same <code>binop</code> the operators use, not through <code>apply</code>) are the right way to get a function-style spelling without this cost — but confirm that before relying on it for any specific builtin: the *name* doesn't tell you which path it takes, only reading (or timing) it does.</p>
+<h2 id="s307">Loop unrolling: measured, doesn't help</h2>
+<p>Manually unrolling a <code>for</code> loop body (processing 4 elements per iteration instead of 1, same total number of additions either way):</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">400000</span>
+
+t = <span class="f">timer</span>(); <span class="f">start</span>(t)
+s1 = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> N
+    s1 = s1 + i
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"plain for (400000 iterations)      : {elapsed(t)} s"</span>)
+
+t2 = <span class="f">timer</span>(); <span class="f">start</span>(t2)
+s2 = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> N <span class="k">step</span> <span class="n">4</span>
+    s2 = s2 + i
+    s2 = s2 + (i + <span class="n">1</span>)
+    s2 = s2 + (i + <span class="n">2</span>)
+    s2 = s2 + (i + <span class="n">3</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"unrolled 4x (100000 iterations)    : {elapsed(t2)} s"</span>)
+</code></pre>
+</div>
+<pre><code>plain for (400000 iterations)   : 0.0040-0.0041 s
+unrolled 4x (100000 iterations) : 0.0039-0.0041 s
+</code></pre>
+<p>Statistically indistinguishable. In a compiled language, unrolling can pay off by amortizing branch/loop-control overhead across more work per check. In Qu's tree-walking evaluator, per-*statement* execution cost dominates and is roughly constant regardless of how the same total number of statements is grouped into iterations — so the <code>for</code> fast path's own loop-control overhead is already small enough that unrolling has nothing left to amortize. <strong>Don't bother</strong>; it only adds source complexity for a real language design that doesn't reward it (unlike the C/Fortran intuition many bring to this).</p>
+<h2 id="s365">Reference variables: Qu doesn't have them, and that's fine</h2>
+<p>Every Qu value is copy-on-write, always. There is no way to alias a variable, and no way for a function to mutate its caller's argument:</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>]
+y = x
+y[<span class="n">0</span>] = <span class="n">99.0</span>
+<span class="f">print</span>(x)   <span class="c"># [1, 2, 3]  -- untouched</span>
+<span class="f">print</span>(y)   <span class="c"># [99, 2, 3]</span>
+
+<span class="k">function</span> <span class="f">bump</span>(v)
+    v[<span class="n">0</span>] = <span class="n">999.0</span>
+    <span class="k">return</span> v
+<span class="k">end</span> <span class="k">function</span>
+
+a = [<span class="n">1.0</span>, <span class="n">2.0</span>]
+b = <span class="f">bump</span>(a)
+<span class="f">print</span>(a)   <span class="c"># [1, 2]    -- the caller's copy never changes</span>
+<span class="f">print</span>(b)   <span class="c"># [999, 2]</span>
+</code></pre>
+</div>
+<p>If you're coming from C++/Fortran, there is no <code>&amp;</code>-style "pass by reference to avoid a copy" idiom to reach for here, and you don't need one: passing a large <code>Vec</code>/<code>Mat</code> into a function does <strong>not</strong> deep-copy it. Every value is <code>Arc</code>-backed under the hood, so passing it around is a cheap pointer-and- refcount bump; an actual copy of the underlying buffer only happens at the moment something tries to *mutate* a value that's still shared (copy-on- write, the same technique Rust's own <code>Arc::make_mut</code>, and Clojure's persistent collections, use). Write Qu the way you'd write it if copies were free — because for anything that doesn't actually get written to, they are.</p>
+<h2 id="s443">Compound assignment (<code>+=</code>, <code>-=</code>, ...): sugar today, not a guaranteed in-place win</h2>
+<p>The spec is explicit that <code>+= -= *= /= ^=</code> are *semantically* pure rebinding — "read the current value, apply the op, then rebind — not an in-place mutation" (language spec §12) — precisely so the copy-on-write guarantees above never have an exception. That leaves room for the *engine* to implement a compound assignment as a genuine in-place buffer write whenever it can prove the buffer is uniquely owned (no other alias could observe the difference) — free performance, zero semantic risk. Measured on this build, accumulating into a 500,000-length vector 20 times:</p>
+<div class="example"><pre class="hl"><code>acc = <span class="f">zeros</span>(<span class="n">500000</span>)
+delta = <span class="f">ones</span>(<span class="n">500000</span>)
+
+t = <span class="f">timer</span>(); <span class="f">start</span>(t)
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> <span class="n">20</span>
+    acc += delta
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"+=            : {elapsed(t)} s"</span>)
+
+acc2 = <span class="f">zeros</span>(<span class="n">500000</span>)
+t2 = <span class="f">timer</span>(); <span class="f">start</span>(t2)
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> <span class="n">20</span>
+    acc2 = acc2 + delta
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"acc = acc + d : {elapsed(t2)} s"</span>)
+</code></pre>
+</div>
+<pre><code>+=            : 0.0106-0.0117 s
+acc = acc + d : 0.0106-0.0106 s
+</code></pre>
+<p>No measurable difference today — on this build, <code>+=</code> on a vector is plain sugar for the rebinding form, not yet routed through an in-place write. (A real Arc-unique-ownership in-place fast path for exactly this case has been measured elsewhere in this project at ~1.38x and is in flight on an active branch, not yet merged — worth re-measuring once it lands, but don't budget on the speedup existing yet.)</p>
+<h2 id="s566"><code>parallel for</code>: real speedup, real restrictions</h2>
+<p>Running 200 independent CPU-heavy inner loops (20,000 <code>sin</code> calls each), serial vs <code>parallel for</code>:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">heavy</span>(seedval)
+    acc = <span class="n">0.0</span>
+    <span class="k">for</span> j = <span class="n">1</span> <span class="k">to</span> <span class="n">20000</span>
+        acc = acc + <span class="f">sin</span>(seedval + j)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> acc
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">tic</span>()
+total1 = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    total1 = total1 + <span class="f">heavy</span>(i)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"serial for   : {toc()} s"</span>)
+
+<span class="f">tic</span>()
+results = <span class="f">zeros</span>(<span class="n">200</span>)
+parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    results[i] = <span class="f">heavy</span>(i)
+<span class="k">end</span> parallel
+<span class="f">print</span>(<span class="s">"parallel for : {toc()} s"</span>)
+</code></pre>
+</div>
+<pre><code>serial for   : 1.36-1.53 s
+parallel for : 0.20-0.23 s     (6.6-7.6x, 16 logical cores)
+</code></pre>
+<p>A real win, once each iteration does enough work to be worth scheduling onto the worker pool — <code>parallel for</code> shares the same pool <code>spawn</code>/<code>pmap</code> use, so it doesn't pay thread-spawn cost per call. It won't help (and shouldn't be reached for) on cheap per-iteration bodies where scheduling overhead would dominate the actual work — that's a job for the vectorized operators above instead.</p>
+<p><strong>A restriction worth knowing before you hit it as a confusing error:</strong> each <code>parallel for</code> iteration runs against its own isolated copy of the enclosing scope, merged back afterward only for plain <code>number</code>/<code>Vec</code>/<code>Mat</code> reassignments. A <code>Timer</code>/<code>Model</code>/other handle-typed variable merely being *visible* in that enclosing scope alongside the loop can trip a "can't be safely merged" error even if the loop body never touches it — this cost me a debugging detour while measuring the above. Workaround: keep handle-typed values (timers, models, mutexes, files, ...) out of the scope wrapping a <code>parallel for</code>, or use <code>tic()</code>/<code>toc()</code> (a global slot, not a value) instead of a <code>timer()</code> object when timing code that contains one.</p>
+<h2 id="s644">The concurrency toolkit: what else there is besides <code>parallel for</code></h2>
+<p><code>parallel for</code> is the easy case (independent iterations, merge back into <code>number</code>/<code>Vec</code>/<code>Mat</code> results). Qu's full concurrency surface is bigger, and each piece is the right tool for a different shape of problem:</p>
+<div class="tablewrap"><table>
+<tr><td>Tool</td><td>Shape it fits</td></tr>
+<tr><td><code>parallel for</code></td><td>Independent iterations over a range, results merge into plain values</td></tr>
+<tr><td><code>pmap(xs, "fn")</code></td><td>Independent per-element work over an existing <code>List</code>/<code>Vec</code>, not a range</td></tr>
+<tr><td><code>spawn("fn", ...)</code> / <code>join</code>/<code>worker_done</code></td><td>A handful of independent, possibly long-running, possibly differently-shaped jobs — fire-and-forget with a handle to collect later</td></tr>
+<tr><td><code>mutex</code>/<code>mutex_add</code>/<code>mutex_update</code></td><td>Shared mutable state across workers (a running counter, a shared log)</td></tr>
+<tr><td><code>semaphore</code></td><td>Bounding concurrency (at most N workers touching some limited resource at once)</td></tr>
+<tr><td><code>channel</code></td><td>Message-passing between workers, rather than shared state</td></tr>
+<tr><td><code>queue</code>/<code>pool ... with cpu=N</code>/<code>run ... on</code></td><td>A persistent, resource-limited pool with named/tagged jobs, rather than a one-off <code>spawn</code></td></tr>
+<tr><td><code>listen_pool</code> + remote <code>pool ... remote=</code></td><td>Distributing work across processes/machines, not just threads</td></tr>
+</table></div>
+<p>All of the thread-based ones (<code>spawn</code>, <code>pmap</code>, <code>parallel for</code>, named/ anonymous <code>pool</code>) share the same underlying <code>rayon</code> global thread pool and the same <strong>share-nothing isolation model</strong>: each worker gets its own snapshot of the calling script's globals/functions and a freshly-drawn RNG stream, never the live shared environment — nothing a worker does can race with the caller or another worker by accident. That's also why they're "jobs," not "closures with side effects": a worker can't mutate the caller's variables directly, only through an explicit shared handle (<code>Mutex</code>/<code>Channel</code>/<code>Semaphore</code>) or its own return value.</p>
+<p>Measured: <code>pmap</code> on the same 200-job, CPU-heavy workload as the <code>parallel for</code> benchmark above (an existing <code>Vec</code> of inputs, not a range, so <code>pmap</code> is the natural fit rather than <code>parallel for</code>):</p>
+<div class="example"><pre class="hl"><code>xs = <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>   <span class="c"># an existing Vec, not something you'd write a range-for over</span>
+<span class="f">tic</span>()
+r1 = <span class="f">map</span>(heavy, xs)
+<span class="f">print</span>(<span class="s">"serial map : {toc()} s"</span>)
+<span class="f">tic</span>()
+r2 = <span class="f">pmap</span>(xs, <span class="s">"heavy"</span>)
+<span class="f">print</span>(<span class="s">"pmap       : {toc()} s"</span>)
+</code></pre>
+</div>
+<pre><code>serial map : 3.25-3.29 s
+pmap       : 0.62-1.09 s     (~3-5x, noisier than parallel for's ~7x)
+</code></pre>
+<p>A real speedup, but less clean and more variable than <code>parallel for</code>'s — <code>pmap</code> pays a fresh env/function-table snapshot cost per element rather than per loop, which shows up more on 200 medium-sized jobs than it would on fewer, heavier ones. If you can express the same work as a range, <code>parallel for</code> is the more predictable choice; reach for <code>pmap</code> when the work is naturally "already have a <code>List</code>, want it transformed," and for <code>spawn</code>/<code>pool</code> when the jobs are few, heavy, and differently-shaped rather than many small identical ones.</p>
+<h2 id="s741">Matmul: naive vs blocked vs parallel</h2>
+<p>Already measured and verified previously in this project (see <code>IMPL.md</code>'s M6 acceleration entries) across a size sweep, naive vs a cache-blocked single-thread kernel vs the same kernel parallelized:</p>
+<div class="tablewrap"><table>
+<tr><td>shape (m,k,n)</td><td>naive</td><td>blocked, 1 thread</td><td>blocked + parallel</td></tr>
+<tr><td>16×16×16</td><td>~1.5-1.7 us</td><td>~0.35 us (4.7x)</td><td>~0.30 us (4.1-4.3x)</td></tr>
+<tr><td>64×64×64</td><td>~40-71 us</td><td>~17.8 us (4.0x)</td><td>~16-17 us (2.5-2.7x)</td></tr>
+<tr><td>256×256×256</td><td>~0.8-4.0 ms</td><td>~0.65 ms (6.1x)</td><td>~0.68 ms (1.4-1.8x)</td></tr>
+<tr><td>600×600×600</td><td>~6.7-43.7 ms</td><td>~5.8 ms (7.5x)</td><td>~1.6-2.4 ms (3.7-4.9x)</td></tr>
+<tr><td>1024×1024×1024</td><td>~30-196 ms</td><td>~26.1 ms (7.5x)</td><td>~6.2-6.6 ms (4.8x)</td></tr>
+</table></div>
+<p>Two things worth noticing: cache-blocking wins at *every* size tested (including tiny ones), while parallelism only pays for itself once there's enough work per thread to outrun scheduling overhead — at 16×16×16 the single-threaded blocked kernel actually beats the parallel one. <code>*</code>/<code>matmul</code> picks the right strategy for you; this table is here so "why isn't my tiny matmul faster with more cores" has an answer.</p>
+<h2 id="s797">GPU vs CPU: the transfer-time curse, made concrete</h2>
+<p><code>gpu_matmul(A, B)</code> exists (needs a build with <code>--features gpu</code>) and gives the exact same <code>A@B</code> as <code>*</code>, computed on the GPU — at <strong>f32 precision</strong> (~7 significant digits), not <code>*</code>'s full f64. That precision drop is real and permanent for that call, which is exactly why <code>*</code>/<code>matmul</code> never auto-dispatches to the GPU regardless of size: silently trading precision for speed on the language's default operator would be wrong for a reproducibility-focused tool, so GPU use stays opt-in and explicit.</p>
+<p>The "curse of transfer time" is not a metaphor — every GPU dispatch pays a fixed cost (buffer upload, kernel dispatch, result readback) before a single FLOP happens, and for small matrices that fixed cost dwarfs the compute. Measured previously in this project on one machine (RTX 5080, via <code>gpu_probe_info()</code>, real GPU dispatches — see <code>IMPL.md</code>'s GPU-probe entry):</p>
+<div class="tablewrap"><table>
+<tr><td>work (<code>m*n*k</code>)</td><td>CPU</td><td>GPU</td><td>winner</td></tr>
+<tr><td>2,097,152 (128³)</td><td>0.124 ms</td><td>3.005 ms</td><td><strong>CPU</strong> — GPU loses to its own overhead</td></tr>
+<tr><td>16,777,216 (256³)</td><td>0.603 ms</td><td>0.390 ms</td><td><strong>GPU</strong> ← measured crossover</td></tr>
+<tr><td>134,217,728 (512³)</td><td>1.192 ms</td><td>0.721 ms</td><td>GPU</td></tr>
+<tr><td>1,073,741,824 (1024³)</td><td>5.122 ms</td><td>4.995 ms</td><td>GPU</td></tr>
+</table></div>
+<p>At 128³ the GPU is <strong>24x slower</strong> than the CPU on the exact same math, purely from dispatch/transfer overhead — the small-matrix case every naive "just use the GPU" instinct gets burned by. The crossover point is not a portable constant: it depends on the actual GPU/CPU/driver on the machine running the script, which is why Qu doesn't hardcode one. <code>gpu_probe_info()</code> measures it once per process, lazily, on whatever hardware is actually running, and every internal size-gated GPU dispatch (<code>gram_matrix</code>, <code>svm_cross_term</code>, t-SNE's Barnes-Hut path) reads that measured value rather than a guess. Call it yourself before assuming GPU acceleration will help:</p>
+<div class="example"><pre class="hl"><code>info = <span class="f">gpu_probe_info</span>()
+<span class="k">if</span> info.available
+    <span class="f">print</span>(<span class="s">"GPU crossover on this machine: {info.crossover} (m*n*k)"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"No GPU available in this build/on this machine"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div>
+<p><strong>Rule of thumb: GPU pays off only when a single call's </strong><code>m*n*k</code> clears the *measured* crossover on the machine actually running it — never assume it, measure it, and expect it to be much higher than intuition suggests for small-to-medium problems.<strong></strong></p>
+<h2 id="s867">Sparse vs dense matrices: not implemented yet</h2>
+<p>Direct answer: <strong>Qu has no sparse matrix type today.</strong> Every <code>Mat</code> is a dense, row-major buffer of <code>f64</code>, full stop — confirmed by searching the entire engine and <code>qu-core</code> for any <code>SparseMat</code>/CSR/CSC storage type; there is none. <code>compressed-sensing.md</code>'s <code>cs_recover</code>/<code>omp</code>/<code>fista</code>/etc. work with sparse *signals* (vectors that are mostly zero, recovered from few measurements) via a dense <code>Mat</code> sensing matrix <code>A</code> — a genuinely different thing from a sparse matrix *storage format*, and no substitute for one.</p>
+<p>Why this matters for performance: a dense <code>n×n</code> matrix costs <code>O(n²)</code> memory and <code>O(n²)</code>-to-<code>O(n³)</code> compute regardless of how many entries are actually zero. A finite-element stiffness matrix, a graph Laplacian, or a large recommender-system interaction matrix is routinely &gt;99% zero in real use — on a dense <code>Mat</code>, Qu pays full price for all of it: real memory that isn't there, and real FLOPs multiplying zero by numbers for no result. There is currently no way in Qu to avoid that cost — not a slow path, an *absent* one.</p>
+<p>If workloads like that matter to you, this is a real, scoped engine feature (CSR/CSC storage, sparse matmul/solve kernels, sparse-aware <code>+</code>/<code>*</code>/<code>\</code>), not a small documentation gap — worth a explicit decision on whether and when to build it, rather than assuming it exists because "sparse" already appears elsewhere in the language (compressed sensing). Flagging it here rather than quietly implying otherwise.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

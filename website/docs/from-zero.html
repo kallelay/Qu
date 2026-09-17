@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From Zero — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html" class="here">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>From Zero</h1>
+<nav class="onthispage"><a href="#s0">1. Install and run</a><a href="#s36">2. Numbers, vectors, and printing</a><a href="#s88">3. Looking at a signal</a><a href="#s129">4. Filtering</a><a href="#s161">5. Fitting a model</a><a href="#s199">6. A figure you can publish</a><a href="#s246">7. Functions and scope</a><a href="#s288">8. Tables</a><a href="#s317">9. Where to go next</a></nav>
+<p>A complete first session, start to finish. Every block on this page runs as written — nothing here reads a file you do not have, and the data is made on the spot. Paste them into one file in order, or type them into <code>qu repl</code> a line at a time.</p>
+<p>By the end you will have generated a signal, measured it, fitted a model to it, and produced a figure fit to put in a paper.</p>
+<h2 id="s0">1. Install and run</h2>
+<pre><code>cargo build --release --manifest-path engine/Cargo.toml
+engine/target/release/qu repl
+</code></pre>
+<p><code>qu run script.qu</code> runs a file. <code>qu repl</code> gives you a prompt. Everything below works in either.</p>
+<h2 id="s36">2. Numbers, vectors, and printing</h2>
+<p>Qu has no declarations. A name gets a type by being assigned one.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>               <span class="c"># a plain number</span>
+t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs    <span class="c"># a range, divided elementwise -&gt; a vector</span>
+<span class="f">print</span>(<span class="s">"{len(t)} samples covering {max(t):.3f} s"</span>)
+</code></pre>
+</div>
+<p><code>0 to 999</code> is a range, inclusive at both ends. Dividing it by a number divides every element. <code>{...}</code> inside a string interpolates, and <code>:.3f</code> formats — the same spelling as most languages you already know.</p>
+<p>Arithmetic on whole vectors is the normal case, not a special one:</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t)          <span class="c"># 50 Hz, one value per sample</span>
+y = x + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)   <span class="c"># the same signal, with noise on it</span>
+<span class="f">print</span>(<span class="s">"clean rms {rms(x):.4f}, noisy rms {rms(y):.4f}"</span>)
+</code></pre>
+</div>
+<p><code>seed =</code> makes the noise reproducible. Every random function in Qu takes it, and a script that reports numbers should use it.</p>
+<h2 id="s88">3. Looking at a signal</h2>
+<p>The spectrum of a real signal comes from <code>rfft</code>, which returns only the non-negative frequencies — the half that carries all the information.</p>
+<div class="example"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
+freqs    = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spectrum) - <span class="n">1</span>) * fs / <span class="f">len</span>(y)
+peak     = <span class="f">argmax</span>(spectrum)
+<span class="f">print</span>(<span class="s">"largest component at {freqs[peak]:.1f} Hz"</span>)
+</code></pre>
+</div>
+<p>That should say 50 Hz. If it says something else, the signal is not what you think it is — which is the first thing worth knowing.</p>
+<h2 id="s129">4. Filtering</h2>
+<p>Filters are designed once and applied as many times as you like:</p>
+<div class="example"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
+smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
+<span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
+</code></pre>
+</div>
+<p><code>butter(order, kind, cutoff, fs)</code> takes the cutoff in hertz and the sample rate alongside it, rather than as a fraction of Nyquist you have to work out first. <code>filtfilt</code> runs the filter forwards and backwards, so the output has no phase shift — worth it when you are going to compare against the original in time.</p>
+<h2 id="s161">5. Fitting a model</h2>
+<p>Suppose the thing you actually want is a decay constant. Make some data with a known answer, then recover it:</p>
+<div class="example"><pre class="hl"><code>tau   = <span class="n">0.35</span>
+decay = <span class="n">2.5</span> * <span class="f">exp</span>(<span class="n">0</span> - t / tau) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">2</span>)
+
+<span class="k">function</span> <span class="f">resid</span>(p)
+    <span class="k">return</span> p[<span class="n">0</span>] * <span class="f">exp</span>(<span class="n">0</span> - t / p[<span class="n">1</span>]) - decay
+<span class="k">end</span> <span class="k">function</span>
+
+fit = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>])
+<span class="f">print</span>(<span class="s">"amplitude {fit.params[0]:.4f} (true 2.5)"</span>)
+<span class="f">print</span>(<span class="s">"tau       {fit.params[1]:.4f} (true {tau})"</span>)
+</code></pre>
+</div>
+<p><code>least_squares</code> takes the NAME of a function that returns residuals — the vector you want driven to zero. That is more flexible than fitting a model to data: a weighting, a penalty, or a regularisation term is just more entries in what <code>resid</code> returns.</p>
+<p>If a parameter has a physical floor, say so and it will be respected:</p>
+<div class="example"><pre class="hl"><code>bounded = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>], <span class="a">lower</span> = [<span class="n">0.0</span>, <span class="n">0.01</span>])
+<span class="f">print</span>(<span class="s">"bounded tau {bounded.params[1]:.4f}"</span>)
+</code></pre>
+</div>
+<h2 id="s199">6. A figure you can publish</h2>
+<div class="example"><pre class="hl"><code><span class="f">theme</span>(<span class="s">"publication"</span>)
+<span class="f">figure_size</span>(<span class="n">3.5</span>, <span class="n">2.4</span>, <span class="a">unit</span> = <span class="s">"in"</span>)
+
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], y[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#b0b0b0"</span>, <span class="a">lw</span> = <span class="f">pt</span>(<span class="n">0.6</span>), <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], smoothed[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#0072BD"</span>, <span class="a">lw</span> = <span class="f">pt</span>(<span class="n">1.2</span>), <span class="a">label</span> = <span class="s">"filtered"</span>)
+<span class="f">xlabel</span>(<span class="s">"time $t$ [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A 50 Hz tone, low-pass filtered"</span>)
+<span class="f">legend</span>()
+<span class="f">savefig</span>(<span class="s">"first-figure.pdf"</span>)
+</code></pre>
+</div>
+<p><code>theme("publication")</code> switches to print styling — heavier type, thinner grid, a palette that survives greyscale. <code>pt(...)</code> gives a width in points, so a line is the weight you asked for on the printed page rather than a number that means something different at every figure size.</p>
+<p>Maths in labels is written the way you would write it in LaTeX. <code>$t$</code> sets an italic *t*, because a variable is italic and Qu knows the difference between a variable and a word:</p>
+<div class="example"><pre class="hl"><code><span class="f">xlabel</span>(<span class="s">"$\eta_{\mathrm{exc}}$, the excitation-dependent fraction"</span>)
+</code></pre>
+</div>
+<p>The PDF carries its fonts with it, so the figure looks the same on a machine that has never heard of Latin Modern.</p>
+<h2 id="s246">7. Functions and scope</h2>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">normalize</span>(v)
+    m = <span class="f">mean</span>(v)
+    s = <span class="f">std</span>(v)
+    <span class="k">return</span> (v - m) / s
+<span class="k">end</span> <span class="k">function</span>
+
+z = <span class="f">normalize</span>(y)
+<span class="f">print</span>(<span class="s">"normalized: mean {mean(z):.2e}, std {std(z):.4f}"</span>)
+</code></pre>
+</div>
+<p>A function's assignments are its own. <code>m</code> and <code>s</code> above do not touch anything called <code>m</code> or <code>s</code> outside it, even though reading an outer name works fine:</p>
+<div class="example"><pre class="hl"><code>scale = <span class="n">100</span>
+
+<span class="k">function</span> <span class="f">scaled</span>(v)
+    <span class="k">return</span> v * scale        <span class="c"># reads the outer `scale`</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"scaled max {max(scaled([0.1, 0.5])):.1f}"</span>)
+</code></pre>
+</div>
+<p>When you do want to write to something outside, say so:</p>
+<div class="example"><pre class="hl"><code>calls = <span class="n">0</span>
+
+<span class="k">function</span> <span class="f">counted</span>(v)
+    <span class="k">global</span> calls
+    calls = calls + <span class="n">1</span>
+    <span class="k">return</span> <span class="f">sum</span>(v)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">counted</span>([<span class="n">1</span>, <span class="n">2</span>])
+<span class="f">counted</span>([<span class="n">3</span>, <span class="n">4</span>])
+<span class="f">print</span>(<span class="s">"called {calls} times"</span>)
+</code></pre>
+</div>
+<h2 id="s288">8. Tables</h2>
+<p>Columns have names, and the names come from how you build it:</p>
+<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(
+    <span class="a">channel</span>  = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>],
+    <span class="a">baseline</span> = [<span class="n">0.412</span>, <span class="n">0.508</span>, <span class="n">0.377</span>],
+    <span class="a">treated</span>  = [<span class="n">0.240</span>, <span class="n">0.301</span>, <span class="n">0.219</span>]
+)
+runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</span>, <span class="n">1</span> - runs.treated / runs.baseline)
+<span class="f">print</span>(runs)
+</code></pre>
+</div>
+<p>A column is read with <code>runs.crest_opt</code> and added with <code>insert_column</code>, which returns a new table rather than modifying the one you had.</p>
+<p><code>write_csv(runs, "runs.csv")</code> writes it out; <code>read_csv("runs.csv")</code> reads one back, including the <code>#</code> provenance headers instruments like to emit (<code>read_csv(path, comment = "#")</code>).</p>
+<h2 id="s317">9. Where to go next</h2>
+<ul>
+<li><strong><a href="fundamentals.html">Book 1 — Fundamentals</a></strong> for the language in depth: types, contracts, control flow, error handling.</li>
+<li><strong><a href="numerics-dsp.html">Book 2 — Numerics, DSP &amp; Linear Algebra</a></strong> for transforms, filter design, and dense linear algebra including the complex case.</li>
+<li><strong><a href="stdlib-overview.html">Standard Library Reference</a></strong> for the full set of functions, grouped by what they are for.</li>
+<li><strong><a href="builtin-index.html">Builtin Index</a></strong> if you know the name and want the signature.</li>
+<li><code>catalog/</code> in the repository holds around a hundred complete programs, each one runnable as it stands.</li>
+</ul>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

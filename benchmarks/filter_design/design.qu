@@ -1,0 +1,180 @@
+# design.qu -- filter DESIGN benchmark: coefficient-computation time only,
+# not application. Complements csv_filters/bench.qu (which already times
+# sosfilt/filtfilt/conv *applying* an already-designed filter) and
+# apply_scale.qu in this same directory (which times application at much
+# larger signal sizes). This file never touches a signal at all -- every
+# scenario below is "how long does it take to compute the coefficients".
+#
+# A single design call is fast enough (microseconds-to-low-milliseconds)
+# that a single tic/toc pair would mostly measure timer-call overhead and
+# jitter, not the algorithm -- so each scenario runs the design call REPS
+# times in a loop and reports the per-call average (REPS tuned per family
+# so the whole loop takes a human-noticeable-but-not-slow ~0.1-2s).
+#
+# Run: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/filter_design/design.qu
+
+backend auto
+
+Fs = 10000
+cutoff = 500       # Hz, lowpass -- 0.1 * Nyquist (Nyquist = Fs/2 = 5000 Hz)
+rp = 1             # dB passband ripple (cheby1, ellip)
+rs = 40            # dB stopband attenuation (cheby2, ellip)
+
+print("=== IIR filter design: butter / cheby1 / cheby2 / ellip, order 4/8/16 ===")
+
+# --- order 4 -----------------------------------------------------------------
+REPS = 5000
+tic()
+for i = 1 to REPS
+    h = butter(4, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("butter  order=4  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby1(4, rp, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby1  order=4  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby2(4, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby2  order=4  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = ellip(4, rp, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("ellip   order=4  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+# --- order 8 -----------------------------------------------------------------
+REPS = 2000
+tic()
+for i = 1 to REPS
+    h = butter(8, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("butter  order=8  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby1(8, rp, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby1  order=8  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby2(8, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby2  order=8  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = ellip(8, rp, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("ellip   order=8  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+# --- order 16 ----------------------------------------------------------------
+REPS = 500
+tic()
+for i = 1 to REPS
+    h = butter(16, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("butter  order=16 : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby1(16, rp, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby1  order=16 : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = cheby2(16, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("cheby2  order=16 : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+tic()
+for i = 1 to REPS
+    h = ellip(16, rp, rs, "low", cutoff, Fs)
+end for
+t = toc() / REPS
+print("ellip   order=16 : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+print("")
+print("=== FIR filter design: fir1 / firls, order 64/256/1024 (taps = order+1) ===")
+
+# fir1: normalized cutoff convention (fs=2, 1=Nyquist) -- 0.1 matches the
+# 500 Hz / 5000 Hz Nyquist ratio used above, so the IIR/FIR designs target
+# the same passband.
+REPS = 5000
+tic()
+for i = 1 to REPS
+    h = fir1(64, 0.1)
+end for
+t = toc() / REPS
+print("fir1    order=64   : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+REPS = 3000
+tic()
+for i = 1 to REPS
+    h = fir1(256, 0.1)
+end for
+t = toc() / REPS
+print("fir1    order=256  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+REPS = 1000
+tic()
+for i = 1 to REPS
+    h = fir1(1024, 0.1)
+end for
+t = toc() / REPS
+print("fir1    order=1024 : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+# firls: piecewise-linear desired response, transition band 0.08-0.12
+# (straddling the same 0.1 cutoff), n must be even.
+#
+# NOTE on REPS here: `firls` used to be a genuine outlier among every
+# design call in this script -- it built an O(taps)-point frequency grid
+# and ran a dense least-squares solve over it, making the whole thing
+# O(taps^3) with a huge constant (26-40s/call at order 1024). Fixed by
+# switching to the classical closed-form normal-equations construction
+# (an (n/2+1)x(n/2+1) system, independent of any frequency grid) --
+# `qu-core/src/filter.rs`'s own `firls` doc comment has the derivation.
+# REPS below reflect the *new*, fast cost (~tens of us to ~tens of ms, not
+# ms to tens of seconds); still scaled down at the highest order since a
+# dense solve is still technically O(n^3), just with a far smaller constant.
+REPS = 2000
+tic()
+for i = 1 to REPS
+    h = firls(64, [0, 0.08, 0.12, 1], [1, 1, 0, 0])
+end for
+t = toc() / REPS
+print("firls   order=64   : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+REPS = 200
+tic()
+for i = 1 to REPS
+    h = firls(256, [0, 0.08, 0.12, 1], [1, 1, 0, 0])
+end for
+t = toc() / REPS
+print("firls   order=256  : {t*1e6:.2f} us/call  ({REPS} reps)")
+
+REPS = 20
+tic()
+for i = 1 to REPS
+    h = firls(1024, [0, 0.08, 0.12, 1], [1, 1, 0, 0])
+end for
+t = toc() / REPS
+print("firls   order=1024 : {t*1e6:.2f} us/call  ({REPS} reps)")

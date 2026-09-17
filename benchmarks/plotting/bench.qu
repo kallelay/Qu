@@ -1,0 +1,66 @@
+# Plotting: Qu vs matplotlib. A domain with zero benchmark coverage.
+#
+# Verified 2026-09-10: no .qu file in benchmarks/ contains savefig, plot(,
+# xlabel or figure(. Figure quality is a whole standing job, and nothing
+# here could support a claim about it either way.
+#
+# TIMINGS IN THIS FILE ARE PROVISIONAL. The machine measured 41-71% CPU
+# while this ran (another python job, iCloudDrive, concurrent builds), well
+# above the 25% gate the perf lane uses to mark a run unpublishable. What
+# survives contention is the STRUCTURAL half, and that is the half worth
+# having anyway:
+#   - output file SIZE, which is deterministic
+#   - whether every point actually reaches the file
+#   - the SHAPE of the scaling curve, which noise shifts but does not bend
+#
+# Same figure, same data, same output formats as bench.py beside this file.
+
+mkdir("plots")
+sizes = [1000, 100000, 1000000]
+
+for n in sizes
+    x = linspace(0, 100, n)
+    y = sin(x * 0.1) + 0.3 * sin(x * 0.73)
+
+    figure()
+    tic()
+    plot(x, y)
+    xlabel("Time (s)")
+    ylabel("Amplitude (V)")
+    title("scaling check, n = {n}")
+    t_build = toc()
+
+    tic()
+    savefig("plots/qu_plot_{n}.svg")
+    t_svg = toc()
+
+    tic()
+    savefig("plots/qu_plot_{n}.pdf")
+    t_pdf = toc()
+
+    print("n = {n:8.0f}  build {t_build:.4f} s   svg {t_svg:.4f} s   pdf {t_pdf:.4f} s")
+end for
+
+print("")
+print("--- multi-panel (2x2), n = 100000 per panel ---")
+n2 = 100000
+x2 = linspace(0, 100, n2)
+figure()
+tic()
+subplot(2, 2, 1)
+plot(x2, sin(x2 * 0.1))
+title("a")
+subplot(2, 2, 2)
+plot(x2, cos(x2 * 0.1))
+title("b")
+subplot(2, 2, 3)
+plot(x2, sin(x2 * 0.3))
+title("c")
+subplot(2, 2, 4)
+plot(x2, cos(x2 * 0.7))
+title("d")
+t_grid = toc()
+tic()
+savefig("plots/qu_grid.svg")
+t_grid_svg = toc()
+print("2x2 grid      build {t_grid:.4f} s   svg {t_grid_svg:.4f} s")

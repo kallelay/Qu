@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add_noise — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>add_noise</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>add_noise(x, kind, [snr=], [amplitude=], [seed=])</code></pre>
+<p class="fnnote">Input: x, kind, snr, amplitude, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel). <code>snr</code> (named number, dB) or <code>amplitude</code> (named number, raw units) sets the level — give one or the other, never both; with neither, defaults to 20 dB. <code>seed</code> is a named integer for a reproducible draw, default <code>1</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be string, number, vector, or Image; <code>kind</code> can be string, number, vector, or Image.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-add_noise-0" checked>
+<input type="radio" name="typetab" id="tt-add_noise-1">
+<div class="tabbar">
+<label for="tt-add_noise-0">additive kinds (<code>gaussian</code>, <code>pink</code>, <code>uniform</code>, ...)</label>
+<label for="tt-add_noise-1">replacing (<code>salt_pepper</code>)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = add_noise(x, kind, [snr=], [amplitude=], [seed=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">string, number, vector, or Image</span><span class="iodesc">Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">string, number, vector, or Image</span><span class="iodesc">Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel).</span></div>
+<div class="ioitem"><code>snr</code> <span class="iotype">number, optional</span><span class="iodesc"><code>snr</code> (named number, dB) or <code>amplitude</code> (named number, raw units) sets the level — give one or the other, never both.</span></div>
+<div class="ioitem"><code>amplitude</code> <span class="iotype">number, optional</span><span class="iodesc"><code>snr</code> (named number, dB) or <code>amplitude</code> (named number, raw units) sets the level — give one or the other, never both.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc"><code>seed</code> is a named integer for a reproducible draw, default <code>1</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Every sample is perturbed by a little: none of the output matches the clean input exactly.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+g = <span class="f">add_noise</span>(x, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
+untouched = <span class="n">0</span>
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> g[i] == x[i]
+        untouched = untouched + <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(untouched)   <span class="c"># 0 -- every sample was perturbed a little</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = add_noise(x, kind, [snr=], [amplitude=], [seed=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">string, number, vector, or Image</span><span class="iodesc">Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">string, number, vector, or Image</span><span class="iodesc">Adds noise of the named <code>kind</code> (a string — see the kinds table near the top of this chapter) to <code>x</code>, a length-N number vector or an <code>Image</code> (noise is added per-pixel, per-channel).</span></div>
+<div class="ioitem"><code>snr</code> <span class="iotype">number, optional</span><span class="iodesc">The same <code>snr</code> targets a corruption *rate* instead: most samples are left bit-for-bit alone, and a fraction are slammed to an extreme.</span></div>
+<div class="ioitem"><code>amplitude</code> <span class="iotype">number, optional</span><span class="iodesc"><code>snr</code> (named number, dB) or <code>amplitude</code> (named number, raw units) sets the level — give one or the other, never both.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc"><code>seed</code> is a named integer for a reproducible draw, default <code>1</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+sp = <span class="f">add_noise</span>(x, <span class="s">"salt_pepper"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
+untouched = <span class="n">0</span>
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> sp[i] == x[i]
+        untouched = untouched + <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(untouched)   <span class="c"># 184 -- ~8% got slammed to an extreme, the rest untouched</span>
+</code></pre>
+</div>
+<p>Pink noise is worth a second look: it dominates at low frequencies, which is why a slow measurement is harder than a fast one and a long integration is not free.</p>
+<p>Works on a vector and on an image alike — every kind is per-sample, so one function covers 1-D and 2-D rather than two that drift apart.</p>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

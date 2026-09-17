@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>error — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>error</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a></p>
+<pre class="fnsig"><code>error(msg)</code></pre>
+<p class="fnnote">Input: msg &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Takes one argument, <code>msg</code> (a string, typically built with <code>{...}</code> interpolation), and raises an <code>EvalError</code> carrying that message. Never returns normally — control passes to the nearest enclosing <code>try</code>/<code>catch</code>, where the caught exception object exposes the string as <code>.message</code>; uncaught, it aborts the script.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>error(msg)</code></td><td><div class="ioitem"><code>msg</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>Never returns normally — control passes to the nearest enclosing <code>try</code>/<code>catch</code>, where the caught exception object exposes the string as <code>.message</code>; uncaught, it aborts the script.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">check_positive</span>(x)
+    <span class="k">if</span> x &lt; <span class="n">0</span>
+        <span class="f">error</span>(<span class="s">"check_positive: x must be &gt;= 0, got {x}"</span>)
+    <span class="k">end</span>
+    <span class="k">return</span> x
+<span class="k">end</span>
+
+<span class="k">try</span>
+    <span class="f">check_positive</span>(-<span class="n">3</span>)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"caught: {err.message}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<h2>How it works</h2>
+<p><code>error(msg)</code> raises — an ordinary <code>EvalError</code>, catchable by an enclosing <code>try</code>/<code>catch</code> (§18.B). <code>warn(msg)</code> is non-fatal.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

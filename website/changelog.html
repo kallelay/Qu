@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qu changelog</title>
+<meta name="description" content="What changed in Qu, generated from CHANGELOG.md.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+<header class="hero"><div class="wrap">
+  <h1>Changelog</h1>
+  <p class="lede">Generated from CHANGELOG.md, so this page and the file cannot disagree about what changed.</p>
+</div></header>
+
+<section><div class="wrap">
+<p class="sub">Notable changes to Qu. Dates are when the work landed, not when it was released.</p>
+<p class="sub">The format follows <a href="https://keepachangelog.com/">Keep a Changelog</a>, and versions follow <a href="https://semver.org/">semantic versioning</a> once 1.0 is reached; before that, minor versions may break things, and breaking changes are called out.</p>
+<h2 style="margin-top:44px">[Unreleased]</h2>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Breaking</h3>
+<ul>
+  <li><strong>Assignment inside a function now binds locally.</strong> It used to bind to the module-level variable of that name whenever one existed, so a helper using ordinary names for its own bookkeeping silently overwrote the caller's. Reads still fall through to the enclosing scope; write <code>global name</code> to write through. Measured across 157 scripts: one needed a one-line change.</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Added</h3>
+<ul>
+  <li><code>global a, b</code> — declares that a function writes to module scope.</li>
+  <li><strong>Complex matrix linear algebra</strong>: <code>det</code>, <code>norm</code>, <code>cond</code>, <code>rank</code>, <code>svd</code>, <code>lu</code>, <code>qr</code>, <code>chol</code>, <code>eig</code>, <code>pinv</code>, <code>solve</code> on complex matrices, plus complex index-assignment and complex <code>hstack</code>/<code>vstack</code>. <code>eig</code> is Hermitian-only and says so.</li>
+  <li><strong>Complex elementary functions</strong>: <code>exp</code>, <code>log</code> and <code>sqrt</code> gained complex branches. <code>exp(1i * pi)</code> previously did not evaluate at all.</li>
+  <li><strong>Compressed sensing</strong>, in full: <code>cs_recover(A, y, method=)</code> with six reconstruction methods — OMP, CoSaMP, subspace pursuit and NIHT (greedy), FISTA/ISTA and basis pursuit by ADMM (convex) — plus <code>coherence</code>, <code>cs_guarantee</code> and <code>tv_denoise</code>. <code>debias=true</code> re-fits the found support by least squares, which removes the shrinkage the l1 penalty leaves behind. A chapter covering the theory and a catalogue program running all six on the same data.</li>
+  <li><strong><code>and</code> and <code>or</code> now short-circuit.</strong> The right side is not evaluated when the left already decides the answer — which is the meaning of the words, and without it the guard idiom every language shares (<code>if i &lt; len(xs) and xs[i] &gt; 0</code>) errors on exactly the input it exists to protect against.</li>
+  <li><strong><code>adc(x, bits=, vmin=, vmax=, dither=)</code></strong> — quantisation the way an instrument does it: a reference range and a resolution, with clipping, the LSB, and the <code>6.02·bits + 1.76</code> dB ideal to measure against.</li>
+  <li><strong>A noise module</strong>, 1-D and 2-D, in both directions. Noise is specified in decibels — <code>add_noise(x, "gaussian", snr = 3)</code> — because an amplitude is not a statement about a measurement and an SNR is. Nine kinds (gaussian, uniform, pink, brown, blue, shot, salt-and-pepper, impulse, quantisation), all honouring that number. <code>hum</code> with odd harmonics, <code>emf</code> as carrier plus switching bursts, <code>distort</code> in five flavours. Out again: <code>medfilt</code>/<code>medfilt2</code>, <code>smooth</code>, <code>savgol</code>, <code>hampel</code>, <code>detrend</code>, and <code>measure_snr</code> to close the loop.</li>
+  <li><strong>Shapes</strong>: <code>circle</code>, <code>ellipse</code>, <code>arc</code>, <code>polygon</code>, <code>rect</code>, and <code>axis off</code>. Drawn in data coordinates, so a circle is the correct ellipse when the axis scales differ.</li>
+  <li><strong>Layers</strong>: <code>capture(fn)</code> keeps what a function drew, as a value; <code>stamp(layer, x, y, scale=, rotate=)</code> places a transformed copy. Describe a symbol once, place it forty times.</li>
+  <li><strong>Animation</strong>: <code>animate(fn, frames, path, fps=)</code> writes one animated SVG, no JavaScript. <code>qu_starry_night.qu</code> and <code>qu_sea_waves.qu</code>.</li>
+  <li><strong>Interactive export</strong>: <code>explore(fn, path, names=, from=, to=, steps=)</code> writes a self-contained HTML page with a slider per parameter.</li>
+  <li><strong>Colour spaces</strong>: <code>hsv</code>, <code>hsl</code>, <code>lab</code>, <code>cmyk</code>, their <code>to_*</code> inverses, <code>delta_e</code> (how different two colours *look*) and <code>palette(n)</code>.</li>
+  <li><strong><code>load_image</code> reads PNG</strong>, not only BMP, with the format sniffed from the file's bytes. Written on <code>inflate.rs</code>'s existing DEFLATE decoder.</li>
+  <li><code>filter_ba(b, a, x)</code> / <code>lfilter</code> — apply a transfer function from raw coefficients, for one you derived yourself or ported from MATLAB or scipy.</li>
+  <li><strong>Colours by name.</strong> All 148 CSS names, <code>#rgb</code>/<code>#rrggbb</code>/<code>#rrggbbaa</code>, and <code>rgb(r, g, b)</code> / <code>rgba(r, g, b, a)</code>.</li>
+  <li><strong>Regular expressions</strong>: <code>regex_match</code>, <code>regex_find</code>, <code>regex_find_all</code>, <code>regex_groups</code>, <code>regex_replace</code>, <code>regex_split</code>, <code>regex_count</code>, and <code>like</code> for BASIC wildcards.</li>
+  <li><strong>The rest of the string surface</strong>: <code>after</code>/<code>before</code> (and <code>_last</code>), <code>head</code>/<code>tail</code> beyond tables, <code>grep</code>, <code>parse_as</code>/<code>scan</code>, <code>format</code>, <code>as_text</code>, <code>flip</code>, <code>insert</code>, <code>remove</code>, <code>count</code>, <code>last_index_of</code>, <code>pad_left</code>/<code>pad_right</code>, <code>capitalize</code>, <code>proper</code>, <code>lines</code>, <code>chars</code>, <code>compare</code>, <code>write_text</code>/<code>append_text</code>, <code>"ab" * 3</code>, and the <code>ucase</code>/<code>lcase</code>/<code>toupper</code>/<code>tolower</code> aliases.</li>
+  <li><strong><code>md2html</code> / <code>html2md</code></strong>, both directions.</li>
+  <li><code>round(x, digits)</code>, <code>log(x, base)</code>, <code>replace(s, old, new, count)</code>, <code>split(s, d, limit)</code>, <code>trim(s, chars)</code>, <code>sort</code> on a list of strings.</li>
+  <li><code>nnls(A, b)</code> — non-negative least squares (Lawson–Hanson).</li>
+  <li><code>least_squares(f, x0, lower=, upper=)</code> — nonlinear least squares on a residual function, with box bounds enforced at evaluation time.</li>
+  <li><code>solve</code>, <code>cond</code>, <code>trace</code>, <code>diag</code>, <code>complex(re, im)</code>.</li>
+  <li><strong>Binary readers</strong>: <code>read_array</code>, <code>read_values</code>, <code>read_struct</code>, <code>read_structs</code>, <code>file_size</code> — enough to read instrument captures directly.</li>
+  <li><code>dash=</code> / <code>dot=</code> on any series-drawing call, matching <code>vline</code>/<code>hline</code>.</li>
+  <li><code>alpha=</code> and <code>label=</code> on <code>fill_between</code>; <code>alpha=</code> on <code>xspan</code>/<code>yspan</code>; <code>alpha=</code> on <code>hist</code>; <code>marker=</code> and <code>label=</code> on <code>errorbar</code>; <code>dash=</code> and <code>width=</code> on <code>contour</code>.</li>
+  <li>Twin axes gained independent limits and scales: <code>ylim</code>/<code>yscale</code> after <code>yyaxis right</code> now apply to the right side.</li>
+  <li>Argument lists may span multiple lines.</li>
+  <li><code>llms.txt</code> and an agent guide for coding assistants.</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Changed</h3>
+<ul>
+  <li><strong>Keyword arguments a builtin does not read are now an error.</strong> Tracked from the code itself rather than a table, so it cannot drift. Found five silently-ignored keywords across the repository the day it was switched on.</li>
+  <li><strong>Positional arguments past the last one a builtin reads are now an error</strong> too. <code>sqrt(4, 9)</code> returned 2; <code>upper("a", "b", "c")</code> returned "A"; <code>split(s, ",", 2)</code> and <code>trim(s, "x")</code> looked like they took the argument they were given and did not. Same read-tracking mechanism as the keywords, and variadic builtins exempt themselves: <code>print</code> and <code>plot</code> cannot work without counting or walking their arguments, and both mark the whole list read.</li>
+  <li><strong>Maths variables in figure labels are italic</strong>, following TeX: a Latin letter standing for a quantity is italic, digits and operators and anything inside <code>\mathrm</code> are upright.</li>
+  <li><code>zeros(r, c)</code> and <code>ones(r, c)</code> honour an explicit shape containing a 1. <code>zeros(n, 1)</code> is a column and <code>zeros(1, n)</code> is a row; they used to be the same vector. <code>zeros(size(x))</code> is unchanged.</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Fixed</h3>
+<ul>
+  <li><strong>A named colour was blue on screen and black in the paper.</strong> Colour strings reached the renderers untouched, and the renderers disagree: an SVG viewer resolves <code>royalblue</code>, while <code>hex_to_rgb</code> reads <code>"ro"</code> as hex, fails, and falls back to zero. Nothing was printed either time. <code>color = "notacolour"</code> behaved identically and was never refused. Every colour now resolves to <code>#rrggbb</code> where the argument is read, and one that does not resolve is an error naming the nearest real colour.</li>
+  <li><strong>PDF: undeclared math font.</strong> A figure labelled only with lower-case Greek referenced a font the page never declared — Latin Modern Roman has no lower-case Greek, so no text face was emitted and the math face inherited the wrong slot. Every Greek letter vanished.</li>
+  <li><strong>Legends were sized from LaTeX source, not drawn text.</strong> A 56-character source that draws as 21 characters produced a box three times too wide, wide enough that the layout gave up and moved the legend outside, costing half the plot. Every legend containing maths was affected.</li>
+  <li><strong>Dotted rules were invisible.</strong> A dash was a fixed pattern at any width while a dot scaled with the line width, so a thin dotted rule dotted itself out of existence.</li>
+  <li><strong>Callout text lay across its own arrow.</strong> The label is now placed opposite the arrow's direction of travel.</li>
+  <li><strong>A legend's plain-circle swatch ignored <code>fill=</code></strong>, so filled markers were keyed with an outline. Every other glyph already honoured it.</li>
+  <li><strong><code>stft</code> reported the wrong quantity</strong> when the window exceeded the signal: "fft requires at least 1 sample; received 8". It now names the window and the signal length.</li>
+  <li><code>inv</code> rejected complex matrices although the implementation existed and <code>M ^ -1</code> already reached it.</li>
+  <li><code>\sqrt{...}</code> and accented groups lost the styling of their contents, so <code>\widehat{\mathrm{CF}}</code> set italic and <code>\sqrt{2\ln K}</code> italicised "ln".</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Documentation</h3>
+<ul>
+  <li><strong><a href="docs/start-here.html">Start Here</a></strong> — a tutorial that assumes no programming at all.</li>
+  <li><strong><a href="docs/from-zero.html">From Zero</a></strong> — a complete first session that runs as written, no external data.</li>
+  <li><strong>Builtin index</strong> generated from the interpreter's own name table, so it cannot claim a function the engine lacks. Coverage of the 683 builtins went from 87% to 100%.</li>
+  <li><code>tools/check_docs.sh</code> runs every <code></code><code>qu block in the documentation and reports how far into each document a reader gets before it breaks. It found the </code>stft<code> and </code>complex<code> defects above.</code></li>
+  <li>README, LICENSE (CC BY-NC-SA 4.0) and NOTICE, none of which existed.</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Verification</h3>
+<p class="sub">Ports checked against their reference implementations, on the same inputs:</p>
+<div class="tablewrap"><table>
+<tr><td>Port</td><td>Result</td></tr>
+<tr><td>Per-tone EIS extraction</td><td>six reported figures reproduce the Python exactly</td></tr>
+<tr><td>Kramers-Kronig fit with automatic parameters</td><td>every reported number exact; 0.014 s against numpy's 0.060 s</td></tr>
+<tr><td>Known-support recovery</td><td>the reference's operational facts reproduced</td></tr>
+<tr><td>Half-rule conditioning</td><td>exact</td></tr>
+<tr><td><code>nnls</code>, <code>least_squares</code></td><td>match SciPy to the digit</td></tr>
+<tr><td>Complex linear algebra</td><td>matches NumPy; <code>L·U</code> and <code>Q·R</code> reproduce to 1e-12</td></tr>
+</table></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp; <a href="docs.html">Docs</a></div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

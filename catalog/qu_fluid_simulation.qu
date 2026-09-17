@@ -1,0 +1,177 @@
+# qu_fluid_simulation.qu — 2D scalar diffusion (heat equation), explicit FTCS
+#
+# HONESTY NOTE (read this before calling it "CFD"): this solves the linear
+# 2-D diffusion equation for a scalar field u(x,y,t),
+#
+#     du/dt = D * (d2u/dx2 + d2u/dy2)
+#
+# It is NOT the incompressible Navier-Stokes lid-driven-cavity benchmark
+# (Ghia et al. 1982) that was the first choice for this demo. That attempt
+# was dropped deliberately: a from-scratch explicit projection method
+# (predictor step + pressure-Poisson solve + velocity correction) is easy to
+# get numerically *unstable* or subtly wrong (wrong pressure BCs, wrong
+# staggering) in the time available, and an incorrect "fluid-flow-shaped"
+# picture that nobody actually checked against Ghia's tabulated centerline
+# velocities is worse than an honestly-scoped diffusion demo that IS checked
+# against a closed-form reference to a real numeric tolerance. Diffusion
+# is still a real transport PDE (the same operator that appears inside the
+# viscous term of Navier-Stokes), it is "fluid-adjacent," and — critically —
+# it has an exact analytic solution for a Gaussian initial condition, so the
+# correctness check below is a real quantitative comparison, not a vibe check.
+#
+# NUMERICAL METHOD
+#   Explicit forward-time, centered-space (FTCS) finite differences on a
+#   uniform nx*ny grid, Dirichlet u=0 boundary (justified below). The
+#   Laplacian stencil at each interior cell (i,j) is computed from the
+#   PREVIOUS time step's field (Uold), written into the new field U — a
+#   genuine Jacobi-style sweep, one full nested `for` loop per time step
+#   (the "naive stencil code" side of the Qu-vs-NumPy comparison in
+#   benchmarks/qu_vs_python_advanced/fluid_simulation.py, which computes the
+#   identical stencil via vectorized NumPy slicing instead of a Python loop).
+#
+# STABILITY (CFL-like) CONDITION
+#   Explicit FTCS for 2-D diffusion is stable only for
+#     dt <= dx^2*dy^2 / (2*D*(dx^2 + dy^2))     (= dx^2/(4D) when dx=dy)
+#   We use dt = 0.4 * that limit (a comfortable safety margin below the 0.5
+#   theoretical bound) and choose nsteps so nsteps*dt lands exactly on
+#   t_final.
+#
+# VERIFICATION (two independent checks, both printed with real numbers)
+#   1. Analytic reference: the initial condition is an isotropic Gaussian
+#      blob u(x,y,0) = A0*exp(-r^2/(2*sigma0^2)). A Gaussian convolved with
+#      the 2-D heat kernel stays Gaussian, with variance growing linearly:
+#        sigma(t)^2 = sigma0^2 + 2*D*t
+#        u_exact(x,y,t) = A0*(sigma0^2/sigma(t)^2)*exp(-r^2/(2*sigma(t)^2))
+#      The domain half-width is chosen to be >5 analytic sigmas at t_final,
+#      so the zero-Dirichlet boundary truncates negligible tail mass and
+#      u_exact is a fair reference for the whole domain. We report the max
+#      and RMS difference between the simulated field and u_exact.
+#   2. Total-mass conservation: with ~zero field value (hence ~zero flux) at
+#      the boundary, integral(u) dx dy should stay ~constant over time; we
+#      report initial vs final mass.
+#
+# Plot: a heatmap of the final scalar field.
+
+backend auto
+
+#%% Parameters
+# --- Grid, physics, and timing ---------------------------------------------
+Lx = 3.0
+Ly = 3.0
+nx = 91
+ny = 91
+D = 0.02
+t_final = 1.0
+cfl_factor = 0.4
+
+x0 = 1.5
+y0 = 1.5
+sigma0 = 0.15
+A0 = 1.0
+
+dx = Lx / (nx - 1)
+dy = Ly / (ny - 1)
+dt_max = (dx^2 * dy^2) / (2 * D * (dx^2 + dy^2))
+dt = cfl_factor * dt_max
+nsteps = ceil(t_final / dt)
+dt = t_final / nsteps               # land exactly on t_final after nsteps
+
+print("[Qu] grid={nx}x{ny}, dx={dx:.5f}, dy={dy:.5f}")
+print("[Qu] dt={dt:.6f} (dt_max={dt_max:.6f}, safety factor={cfl_factor}), nsteps={nsteps}")
+
+#%% Initial condition
+# --- Gaussian blob ----------------------------------------------------------
+U = zeros(nx, ny)
+for i = 0 to nx - 1
+    xi = i * dx
+    for j = 0 to ny - 1
+        yj = j * dy
+        r2 = (xi - x0)^2 + (yj - y0)^2
+        U[i, j] = A0 * exp(-r2 / (2 * sigma0^2))
+    end for
+end for
+
+mass0 = sum(U) * dx * dy
+
+#%% Time-stepping: explicit FTCS diffusion, nested for loops
+# --- March forward in time --------------------------------------------------
+tic()
+for tstep = 1 to nsteps
+    Uold = U
+    for i = 1 to nx - 2
+        for j = 1 to ny - 2
+            d2x = (Uold[i + 1, j] - 2 * Uold[i, j] + Uold[i - 1, j]) / dx^2
+            d2y = (Uold[i, j + 1] - 2 * Uold[i, j] + Uold[i, j - 1]) / dy^2
+            U[i, j] = Uold[i, j] + D * dt * (d2x + d2y)
+        end for
+    end for
+end for
+elapsed_ms = toc() * 1000
+
+mass_final = sum(U) * dx * dy
+
+#%% Verification
+# --- Analytic reference field at t_final ------------------------------------
+sigma_final_sq = sigma0^2 + 2 * D * t_final
+amp_final = A0 * (sigma0^2 / sigma_final_sq)
+
+Uexact = zeros(nx, ny)
+for i = 0 to nx - 1
+    xi = i * dx
+    for j = 0 to ny - 1
+        yj = j * dy
+        r2 = (xi - x0)^2 + (yj - y0)^2
+        Uexact[i, j] = amp_final * exp(-r2 / (2 * sigma_final_sq))
+    end for
+end for
+
+diff = U - Uexact
+max_abs_err = max(abs(diff))
+rms_err = sqrt(mean(diff .* diff))
+max_field_val = max(Uexact)
+
+print("[Qu] elapsed={elapsed_ms:.1f} ms for {nsteps} steps on a {nx}x{ny} grid")
+print("[Qu] mass: initial={mass0:.6f}, final={mass_final:.6f}, relative drift={(mass_final - mass0) / mass0 * 100:.4f}%")
+print("[Qu] vs analytic Gaussian at t={t_final}: max|err|={max_abs_err:.6e}, rms(err)={rms_err:.6e}, peak field value={max_field_val:.6f}")
+print("[Qu] max|err| as % of peak field value: {max_abs_err / max_field_val * 100:.4f}%")
+
+if max_abs_err / max_field_val < 0.02 then
+    print("[Qu] PASS: numeric field matches analytic Gaussian diffusion to <2% of peak amplitude")
+else
+    print("[Qu] FAIL: numeric field deviates from analytic Gaussian diffusion by >=2% of peak amplitude")
+end if
+
+#%% Cross-language comparison dump
+# --- Dump the final field to CSV for fluid_simulation.py to diff directly --
+# (this scheme is fully deterministic -- no RNG anywhere -- so the Qu and
+# NumPy fields should agree to near float64 round-off, not just "both close
+# to the analytic solution": this is the actual apples-to-apples check.)
+# That path is relative to the REPOSITORY ROOT, because the Python script
+# it is diffed against lives there. Run from anywhere else -- `catalog/`,
+# say -- and the write used to fail with a bare OS error. Fall back to
+# writing beside the script instead, and say so, so the demo runs from any
+# directory while still landing in the right place when it can.
+field_csv_path = "benchmarks/qu_vs_python_advanced/qu_fluid_field.csv"
+if not dir_exists("benchmarks/qu_vs_python_advanced") then
+    field_csv_path = "qu_fluid_field.csv"
+    print("[Qu] not at the repository root -- writing the field to {field_csv_path} instead")
+end if
+fcsv = fopen(field_csv_path, "w")
+for i = 0 to nx - 1
+    line = ""
+    for j = 0 to ny - 1
+        line = line + "{U[i, j]:.12e}"
+        if j < ny - 1 then
+            line = line + ","
+        end if
+    end for
+    write_line(fcsv, line)
+end for
+close(fcsv)
+print("[Qu] wrote final field to {field_csv_path} for cross-language diff")
+
+#%% Plot
+# --- Heatmap of the final scalar field --------------------------------------
+heatmap(U, colormap="viridis")
+title("2D diffusion: scalar field at t={t_final}s (Gaussian blob, D={D})")
+show plot

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sequential — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sequential</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>sequential(layers, [seed=])</code></pre>
+<p class="fnnote">Input: layers, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Initializes a stack of layer specs (a list of <code>dense_layer</code>/<code>dropout_layer</code> Records, or a single one) into a trainable model: weights use He initialization (<code>sqrt(2/in_dim)</code>) on a layer whose activation is <code>"relu"</code>, Xavier-style (<code>sqrt(1/in_dim)</code>) otherwise, biases start at zero, and an optional integer <code>seed=</code> makes the draw reproducible.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sequential(layers, [seed=])</code></td><td><div class="ioitem"><code>layers</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">Record, optional</span><span class="iodesc">Initializes a stack of layer specs (a list of <code>dense_layer</code>/<code>dropout_layer</code> Records, or a single one) into a trainable model: weights use He initialization (<code>sqrt(2/in_dim)</code>) on a layer whose activation is <code>"relu"</code>, Xavier-style (<code>sqrt(1/in_dim)</code>) otherwise, biases start at zero, and an optional integer <code>seed=</code> makes the draw reproducible.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model</span></div>
+</td><td>Returns an initialized, not-yet-fitted <code>kind="sequential"</code> Model with <code>.fit</code>/<code>.predict</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+Y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">1</span>)
+
+layers = (<span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>), <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>))
+net = <span class="f">sequential</span>(layers, <span class="a">seed</span> = <span class="n">42</span>)
+trained = net.<span class="f">fit</span>(X, Y, <span class="a">epochs</span> = <span class="n">2000</span>, <span class="a">lr</span> = <span class="n">0.5</span>, <span class="a">loss</span> = <span class="s">"mse"</span>)
+
+<span class="f">print</span>(<span class="s">"loss {trained.loss_history[0]:.4f} -&gt; {trained.loss_history[1999]:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"XOR predictions (want 0, 1, 1, 0): {trained.predict(X)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
+dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
+net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"layer count: {length(net.layers)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">optimizer</span> = <span class="f">adam</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"sequential + dropout_layer: loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+mc = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+Yc = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>]
+mc = mc.<span class="f">fit</span>(Xxor, Yc, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">loss</span> = <span class="s">"cross_entropy"</span>)
+nc = <span class="f">length</span>(mc.loss_history)
+<span class="f">print</span>(<span class="s">"mlp_classifier: loss {round(mc.loss_history[0], 4)} -&gt; {round(mc.loss_history[nc - 1], 4)}"</span>)
+preds = mc.<span class="f">predict</span>(Xxor)
+<span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>sequential(layers, [seed=])</code> — takes a <code>List</code> of layer specs (from <code>dense_layer</code>/<code>dropout_layer</code>) and returns an initialized <code>Value::Model</code> (<code>kind="sequential"</code>): a <code>"layers"</code> field (the spec list, unchanged) and a <code>"params"</code> field (a parallel <code>List</code> of per-layer weight <code>Record</code>s — <code>{w, b}</code> for <code>"dense"</code>, an empty <code>Record</code> for <code>"dropout"</code>). Weights are scaled-random-normal (<code>random_matrix</code>, <code>gru_init</code>'s own initializer): He (<code>sqrt(2/in_dim)</code>) when the layer's activation is <code>"relu"</code>, Xavier-ish (<code>sqrt(1/in_dim)</code>) otherwise — biases start at zero, the standard convention. Like <code>randn</code>, an explicit <code>seed=</code> reseeds the persistent RNG first so init is reproducible.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

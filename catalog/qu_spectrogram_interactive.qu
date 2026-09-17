@@ -1,0 +1,22 @@
+# Spectrogram - Time-Frequency Analysis
+Fs = 1000
+t = 0 to 2 step 1/Fs
+
+f0 = 10
+f1 = 200
+x = chirp(f0, f1, Fs, length(t))
+
+# @slider window_size 32 512 32
+window_size = 256
+# @slider overlap 8 256 8
+overlap = 128
+
+# Keep the result: Interactive Mode plots workspace variables, so the
+# spectrogram has to land in one. `s.db` is the frequency-by-time matrix,
+# `s.freq` and `s.time` its axes.
+s = spectrogram(x, window_size, overlap, Fs)
+title('Spectrogram')
+xlabel('Time (s)')
+ylabel('Frequency (Hz)')
+
+print "Spectrogram: {length(x)} samples, chirp {f0}-{f1} Hz, {len(s.time)} frames x {len(s.freq)} bins"

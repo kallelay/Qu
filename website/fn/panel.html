@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>panel — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>panel</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>panel(rows, cols, k)</code></pre>
+<p class="fnnote">Input: rows, cols, k &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Selects cell <code>k</code> (integer, 1-based, row-major) of a <code>rows</code>-by-<code>cols</code> (integers) grid as the target for further drawing. <code>subplot</code> is the same call under MATLAB's name.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>panel(rows, cols, k)</code></td><td><div class="ioitem"><code>rows</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>cols</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>k</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>subplot</code> is the same call under MATLAB's name.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">bode_magnitude</span>(Z, freqs)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
+<span class="f">bode_phase</span>(Z, freqs)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t, y)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">plot</span>(f, mag)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">3</span>)
+<span class="f">scatter</span>(y, yhat)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="n">4</span>)
+<span class="f">plot</span>(losses, <span class="a">color</span>=<span class="s">"orange"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example"><pre class="hl"><code>group_a = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">11</span>)
+group_b = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">12</span>) + <span class="n">0.5</span>
+group_c = <span class="f">randn</span>(<span class="n">40</span>, <span class="a">seed</span> = <span class="n">13</span>) - <span class="n">0.3</span>
+<span class="f">panel</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">histogram</span>(y, <span class="n">20</span>)
+<span class="f">panel</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">boxplot</span>(group_a, group_b, group_c)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>panel(rows, cols, index)</code> -- MATLAB-style <code>subplot</code>, kept under both spellings (Â§13.C: "panel" is the current name; <code>subplot</code> remains a plain alias, same pattern as the <code>def fn</code>/<code>:=</code> alias).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="subplot.html"><code>subplot</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

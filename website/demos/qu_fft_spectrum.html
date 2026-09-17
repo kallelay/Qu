@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFT spectrum — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>FFT spectrum</h1>
+<p class="lede">complex numbers and the DFT on the reference engine.</p>
+<p class="srcpath">catalog/qu_fft_spectrum.qu</p>
+<p>Builds a two-tone real signal, transforms it with `fft`, and reads the one-sided magnitude and phase spectra. Runs end-to-end on `qu run`.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>§7   imaginary literals (3 + 4i) and complex arithmetic</li>
+<li>§24  fft / ifft, abs, angle, real, imag, conj</li>
+<li>§15  slicing the one-sided spectrum X[0:N/2 - 1]</li>
+<li>§14  elementwise scaling of a complex vector</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Complex-number warm-up</h3>
+<p>--- A little complex-number warm-up --------------------------------------</p>
+<pre class="hl"><code>z = <span class="n">3</span> + <span class="n">4i</span>
+<span class="f">print</span>(<span class="s">"z          = {z}"</span>)
+<span class="f">print</span>(<span class="s">"|z|        = {abs(z)}"</span>)            <span class="c"># 5</span>
+<span class="f">print</span>(<span class="s">"angle(z)   = {angle(z):.4f} rad"</span>)  <span class="c"># 0.9273</span>
+<span class="f">print</span>(<span class="s">"conj(z)    = {conj(z)}"</span>)           <span class="c"># 3 - 4i</span>
+<span class="f">print</span>(<span class="s">"z * conj z = {z * conj(z)}"</span>)       <span class="c"># 25</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Build the signal</h3>
+<p>--- Sampling grid: N = 64 samples at Fs = 64 Hz --------------------------</p>
+<pre class="hl"><code>N  = <span class="n">64</span>
+Fs = <span class="n">64</span>
+dt = <span class="n">1</span> / Fs
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t  = n * dt
+
+<span class="c"># --- Two tones at bins 4 and 9 (exactly periodic in N) --------------------</span>
+x = <span class="n">1.0</span> * <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">4</span> * t) + <span class="n">0.5</span> * <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">9</span> * t + pi / <span class="n">3</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>FFT and spectrum</h3>
+<p>--- Forward transform -----------------------------------------------------</p>
+<pre class="hl"><code>X = <span class="f">fft</span>(x, N)
+
+<span class="c"># One-sided magnitude, scaled to amplitude (×2/N, DC excepted).</span>
+half = X[<span class="n">0</span>:N/<span class="n">2</span> - <span class="n">1</span>]
+mag  = <span class="f">abs</span>(half) * <span class="n">2</span> / N
+freq = <span class="f">range</span>(<span class="n">0</span>, N/<span class="n">2</span> - <span class="n">1</span>) * (Fs / N)
+
+<span class="f">print</span>(<span class="s">"N          = {N}, df = {Fs / N} Hz"</span>)
+<span class="f">print</span>(<span class="s">"peak mags  = {max(mag):.3f}"</span>)       <span class="c"># ~1.0 (dominant tone)</span>
+<span class="f">print</span>(<span class="s">"bin 4 mag  = {mag[4]:.3f}"</span>)         <span class="c"># ~1.0</span>
+<span class="f">print</span>(<span class="s">"bin 9 mag  = {mag[9]:.3f}"</span>)         <span class="c"># ~0.5</span>
+<span class="f">print</span>(<span class="s">"bin 9 phase= {angle(half[9]):.4f}"</span>) <span class="c"># ~ pi/3</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Round-trip check and plot</h3>
+<p>--- Round-trip: ifft(fft(x)) reconstructs x ------------------------------</p>
+<pre class="hl"><code>xr = <span class="f">ifft</span>(X, N)
+recon_err = <span class="f">max</span>(<span class="f">abs</span>(<span class="f">real</span>(xr) - x))
+<span class="f">print</span>(<span class="s">"recon err  = {recon_err:.2e}"</span>)
+
+<span class="f">plot</span>(freq, mag)
+<span class="f">xlabel</span>(<span class="s">"Frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"|X(f)|"</span>)
+<span class="f">title</span>(<span class="s">"Two-tone amplitude spectrum"</span>)
+grid on
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>z          = 3 + 4i
+|z|        = 5
+angle(z)   = 0.9273 rad
+conj(z)    = 3 - 4i
+z * conj z = 25
+N          = 64, df = 1 Hz
+peak mags  = 1.000
+bin 4 mag  = 1.000
+bin 9 mag  = 0.500
+bin 9 phase= 1.0472
+recon err  = 4.44e-16</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="540.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="544.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="493.14" x2="866.00" y2="493.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="493.14" x2="86.00" y2="493.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="497.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.1</text>
+<line x1="86.00" y1="446.29" x2="866.00" y2="446.29" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="446.29" x2="86.00" y2="446.29" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="450.77" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.2</text>
+<line x1="86.00" y1="399.43" x2="866.00" y2="399.43" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="399.43" x2="86.00" y2="399.43" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="403.91" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.3</text>
+<line x1="86.00" y1="352.57" x2="866.00" y2="352.57" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="352.57" x2="86.00" y2="352.57" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="357.05" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="305.71" x2="866.00" y2="305.71" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="305.71" x2="86.00" y2="305.71" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="310.19" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.5</text>
+<line x1="86.00" y1="258.86" x2="866.00" y2="258.86" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="258.86" x2="86.00" y2="258.86" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="263.34" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.6</text>
+<line x1="86.00" y1="212.00" x2="866.00" y2="212.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="212.00" x2="86.00" y2="212.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="216.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.7</text>
+<line x1="86.00" y1="165.14" x2="866.00" y2="165.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="165.14" x2="86.00" y2="165.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="169.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="86.00" y1="118.29" x2="866.00" y2="118.29" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="118.29" x2="86.00" y2="118.29" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="122.77" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.9</text>
+<line x1="86.00" y1="71.43" x2="866.00" y2="71.43" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="71.43" x2="86.00" y2="71.43" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="75.91" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="205.82" y1="48.00" x2="205.82" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="205.82" y1="540.00" x2="205.82" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="205.82" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">5</text>
+<line x1="325.63" y1="48.00" x2="325.63" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="325.63" y1="540.00" x2="325.63" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="325.63" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">10</text>
+<line x1="445.45" y1="48.00" x2="445.45" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="445.45" y1="540.00" x2="445.45" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="445.45" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">15</text>
+<line x1="565.26" y1="48.00" x2="565.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="565.26" y1="540.00" x2="565.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="565.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">20</text>
+<line x1="685.08" y1="48.00" x2="685.08" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="685.08" y1="540.00" x2="685.08" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="685.08" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">25</text>
+<line x1="804.89" y1="48.00" x2="804.89" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="804.89" y1="540.00" x2="804.89" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="804.89" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">30</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,540.00 109.96,540.00 133.93,540.00 157.89,540.00 181.85,71.43 205.82,540.00 229.78,540.00 253.74,540.00 277.71,540.00 301.67,305.71 325.63,540.00 349.59,540.00 373.56,540.00 397.52,540.00 421.48,540.00 445.45,540.00 469.41,540.00 493.37,540.00 517.34,540.00 541.30,540.00 565.26,540.00 589.23,540.00 613.19,540.00 637.15,540.00 661.12,540.00 685.08,540.00 709.04,540.00 733.00,540.00 756.97,540.00 780.93,540.00 804.89,540.00 828.86,540.00" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Two-tone amplitude spectrum</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Frequency (Hz)</text>
+<text x="47.97" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 47.97 294.00)">|X(f)|</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_fft_spectrum.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_fft_spectrum.qu — complex numbers and the DFT on the reference engine.</span>
+<span class="c">#</span>
+<span class="c"># Builds a two-tone real signal, transforms it with `fft`, and reads the</span>
+<span class="c"># one-sided magnitude and phase spectra. Runs end-to-end on `qu run`.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   §7   imaginary literals (3 + 4i) and complex arithmetic</span>
+<span class="c">#   §24  fft / ifft, abs, angle, real, imag, conj</span>
+<span class="c">#   §15  slicing the one-sided spectrum X[0:N/2 - 1]</span>
+<span class="c">#   §14  elementwise scaling of a complex vector</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Complex-number warm-up</span>
+<span class="c"># --- A little complex-number warm-up --------------------------------------</span>
+z = <span class="n">3</span> + <span class="n">4i</span>
+<span class="f">print</span>(<span class="s">"z          = {z}"</span>)
+<span class="f">print</span>(<span class="s">"|z|        = {abs(z)}"</span>)            <span class="c"># 5</span>
+<span class="f">print</span>(<span class="s">"angle(z)   = {angle(z):.4f} rad"</span>)  <span class="c"># 0.9273</span>
+<span class="f">print</span>(<span class="s">"conj(z)    = {conj(z)}"</span>)           <span class="c"># 3 - 4i</span>
+<span class="f">print</span>(<span class="s">"z * conj z = {z * conj(z)}"</span>)       <span class="c"># 25</span>
+
+<span class="c">#%% Build the signal</span>
+<span class="c"># --- Sampling grid: N = 64 samples at Fs = 64 Hz --------------------------</span>
+N  = <span class="n">64</span>
+Fs = <span class="n">64</span>
+dt = <span class="n">1</span> / Fs
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t  = n * dt
+
+<span class="c"># --- Two tones at bins 4 and 9 (exactly periodic in N) --------------------</span>
+x = <span class="n">1.0</span> * <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">4</span> * t) + <span class="n">0.5</span> * <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">9</span> * t + pi / <span class="n">3</span>)
+
+<span class="c">#%% FFT and spectrum</span>
+<span class="c"># --- Forward transform -----------------------------------------------------</span>
+X = <span class="f">fft</span>(x, N)
+
+<span class="c"># One-sided magnitude, scaled to amplitude (×2/N, DC excepted).</span>
+half = X[<span class="n">0</span>:N/<span class="n">2</span> - <span class="n">1</span>]
+mag  = <span class="f">abs</span>(half) * <span class="n">2</span> / N
+freq = <span class="f">range</span>(<span class="n">0</span>, N/<span class="n">2</span> - <span class="n">1</span>) * (Fs / N)
+
+<span class="f">print</span>(<span class="s">"N          = {N}, df = {Fs / N} Hz"</span>)
+<span class="f">print</span>(<span class="s">"peak mags  = {max(mag):.3f}"</span>)       <span class="c"># ~1.0 (dominant tone)</span>
+<span class="f">print</span>(<span class="s">"bin 4 mag  = {mag[4]:.3f}"</span>)         <span class="c"># ~1.0</span>
+<span class="f">print</span>(<span class="s">"bin 9 mag  = {mag[9]:.3f}"</span>)         <span class="c"># ~0.5</span>
+<span class="f">print</span>(<span class="s">"bin 9 phase= {angle(half[9]):.4f}"</span>) <span class="c"># ~ pi/3</span>
+
+<span class="c">#%% Round-trip check and plot</span>
+<span class="c"># --- Round-trip: ifft(fft(x)) reconstructs x ------------------------------</span>
+xr = <span class="f">ifft</span>(X, N)
+recon_err = <span class="f">max</span>(<span class="f">abs</span>(<span class="f">real</span>(xr) - x))
+<span class="f">print</span>(<span class="s">"recon err  = {recon_err:.2e}"</span>)
+
+<span class="f">plot</span>(freq, mag)
+<span class="f">xlabel</span>(<span class="s">"Frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"|X(f)|"</span>)
+<span class="f">title</span>(<span class="s">"Two-tone amplitude spectrum"</span>)
+grid on
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

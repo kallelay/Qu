@@ -1,0 +1,6 @@
+# @name: Confusion matrix and accuracy
+# @desc: Predict, tally correct predictions, and plot a confusion matrix.
+pred = model.predict(X_test)
+accuracy = length(where(pred == y_test)) / length(pred)
+print("accuracy: {accuracy:.3f}")
+confusion_matrix(y_test, pred)

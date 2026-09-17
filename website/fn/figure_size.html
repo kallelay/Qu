@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>figure_size — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>figure_size</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>figure_size(w, h)</code> or <code>figure_size("ieee1")</code></pre>
+<p class="fnnote">Input: w, h &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Sets canvas size either from <code>w</code>, <code>h</code> (numbers, raw units) or from a named journal-column preset string (e.g. <code>"ieee1"</code>). Type sizes scale with the square root of the area, so a figure shrunk to a column keeps its proportions.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>figure_size(w, h) or figure_size("ieee1")</code></td><td><div class="ioitem"><code>w</code> <span class="iotype">number or string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>h</code> <span class="iotype">number or string</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>"ieee1"</code>). Type sizes scale with the square root of the area, so a figure shrunk to a column keeps its proportions.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c"># A square canvas, so that equal ranges really are equal scales and the</span>
+<span class="c"># circle below comes out round. Without it the figure would render an</span>
+<span class="c"># ellipse while the paragraph above it explained how to avoid one.</span>
+<span class="f">figure_size</span>(<span class="n">560</span>, <span class="n">560</span>)
+<span class="f">xlim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+<span class="f">ylim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+axis equal
+<span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">fill</span> = <span class="s">"royalblue"</span>)
+<span class="f">ellipse</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.6</span>, <span class="n">0.7</span>, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">rotate</span> = <span class="n">30</span>)
+<span class="f">arc</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.3</span>, <span class="n">0</span>, <span class="n">120</span>, <span class="a">color</span> = <span class="s">"seagreen"</span>, <span class="a">width</span> = <span class="n">2</span>)
+<span class="f">polygon</span>([<span class="n">0.8</span>, <span class="n">1.6</span>, <span class="n">1.2</span>], [-<span class="n">1.6</span>, -<span class="n">1.6</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"purple"</span>, <span class="a">fill</span> = <span class="s">"plum"</span>)
+<span class="f">rectangle</span>(-<span class="n">1.8</span>, -<span class="n">1.8</span>, -<span class="n">1.2</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">rect</span>(<span class="n">1.0</span>, -<span class="n">1.8</span>, <span class="n">1.8</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"teal"</span>)
+<span class="f">point</span>(<span class="n">0</span>, <span class="n">1.9</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>figure_size(width, height)</code> — sets the canvas <code>savefig</code>/ <code>write_report</code>/<code>--emit-figure</code> render at (<code>Figure.width</code>/ <code>height</code>, defaulting to <code>DEFAULT_FIGURE_WIDTH</code>/<code>HEIGHT</code> = 900x600, the size every export was unconditionally hardcoded to before this builtin existed — see those constants' doc Also rescales <code>tick_size</code>/<code>label_size</code>/<code>title_size</code> by <code>sqrt((width*height) / (900*600))</code> off the DEFAULT sizes (not off whatever <code>fontsize(...)</code> may have already set — call <code>fontsize(...)</code> AFTER <code>figure_size(...)</code> if you want to override a specific size on top of the auto-scale). This matters because matplotlib/ggplot2/Plots.jl all default to *fixed* absolute font sizes regardless of figure size -- fine for them, since their fixed canvas size never actually varies without the caller consciously picking new sizes too. Qu had no figure-size knob at all before this builtin, so there was nothing to keep consistent; now that a script can ask for a tiny thumbnail or a huge poster-sized export, an absolute default would leave text either dominating a small canvas or vanishing on a big one, so this auto-scales by default instead. The area-based (not just height-based) formula means a much WIDER canvas at the same height grows fonts partially (by <code>sqrt</code> of the area ratio, so more room without literally doubling text for a merely-wider figure), while scaling both dimensions together (the "render at 2x resolution" case) scales fonts fully alongside it.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

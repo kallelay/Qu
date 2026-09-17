@@ -1,0 +1,11 @@
+# TWO DISTINCT operands. cpu_mul/cpu_vmul use `v .* v`, where both reads hit
+# one buffer -- that halves the memory traffic and could flatter or penalise
+# either path unevenly. This variant streams two separate arrays, which is
+# what real elementwise code does.
+v = reshape(randn(4000000, 1), 2000, 2000)
+w = reshape(randn(4000000, 1), 2000, 2000)
+x = v .* w
+for r = 1 to 60
+    x = v .* w
+end for
+print("done")

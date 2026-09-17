@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>remove — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>remove</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>remove(s, text)</code> or <code>remove(s, start, [count])</code></pre>
+<p class="fnnote">Input: s, text &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> is a <code>Str</code>. Two overloads, picked by the type of the second argument: <code>text</code> (<code>Str</code>) deletes every occurrence of it; <code>start</code> (number, 0-based index) with optional <code>count</code> (number of characters, default: to the end) deletes that run instead.</p>
+<h2>Overloads</h2>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-remove-0" checked>
+<input type="radio" name="typetab" id="tt-remove-1">
+<input type="radio" name="typetab" id="tt-remove-2">
+<div class="tabbar">
+<label for="tt-remove-0"><code>remove(s, text)</code></label>
+<label for="tt-remove-1"><code>remove(s, start)</code></label>
+<label for="tt-remove-2"><code>remove(s, start, count)</code></label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = remove(s, text)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is a <code>Str</code>.</span></div>
+<div class="ioitem"><code>text</code> <span class="iotype">Str</span><span class="iodesc"><code>text</code> is a <code>Str</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td><code>text</code> is a <code>Str</code>. Deletes every occurrence of it from <code>s</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="s">", "</span>))       <span class="c"># "helloworld" -- every occurrence of the text</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># ", world" -- 5 characters starting at position 0</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">7</span>))          <span class="c"># "hello, " -- position 7 to the end, count omitted</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = remove(s, start)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is a <code>Str</code>.</span></div>
+<div class="ioitem"><code>start</code> <span class="iotype">number</span><span class="iodesc"><code>start</code> (number, 0-based index) with optional <code>count</code> (number of characters, default: to the end) deletes that run instead.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td><code>start</code> is a number (0-based character index). Deletes from <code>start</code> to the end of <code>s</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="s">", "</span>))       <span class="c"># "helloworld" -- every occurrence of the text</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># ", world" -- 5 characters starting at position 0</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">7</span>))          <span class="c"># "hello, " -- position 7 to the end, count omitted</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = remove(s, start, count)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is a <code>Str</code>.</span></div>
+<div class="ioitem"><code>start</code> <span class="iotype">number</span><span class="iodesc"><code>start</code> (number, 0-based index) with optional <code>count</code> (number of characters, default: to the end) deletes that run instead.</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">number</span><span class="iodesc"><code>count</code> is a number of characters.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td><code>count</code> is a number of characters. Deletes exactly that many, starting at <code>start</code>, clamped rather than erroring if <code>count</code> runs past what's left.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="s">", "</span>))       <span class="c"># "helloworld" -- every occurrence of the text</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># ", world" -- 5 characters starting at position 0</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">7</span>))          <span class="c"># "hello, " -- position 7 to the end, count omitted</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>remove(t)</code> — permanently deregisters <code>t</code> from any <code>on elapsed</code>/<code>on elapsedOnce</code> firing (checked live by <code>run_for</code>); unlike <code>stop</code>, this cannot be undone by calling <code>start</code> again. <code>elapsed(t)</code>/<code>start(t)</code>/etc. still work on the handle afterward (still a valid timer for plain profiling use) — <code>remove</code> only affects the simulated-event registration. <code>remove(collection, index)</code> — collection form (§ collections, 2026-08-24): returns a NEW list/vector with the element at <code>index</code> dropped. Dispatches on <code>arg0</code>'s type rather than a separate name (the same "one name, arg-type decides" pattern <code>zeros</code>/<code>find</code> already use in this file) — <code>remove(t)</code> on a <code>Timer</code> keeps its exact prior meaning below, unchanged. Same immutable-return convention as <code>insert</code>/<code>append</code>: Qu values are immutable by convention everywhere else, and there is no in-place <code>list.remove(i)</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>read_all — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>read_all</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>read_all(f)</code></pre>
+<p class="fnnote">Input: f &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Reads every remaining byte from <code>f</code> (file handle, opened readable).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = read_all(f)</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
+</td><td>Returns the remaining content as one string — possibly the empty string <code>""</code> if called right at EOF, which is a legitimate result here, not the <code>Nothing</code> sentinel every other read in this section returns.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write</span>(f, <span class="s">"hello file"</span>)
+<span class="f">close</span>(f)
+g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"r"</span>)
+<span class="f">print</span>(<span class="f">read_all</span>(g))
+<span class="f">close</span>(g)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
+    <span class="f">print</span>(<span class="f">read_line</span>(f))
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<span class="f">print</span>(<span class="f">read_all</span>(g))
+<span class="f">close</span>(g)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
+had_before = <span class="f">file_exists</span>(path)
+<span class="f">touch</span>(path)
+exists_after_touch = <span class="f">file_exists</span>(path)
+
+f = <span class="f">fopen</span>(path, <span class="s">"w"</span>)
+<span class="f">write_line</span>(f, <span class="s">"original content"</span>)
+<span class="f">close</span>(f)
+
+<span class="f">touch</span>(path)                 <span class="c"># existing file: content must survive untouched</span>
+
+g = <span class="f">fopen</span>(path, <span class="s">"r"</span>)
+content = <span class="f">read_all</span>(g)
+<span class="f">close</span>(g)
+
+<span class="f">print</span>(<span class="s">"had_before = {had_before}"</span>)
+<span class="f">print</span>(<span class="s">"exists_after_touch = {exists_after_touch}"</span>)
+<span class="f">print</span>(<span class="s">"content = {content}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_char</span>(f, <span class="s">"Hello,World"</span>)
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"r"</span>)
+first       = <span class="f">read_char</span>(g)         <span class="c"># "H"</span>
+peeked      = <span class="f">peek_char</span>(g)         <span class="c"># "e" -- cursor not moved</span>
+next        = <span class="f">read_char</span>(g)         <span class="c"># "e" again, same char peeked returned</span>
+chunk       = <span class="f">read_chars</span>(g, <span class="n">3</span>)     <span class="c"># "llo"</span>
+next_byte   = <span class="f">peek_byte</span>(g)         <span class="c"># 44, the byte for ',' -- still not consumed</span>
+before_comma = <span class="f">read_until</span>(g, <span class="s">","</span>)  <span class="c"># "" -- the comma was right there, now consumed</span>
+w_byte      = <span class="f">read_byte</span>(g)         <span class="c"># 87, the byte for 'W'</span>
+rest        = <span class="f">read_all</span>(g)          <span class="c"># "orld"</span>
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"{first}{next}{chunk} peeked={peeked} next_byte={next_byte} before_comma=\"{before_comma}\" w_byte={w_byte} rest={rest}"</span>)
+<span class="c"># Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<h2>How it works</h2>
+<p><code>read_all(f)</code> — the remaining content (possibly empty at EOF — an empty read is a legitimate, non-exceptional result here, unlike the "is there anything at all" question <code>read_line</code>/ <code>read_char</code>/<code>read_byte</code>/<code>read_bit</code> answer). For a <code>"r"</code> (text) handle: one <code>Value::Str</code>, same as always. For an <code>"rb"</code> (binary) handle: a <code>Value::Vec</code> of raw bytes (0-255), same representation <code>read_bin</code> uses — see the bug note below. § position-control + typed-binary-I/O pass (2026-08-26): this used to run EVERY remaining byte through <code>String::from_utf8_lossy</code> regardless of <code>st.binary</code>, silently replacing any byte sequence that wasn't valid UTF-8 with U+FFFD replacement characters — real, silent data corruption for exactly the "open a binary file, read it all" case this pass was asked to check. Fixed here: binary-mode <code>read_all</code> now returns the exact bytes, never decoded as text; text-mode <code>read_all</code> is UNCHANGED (still <code>Value::Str</code>), so every existing script/test that opens <code>"r"</code>/<code>"w"</code> text handles sees no behavior difference. <code>read_all(f)</code> on a <code>Value::UrlStream</code> (from <code>StreamURL</code>) — see <code>net_ops::stream_read_all</code>'s own doc comment. Always <code>Value::Str</code> (no binary-mode <code>StreamURL</code>), matching <code>http_get</code>'s own "HTTP bodies are text" convention.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

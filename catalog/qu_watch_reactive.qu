@@ -1,0 +1,95 @@
+# qu_watch_reactive.qu -- all three `watch` trigger forms (`watch
+# file(path)`, `watch <variable>`, `watch url(...)`), each firing exactly
+# once on a genuine change and staying silent on an unchanged
+# `pump_watches()` call.
+#
+# `watch` never runs "in the background" -- Qu's interpreter is single-
+# threaded with no event loop. `watch ... end` only registers a callback
+# and records a baseline (a file's mtime, a variable's current value, or
+# one real HTTP fetch); the body only ever runs when the script explicitly
+# calls `pump_watches()`, which checks every registered watch's REAL
+# current state exactly once. This script drives that loop by hand,
+# exactly mirroring the mechanics of `watch_file_fires_once_on_a_real_
+# mtime_change_and_not_on_an_unchanged_pump` and `watch_var_fires_on_a_
+# genuine_value_change_and_not_on_a_same_value_reassignment` in
+# `engine/crates/qu-interp/src/lib.rs`. `watch url(...)` needs a live
+# server to show a genuine body change against, which this standalone demo
+# doesn't stand up -- it's registered and pumped for real (proving
+# registration + one real fetch actually work against a real, reachable
+# URL) but is not exercised for the "fires on change" case the way the
+# file/variable watches are.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   watch file(path) do ... end
+#   watch <variable name> do ... end
+#   watch url(url, [interval_seconds=]) do ... end
+#   pump_watches()
+#   touch(path)                    -- real mtime bump used to trigger the file watch
+
+backend auto
+
+watch_target = "qu_watch_reactive_demo.txt"
+# Start from a clean slate so this script is repeatable run after run.
+if file_exists(watch_target)
+    f = fopen(watch_target, "w")
+    write_line(f, "reset")
+    close(f)
+end if
+
+#%% Form 1: watch file(path) -- fires on a real mtime change, not on a pump
+#%% where nothing changed.
+file_fires = 0
+watch file(watch_target) do
+    file_fires = file_fires + 1
+end
+
+f1 = pump_watches()
+print("pump #1 (nothing touched yet): fired={f1}, file_fires={file_fires}")
+
+touch(watch_target)
+f2 = pump_watches()
+print("pump #2 (just touched the file): fired={f2}, file_fires={file_fires}")
+
+f3 = pump_watches()
+print("pump #3 (no change since pump #2): fired={f3}, file_fires={file_fires}")
+
+#%% Form 2: watch <variable> -- fires on a genuine value change, not on a
+#%% same-value reassignment.
+threshold = 10
+var_fires = 0
+watch threshold do
+    var_fires = var_fires + 1
+end
+
+g1 = pump_watches()
+print("pump #4 (threshold unchanged): fired={g1}, var_fires={var_fires}")
+
+threshold = 25
+g2 = pump_watches()
+print("pump #5 (threshold changed to {threshold}): fired={g2}, var_fires={var_fires}")
+
+threshold = 25
+g3 = pump_watches()
+print("pump #6 (reassigned the SAME value, 25): fired={g3}, var_fires={var_fires}")
+
+#%% Form 3: watch url(...) -- registers + performs one real baseline fetch
+#%% against a real, reachable URL; not exercised for a body-change fire in
+#%% this standalone demo (that needs a live server whose response actually
+#%% changes between two fetches -- see lib.rs's own
+#%% `watch_url_fires_on_a_real_body_change_over_loopback_and_not_on_an_
+#%% unchanged_poll` test for that scenario against a controlled local
+#%% server).
+url_fires = 0
+watch url("https://example.com/", interval_seconds=3600) do
+    url_fires = url_fires + 1
+end
+h1 = pump_watches()
+print("pump #7 (url watch just registered, interval not elapsed yet): fired={h1}, url_fires={url_fires}")
+
+#%% Summary
+print("")
+print("Total file watch fires: {file_fires} (expected 1)")
+print("Total variable watch fires: {var_fires} (expected 1)")
+print("Total url watch fires this run: {url_fires} (expected 0 -- baseline fetch only)")
+
+# Clean up the demo file this script created.

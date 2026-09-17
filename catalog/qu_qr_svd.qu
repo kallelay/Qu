@@ -1,0 +1,49 @@
+# qu_qr_svd.qu — QR and SVD decompositions, and a least-squares solve.
+#
+# `qr`/`svd` (like `ols_model`/`findpeaks`/`kalman_init`) return a
+# `Value::Model` carrying their named results, rather than a MATLAB-style
+# tuple -- Qu has no multi-return/tuple-unpacking assignment.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   qr(A)  -> Model(.q, .r),    A = Q*R
+#   svd(A) -> Model(.u, .s, .vt), A = U * diag(s) * V'
+#   the `\` left-division (linear solve) operator for a least-squares fit
+
+backend auto
+
+#%% Setup — a small, hand-checkable matrix
+A = [1, 1; 1, 2; 1, 3; 1, 4]     # (4,2) design matrix: column of ones + x
+b = [6, 5, 7, 10]
+
+#%% QR decomposition
+qrf = qr(A)
+print("Q = {qrf.q}")
+print("R = {qrf.r}")
+recon = qrf.q * qrf.r
+print("max |A - Q*R| = {max(abs(A - recon)):.2e}")
+
+#%% SVD
+s = svd(A)
+print("singular values = {s.s}")
+rank_est = length(where(s.s > 1e-9 * max(s.s)))
+print("estimated rank = {rank_est}")
+
+#%% Least squares via the QR factors
+# x = R \ (Q' * b)  solves min ||A*x - b||^2
+Qtb = qrf.q' * b
+x = qrf.r \ Qtb
+print("least-squares fit: intercept={x[0]:.4f}, slope={x[1]:.4f}")
+
+resid = A * x - b
+print("residual norm = {norm(resid):.4f}")
+
+#%% Plot the fit
+xs = A[:, 1]
+plot(xs, b, marker="o", label="data")
+fit_line = A * x
+plot(xs, fit_line, label="least-squares fit", color="orange")
+xlabel("x")
+ylabel("y")
+title("QR-based least squares")
+legend()
+show plot

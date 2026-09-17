@@ -1,0 +1,683 @@
+# Build the Demos section of the website from `catalog/`.
+#
+# The catalogue is sixty complete programs and the site surfaced none of
+# them, so the strongest argument Qu has for itself -- here is a real
+# measurement problem, here is the whole program, here is the figure it
+# draws -- was sitting in a directory nobody browsing the site would find.
+#
+# Generated rather than hand-written, for the usual reason: a demo page
+# maintained by hand is a demo page that stops matching its script. Titles
+# and categories come from `qu-studio-tauri/src/catalogMeta.ts`, so the
+# website and the Studio's own sidebar cannot disagree about what a demo is
+# called or where it belongs. A script with no entry there still appears,
+# under its filename, rather than vanishing.
+#
+# Output and figures come from `tools/run_demos.sh`, which runs each script
+# in a sandbox and leaves a `.out` and a `.svg` beside it.
+#
+# Run:  bash tools/build_demos.sh
+
+OUT  = "website/demos"
+RUNS = getenv("QU_DEMO_OUTPUTS") ?? ""
+
+BT     = substr("`x", 0, 1)
+QUOTE  = "\""
+BSLASH = "\\"
+DIGITS = "0123456789"
+ALPHA  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+
+KEYS = ("and", "or", "not", "mod", "in", "as", "to", "step", "skip", "by",
+        "if", "then", "else", "elseif", "end", "for", "while", "do", "repeat",
+        "until", "return", "function", "sub", "class", "new", "true", "false",
+        "none", "backend", "with", "import", "const", "constant", "try",
+        "catch", "unsafe", "global")
+
+# The order categories are shown in: broadly, what Qu is for first.
+CATS = ("Getting started",
+        "Signal processing",
+        "Measurement & instrumentation",
+        "Statistics & estimation",
+        "Machine learning",
+        "Computer vision",
+        "Math & linear algebra",
+        "Data & I/O",
+        "Concurrency & performance",
+        "Simulation",
+        "Language & UI",
+        "Uncategorised")
+
+function esc(s)
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    s = replace(s, ">", "&gt;")
+    return s
+end function
+
+function is_digit(c)
+    return contains(DIGITS, c)
+end function
+
+function is_word(c)
+    return contains(ALPHA, c) or contains(DIGITS, c)
+end function
+
+function is_key(w)
+    for k in KEYS
+        if w == k
+            return true
+        end if
+    end for
+    return false
+end function
+
+# The same scanner the documentation pages use; see `gen_docs_site.qu` for
+# why it is hand-written rather than a library.
+function highlight(code)
+    out = ""
+    plain = ""
+    n = len(code)
+    i = 0
+    depth = 0
+    while i < n
+        c = substr(code, i, 1)
+        if c == "#"
+            j = i
+            while j < n and substr(code, j, 1) != "\n"
+                j = j + 1
+            end while
+            out = out + esc(plain) + "<span class=\"c\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+        if c == QUOTE
+            j = i + 1
+            closed = false
+            while j < n and not closed
+                d = substr(code, j, 1)
+                if d == BSLASH
+                    j = j + 2
+                elseif d == QUOTE
+                    j = j + 1
+                    closed = true
+                else
+                    j = j + 1
+                end if
+            end while
+            out = out + esc(plain) + "<span class=\"s\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+        if is_digit(c)
+            j = i
+            while j < n and (is_digit(substr(code, j, 1)) or substr(code, j, 1) == ".")
+                j = j + 1
+            end while
+            if j < n and (substr(code, j, 1) == "e" or substr(code, j, 1) == "E")
+                p = j + 1
+                if p < n and (substr(code, p, 1) == "+" or substr(code, p, 1) == "-")
+                    p = p + 1
+                end if
+                if p < n and is_digit(substr(code, p, 1))
+                    j = p
+                    while j < n and is_digit(substr(code, j, 1))
+                        j = j + 1
+                    end while
+                end if
+            end if
+            while j < n and contains(ALPHA, substr(code, j, 1))
+                j = j + 1
+            end while
+            out = out + esc(plain) + "<span class=\"n\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+        if contains(ALPHA, c)
+            j = i
+            while j < n and is_word(substr(code, j, 1))
+                j = j + 1
+            end while
+            word = substr(code, i, j - i)
+            cls = ""
+            if is_key(word)
+                cls = "k"
+            elseif j < n and substr(code, j, 1) == "("
+                cls = "f"
+            elseif depth > 0
+                p = j
+                while p < n and substr(code, p, 1) == " "
+                    p = p + 1
+                end while
+                if p < n and substr(code, p, 1) == "="
+                    if p + 1 >= n or substr(code, p + 1, 1) != "="
+                        cls = "a"
+                    end if
+                end if
+            end if
+            if len(cls) > 0
+                out = out + esc(plain) + "<span class=\"" + cls + "\">" + esc(word) + "</span>"
+                plain = ""
+            else
+                plain = plain + word
+            end if
+            i = j
+            continue
+        end if
+        if c == "("
+            depth = depth + 1
+        elseif c == ")"
+            if depth > 0
+                depth = depth - 1
+            end if
+        end if
+        plain = plain + c
+        i = i + 1
+    end while
+    return out + esc(plain)
+end function
+
+# ── the catalogue's own metadata ───────────────────────────────────────
+#
+# Parsed out of the Studio's TypeScript rather than duplicated here, so one
+# file names every demo. Lines look like:
+#   qu_multisine: { title: 'Multisine excitation', category: 'Signal processing' },
+# own methods and are skipped, exactly as `make_public.sh` skips them.
+
+function quoted_after(line, key)
+    if not contains(line, key)
+        return ""
+    end if
+    at = index_of(line, key) + len(key)
+    rest = substr(line, at, len(line) - at)
+    if not contains(rest, "'")
+        return ""
+    end if
+    a = index_of(rest, "'") + 1
+    rest = substr(rest, a, len(rest) - a)
+    if not contains(rest, "'")
+        return ""
+    end if
+    b = index_of(rest, "'")
+    return substr(rest, 0, b)
+end function
+
+meta_names = ()
+meta_titles = ()
+meta_cats = ()
+private = false
+for line in lines(read_all_text("qu-studio-tauri/src/catalogMeta.ts"))
+        private = false
+        continue
+    end if
+    if private
+        continue
+    end if
+    t = trim(line)
+    if not starts_with(t, "qu_") and not starts_with(t, "demo_")
+        continue
+    end if
+    if not contains(t, ": {{")
+        continue
+    end if
+    stem = substr(t, 0, index_of(t, ":"))
+    title = quoted_after(t, "title:")
+    cat = quoted_after(t, "category:")
+    if len(title) == 0
+        continue
+    end if
+    if len(cat) == 0
+        cat = "Uncategorised"
+    end if
+    meta_names = append(meta_names, stem)
+    meta_titles = append(meta_titles, title)
+    meta_cats = append(meta_cats, cat)
+end for
+print("catalogue metadata: {len(meta_names)} entries")
+
+function meta_index(stem)
+    for i in 0 to len(meta_names) - 1
+        if meta_names[i] == stem
+            return i
+        end if
+    end for
+    return -1
+end function
+
+# ── the header comment is the description ──────────────────────────────
+#
+# Every catalogue script opens with a `#` block: one line naming it, then
+# what it does and which constructs it exercises. That is the description,
+# already written and already next to the code it describes. The "Exercises"
+# / "Constructs" list is pulled out separately -- it reads as a list, not a
+# paragraph, and it is the part that says what to LEARN from the demo.
+
+function describe(src)
+    prose = ()
+    uses = ()
+    in_list = false
+    for raw in lines(src)
+        line = trim(raw)
+        if not starts_with(line, "#")
+            break
+        end if
+        body = trim(substr(line, 1, len(line) - 1))
+        low = lower(body)
+        # An "Exercises:" / "Constructs exercised:" heading switches to the
+        # list of language features, which is a list and reads as one.
+        if starts_with(low, "exercises") or starts_with(low, "constructs")
+            in_list = true
+            continue
+        end if
+        if in_list
+            if len(body) > 0
+                uses = append(uses, body)
+            end if
+        else
+            # A bare `#` is a paragraph break in the source and has to stay
+            # one here: without it a forty-line header comment renders as a
+            # single wall, which is what these pages looked like the first
+            # time round.
+            prose = append(prose, body)
+        end if
+    end for
+    return {prose = prose, uses = uses}
+end function
+
+# The first prose line is "name.qu — one-line summary"; the summary alone
+# is the subtitle, and the filename in front of it is noise on a page that
+# already says which file this is.
+# The first prose line is "name.qu — one-line summary", and the summary
+# often WRAPS onto the next line. Taking only the first line left the lede
+# cut mid-sentence and the body starting with "than Nyquist demands", so
+# this consumes continuation lines until the sentence ends and reports how
+# many it used, which is where the body then begins.
+function summary_of(prose)
+    if len(prose) == 0
+        return {text = "", used = 0}
+    end if
+    s = prose[0]
+    if contains(s, "—")
+        at = index_of(s, "—") + 1
+        s = trim(substr(s, at, len(s) - at))
+    elseif contains(s, " -- ")
+        at = index_of(s, " -- ") + 4
+        s = trim(substr(s, at, len(s) - at))
+    end if
+    used = 1
+    # A blank line, or a full stop, ends it. The cap stops a header whose
+    # opening sentence runs for a paragraph from swallowing the lot.
+    while used < len(prose) and used < 4 and not ends_with(s, ".") and len(prose[used]) > 0
+        s = s + " " + prose[used]
+        used = used + 1
+    end while
+    return {text = s, used = used}
+end function
+
+# A header comment is prose, with three things in it that are not
+# paragraphs and must not be run together with them: bullet lines starting
+# `-`, indented code, and the short SHOUTED headings these scripts use to
+# separate "what is simulated" from "what is checked".
+function paragraphs(prose, from)
+    out = ""
+    buf = ""
+    in_list = false
+
+    for i in from to len(prose) - 1
+        line = prose[i]
+        blank = len(line) == 0
+        bullet = starts_with(line, "- ") or starts_with(line, "* ")
+        # A heading is short, has no sentence-ending full stop, and is
+        # written in capitals -- `upper(line) == line` on a line with
+        # letters in it.
+        heading = false
+        if len(line) > 0 and len(line) < 70 and upper(line) == line and not bullet
+            if contains(lower(line), "a") or contains(lower(line), "e") or contains(lower(line), "i")
+                heading = true
+            end if
+        end if
+
+        if blank or bullet or heading
+            if len(buf) > 0
+                out = out + "<p>" + esc(buf) + "</p>\n"
+                buf = ""
+            end if
+        end if
+        if (blank or heading) and in_list
+            out = out + "</ul>\n"
+            in_list = false
+        end if
+
+        if blank
+            continue
+        end if
+        if heading
+            out = out + "<h3>" + esc(line) + "</h3>\n"
+            continue
+        end if
+        if bullet
+            if not in_list
+                out = out + "<ul>\n"
+                in_list = true
+            end if
+            out = out + "<li>" + esc(trim(substr(line, 2, len(line) - 2))) + "</li>\n"
+            continue
+        end if
+        if len(buf) > 0
+            buf = buf + " " + line
+        else
+            buf = line
+        end if
+    end for
+
+    if len(buf) > 0
+        out = out + "<p>" + esc(buf) + "</p>\n"
+    end if
+    if in_list
+        out = out + "</ul>\n"
+    end if
+    return out
+end function
+
+# ── the walk-through ───────────────────────────────────────────────────
+#
+# Sixty of the sixty-eight catalogue scripts are already divided into `#%%`
+# cells, each with a title and usually a comment explaining what that step
+# does and why. That is a walk-through already written, sitting in the
+# source -- it only needs rendering.
+#
+# A cell is:
+#
+#     #%% What this step does
+#     #
+#     # Why it does it that way.
+#     code...
+#
+# The leading comment block belongs to the explanation; a comment further
+# down belongs to the code, because it is annotating a line rather than
+# introducing the step.
+
+function cells_of(src)
+    titles = ()
+    notes = ()
+    codes = ()
+
+    cur_title = ""
+    cur_note = ()
+    cur_code = ()
+    started = false
+    in_head = true
+
+    for raw in lines(src)
+        line = raw
+        t = trim(line)
+
+        if starts_with(t, "#%%")
+            # Close the cell before this one.
+            if started
+                titles = append(titles, cur_title)
+                notes = append(notes, cur_note)
+                codes = append(codes, cur_code)
+            end if
+            cur_title = trim(substr(t, 3, len(t) - 3))
+            cur_note = ()
+            cur_code = ()
+            started = true
+            in_head = true
+            continue
+        end if
+
+        if not started
+            continue                 # the file header, handled separately
+        end if
+
+        if in_head and starts_with(t, "#")
+            body = trim(substr(t, 1, len(t) - 1))
+            cur_note = append(cur_note, body)
+            continue
+        end if
+        # The first line that is not a comment ends the explanation; from
+        # here on everything, comments included, is code.
+        if len(t) > 0
+            in_head = false
+        end if
+        if not in_head or len(t) > 0
+            cur_code = append(cur_code, line)
+        end if
+    end for
+
+    if started
+        titles = append(titles, cur_title)
+        notes = append(notes, cur_note)
+        codes = append(codes, cur_code)
+    end if
+    return {titles = titles, notes = notes, codes = codes}
+end function
+
+# Join a cell's code lines back into a block, with the blank lines that
+# separated them but not the ones that padded the ends.
+function code_block(cl)
+    first = 0
+    last = len(cl) - 1
+    while first <= last and len(trim(cl[first])) == 0
+        first = first + 1
+    end while
+    while last >= first and len(trim(cl[last])) == 0
+        last = last - 1
+    end while
+    if first > last
+        return ""
+    end if
+    out = ""
+    for i in first to last
+        out = out + cl[i] + "\n"
+    end for
+    return out
+end function
+
+# ── build ──────────────────────────────────────────────────────────────
+
+head_tpl = read_all_text("website/assets/demo-head.html")
+foot_tpl = read_all_text("website/assets/demo-foot.html")
+
+# Scripts the public build excludes as the author's own unpublished
+# methods. Read out of `make_public.sh`'s own EXCLUDE_METHODS list rather
+# than repeated here, so there is one place that decides. Honouring the
+# metadata's private markers was NOT enough: the pages are built from
+# `catalog/` directly, so an excluded script still got a page -- with its
+# full source on it -- and only its title was suppressed.
+excluded = ()
+in_list = false
+for line in lines(read_all_text("tools/make_public.sh"))
+    t = trim(line)
+    if starts_with(t, "EXCLUDE_METHODS=(")
+        in_list = true
+        continue
+    end if
+    if in_list
+        if t == ")"
+            break
+        end if
+        if starts_with(t, "catalog/")
+            excluded = append(excluded, substr(t, 8, len(t) - 8))
+        end if
+    end if
+end for
+print("excluded from the site: {len(excluded)} catalogue script(s)")
+
+function is_excluded(fname)
+    for x in excluded
+        if x == fname
+            return true
+        end if
+    end for
+    return false
+end function
+
+files = ()
+for f in list_dir("catalog", "*.qu")
+    if is_excluded(f)
+        continue
+    end if
+    files = append(files, f)
+end for
+
+made = 0
+withfig = 0
+withrun = 0
+cards = ()
+card_cats = ()
+card_titles = ()
+
+for fname in files
+    stem = substr(fname, 0, len(fname) - 3)
+    mi = meta_index(stem)
+    title = stem
+    cat = "Uncategorised"
+    if mi >= 0
+        title = meta_titles[mi]
+        cat = meta_cats[mi]
+    end if
+
+    src = read_all_text("catalog/" + fname)
+    d = describe(src)
+    sm = summary_of(d.prose)
+    summary = sm.text
+
+    shown = ""
+    drawn = ""
+    bigfig = ""
+    if len(RUNS) > 0
+        op = RUNS + "/" + stem + ".out"
+        if file_exists(op)
+            shown = read_all_text(op)
+        end if
+        fp = RUNS + "/" + stem + ".svg"
+        if file_exists(fp)
+            drawn = read_all_text(fp)
+        end if
+        bp = RUNS + "/" + stem + ".bigfig"
+        if file_exists(bp)
+            bigfig = trim(read_all_text(bp))
+        end if
+    end if
+
+    # The page reads in the order a person wants it: what this is, then how
+    # it works step by step, then what it actually produced, and only then
+    # the whole program. Leading with the source is how a reference page is
+    # laid out, not how anything is explained.
+    body = "<p class=\"eyebrow\">" + esc(cat) + "</p>\n"
+    body = body + "<h1>" + esc(title) + "</h1>\n"
+    if len(summary) > 0
+        body = body + "<p class=\"lede\">" + esc(summary) + "</p>\n"
+    end if
+    body = body + "<p class=\"srcpath\">catalog/" + esc(fname) + "</p>\n"
+
+    # ── what it is ─────────────────────────────────────────────────────
+    body = body + paragraphs(d.prose, sm.used)
+
+    if len(d.uses) > 0
+        body = body + "<h2>What it exercises</h2>\n<ul class=\"uses\">\n"
+        for u in d.uses
+            body = body + "<li>" + esc(u) + "</li>\n"
+        end for
+        body = body + "</ul>\n"
+    end if
+
+    # ── how it works, step by step ─────────────────────────────────────
+    c = cells_of(src)
+    if len(c.titles) > 0
+        body = body + "<h2>How it works</h2>\n"
+        for k in 0 to len(c.titles) - 1
+            code = code_block(c.codes[k])
+            note = paragraphs(c.notes[k], 0)
+            # A cell with neither a note nor code is a divider, not a step.
+            if len(trim(code)) == 0 and len(trim(note)) == 0
+                continue
+            end if
+            body = body + "<section class=\"step\">\n"
+            if len(c.titles[k]) > 0
+                body = body + "<h3>" + esc(c.titles[k]) + "</h3>\n"
+            end if
+            body = body + note
+            if len(trim(code)) > 0
+                body = body + "<pre class=\"hl\"><code>" + highlight(code) + "</code></pre>\n"
+            end if
+            body = body + "</section>\n"
+        end for
+    end if
+
+    # ── what it produced ───────────────────────────────────────────────
+    has_result = len(trim(shown)) > 0 or len(trim(drawn)) > 0 or len(bigfig) > 0
+    if has_result
+        body = body + "<h2>Results</h2>\n"
+    end if
+    if len(trim(shown)) > 0
+        withrun = withrun + 1
+        body = body + "<div class=\"out\"><span class=\"lbl\">printed</span><pre>"
+        body = body + esc(shown) + "</pre></div>\n"
+    end if
+    if len(trim(drawn)) > 0
+        withfig = withfig + 1
+        body = body + "<figure class=\"demofig\">" + drawn
+        body = body + "<figcaption>Drawn by running the program above.</figcaption></figure>\n"
+    elseif len(bigfig) > 0
+        body = body + "<p class=\"bigfig\">This one draws about " + bigfig
+        body = body + " MB of vector graphics -- too much to put in a web page,"
+        body = body + " and itself worth knowing about the demo. Run it to see it.</p>\n"
+    end if
+
+    # ── and the whole thing ────────────────────────────────────────────
+    body = body + "<h2>The whole program</h2>\n"
+    body = body + "<p class=\"srcnote\">Runnable as it stands: "
+    body = body + "<code>qu run catalog/" + esc(fname) + "</code></p>\n"
+    body = body + "<pre class=\"hl\"><code>" + highlight(src) + "</code></pre>\n"
+
+    page = replace(head_tpl, "@@TITLE@@", title)
+    page = page + body + foot_tpl
+    h = fopen(OUT + "/" + stem + ".html", "w")
+    write(h, page)
+    close(h)
+    made = made + 1
+
+    card = "<a class=\"demo\" href=\"demos/" + stem + ".html\">"
+    card = card + "<h3>" + esc(title) + "</h3>"
+    card = card + "<p>" + esc(summary) + "</p>"
+    card = card + "<p class=\"file\">" + esc(fname) + "</p></a>"
+    cards = append(cards, card)
+    card_cats = append(card_cats, cat)
+    card_titles = append(card_titles, title)
+end for
+
+# ── the index ──────────────────────────────────────────────────────────
+
+index_body = ""
+for cat in CATS
+    n = 0
+    for i in 0 to len(cards) - 1
+        if card_cats[i] == cat
+            n = n + 1
+        end if
+    end for
+    if n == 0
+        continue
+    end if
+    index_body = index_body + "<section class=\"demogroup\"><div class=\"wrap\">\n"
+    index_body = index_body + "<h2>" + esc(cat) + "</h2>\n<div class=\"demogrid\">\n"
+    for i in 0 to len(cards) - 1
+        if card_cats[i] == cat
+            index_body = index_body + cards[i] + "\n"
+        end if
+    end for
+    index_body = index_body + "</div></div></section>\n"
+end for
+
+idx_tpl = read_all_text("website/assets/demos-index.html")
+page = replace(idx_tpl, "@@COUNT@@", str(made))
+page = replace(page, "@@BODY@@", index_body)
+h = fopen("website/demos.html", "w")
+write(h, page)
+close(h)
+
+print("wrote {made} demo pages ({withrun} with output, {withfig} with a figure)")

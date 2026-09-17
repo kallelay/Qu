@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>abs — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>abs</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>abs(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Absolute value on a real scalar/<code>Vec</code>/<code>Mat</code>; magnitude (<code>sqrt(re^2 + im^2)</code>) on a <code>Complex</code> scalar, <code>CVec</code>, or <code>CMat</code>. <code>x</code> is the value(s) to measure.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be number, Vec, or Complex.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-abs-0" checked>
+<input type="radio" name="typetab" id="tt-abs-1">
+<input type="radio" name="typetab" id="tt-abs-2">
+<div class="tabbar">
+<label for="tt-abs-0">scalar</label>
+<label for="tt-abs-1">vector</label>
+<label for="tt-abs-2">complex</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = abs(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Num</span></div>
+</td><td>Returns a <code>Num</code>, the standard real absolute value.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(-<span class="n">5</span>))   <span class="c"># 5</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = abs(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec</span></div>
+</td><td>Returns a <code>Vec</code> of the same length, <code>abs</code> applied elementwise.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [2, 0.5, 0.5, 2]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = abs(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Complex</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Num</span></div>
+</td><td>Returns a real <code>Num</code> — the magnitude <code>sqrt(re^2 + im^2)</code>, not either component alone — the case that most often surprises newcomers.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 5 — magnitude, not the real part</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>abs</code>/<code>angle</code>/<code>real</code>/<code>imag</code>/<code>conj</code> are complex-aware.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

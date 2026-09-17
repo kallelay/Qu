@@ -1,0 +1,15 @@
+# Run in Qu Studio's GUI workspace. Handlers share the existing interpreter.
+t = Frame("Signal laboratory")
+controls = t.add("panel", layout="row")
+amplitude = controls.add("slider", min=0, max=5, value=1)
+status = controls.add("label", text="Adjust amplitude")
+x = linspace(0, 12, 300)
+p = t.add("plot", title="Sine wave", xlabel="Time", ylabel="Amplitude", x=x, y=sin(x))
+
+function amplitude_changed(event)
+    p.set(x=x, y=event.value * sin(x))
+    status.set(text="Amplitude updated")
+end
+
+amplitude.on("change", "amplitude_changed")
+t.show()

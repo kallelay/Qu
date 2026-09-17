@@ -1,0 +1,72 @@
+.qu-serial-workspace { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; overflow:hidden; background:var(--qu-surface); color:var(--qu-text); font-size:13px; }
+.qu-serial-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px 28px 20px; border-bottom:1px solid var(--qu-border); background:var(--qu-bg); }
+.qu-serial-eyebrow { display:flex; align-items:center; gap:7px; color:var(--qu-accent); font-size:10px; letter-spacing:1.6px; font-weight:650; }
+.qu-serial-heading h1 { font-size:26px; font-weight:650; letter-spacing:-.8px; margin:6px 0; }
+.qu-serial-heading h1 span { font-size:11px; letter-spacing:0; margin-left:10px; padding:4px 8px; background:var(--qu-hover); color:var(--qu-muted); border:1px solid var(--qu-border); border-radius:5px; vertical-align:middle; }
+.qu-serial-heading p,.qu-serial-view-heading p { color:var(--qu-muted); margin:0; font-size:12px; }
+.qu-serial-status { display:flex; align-items:center; gap:8px; font-size:12px; white-space:nowrap; }
+.qu-serial-status i { width:7px; height:7px; border-radius:50%; background:var(--qu-muted); }
+.qu-serial-status i[data-active=true] { background:#2a9d8f; box-shadow:0 0 0 4px #2a9d8f18; }
+.qu-serial-status span { color:#c58c31; border-left:1px solid var(--qu-border); padding-left:10px; }
+.qu-serial-content { display:flex; flex:1; min-height:0; }
+.qu-serial-controls { width:250px; flex-shrink:0; overflow:auto; background:var(--qu-bg); border-right:1px solid var(--qu-border); padding:6px 18px 18px; }
+.qu-serial-controls section { padding:18px 0; border-bottom:1px solid var(--qu-border); display:flex; flex-direction:column; gap:12px; }
+.qu-serial-workspace h2 { margin:0; font-size:13px; font-weight:650; display:flex; align-items:center; gap:8px; }
+.qu-serial-workspace label { display:flex; flex-direction:column; gap:6px; color:var(--qu-muted); font-size:11px; font-weight:550; }
+.qu-serial-workspace select,.qu-serial-workspace input:not([type=checkbox]) { width:100%; min-width:0; background:var(--qu-surface); color:var(--qu-text); border:1px solid var(--qu-border); border-radius:6px; padding:8px; font:inherit; font-size:12px; }
+.qu-serial-workspace button { display:inline-flex; align-items:center; justify-content:center; gap:7px; background:var(--qu-bg); color:var(--qu-text); border:1px solid var(--qu-border); border-radius:6px; padding:7px 10px; font-size:11px; font-weight:550; cursor:pointer; }
+.qu-serial-workspace button:hover:not(:disabled) { background:var(--qu-hover); border-color:var(--qu-accent); }
+.qu-serial-workspace button:disabled { opacity:.45; cursor:default; }
+.qu-serial-workspace :focus-visible { outline:2px solid var(--qu-accent); outline-offset:3px; }
+.qu-serial-workspace .qu-serial-primary { background:var(--qu-accent); color:white; border-color:transparent; padding:9px; }
+.qu-serial-workspace .qu-serial-primary:hover:not(:disabled) { background:var(--qu-accent); filter:brightness(1.08); }
+.qu-serial-port,.qu-serial-buttons { display:flex; gap:6px; }
+.qu-serial-port select { flex:1; }
+.qu-serial-hint { color:var(--qu-muted); font-size:11px; line-height:1.65; margin:0; }
+.qu-serial-path { overflow-wrap:anywhere; }
+.qu-serial-metrics { display:grid; grid-template-columns:1fr 1fr; padding:8px 0 0; }
+.qu-serial-metrics div { display:flex; flex-direction:column; gap:3px; }
+.qu-serial-metrics strong { font-size:20px; font-weight:550; font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
+.qu-serial-metrics span { font-size:10px; color:var(--qu-muted); }
+.qu-serial-workspace .qu-serial-check { flex-direction:row; align-items:center; gap:8px; cursor:pointer; }
+.qu-serial-check input { accent-color:#2a9d8f; width:13px; height:13px; }
+.qu-serial-controls form { display:flex; flex-direction:column; gap:9px; }
+.qu-serial-main { flex:1; min-width:0; overflow:auto; padding:20px 24px 12px; }
+.qu-serial-view-heading { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
+.qu-serial-view-heading h2 { font-size:16px; margin-bottom:5px; letter-spacing:-.25px; }
+.qu-serial-figures { display:grid; gap:14px; }
+.qu-serial-figure { min-width:0; min-height:0; height:430px; }
+.qu-serial-figures.is-single .qu-serial-figure { height:clamp(450px,65vh,800px); }
+.qu-serial-figures.is-signal { grid-template-columns:1fr; }
+.qu-serial-figures.is-signal .qu-serial-figure { height:340px; }
+.qu-serial-figures.is-bode { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.qu-serial-figures.is-bode .qu-serial-figure:first-child { grid-column:1 / -1; height:390px; }
+.qu-serial-figures.is-components { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.qu-serial-figures.is-components .qu-serial-figure { height:330px; }
+.qu-serial-figures.is-components .qu-serial-figure:first-child { grid-row:1 / 3; height:auto; }
+.qu-serial-empty { min-height:420px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; border:1px dashed var(--qu-border); border-radius:12px; background:var(--qu-bg); padding:40px; text-align:center; }
+.qu-serial-empty > svg { color:var(--qu-accent); stroke-width:1; }
+.qu-serial-empty h2 { font-size:21px; letter-spacing:-.5px; font-weight:550; }
+.qu-serial-empty p { max-width:440px; color:var(--qu-muted); line-height:1.8; margin:0; }
+.qu-serial-empty > div { display:flex; gap:16px; margin-top:14px; color:var(--qu-muted); font-size:10px; flex-wrap:wrap; justify-content:center; }
+.qu-serial-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--qu-border); border-radius:7px; background:var(--qu-bg); margin-bottom:14px; font-size:12px; }
+.qu-serial-workspace .qu-serial-error,.qu-serial-workspace .qu-serial-recording { color:#d66c57; }
+.qu-serial-console { border:1px solid var(--qu-border); border-radius:8px; margin-top:16px; overflow:hidden; background:var(--qu-bg); }
+.qu-serial-console header { display:flex; gap:16px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--qu-border); }
+.qu-serial-console h2 { flex:1; font-size:12px; }
+.qu-serial-console h2 span { color:var(--qu-muted); font-weight:400; font-size:10px; }
+.qu-serial-console pre { height:180px; overflow:auto; margin:0; padding:12px; font:11px/1.7 Consolas,monospace; color:var(--qu-muted); white-space:pre; }
+.qu-serial-footer { display:flex; justify-content:space-between; gap:16px; color:var(--qu-muted); font-size:10px; padding:14px 0 0; }
+/* Panel sub-tabs (DSP workbench, GUI Designer). Given the same shape as
+   the top bar's mode row and the editor's file tabs -- accent underline
+   on the selected one, muted until hovered -- because a user crossing
+   from one to the other should not have to re-learn what "selected"
+   looks like. They previously had a bare grey fill, no hover state at
+   all, and no transition. */
+.qu-live-tabs { display:flex; align-items:center; gap:2px; padding:7px 16px; border-bottom:1px solid var(--qu-border); background:var(--qu-bg); color:var(--qu-muted); }
+.qu-live-tabs button { display:inline-flex; align-items:center; padding:6px 11px; border-radius:7px; font-size:12px; font-weight:500; color:inherit; background:transparent; box-shadow:inset 0 -2px 0 transparent; transition:background-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
+.qu-live-tabs button:hover:not([aria-selected=true]) { background:var(--qu-hover); color:var(--qu-text); }
+.qu-live-tabs button[aria-selected=true] { color:var(--qu-text); background:var(--qu-hover); box-shadow:inset 0 -2px 0 var(--qu-accent); }
+@media(min-width:1600px) { .qu-serial-figures.is-bode { grid-template-columns:repeat(3,minmax(0,1fr)); } .qu-serial-figures.is-bode .qu-serial-figure:first-child { grid-column:auto; height:430px; } }
+@media(max-width:1000px) { .qu-serial-controls { width:220px; padding-left:12px; padding-right:12px; } .qu-serial-main { padding:16px; } .qu-serial-figures.is-bode,.qu-serial-figures.is-components { grid-template-columns:1fr; } .qu-serial-figures.is-components .qu-serial-figure:first-child { grid-row:auto; height:390px; } .qu-serial-heading { padding:18px; } .qu-serial-footer { flex-direction:column; gap:5px; } }
+@media(max-width:650px) { .qu-serial-content { flex-direction:column; overflow:auto; } .qu-serial-controls { width:auto; overflow:visible; border-right:0; } .qu-serial-controls section { padding:14px 0; } .qu-serial-main { overflow:visible; flex:none; } .qu-serial-heading { align-items:flex-start; flex-direction:column; gap:12px; } .qu-serial-empty { padding:24px; } .qu-serial-console header { flex-wrap:wrap; } }

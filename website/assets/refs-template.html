@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refs — Qu</title>
+<meta name="description" content="Every builtin the engine answers to, with its signature and what it does, on one searchable page.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/refs.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html" aria-current="page">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="refhead"><div class="wrap">
+  <h1>Every name, on one page</h1>
+  <p class="lede">@@TOTAL@@ builtins, taken from the interpreter's own dispatch
+  table — so this page cannot claim a function the engine lacks, or omit one it
+  has. @@COVERAGE@@</p>
+  <div class="reffind">
+    <input id="q" type="search" placeholder="Filter by name, signature or description — try fft, or window, or complex" autocomplete="off" spellcheck="false">
+    <span id="count" class="count"></span>
+  </div>
+</div></header>
+
+<main class="refmain"><div class="wrap">
+@@BODY@@
+<p id="none" class="noresults" hidden>Nothing matches that. The engine's own
+search works from inside a program too: <code>available("part")</code> lists
+every name containing <code>part</code>.</p>
+</div></main>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="docs.html">Docs</a> &nbsp;
+    <a href="demos.html">Demos</a> &nbsp; <a href="download.html">Download</a>
+  </div>
+</div></footer>
+
+<script src="assets/site.js"></script>
+<script>
+// Filtering is plain DOM work on a page that is already complete without
+// it: with scripting off every row is visible and the page still reads as
+// a reference. The haystack was lower-cased at build time, so a keystroke
+// is a substring test and nothing else.
+(function () {
+  var q = document.getElementById('q');
+  var count = document.getElementById('count');
+  var none = document.getElementById('none');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-n]'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.refgroup'));
+  var total = rows.length;
+
+  function apply() {
+    var needle = q.value.trim().toLowerCase();
+    var shown = 0;
+    rows.forEach(function (r) {
+      var hit = needle === '' || r.getAttribute('data-n').indexOf(needle) !== -1;
+      r.hidden = !hit;
+      if (hit) shown++;
+    });
+    groups.forEach(function (g) {
+      var any = g.querySelector('[data-n]:not([hidden])');
+      g.hidden = !any;
+    });
+    none.hidden = shown !== 0;
+    count.textContent = needle === '' ? total + ' entries' : shown + ' of ' + total;
+  }
+
+  q.addEventListener('input', apply);
+  // `/` focuses the box, the convention every reference page shares.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+    if (e.key === 'Escape' && document.activeElement === q) { q.value = ''; apply(); }
+  });
+  apply();
+}());
+</script>
+</body>
+</html>

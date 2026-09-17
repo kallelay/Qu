@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>welch — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>welch</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>welch(x, fs, [nperseg=min(256,len(x))], [noverlap=nperseg/2], [window="hann"])</code></pre>
+<p class="fnnote">Input: x, fs, nperseg, noverlap, window &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector; <code>fs</code> (number, Hz): sample rate. <code>nperseg</code> (optional number): samples per segment; <code>noverlap</code> (optional number): overlap between segments; <code>window</code> (optional string, e.g. <code>"hann"</code>/<code>"hamming"</code>/<code>"blackman"</code>): window applied to each segment.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = welch(x, fs, [nperseg=min(256,len(x))], [noverlap=nperseg/2], [window="hann"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc"><code>fs</code> (number, Hz): sample rate.</span></div>
+<div class="ioitem"><code>nperseg</code> <span class="iotype">number, optional (default <code>min(256,len(x))</code>)</span><span class="iodesc"><code>nperseg</code> (optional number): samples per segment.</span></div>
+<div class="ioitem"><code>noverlap</code> <span class="iotype">number, optional (default <code>nperseg/2</code>)</span><span class="iodesc"><code>noverlap</code> (optional number): overlap between segments.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">string, optional (default <code>"hann"</code>)</span><span class="iodesc"><code>window</code> (optional string, e.g.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>nperseg/2 + 1</code> real vector, the one-sided PSD (DC to Nyquist) in SciPy's <code>"density"</code> scaling — Welch's method segments <code>x</code> into overlapping windowed frames and averages their squared-magnitude spectra. Pair with <code>linspace(0, fs/2, length(psd))</code> for the frequency axis.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">1024</span>, <span class="a">seed</span>=<span class="n">1</span>)
+
+psd_w = <span class="f">welch</span>(x, fs, <span class="a">nperseg</span>=<span class="n">256</span>)
+f_w = <span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="n">2</span>, <span class="f">length</span>(psd_w))
+peak_w = <span class="f">find_peaks</span>(psd_w, <span class="a">min_height</span>=<span class="f">max</span>(psd_w)*<span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"welch peak near {f_w[peak_w[0]]} Hz"</span>)
+
+psd_p = <span class="f">periodogram</span>(x, fs)          <span class="c"># single-segment special case of welch</span>
+f_p = <span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="n">2</span>, <span class="f">length</span>(psd_p))
+peak_p = <span class="f">find_peaks</span>(psd_p, <span class="a">min_height</span>=<span class="f">max</span>(psd_p)*<span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"periodogram peak near {f_p[peak_p[0]]} Hz"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>welch(x, fs, [nperseg=], [noverlap=], [window="hann"])</code> — Welch's method PSD estimate: segments <code>x</code> into overlapping, windowed frames and averages their squared-magnitude spectra (<code>qu_core::transforms::welch</code>, itself <code>stft</code>'s own framing scheme generalized to a caller-chosen window). <code>nperseg</code> defaults to <code>min(256, length(x))</code> (SciPy's own default); <code>noverlap</code> defaults to <code>nperseg/2</code> (50% overlap, also SciPy's default); <code>window</code> defaults to <code>"hann"</code>, matching <code>scipy.signal.welch</code>'s own default. Returns the one-sided PSD as a plain <code>Value::Vec</code> (<code>nperseg/2 + 1</code> bins, DC to Nyquist) in SciPy's <code>"density"</code> scaling (units²/Hz) — reconstruct the matching frequency axis with <code>linspace(0, fs/2, length(psd))</code>, the same convention <code>freqz</code>/<code>group_delay</code> already use. <code>periodogram</code> below is the same code path's one-segment, no-averaging special case.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

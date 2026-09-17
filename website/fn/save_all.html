@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>save_all — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>save_all</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>save_all(path)</code></pre>
+<p class="fnnote">Input: path &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Saves literally every current binding — every user variable plus Qu's own built-in constants (<code>pi</code>, <code>e</code>, <code>tau</code>, <code>none</code>, the <code>Qu*</code> escape-character constants, ...) — to <code>path</code> (string).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>save_all(path)</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>
+A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+m = <span class="f">ols_model</span>([<span class="n">1</span>;<span class="n">2</span>;<span class="n">3</span>;<span class="n">4</span>], [<span class="n">2</span>;<span class="n">4</span>;<span class="n">6</span>;<span class="n">8</span>])   <span class="c"># a fitted model round-trips too</span>
+<span class="f">save_all</span>(<span class="s">"session.json"</span>)              <span class="c"># every variable currently in scope</span>
+
+<span class="c"># ...later, in a fresh session...</span>
+<span class="f">load</span>(<span class="s">"session.json"</span>)                  <span class="c"># restores x, A, m into the workspace</span>
+p = <span class="f">predict</span>(m, [<span class="n">5</span>])                   <span class="c"># -&gt; [10]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<h2>How it works</h2>
+<p><code>save(path, "name1", "name2", ...)</code> — save specific top-level variables (by name, as strings — the same "name, not a value" convention <code>pmap</code>/<code>spawn</code> already use) to a JSON file. <code>save_all(path)</code> saves every top-level variable. Neither reaches into an active function's local frame — like MATLAB's own <code>save</code>, this operates on the base workspace. JSON so a saved file is human-readable/diffable, not a custom binary format (see the <code>serde_json</code> dependency's own Cargo.toml comment for the full reasoning). <code>Worker</code>/ <code>Mutex</code>/<code>Semaphore</code> values (live runtime handles, not data) fail the whole <code>save</code> clearly rather than silently dropping just that one variable.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

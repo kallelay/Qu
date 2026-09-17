@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collections & Strings — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html" class="here">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Collections & Strings</h1>
+<nav class="onthispage"><a href="#s0">Strings</a><a href="#s25">Bitwise &amp; Number-Base Conversion</a><a href="#s80">Collections (arrays &amp; lists)</a><a href="#s131">Enums</a><a href="#s156">Data Frames / Tables</a><a href="#s196">Value Constructors</a><a href="#s234">Type Conversion</a><a href="#s269">Data Structures</a><a href="#s304">More functions</a></nav>
+<p>The tables below are generated from the interpreter's own builtin dispatch table (the <code>fn call_builtin</code> match statement in <code>engine/crates/qu-interp/src/lib.rs</code>), not written speculatively ahead of the implementation — every function listed here runs today.</p>
+<h2 id="s0">Strings</h2>
+<p>All index/length arguments are 0-based (matching every other index in this codebase) and unicode-aware: implemented on <code>.chars()</code>, never a raw byte slice, so a multi-byte UTF-8 string indexes by character, not by byte.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>str</code></td><td><code>str(x)</code></td><td>Renders <code>x</code> (any value/type) the same way <code>print</code>/<code>disp</code> would. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>substr</code>, <code>mid</code></td><td><code>substr(s, start, [length])</code></td><td><code>s</code> is a <code>Str</code>; <code>start</code> (number, 0-based character index, must lie in <code>[0, char_count]</code>) is where the slice begins; optional <code>length</code> (number of characters, default: to the end) is clamped rather than erroring if it runs past what's left. Plain aliases of the same implementation (<code>mid</code> exists purely for BASIC/Excel discoverability). Returns a <code>Str</code>.</td></tr>
+<tr><td><code>left</code></td><td><code>left(s, n)</code></td><td>The first <code>n</code> characters of a string. <code>s</code> is a <code>Str</code>; <code>n</code> (number of characters) selects the first <code>n</code> of them, clamped to the whole string if <code>n</code> exceeds its length. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>right</code></td><td><code>right(s, n)</code></td><td>The last <code>n</code> characters of a string. <code>s</code> is a <code>Str</code>; <code>n</code> (number of characters) selects the last <code>n</code> of them, with the same clamping as <code>left</code>. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>reverse</code></td><td><code>reverse(x)</code></td><td><code>x</code> is a <code>Str</code>, <code>List</code>, <code>Vec</code>, or <code>Mask</code>. Unicode-aware character reversal for a <code>Str</code> (same type back); element-order reversal for a <code>List</code>/<code>Vec</code>/<code>Mask</code> (same type and shape back). Returns exactly the same type and length as <code>x</code>.</td></tr>
+<tr><td><code>upper</code></td><td><code>upper(s)</code></td><td><code>s</code> is a <code>Str</code>. Unicode-aware uppercase conversion. Returns a <code>Str</code> the same length (in characters).</td></tr>
+<tr><td><code>lower</code></td><td><code>lower(s)</code></td><td><code>s</code> is a <code>Str</code>. Unicode-aware lowercase conversion. Returns a <code>Str</code> the same length (in characters).</td></tr>
+<tr><td><code>replace</code></td><td><code>replace(s, old, new)</code></td><td><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>starts_with</code></td><td><code>starts_with(s, prefix)</code></td><td><code>s</code> and <code>prefix</code> are <code>Str</code>s. Returns a <code>bool</code>: <code>true</code> if <code>s</code> starts with <code>prefix</code>.</td></tr>
+<tr><td><code>ends_with</code></td><td><code>ends_with(s, suffix)</code></td><td><code>s</code> and <code>suffix</code> are <code>Str</code>s. Returns a <code>bool</code>: <code>true</code> if <code>s</code> ends with <code>suffix</code>.</td></tr>
+<tr><td><code>flip</code></td><td><code>flip(s)</code></td><td><code>s</code> is a <code>Str</code>. The same as <code>reverse</code> on a string — the word a BASIC hand reaches for. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>insert</code></td><td><code>insert(s, i, text)</code></td><td><code>s</code> and <code>text</code> are <code>Str</code>s; <code>i</code> (number, 0-based character position) is where <code>text</code> is spliced in. Returns a new <code>Str</code>; <code>s</code> itself is untouched.</td></tr>
+<tr><td><code>remove</code></td><td><code>remove(s, text)</code> or <code>remove(s, start, [count])</code></td><td><code>s</code> is a <code>Str</code>. Two overloads, picked by the type of the second argument: <code>text</code> (<code>Str</code>) deletes every occurrence of it; <code>start</code> (number, 0-based index) with optional <code>count</code> (number of characters, default: to the end) deletes that run instead. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>count</code></td><td><code>count(s, sub)</code></td><td><code>s</code> and <code>sub</code> are <code>Str</code>s. Returns a <code>number</code>: how many non-overlapping times <code>sub</code> occurs in <code>s</code> (non-overlapping so it agrees with <code>replace</code>).</td></tr>
+<tr><td><code>index_of</code></td><td><code>index_of(s, sub)</code></td><td><code>s</code> and <code>sub</code> are <code>Str</code>s. Returns a <code>number</code> (0-based character position of the first occurrence) or <code>none</code> if <code>sub</code> is absent.</td></tr>
+<tr><td><code>last_index_of</code></td><td><code>last_index_of(s, sub)</code></td><td><code>s</code> and <code>sub</code> are <code>Str</code>s. Returns a <code>number</code> (0-based character position of the last occurrence, searching from the end) or <code>none</code> if absent — so a miss cannot be mistaken for a position.</td></tr>
+<tr><td><code>pad_left</code></td><td><code>pad_left(s, width, [fill=" "])</code></td><td><code>s</code> is a <code>Str</code>; <code>width</code> (number, target character count); optional <code>fill</code> (single-character <code>Str</code>, default <code>" "</code>). Pads on the left to <code>width</code> characters; a string already that wide is returned unchanged, never truncated. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>pad_right</code></td><td><code>pad_right(s, width, [fill=" "])</code></td><td>Same parameters and return as <code>pad_left</code>, padding on the right instead. Returns a <code>Str</code> of at least <code>width</code> characters — <code>s</code> unchanged when it is already that long.</td></tr>
+<tr><td><code>capitalize</code></td><td><code>capitalize(s)</code></td><td><code>s</code> is a <code>Str</code>. Uppercases the first character, leaves the rest untouched. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>proper</code></td><td><code>proper(s)</code></td><td><code>s</code> is a <code>Str</code>. Uppercases every word's first character, lowercases the rest — VB's <code>StrConv(s, vbProperCase)</code>. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>lines</code></td><td><code>lines(s)</code></td><td><code>s</code> is a <code>Str</code>. Splits on either line ending, with no spurious empty last element when the text ends in a newline. Returns a <code>List</code> of <code>Str</code>.</td></tr>
+<tr><td><code>chars</code></td><td><code>chars(s)</code></td><td><code>s</code> is a <code>Str</code>. Returns a <code>List</code> of one-character <code>Str</code>s.</td></tr>
+<tr><td><code>repeat_str</code></td><td><code>repeat_str(s, n)</code></td><td><code>s</code> is a <code>Str</code>; <code>n</code> (number of copies). <code>s * n</code> is the shorter spelling for the same thing; the function is not called <code>repeat</code> because that is a loop keyword. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>chr</code>, <code>ord</code></td><td><code>chr(n)</code>, <code>ord(s)</code></td><td><code>chr(n)</code>: <code>n</code> is a numeric Unicode code point — not a byte, so <code>chr(9731)</code> is a snowman, not an error. <code>ord(s)</code>: <code>s</code> is a <code>Str</code>; a longer string is not an error, only its FIRST character is read, so <code>ord("Abc")</code> is 65. <code>asc</code> is a second name for <code>ord</code>. Returns a one-character <code>Str</code> from <code>chr</code>, and a <code>number</code> — the code point — from <code>ord</code>.</td></tr>
+<tr><td><code>trim</code></td><td><code>trim(s, [chars])</code></td><td>Strips characters from both ends of a string. <code>s</code> is a <code>Str</code>; optional <code>chars</code> (<code>Str</code>, default: whitespace) is a SET of characters to strip, not a substring — <code>trim(field, "\"' ")</code> strips quotes and spaces in any order from both ends. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>ltrim</code>, <code>rtrim</code></td><td><code>ltrim(s, [chars])</code></td><td>Same parameters as <code>trim</code>, restricted to one end only (<code>ltrim</code> the left, <code>rtrim</code> the right). Returns a <code>Str</code>.</td></tr>
+<tr><td><code>split</code></td><td><code>split(s, delim, [limit])</code></td><td><code>s</code> and <code>delim</code> are <code>Str</code>s; optional <code>limit</code> (number of pieces, default: unlimited) stops after that many pieces and leaves the remainder undivided as the last one — <code>split(line, ": ", 2)</code> takes <code>key: value with: colons</code> apart that way. Returns a <code>List</code> of <code>Str</code>.</td></tr>
+<tr><td><code>compare</code></td><td><code>compare(a, b, [ignore_case])</code></td><td><code>a</code> and <code>b</code> are <code>Str</code>s; optional <code>ignore_case</code> (<code>bool</code>, default <code>false</code>). Returns a <code>number</code>: −1, 0 or 1, so it can drive a sort directly.</td></tr>
+<tr><td><code>sort</code></td><td><code>sort(list, [descending])</code></td><td><code>list</code> is a <code>List</code> of <code>Str</code> or a numeric <code>Vec</code>; optional <code>descending</code> (<code>bool</code>, default <code>false</code>). A list of strings sorts lexicographically, a numeric vector sorts numerically. Returns the same type as <code>list</code>.</td></tr>
+<tr><td><code>ucase</code>, <code>lcase</code></td><td><code>ucase(s)</code></td><td><code>s</code> is a <code>Str</code>. BASIC's names for <code>upper</code>/<code>lower</code>; <code>toupper</code>/<code>tolower</code> are C's names for the same thing. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>write_text</code></td><td><code>write_text(path, s)</code></td><td><code>path</code> and <code>s</code> are <code>Str</code>s (file path, content to write). Writes the whole string to a file, overwriting it. Returns a <code>number</code> (bytes written). <code>append_text</code> adds to the end instead; the counterpart of <code>read_all_text</code>.</td></tr>
+<tr><td><code>after</code>, <code>before</code></td><td><code>after(s, mark)</code></td><td><code>s</code> and <code>mark</code> are <code>Str</code>s. <code>after</code> returns the piece of <code>s</code> past the first <code>mark</code>; <code>before</code> returns the piece up to it. <code>after_last</code>/<code>before_last</code> search from the other end. A <code>mark</code> that is not present leaves <code>s</code> whole (returned unchanged), never empty. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>head</code>, <code>tail</code></td><td><code>head(s, n)</code></td><td><code>s</code> is a <code>Str</code>, <code>List</code>, <code>Vec</code>, or <code>Table</code>; <code>n</code> (number, default 5 when used on a table). Returns the first (<code>head</code>) or last (<code>tail</code>) <code>n</code> elements/rows, same type as <code>s</code>.</td></tr>
+<tr><td><code>grep</code></td><td><code>grep(s, pattern, [invert=])</code></td><td><code>s</code> is a <code>Str</code> (often multi-line) or <code>List</code> of lines; <code>pattern</code> is a regex <code>Str</code>; optional named <code>invert</code> (<code>bool</code>, default <code>false</code>) selects non-matching lines instead. Returns a <code>List</code> of the matching (or non-matching) LINES — <code>regex_find_all</code> returns the matched substrings themselves, a different thing.</td></tr>
+<tr><td><code>parse_as</code>, <code>scan</code></td><td><code>parse_as(s, template, [must_match=])</code></td><td><code>s</code> and <code>template</code> are <code>Str</code>s. scanf backwards: <code>"hello world 12".parse_as("hello world %d")</code> gives 12. <code>%d</code> a whole number, <code>%f</code> any number, <code>%s</code> a run of non-space, <code>%*</code> anything. The template understands <code>\t</code>, <code>\n</code>, <code>\r</code> and <code>\\</code> in its literal parts, so <code>"%d\thello"</code> and <code>r"%d\thello"</code> mean the same thing; a literal backslash is doubled. Returns the extracted value (a <code>number</code>, <code>Str</code>, or a <code>List</code>/tuple of them when <code>template</code> has more than one placeholder), or <code>none</code> if the line doesn't have the shape described — never numbers pulled from a different sentence. Optional named <code>must_match</code> (<code>bool</code>, default <code>false</code>) raises an error naming the missing part of the shape instead of returning <code>none</code> — see the limit noted below.</td></tr>
+<tr><td><code>format</code></td><td><code>format(x, pattern)</code></td><td><code>x</code> is a <code>number</code>; <code>pattern</code> is a <code>Str</code> picture: <code>"0.00"</code>, <code>"#,##0.0"</code>, <code>"0.0%"</code>, <code>"0.00e0"</code>. Interpolation (<code>{x:.2f}</code>) reads better inline; <code>format</code> is for a pattern held in a variable. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>as_text</code></td><td><code>as_text(v)</code></td><td><code>v</code> is a <code>Vec</code>, <code>List</code>, or <code>Signal</code>. Returns a <code>List</code> of <code>Str</code> (each element formatted the way <code>print</code> would), so <code>[1, 2, 3].as_text().join(", ")</code> works. <code>str</code> renders the whole value as one string in one shot — a different question.</td></tr>
+<tr><td><code>md2html</code></td><td><code>md2html(s)</code></td><td><code>s</code> is a <code>Str</code> of Markdown source. Converts headings, paragraphs, lists, fenced code with its language, blockquotes, pipe tables, rules, and inline code/bold/italic/links/images. Returns a <code>Str</code> of HTML.</td></tr>
+<tr><td><code>html2md</code></td><td><code>html2md(s)</code></td><td><code>s</code> is a <code>Str</code> of HTML. Converts the same subset back to Markdown; malformed HTML degrades to its text rather than erroring. Returns a <code>Str</code>.</td></tr>
+</table></div>
+<h4>Overloads: <code>substr</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>substr(s, start)</code></td><td>Everything from <code>start</code> to the end of <code>s</code> — the 2-argument form.</td></tr>
+<tr><td><code>substr(s, start, length)</code></td><td>Exactly <code>length</code> characters starting at <code>start</code>, clamped (not an error) if <code>length</code> runs past what's left — the 3-argument form.</td></tr>
+</table></div>
+<p><code>mid</code> is the exact same builtin under a second, BASIC/Excel-flavored name; either spelling accepts either form. The example below starts with the simplest call — everything after a fixed position — then the bounded form, then shows the clamping behavior when the requested length overruns the string:</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, World!"</span>
+<span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>))          <span class="c"># "World!" — to the end</span>
+<span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># "Hello" — bounded</span>
+<span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>, <span class="n">100</span>))     <span class="c"># "World!" — clamped, not an error</span>
+<span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">5</span>))          <span class="c"># "World" — mid is substr under another name</span>
+</code></pre>
+</div>
+<p>These are the string functions reached for constantly: slicing out a piece, swapping one substring for another, padding a value so a column of output lines up, and fixing up capitalization on a name typed in whatever case a user felt like. <code>s * n</code> repeats a string, in either order, and a non-whole count is an error rather than a silent floor — the same operator overload <code>3 * 4</code> uses, extended to strings rather than a separate <code>repeat_str</code> call being the only spelling. The example below chains a slice into a replace, pads a number-turned-string with leading zeros, title-cases a name, and counts a substring's occurrences:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"-"</span> * <span class="n">40</span>)                                  <span class="c"># "----------------------------------------"</span>
+<span class="f">print</span>(<span class="s">"hello"</span>.<span class="f">substr</span>(<span class="n">0</span>, <span class="n">2</span>).<span class="f">replace</span>(<span class="s">"e"</span>, <span class="s">"i"</span>))    <span class="c"># "hi"</span>
+<span class="f">print</span>(<span class="f">pad_left</span>(<span class="f">str</span>(<span class="n">7</span>), <span class="n">3</span>, <span class="s">"0"</span>))                  <span class="c"># "007"</span>
+<span class="f">print</span>(<span class="f">proper</span>(<span class="s">"ada lovelace"</span>))                    <span class="c"># "Ada Lovelace"</span>
+<span class="f">print</span>(<span class="f">count</span>(<span class="s">"banana"</span>, <span class="s">"a"</span>))                      <span class="c"># 3</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>remove</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it does</td></tr>
+<tr><td><code>remove(s, text)</code></td><td><code>text</code> is a <code>Str</code>. Deletes every occurrence of it from <code>s</code>.</td></tr>
+<tr><td><code>remove(s, start)</code></td><td><code>start</code> is a number (0-based character index). Deletes from <code>start</code> to the end of <code>s</code>.</td></tr>
+<tr><td><code>remove(s, start, count)</code></td><td><code>count</code> is a number of characters. Deletes exactly that many, starting at <code>start</code>, clamped rather than erroring if <code>count</code> runs past what's left.</td></tr>
+</table></div>
+<p>Picked by the TYPE of the second argument, not a flag: a <code>Str</code> means "delete every occurrence of this text anywhere in <code>s</code>"; a number means "delete this run of characters" instead, with an optional third argument narrowing how many. Returns a <code>Str</code> either way:</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="s">", "</span>))       <span class="c"># "helloworld" -- every occurrence of the text</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># ", world" -- 5 characters starting at position 0</span>
+<span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">7</span>))          <span class="c"># "hello, " -- position 7 to the end, count omitted</span>
+</code></pre>
+</div>
+<h3>Patterns</h3>
+<p>A regular expression is the one string tool with no workaround — everything else here can be written as a loop, and this cannot.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>regex_match</code></td><td><code>regex_match(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s (<code>pattern</code> a regular expression). Returns a <code>bool</code>: whether the pattern occurs anywhere in <code>s</code>. Anchor it with <code>^</code>/<code>$</code> to test the whole string.</td></tr>
+<tr><td><code>regex_find</code></td><td><code>regex_find(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. Returns a <code>Str</code> (the first match) or <code>none</code> — not an empty string, so "matched empty" and "did not match" stay apart.</td></tr>
+<tr><td><code>regex_find_all</code></td><td><code>regex_find_all(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. Returns a <code>List</code> of <code>Str</code> — every match, in order.</td></tr>
+<tr><td><code>regex_groups</code></td><td><code>regex_groups(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s (<code>pattern</code> containing <code>(...)</code> capture groups). Returns a <code>List</code> of <code>Str</code> — the capture groups of the first match, group 1 onward; a group that did not participate is an empty string. Returns <code>none</code> if nothing matched.</td></tr>
+<tr><td><code>regex_replace</code></td><td><code>regex_replace(s, pattern, repl, [count])</code></td><td><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s; optional <code>count</code> (number, default: all occurrences) caps how many replacements are made. <code>$1</code> and <code>${name}</code> in <code>repl</code> refer to capture groups. Returns a <code>Str</code>.</td></tr>
+<tr><td><code>regex_split</code></td><td><code>regex_split(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. Returns a <code>List</code> of <code>Str</code>, split on every match of the pattern.</td></tr>
+<tr><td><code>regex_count</code></td><td><code>regex_count(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. Returns a <code>number</code>: how many non-overlapping matches occur.</td></tr>
+<tr><td><code>like</code></td><td><code>like(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. BASIC's wildcard match, anchored at both ends: <code>*</code> any run, <code>?</code> any one character, <code>#</code> any digit, <code>[abc]</code>/<code>[!abc]</code> a set. Returns a <code>bool</code>.</td></tr>
+</table></div>
+<p><code>regex_find_all</code> pulls out every run of digits in a string, <code>regex_replace</code> rearranges a date using capture-group backreferences, <code>regex_groups</code> reads those same captures back individually, and <code>like</code> answers a wildcard question without writing a full pattern:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_find_all</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))                                          <span class="c"># ("1", "22", "333")</span>
+<span class="f">print</span>(<span class="f">regex_replace</span>(<span class="s">"2026-09-07"</span>, <span class="s">"([0-9]+)-([0-9]+)-([0-9]+)"</span>, <span class="s">"$3/$2/$1"</span>))          <span class="c"># "07/09/2026"</span>
+<span class="f">print</span>(<span class="f">regex_groups</span>(<span class="s">"v1.2.3"</span>, <span class="s">"v([0-9]+)\.([0-9]+)"</span>))                                  <span class="c"># ("1", "2")</span>
+<span class="f">print</span>(<span class="f">like</span>(<span class="s">"hello.txt"</span>, <span class="s">"*.txt"</span>))                                                      <span class="c"># true</span>
+</code></pre>
+</div>
+<p><code>regex_match</code> just asks yes/no, <code>regex_find</code> returns the first match alone, <code>regex_split</code> divides the string on the pattern, and <code>regex_count</code> tallies non-overlapping matches:</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"sensor_1: 12.4, sensor_2: 9.8, sensor_3: 15.0"</span>
+<span class="f">print</span>(<span class="f">regex_match</span>(s, <span class="s">"sensor_[0-9]+"</span>))    <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">regex_find</span>(s, <span class="s">"[0-9]+\.[0-9]+"</span>))    <span class="c"># "12.4"</span>
+<span class="f">print</span>(<span class="f">regex_split</span>(s, <span class="s">", *"</span>))              <span class="c"># 3-piece split on each comma</span>
+<span class="f">print</span>(<span class="f">regex_count</span>(s, <span class="s">"sensor_"</span>))          <span class="c"># 3</span>
+</code></pre>
+</div>
+<p>The engine is the <code>regex</code> crate, which is linear in the input by construction: a pattern typed at a prompt cannot hang the interpreter the way a backtracking engine can on <code>(a+)+b</code>. The price is no backreferences and no lookaround, which is the right trade for a language you drive interactively. A pattern that does not compile is an error naming the character it choked on, never a silent no-match — a typo and a genuine miss must not look the same.</p>
+<p><code>like</code> is translated into a regular expression rather than matched by a second engine, so the two cannot disagree about anchoring or Unicode. Reach for it first: most "does this look like that" questions are a wildcard question, and a wildcard is far easier to get right.</p>
+<h3>Chaining</h3>
+<p>Every string function is also a method on the value, so a chain reads left to right:</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"  Hello, Qu World!  "</span>
+trimmed = <span class="f">trim</span>(s)
+parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)
+<span class="f">print</span>(parts)                  <span class="c"># ["Hello", "Qu World!"]</span>
+<span class="f">print</span>(<span class="f">upper</span>(parts[<span class="n">0</span>]))        <span class="c"># HELLO</span>
+<span class="f">print</span>(<span class="f">starts_with</span>(trimmed, <span class="s">"Hello"</span>))  <span class="c"># true</span>
+<span class="f">print</span>(<span class="s">"hello"</span>.<span class="f">substr</span>(<span class="n">0</span>, <span class="n">2</span>).<span class="f">replace</span>(<span class="s">"e"</span>, <span class="s">"i"</span>).<span class="f">flip</span>().<span class="f">flip</span>())
+<span class="f">print</span>(<span class="s">"hi world"</span>.<span class="f">split</span>(<span class="s">" "</span>).<span class="f">join</span>(<span class="s">", "</span>) + <span class="s">"!"</span>)
+</code></pre>
+</div>
+<h3>More string examples</h3>
+<p>Real text rarely arrives in the shape you want it: a filename needs a substring pulled out of it, a heading needs consistent case, a field read from a form needs its leading/trailing padding stripped before it is safe to compare. This block runs one string through several of those cleanups — slicing with <code>mid</code>/<code>left</code>/<code>right</code>, case conversion under all of its aliases (<code>upper</code>/<code>lower</code>/<code>ucase</code>/<code>lcase</code>/<code>toupper</code>/<code>tolower</code>), and trimming/padding — to show that they compose without any of them mutating the original:</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
+<span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">2</span>))          <span class="c"># "Qu"</span>
+<span class="f">print</span>(<span class="f">left</span>(s, <span class="n">5</span>))            <span class="c"># "Hello"</span>
+<span class="f">print</span>(<span class="f">right</span>(s, <span class="n">6</span>))           <span class="c"># "World!"</span>
+<span class="f">print</span>(<span class="f">reverse</span>(<span class="s">"abc"</span>))        <span class="c"># "cba"</span>
+<span class="f">print</span>(<span class="f">lower</span>(<span class="s">"SHOUT"</span>))        <span class="c"># "shout"</span>
+<span class="f">print</span>(<span class="f">ucase</span>(<span class="s">"shout"</span>))        <span class="c"># "SHOUT"</span>
+<span class="f">print</span>(<span class="f">lcase</span>(<span class="s">"SHOUT"</span>))        <span class="c"># "shout"</span>
+<span class="f">print</span>(<span class="f">toupper</span>(<span class="s">"mix"</span>))        <span class="c"># "MIX"</span>
+<span class="f">print</span>(<span class="f">tolower</span>(<span class="s">"MIX"</span>))        <span class="c"># "mix"</span>
+<span class="f">print</span>(<span class="f">capitalize</span>(<span class="s">"ada lovelace"</span>))  <span class="c"># "Ada lovelace"</span>
+<span class="f">print</span>(<span class="f">ltrim</span>(<span class="s">"   padded"</span>))    <span class="c"># "padded"</span>
+<span class="f">print</span>(<span class="f">rtrim</span>(<span class="s">"padded   "</span>) + <span class="s">"|"</span>)   <span class="c"># "padded|"</span>
+<span class="f">print</span>(<span class="f">pad_right</span>(<span class="s">"ab"</span>, <span class="n">5</span>, <span class="s">"."</span>))    <span class="c"># "ab..."</span>
+<span class="f">print</span>(<span class="f">compare</span>(<span class="s">"apple"</span>, <span class="s">"banana"</span>)) <span class="c"># -1</span>
+<span class="f">print</span>(<span class="f">asc</span>(<span class="s">"A"</span>))              <span class="c"># 65</span>
+</code></pre>
+</div>
+<p>Searching for a marker and cutting the string around it — <code>index_of</code>/ <code>last_index_of</code> from the front and back, <code>after</code>/<code>before</code>/<code>after_last</code>/ <code>before_last</code> to grab one side of it directly:</p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
+<span class="f">print</span>(<span class="f">ends_with</span>(path, <span class="s">".txt"</span>))         <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">index_of</span>(path, <span class="s">"_"</span>))              <span class="c"># 6</span>
+<span class="f">print</span>(<span class="f">last_index_of</span>(path, <span class="s">"_"</span>))         <span class="c"># 12</span>
+<span class="f">print</span>(<span class="f">insert</span>(<span class="s">"helloworld"</span>, <span class="n">5</span>, <span class="s">", "</span>))    <span class="c"># "hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(<span class="s">"hello, world"</span>, <span class="s">", "</span>))     <span class="c"># "helloworld"</span>
+line = <span class="s">"key: value"</span>
+<span class="f">print</span>(<span class="f">after</span>(line, <span class="s">": "</span>))                <span class="c"># "value"</span>
+<span class="f">print</span>(<span class="f">before</span>(line, <span class="s">": "</span>))               <span class="c"># "key"</span>
+full = <span class="s">"a/b/c.txt"</span>
+<span class="f">print</span>(<span class="f">after_last</span>(full, <span class="s">"/"</span>))            <span class="c"># "c.txt"</span>
+<span class="f">print</span>(<span class="f">before_last</span>(full, <span class="s">"/"</span>))           <span class="c"># "a/b"</span>
+</code></pre>
+</div>
+<p>Breaking text apart into lines or characters, and the two ways of putting it back together:</p>
+<div class="example"><pre class="hl"><code>text = <span class="s">"one\ntwo\nthree"</span>
+<span class="f">print</span>(<span class="f">lines</span>(text))                     <span class="c"># ("one", "two", "three")</span>
+<span class="f">print</span>(<span class="f">chars</span>(<span class="s">"abc"</span>))                    <span class="c"># ("a", "b", "c")</span>
+<span class="f">print</span>(<span class="f">repeat_str</span>(<span class="s">"ab"</span>, <span class="n">3</span>))             <span class="c"># "ababab"</span>
+<span class="f">print</span>(<span class="f">as_text</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]).<span class="f">join</span>(<span class="s">", "</span>))   <span class="c"># "1, 2, 3"</span>
+</code></pre>
+</div>
+<p><code>parse_as</code>/<code>scan</code> pull values out of a fixed-shape line of text; <code>format</code> goes the other way, a number into a picture:</p>
+<div class="example"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
+<span class="f">print</span>(n)                          <span class="c"># 12</span>
+reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <span class="s">"temp = %f %s"</span>)
+<span class="f">print</span>(reading)                    <span class="c"># (98.6, "F")</span>
+<span class="f">print</span>(<span class="f">format</span>(<span class="n">1234.5</span>, <span class="s">"#,##0.0"</span>))  <span class="c"># "1,234.5"</span>
+<span class="f">print</span>(<span class="f">format</span>(<span class="n">0.256</span>, <span class="s">"0.0%"</span>))      <span class="c"># "25.6%"</span>
+</code></pre>
+</div>
+<h3>Case modes and pattern languages</h3>
+<p><code>replace</code> and <code>contains</code> take two independent keywords. Both default to today's behaviour, so existing calls are unchanged.</p>
+<p><code>case=</code> is <code>"sensitive"</code> (default), <code>"insensitive"</code>, or <code>"preserve"</code> — where the match is case-insensitive and the replacement inherits the case of what it replaced, letter by letter:</p>
+<div class="example"><pre class="hl"><code><span class="f">replace</span>(<span class="s">"the programme, the Programme, the PROGRAMME"</span>,
+        <span class="s">"programme"</span>, <span class="s">"program"</span>, <span class="a">case</span>=<span class="s">"preserve"</span>)
+<span class="c"># "the program, the Program, the PROGRAM"</span>
+</code></pre>
+</div>
+<p>Inheritance is per character, so <code>PrograMme</code> becomes <code>PrograM</code>. Letters past the end of the match follow its last letter (<code>PROG</code> → <code>PROGRAMME</code>); non-alphabetic characters consume no position, so a digit cannot shift the pattern (<code>A1B</code> → <code>X1Y</code>); and a character whose case mapping is not one-to-one passes through unchanged, so German <code>ß</code> stays <code>ß</code> rather than becoming <code>SS</code> and changing the string's length.</p>
+<p><code>pattern=</code> is <code>"literal"</code> (default), <code>"wildcard"</code>, or <code>"regex"</code>:</p>
+<div class="example"><pre class="hl"><code><span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>)                     <span class="c"># "axb Z"   the dot is a dot</span>
+<span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>, <span class="a">pattern</span>=<span class="s">"regex"</span>)    <span class="c"># "Z Z"</span>
+<span class="f">replace</span>(<span class="s">"a1 b2 c3"</span>, <span class="s">"?#"</span>, <span class="s">"X"</span>, <span class="a">pattern</span>=<span class="s">"wildcard"</span>) <span class="c"># "X X X"</span>
+</code></pre>
+</div>
+<p>Literal is the default because Word, <code>str.replace</code>, <code>strrep</code> and VB's <code>Replace</code> all are: someone replacing <code>a.b</code> should not have the dot silently mean any-character. <code>"wildcard"</code> is the same dialect <code>like</code> accepts — <code>*</code>, <code>?</code>, <code>#</code>, <code>[abc]</code>, <code>[!abc]</code> — because both use the same translation.</p>
+<p>The two compose: <code>replace(s, "prog*", "X", pattern="wildcard", case="preserve")</code>.</p>
+<p><strong></strong><code>*</code> is greedy and runs to the end of the string.<strong> </strong><code>replace("the programme here", "program*", "X", pattern="wildcard")</code> gives <code>"the X"</code>, not <code>"the X here"</code> — <code>*</code> means "any run of characters" and there is nothing to stop it. <code>like</code> behaves the same way, and making <code>*</code> lazy for <code>replace</code> alone would give Qu two wildcard dialects. Use <code>?</code> per character, or a regex, when you need a bounded match.</p>
+<p>An unknown <code>case=</code> or <code>pattern=</code> value is an error naming the valid ones, never a silent fallback to the default.</p>
+<p>A non-match is an ordinary answer, because scanning a file where only some lines are headers is the normal case. When you expected the line to fit, <code>must_match=true</code> says which part of the shape was missing instead:</p>
+<div class="example"><pre class="hl"><code><span class="f">scan</span>(<span class="s">"12 goodbye world"</span>, <span class="s">"%d hello world"</span>, <span class="a">must_match</span>=<span class="k">true</span>)
+<span class="c"># error: scan: `%d hello world` did not match `12 goodbye world`</span>
+<span class="c">#        -- expected ` hello world` after %d</span>
+</code></pre>
+</div>
+<p><strong>A limit worth stating.</strong> Qu cannot tell you at parse time that a template is impossible, and it does not try. <code>\d</code> is genuinely ambiguous — a regex habit, or the start of a Windows path like <code>C:\data</code> — so an unrecognised escape is kept literally rather than rejected, and <code>scan("C:\data\x 42", r"C:\data\x %d")</code> works. The consequence is that a template with a typo in it is a template that simply does not match, and a bare <code>none</code> still means "did not match" without saying why. <code>must_match=</code> exists because that question is answerable at the point of use, where the input is in hand, and not before.</p>
+<p><code>tail</code> for the end of a string, <code>grep</code> for the lines of it that match a pattern — both borrowed from their command-line namesakes:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
+log = <span class="s">"INFO start\nERROR disk full\nINFO retry\nERROR timeout"</span>
+<span class="f">print</span>(<span class="f">grep</span>(log, <span class="s">"ERROR"</span>))     <span class="c"># ("ERROR disk full", "ERROR timeout")</span>
+</code></pre>
+</div>
+<p>Sometimes the destination for a piece of text is a file rather than the terminal — a log line, a generated report, a config value computed at runtime. <code>write_text(path, s)</code> writes the whole string in one call and hands back the byte count written, so a caller can confirm nothing was truncated without a separate file-size check (to a scratch path here, not anywhere inside a project -- <code>/tmp/</code> resolves to the system temporary directory on every platform, including Windows):</p>
+<div class="example"><pre class="hl"><code>out_path = <span class="s">"/tmp/qu_scratch_note.txt"</span>
+bytes = <span class="f">write_text</span>(out_path, <span class="s">"hello from Qu\n"</span>)
+<span class="f">print</span>(bytes)                  <span class="c"># 14</span>
+</code></pre>
+</div>
+<p>Notes written as Markdown often need to become HTML for a report or a web page, and HTML pasted from somewhere else sometimes needs to become plain Markdown so it can be edited by hand. <code>md2html</code>/<code>html2md</code> convert between the two formats for the common subset — headings, paragraphs, lists, code, links, and emphasis — without pulling in an external converter:</p>
+<div class="example"><pre class="hl"><code>md = <span class="s">"# Title\n\nSome **bold** text."</span>
+html = <span class="f">md2html</span>(md)
+<span class="f">print</span>(html)
+<span class="f">print</span>(<span class="f">html2md</span>(html))
+</code></pre>
+</div>
+<h2 id="s25">Bitwise &amp; Number-Base Conversion</h2>
+<p><code>Value</code> has no separate integer type — everything is <code>f64</code> — so all of these read each argument as an integer via a strict integer check (rejecting non-integral input rather than silently truncating it), do the operation as <code>i64</code>, and hand back a <code>Num</code>. These are deliberately plain builtins, not <code>&amp;</code>/<code>|</code>-family operators: <code>and</code>/<code>or</code> already mean logical and/or in Qu, so <code>|</code>/<code>&amp;</code> are a clear parse error pointing here instead.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>bitand</code></td><td><code>bitand(a, b)</code></td><td><code>a</code> and <code>b</code> are numbers holding integer values. Returns a <code>number</code>: the bitwise AND of <code>a</code> and <code>b</code> as 64-bit integers.</td></tr>
+<tr><td><code>bitor</code></td><td><code>bitor(a, b)</code></td><td><code>a</code> and <code>b</code> are numbers holding integer values. Returns a <code>number</code>: the bitwise OR.</td></tr>
+<tr><td><code>bitxor</code></td><td><code>bitxor(a, b)</code></td><td><code>a</code> and <code>b</code> are numbers holding integer values. Returns a <code>number</code>: the bitwise XOR.</td></tr>
+<tr><td><code>bitcmp</code></td><td><code>bitcmp(a)</code></td><td><code>a</code> is a number holding an integer value. Returns a <code>number</code>: the bitwise complement (<code>!a</code>) as a 64-bit integer.</td></tr>
+<tr><td><code>bitshift</code></td><td><code>bitshift(x, n)</code></td><td>Shifts an integer's bits left or right. <code>x</code> is a number holding an integer value; <code>n</code> is a number holding an integer shift amount — positive shifts left, negative shifts right (MATLAB's single-function convention rather than separate <code>&lt;&lt;</code>/<code>&gt;&gt;</code> operators). Returns a <code>number</code>.</td></tr>
+<tr><td><code>xor</code></td><td><code>xor(a, b)</code></td><td><code>a</code> and <code>b</code> are any values, read by whole-value truthiness. Returns a <code>bool</code>: logical XOR, non-short-circuit like <code>and</code>/<code>or</code>.</td></tr>
+<tr><td><code>nand</code></td><td><code>nand(a, b)</code></td><td><code>a</code> and <code>b</code> are any values, read by whole-value truthiness. Returns a <code>bool</code>: logical NAND.</td></tr>
+<tr><td><code>nor</code></td><td><code>nor(a, b)</code></td><td><code>a</code> and <code>b</code> are any values, read by whole-value truthiness. Returns a <code>bool</code>: logical NOR.</td></tr>
+<tr><td><code>hex2dec</code></td><td><code>hex2dec(s)</code></td><td>Reads a hexadecimal digit string as a number. <code>s</code> is a <code>Str</code> (a hex digit string, optional <code>0x</code>/<code>0X</code> prefix). Returns a <code>number</code>.</td></tr>
+<tr><td><code>dec2hex</code></td><td><code>dec2hex(n)</code></td><td><code>n</code> is a number holding an integer value. Returns a <code>Str</code>: uppercase hex digits, no prefix.</td></tr>
+<tr><td><code>bin2dec</code></td><td><code>bin2dec(s)</code></td><td>Reads a binary digit string as a number. <code>s</code> is a <code>Str</code> of <code>0</code>/<code>1</code> digits. Returns a <code>number</code>.</td></tr>
+<tr><td><code>dec2bin</code></td><td><code>dec2bin(n)</code></td><td><code>n</code> is a number holding an integer value. Returns a <code>Str</code> of <code>0</code>/<code>1</code> digits, no prefix.</td></tr>
+</table></div>
+<p>Qu also accepts <code>0xFF</code>-style hex literals directly in source; <code>hex2dec</code>/ <code>bin2dec</code> are for runtime string-to-number conversion (e.g. values read from a file or built at runtime). The block below runs each bitwise, logical, and base-conversion function once so their outputs can be checked at a glance — <code>12</code> and <code>10</code> chosen because their bit patterns (<code>1100</code> and <code>1010</code>) make the AND/OR/XOR results easy to verify by hand:</p>
+<div class="example"><pre class="hl"><code>flags = <span class="f">bitand</span>(<span class="n">12</span>, <span class="n">10</span>)          <span class="c"># 8   -- bits common to both</span>
+<span class="f">print</span>(flags)
+<span class="f">print</span>(<span class="f">bitor</span>(<span class="n">12</span>, <span class="n">10</span>))            <span class="c"># 14</span>
+<span class="f">print</span>(<span class="f">bitxor</span>(<span class="n">12</span>, <span class="n">10</span>))           <span class="c"># 6</span>
+<span class="f">print</span>(<span class="f">bitcmp</span>(<span class="n">0</span>))                <span class="c"># -1</span>
+<span class="f">print</span>(<span class="f">bitshift</span>(<span class="n">1</span>, <span class="n">4</span>))           <span class="c"># 16  -- left shift</span>
+<span class="f">print</span>(<span class="f">bitshift</span>(<span class="n">16</span>, -<span class="n">2</span>))         <span class="c"># 4   -- right shift</span>
+<span class="f">print</span>(<span class="f">xor</span>(<span class="k">true</span>, <span class="k">false</span>))         <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">nand</span>(<span class="k">true</span>, <span class="k">true</span>))         <span class="c"># false</span>
+<span class="f">print</span>(<span class="f">nor</span>(<span class="k">false</span>, <span class="k">false</span>))        <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">hex2dec</span>(<span class="s">"FF"</span>))            <span class="c"># 255</span>
+<span class="f">print</span>(<span class="f">dec2hex</span>(<span class="n">255</span>))             <span class="c"># "FF"</span>
+<span class="f">print</span>(<span class="f">bin2dec</span>(<span class="s">"1010"</span>))          <span class="c"># 10</span>
+<span class="f">print</span>(<span class="f">dec2bin</span>(<span class="n">10</span>))              <span class="c"># "1010"</span>
+</code></pre>
+</div>
+<h2 id="s80">Collections (arrays &amp; lists)</h2>
+<p><code>remove</code>/<code>insert</code>/<code>append</code> return a NEW list/vector rather than mutating in place — Qu values are immutable by convention everywhere else.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>remove</code></td><td><code>remove(collection, index)</code></td><td><code>collection</code> is a <code>Vec</code> or <code>List</code>; <code>index</code> is a number (0-based position). Returns a NEW <code>Vec</code>/<code>List</code> (same type as <code>collection</code>) with the element at <code>index</code> dropped. (<code>remove(timer)</code> is a distinct, unrelated overload for deregistering a simulated-event timer.)</td></tr>
+<tr><td><code>insert</code></td><td><code>insert(collection, index, value)</code></td><td><code>collection</code> is a <code>Vec</code> or <code>List</code>; <code>index</code> is a number (0-based position, <code>index == length</code> appends at the end); <code>value</code> is the element to insert — a <code>Vec</code> insert requires <code>value</code> to be numeric, a <code>List</code> insert accepts anything. Returns a NEW <code>Vec</code>/<code>List</code>.</td></tr>
+<tr><td><code>append</code></td><td><code>append(collection, value)</code></td><td><code>collection</code> is a <code>Vec</code> or <code>List</code>; <code>value</code> is the element to add. Returns a NEW <code>Vec</code>/<code>List</code> with <code>value</code> added at the end.</td></tr>
+<tr><td><code>contains</code></td><td><code>contains(collection, value)</code></td><td><code>collection</code> is a <code>Vec</code> or <code>List</code>; <code>value</code> is any comparable element. Returns a <code>bool</code>: membership test via structural equality.</td></tr>
+<tr><td><code>indexof</code></td><td><code>indexof(collection, value)</code></td><td><code>collection</code> is a <code>Vec</code> or <code>List</code>; <code>value</code> is any comparable element. Returns a <code>number</code> (0-based index of the first match) or <code>Nothing</code> if absent (composes with <code>??</code>: <code>indexof(xs, v) ?? -1</code>).</td></tr>
+<tr><td><code>unique</code></td><td><code>unique(x)</code></td><td><code>x</code> is a numeric <code>Vec</code>. Returns a <code>Vec</code>: a sorted, de-duplicated copy.</td></tr>
+<tr><td><code>sort</code></td><td><code>sort(x, [descending])</code></td><td><code>x</code> is a numeric <code>Vec</code> or <code>List</code> of <code>Str</code>; optional <code>descending</code> (<code>bool</code>, default <code>false</code>). Returns the same type as <code>x</code>, ascending by default; uses a proper total order (<code>f64::total_cmp</code>) so a stray <code>NaN</code> cannot corrupt the ordering of the other elements around it.</td></tr>
+<tr><td><code>argsort</code></td><td><code>argsort(x, [descending])</code></td><td><code>x</code> is a numeric <code>Vec</code>; optional <code>descending</code> (<code>bool</code>, default <code>false</code>). Returns a <code>Vec</code> of <code>number</code> (0-based indices): the permutation that would sort <code>x</code> — the index-returning sibling of <code>sort</code>, same convention as <code>argmin</code>/<code>argmax</code>.</td></tr>
+<tr><td><code>cumsum</code></td><td><code>cumsum(x)</code></td><td><code>x</code> is a numeric <code>Vec</code> or <code>Signal</code>. Returns the running sum, same type/length as <code>x</code>; a <code>Signal</code> input stays a <code>Signal</code> with the same <code>Fs</code>.</td></tr>
+<tr><td><code>diff</code></td><td><code>diff(x)</code></td><td><code>x</code> is a numeric <code>Vec</code> or <code>Signal</code> of length N. Returns the first difference (<code>x[i+1] - x[i]</code>), length N-1, same base type as <code>x</code>; a <code>Signal</code> input stays a <code>Signal</code> with the same <code>Fs</code>.</td></tr>
+</table></div>
+<p><code>contains</code>/<code>indexof</code> compare elements via structural equality (<code>values_equal</code>), which does handle <code>Str</code>. The <code>==</code>/<code>!=</code> operators themselves are narrower today: they fall back to numeric coercion for anything that isn't two <code>Vec</code>s or two same-type <code>EnumVal</code>s, so <code>"a" == "b"</code> currently errors rather than returning <code>false</code> — a pre-existing gap, not a documentation omission. Prefer <code>contains</code>/<code>indexof</code> (or <code>starts_with</code>/<code>ends_with</code>/<code>replace</code> for substring checks) over <code>==</code> when comparing strings.</p>
+<p>The functions below are the everyday toolkit for a numeric vector once it has been collected: sort it, get a de-duplicated set of its values, or find the order that WOULD sort it (<code>argsort</code>) without disturbing the original — useful when a second vector needs to be reordered in step with the first:</p>
+<div class="example"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">unique</span>(xs))          <span class="c"># [1, 2, 3, 4, 5, 6, 9]</span>
+<span class="f">print</span>(<span class="f">sort</span>(xs))            <span class="c"># [1, 1, 2, 3, 4, 5, 6, 9]</span>
+<span class="f">print</span>(<span class="f">argsort</span>(xs))         <span class="c"># permutation of indices, ascending</span>
+<span class="f">print</span>(<span class="f">sort</span>(xs, <span class="k">true</span>))      <span class="c"># descending</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>sort</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>sort(list_of_str, [descending])</code></td><td><code>list_of_str</code> is a <code>List</code> in which every element is a <code>Str</code>. Sorts lexicographically. Returns a <code>List</code>.</td></tr>
+<tr><td><code>sort(vec, [descending])</code></td><td><code>vec</code> is (or coerces to) a numeric <code>Vec</code>. Sorts numerically via <code>f64::total_cmp</code>, immune to a stray <code>NaN</code>. Returns a <code>Vec</code>.</td></tr>
+</table></div>
+<p>Picked by the TYPE of the first argument, not a flag: a <code>List</code> in which every element is a <code>Str</code> sorts as text and comes back as a <code>List</code>; anything else is read as a numeric <code>Vec</code> and sorted as numbers, coming back as a <code>Vec</code> — a different return type as well as a different comparison, which matters the moment the result is chained into something that expects one or the other:</p>
+<div class="example"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
+<span class="f">print</span>(<span class="f">sort</span>(words))            <span class="c"># ("apple", "banana", "cherry") -- a List, lexicographic</span>
+nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="f">sort</span>(nums))             <span class="c"># [1, 1, 3, 4, 5] -- a Vec, numeric</span>
+<span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(words)))      <span class="c"># "list"</span>
+<span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(nums)))       <span class="c"># "vector"</span>
+</code></pre>
+</div>
+<p><code>contains</code>/<code>indexof</code> for membership, <code>cumsum</code> for a running total, and <code>numel</code> for the element count:</p>
+<div class="example"><pre class="hl"><code>ys = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="f">contains</span>(ys, <span class="n">4</span>))     <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">indexof</span>(ys, <span class="n">4</span>))      <span class="c"># 2</span>
+<span class="f">print</span>(<span class="f">cumsum</span>(ys))          <span class="c"># [3, 4, 8, 9, 14]</span>
+<span class="f">print</span>(<span class="f">numel</span>(ys))           <span class="c"># 5</span>
+</code></pre>
+</div>
+<h2 id="s131">Enums</h2>
+<p>The <code>enum Name ... end</code> declaration is a small, purely symbolic enum type shipped 2026-08-24: named, validated constants, explicitly not a Rust/Swift-style tagged union with per-variant payloads (Qu has no static type system yet). Variants are reached via ordinary dot-access on the declared type (<code>Season.Spring</code>), and two <code>EnumVal</code>s compare equal only when both their type and variant name match.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>enum_values</code></td><td><code>enum_values(EnumType)</code></td><td><code>EnumType</code> is a type declared with <code>enum ... end</code> (not a string — the bare type name). Returns a <code>List</code> of <code>EnumVal</code>s: every variant of the declared type, in declaration order — makes the type a real enumeration rather than just a handful of named constants, and lets code iterate "all seasons" without hardcoding the list a second time.</td></tr>
+</table></div>
+<p>A declared enum's variants can always be named directly (<code>Season.Spring</code>), but a function that needs to iterate every possible value — filling a dropdown, generating a test matrix, printing a legend — needs a way to ask the type itself what its variants are. That's what <code>enum_values</code> is for:</p>
+<div class="example"><pre class="hl"><code>enum Season
+    Spring, Summer, Autumn, Winter
+<span class="k">end</span>
+
+seasons = <span class="f">enum_values</span>(Season)
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(seasons) - <span class="n">1</span>
+    <span class="f">print</span>(seasons[i])
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div>
+<h2 id="s156">Data Frames / Tables</h2>
+<p>A <code>Table</code> (constructed via <code>table(...)</code>/<code>DataFrame(...)</code>) is Qu's DataFrame primitive — see <code>engine/crates/qu-interp/src/table.rs</code> for the underlying column-oriented representation (<code>Column::Num</code>/<code>Column::Str</code>). A numeric column of a table is read with <code>df.colname</code> (returns a plain <code>Vec</code>); a text column has no vector-of-strings Qu value to become yet, so it can only be used inside table operations (<code>filter</code>/<code>sort_by</code>/<code>group_by_agg</code>).</p>
+<p><code>read_csv</code>/<code>write_csv</code> also produce/consume <code>Table</code> values, but are documented in <a href="file-io.html">File I/O</a> since they are fundamentally file operations — see that chapter's CSV section.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>table</code>, <code>DataFrame</code></td><td><code>DataFrame(name=values, ...)</code></td><td>Each named argument is a column: <code>values</code> is either a numeric <code>Vec</code> / <code>List</code> of <code>Str</code> (a real column) or a scalar <code>number</code>/<code>Str</code> (broadcast to every row). Builds a <code>Table</code> from the named columns, in the order the arguments were written; a scalar/string column broadcasts to the row count set by whichever columns are actual vectors, and vector columns must all agree in length. Returns a <code>Table</code>.</td></tr>
+<tr><td><code>table</code>, <code>DataFrame</code></td><td><code>table(csv_text, [sep=","], [headers=true])</code></td><td><code>csv_text</code> is a <code>Str</code> (a header line and a line per row); optional <code>sep</code> (single-character <code>Str</code>, default <code>","</code>) sets the delimiter; optional <code>headers</code> (<code>bool</code>, default <code>true</code>) — when <code>false</code>, columns are auto-named <code>col1</code>, <code>col2</code>, etc. Cells are trimmed and blank lines ignored, so the source can be aligned. Returns a <code>Table</code>. See below.</td></tr>
+<tr><td><code>nrow</code></td><td><code>nrow(df)</code></td><td><code>df</code> is a <code>Table</code>. Returns a <code>number</code>: the row count. <code>df.nrows</code> is property-style sugar for this — see below.</td></tr>
+<tr><td><code>ncol</code></td><td><code>ncol(df)</code></td><td><code>df</code> is a <code>Table</code>. Returns a <code>number</code>: the column count. <code>df.ncols</code> is property-style sugar for this — see below.</td></tr>
+<tr><td><code>head</code></td><td><code>head(df, [n=5])</code></td><td><code>df</code> is a <code>Table</code>; optional <code>n</code> (number of rows, default 5). Returns a <code>Table</code>: the first <code>n</code> rows.</td></tr>
+<tr><td><code>select</code></td><td><code>select(df, "col", ...)</code></td><td><code>df</code> is a <code>Table</code>; each remaining argument is a <code>Str</code> column name. Returns a <code>Table</code> containing only the named columns, in the order given.</td></tr>
+<tr><td><code>filter</code></td><td><code>filter(df, mask)</code></td><td><code>df</code> is a <code>Table</code>; <code>mask</code> is a boolean <code>Vec</code>/<code>Mask</code> the same length as <code>df</code>'s rows (typically built from a comparison, e.g. <code>df.x &gt; 0</code>). Returns a <code>Table</code> containing only the rows where <code>mask</code> is <code>true</code>.</td></tr>
+<tr><td><code>sort_by</code></td><td><code>sort_by(df, "col", [descending])</code></td><td><code>df</code> is a <code>Table</code>; <code>"col"</code> is a <code>Str</code> column name; optional <code>descending</code> (<code>bool</code>, default <code>false</code>). Returns a <code>Table</code> sorted by that one column.</td></tr>
+<tr><td><code>group_by_agg</code></td><td><code>group_by_agg(df, "group_col", "value_col", "agg")</code></td><td><code>df</code> is a <code>Table</code>; <code>"group_col"</code>/<code>"value_col"</code> are <code>Str</code> column names; <code>agg</code> is a <code>Str</code> naming the aggregate (<code>"mean"</code> by default, plus <code>"sum"</code>, <code>"min"</code>, <code>"max"</code>, <code>"count"</code>, etc.). Returns a <code>Table</code>: one row per distinct value of <code>group_col</code>, with <code>value_col</code> aggregated.</td></tr>
+<tr><td><code>describe</code></td><td><code>describe(df)</code></td><td><code>df</code> is a <code>Table</code>. Pandas-style <code>describe()</code>: returns a <code>Table</code> with one row per summary statistic (<code>count</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>25%</code>, <code>50%</code>, <code>75%</code>, <code>max</code>) and one column per NUMERIC column of <code>df</code> (text columns are skipped). Returns a <code>Table</code>, 8 rows by however many numeric columns <code>df</code> has.</td></tr>
+</table></div>
+<p>A <code>Table</code> is where several parallel columns of data live together as one value — the shape almost every real dataset actually arrives in. The example below builds one from three columns (two numeric, one broadcast string), asks it its own shape, filters it down to the rows that satisfy a condition, narrows to a subset of columns, and finally runs <code>describe</code> for a quick statistical summary of every numeric column at once:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+<span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
+<span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
+tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
+xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class="s">"y"</span>)
+<span class="f">print</span>(xy)
+<span class="f">print</span>(<span class="f">describe</span>(df))
+</code></pre>
+</div>
+<h3><code>df.nrows</code> / <code>df.ncols</code> — property-style row/column count</h3>
+<p><code>df.nrows</code> and <code>df.ncols</code> read as plain (no-parens) properties, returning exactly what <code>nrow(df)</code>/<code>ncol(df)</code> compute — pure sugar, same values. A real column literally named <code>nrows</code>/<code>ncols</code> always takes priority: <code>df.col</code> column access is tried first, so the property is only a fallback for the (overwhelmingly common) case where no such column exists.</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">y</span>=[<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>])
+<span class="f">print</span>(df.nrows)             <span class="c"># 3, same as nrow(df)</span>
+<span class="f">print</span>(df.ncols)             <span class="c"># 2, same as ncol(df)</span>
+</code></pre>
+</div>
+<h3>Writing a table the way the data arrives</h3>
+<p><code>table(x = ..., y = ...)</code> wants the columns. Data usually arrives as rows — a header and then a line per measurement — and giving it to the column-wise form means transposing it by hand first, which is both tedious and a place to make a mistake nobody will catch.</p>
+<p>So <code>table</code> also takes one string:</p>
+<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
+    channel, baseline, treated
+    1,       0.412,    0.240
+    2,       0.508,    0.301
+    3,       0.377,    0.219
+"</span>)
+<span class="f">print</span>(runs)
+<span class="f">print</span>(<span class="f">mean</span>(runs.baseline))
+</code></pre>
+</div>
+<p>Every cell is trimmed and blank lines are ignored. That is what lets the columns line up in the source without the padding reaching the table — it matters more than it looks, because a text column would otherwise carry the spaces and <code>runs.name == "steel"</code> would quietly be false.</p>
+<p>A column is numeric if every cell in it parses as a number, and text otherwise; the decision is per column, not per cell, so one stray <code>n/a</code> turns that whole column into text rather than silently becoming a zero.</p>
+<p><code>sep=</code> for a different delimiter, which is what makes a table drawn with pipes work:</p>
+<div class="example"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
+    name  | density | modulus
+    steel | 7.85    | 200
+    alu   | 2.70    | 69
+"</span>, <span class="a">sep</span> = <span class="s">"|"</span>)
+<span class="f">print</span>(alloys)
+</code></pre>
+</div>
+<p>and <code>headers = false</code> when the text is bare rows, in which case the columns are named <code>col1</code>, <code>col2</code>, and so on.</p>
+<p>A row with the wrong number of fields is an error, not a padded row:</p>
+<pre><code>table: a row has 1 field, the header has 2
+</code></pre>
+<p>Silently filling the gap would make a typo look like data, which is the one failure this form has to avoid.</p>
+<p>For CSV that lives in a *file*, use <code>read_csv</code> — same parsing, and it takes <code>decimal=</code> as well for comma-decimal locales. This form is for the table you are writing down here, in the program.</p>
+<h2 id="s196">Value Constructors</h2>
+<p>The names <code>num</code>, <code>bool</code>, <code>str</code>, <code>vec</code>, <code>mat</code>, <code>complex</code>, <code>cvec</code>, <code>cmat</code>, <code>signal</code>, <code>mask</code>, <code>table</code>, <code>model</code>, <code>list</code>, <code>record</code>, <code>nothing</code>, <code>enum_val</code>, and <code>enum_type</code> all appear together around line 14795 of <code>lib.rs</code>, but on inspection that block is <strong>not</strong> part of <code>call_builtin</code>'s dispatch at all — it is <code>json_to_value</code>, a private helper used only by the <code>load(...)</code> builtin to reconstruct a <code>Value</code> from the <code>"type"</code> tag written into a saved-value JSON file by <code>save(...)</code>. None of <code>num</code>/<code>bool</code>/<code>vec</code>/<code>mat</code>/<code>complex</code>/<code>cvec</code>/ <code>cmat</code>/<code>mask</code>/<code>model</code>/<code>list</code>/<code>record</code>/<code>nothing</code>/<code>enum_val</code>/<code>enum_type</code> exist as callable, user-facing builtins anywhere in <code>call_builtin</code> — there is no <code>vec(...)</code>/<code>mat(...)</code>/<code>complex(...)</code> explicit-construction family; those values are built with literals (<code>[1, 2, 3]</code>, <code>3 + 4j</code>, <code>{a = 1}</code>) or with the domain-specific constructors documented in the other stdlib chapters (<code>zeros</code>, <code>linspace</code>, <code>randn</code>, ...).</p>
+<p>Three of the sixteen names ARE genuine, independently-implemented callable builtins, documented in full above/elsewhere and unrelated to the <code>json_to_value</code> block:</p>
+<ul>
+<li><code>str(x)</code> — see the Strings section above.</li>
+<li><code>signal(data, <a href="signal-processing.html">Fs=1])</code> / <code>Signal(data, [Fs=1])</code> — sampled-signal constructor; see [Signal Processing &amp; Filters</a>. <code>Fs</code> is optional and defaults to <code>1.0</code> Hz when omitted — <code>signal(data)</code> is exactly <code>signal(data, 1.0)</code>.</li>
+<li><code>table(name=values, ...)</code> / <code>DataFrame(...)</code> — see Data Frames above.</li>
+</ul>
+<h2 id="s234">Type Conversion</h2>
+<ul>
+<li><code>cast(value, tag)</code> — <code>value</code> is any Qu value; <code>tag</code> is a <code>Str</code> naming the target kind, using the same closed tag vocabulary a typed function parameter's <code>: tag</code> annotation uses (<code>num, bool, str, vec, mat, complex, cvec, cmat, signal, mask, table, model, list, record, image, timer, file, worker, mutex, semaphore, none</code>, plus <code>any</code>) — explicit conversion between value kinds, targeted by name. Not to be confused with <code>x as vector(3)</code> (<code>Expr::As</code>) — that's an unrelated shape *contract* check on an already-typed value, not a type conversion. <code>x.cast(tag)</code> also works, via the same generic <code>recv.method(args) == method(recv, args)</code> sugar every free function gets automatically. Returns a value of the kind named by <code>tag</code>. Only a deliberately scoped set of (source, target) pairings is wired up — anything else is a clear named error, not a silent no-op:</li>
+</ul>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>Result</td></tr>
+<tr><td><code>cast(list_of_strings, "num")</code></td><td><code>list_of_strings</code> is a <code>List</code> of <code>Str</code>. Returns a <code>Vec</code> of parsed numbers, same length; errors clearly naming the first element that doesn't parse.</td></tr>
+<tr><td><code>cast(str, "num")</code></td><td><code>str</code> is a <code>Str</code>. Returns a single parsed <code>number</code>, same parse-or-error rule.</td></tr>
+<tr><td><code>cast(vec_or_signal, "str")</code></td><td><code>vec_or_signal</code> is a numeric <code>Vec</code> or <code>Signal</code>. Returns a <code>List</code> of formatted number-strings (<code>fmt_num</code>, the same formatter <code>print</code>/<code>disp</code> already use), same length.</td></tr>
+<tr><td><code>cast(num, "str")</code> / <code>cast(bool, "str")</code></td><td><code>num</code>/<code>bool</code> is a single <code>number</code>/<code>bool</code>. Returns a single formatted <code>Str</code>.</td></tr>
+<tr><td><code>cast(x, "bool")</code></td><td><code>x</code> is any value. Returns a <code>bool</code>: truthy conversion — the exact same rule <code>if</code>/<code>and</code>/<code>or</code>/the ternary already use.</td></tr>
+<tr><td><code>cast(vec, "list")</code> / <code>cast(list_of_numbers, "vec")</code></td><td>Converts between a homogeneous numeric <code>Vec</code> and a <code>List</code> of boxed numbers, same length, elementwise.</td></tr>
+<tr><td><code>cast(vec, "signal")</code> / <code>cast(signal, "vec")</code></td><td><code>vec</code> is a numeric <code>Vec</code>; <code>signal</code> is a <code>Signal</code>. Wraps a plain <code>Vec</code> as a <code>Signal</code> (default <code>Fs=1.0</code>, matching <code>signal(data)</code>'s own default) or drops a <code>Signal</code>'s <code>Fs</code> back to a plain <code>Vec</code>, same length either way.</td></tr>
+<tr><td><code>cast(vec_or_signal, "mask")</code> / <code>cast(mask, "vec")</code></td><td><code>vec_or_signal</code> is numeric, <code>mask</code> is boolean; both are the same length in and out. Elementwise nonzero-is-true, or the numeric <code>0.0</code>/<code>1.0</code> inverse.</td></tr>
+</table></div>
+<p>A conversion is most often needed right after reading raw text (every CSV cell, every <code>parse_as</code> non-numeric field, every value pulled from JSON arrives as a <code>Str</code> until something converts it) or right before writing numbers back out as text. The example below converts a tuple of numeric strings into a real <code>Vec</code>, does the reverse, and shows the <code>.cast(...)</code> method-chain spelling working identically to the free-function form:</p>
+<div class="example"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
+  <span class="f">print</span>(n)                               <span class="c"># [1, 2.5, -3]</span>
+  s = <span class="f">cast</span>([<span class="n">1</span>, <span class="n">2.5</span>, -<span class="n">3</span>], <span class="s">"str"</span>)
+  <span class="f">print</span>(s)                               <span class="c"># ("1", "2.5", "-3")</span>
+  b = <span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>)
+  <span class="f">print</span>(b)                               <span class="c"># 42, via method-chain sugar</span>
+</code></pre>
+</div>
+<h2 id="s269">Data Structures</h2>
+<p>Four opaque handle types (§ data structures pass, 2026-09-01), following the same <code>Arc</code>-wrapped shared-handle convention as <code>timer</code>/<code>mutex</code>/<code>channel</code> elsewhere in this codebase: cloning one of these into a variable, a function argument, or a <code>spawn</code> env snapshot shares the SAME live structure, not an independent copy.</p>
+<h3><code>fifo(capacity)</code> — bounded circular FIFO buffer</h3>
+<p>A plain first-in-first-out buffer of values, distinct from the unrelated <code>queue()</code> (a queue of *deferred jobs* for a worker pool — see <a href="concurrency.html">Concurrency</a> — which never stores a plain value at all).</p>
+<p><strong>Full-buffer behavior</strong>: <code>.push</code> on an already-full <code>fifo</code> evicts the OLDEST element to make room — real ring-buffer/circular-queue semantics — rather than rejecting the new value. This is the deliberate choice: Qu already has real reject/back-pressure tools elsewhere (<code>semaphore</code>'s <code>acquire</code>/<code>release</code>, or <code>channel</code>'s unbounded queue), so a fixed-size "keep only the most recent N" buffer is the more broadly useful shape for a bounded container to have, and <code>.is_full()</code> lets a script detect an impending eviction if it needs to react first.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>fifo</code></td><td><code>fifo(capacity)</code></td><td><code>capacity</code> is a number (positive integer, the buffer's fixed size, set once with no resize). Returns a <code>fifo</code> handle: a new, empty ring buffer.</td></tr>
+<tr><td><code>.push</code></td><td><code>f.push(value)</code></td><td><code>f</code> is a <code>fifo</code> handle; <code>value</code> is any value to store. Appends at the back; evicts the OLDEST element first if <code>f</code> is already full. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.pop</code></td><td><code>f.pop()</code></td><td><code>f</code> is a <code>fifo</code> handle. Removes and returns the oldest element (same type as whatever was stored). Errors clearly on an empty fifo.</td></tr>
+<tr><td><code>.peek</code></td><td><code>f.peek()</code></td><td><code>f</code> is a <code>fifo</code> handle. Returns the oldest element without removing it. Errors clearly on an empty fifo.</td></tr>
+<tr><td><code>.is_full</code></td><td><code>f.is_full()</code></td><td><code>f</code> is a <code>fifo</code> handle. Returns a <code>bool</code>: <code>true</code> iff the next <code>.push</code> would evict.</td></tr>
+<tr><td><code>.is_empty</code></td><td><code>f.is_empty()</code></td><td><code>f</code> is a <code>fifo</code> handle. Returns a <code>bool</code>: <code>true</code> iff <code>.pop</code>/<code>.peek</code> would error right now.</td></tr>
+<tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(f)</code></td><td><code>f</code> is a <code>fifo</code> handle. Returns a <code>number</code>: the current element count (via the same generic length dispatch every collection uses).</td></tr>
+</table></div>
+<p>A <code>fifo</code> is the right container whenever the newest N readings matter more than the complete history — a rolling window of the last few sensor samples, a small undo buffer, a moving-average source. The example below fills a 3-slot buffer past capacity, watches the oldest value get evicted, and reads the rest back out:</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fifo</span>(<span class="n">3</span>)
+f.<span class="f">push</span>(<span class="n">1</span>)
+f.<span class="f">push</span>(<span class="n">2</span>)
+f.<span class="f">push</span>(<span class="n">3</span>)
+f.<span class="f">push</span>(<span class="n">4</span>)          <span class="c"># evicts 1 -- buffer is now [2, 3, 4]</span>
+<span class="f">print</span>(<span class="f">peek</span>(f))       <span class="c"># 2 -- oldest element, still there</span>
+<span class="f">print</span>(f.<span class="f">pop</span>())      <span class="c"># 2</span>
+<span class="f">print</span>(<span class="f">len</span>(f))        <span class="c"># 2</span>
+</code></pre>
+</div>
+<h3><code>double_buffer(initial)</code> — front/back double buffering</h3>
+<p>The standard real-time/embedded/graphics pattern: <code>.write(v)</code> only ever touches the BACK buffer; <code>.read()</code> only ever returns the FRONT buffer; <code>.swap()</code> atomically exchanges the two. The entire reason this exists (rather than a plain <code>mutex(initial)</code>) is that a reader must never observe a write that hasn't been swapped in yet.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>double_buffer</code></td><td><code>double_buffer(initial)</code></td><td><code>initial</code> is any value. Returns a <code>double_buffer</code> handle; front AND back both start equal to <code>initial</code>.</td></tr>
+<tr><td><code>.write</code></td><td><code>b.write(value)</code></td><td><code>b</code> is a <code>double_buffer</code> handle; <code>value</code> is any value. Writes ONLY the back buffer. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.read</code></td><td><code>b.read()</code></td><td><code>b</code> is a <code>double_buffer</code> handle. Returns the current FRONT buffer's value (same type as whatever was last swapped in).</td></tr>
+<tr><td><code>.swap</code></td><td><code>b.swap()</code></td><td><code>b</code> is a <code>double_buffer</code> handle. Atomically exchanges front and back. Returns <code>Nothing</code>.</td></tr>
+</table></div>
+<p>This is the pattern for a value a writer updates continuously while a reader must only ever see complete, consistent frames — a sensor-fusion result, a render target, a shared configuration snapshot. The example below writes a new value, shows it is NOT visible yet, then swaps and shows that it is:</p>
+<div class="example"><pre class="hl"><code>b = <span class="f">double_buffer</span>(<span class="n">1</span>)
+b.<span class="f">write</span>(<span class="n">2</span>)
+<span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 1 -- the write above is not visible yet</span>
+b.<span class="f">swap</span>()
+<span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 2 -- now it is</span>
+</code></pre>
+</div>
+<h3><code>linked_list()</code> — double-ended list</h3>
+<p>A double-ended list of arbitrary values with O(1) push/pop at both ends. Implemented as a <code>VecDeque</code>-backed deque internally, not a traditional chain of individually heap-allocated nodes: Qu has no way for a script to hold a reference into the middle of a list (the one scenario a real node chain's O(1) arbitrary-position splice would ever pay for), so a <code>VecDeque</code> gives the identical O(1) front/back complexity with far better cache locality and no extra per-element allocation — the more honest, useful choice for how this is actually called from Qu script code.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>linked_list</code></td><td><code>linked_list()</code></td><td>Takes no arguments. Returns a <code>linked_list</code> handle: a new, empty double-ended list.</td></tr>
+<tr><td><code>.push_front</code></td><td><code>l.push_front(v)</code></td><td><code>l</code> is a <code>linked_list</code> handle; <code>v</code> is any value. Prepends <code>v</code> in O(1). Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.push_back</code></td><td><code>l.push_back(v)</code></td><td><code>l</code> is a <code>linked_list</code> handle; <code>v</code> is any value. Appends <code>v</code> in O(1). Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.pop_front</code></td><td><code>l.pop_front()</code></td><td><code>l</code> is a <code>linked_list</code> handle. Removes and returns the front element in O(1). Errors clearly if empty.</td></tr>
+<tr><td><code>.pop_back</code></td><td><code>l.pop_back()</code></td><td><code>l</code> is a <code>linked_list</code> handle. Removes and returns the back element in O(1). Errors clearly if empty.</td></tr>
+<tr><td><code>.to_vec</code></td><td><code>l.to_vec()</code></td><td><code>l</code> is a <code>linked_list</code> handle. Returns a plain <code>List</code>: the elements materialized front to back, for interop with the rest of Qu (indexing, <code>length</code>, <code>print</code>, ...).</td></tr>
+<tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(l)</code></td><td><code>l</code> is a <code>linked_list</code> handle. Returns a <code>number</code>: the current element count.</td></tr>
+</table></div>
+<p>Reach for a <code>linked_list</code> when values need to be added or removed from EITHER end at constant cost — a sliding window, a work queue processed from the front while new jobs arrive at the back, an undo/redo stack pair. The example below builds a small list from both ends, then drains it from both ends too:</p>
+<div class="example"><pre class="hl"><code>l = <span class="f">linked_list</span>()
+l.<span class="f">push_back</span>(<span class="n">1</span>)
+l.<span class="f">push_back</span>(<span class="n">2</span>)
+l.<span class="f">push_front</span>(<span class="n">0</span>)
+<span class="f">print</span>(l.<span class="f">to_vec</span>())   <span class="c"># (0, 1, 2)</span>
+<span class="f">print</span>(<span class="f">pop_front</span>(l)) <span class="c"># 0 -- removes from the front</span>
+<span class="f">print</span>(<span class="f">pop_back</span>(l))  <span class="c"># 2 -- removes from the back</span>
+<span class="f">print</span>(l.<span class="f">to_vec</span>())   <span class="c"># (1) -- what's left</span>
+</code></pre>
+</div>
+<h3><code>graph([directed=false])</code> — nodes, edges, and Dijkstra's algorithm</h3>
+<p>A real node+edge graph, not a chart. Node ids are normalized the same way <code>dict</code>'s keys are (string or number, canonicalized so <code>1</code> and <code>1.0</code> name the same node) — <code>.neighbors</code> always hands back string ids regardless of what kind of value was originally passed in.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>graph</code></td><td><code>graph([directed=false])</code></td><td>Optional named <code>directed</code> (<code>bool</code>, default <code>false</code>). Returns a <code>graph</code> handle: a new, empty node+edge graph.</td></tr>
+<tr><td><code>.add_node</code></td><td><code>g.add_node(id)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>id</code> is a <code>Str</code> or <code>number</code> node identifier (canonicalized like <code>dict</code> keys, so <code>1</code> and <code>1.0</code> name the same node). Adds a node; idempotent — adding an existing node is a no-op. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.add_edge</code></td><td><code>g.add_edge(a, b, [weight=1.0])</code></td><td><code>g</code> is a <code>graph</code> handle; <code>a</code>/<code>b</code> are node ids (<code>Str</code>/<code>number</code>); optional named <code>weight</code> (<code>number</code>, default <code>1.0</code>). Adds an edge, auto-creating either endpoint if missing. Undirected (the default) stores the edge in both directions. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>.neighbors</code></td><td><code>g.neighbors(id)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>id</code> is a node id. Returns a <code>List</code> of <code>Str</code> neighbor ids, in the order their edges were added (always strings regardless of what kind of id was originally passed in). Errors if <code>id</code> isn't a node.</td></tr>
+<tr><td><code>.has_edge</code></td><td><code>g.has_edge(a, b)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>a</code>/<code>b</code> are node ids. Returns a <code>bool</code> — <code>false</code> (not an error) if either endpoint isn't even a node.</td></tr>
+<tr><td><code>.shortest_path</code></td><td><code>g.shortest_path(source, target)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>source</code>/<code>target</code> are node ids. Returns a <code>number</code> (the shortest total edge weight from <code>source</code> to <code>target</code>, via Dijkstra's algorithm) or <code>Nothing</code> if unreachable. Errors on a negative edge weight or an unknown node.</td></tr>
+<tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(g)</code></td><td><code>g</code> is a <code>graph</code> handle. Returns a <code>number</code>: the node count.</td></tr>
+</table></div>
+<p>Dijkstra (over a plain unweighted BFS) was chosen specifically because edges carry a real optional <code>weight=</code> — a weighted-shortest-path algorithm is the one that actually exercises that part of the data model. The first example below builds a small weighted graph and asks for the cheapest route between two nodes:</p>
+<div class="example"><pre class="hl"><code>g = <span class="f">graph</span>()
+g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">4</span>)
+g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"C"</span>, <span class="a">weight</span>=<span class="n">1</span>)
+g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">2</span>)
+g.<span class="f">add_edge</span>(<span class="s">"B"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">5</span>)
+g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">8</span>)
+<span class="f">print</span>(g.<span class="f">shortest_path</span>(<span class="s">"A"</span>, <span class="s">"D"</span>))   <span class="c"># 8, via A -&gt; C -&gt; B -&gt; D (1 + 2 + 5)</span>
+</code></pre>
+</div>
+<p><code>add_node</code> on its own for an isolated node, <code>has_edge</code> to ask whether two nodes are joined, <code>neighbors</code> to list what one node connects to:</p>
+<div class="example"><pre class="hl"><code>h = <span class="f">graph</span>()
+<span class="f">add_node</span>(h, <span class="s">"X"</span>)          <span class="c"># an isolated node, no edges yet</span>
+h.<span class="f">add_edge</span>(<span class="s">"X"</span>, <span class="s">"Y"</span>)
+<span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Y"</span>))   <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Z"</span>))   <span class="c"># false -- Z isn't even a node</span>
+<span class="f">print</span>(<span class="f">neighbors</span>(h, <span class="s">"X"</span>))       <span class="c"># ("Y")</span>
+</code></pre>
+</div>
+<h2 id="s304">More functions</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>and</code>, <code>or</code></td><td><code>a and b</code></td><td><code>a</code> and <code>b</code> are any values, read by whole-value truthiness. Returns a <code>bool</code>. Both <strong>short-circuit</strong>: the right side is not evaluated when the left already decides the answer, so <code>i &lt; len(xs) and xs[i] &gt; 0</code> is a safe guard.</td></tr>
+<tr><td><code>not</code></td><td><code>not a</code></td><td><code>a</code> is any value. Returns a <code>bool</code>: logical negation. Anything falsy — <code>false</code>, <code>0</code>, <code>none</code>, an empty string, an empty collection — negates to <code>true</code>.</td></tr>
+<tr><td><code>mod</code></td><td><code>a mod b</code></td><td><code>a</code>/<code>b</code> are numbers. Returns a <code>number</code>: the remainder with the sign of the divisor, so <code>-1 mod 3</code> is 2 rather than -1. A keyword, not a function.</td></tr>
+<tr><td><code>print</code>, <code>disp</code>, <code>echo</code>, <code>writeline</code></td><td><code>print(x, ...)</code></td><td>Each <code>x</code> is any value. Writes its arguments, space-separated, and a newline, to stdout. Returns <code>Nothing</code>. All four names are the same function. Strings interpolate: <code>print("n = {n}")</code>.</td></tr>
+<tr><td><code>input</code></td><td><code>input(n)</code></td><td><strong>Not a stdin reader despite the name</strong> — Qu has no line-reading builtin today. <code>n</code> (number, a positive integer — 0 or a non-integer errors) is the input dimension of a new neural-network pipeline. Returns a <code>Record</code> shaped <code>{kind: "pipeline_input" (string), out_dim: n (number), layers: <a href="statistics-ml.html">] (empty List)}</code>, meant to be piped into <code>dense(out_dim, [activation=])</code> stages and finished with <code>compile(optimizer=, loss=)</code> or <code>sequential(...)</code> — see [Statistics &amp; ML</a> for the full training example.</td></tr>
+<tr><td><code>type</code></td><td><code>type(x)</code></td><td><code>x</code> is any value. Returns a <code>Str</code>: the value's type, e.g. <code>"number"</code>, <code>"string"</code>, <code>"vector"</code>, <code>"matrix"</code>, <code>"table"</code>, <code>"layer"</code>.</td></tr>
+<tr><td><code>sizeof</code></td><td><code>sizeof(x)</code></td><td><strong>Deprecated — use </strong><code>shape</code>.<strong> The same function under a name that means a byte count in every language it could have come from. Still works, and warns once per run. Returns a 2-element </strong><code>Vec</code>, <code>[rows, cols]</code> — the same value <code>shape</code> gives.</td></tr>
+<tr><td><code>cast</code></td><td><code>cast(x, type)</code></td><td><code>x</code> is any value; <code>type</code> is a <code>Str</code> naming the target: <code>num</code>, <code>bool</code>, <code>str</code>, <code>vec</code>, <code>mat</code>, <code>complex</code>, <code>cvec</code>, <code>cmat</code>, <code>signal</code>, <code>mask</code>, <code>table</code>, <code>model</code>, <code>list</code>, <code>record</code>, <code>image</code>, <code>timer</code>, <code>file</code>, <code>worker</code>, <code>mutex</code>, <code>semaphore</code>, <code>none</code>. Returns a value of that kind. A conversion that is not defined is an error, not a best effort.</td></tr>
+<tr><td><code>to_int</code></td><td><code>to_int(x)</code></td><td><code>x</code> is a number, or a <code>Str</code> that parses as one. Rounds to the nearest whole number, ties away from zero — the same primitive <code>round</code> uses, so the two agree by construction rather than by coincidence. MATLAB's <code>int32</code> rounds; C's cast truncates; this rounds, and says so. A string that is not a number is a clear error, never a silent <code>0</code>. Returns a <code>Num</code>.</td></tr>
+<tr><td><code>to_float</code></td><td><code>to_float(x)</code></td><td><code>x</code> is a number, a <code>Bool</code> (giving <code>1</code>/<code>0</code>), or a <code>Str</code> that parses as one. The parsing half of <code>to_int</code> without the rounding — mostly for turning text read from a file or an instrument into a number. A string that is not a number, or a value of any other type, is a clear error rather than a <code>0</code>. Returns a <code>Num</code>.</td></tr>
+<tr><td><code>to_bool</code></td><td><code>to_bool(x)</code></td><td>For a <code>Str</code>, <code>x</code> is <strong>parsed</strong>, not weighed: <code>"true"</code>/<code>"false"</code> (any case) and any number spelling work, and anything else errors — because a config file holding <code>"false"</code> means false, and truthiness would call that non-empty string true. For every other type this is exactly Qu's own truthiness, the same rule <code>if</code> and <code>while</code> use. Returns a <code>Bool</code>.</td></tr>
+<tr><td><code>complex</code></td><td><code>complex(re, im)</code></td><td><code>re</code>/<code>im</code> are numbers (real and imaginary parts). Returns a <code>Complex</code>. <code>3 + 4i</code> is the literal form; this is for computed components.</td></tr>
+<tr><td><code>all</code>, <code>any</code></td><td><code>all(xs, predicate)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined. Returns a <code>bool</code>: whether every (<code>all</code>) or at least one (<code>any</code>) element satisfies it. As a <strong>quoted name</strong> a builtin is refused, because a string is indistinguishable from a typo; passed as a <strong>value</strong>, without quotes, it is allowed.</td></tr>
+<tr><td><code>first</code>, <code>last</code></td><td><code>first(xs)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>. Returns the first (<code>first</code>) or last (<code>last</code>) element (same element type as <code>xs</code> holds), or <code>none</code> when <code>xs</code> is empty. Check for <code>none</code> if an empty input is possible; nothing further down will do it for you.</td></tr>
+<tr><td><code>take</code>, <code>drop</code></td><td><code>take(xs, n)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>n</code> is a number of elements. Returns the same type as <code>xs</code>: the first <code>n</code> elements (<code>take</code>) or everything after them (<code>drop</code>). <code>n</code> beyond the length is clamped, not an error.</td></tr>
+<tr><td><code>distinct</code></td><td><code>distinct(xs)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>. Returns the same type: the unique values, in the order they first appear — which <code>unique</code> does not promise, since it sorts.</td></tr>
+<tr><td><code>flatten</code></td><td><code>flatten(xs)</code></td><td><code>xs</code> is a <code>List</code> of <code>List</code>s (one level of nesting). Returns a flat <code>List</code>: one level of nesting removed.</td></tr>
+<tr><td><code>fold</code>, <code>reduce</code></td><td><code>fold(xs, f, initial)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>f</code> is a two-argument function — the function itself, or a <code>Str</code> naming one you defined; <code>initial</code> is the starting accumulator value (<code>fold</code> only — <code>reduce</code> has no <code>initial</code> and instead starts from <code>xs</code>'s first element). Returns the final accumulated value (whatever type <code>f</code> produces).</td></tr>
+<tr><td><code>map</code>, <code>pmap</code></td><td><code>map(xs, f)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>f</code> is a one-argument function — the function itself (<code>double</code>, <code>sqrt</code>, <code>(x) := x * 2</code>), or a <code>Str</code> naming one you defined. Returns a <code>List</code>: <code>f</code> applied to every element. The <strong>collection comes first</strong>, like every other higher-order builtin, which is what makes <code>xs.map(f)</code> and <code>xs</code></td><td>&gt; map(f)<code> work; </code>map<code> took the function first until 2026-09-09 and that order still runs, with a notice once per run. </code>pmap(xs, f)<code> is the parallel form, same signature, and carries a lambda to its workers along with everything else it snapshots.</code></td></tr>
+<tr><td><code>zip</code></td><td><code>zip(a, b, ...)</code></td><td>Each of <code>a</code>, <code>b</code>, ... is a <code>Vec</code>/<code>List</code>. Returns a <code>List</code> of tuples, pairing up the collections element by element, stopping at the shortest.</td></tr>
+<tr><td><code>dict</code></td><td><code>dict()</code> or <code>dict(k, v, ...)</code></td><td>With no arguments: an empty store. Otherwise <code>k</code>/<code>v</code> are parallel <code>Vec</code>/<code>List</code> of keys and values (<code>Str</code> or <code>number</code> keys). Returns a <code>Dict</code>, insertion-ordered. Keys are compared as given, so a number and the string of that number are different keys.</td></tr>
+<tr><td><code>get</code>, <code>set</code></td><td><code>get(d, key)</code> / <code>set(d, key, value)</code></td><td><code>d</code> is a <code>Dict</code>; <code>key</code> is a <code>Str</code>/<code>number</code>; <code>value</code> (for <code>set</code>) is any value. <code>get</code> returns the stored value (any type) or <code>none</code> if <code>key</code> is absent. <code>set</code> returns a <strong>new</strong> <code>Dict</code> with that entry written — it does not modify <code>d</code> in place, so assign the result. Returns the stored value (any type) or <code>none</code> from <code>get</code>, and a new <code>Dict</code> from <code>set</code>.</td></tr>
+<tr><td><code>keys</code>, <code>values</code>, <code>items</code></td><td><code>keys(d)</code></td><td><code>d</code> is a <code>Dict</code>. Returns a <code>List</code>: its keys (<code>keys</code>), its values (<code>values</code>), or <code>(key, value)</code> tuples (<code>items</code>) — insertion order, not sorted.</td></tr>
+<tr><td><code>has_key</code></td><td><code>has_key(d, key)</code></td><td><code>d</code> is a <code>Dict</code>; <code>key</code> is a <code>Str</code>/<code>number</code>. Returns a <code>bool</code>: whether the dict has that key, without reading it.</td></tr>
+<tr><td><code>at</code></td><td><code>at(t, i)</code> or <code>t.at(i)</code></td><td><code>t</code> is a <code>Table</code>; <code>i</code> is a number (0-based row position). Returns a <code>Record</code>: one row of the table by position, always positional even when the table carries a string index.</td></tr>
+<tr><td><code>index</code></td><td><code>index(t, "col")</code></td><td><code>t</code> is a <code>Table</code>; <code>"col"</code> is a <code>Str</code> column name. Returns a <code>Table</code>: <code>t</code> with its row index set to that column, so rows can afterwards be looked up by label.</td></tr>
+<tr><td><code>insert_column</code></td><td><code>insert_column(t, name, values, [pos=])</code></td><td><code>t</code> is a <code>Table</code>; <code>name</code> is a <code>Str</code>; <code>values</code> is a numeric <code>Vec</code>/<code>List</code> of <code>Str</code> (or a scalar to broadcast) the same length as <code>t</code>'s rows; optional named <code>pos</code> (number, default: append at the end) sets the column's position. Returns a NEW <code>Table</code>; the original is untouched.</td></tr>
+<tr><td><code>drop_row</code></td><td><code>drop_row(t, i)</code> or <code>drop_row(t, [i, j])</code></td><td><code>t</code> is a <code>Table</code>; <code>i</code>/<code>j</code> are numbers (0-based row positions), or a <code>Vec</code> of them. Returns a <code>Table</code> without those rows, by position.</td></tr>
+<tr><td><code>insert_row</code></td><td><code>insert_row(t, i, record)</code></td><td>Inserts one row into a table at a chosen position. <code>t</code> is a <code>Table</code>; <code>i</code> is a number (0-based row position, <code>i</code> equal to the row count appends); <code>record</code> is a <code>Record</code> supplying one value per existing column, matched by field name. Returns a NEW <code>Table</code>.</td></tr>
+<tr><td><code>swap</code>, <code>read</code></td><td><code>swap(b)</code> / <code>read(b)</code></td><td><code>b</code> is a <code>double_buffer</code> handle. <code>swap</code> atomically exchanges front and back (returns <code>Nothing</code>); <code>read</code> returns the stable front value. Writers fill the spare half and <code>swap</code> when the frame is whole; a reader never sees a partly-written frame. Returns the stable front value from <code>read</code> — whatever type was written into the buffer; <code>swap</code> hands back no value.</td></tr>
+<tr><td><code>append_text</code>, <code>append_all</code></td><td><code>append_text(path, s)</code> / <code>append_all(path, s)</code></td><td><code>path</code>/<code>s</code> are <code>Str</code>s. Appends <code>s</code> to the end of the file at <code>path</code>, creating it if absent. <code>write_text</code> replaces the whole file instead. <code>append_all</code> is the same builtin under the name that pairs with <code>read_all_text</code> — whole file in, whole string out, no handle in either direction — and both spellings stay, since <code>append_text</code> is already in scripts. Returns a <code>number</code>: the bytes written.</td></tr>
+<tr><td><code>after_last</code>, <code>before_last</code></td><td><code>after_last(s, mark)</code></td><td><code>s</code>/<code>mark</code> are <code>Str</code>s. Returns a <code>Str</code>: like <code>after</code>/<code>before</code> but searching from the end — the pair to reach for on a path or a dotted name.</td></tr>
+<tr><td><code>asc</code></td><td><code>asc(s)</code></td><td><code>s</code> is a <code>Str</code>. Returns a <code>number</code>: the code point of its first character. A second name for <code>ord</code>, because it is what a BASIC hand types.</td></tr>
+<tr><td><code>toupper</code>, <code>tolower</code></td><td><code>toupper(s)</code></td><td><code>s</code> is a <code>Str</code>. Returns a <code>Str</code>: C's names for <code>upper</code>/<code>lower</code>, accepted so a ported line does not have to be edited.</td></tr>
+<tr><td><code>to_vec</code></td><td><code>to_vec(ll)</code></td><td><code>ll</code> is a <code>linked_list</code> handle. Returns a <code>List</code>: the linked list's elements, front to back.</td></tr>
+<tr><td><code>push</code>, <code>pop</code>, <code>peek</code></td><td><code>push(q, x)</code> / <code>pop(q)</code> / <code>peek(q)</code></td><td>On a <code>fifo</code> handle <code>q</code>: <code>push(q, x)</code> adds <code>x</code> at the back (returns <code>Nothing</code>); <code>pop(q)</code> removes and returns the front element; <code>peek(q)</code> looks at it without removing. <code>pop</code> on an empty FIFO is an error. On a <code>queue()</code> — the job queue — <code>push(q, "fname")</code> enqueues a function you defined instead (a <code>Str</code> naming it, not a value). Returns the front element itself from <code>pop</code>/<code>peek</code>, whatever type was pushed; <code>push</code> hands back no value.</td></tr>
+<tr><td><code>push_back</code>, <code>push_front</code></td><td><code>push_back(l, x)</code></td><td><code>l</code> is a <code>linked_list</code> handle; <code>x</code> is any value. Grows <code>l</code> at the back (<code>push_back</code>) or front (<code>push_front</code>) in O(1). Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>pop_back</code>, <code>pop_front</code></td><td><code>pop_front(l)</code></td><td><code>l</code> is a <code>linked_list</code> handle. Removes and returns the element from the front (<code>pop_front</code>) or back (<code>pop_back</code>) in O(1). <code>to_vec</code> turns the result back into an ordinary <code>List</code>. Returns the removed element itself, whatever type was pushed; the list is one shorter afterwards.</td></tr>
+<tr><td><code>add_node</code>, <code>add_edge</code></td><td><code>add_node(g, name)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>name</code> is a <code>Str</code>/<code>number</code> node id; <code>add_edge(g, a, b, [weight=1.0])</code> also takes a second node id and an optional <code>weight</code> (<code>number</code>, default <code>1.0</code>). Nodes are named; an edge carries an optional weight, defaulting to 1. Returns <code>Nothing</code> from both — the graph handle <code>g</code> is what changed.</td></tr>
+<tr><td><code>has_edge</code>, <code>neighbors</code></td><td><code>neighbors(g, name)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>name</code>/<code>a</code>/<code>b</code> are node ids. <code>has_edge(g, a, b)</code> returns a <code>bool</code>; <code>neighbors(g, name)</code> returns a <code>List</code> of <code>Str</code> node ids. Ask about the graph: whether two nodes are joined, and what one node is joined to. Returns a <code>Bool</code> from <code>has_edge</code>, and a <code>List</code> of node ids from <code>neighbors</code>.</td></tr>
+<tr><td><code>shortest_path</code></td><td><code>shortest_path(g, from, to)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>from</code>/<code>to</code> are node ids. Returns a <code>number</code> (the shortest total edge weight, via Dijkstra) or <code>none</code> if <code>to</code> is unreachable from <code>from</code> — disconnected is an answer, not an error. Errors instead if <code>from</code>/<code>to</code> isn't even a node in <code>g</code>. Same free-function form as <code>.shortest_path</code>, <strong>not</strong> the sequence of node names along the route.</td></tr>
+</table></div>
+<p><code>input</code> is where a neural-network pipeline starts — you reach for it when building a <code>sequential</code> model layer by layer with <code>|&gt;</code> instead of hand-rolling weight matrices. <code>input(3)</code> alone just records the dimension and an empty layer list; piping it through <code>dense(...)</code> stages (documented in <a href="statistics-ml.html">Statistics &amp; ML</a>) grows that list one layer at a time, each new record replacing the running <code>out_dim</code> with the layer's own output size:</p>
+<div class="example"><pre class="hl"><code>spec = <span class="f">input</span>(<span class="n">3</span>)
+<span class="f">print</span>(spec.out_dim)          <span class="c"># 3 -- nothing built yet</span>
+<span class="f">print</span>(spec.layers)           <span class="c"># () -- empty</span>
+
+net = <span class="f">input</span>(<span class="n">3</span>) |&gt; <span class="f">dense</span>(<span class="n">5</span>, <span class="a">activation</span>=<span class="s">"relu"</span>) |&gt; <span class="f">dense</span>(<span class="n">1</span>)
+<span class="f">print</span>(net.out_dim)            <span class="c"># 1 -- the last layer's output size</span>
+<span class="f">print</span>(<span class="f">length</span>(net.layers))     <span class="c"># 2 -- one record per dense() stage</span>
+</code></pre>
+</div>
+<p><code>and</code>/<code>or</code>/<code>mod</code> as operators, and the <code>print</code> family/<code>type</code>/<code>shape</code> for inspecting a value:</p>
+<div class="example"><pre class="hl"><code>i = <span class="n">2</span>
+xs = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
+<span class="f">print</span>(i &lt; <span class="f">length</span>(xs) <span class="k">and</span> xs[i] &gt; <span class="n">0</span>)  <span class="c"># true -- short-circuiting guard</span>
+<span class="f">print</span>(-<span class="n">1</span> <span class="k">mod</span> <span class="n">3</span>)                       <span class="c"># 2 -- sign of the divisor</span>
+<span class="f">disp</span>(<span class="s">"disp, echo, writeline, and print are the same function"</span>)
+<span class="f">echo</span>(<span class="s">"this line came from echo(...)"</span>)
+<span class="f">writeline</span>(<span class="s">"and this one from writeline(...)"</span>)
+<span class="f">print</span>(<span class="f">type</span>(<span class="n">3.5</span>))                      <span class="c"># "number"</span>
+<span class="f">print</span>(<span class="f">type</span>(<span class="s">"hi"</span>))                     <span class="c"># "string"</span>
+<span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))               <span class="c"># [3, 1]</span>
+</code></pre>
+</div>
+<p><code>all</code>/<code>any</code> test a predicate over a collection; <code>first</code>/<code>last</code>/<code>take</code> slice it; <code>distinct</code>/<code>flatten</code> reshape it; <code>fold</code>/<code>reduce</code>/<code>map</code>/<code>zip</code> combine it with a named function:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(x)
+    <span class="k">return</span> x <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">add2</span>(a, b)
+    <span class="k">return</span> a + b
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">double</span>(x)
+    <span class="k">return</span> x * <span class="n">2</span>
+<span class="k">end</span> <span class="k">function</span>
+
+xs = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="f">all</span>(xs, is_even))           <span class="c"># false</span>
+<span class="f">print</span>(<span class="f">any</span>(xs, is_even))           <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">first</span>(xs))                 <span class="c"># 1</span>
+<span class="f">print</span>(<span class="f">last</span>(xs))                  <span class="c"># 5</span>
+<span class="f">print</span>(<span class="f">take</span>(xs, <span class="n">3</span>))                <span class="c"># (1, 2, 3)</span>
+<span class="f">print</span>(<span class="f">distinct</span>([<span class="n">1</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">3</span>])) <span class="c"># (1, 2, 3) -- first-seen order</span>
+<span class="f">print</span>(<span class="f">flatten</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))  <span class="c"># (1, 2, 3, 4)</span>
+<span class="f">print</span>(<span class="f">fold</span>(xs, add2, <span class="n">0</span>))          <span class="c"># 15 -- with an initial value</span>
+<span class="f">print</span>(<span class="f">reduce</span>(xs, add2))           <span class="c"># 15 -- without one</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, double))            <span class="c"># (2, 4, 6, 8, 10) -- collection first</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, (x) := x * <span class="n">10</span>))     <span class="c"># (10, 20, 30, 40, 50) -- or write it inline</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, <span class="s">"double"</span>))          <span class="c"># (2, 4, 6, 8, 10) -- the name as a string still works</span>
+<span class="f">print</span>(xs.<span class="f">map</span>(double))             <span class="c"># (2, 4, 6, 8, 10) -- and so the method form works</span>
+<span class="f">print</span>(<span class="f">zip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>]))  <span class="c"># ((1, "a"), (2, "b"), (3, "c"))</span>
+</code></pre>
+</div>
+<p><code>dict</code>/<code>get</code>/<code>set</code>/<code>keys</code>/<code>values</code>/<code>items</code>/<code>has_key</code> build and inspect a key-value store:</p>
+<div class="example"><pre class="hl"><code>d = <span class="f">dict</span>([<span class="s">"a"</span>, <span class="s">"b"</span>], [<span class="n">1</span>, <span class="n">2</span>])
+d = <span class="f">set</span>(d, <span class="s">"c"</span>, <span class="n">3</span>)
+<span class="f">print</span>(<span class="f">get</span>(d, <span class="s">"b"</span>))       <span class="c"># 2</span>
+<span class="f">print</span>(<span class="f">keys</span>(d))           <span class="c"># ("a", "b", "c")</span>
+<span class="f">print</span>(<span class="f">values</span>(d))         <span class="c"># (1, 2, 3)</span>
+<span class="f">print</span>(<span class="f">items</span>(d))          <span class="c"># (("a", 1), ("b", 2), ("c", 3))</span>
+<span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"c"</span>))   <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"z"</span>))   <span class="c"># false</span>
+</code></pre>
+</div>
+<p><code>at</code>/<code>index</code>/<code>insert_row</code> on a table -- one row by position, setting a label column as the row index, and adding a new row:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
+<span class="f">print</span>(<span class="f">at</span>(df, <span class="n">1</span>))                              <span class="c"># {id = 2, name = "steel"}</span>
+labeled = <span class="f">index</span>(df, <span class="s">"name"</span>)
+<span class="f">print</span>(labeled)
+grown = <span class="f">insert_row</span>(df, <span class="n">3</span>, {<span class="a">id</span>=<span class="n">4</span>, <span class="a">name</span>=<span class="s">"glass"</span>})
+<span class="f">print</span>(grown)
+</code></pre>
+</div>
+<p><code>append_text</code> adds to the end of a file without disturbing what is already there (a scratch path here, not anywhere inside a project):</p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"/tmp/qu_scratch_append.txt"</span>
+<span class="f">write_text</span>(path, <span class="s">"first line\n"</span>)
+<span class="f">append_text</span>(path, <span class="s">"second line\n"</span>)
+<span class="f">print</span>(<span class="f">read_all_text</span>(path))   <span class="c"># "first line\nsecond line\n"</span>
+</code></pre>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>least_squares — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>least_squares</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>least_squares("f", x0, lower=, upper=, max_iter=200, tol=1e-10)</code></pre>
+<p class="fnnote">Input: "f", x0, lower, upper, max_iter, tol &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Nonlinear least squares on a residual function you named, via Levenberg-Marquardt. <code>"f"</code> is a <code>Str</code> naming an already-defined function that takes a length-<code>p</code> parameter <code>Vec</code> and returns a residual <code>Vec</code>; <code>x0</code> is the length-<code>p</code> initial guess <code>Vec</code>. <code>lower=</code>/<code>upper=</code> are optional length-<code>p</code> <code>Vec</code>s of box bounds (enforced by clamping every trial point before it is evaluated, rather than by penalty); <code>max_iter=</code> (default <code>200</code>) caps the iteration count, <code>tol=</code> (default <code>1e-10</code>) sets the convergence tolerance.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = least_squares("f", x0, lower=, upper=, max_iter=200, tol=1e-10)</code></td><td><div class="ioitem"><code>"f"</code> <span class="iotype">Str or Vec</span><span class="iodesc"><code>"f"</code> is a <code>Str</code> naming an already-defined function that takes a length-<code>p</code> parameter <code>Vec</code> and returns a residual <code>Vec</code>.</span></div>
+<div class="ioitem"><code>x0</code> <span class="iotype">Vec</span><span class="iodesc"><code>x0</code> is the length-<code>p</code> initial guess <code>Vec</code>.</span></div>
+<div class="ioitem"><code>lower</code> <span class="iotype">Vec</span><span class="iodesc"><code>lower=</code>/<code>upper=</code> are optional length-<code>p</code> <code>Vec</code>s of box bounds (enforced by clamping every trial point before it is evaluated, rather than by penalty).</span></div>
+<div class="ioitem"><code>upper</code> <span class="iotype">Vec</span><span class="iodesc"><code>lower=</code>/<code>upper=</code> are optional length-<code>p</code> <code>Vec</code>s of box bounds (enforced by clamping every trial point before it is evaluated, rather than by penalty).</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">&mdash; (default <code>200</code>)</span><span class="iodesc"><code>max_iter=</code> (default <code>200</code>) caps the iteration count, <code>tol=</code> (default <code>1e-10</code>) sets the convergence tolerance.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">&mdash; (default <code>1e-10</code>)</span><span class="iodesc"><code>max_iter=</code> (default <code>200</code>) caps the iteration count, <code>tol=</code> (default <code>1e-10</code>) sets the convergence tolerance.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"least_squares"</code></span></div>
+<div class="ioitem"><code>params</code> <span class="iotype">Vec</span><span class="iodesc">length-<code>p</code> <code>Vec</code>, the fitted parameters</span></div>
+<div class="ioitem"><code>residual</code> <span class="iotype">Vec</span><span class="iodesc">the residual at the solution</span></div>
+<div class="ioitem"><code>cost</code> <span class="iotype">scalar or Num</span><span class="iodesc">scalar <code>Num</code></span></div>
+<div class="ioitem"><code>iterations</code> <span class="iotype">scalar or Num</span><span class="iodesc">scalar <code>Num</code></span></div>
+<div class="ioitem"><code>converged</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>Bool</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"least_squares"</code>) with fields <code>params</code> (length-<code>p</code> <code>Vec</code>, the fitted parameters), <code>residual</code> (<code>Vec</code>, the residual at the solution), <code>cost</code> (scalar <code>Num</code>), <code>iterations</code> (scalar <code>Num</code>), and <code>converged</code> (<code>Bool</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>bounded = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>], <span class="a">lower</span> = [<span class="n">0.0</span>, <span class="n">0.01</span>])
+<span class="f">print</span>(<span class="s">"bounded tau {bounded.params[1]:.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>tau   = <span class="n">0.35</span>
+decay = <span class="n">2.5</span> * <span class="f">exp</span>(<span class="n">0</span> - t / tau) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">2</span>)
+
+<span class="k">function</span> <span class="f">resid</span>(p)
+    <span class="k">return</span> p[<span class="n">0</span>] * <span class="f">exp</span>(<span class="n">0</span> - t / p[<span class="n">1</span>]) - decay
+<span class="k">end</span> <span class="k">function</span>
+
+fit = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>])
+<span class="f">print</span>(<span class="s">"amplitude {fit.params[0]:.4f} (true 2.5)"</span>)
+<span class="f">print</span>(<span class="s">"tau       {fit.params[1]:.4f} (true {tau})"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<h2>How it works</h2>
+<p><code>least_squares(f, x0, [lower=], [upper=], [max_iter=], [tol=])</code> — nonlinear least squares on a RESIDUAL function. <code>f(p)</code> returns the vector to be driven toward zero, not a scalar and not a model evaluated against data. That is the contract <code>curve_fit</code> does not have and the one every fit in this lab needs: a weighting, a Kramers-Kronig penalty or a regularization term is just more entries in the residual. <code>lower=</code>/<code>upper=</code> are box bounds, enforced by clamping every trial point into the box before it is evaluated -- a negative capacitance evaluated once can put NaN through the whole residual, so the bound has to hold at evaluation time, not just at the solution.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

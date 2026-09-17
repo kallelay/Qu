@@ -1,0 +1,310 @@
+# Generate the engine's own documentation table from the stdlib chapters.
+#
+# WHY THIS EXISTS
+#
+# `help("name")` could only say "`name` is a Qu builtin" and point at
+# `catalog/`, because the interpreter carries `BUILTIN_NAMES` -- a list of
+# names and nothing else. Meanwhile every one of those names already has a
+# signature and a description, in `book/src/stdlib/*.md`. This joins the
+# two, so `help()` can answer the question it is asked.
+#
+# That matters more than it sounds: `CLAUDE.md` tells every agent working
+# in this repo to call `help("name")` before assuming a builtin exists or
+# guessing its signature. Pointing everyone at a function that cannot
+# answer is worse than having no such function.
+#
+# WHAT IT DOES *NOT* READ
+#
+# Not `website/fn/*.html`. Those pages are a RENDERING of this same
+# chapter data, and having the engine parse HTML at runtime would couple
+# it to a presentation format that exists to be looked at. The pages and
+# this table are peer consumers of `book/src/stdlib/*.md`; neither is
+# downstream of the other.
+#
+# WHY A COMPILED-IN TABLE RATHER THAN A FILE READ AT RUNTIME
+#
+# `BUILTIN_NAMES` in `lib.rs` is already a `pub const &[&str]`, so this is
+# the existing pattern with more columns rather than a new mechanism. It
+# needs no path to look up, works with no filesystem access, and -- the
+# argument that actually settles it -- cannot drift from the binary it
+# ships inside. A docs file read at runtime can be the wrong version; a
+# table compiled in cannot.
+#
+# WHY ONE LINE AND NOT THE WHOLE DESCRIPTION
+#
+# The chapter cells are paragraphs. That is right on a web page and wrong
+# in a terminal, and doubly wrong in Qu Studio, where F1 renders `help()`
+# output into a fixed-height panel. The full text stays in the chapter and
+# this points at it. `one_line` in `lib/text.qu` is what does the cutting,
+# and it is shared rather than copied because the naive form --
+# `split(desc, ". ")[0]` -- looks right and is wrong on a quarter of the
+# corpus: it reports the ARGUMENT the author described first, so `acf` came
+# out documented by its own parameter. 242 of ~830 rows read that way
+# before it was fixed.
+
+import "lib/text.qu"
+
+OUT = "engine/crates/qu-interp/src/builtin_docs.rs"
+
+# The same chapter list the index and the function pages join against.
+# Kept in step with them by hand today; a shared list is the obvious next
+# consolidation, but three copies of a path list is a smaller problem than
+# three copies of a sentence splitter.
+chapters = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+QT = chr(34)
+
+# The chapter slug, for the "documented in" pointer help() prints. Derived
+# from the path rather than listed again, so the two cannot disagree.
+function chapter_slug(path)
+    s = path
+    at = index_of(s, "stdlib/") ?? -1
+    if at >= 0
+        s = substr(s, at + 7, len(s) - at - 7)
+    end if
+    if ends_with(s, ".md")
+        s = substr(s, 0, len(s) - 3)
+    end if
+    return s
+end function
+
+# Escape a value for a Rust string literal. Backslash first -- escaping it
+# after the quotes would double the backslashes the quote escaping just
+# introduced.
+#
+# `split_cells` hands back an escaped pipe as `\|`, protecting it from the
+# MARKDOWN table this text also came from. A Rust string needs no such
+# protection -- `|` is just a character to it -- so that escape is
+# dropped here, before the general backslash-escaping below would
+# otherwise double it into a literal `\|` inside the Rust source.
+function rust_str(s)
+    s = replace(s, "\\|", "|")
+    s = replace(s, "\\", "\\\\")
+    s = replace(s, QT, "\\" + QT)
+    s = replace(s, chr(13), "")
+    s = replace(s, chr(10), " ")
+    return s
+end function
+
+# ── what the engine actually answers to ────────────────────────────────
+#
+# Read from `BUILTIN_NAMES` in the interpreter source, the same way the
+# index does, because the chapters document more than builtins: plotting
+# COMMANDS (`axis`, `hold`, `show`, `clear`, `next`, `pan`, `zoom`), the
+# operator `not`, and command syntaxes with spaces in them ("watch url").
+#
+# Those are real documentation, but they are not builtins, and `help()`
+# already answers commands through `command_help`. An entry for `axis` in
+# a table called BUILTIN_DOCS would be a claim that is not true.
+
+SRC = "engine/crates/qu-interp/src/lib.rs"
+src_text = read_all_text(SRC)
+bn_at = index_of(src_text, "pub const BUILTIN_NAMES")
+bn_body = substr(src_text, bn_at, len(src_text) - bn_at)
+bn_body = substr(bn_body, 0, index_of(bn_body, "];"))
+bn_open = index_of(bn_body, "&[")
+bn_body = substr(bn_body, bn_open + 2, len(bn_body) - bn_open - 2)
+
+engine_names = ()
+bn_parts = split(bn_body, QT)
+bi = 1
+while bi < len(bn_parts)
+    if len(bn_parts[bi]) > 0
+        engine_names = append(engine_names, bn_parts[bi])
+    end if
+    bi = bi + 2
+end while
+print("{len(engine_names)} builtins in the engine")
+
+# ── collect ────────────────────────────────────────────────────────────
+
+skipped_non_builtin = 0
+doc_names = ()
+doc_sigs = ()
+doc_summary = ()
+doc_chapter = ()
+
+for ci in 0 to len(chapters) - 1
+    if not file_exists(chapters[ci])
+        print("missing chapter: {chapters[ci]}")
+        continue
+    end if
+    slug = chapter_slug(chapters[ci])
+    prev = ""
+    col = 3
+    for raw in lines(read_all_text(chapters[ci]))
+        line = trim(raw)
+        if not starts_with(line, "|")
+            prev = line
+            continue
+        end if
+        if is_separator_row(line)
+            col = desc_column(prev)
+            prev = line
+            continue
+        end if
+        prev = line
+        cells = split_cells(line)
+        if len(cells) < 4
+            continue
+        end if
+        if col > len(cells) - 2
+            continue
+        end if
+        first = trim(cells[1])
+        if not contains(first, BT)
+            continue
+        end if
+        # Same guard the index uses: a table whose first cell holds
+        # backticked names is not necessarily a table OF FUNCTIONS. The
+        # plotting chapter's "Handle | Properties" and the
+        # compressed-sensing chapter's "Parameter | Type | Meaning" both
+        # match on shape and would contribute a property or a parameter
+        # under a function's name.
+        if col <= 2
+            continue
+        end if
+        sigcell = cells[2]
+        named = false
+        for a in split(first, ",")
+            cand = strip_ticks(a)
+            if len(cand) > 0 and contains(sigcell, cand)
+                named = true
+            end if
+        end for
+        if not named
+            continue
+        end if
+        summary = one_line(cells[col])
+        if len(summary) == 0
+            continue
+        end if
+        sig = trim(strip_ticks(sigcell))
+        for a in split(first, ",")
+            nm = strip_ticks(a)
+            if len(nm) == 0
+                continue
+            end if
+            # The chapters write receiver methods with a leading dot --
+            # `.push`, `.pop`, `.shortest_path` -- because that is the call
+            # form. The engine knows them WITHOUT it, and `help("push")` is
+            # what a user types. Keyed with the dot, all 18 of these were
+            # unreachable by any lookup anyone would make.
+            if starts_with(nm, ".")
+                nm = substr(nm, 1, len(nm) - 1)
+            end if
+            # "watch url", "watch <name>": command SYNTAX, not a symbol. No
+            # `help("...")` call can ever have this as its argument.
+            if contains(nm, " ") or contains(nm, "<")
+                continue
+            end if
+            # Keep builtins and module-qualified functions (`codec.read`,
+            # from MODULE_EXPORTS). Everything else the chapters describe
+            # -- commands, operators -- is documented elsewhere and does
+            # not belong in a table named for builtins.
+            if index_of_name(engine_names, nm) < 0 and not contains(nm, ".")
+                skipped_non_builtin = skipped_non_builtin + 1
+                continue
+            end if
+            if index_of_name(doc_names, nm) >= 0
+                # A name documented in two chapters keeps its first entry.
+                # Deterministic, and the chapter order above is the
+                # reading order, so the earlier one is the more general.
+                continue
+            end if
+            doc_names = append(doc_names, nm)
+            doc_sigs = append(doc_sigs, sig)
+            doc_summary = append(doc_summary, summary)
+            doc_chapter = append(doc_chapter, slug)
+        end for
+    end for
+end for
+
+print("{len(doc_names)} documented builtins collected ({skipped_non_builtin} chapter rows skipped as not builtins)")
+
+# ── sort by name, so the lookup can be a binary search ──────────────────
+#
+# Sorted HERE rather than at runtime: the table is static, so paying for
+# the ordering once at build time means the engine does no work at start-up
+# and needs no lazily-built map.
+
+# Insertion sort that BUILDS a new list rather than swapping in place:
+# a Qu list does not support index-assignment, so the in-place form fails
+# at runtime with "cannot index-assign into `order` (list)".
+order = ()
+for i in 0 to len(doc_names) - 1
+    placed = false
+    next_order = ()
+    for k in 0 to len(order) - 1
+        if not placed and doc_names[i] < doc_names[order[k]]
+            next_order = append(next_order, i)
+            placed = true
+        end if
+        next_order = append(next_order, order[k])
+    end for
+    if not placed
+        next_order = append(next_order, i)
+    end if
+    order = next_order
+end for
+
+# ── emit ───────────────────────────────────────────────────────────────
+
+nl = chr(10)
+body = "// @generated by tools/gen_builtin_docs.qu -- DO NOT EDIT BY HAND." + nl
+body = body + "//" + nl
+body = body + "// Source of truth: book/src/stdlib/*.md. Regenerate with:" + nl
+body = body + "//     qu run tools/gen_builtin_docs.qu" + nl
+body = body + "//" + nl
+body = body + "// See that script's header for why this is a compiled-in table rather" + nl
+body = body + "// than a file read at runtime, and why the summary is one line." + nl
+body = body + nl
+body = body + "/// One builtin's documentation, joined from the stdlib chapters." + nl
+body = body + "#[derive(Debug, Clone, Copy)]" + nl
+body = body + "pub struct BuiltinDoc {{" + nl
+body = body + "    /// Spelt exactly as `BUILTIN_NAMES` spells it." + nl
+body = body + "    pub name: &'static str," + nl
+body = body + "    /// The call form, e.g. `linspace(start, stop, n)`." + nl
+body = body + "    pub signature: &'static str," + nl
+body = body + "    /// One line saying what it does. Never a paragraph: see the" + nl
+body = body + "    /// generator's header for why." + nl
+body = body + "    pub summary: &'static str," + nl
+body = body + "    /// Chapter slug it is documented in, e.g. \"core-math\"." + nl
+body = body + "    pub chapter: &'static str," + nl
+body = body + "}}" + nl
+body = body + nl
+body = body + "/// Sorted by `name`, so `builtin_doc` can binary-search it." + nl
+body = body + "pub static BUILTIN_DOCS: &[BuiltinDoc] = &[" + nl
+for k in 0 to len(order) - 1
+    i = order[k]
+    body = body + "    BuiltinDoc {{ name: " + QT + rust_str(doc_names[i]) + QT
+    body = body + ", signature: " + QT + rust_str(doc_sigs[i]) + QT
+    body = body + ", summary: " + QT + rust_str(doc_summary[i]) + QT
+    body = body + ", chapter: " + QT + rust_str(doc_chapter[i]) + QT + " }}," + nl
+end for
+body = body + "];" + nl
+body = body + nl
+body = body + "/// Look one up by exact name. `None` for a builtin the chapters do not" + nl
+body = body + "/// document yet -- callers should fall back to what they printed before" + nl
+body = body + "/// rather than claim the name does not exist." + nl
+body = body + "pub fn builtin_doc(name: &str) -> Option<&'static BuiltinDoc> {{" + nl
+body = body + "    BUILTIN_DOCS" + nl
+body = body + "        .binary_search_by(|d| d.name.cmp(name))" + nl
+body = body + "        .ok()" + nl
+body = body + "        .map(|i| &BUILTIN_DOCS[i])" + nl
+body = body + "}}" + nl
+
+h = fopen(OUT, "w")
+write(h, body)
+close(h)
+print("wrote {OUT} ({len(doc_names)} entries)")

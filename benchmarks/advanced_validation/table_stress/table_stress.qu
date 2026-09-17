@@ -1,0 +1,107 @@
+# table_stress.qu -- three real table-builtin stress cases on ONE shared
+# 30,000-row table (dataset.csv, built once by make_data.py, read
+# byte-identically by table_stress.py), well beyond
+# ../../data_wrangling/bench.qu's self-timed-only precedent (that script
+# never cross-checks its numbers against pandas -- this one does, following
+# ../ml_stress/'s "dump Qu's own output to CSV, diff it elementwise in
+# Python" discipline):
+#
+#   1. group_by_agg(df, "region", ...) vs pandas .groupby("region").agg(...)
+#   2. corrcoef(X) vs pandas .corr() / numpy.corrcoef
+#   3. filter(...) + sort_by(...) chain vs pandas boolean-index + sort_values
+#
+# `df.region` (a text column) has no Qu value type of its own yet -- no
+# vector-of-strings type, so its values can't be iterated/printed from
+# inside Qu (see ../../data_wrangling/bench.qu's own comment on this, and
+# the `eval_field` doc comment in qu-interp/src/lib.rs). Two different
+# workarounds for that below:
+#   - group_by_agg's one-row-per-group result is small, so `sort_by(...,
+#     "region")` puts it in a FIXED, language-independent alphabetical
+#     order (matches pandas' own `.sort_index()`), and the aggregate columns
+#     are then compared/printed positionally.
+#   - the filter+sort chain's result table is NOT printed element-by-element
+#     from Qu at all -- it's written straight to CSV with `table.write`
+#     (sugar for `write_csv`), which serializes every column (including
+#     `region`) directly from Rust, no Qu-level iteration needed. Only
+#     *printing from inside a Qu script* is restricted, not `table.write`.
+#
+# Uses the ergonomic API layer (§ ergonomic API layer, 2026-08-31):
+# `table.load`/`table.write` (sugar for `read_csv`/`write_csv`), `df.nrows`/
+# `df.ncols` (property sugar for `nrow(df)`/`ncol(df)`), `timer.start()`/
+# `timer.stop()` (sugar for `tic()`/`toc()`), and `col -> (r, c)` (sugar for
+# `reshape(col, r, c)`) building the `corrcoef` input matrix below -- purely
+# a syntax facelift over the previous `read_csv`/`write_csv`/`nrow`/`ncol`/
+# `tic`/`toc`/`reshape` spelling, byte-identical output and timings.
+#
+# Run: qu run benchmarks/advanced_validation/table_stress/table_stress.qu
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/table_stress/"
+PRICE_THRESHOLD = 250.0
+
+timer.start()
+df = table.load(DATA + "dataset.csv")
+t_load = timer.stop()
+n = df.nrows
+print("load          : {t_load:.4f} s  ({n} rows, {df.ncols} cols)")
+print("")
+
+# =========================== Check 1: group_by_agg ===========================
+# mean/sum/count of `amount` per region, all three in one pass (group_by_agg's
+# multi-spec form -- see ../../data_wrangling/bench.qu for the same pattern).
+timer.start()
+g = group_by_agg(df, "region", (("amount", "mean"), ("amount", "sum"), ("amount", "count")))
+t_group = timer.stop()
+print("group_by_agg  : {t_group:.4f} s  ({g.nrows} groups)")
+
+# Fixed alphabetical order by region label, matching pandas' `.sort_index()`
+# default groupby order -- an untimed, cheap 15-row sort, not part of the
+# timed step above.
+g_sorted = sort_by(g, "region")
+table.write(g_sorted, DATA + "group_agg_qu.csv")
+print("group_by_agg  : wrote group_agg_qu.csv ({g_sorted.nrows} rows, alphabetical by region)")
+print("  mean_amount (first 5) = {g_sorted.mean_amount[0:4]}")
+print("  sum_amount  (first 5) = {g_sorted.sum_amount[0:4]}")
+print("  count_amount(first 5) = {g_sorted.count_amount[0:4]}")
+print("")
+
+# =========================== Check 2: corrcoef ================================
+# Full pairwise Pearson correlation matrix of the 4 numeric columns. No
+# to_matrix(table) builtin exists, so the matrix is built explicitly from
+# named columns via hstack(col -> (n,1)) -- the `->` reshape operator is
+# sugar for reshape(col, n, 1), same pattern as ../ml_stress/ml_stress.qu's
+# Xtr construction used to spell with the explicit reshape(...) call.
+timer.start()
+X = hstack(df.price -> (n, 1), df.qty -> (n, 1), df.amount -> (n, 1), df.score -> (n, 1))
+R = corrcoef(X)
+t_corr = timer.stop()
+print("corrcoef      : {t_corr:.4f} s  ({rows(R)}x{cols(R)} matrix)")
+print("corrcoef(R) = {R}")
+
+# Rebuild R into a table (one column per matrix column, "c0".."c3", in
+# price/qty/amount/score order) so it can be dumped to CSV and diffed
+# elementwise against pandas' .corr() -- same "table(name=values, ...)"
+# constructor ../ml_stress/ml_stress.qu uses for `knn_qu_predictions.csv`.
+Rtab = table(c0=R[:, 0], c1=R[:, 1], c2=R[:, 2], c3=R[:, 3])
+table.write(Rtab, DATA + "corrcoef_qu.csv")
+print("corrcoef      : wrote corrcoef_qu.csv (4x4, column order price,qty,amount,score)")
+print("")
+
+# =========================== Check 3: filter + sort chain =====================
+# df[df.price > PRICE_THRESHOLD].sort_values("sortkey") equivalent.
+timer.start()
+filtered = filter(df, df.price > PRICE_THRESHOLD)
+sorted_df = sort_by(filtered, "sortkey")
+t_filtsort = timer.stop()
+print("filter+sort   : {t_filtsort:.4f} s  ({filtered.nrows} rows kept of {n})")
+
+# Dumped whole (region included) straight via write_csv -- no need to
+# iterate/print the text column from Qu, `write_csv` serializes it directly.
+table.write(sorted_df, DATA + "filter_sort_qu.csv")
+print("filter+sort   : wrote filter_sort_qu.csv ({sorted_df.nrows} rows, sorted by sortkey ascending)")
+print("  first sortkey = {sorted_df.sortkey[0]:.6f}   last sortkey = {sorted_df.sortkey[sorted_df.nrows - 1]:.6f}")
+print("")
+
+total = t_load + t_group + t_corr + t_filtsort
+print("total         : {total:.4f} s")

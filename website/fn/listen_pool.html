@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>listen_pool — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>listen_pool</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig"><code>listen_pool(port, allow=(...))</code></pre>
+<p class="fnnote">Input: port, allow &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>port</code> (integer, 0-65535) is the TCP port to bind. <code>allow=(...)</code> (a list of strings, required and non-empty) names exactly which already-defined functions this listener may run for a remote caller — a hard security requirement, not an option. Binds <code>port</code> and blocks forever (this call never returns under normal operation), accepting job requests over TCP and running only functions named in <code>allow</code>. A request for anything else is rejected cleanly (never a crash, never executed anyway). Each accepted job runs on a fresh, isolated interpreter seeded from a snapshot of the listening script's own globals/functions, taken once when <code>listen_pool</code> is called.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>listen_pool(port, allow=(...))</code></td><td><div class="ioitem"><code>port</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>port</code> (integer, 0-65535) is the TCP port to bind.</span></div>
+<div class="ioitem"><code>allow</code> <span class="iotype">string (default <code>(...)</code>)</span><span class="iodesc"><code>allow=(...)</code> (a list of strings, required and non-empty) names exactly which already-defined functions this listener may run for a remote caller — a hard security requirement, not an option.</span></div>
+</td><td><span class="ionone">no output</span></td><td>A request for anything else is rejected cleanly (never a crash, never executed anyway). Each accepted job runs on a fresh, isolated interpreter seeded from a snapshot of the listening script's own globals/functions, taken once when <code>listen_pool</code> is called.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<span class="f">listen_pool</span>(<span class="n">9000</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))   <span class="c"># blocks forever, serving requests</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+<span class="k">function</span> <span class="f">run_listener</span>()
+    <span class="f">listen_pool</span>(<span class="n">9321</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))
+<span class="k">end</span> <span class="k">function</span>
+
+w = <span class="f">spawn</span>(<span class="s">"run_listener"</span>)     <span class="c"># the "remote" side, on its own thread here</span>
+<span class="f">sleep</span>(<span class="n">0.3</span>)                    <span class="c"># give it time to bind before connecting</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">1</span>, remote=(<span class="s">"127.0.0.1:9321"</span>)
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers    <span class="c"># some local, some "remote" — one ordered List</span>
+<span class="f">print</span>(results)                <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>listen_pool(port, allow=("fnA", "fnB", ...))</code> (§ distributed job dispatch, 2026-08-31) — the remote-worker half of <code>pool ... with cpu=N, remote=("host:port", ...)</code>: blocks forever, accepting job requests over TCP and running only functions named in <code>allow</code> (a hard security requirement — never an arbitrary requested name; see <code>remote_pool</code>'s own doc comment for the wire protocol, the allowlist check, and the isolation model). <code>allow</code> is required and must be non-empty — an empty allowlist could never run anything.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

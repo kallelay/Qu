@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalman tracking — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Statistics &amp; estimation</p>
+<h1>Kalman tracking</h1>
+<p class="lede">a constant-velocity Kalman filter tracking a noisy 1-D position sensor.</p>
+<p class="srcpath">catalog/qu_kalman_tracking.qu</p>
+<p>State is [position, velocity]; only position is measured (noisily). Each step threads the filter state through `predict` then `update`, Qu's named-return `Model` protocol for the linear Kalman filter (no separate `kalman_predict`/`kalman_update` builtins -- `predict`/`update` dispatch on the model's own `kind`, called via ordinary `state.method(args)` sugar).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>kalman_init(x0, P0)               -- initial state estimate + covariance</li>
+<li>state.predict(F, Q)               -- F a matrix literal, constant-velocity model</li>
+<li>state.update(H, z, R)             -- H a 1x2 observation row, z a 1-vector</li>
+<li>rms                                -- comparing raw vs filtered error</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Ground truth: constant velocity plus a noisy position sensor</h3>
+<pre class="hl"><code>N = <span class="n">60</span>
+dt = <span class="n">0.1</span>
+true_v = <span class="n">2.0</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.8</span> * <span class="f">randn</span>(N)
+</code></pre>
+</section>
+<section class="step">
+<h3>Constant-velocity Kalman filter: state = [position, velocity]</h3>
+<pre class="hl"><code>F = [<span class="n">1</span>, dt; <span class="n">0</span>, <span class="n">1</span>]
+Q = [<span class="n">0.001</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0.001</span>]
+H = <span class="f">reshape</span>([<span class="n">1</span>, <span class="n">0</span>], <span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">0.64</span>]
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">10</span>])
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [measured[k]], R)
+    est_pos[k] = s.x[<span class="n">0</span>]
+    est_vel[k] = s.x[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot ground truth, raw measurements, and the filtered track</h3>
+<pre class="hl"><code><span class="f">plot</span>(t, true_pos, <span class="a">label</span>=<span class="s">"true position"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, measured, <span class="a">label</span>=<span class="s">"noisy sensor"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(t, est_pos, <span class="a">label</span>=<span class="s">"Kalman estimate"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Position"</span>)
+<span class="f">title</span>(<span class="s">"Constant-velocity Kalman tracking"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Position RMS error: raw sensor=0.832, Kalman estimate=0.215
+True velocity=2.00, final estimated velocity=2.023</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="491.47" x2="866.00" y2="491.47" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="491.47" x2="86.00" y2="491.47" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="495.95" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="424.62" x2="866.00" y2="424.62" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="424.62" x2="86.00" y2="424.62" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="429.10" font-size="12.8" text-anchor="end" fill="#5a5a5a">2</text>
+<line x1="86.00" y1="357.78" x2="866.00" y2="357.78" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="357.78" x2="86.00" y2="357.78" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="362.26" font-size="12.8" text-anchor="end" fill="#5a5a5a">4</text>
+<line x1="86.00" y1="290.94" x2="866.00" y2="290.94" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="290.94" x2="86.00" y2="290.94" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="295.42" font-size="12.8" text-anchor="end" fill="#5a5a5a">6</text>
+<line x1="86.00" y1="224.10" x2="866.00" y2="224.10" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="224.10" x2="86.00" y2="224.10" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="228.58" font-size="12.8" text-anchor="end" fill="#5a5a5a">8</text>
+<line x1="86.00" y1="157.25" x2="866.00" y2="157.25" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="157.25" x2="86.00" y2="157.25" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="161.73" font-size="12.8" text-anchor="end" fill="#5a5a5a">10</text>
+<line x1="86.00" y1="90.41" x2="866.00" y2="90.41" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="90.41" x2="86.00" y2="90.41" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="94.89" font-size="12.8" text-anchor="end" fill="#5a5a5a">12</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="148.95" y1="48.00" x2="148.95" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="148.95" y1="540.00" x2="148.95" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="148.95" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.5</text>
+<line x1="211.91" y1="48.00" x2="211.91" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="211.91" y1="540.00" x2="211.91" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="211.91" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.0</text>
+<line x1="274.86" y1="48.00" x2="274.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="274.86" y1="540.00" x2="274.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="274.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.5</text>
+<line x1="337.82" y1="48.00" x2="337.82" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="337.82" y1="540.00" x2="337.82" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="337.82" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.0</text>
+<line x1="400.77" y1="48.00" x2="400.77" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="400.77" y1="540.00" x2="400.77" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="400.77" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.5</text>
+<line x1="463.72" y1="48.00" x2="463.72" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="463.72" y1="540.00" x2="463.72" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="463.72" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.0</text>
+<line x1="526.68" y1="48.00" x2="526.68" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="526.68" y1="540.00" x2="526.68" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="526.68" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.5</text>
+<line x1="589.63" y1="48.00" x2="589.63" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="589.63" y1="540.00" x2="589.63" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="589.63" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4.0</text>
+<line x1="652.59" y1="48.00" x2="652.59" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="652.59" y1="540.00" x2="652.59" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="652.59" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4.5</text>
+<line x1="715.54" y1="48.00" x2="715.54" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="715.54" y1="540.00" x2="715.54" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="715.54" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">5.0</text>
+<line x1="778.49" y1="48.00" x2="778.49" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="778.49" y1="540.00" x2="778.49" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="778.49" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">5.5</text>
+<line x1="841.45" y1="48.00" x2="841.45" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="841.45" y1="540.00" x2="841.45" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="841.45" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">6.0</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,491.47 98.59,484.78 111.18,478.10 123.77,471.41 136.36,464.73 148.95,458.05 161.54,451.36 174.14,444.68 186.73,437.99 199.32,431.31 211.91,424.62 224.50,417.94 237.09,411.26 249.68,404.57 262.27,397.89 274.86,391.20 287.45,384.52 300.04,377.83 312.63,371.15 325.23,364.47 337.82,357.78 350.41,351.10 363.00,344.41 375.59,337.73 388.18,331.05 400.77,324.36 413.36,317.68 425.95,310.99 438.54,304.31 451.13,297.62 463.72,290.94 476.31,284.26 488.91,277.57 501.50,270.89 514.09,264.20 526.68,257.52 539.27,250.83 551.86,244.15 564.45,237.47 577.04,230.78 589.63,224.10 602.22,217.41 614.81,210.73 627.40,204.04 640.00,197.36 652.59,190.68 665.18,183.99 677.77,177.31 690.36,170.62 702.95,163.94 715.54,157.25 728.13,150.57 740.72,143.89 753.31,137.20 765.90,130.52 778.49,123.83 791.08,117.15 803.68,110.46 816.27,103.78 828.86,97.10" fill="none" stroke="#000000" stroke-width="1.5"/>
+<polyline points="86.00,517.64 98.59,452.02 111.18,458.26 123.77,434.16 136.36,490.22 148.95,434.03 161.54,473.69 174.14,419.06 186.73,449.78 199.32,429.64 211.91,398.15 224.50,392.05 237.09,383.83 249.68,432.87 262.27,426.04 274.86,404.52 287.45,361.39 300.04,394.31 312.63,328.56 325.23,395.50 337.82,341.10 350.41,368.39 363.00,284.29 375.59,332.71 388.18,313.15 400.77,332.36 413.36,322.74 425.95,375.19 438.54,294.18 451.13,272.79 463.72,309.95 476.31,232.46 488.91,299.27 501.50,285.37 514.09,248.38 526.68,304.09 539.27,243.55 551.86,263.43 564.45,274.53 577.04,280.07 589.63,188.32 602.22,199.91 614.81,195.56 627.40,204.76 640.00,200.37 652.59,144.65 665.18,161.33 677.77,153.54 690.36,157.51 702.95,191.55 715.54,145.06 728.13,151.83 740.72,169.54 753.31,86.94 765.90,128.64 778.49,130.45 791.08,113.73 803.68,157.76 816.27,70.36 828.86,79.29" fill="none" stroke="#808080" stroke-width="1.5"/>
+<polyline points="86.00,516.08 98.59,482.42 111.18,468.89 123.77,449.43 136.36,461.54 148.95,447.22 161.54,453.78 174.14,438.20 186.73,438.24 199.32,431.96 211.91,417.94 224.50,405.87 237.09,394.66 249.68,398.58 262.27,400.26 274.86,396.89 287.45,385.01 300.04,382.17 312.63,367.06 325.23,367.15 337.82,357.57 350.41,354.30 363.00,337.58 375.59,331.14 388.18,322.67 400.77,318.33 413.36,313.28 425.95,316.43 438.54,308.15 451.13,298.06 463.72,294.09 476.31,280.74 488.91,277.29 501.50,272.62 514.09,264.11 526.68,263.13 539.27,255.37 551.86,250.73 564.45,247.89 577.04,246.06 589.63,234.54 602.22,225.36 614.81,216.61 627.40,209.68 640.00,203.00 652.59,191.27 665.18,182.28 677.77,173.35 690.36,165.64 702.95,162.05 715.54,154.33 728.13,147.99 740.72,144.02 753.31,132.50 765.90,125.97 778.49,120.24 791.08,113.50 803.68,111.60 816.27,101.74 828.86,93.55" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Constant-velocity Kalman tracking</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Time (s)</text>
+<text x="54.72" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 54.72 294.00)">Position</text>
+<rect x="94.00" y="56.00" width="133.76" height="68.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="101.00" y1="72.00" x2="121.00" y2="72.00" stroke="#000000" stroke-width="2.2"/>
+<text x="127.00" y="75.50" font-size="12" text-anchor="start" fill="#222">true position</text>
+<line x1="101.00" y1="90.00" x2="121.00" y2="90.00" stroke="#808080" stroke-width="2.2"/>
+<text x="127.00" y="93.50" font-size="12" text-anchor="start" fill="#222">noisy sensor</text>
+<line x1="101.00" y1="108.00" x2="121.00" y2="108.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="127.00" y="111.50" font-size="12" text-anchor="start" fill="#222">Kalman estimate</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_kalman_tracking.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_kalman_tracking.qu -- a constant-velocity Kalman filter tracking a</span>
+<span class="c"># noisy 1-D position sensor.</span>
+<span class="c">#</span>
+<span class="c"># State is [position, velocity]; only position is measured (noisily). Each</span>
+<span class="c"># step threads the filter state through `predict` then `update`, Qu's</span>
+<span class="c"># named-return `Model` protocol for the linear Kalman filter (no separate</span>
+<span class="c"># `kalman_predict`/`kalman_update` builtins -- `predict`/`update` dispatch</span>
+<span class="c"># on the model's own `kind`, called via ordinary `state.method(args)`</span>
+<span class="c"># sugar).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   kalman_init(x0, P0)               -- initial state estimate + covariance</span>
+<span class="c">#   state.predict(F, Q)               -- F a matrix literal, constant-velocity model</span>
+<span class="c">#   state.update(H, z, R)             -- H a 1x2 observation row, z a 1-vector</span>
+<span class="c">#   rms                                -- comparing raw vs filtered error</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Ground truth: constant velocity plus a noisy position sensor</span>
+N = <span class="n">60</span>
+dt = <span class="n">0.1</span>
+true_v = <span class="n">2.0</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.8</span> * <span class="f">randn</span>(N)
+
+<span class="c">#%% Constant-velocity Kalman filter: state = [position, velocity]</span>
+F = [<span class="n">1</span>, dt; <span class="n">0</span>, <span class="n">1</span>]
+Q = [<span class="n">0.001</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0.001</span>]
+H = <span class="f">reshape</span>([<span class="n">1</span>, <span class="n">0</span>], <span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">0.64</span>]
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">10</span>])
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [measured[k]], R)
+    est_pos[k] = s.x[<span class="n">0</span>]
+    est_vel[k] = s.x[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+
+<span class="c">#%% Plot ground truth, raw measurements, and the filtered track</span>
+<span class="f">plot</span>(t, true_pos, <span class="a">label</span>=<span class="s">"true position"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, measured, <span class="a">label</span>=<span class="s">"noisy sensor"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(t, est_pos, <span class="a">label</span>=<span class="s">"Kalman estimate"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Position"</span>)
+<span class="f">title</span>(<span class="s">"Constant-velocity Kalman tracking"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

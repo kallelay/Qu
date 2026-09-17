@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hstack — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>hstack</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>hstack(a, b, ...)</code></pre>
+<p class="fnnote">Input: a, b, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Named equivalents of bracket-literal block concatenation (<code>[a, b]</code> horizontally / <code>[a; b]</code> vertically). Each of the 2+ required arguments is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex — any complex argument makes the whole result complex); <code>hstack</code> needs matching row counts, <code>vstack</code> needs matching column counts.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = hstack(a, b, ...)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">&mdash;</span><span class="iodesc">Named equivalents of bracket-literal block concatenation (<code>[a, b]</code> horizontally / <code>[a.</code></span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">b]<code> vertically).</code></span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>Mat</code> <span class="iotype">CMat</span><span class="iodesc">or <code>CMat</code> if any input was complex</span></div>
+</td><td>Returns a <code>Mat</code> (or <code>CMat</code> if any input was complex).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>((<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>) <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>,<span class="n">2</span>))     <span class="c"># cannot reshape a list</span>
+<span class="f">print</span>(<span class="f">hstack</span>((<span class="s">"a"</span>,), (<span class="s">"b"</span>,)))       <span class="c"># expected a number, found list</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
+c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
+c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
+c1y = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">4</span>)
+
+Xc0 = <span class="f">hstack</span>(<span class="f">reshape</span>(c0x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c0y, n_per_class, <span class="n">1</span>))
+Xc1 = <span class="f">hstack</span>(<span class="f">reshape</span>(c1x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c1y, n_per_class, <span class="n">1</span>))
+Xc = <span class="f">vstack</span>(Xc0, Xc1)             <span class="c"># (120, 2)</span>
+
+n = <span class="n">2</span> * n_per_class
+idx = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+y = <span class="f">floor</span>(idx / n_per_class)      <span class="c"># 0 for the first 60 rows, 1 for the last 60</span>
+
+<span class="k">function</span> <span class="f">one_hot</span>(labels, rows, k)
+    m = <span class="f">zeros</span>(rows, k)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        m[i, labels[i]] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> m
+<span class="k">end</span> <span class="k">function</span>
+
+Y = <span class="f">one_hot</span>(y, n, <span class="n">2</span>)
+
+net = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<span class="n">200</span>, <span class="a">lr</span>=<span class="n">0.1</span>, <span class="a">loss</span>=<span class="s">"cross_entropy"</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model, X, Ytrue, rows)
+    logits = model.<span class="f">predict</span>(X)
+    correct = <span class="n">0</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        <span class="k">if</span> <span class="f">argmax</span>(logits[i, :]) == <span class="f">argmax</span>(Ytrue[i, :]) <span class="k">then</span>
+            correct = correct + <span class="n">1</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> correct / rows
+<span class="k">end</span> <span class="k">function</span>
+
+acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
+<span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<h2>How it works</h2>
+<p><code>hstack(a, b, ...)</code> / <code>vstack(a, b, ...)</code> — explicit, named equivalents of the bracket-literal block-concatenation magic (<code>[a, b]</code> / <code>[a; b]</code>, see <code>eval_matrix_literal_blocks</code>), for scripts that would rather spell the operation out than rely on <code>[...]</code>'s implicit dispatch — same "also give it a plain function name" precedent as <code>panel</code>/<code>subplot</code>. Both need 2+ arrays; a single argument would make the call redundant.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="vstack.html"><code>vstack</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

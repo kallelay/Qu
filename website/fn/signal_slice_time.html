@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>signal_slice_time — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>signal_slice_time</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>signal_slice_time(sig, t0, t1)</code></pre>
+<p class="fnnote">Input: sig, t0, t1 &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>sig</code>: a length-N <code>Signal</code>; <code>t0</code>, <code>t1</code>: numbers (seconds).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = signal_slice_time(sig, t0, t1)</code></td><td><div class="ioitem"><code>sig</code> <span class="iotype">Signal</span><span class="iodesc"><code>sig</code>: a length-N <code>Signal</code>.</span></div>
+<div class="ioitem"><code>t0</code> <span class="iotype">number</span><span class="iodesc"><code>t0</code>, <code>t1</code>: numbers (seconds).</span></div>
+<div class="ioitem"><code>t1</code> <span class="iotype">number</span><span class="iodesc"><code>t0</code>, <code>t1</code>: numbers (seconds).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
+</td><td>Returns a new <code>Signal</code> at the same <code>Fs</code>. The original name for the same operation as <code>cut</code> above — kept as a working alias, not deprecated.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+tone = <span class="f">sine</span>(<span class="n">50</span>, fs, <span class="n">20</span>)
+bits = <span class="f">sigma_delta</span>(tone)            <span class="c"># 1-bit noise-shaping quantizer</span>
+<span class="f">print</span>(<span class="s">"sigma_delta output range: [{min(bits)}, {max(bits)}]"</span>)
+
+s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, <span class="n">10</span>)
+trimmed = <span class="f">signal_slice_time</span>(s, <span class="n">0.2</span>, <span class="n">0.6</span>)   <span class="c"># same operation `cut` is the friendlier name for</span>
+<span class="f">print</span>(<span class="s">"signal_slice_time(0.2, 0.6) -&gt; {trimmed}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>signal_slice_time(sig, t0, t1)</code> — slices a <code>Signal</code> by a TIME range in seconds (half-open <code>[t0, t1)</code>, matching the ordinary <code>x[a:b]</code> index grammar's own half-open/0-based convention — see <code>resolve_sel</code>/<code>exec_index_assign</code> above) instead of raw sample positions, converting via the signal's own <code>Fs</code> (<code>i = round(t * Fs)</code>, the exact inverse of the already-shipped <code>sig.t</code> accessor's <code>i / Fs</code>). Built as a builtin rather than new <code>x[time: t0 .. t1]</code> index syntax after reading <code>qu-syntax</code>'s <code>Idx</code> grammar: <code>index_one</code> parses <code>a:b</code> by first parsing <code>a</code> as a plain expression, then checking for a following <code>:</code> — so <code>time</code> before a <code>:</code> is already meaningful today (it's an ordinary slice lower bound, e.g. <code>x[time:end]</code> where <code>time</code> is a variable holding an index). Special-casing a literal <code>time</code>/<code>freq</code> identifier immediately before <code>:</code> to mean something else entirely would silently change what any existing script using a variable named <code>time</code> or <code>freq</code> as a slice bound does — real risk to established indexing behavior for a feature explicitly scoped (BACKLOG.md) to stay small and self-contained, separate from the bigger named/labeled-axis-indexing design (already flagged there as needing its own design pass). A plain builtin needs no grammar change at all and is exactly as capable for this scope. <code>cut(sig, t_start, t_end)</code> (added alongside the 3 new § signal builtins, 2026-09) is the same operation under a friendlier public name — deliberately NOT a second, separately maintained implementation: a time-based trim only has one sane boundary convention already established in this codebase (half-open <code>[t_start, t_end)</code>, exactly matching <code>x[a:b]</code>'s own half-open/0-based slice convention, chosen over <code>to</code>'s inclusive convention because <code>to</code> builds an explicit list of endpoints while slicing has always meant half-open here), so both names share this one match arm and its error messages via <code>f</code> (the matched name) rather than inventing a third convention or forking the logic. Boundary handling: <code>t_start</code>/<code>t_end</code> round to the nearest sample via the signal's own <code>Fs</code> (<code>i = round(t*Fs)</code>, the exact inverse of <code>sig.t</code>'s <code>i/Fs</code>); <code>t_end</code> past the signal's actual duration clamps to the last sample (matching ordinary slice <code>hi</code> clamping, e.g. <code>x[0:1000]</code> on a 10-element vector), while a negative <code>t_start</code> or <code>t_end &lt; t_start</code> is a clear error rather than a silent empty result — a typo'd negative time is far more likely a mistake than an intentional empty cut.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

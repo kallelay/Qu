@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nyquist — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>nyquist</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>nyquist(Z, [color=], [label=], [marker="o"])</code></pre>
+<p class="fnnote">Input: Z, color, label, marker &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>Z</code>: a length-N complex vector (<code>CVec</code>, the impedance spectrum). <code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling. The standard EIS plot: <code>Re(Z)</code> on x, <code>-Im(Z)</code> on y (the impedance-spectroscopy sign convention every EIS instrument uses, so capacitive/inductive behavior plots in the upper half-plane).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>nyquist(Z, [color=], [label=], [marker="o"])</code></td><td><div class="ioitem"><code>Z</code> <span class="iotype">vector or CVec</span><span class="iodesc"><code>Z</code>: a length-N complex vector (<code>CVec</code>, the impedance spectrum).</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+<div class="ioitem"><code>label</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+<div class="ioitem"><code>marker</code> <span class="iotype">string, optional (default <code>"o"</code>)</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
+R = <span class="n">100</span>
+C = <span class="n">1e-6</span>
+w = <span class="n">2</span> * pi * freqs
+Z = R / (<span class="n">1</span> + <span class="n">1j</span> * w * R * C)         <span class="c"># a simple RC impedance, as measured data</span>
+
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>)     <span class="c"># fit.z, fit.gamma</span>
+v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-3</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="k">if</span> v.valid
+    <span class="f">print</span>(<span class="s">"measurement is causal/linear/stable within {v.max_residual}%"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
+<span class="k">end</span>
+
+<span class="f">nyquist</span>(Z)   <span class="c"># Re(Z) vs -Im(Z), the standard EIS view</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>randles = <span class="f">series</span>(<span class="f">resistor</span>(<span class="n">0.2</span>), <span class="f">parallel</span>(<span class="f">resistor</span>(<span class="n">0.01</span>), <span class="f">capacitor</span>(<span class="n">100e-6</span>)))
+Z = <span class="f">impedance</span>(randles, <span class="f">logspace</span>(-<span class="n">2</span>, <span class="n">5</span>, <span class="n">200</span>))     <span class="c"># frequencies in Hz</span>
+<span class="f">nyquist</span>(Z)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>nyquist(Z)</code> — the standard EIS plot: Re(Z) on x, -Im(Z) on y (impedance-spectroscopy convention — capacitive/inductive behavior then plots in the upper half-plane, matching every EIS instrument's own default).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+# qu_file_extensions.qu -- three real filesystem extensions in one flow:
+# `touch(path)` (Unix `touch` semantics), streaming reads via ordinary
+# `fopen`/`read_line` (no longer an eager whole-file load internally), and
+# read-only memory-mapped random access (`mmap_open`/`mmap_len`/
+# `mmap_read`) over the exact bytes just written.
+#
+# The demo file itself is created via `tmp_file()`, which allocates a real,
+# unique path under the OS temp directory rather than a fixed name in this
+# repo's own working directory -- deliberately, because Qu has no
+# remove/delete-file builtin at all (grepped `lib.rs` for `remove_file`/
+# `delete_file`/`unlink`, zero hits), so a fixed name written straight into
+# `catalog/` would be a stray artifact left behind on every run. Using the
+# OS temp dir keeps this demo from scattering files into the repo even
+# though it can't clean up after itself with a builtin.
+#
+# Honest scope note on "show its mtime changed": Qu has no builtin that
+# reads a file's mtime back into a script (confirmed against
+# `docs/qu-language-tour.md`'s own `touch(path)` section, which states this
+# outright) -- the "mtime advances without touching content" half of
+# `touch`'s contract is only verified at the Rust unit-test level, not
+# observable from a `.qu` script. What *is* observable here, and is exactly
+# what the tour's own worked example demonstrates, is the other half of the
+# contract: `touch` on a not-yet-existing path flips `file_exists` from
+# `false` to `true`, and `touch`ing an existing file a second time leaves
+# its content byte-for-byte unchanged -- both checked below with real
+# values, not asserted blindly.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   tmp_file()                              -- a real, unique OS-temp-dir path
+#   file_exists(path)                       -- before/after existence check
+#   touch(path)                             -- create-or-bump-mtime, content-preserving
+#   fopen(path, "wb") / write_byte / close  -- write real bytes to map later
+#   fopen(path, "r") / read_line / eof      -- a real streaming read pass
+#   mmap_open(path) / mmap_len / mmap_read  -- read-only memory-mapped access
+
+backend auto
+
+#%% A real, unique temp path -- no fixed filename, no repo-directory litter
+path = tmp_file()
+# Only the shape of the path, never the path. The build captures what
+# this prints and pins it into the demo page, and the real value names
+# whoever ran the build -- it went out on the published site until the
+# leak check learned to see backslashes.
+print("temp file allocated: {len(path) > 0} (path is machine-specific)")
+
+# `tmp_file()` already created the file (empty), so `touch` below is
+# exercising its "existing file" branch first; check the interesting
+# "didn't exist yet" branch against a second, never-created sibling path
+# instead, exactly like the tour's own worked example does.
+sibling_path = path + ".touch_only"
+had_before = file_exists(sibling_path)
+touch(sibling_path)
+exists_after_touch = file_exists(sibling_path)
+print("sibling_path had_before={had_before}, exists_after_touch={exists_after_touch}")
+
+#%% Write eight real bytes (ASCII 'A'..'H') into the temp file
+f = fopen(path, "wb")
+for b = 65 to 72
+    write_byte(f, b)
+end for
+close(f)
+
+#%% touch an EXISTING file -- content must survive untouched
+touch(path)
+
+#%% A real streaming read pass: fopen/read_line/eof over the same file,
+# reopened in text mode. There's only one unterminated "line" in an 8-byte
+# binary blob with no newlines, so this reads exactly one line back.
+g = fopen(path, "r")
+lines_read = 0
+last_line = ""
+while not eof(g)
+    last_line = read_line(g)
+    lines_read = lines_read + 1
+end while
+close(g)
+print("streaming read: lines_read={lines_read}, content=\"{last_line}\"")
+
+#%% Memory-map the same file and pull out real byte ranges without ever
+# loading the whole thing through a read call
+m = mmap_open(path)
+n = mmap_len(m)
+first4 = mmap_read(m, 0, 4)
+last4 = mmap_read(m, 4, 4)
+print("mmap_len = {n}")
+print("mmap_read(0,4) = {first4}")
+print("mmap_read(4,4) = {last4}")
+
+#%% Verify the mapped bytes actually match what was written (65..72, A-H)
+expected = zeros(0)
+for b = 65 to 72
+    expected = append(expected, b)
+end for
+whole = mmap_read(m, 0, 8)
+matches = true
+for i = 0 to 7
+    if whole[i] != expected[i]
+        matches = false
+    end if
+end for
+print("mmap content matches what was written: {matches}")

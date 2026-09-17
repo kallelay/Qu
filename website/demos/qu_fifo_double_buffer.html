@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIFO & double buffer — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Data &amp; I/O</p>
+<h1>FIFO &amp; double buffer</h1>
+<p class="lede">a small acquisition-loop simulation showing why a real sensor pipeline needs BOTH a `fifo` and a `double_buffer`, not just one or the other.</p>
+<p class="srcpath">catalog/qu_fifo_double_buffer.qu</p>
+<p>The scenario: a noisy sensor is sampled once per tick. A `fifo(capacity)` keeps a short rolling HISTORY of raw samples (for on-the-fly smoothing -- a moving average over the last few readings), while a `double_buffer` holds the single CURRENT, ready-to-read "frame" that a consumer (e.g. a display or a control loop) pulls from. The two data structures solve two different problems that a real acquisition loop always has at once:</p>
+<ul>
+<li>fifo: bounded rolling history, oldest sample evicted automatically</li>
+<p>once the ring is full -- exactly what a moving-average window needs.</p>
+<li>double_buffer: the consumer must NEVER see a half-written frame --</li>
+<p>`.write` only ever touches the back buffer, so the smoothed value is only exposed via `.read()` once `.swap()` makes it current.</p>
+</ul>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>fifo(capacity)               -- bounded ring buffer of raw samples</li>
+<li>f.push(value), f.pop()        -- ring-buffer push/evict, FIFO pop</li>
+<li>f.peek(), f.is_full(), f.is_empty()</li>
+<li>len(f)                       -- element count</li>
+<li>double_buffer(initial)        -- front/back current-frame holder</li>
+<li>b.write(value), b.read(), b.swap()</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Simulate a noisy sensor: a slow sine wave plus noise, sampled 12 times</h3>
+<pre class="hl"><code>N = <span class="n">12</span>
+true_signal = <span class="n">5</span> + <span class="n">2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / N)
+noisy_samples = true_signal + <span class="n">0.3</span> * <span class="f">randn</span>(N)
+</code></pre>
+</section>
+<section class="step">
+<h3>considered "the current reading" a downstream consumer may read.</h3>
+<pre class="hl"><code>history = <span class="f">fifo</span>(<span class="n">4</span>)
+frame = <span class="f">double_buffer</span>(<span class="n">0.0</span>)
+
+<span class="f">print</span>(<span class="s">"Acquisition loop -- fifo(4) rolling history feeding a double-buffered frame"</span>)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    was_full_before = history.<span class="f">is_full</span>()
+    history.<span class="f">push</span>(noisy_samples[k])
+
+    <span class="c"># Moving average over whatever is currently in the ring (&lt;=4 samples).</span>
+    n_in_ring = <span class="f">len</span>(history)
+    total = <span class="n">0</span>
+    tmp = <span class="f">fifo</span>(<span class="n">4</span>)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_in_ring - <span class="n">1</span>
+        v = history.<span class="f">pop</span>()
+        total = total + v
+        tmp.<span class="f">push</span>(v)          <span class="c"># preserve the samples we just drained</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_in_ring - <span class="n">1</span>
+        history.<span class="f">push</span>(tmp.<span class="f">pop</span>())
+    <span class="k">end</span> <span class="k">for</span>
+    avg = total / n_in_ring
+
+    <span class="c"># Stage the smoothed value in the back buffer; the front buffer (what</span>
+    <span class="c"># `.read()` returns) does NOT change until we explicitly `.swap()`.</span>
+    stale_reading = frame.<span class="f">read</span>()
+    frame.<span class="f">write</span>(avg)
+    reading_before_swap = frame.<span class="f">read</span>()
+    frame.<span class="f">swap</span>()
+    reading_after_swap = frame.<span class="f">read</span>()
+
+    <span class="f">print</span>(<span class="s">"tick {k}: raw={noisy_samples[k]:.3f} ring_full_before_push={was_full_before} "</span> +
+          <span class="s">"avg={avg:.3f} pre_swap_read={reading_before_swap:.3f} post_swap_read={reading_after_swap:.3f}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Final rolling history (oldest to newest): peek={history.peek():.3f}, count={len(history)}, is_full={history.is_full()}"</span>)
+<span class="f">print</span>(<span class="s">"Final current frame (front buffer): {frame.read():.3f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot the raw noisy samples against the ground truth for context</h3>
+<pre class="hl"><code>t = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+<span class="f">plot</span>(t, true_signal, <span class="a">label</span>=<span class="s">"true signal"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, noisy_samples, <span class="a">label</span>=<span class="s">"noisy sensor sample"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">xlabel</span>(<span class="s">"Tick"</span>)
+<span class="f">ylabel</span>(<span class="s">"Value"</span>)
+<span class="f">title</span>(<span class="s">"Sensor acquisition: fifo history + double-buffered current frame"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Acquisition loop -- fifo(4) rolling history feeding a double-buffered frame
+tick 0: raw=5.696 ring_full_before_push=false avg=5.696 pre_swap_read=0.000 post_swap_read=5.696
+tick 1: raw=5.702 ring_full_before_push=false avg=5.699 pre_swap_read=5.696 post_swap_read=5.699
+tick 2: raw=6.242 ring_full_before_push=false avg=5.880 pre_swap_read=5.699 post_swap_read=5.880
+tick 3: raw=7.298 ring_full_before_push=false avg=6.235 pre_swap_read=5.880 post_swap_read=6.235
+tick 4: raw=7.049 ring_full_before_push=true avg=6.573 pre_swap_read=6.235 post_swap_read=6.573
+tick 5: raw=6.075 ring_full_before_push=true avg=6.666 pre_swap_read=6.573 post_swap_read=6.666
+tick 6: raw=5.103 ring_full_before_push=true avg=6.381 pre_swap_read=6.666 post_swap_read=6.381
+tick 7: raw=4.239 ring_full_before_push=true avg=5.617 pre_swap_read=6.381 post_swap_read=5.617
+tick 8: raw=2.939 ring_full_before_push=true avg=4.589 pre_swap_read=5.617 post_swap_read=4.589
+tick 9: raw=2.898 ring_full_before_push=true avg=3.795 pre_swap_read=4.589 post_swap_read=3.795
+tick 10: raw=2.913 ring_full_before_push=true avg=3.247 pre_swap_read=3.795 post_swap_read=3.247
+tick 11: raw=4.322 ring_full_before_push=true avg=3.268 pre_swap_read=3.247 post_swap_read=3.268
+
+Final rolling history (oldest to newest): peek=2.939, count=4, is_full=true
+Final current frame (front buffer): 3.268</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="507.26" x2="866.00" y2="507.26" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="507.26" x2="86.00" y2="507.26" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="511.74" font-size="12.8" text-anchor="end" fill="#5a5a5a">3.0</text>
+<line x1="86.00" y1="456.43" x2="866.00" y2="456.43" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="456.43" x2="86.00" y2="456.43" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="460.91" font-size="12.8" text-anchor="end" fill="#5a5a5a">3.5</text>
+<line x1="86.00" y1="405.60" x2="866.00" y2="405.60" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="405.60" x2="86.00" y2="405.60" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="410.08" font-size="12.8" text-anchor="end" fill="#5a5a5a">4.0</text>
+<line x1="86.00" y1="354.77" x2="866.00" y2="354.77" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="354.77" x2="86.00" y2="354.77" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="359.25" font-size="12.8" text-anchor="end" fill="#5a5a5a">4.5</text>
+<line x1="86.00" y1="303.95" x2="866.00" y2="303.95" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="303.95" x2="86.00" y2="303.95" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="308.43" font-size="12.8" text-anchor="end" fill="#5a5a5a">5.0</text>
+<line x1="86.00" y1="253.12" x2="866.00" y2="253.12" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="253.12" x2="86.00" y2="253.12" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="257.60" font-size="12.8" text-anchor="end" fill="#5a5a5a">5.5</text>
+<line x1="86.00" y1="202.29" x2="866.00" y2="202.29" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="202.29" x2="86.00" y2="202.29" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="206.77" font-size="12.8" text-anchor="end" fill="#5a5a5a">6.0</text>
+<line x1="86.00" y1="151.46" x2="866.00" y2="151.46" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="151.46" x2="86.00" y2="151.46" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="155.94" font-size="12.8" text-anchor="end" fill="#5a5a5a">6.5</text>
+<line x1="86.00" y1="100.63" x2="866.00" y2="100.63" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="100.63" x2="86.00" y2="100.63" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="105.11" font-size="12.8" text-anchor="end" fill="#5a5a5a">7.0</text>
+<line x1="86.00" y1="49.80" x2="866.00" y2="49.80" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="49.80" x2="86.00" y2="49.80" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="54.28" font-size="12.8" text-anchor="end" fill="#5a5a5a">7.5</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="153.53" y1="48.00" x2="153.53" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="153.53" y1="540.00" x2="153.53" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="153.53" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1</text>
+<line x1="221.06" y1="48.00" x2="221.06" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="221.06" y1="540.00" x2="221.06" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="221.06" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2</text>
+<line x1="288.60" y1="48.00" x2="288.60" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="288.60" y1="540.00" x2="288.60" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="288.60" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3</text>
+<line x1="356.13" y1="48.00" x2="356.13" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="356.13" y1="540.00" x2="356.13" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="356.13" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4</text>
+<line x1="423.66" y1="48.00" x2="423.66" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="423.66" y1="540.00" x2="423.66" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="423.66" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">5</text>
+<line x1="491.19" y1="48.00" x2="491.19" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="491.19" y1="540.00" x2="491.19" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="491.19" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">6</text>
+<line x1="558.73" y1="48.00" x2="558.73" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="558.73" y1="540.00" x2="558.73" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="558.73" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">7</text>
+<line x1="626.26" y1="48.00" x2="626.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="626.26" y1="540.00" x2="626.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="626.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">8</text>
+<line x1="693.79" y1="48.00" x2="693.79" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="693.79" y1="540.00" x2="693.79" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="693.79" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">9</text>
+<line x1="761.32" y1="48.00" x2="761.32" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="761.32" y1="540.00" x2="761.32" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="761.32" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">10</text>
+<line x1="828.86" y1="48.00" x2="828.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="828.86" y1="540.00" x2="828.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="828.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">11</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,303.95 153.53,202.29 221.06,127.87 288.60,100.63 356.13,127.87 423.66,202.29 491.19,303.95 558.73,405.60 626.26,480.02 693.79,507.26 761.32,480.02 828.86,405.60" fill="none" stroke="#000000" stroke-width="1.5"/>
+<polyline points="86.00,233.16 153.53,232.57 221.06,177.67 288.60,70.36 356.13,95.61 423.66,194.69 491.19,293.44 558.73,381.28 626.26,513.46 693.79,517.64 761.32,516.10 828.86,372.90" fill="none" stroke="#808080" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Sensor acquisition: fifo history + double-buffered current frame</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Tick</text>
+<text x="47.97" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 47.97 294.00)">Value</text>
+<rect x="701.68" y="56.00" width="156.32" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="708.68" y1="72.00" x2="728.68" y2="72.00" stroke="#000000" stroke-width="2.2"/>
+<text x="734.68" y="75.50" font-size="12" text-anchor="start" fill="#222">true signal</text>
+<line x1="708.68" y1="90.00" x2="728.68" y2="90.00" stroke="#808080" stroke-width="2.2"/>
+<text x="734.68" y="93.50" font-size="12" text-anchor="start" fill="#222">noisy sensor sample</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_fifo_double_buffer.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_fifo_double_buffer.qu -- a small acquisition-loop simulation showing</span>
+<span class="c"># why a real sensor pipeline needs BOTH a `fifo` and a `double_buffer`, not</span>
+<span class="c"># just one or the other.</span>
+<span class="c">#</span>
+<span class="c"># The scenario: a noisy sensor is sampled once per tick. A `fifo(capacity)`</span>
+<span class="c"># keeps a short rolling HISTORY of raw samples (for on-the-fly smoothing --</span>
+<span class="c"># a moving average over the last few readings), while a `double_buffer`</span>
+<span class="c"># holds the single CURRENT, ready-to-read "frame" that a consumer (e.g. a</span>
+<span class="c"># display or a control loop) pulls from. The two data structures solve two</span>
+<span class="c"># different problems that a real acquisition loop always has at once:</span>
+<span class="c">#   - fifo: bounded rolling history, oldest sample evicted automatically</span>
+<span class="c">#     once the ring is full -- exactly what a moving-average window needs.</span>
+<span class="c">#   - double_buffer: the consumer must NEVER see a half-written frame --</span>
+<span class="c">#     `.write` only ever touches the back buffer, so the smoothed value is</span>
+<span class="c">#     only exposed via `.read()` once `.swap()` makes it current.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   fifo(capacity)               -- bounded ring buffer of raw samples</span>
+<span class="c">#   f.push(value), f.pop()        -- ring-buffer push/evict, FIFO pop</span>
+<span class="c">#   f.peek(), f.is_full(), f.is_empty()</span>
+<span class="c">#   len(f)                       -- element count</span>
+<span class="c">#   double_buffer(initial)        -- front/back current-frame holder</span>
+<span class="c">#   b.write(value), b.read(), b.swap()</span>
+
+<span class="k">backend</span> auto
+<span class="f">seed</span>(<span class="n">7</span>)
+
+<span class="c">#%% Simulate a noisy sensor: a slow sine wave plus noise, sampled 12 times</span>
+N = <span class="n">12</span>
+true_signal = <span class="n">5</span> + <span class="n">2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / N)
+noisy_samples = true_signal + <span class="n">0.3</span> * <span class="f">randn</span>(N)
+
+<span class="c">#%% A 4-sample rolling-history FIFO feeds a moving average into a</span>
+<span class="c">#%% double-buffered "current frame" the way a real acquisition loop would:</span>
+<span class="c">#%% raw samples land in the fifo every tick; only a SWAPPED frame is ever</span>
+<span class="c">#%% considered "the current reading" a downstream consumer may read.</span>
+history = <span class="f">fifo</span>(<span class="n">4</span>)
+frame = <span class="f">double_buffer</span>(<span class="n">0.0</span>)
+
+<span class="f">print</span>(<span class="s">"Acquisition loop -- fifo(4) rolling history feeding a double-buffered frame"</span>)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    was_full_before = history.<span class="f">is_full</span>()
+    history.<span class="f">push</span>(noisy_samples[k])
+
+    <span class="c"># Moving average over whatever is currently in the ring (&lt;=4 samples).</span>
+    n_in_ring = <span class="f">len</span>(history)
+    total = <span class="n">0</span>
+    tmp = <span class="f">fifo</span>(<span class="n">4</span>)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_in_ring - <span class="n">1</span>
+        v = history.<span class="f">pop</span>()
+        total = total + v
+        tmp.<span class="f">push</span>(v)          <span class="c"># preserve the samples we just drained</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_in_ring - <span class="n">1</span>
+        history.<span class="f">push</span>(tmp.<span class="f">pop</span>())
+    <span class="k">end</span> <span class="k">for</span>
+    avg = total / n_in_ring
+
+    <span class="c"># Stage the smoothed value in the back buffer; the front buffer (what</span>
+    <span class="c"># `.read()` returns) does NOT change until we explicitly `.swap()`.</span>
+    stale_reading = frame.<span class="f">read</span>()
+    frame.<span class="f">write</span>(avg)
+    reading_before_swap = frame.<span class="f">read</span>()
+    frame.<span class="f">swap</span>()
+    reading_after_swap = frame.<span class="f">read</span>()
+
+    <span class="f">print</span>(<span class="s">"tick {k}: raw={noisy_samples[k]:.3f} ring_full_before_push={was_full_before} "</span> +
+          <span class="s">"avg={avg:.3f} pre_swap_read={reading_before_swap:.3f} post_swap_read={reading_after_swap:.3f}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Final rolling history (oldest to newest): peek={history.peek():.3f}, count={len(history)}, is_full={history.is_full()}"</span>)
+<span class="f">print</span>(<span class="s">"Final current frame (front buffer): {frame.read():.3f}"</span>)
+
+<span class="c">#%% Plot the raw noisy samples against the ground truth for context</span>
+t = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+<span class="f">plot</span>(t, true_signal, <span class="a">label</span>=<span class="s">"true signal"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, noisy_samples, <span class="a">label</span>=<span class="s">"noisy sensor sample"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">xlabel</span>(<span class="s">"Tick"</span>)
+<span class="f">ylabel</span>(<span class="s">"Value"</span>)
+<span class="f">title</span>(<span class="s">"Sensor acquisition: fifo history + double-buffered current frame"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

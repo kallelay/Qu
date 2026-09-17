@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>json2xml — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>json2xml</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>json2xml(str)</code></pre>
+<p class="fnnote">Input: str &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>str</code> (string, JSON text) is converted to XML: exactly <code>xmlify(parse_json(str))</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = json2xml(str)</code></td><td><div class="ioitem"><code>str</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
+</td><td>Returns a string.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"product,price\nWidget,9.99\nGadget,4.50\n"</span>)
+
+csv_text = <span class="f">csvify</span>(t)
+json_text = <span class="f">jsonify</span>(t)
+
+back_from_json = <span class="f">json2csv</span>(json_text)   <span class="c"># csvify(parse_json(json_text))</span>
+<span class="f">print</span>(back_from_json)
+
+xml_from_csv = <span class="f">csv2xml</span>(csv_text)       <span class="c"># xmlify(parse_csv(csv_text))</span>
+csv_from_xml = <span class="f">xml2csv</span>(xml_from_csv)   <span class="c"># csvify(parse_xml(xml_from_csv))</span>
+<span class="f">print</span>(csv_from_xml)
+
+xml_from_json = <span class="f">json2xml</span>(json_text)    <span class="c"># xmlify(parse_json(json_text))</span>
+json_from_xml = <span class="f">xml2json</span>(xml_from_json) <span class="c"># the row-object array, not jsonify(parse_xml(...))</span>
+parsed = <span class="f">parse_json</span>(json_from_xml)      <span class="c"># parse_json accepts that shape too -- back to a real Table</span>
+<span class="f">print</span>(<span class="f">nrow</span>(parsed))                     <span class="c"># 2</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

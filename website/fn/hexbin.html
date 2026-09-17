@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hexbin — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>hexbin</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>hexbin(x, y, [bins=], [colormap=], [mincount=])</code></pre>
+<p class="fnnote">Input: x, y, bins, colormap, mincount &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>The plane tiled with hexagons, each shaded by how many points fell in it — for the case a scatter cannot do, where past a few thousand marks the picture saturates into a blob. <code>x</code> and <code>y</code> are equal-length numeric <code>Vec</code>s giving the point coordinates; <code>bins=</code> (number, default 30, minimum 2) is how many hexagons span the x range; the row count follows from it at three quarters of that, which is the spacing that makes the offset rows interlock rather than overlap; <code>colormap=</code> (string) names the shading ramp; <code>mincount=</code> (number) leaves a cell unpainted until at least that many points land in it, which is what keeps a sparse tail from covering the plane in near-empty hexagons. Hexagons rather than squares because a hexagon's centre is equidistant from all six neighbours, so a cell's count does not depend on which way the data runs.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>hexbin(x, y, [bins=], [colormap=], [mincount=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec</span><span class="iodesc"><code>x</code> and <code>y</code> are equal-length numeric <code>Vec</code>s giving the point coordinates.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">Vec</span><span class="iodesc"><code>x</code> and <code>y</code> are equal-length numeric <code>Vec</code>s giving the point coordinates.</span></div>
+<div class="ioitem"><code>bins</code> <span class="iotype">number, optional</span><span class="iodesc"><code>bins=</code> (number, default 30, minimum 2) is how many hexagons span the x range.</span></div>
+<div class="ioitem"><code>colormap</code> <span class="iotype">string, optional</span><span class="iodesc"><code>colormap=</code> (string) names the shading ramp.</span></div>
+<div class="ioitem"><code>mincount</code> <span class="iotype">number, optional</span><span class="iodesc"><code>mincount=</code> (number) leaves a cell unpainted until at least that many points land in it, which is what keeps a sparse tail from covering the plane in near-empty hexagons.</span></div>
+</td><td><span class="ionone">no output</span></td><td>The plane tiled with hexagons, each shaded by how many points fell in it — for the case a scatter cannot do, where past a few thousand marks the picture saturates into a blob. Hexagons rather than squares because a hexagon's centre is equidistant from all six neighbours, so a cell's count does not depend on which way the data runs.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/plotting.html">Plotting</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>raincloud(data)</code> / <code>raincloud(data1, data2, ...)</code> (Allen et al. 2019) -- one group per argument at x = 0, 1, 2, ...: a Gaussian KDE "cloud", a boxplot, and jittered raw points ("rain"). <code>raincloud(a, b, ...)</code> and <code>violin(a, b, ...)</code>: the same three things computed from each group -- a kernel density, a Tukey summary, and the raw points -- arranged two ways. A raincloud leans a half-density off its box and shows the samples beside it; a violin mirrors the density into the closed symmetric shape and shows the summary alone. One code path deliberately: they answer the same question, and two implementations would be two chances to disagree about what the density of a given sample is. <code>hexbin(x, y, [bins=], [colormap=], [mincount=])</code> Hexagons on an OFFSET grid: every other row is shifted half a cell, which is what makes each centre equidistant from all six of its neighbours. On a square grid a cell's count depends on which way the data happens to run -- a diagonal ridge lands differently than a horizontal one -- and that is an artefact of the binning, not a feature of the data.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classification report — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>Classification report</h1>
+<p class="lede">train a k-NN classifier on two synthetic clusters, evaluate on a held-out split, and inspect a confusion matrix.</p>
+<p class="srcpath">catalog/qu_classification_report.qu</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>train_test_split(X, y, test_size=, seed=)   -- Model with .X_train/.X_test/.y_train/.y_test</li>
+<li>knn_model(X, y, k, kind="classification")   -- k-nearest-neighbor classifier</li>
+<li>model.predict(Xnew)                          -- ordinary recv.method(args) sugar</li>
+<li>where(mask)                                  -- indices where a comparison mask is true</li>
+<li>confusion_matrix(actual, predicted)          -- pushes a heatmap panel</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Two overlapping Gaussian blobs in 2-D</h3>
+<pre class="hl"><code>n = <span class="n">60</span>
+class0 = <span class="f">randn</span>(n, <span class="n">2</span>) + [<span class="n">2</span>, <span class="n">2</span>]
+class1 = <span class="f">randn</span>(n, <span class="n">2</span>) + [-<span class="n">1.5</span>, -<span class="n">1.5</span>]
+X = <span class="f">vstack</span>(class0, class1)
+y = [<span class="f">zeros</span>(n), <span class="f">ones</span>(n)]
+<span class="f">print</span>(<span class="s">"dataset: {rows(X)} points, {cols(X)} features, {n} per class"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Split, train, predict</h3>
+<pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span>=<span class="n">0.3</span>, <span class="a">seed</span>=<span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"train={rows(split.X_train)}, test={rows(split.X_test)}"</span>)
+
+model = <span class="f">knn_model</span>(split.X_train, split.y_train, <span class="n">5</span>, <span class="a">kind</span>=<span class="s">"classification"</span>)
+pred = model.<span class="f">predict</span>(split.X_test)
+
+correct = <span class="f">length</span>(<span class="f">where</span>(pred == split.y_test))
+accuracy = correct / <span class="f">length</span>(pred)
+<span class="f">print</span>(<span class="s">"test accuracy: {accuracy:.3f} ({correct}/{length(pred)})"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Per-class breakdown via a confusion matrix</h3>
+<pre class="hl"><code>actual_pos = pred[<span class="f">where</span>(split.y_test == <span class="n">1</span>)]
+actual_neg = pred[<span class="f">where</span>(split.y_test == <span class="n">0</span>)]
+tp = <span class="f">length</span>(<span class="f">where</span>(actual_pos == <span class="n">1</span>))
+fn = <span class="f">length</span>(<span class="f">where</span>(actual_pos == <span class="n">0</span>))
+tn = <span class="f">length</span>(<span class="f">where</span>(actual_neg == <span class="n">0</span>))
+fp = <span class="f">length</span>(<span class="f">where</span>(actual_neg == <span class="n">1</span>))
+<span class="f">print</span>(<span class="s">"TP={tp} TN={tn} FP={fp} FN={fn}"</span>)
+
+<span class="f">confusion_matrix</span>(split.y_test, pred)
+<span class="f">title</span>(<span class="s">"k-NN confusion matrix (k=5)"</span>)
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>dataset: 120 points, 2 features, 60 per class
+train=84, test=36
+test accuracy: 0.972 (35/36)
+TP=16 TN=19 FP=0 FN=1</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="156.00" y="48.00" width="355.00" height="226.00" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>0, 0: 19</title></rect>
+<text x="333.50" y="164.50" font-size="11" text-anchor="middle" fill="#ffffff">19</text>
+<rect x="511.00" y="48.00" width="355.00" height="226.00" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>0, 1: 0</title></rect>
+<text x="688.50" y="164.50" font-size="11" text-anchor="middle" fill="#111111">0</text>
+<rect x="156.00" y="274.00" width="355.00" height="226.00" rx="0" fill="#eef5fc" stroke="#ffffff" opacity="1"><title>1, 0: 1</title></rect>
+<text x="333.50" y="390.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
+<rect x="511.00" y="274.00" width="355.00" height="226.00" rx="0" fill="#2474b7" stroke="#ffffff" opacity="1"><title>1, 1: 16</title></rect>
+<text x="688.50" y="390.50" font-size="11" text-anchor="middle" fill="#ffffff">16</text>
+<text x="150.00" y="164.50" font-size="10" text-anchor="end" fill="#444">0</text>
+<text x="150.00" y="390.50" font-size="10" text-anchor="end" fill="#444">1</text>
+<text x="333.50" y="514.00" font-size="10" text-anchor="middle" fill="#444" transform="rotate(-30 333.50 514.00)">0</text>
+<text x="688.50" y="514.00" font-size="10" text-anchor="middle" fill="#444" transform="rotate(-30 688.50 514.00)">1</text>
+<text x="476.00" y="30.00" font-size="19.2" text-anchor="middle" fill="#444" font-weight="700">k-NN confusion matrix (k=5)</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_classification_report.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_classification_report.qu -- train a k-NN classifier on two synthetic</span>
+<span class="c"># clusters, evaluate on a held-out split, and inspect a confusion matrix.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   train_test_split(X, y, test_size=, seed=)   -- Model with .X_train/.X_test/.y_train/.y_test</span>
+<span class="c">#   knn_model(X, y, k, kind="classification")   -- k-nearest-neighbor classifier</span>
+<span class="c">#   model.predict(Xnew)                          -- ordinary recv.method(args) sugar</span>
+<span class="c">#   where(mask)                                  -- indices where a comparison mask is true</span>
+<span class="c">#   confusion_matrix(actual, predicted)          -- pushes a heatmap panel</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Two overlapping Gaussian blobs in 2-D</span>
+n = <span class="n">60</span>
+class0 = <span class="f">randn</span>(n, <span class="n">2</span>) + [<span class="n">2</span>, <span class="n">2</span>]
+class1 = <span class="f">randn</span>(n, <span class="n">2</span>) + [-<span class="n">1.5</span>, -<span class="n">1.5</span>]
+X = <span class="f">vstack</span>(class0, class1)
+y = [<span class="f">zeros</span>(n), <span class="f">ones</span>(n)]
+<span class="f">print</span>(<span class="s">"dataset: {rows(X)} points, {cols(X)} features, {n} per class"</span>)
+
+<span class="c">#%% Split, train, predict</span>
+split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span>=<span class="n">0.3</span>, <span class="a">seed</span>=<span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"train={rows(split.X_train)}, test={rows(split.X_test)}"</span>)
+
+model = <span class="f">knn_model</span>(split.X_train, split.y_train, <span class="n">5</span>, <span class="a">kind</span>=<span class="s">"classification"</span>)
+pred = model.<span class="f">predict</span>(split.X_test)
+
+correct = <span class="f">length</span>(<span class="f">where</span>(pred == split.y_test))
+accuracy = correct / <span class="f">length</span>(pred)
+<span class="f">print</span>(<span class="s">"test accuracy: {accuracy:.3f} ({correct}/{length(pred)})"</span>)
+
+<span class="c">#%% Per-class breakdown via a confusion matrix</span>
+actual_pos = pred[<span class="f">where</span>(split.y_test == <span class="n">1</span>)]
+actual_neg = pred[<span class="f">where</span>(split.y_test == <span class="n">0</span>)]
+tp = <span class="f">length</span>(<span class="f">where</span>(actual_pos == <span class="n">1</span>))
+fn = <span class="f">length</span>(<span class="f">where</span>(actual_pos == <span class="n">0</span>))
+tn = <span class="f">length</span>(<span class="f">where</span>(actual_neg == <span class="n">0</span>))
+fp = <span class="f">length</span>(<span class="f">where</span>(actual_neg == <span class="n">1</span>))
+<span class="f">print</span>(<span class="s">"TP={tp} TN={tn} FP={fp} FN={fn}"</span>)
+
+<span class="f">confusion_matrix</span>(split.y_test, pred)
+<span class="f">title</span>(<span class="s">"k-NN confusion matrix (k=5)"</span>)
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

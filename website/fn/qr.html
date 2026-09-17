@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qr — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>qr</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>qr(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Thin QR decomposition of <code>A</code> (<code>r×c</code> <code>Mat</code>), <code>A = Q·R</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = qr(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"qr"</code></span></div>
+<div class="ioitem"><code>q</code> <span class="iotype">Mat</span><span class="iodesc"><code>r×k</code> <code>Mat</code>, orthonormal columns</span></div>
+<div class="ioitem"><code>r</code> <span class="iotype">Mat</span><span class="iodesc"><code>k×c</code> <code>Mat</code>, upper triangular</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"qr"</code>) with fields <code>q</code> (<code>r×k</code> <code>Mat</code>, orthonormal columns) and <code>r</code> (<code>k×c</code> <code>Mat</code>, upper triangular), <code>k = min(r,c)</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+res = <span class="f">qr</span>(M)
+<span class="f">print</span>(res)
+<span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
+<span class="f">print</span>(<span class="s">"r = {res.r}"</span>)
+
+x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">0</span>]
+pk = <span class="f">findpeaks</span>(x)
+<span class="f">print</span>(pk)
+<span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
+<span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+S = [s.s[<span class="n">0</span>], <span class="n">0</span>; <span class="n">0</span>, s.s[<span class="n">1</span>]]
+<span class="f">print</span>(<span class="s">"U*S*Vt reconstructs A: {s.u * S * s.vt}"</span>)
+
+r = <span class="f">qr</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+<span class="f">print</span>(<span class="s">"Q*R == A: {r.q * r.r}"</span>)
+
+f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">3</span>; <span class="n">8</span>, <span class="n">7</span>, <span class="n">9</span>])
+<span class="f">print</span>(<span class="s">"P*A == L*U: {f.p * [2,1,1;4,3,3;8,7,9]} vs {f.l * f.u}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+    <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"svd"</span>&gt;)
+    <span class="k">return</span> <span class="s">"svd: singular values = {m.s}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model)
+    <span class="k">return</span> <span class="s">"generic model, kind unhandled"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+A = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+qres = <span class="f">qr</span>(A)
+sres = <span class="f">svd</span>(A)
+pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">1</span>,<span class="n">3</span>,<span class="n">1</span>,<span class="n">0</span>,<span class="n">2</span>,<span class="n">4</span>,<span class="n">2</span>,<span class="n">0</span>])
+
+<span class="f">print</span>(<span class="f">summarize</span>(qres))
+<span class="f">print</span>(<span class="f">summarize</span>(sres))
+<span class="f">print</span>(<span class="f">summarize</span>(pk))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>qr(A)</code> — the thin QR decomposition <code>A = Q * R</code>. Model kind <code>"qr"</code>, fields <code>q</code>/<code>r</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

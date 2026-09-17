@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiple dispatch — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Language &amp; UI</p>
+<h1>Multiple dispatch</h1>
+<p class="lede">user-overloadable functions, dispatched on type.</p>
+<p class="srcpath">catalog/qu_multiple_dispatch.qu</p>
+<p>Defines the SAME function name multiple times, once per parameter type tag; each call runs whichever overload's tags match its actual argument types (Qu's multiple-dispatch surface, phase 1-3).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>function name(x: vec) / (x: mat) / (x: num) — type-tagged overloads</li>
+<li>dispatch on TWO parameters at once (describe_pair)</li>
+<li>a plain, untyped fallback overload</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Overloaded on one argument</h3>
+<pre class="hl"><code><span class="k">function</span> <span class="f">describe</span>(x: vec)
+    print <span class="s">"vec of length {length(x)}, sum={sum(x)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: mat)
+    print <span class="s">"mat {rows(x)}x{cols(x)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: num)
+    print <span class="s">"num {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: str)
+    print <span class="s">"string \"{x}\""</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">describe</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>])
+<span class="f">describe</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>])
+<span class="f">describe</span>(<span class="n">42</span>)
+<span class="f">describe</span>(<span class="s">"hello"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Overloaded on two arguments, plus an untyped fallback</h3>
+<pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: num, b: num)
+    print <span class="s">"num+num -&gt; {a + b}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a: vec, b: vec)
+    print <span class="s">"vec+vec -&gt; {a + b}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a, b)
+    print <span class="s">"fallback: no specific overload for this pair"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">combine</span>(<span class="n">2</span>, <span class="n">3</span>)
+<span class="f">combine</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>])
+<span class="f">combine</span>(<span class="s">"x"</span>, <span class="k">true</span>)   <span class="c"># falls through to the untyped overload</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>vec of length 3, sum=6
+mat 2x2
+num 42
+string "hello"
+num+num -&gt; 5
+vec+vec -&gt; [11, 22, 33]
+fallback: no specific overload for this pair</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_multiple_dispatch.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_multiple_dispatch.qu — user-overloadable functions, dispatched on type.</span>
+<span class="c">#</span>
+<span class="c"># Defines the SAME function name multiple times, once per parameter type</span>
+<span class="c"># tag; each call runs whichever overload's tags match its actual argument</span>
+<span class="c"># types (Qu's multiple-dispatch surface, phase 1-3).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
+<span class="c">#   function name(x: vec) / (x: mat) / (x: num) — type-tagged overloads</span>
+<span class="c">#   dispatch on TWO parameters at once (describe_pair)</span>
+<span class="c">#   a plain, untyped fallback overload</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Overloaded on one argument</span>
+<span class="k">function</span> <span class="f">describe</span>(x: vec)
+    print <span class="s">"vec of length {length(x)}, sum={sum(x)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: mat)
+    print <span class="s">"mat {rows(x)}x{cols(x)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: num)
+    print <span class="s">"num {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: str)
+    print <span class="s">"string \"{x}\""</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">describe</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>])
+<span class="f">describe</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>])
+<span class="f">describe</span>(<span class="n">42</span>)
+<span class="f">describe</span>(<span class="s">"hello"</span>)
+
+<span class="c">#%% Overloaded on two arguments, plus an untyped fallback</span>
+<span class="k">function</span> <span class="f">combine</span>(a: num, b: num)
+    print <span class="s">"num+num -&gt; {a + b}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a: vec, b: vec)
+    print <span class="s">"vec+vec -&gt; {a + b}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a, b)
+    print <span class="s">"fallback: no specific overload for this pair"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">combine</span>(<span class="n">2</span>, <span class="n">3</span>)
+<span class="f">combine</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>])
+<span class="f">combine</span>(<span class="s">"x"</span>, <span class="k">true</span>)   <span class="c"># falls through to the untyped overload</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

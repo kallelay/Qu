@@ -1,0 +1,146 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Qu",
+  "scopeName": "source.qu",
+  "fileTypes": ["qu"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#keywords" },
+    { "include": "#functions" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.qu",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.qu",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            { "include": "#string-escape" },
+            { "include": "#string-interpolation" }
+          ]
+        },
+        {
+          "name": "string.quoted.single.qu",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "include": "#string-escape" },
+            { "include": "#string-interpolation" }
+          ]
+        }
+      ]
+    },
+    "string-escape": {
+      "name": "constant.character.escape.qu",
+      "match": "\\\\(?:[abfnrtv\\\\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})"
+    },
+    "string-interpolation": {
+      "name": "meta.interpolation.qu",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.interpolation.begin.qu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.interpolation.end.qu" }
+      },
+      "patterns": [
+        { "include": "#expression" }
+      ]
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#numbers" },
+        { "include": "#types" },
+        { "include": "#constants" },
+        { "include": "#keywords" },
+        { "include": "#functions" },
+        { "include": "#operators" },
+        { "include": "#identifiers" }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.qu",
+          "match": "\\b0[xX][0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.qu",
+          "match": "\\b\\d[\\d_]*(\\.[\\d_]+)?([eE][+-]?\\d+)?[ij]?\\b"
+        },
+        {
+          "name": "constant.numeric.qu",
+          "match": "(?<![\\w.])\\.\\d[\\d_]*([eE][+-]?\\d+)?[ij]?\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.qu",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.qu",
+          "match": "\\b(bool|int64|int|uint64|uint|float64|float|double|complex128|complex|string|str|array|vector|matrix|tensor|record|list|figure|frame|logical|integer)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.qu",
+          "match": "\\b(and|as|break|case|cases|catch|continue|each|elif|else|elsewhere|end|for|from|if|in|loop|not|on|or|otherwise|repeat|return|select|skip|step|then|to|try|until|use|using|where|while|with)\\b"
+        },
+        {
+          "name": "keyword.other.qu",
+          "match": "\\b(after|animate|assert|async|await|backend|base|circuit|class|collect|compile|compose|const|constant|data|def|device|dimension|distributed|ease|elemental|enum|error|every|export|finetune|fit|flag|frame|function|hold|implements|import|inherits|input|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|param|parallel|project|property|pure|read|render|reserve|release|restore|run|scene3d|schedule|set|signal|simd|simulate|sketch|spawn|spectrum|stencil|sub|swap|table|train|tune|type|unit|vectorize|view|warn|watch|window)\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.qu",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.qu",
+          "match": ":=|==|!=|<=|>=|\\+=|-=|\\*=|/=|\\.=|\\*\\*|\\.\\*|\\./|\\.\\\\|\\|>|->|&&|\\|\\||\\?\\?|[=<>+\\-*/\\\\^!&|~@?]"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.qu",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>particle_filter_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>particle_filter_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>particle_filter_init(x0, n, [spread=1.0], [seed=])</code></pre>
+<p class="fnnote">Input: x0, n, spread, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Generic particle filter state: <code>x0</code> a length-<code>D</code> centre vector, <code>n</code> (integer) the particle count scattered around it with spread <code>spread</code> (a number, default 1.0), and an optional integer <code>seed=</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = particle_filter_init(x0, n, [spread=1.0], [seed=])</code></td><td><div class="ioitem"><code>x0</code> <span class="iotype">vector or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">vector or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>spread</code> <span class="iotype">vector or number, optional (default <code>1.0</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">vector or number, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record or vector</span></div>
+</td><td>Returns a <code>kind="particle_filter"</code> state Record with <code>(n, D)</code> <code>particles</code> and a length-<code>n</code> uniform <code>weights</code> vector; you supply the transition and likelihood functions by name on <code>predict</code>/<code>update</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">process</span>(p) := p + <span class="n">0.05</span>*<span class="f">randn</span>()                       <span class="c"># process_fn injects its</span>
+                                                        <span class="c"># own noise, like monte_carlo</span>
+<span class="f">likelihood</span>(p, z) := <span class="f">exp</span>(-(p[<span class="n">0</span>]-z[<span class="n">0</span>])^<span class="n">2</span> / (<span class="n">2</span>*<span class="n">0.25</span>))    <span class="c"># Gaussian likelihood, sigma=0.5</span>
+
+pf = <span class="f">particle_filter_init</span>([<span class="n">0</span>], <span class="n">200</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">1</span>)   <span class="c"># 200 particles around x0=0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">10</span>
+    pf = pf.<span class="f">predict</span>(<span class="s">"process"</span>)
+    pf = pf.<span class="f">update</span>(<span class="s">"likelihood"</span>, [<span class="n">2</span>])    <span class="c"># repeatedly measuring z=2</span>
+<span class="k">end</span> <span class="k">for</span>
+est = pf.<span class="f">estimate</span>()   <span class="c"># weighted-mean point estimate, converges toward 2</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<h2>How it works</h2>
+<p>The shared <code>predict</code>/<code>update</code>/<code>estimate</code> dispatch for this whole family (linear Kalman, EKF, UKF, particle filter) lives with the rest of the "model protocol" near <code>model_predict</code>/ <code>model_score</code>, and is reached through the <code>"predict"</code>/ <code>"update"</code>/<code>"estimate"</code> arms below — callable as <code>state.predict(...)</code> / <code>state.update(...)</code> / <code>state.estimate()</code> via the existing <code>recv.method(args)</code> sugar, not as a family of separately-named <code>kalman_predict</code>/<code>ekf_update</code>/... builtins. A particle filter (sequential Monte Carlo): unlike the linear Kalman filter above, the process and observation models can be arbitrary nonlinear/non-Gaussian user-defined Qu functions — the same "function by name" convention <code>minimize</code>/<code>curve_fit</code> already use, since a particle filter has no closed form to fall back to. Model kind <code>"particle_filter"</code>, fields <code>particles</code> (an <code>n x d</code> matrix, one particle per row) and <code>weights</code> (length <code>n</code>, sums to 1). The purely numerical parts (systematic resampling, effective sample size) live in <code>qu_core::estimation</code>; this glue only calls back into the interpreter for the two problem-specific steps. <code>particle_filter_init(x0, n, [spread=1.0], [seed=])</code> — scatters <code>n</code> particles around the initial estimate <code>x0</code> with Gaussian noise (std <code>spread</code> per dimension), uniform weights <code>1/n</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

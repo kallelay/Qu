@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>acf — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>acf</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>acf(x, [max_lag=])</code></pre>
+<p class="fnnote">Input: x, max_lag &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector. <code>max_lag</code> (optional number, default <code>min(40, N-1)</code>, R's own <code>acf()</code> default): highest lag to compute.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = acf(x, [max_lag=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector.</span></div>
+<div class="ioitem"><code>max_lag</code> <span class="iotype">number, optional</span><span class="iodesc"><code>max_lag</code> (optional number, default <code>min(40, N-1)</code>, R's own <code>acf()</code> default): highest lag to compute.</span></div>
+</td><td><div class="ioitem"><code>max_lag+1</code> <span class="iotype">&mdash;</span><span class="iodesc">lag 0 through <code>max_lag</code></span></div>
+</td><td>Returns a vector of length <code>max_lag+1</code> (lag 0 through <code>max_lag</code>), the autocorrelation function. The first lag at which it falls below <code>1/e</code> is the usual correlation-time estimate.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">511</span>
+t = n / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">20</span>*t) + <span class="n">0.2</span>*<span class="f">randn</span>(<span class="n">512</span>, <span class="a">seed</span>=<span class="n">4</span>)
+
+r = <span class="f">acf</span>(x, <span class="a">max_lag</span>=<span class="n">50</span>)
+below = <span class="f">find_peaks</span>(-<span class="f">abs</span>(r - <span class="n">1</span>/e))
+<span class="f">print</span>(<span class="s">"acf[0] = {r[0]}, acf drops below 1/e near lag {below[0]}"</span>)
+
+h_tone = <span class="f">hurst_exponent</span>(x)
+h_walk = <span class="f">hurst_exponent</span>(<span class="f">cumsum</span>(<span class="f">randn</span>(<span class="n">512</span>, <span class="a">seed</span>=<span class="n">5</span>)))
+<span class="f">print</span>(<span class="s">"hurst (periodic+noise) = {h_tone}, hurst (random walk) = {h_walk}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>acf(x, [max_lag=])</code> — see the free function's own doc comment. <code>max_lag</code> defaults to <code>min(40, length(x)-1)</code> — R's own <code>acf()</code> default, a reasonable "show the interesting part" cutoff for a series of any real length.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

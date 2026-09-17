@@ -1,0 +1,85 @@
+# qu_mutex_semaphore.qu -- shared mutable state across real worker threads.
+#
+# Every other concurrency demo in this catalog (qu_distributed_pool.qu,
+# qu_tcp_echo.qu) uses `spawn`/`pool`/`queue`'s default SHARE-NOTHING model:
+# each worker gets its own snapshot of the environment, and results come
+# back through the queue's return values, not shared variables. `mutex`
+# and `semaphore` are the deliberate, explicit opt-out of that default --
+# real shared, lockable state for when a script genuinely needs it (a
+# running counter, a bounded-concurrency resource). Cloning a `Value::Mutex`
+# clones the `Arc`, not the data, so even though each queued job runs
+# against its own snapshotted environment, the mutex/semaphore CELL itself
+# is still the one, real, shared cell every job's snapshot points at.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   mutex(v) / mutex_get(m) / mutex_set(m, v)
+#   mutex_add(m, delta)         -- atomic read-modify-write (no lost updates)
+#   mutex_update(m, "fnName")   -- atomic read-modify-write via a user function
+#   semaphore(n)                -- n permits, bounds concurrent access
+#   semaphore_acquire(s) / semaphore_release(s) / semaphore_available(s)
+
+backend auto
+
+pool workers with cpu = 4
+end pool
+
+#%% mutex_add: a shared counter incremented by many concurrent jobs.
+# The whole point of `mutex_add` over `mutex_set(m, mutex_get(m) + 1)`:
+# the read-then-write is a SINGLE lock acquisition, so concurrent
+# increments can never race and lose an update.
+counter = mutex(0)
+
+function bump(m)
+    mutex_add(m, 1)
+    return 0
+end function
+
+N = 500
+q = queue()
+for i = 0 to N - 1
+    q.push("bump", counter, on="cpu")
+end for
+run q on workers
+
+final_count = mutex_get(counter)
+print("mutex_add: {N} concurrent increments -> counter = {final_count}")
+print("no lost updates: {final_count == N}")
+
+#%% semaphore: bound concurrent access to a simulated limited resource (a
+# hardware port, a connection-pool slot). 2 permits means at most 2 jobs
+# are ever "inside" the critical section at once -- verified below by a
+# mutex-protected high-water-mark counter, not just assumed.
+active = mutex(0)
+peak = mutex(0)
+pool_permits = semaphore(2)
+
+function track_peak(current)
+    now_active = mutex_get(active)
+    if now_active > current
+        return now_active
+    else
+        return current
+    end if
+end function
+
+function use_resource(sem)
+    semaphore_acquire(sem)
+    mutex_add(active, 1)
+    mutex_update(peak, "track_peak")
+    sleep(3)
+    mutex_add(active, -1)
+    semaphore_release(sem)
+    return 0
+end function
+
+print("semaphore starts with {semaphore_available(pool_permits)} permits available")
+q2 = queue()
+for i = 0 to 7
+    q2.push("use_resource", pool_permits, on="cpu")
+end for
+run q2 on workers
+
+peak_seen = mutex_get(peak)
+print("8 jobs, 4 worker threads, but only 2 permits -> peak concurrent active = {peak_seen}")
+print("semaphore held the line: {peak_seen <= 2}")
+print("semaphore released everything back: {semaphore_available(pool_permits) == 2}")

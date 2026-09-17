@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real-time serial capture — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Measurement &amp; instrumentation</p>
+<h1>Real-time serial capture</h1>
+<p class="lede">a genuine real-time serial capture + processing demo: open a real UART/RS-232/USB-serial port, read incoming lines AS THEY ARRIVE (a blocking read bounded by a timeout, not a fixed-length buffer), convert each one to a number, and print running statistics (a moving</p>
+<p class="srcpath">catalog/qu_serial_realtime.qu</p>
+<p>average, running min/max) after every new reading -- the "process it as it arrives" loop the feature was actually asked for.</p>
+<p>Honest scope note on live PLOTTING specifically: Qu's plotting model (`plot`/`savefig`, see book/src/stdlib/plotting.md) builds up one static Figure/Panel state that gets exported (SVG/HTML/TikZ) at the end of a `qu run` -- there is no live-updating GUI window a script can push new points into while a CLI script is still running. A real-time CONSOLE demo (this script) is the honest, actually-achievable version of "process and display data as it arrives" for `qu run` today; see this catalog entry's own read_line loop below for the actual live processing.</p>
+<p>Hardware reality: this reads from whatever `serial_ports()` reports as the FIRST currently-available serial device on the machine it runs on. On a machine with no serial hardware at all, that list is empty and this script falls back to a placeholder port name purely to demonstrate `serial_open`'s error path -- it fails with a clear "no such port" error and the script prints that error and stops cleanly, rather than crashing or hanging. It does NOT fabricate readings if no device is actually transmitting data.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>serial_ports()                          -- list currently-available serial devices</li>
+<li>serial_open(port, baud, timeout_ms=...) -- open a real serial port, bounded-timeout reads</li>
+<li>read_line(conn) / conn.read_line()      -- one line, or `none` if nothing arrived in time</li>
+<li>?? (null-coalescing)                    -- substitutes a sentinel for a `none` timeout result</li>
+<li>close(conn)                             -- release the OS handle</li>
+<li>append(vec, x), mean/min/max, try/catch -- processing + graceful error handling</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Discover what's actually plugged in -- an empty list here is a correct,</h3>
+<p>honest result on a machine with no serial hardware, not an error.</p>
+<pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<span class="f">print</span>(<span class="s">"serial_ports() found {length(ports)} port(s): {ports}"</span>)
+
+<span class="k">if</span> <span class="f">length</span>(ports) &gt; <span class="n">0</span>
+    port = ports[<span class="n">0</span>]
+<span class="k">else</span>
+    <span class="c"># No serial hardware detected -- this name almost certainly does not</span>
+    <span class="c"># exist either, so `serial_open` below demonstrates its real error path</span>
+    <span class="c"># (a clear message naming the port, not a crash) instead of pretending</span>
+    <span class="c"># data is flowing.</span>
+    port = <span class="s">"COM3"</span>
+<span class="k">end</span> <span class="k">if</span>
+
+baud = <span class="n">9600</span>
+timeout_ms = <span class="n">500</span>
+window = <span class="n">5</span>          <span class="c"># moving-average window, in samples</span>
+max_attempts = <span class="n">30</span>    <span class="c"># bounded read-loop length -- never spins forever</span>
+max_consecutive_timeouts = <span class="n">5</span>
+
+<span class="c"># `read_line` returns `none` on a timeout with nothing collected (see</span>
+<span class="c"># book/src/stdlib/concurrency.md's "Serial Port I/O" section). Qu's `==`</span>
+<span class="c"># on a `Str`/`none` pair is a genuine, documented pre-existing gap (see</span>
+<span class="c"># book/src/stdlib/file-io.md's "Worked examples" section) -- it errors via</span>
+<span class="c"># numeric coercion instead of returning `false`, so `line == none` can't be</span>
+<span class="c"># used directly here. `?? TIMEOUT_MARK` (the null-coalescing operator) sidesteps</span>
+<span class="c"># that cleanly: it substitutes this sentinel exactly when the left side is</span>
+<span class="c"># `none`, turning the check into an ordinary Str/Str comparison.</span>
+TIMEOUT_MARK = <span class="s">"__QU_SERIAL_TIMEOUT__"</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Everything below is wrapped in one try/catch: an open failure (no such</h3>
+<p>port, port already in use, permission denied, ...) and any read/write error during the loop all land here with a clear message instead of crashing the script.</p>
+<pre class="hl"><code><span class="k">try</span>
+    conn = <span class="f">serial_open</span>(port, baud, <span class="a">timeout_ms</span>=timeout_ms)
+    <span class="f">print</span>(<span class="s">"opened {port} at {baud} baud (timeout {timeout_ms} ms) -- listening for up to {max_attempts} lines"</span>)
+
+    readings = <span class="f">zeros</span>(<span class="n">0</span>)
+    consecutive_timeouts = <span class="n">0</span>
+
+    <span class="k">for</span> attempt = <span class="n">1</span> <span class="k">to</span> max_attempts
+        line = <span class="f">read_line</span>(conn) ?? TIMEOUT_MARK   <span class="c"># blocks up to timeout_ms</span>
+        <span class="k">if</span> line == TIMEOUT_MARK
+            consecutive_timeouts = consecutive_timeouts + <span class="n">1</span>
+            <span class="f">print</span>(<span class="s">"  [timeout {consecutive_timeouts}/{max_consecutive_timeouts}] no data within {timeout_ms} ms"</span>)
+            <span class="k">if</span> consecutive_timeouts &gt;= max_consecutive_timeouts
+                <span class="f">print</span>(<span class="s">"no data arrived for {max_consecutive_timeouts} consecutive timeouts -- stopping (either nothing is connected/transmitting on {port}, or it isn't sending plain-text numeric lines)"</span>)
+                break
+            <span class="k">end</span> <span class="k">if</span>
+        <span class="k">else</span>
+            consecutive_timeouts = <span class="n">0</span>
+            parsed_ok = <span class="k">true</span>
+            value = <span class="n">0</span>
+            <span class="k">try</span>
+                value = <span class="f">to_float</span>(line)
+            <span class="k">catch</span> parse_err
+                parsed_ok = <span class="k">false</span>
+            <span class="k">end</span>
+            <span class="k">if</span> parsed_ok
+                readings = <span class="f">append</span>(readings, value)
+                n = <span class="f">length</span>(readings)
+                <span class="k">if</span> n &gt; window
+                    lo = n - window
+                <span class="k">else</span>
+                    lo = <span class="n">0</span>
+                <span class="k">end</span> <span class="k">if</span>
+                avg = <span class="f">mean</span>(readings[lo:<span class="k">end</span>])
+                <span class="f">print</span>(<span class="s">"  reading #{n}: {value:.3f}  moving avg (last {window}) = {avg:.3f}  min={min(readings):.3f}  max={max(readings):.3f}"</span>)
+            <span class="k">else</span>
+                <span class="f">print</span>(<span class="s">"  received a non-numeric line, skipping: \"{line}\""</span>)
+            <span class="k">end</span> <span class="k">if</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+
+    <span class="f">close</span>(conn)
+
+    <span class="k">if</span> <span class="f">length</span>(readings) &gt; <span class="n">0</span>
+        <span class="f">print</span>(<span class="s">"done -- {length(readings)} numeric reading(s) processed, overall mean = {mean(readings):.3f}"</span>)
+    <span class="k">else</span>
+        <span class="f">print</span>(<span class="s">"done -- the port opened, but no numeric readings were received in this run"</span>)
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"serial demo could not run: {err.message}"</span>)
+    <span class="f">print</span>(<span class="s">"this is the expected, honest result on a machine with no matching serial device attached"</span>)
+<span class="k">end</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>serial_ports() found 2 port(s): ("COM1", "COM3")
+opened COM1 at 9600 baud (timeout 500 ms) -- listening for up to 30 lines
+  [timeout 1/5] no data within 500 ms
+  [timeout 2/5] no data within 500 ms
+  [timeout 3/5] no data within 500 ms
+  [timeout 4/5] no data within 500 ms
+  [timeout 5/5] no data within 500 ms
+no data arrived for 5 consecutive timeouts -- stopping (either nothing is connected/transmitting on COM1, or it isn't sending plain-text numeric lines)
+done -- the port opened, but no numeric readings were received in this run</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_serial_realtime.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_serial_realtime.qu -- a genuine real-time serial capture + processing</span>
+<span class="c"># demo: open a real UART/RS-232/USB-serial port, read incoming lines AS THEY</span>
+<span class="c"># ARRIVE (a blocking read bounded by a timeout, not a fixed-length buffer),</span>
+<span class="c"># convert each one to a number, and print running statistics (a moving</span>
+<span class="c"># average, running min/max) after every new reading -- the "process it as it</span>
+<span class="c"># arrives" loop the feature was actually asked for.</span>
+<span class="c">#</span>
+<span class="c"># Honest scope note on live PLOTTING specifically: Qu's plotting model</span>
+<span class="c"># (`plot`/`savefig`, see book/src/stdlib/plotting.md) builds up one static</span>
+<span class="c"># Figure/Panel state that gets exported (SVG/HTML/TikZ) at the end of a</span>
+<span class="c"># `qu run` -- there is no live-updating GUI window a script can push new</span>
+<span class="c"># points into while a CLI script is still running. A real-time CONSOLE</span>
+<span class="c"># demo (this script) is the honest, actually-achievable version of "process</span>
+<span class="c"># and display data as it arrives" for `qu run` today; see this catalog</span>
+<span class="c"># entry's own read_line loop below for the actual live processing.</span>
+<span class="c">#</span>
+<span class="c"># Hardware reality: this reads from whatever `serial_ports()` reports as</span>
+<span class="c"># the FIRST currently-available serial device on the machine it runs on.</span>
+<span class="c"># On a machine with no serial hardware at all, that list is empty and this</span>
+<span class="c"># script falls back to a placeholder port name purely to demonstrate</span>
+<span class="c"># `serial_open`'s error path -- it fails with a clear "no such port" error</span>
+<span class="c"># and the script prints that error and stops cleanly, rather than crashing</span>
+<span class="c"># or hanging. It does NOT fabricate readings if no device is actually</span>
+<span class="c"># transmitting data.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   serial_ports()                          -- list currently-available serial devices</span>
+<span class="c">#   serial_open(port, baud, timeout_ms=...) -- open a real serial port, bounded-timeout reads</span>
+<span class="c">#   read_line(conn) / conn.read_line()      -- one line, or `none` if nothing arrived in time</span>
+<span class="c">#   ?? (null-coalescing)                    -- substitutes a sentinel for a `none` timeout result</span>
+<span class="c">#   close(conn)                             -- release the OS handle</span>
+<span class="c">#   append(vec, x), mean/min/max, try/catch -- processing + graceful error handling</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Discover what's actually plugged in -- an empty list here is a correct,</span>
+<span class="c"># honest result on a machine with no serial hardware, not an error.</span>
+ports = <span class="f">serial_ports</span>()
+<span class="f">print</span>(<span class="s">"serial_ports() found {length(ports)} port(s): {ports}"</span>)
+
+<span class="k">if</span> <span class="f">length</span>(ports) &gt; <span class="n">0</span>
+    port = ports[<span class="n">0</span>]
+<span class="k">else</span>
+    <span class="c"># No serial hardware detected -- this name almost certainly does not</span>
+    <span class="c"># exist either, so `serial_open` below demonstrates its real error path</span>
+    <span class="c"># (a clear message naming the port, not a crash) instead of pretending</span>
+    <span class="c"># data is flowing.</span>
+    port = <span class="s">"COM3"</span>
+<span class="k">end</span> <span class="k">if</span>
+
+baud = <span class="n">9600</span>
+timeout_ms = <span class="n">500</span>
+window = <span class="n">5</span>          <span class="c"># moving-average window, in samples</span>
+max_attempts = <span class="n">30</span>    <span class="c"># bounded read-loop length -- never spins forever</span>
+max_consecutive_timeouts = <span class="n">5</span>
+
+<span class="c"># `read_line` returns `none` on a timeout with nothing collected (see</span>
+<span class="c"># book/src/stdlib/concurrency.md's "Serial Port I/O" section). Qu's `==`</span>
+<span class="c"># on a `Str`/`none` pair is a genuine, documented pre-existing gap (see</span>
+<span class="c"># book/src/stdlib/file-io.md's "Worked examples" section) -- it errors via</span>
+<span class="c"># numeric coercion instead of returning `false`, so `line == none` can't be</span>
+<span class="c"># used directly here. `?? TIMEOUT_MARK` (the null-coalescing operator) sidesteps</span>
+<span class="c"># that cleanly: it substitutes this sentinel exactly when the left side is</span>
+<span class="c"># `none`, turning the check into an ordinary Str/Str comparison.</span>
+TIMEOUT_MARK = <span class="s">"__QU_SERIAL_TIMEOUT__"</span>
+
+<span class="c">#%% Everything below is wrapped in one try/catch: an open failure (no such</span>
+<span class="c"># port, port already in use, permission denied, ...) and any read/write</span>
+<span class="c"># error during the loop all land here with a clear message instead of</span>
+<span class="c"># crashing the script.</span>
+<span class="k">try</span>
+    conn = <span class="f">serial_open</span>(port, baud, <span class="a">timeout_ms</span>=timeout_ms)
+    <span class="f">print</span>(<span class="s">"opened {port} at {baud} baud (timeout {timeout_ms} ms) -- listening for up to {max_attempts} lines"</span>)
+
+    readings = <span class="f">zeros</span>(<span class="n">0</span>)
+    consecutive_timeouts = <span class="n">0</span>
+
+    <span class="k">for</span> attempt = <span class="n">1</span> <span class="k">to</span> max_attempts
+        line = <span class="f">read_line</span>(conn) ?? TIMEOUT_MARK   <span class="c"># blocks up to timeout_ms</span>
+        <span class="k">if</span> line == TIMEOUT_MARK
+            consecutive_timeouts = consecutive_timeouts + <span class="n">1</span>
+            <span class="f">print</span>(<span class="s">"  [timeout {consecutive_timeouts}/{max_consecutive_timeouts}] no data within {timeout_ms} ms"</span>)
+            <span class="k">if</span> consecutive_timeouts &gt;= max_consecutive_timeouts
+                <span class="f">print</span>(<span class="s">"no data arrived for {max_consecutive_timeouts} consecutive timeouts -- stopping (either nothing is connected/transmitting on {port}, or it isn't sending plain-text numeric lines)"</span>)
+                break
+            <span class="k">end</span> <span class="k">if</span>
+        <span class="k">else</span>
+            consecutive_timeouts = <span class="n">0</span>
+            parsed_ok = <span class="k">true</span>
+            value = <span class="n">0</span>
+            <span class="k">try</span>
+                value = <span class="f">to_float</span>(line)
+            <span class="k">catch</span> parse_err
+                parsed_ok = <span class="k">false</span>
+            <span class="k">end</span>
+            <span class="k">if</span> parsed_ok
+                readings = <span class="f">append</span>(readings, value)
+                n = <span class="f">length</span>(readings)
+                <span class="k">if</span> n &gt; window
+                    lo = n - window
+                <span class="k">else</span>
+                    lo = <span class="n">0</span>
+                <span class="k">end</span> <span class="k">if</span>
+                avg = <span class="f">mean</span>(readings[lo:<span class="k">end</span>])
+                <span class="f">print</span>(<span class="s">"  reading #{n}: {value:.3f}  moving avg (last {window}) = {avg:.3f}  min={min(readings):.3f}  max={max(readings):.3f}"</span>)
+            <span class="k">else</span>
+                <span class="f">print</span>(<span class="s">"  received a non-numeric line, skipping: \"{line}\""</span>)
+            <span class="k">end</span> <span class="k">if</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+
+    <span class="f">close</span>(conn)
+
+    <span class="k">if</span> <span class="f">length</span>(readings) &gt; <span class="n">0</span>
+        <span class="f">print</span>(<span class="s">"done -- {length(readings)} numeric reading(s) processed, overall mean = {mean(readings):.3f}"</span>)
+    <span class="k">else</span>
+        <span class="f">print</span>(<span class="s">"done -- the port opened, but no numeric readings were received in this run"</span>)
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"serial demo could not run: {err.message}"</span>)
+    <span class="f">print</span>(<span class="s">"this is the expected, honest result on a machine with no matching serial device attached"</span>)
+<span class="k">end</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

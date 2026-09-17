@@ -1,0 +1,46 @@
+# qu_operator_overload.qu -- user-overloadable operators on a tagged record
+# type (multiple dispatch phase 3).
+#
+# A plain `{__type = "...", ...}` record with a `function +(a: record<Tag>,
+# b: record<Tag>)` overload gets its own `+`/`-`/unary `-` behavior; every
+# ordinary numeric/vector/matrix/string operator combination is completely
+# unaffected (the overload only fires when the hardcoded operator cascade
+# doesn't cover the operand types at all).
+#
+# Constructs exercised (all real, verified-working syntax):
+#   Vec2(x, y) := {__type = "Vec2", x = x, y = y}   -- tagged-record constructor
+#   function +(a: record<Vec2>, b: record<Vec2>)    -- binary operator overload
+#   function -(a: record<Vec2>)                     -- unary operator overload
+#   ordinary num/vec/mat/str operators, unchanged, in the same script
+
+backend auto
+
+#%% A tiny 2-D vector type built from a tagged record
+Vec2(x, y) := {__type = "Vec2", x = x, y = y}
+
+function +(a: record<Vec2>, b: record<Vec2>)
+    return Vec2(a.x + b.x, a.y + b.y)
+end function
+
+function -(a: record<Vec2>, b: record<Vec2>)
+    return Vec2(a.x - b.x, a.y - b.y)
+end function
+
+function -(a: record<Vec2>)
+    return Vec2(-a.x, -a.y)
+end function
+
+function describe(v: record<Vec2>)
+    print "Vec2({v.x}, {v.y})"
+end function
+
+p = Vec2(1, 2)
+q = Vec2(3, 4)
+describe(p + q)
+describe(p - q)
+describe(-p)
+
+#%% Zero-regression: ordinary operators on ordinary types, same script
+print str(1 + 2)
+print str([1, 2] + [3, 4])
+print "a" + "b"

@@ -1,0 +1,70 @@
+# qu_multisine_acceleration.qu — 51-tone multisine, the "no explicit
+# acceleration" baseline.
+#
+# Companion to benchmarks/multisine_acceleration/: that directory times
+# FIVE ways of computing this exact same signal (this loop, full
+# broadcast/matmul vectorization, `parallel for`, a pool/queue job split,
+# and `gpu_matmul`) against each other and cross-checks that they all
+# produce the numerically identical waveform. This file is just the
+# reference workload on its own, runnable standalone with `qu run`.
+#
+# The workload: x(t) = sum_{k=1..51} A_k * sin(2*pi*f_k*t + phi_k),
+# Fs = 5000 Hz, duration = 300 s (N = 1,500,000 samples). 51 tones
+# log-spaced from 5 Hz to 2000 Hz (comfortably under Nyquist), unit-ish
+# RMS amplitude, phases drawn from a fixed seed so the signal is
+# reproducible run to run.
+#
+# Construct exercised (spec section -> use):
+#   §12  logspace, ranges
+#   §21  seed()/rand() for reproducible phases
+#   §16  for loop, vectorized per-tone (the "baseline" idiom: a scalar loop
+#        over the 51 tones, each iteration itself vectorized over the
+#        N-length time axis — Qu has no reasonable scalar-loop-over-N
+#        alternative, so this IS the right "unaccelerated" reference, not
+#        a strawman)
+#   §24  rms, crest factor via max/abs
+
+backend auto
+
+#%% Setup
+seed(2026)
+
+Fs = 5000                      # sample rate (Hz)
+duration = 300                 # record length (s)
+N = round(Fs * duration)       # 1,500,000 samples
+K = 51                         # number of tones
+
+dt = 1 / Fs
+t = linspace(0, (N - 1) * dt, N)   # N-length time vector -- plain `to`/`step`
+                                    # ranges cap out at 1,000,000 elements
+                                    # (qu-core::DEFAULT_ELEMENT_LIMIT), so
+                                    # `linspace`, which has no such cap, is
+                                    # used here to reach N = 1,500,000
+
+f   = logspace(log10(5), log10(2000), K)   # 51 tones, 5 Hz .. 2000 Hz
+A   = ones(K) / sqrt(K)                    # unit-ish RMS amplitude budget
+phi = rand(K) * 2 * pi                     # reproducible random phases
+
+print("N = {N} samples, K = {K} tones, Fs = {Fs} Hz, duration = {duration} s")
+
+#%% Synthesize (baseline: loop over tones, vectorized per tone over N)
+tic()
+x = zeros(N)
+for k = 0 to K - 1
+    x = x + A[k] * sin(2 * pi * f[k] * t + phi[k])
+end for
+t_baseline = toc()
+
+print("baseline synth time = {t_baseline:.4f} s")
+print("rms(x)   = {rms(x):.6f}")
+print("crest(x) = {max(abs(x)) / rms(x):.4f}")
+
+#%% Plot (first 0.05 s only -- 1.5M points is too dense to eyeball otherwise)
+n_show = round(0.05 * Fs)
+plot(t[0:n_show - 1], x[0:n_show - 1])
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("Multisine, K={K} tones (first 0.05 s)")
+grid on
+box on
+show plot

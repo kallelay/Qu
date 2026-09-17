@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Report — QA &amp; performance, 2026-09-16 — Qu</title>
+<meta name="description" content="Internal current-state QA and performance snapshot for Qu: test suite health, agent_q's hands-on defect audit, and the matty-suite benchmark standing vs MATLAB/NumPy.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+  .stripe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--rule);
+            border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .stripe > div { background: var(--panel); padding: 18px 20px; }
+  .stripe .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .stripe .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 6px; }
+  .stripe .foot { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  @media (max-width: 720px) { .stripe { grid-template-columns: 1fr; } }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10.5px;
+          font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.good { background: color-mix(in srgb, var(--accent-2) 16%, var(--panel)); color: var(--accent-2); }
+  .pill.warn { background: color-mix(in srgb, var(--warm) 18%, var(--panel)); color: var(--warm); }
+  .pill.crit { background: color-mix(in srgb, #a63229 18%, var(--panel)); color: #d9564a; }
+  .pill.mute { background: var(--rule-soft); color: var(--muted); }
+
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .win { color: var(--accent-2); font-weight: 600; }
+
+  .note.crit { border-left-color: #a63229; }
+  .note.warn { border-left-color: var(--warm); }
+
+  .chartcard { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 18px 20px 12px; margin: 20px 0; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  section { padding-top: 40px; padding-bottom: 40px; }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <span style="color: var(--faint); font-size: 13px; font-family: var(--mono);">internal &middot; website/reports/</span>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero" style="padding: 48px 0 36px;"><div class="wrap">
+  <p class="eyebrow">QU LANGUAGE &middot; INTERNAL STATUS SNAPSHOT &middot; NOT PART OF THE PUBLIC SITE</p>
+  <h1 style="font-size: clamp(28px,4.5vw,42px); max-width: none;">Signal Report</h1>
+  <p class="lede" style="font-size: 17px;">A compiled reading of the project's own records &mdash; where QA and performance actually stand right now, not a new test run. Two independent passes over <code>board2.txt</code> and <code>BACKLOG.md</code>, cross-checked against the benchmark READMEs and agent_q's hands-on audit (<code>agent_q.txt</code>).</p>
+  <p class="stamp" style="font-family: var(--mono); color: var(--muted); font-size: 13.5px;">Compiled 2026-09-16 &middot; source master @ 7d15ba78 &middot; reporting session: Quality Assurance &amp; Performance (qu-44)</p>
+</div></header>
+
+<main class="wrap">
+
+<div class="note">
+<p><strong>Kept in the repo per standing policy.</strong> This started as a Claude.ai Artifact; per <code>[[qu-nothing-leaves-the-repo]]</code> the canonical copy lives here instead. Confirming with Ahmed whether the Artifact hosting itself needs to come down.</p>
+</div>
+
+<div class="stripe">
+  <div>
+    <div class="label">Test suite (qu-interp)</div>
+    <div class="value">1778 / 1778</div>
+    <div class="foot">2026-09-11 &middot; <code>-p qu-interp --release --lib</code>, confirmed twice</div>
+  </div>
+  <div>
+    <div class="label">Open QA defects</div>
+    <div class="value" style="color: var(--warm);">21 <span style="font-size:13px; color:#d9564a;">(1 crash)</span></div>
+    <div class="foot">hands-on audit, 2026-09-10/11 &middot; +4 from the coordination log</div>
+  </div>
+  <div>
+    <div class="label">vs MATLAB &middot; vs NumPy</div>
+    <div class="value">46% behind / 48% ahead</div>
+    <div class="foot">matty-suite fair rerun, 2026-09-11</div>
+  </div>
+</div>
+
+<section>
+<h2>Quality Assurance</h2>
+<p class="sub">29 tracked findings, 25 open.</p>
+
+<h3>Hands-on audit &mdash; agent_q, 2026-09-10/11</h3>
+<p>Over 250 probes, one fresh <code>qu.exe</code> process per line so a crash can never mask the next result, across two batches: core reductions/graphics/FFT (the 10 highest-usage functions) and a second pass over graphics, DSP, images/linear algebra, and file/text I/O. The headline is reassuring &mdash; <strong>no wrong numbers</strong> came back anywhere, and every round-trip tested (FFT, DCT, DWT, binary I/O, the three codecs, zlib, CSV, JSON, PNG) was exact. The defects are all at the edges: invalid input, error-message wording, and one path that is not an edge case at all.</p>
+
+<div class="note crit">
+<p><strong>One of these is a process crash, not a Qu error.</strong> <code>zeros(inf)</code> saturates the size to <code>usize::MAX</code> and the allocator panics the whole interpreter &mdash; exit 101, a raw Rust backtrace, no catchable error. Same uncaught-abort shape as the deep-recursion and <code>gpu_matmul</code> panics that were fixed earlier this project; this one is not on record as fixed. Routed to QuMaster 2026-09-16, currently unowned.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+<thead><tr><th>Finding</th><th>Severity</th><th>Cheapest re-run</th></tr></thead>
+<tbody>
+<tr><td><code>zeros(inf)</code> panics the process (capacity overflow); <code>zeros(nan)</code>/<code>zeros(-5)</code>/<code>zeros("5")</code> silently return <code>[]</code> instead of erroring</td><td><span class="pill crit">CRASH</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">print(zeros(inf))</td></tr>
+<tr><td><code>plot(x, y)</code> with <code>y</code> a list of strings silently plots the row index instead of erroring &mdash; pixel-identical figures for different data, no signal anything was dropped</td><td><span class="pill crit">HIGH</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">plot([1,2,3],["a","b","c"])</td></tr>
+<tr><td>No documented way to write a literal <code>{</code> in a string; silently breaks <code>parse_json</code> on every ordinary JSON object; the <code>{{</code> escape that fixes it appears nowhere in the book</td><td><span class="pill warn">HIGH</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">parse_json("{\"a\":1}")</td></tr>
+<tr><td><code>tic(1)</code>&#8217;s extra-arg error tells you to run <code>available("tic")</code> &mdash; that&#8217;s the serial-port builtin, a dead end; <code>help()</code> can&#8217;t answer it either, and the guide doc still asserts the wrong claim</td><td><span class="pill warn">MED</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">tic(1)</td></tr>
+<tr><td><code>bar()</code> rejects string category labels that its own doc row explicitly documents (<code>plot()</code> is consistent with its doc; <code>bar()</code> is the outlier)</td><td><span class="pill warn">MED</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">bar(["a","b"],[3,2])</td></tr>
+<tr><td><code>matmul</code> refuses complex matrices while <code>solve()</code> is documented to handle them via complex SVD &mdash; asymmetric on the same type</td><td><span class="pill mute">LOW</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">matmul([1+2j,3+4j;5+6j,7+8j],[1,0;0,1])</td></tr>
+<tr><td><code>theme("typo")</code> silently falls back to the default with no warning &mdash; the one unknown-name path in the engine without a did-you-mean</td><td><span class="pill mute">LOW</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">theme("nope_theme")</td></tr>
+<tr><td>CSV parsing has no RFC-4180 quoted-comma support &mdash; any field containing the separator breaks the row</td><td><span class="pill mute">LOW</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">parse_csv("a,b\n\"x,y\",2\n")</td></tr>
+<tr><td><code>butter(0,...)</code>&#8217;s error message is two fragments glued together mid-sentence</td><td><span class="pill mute">COSMETIC</span></td><td class="mono" style="font-family:var(--mono); font-size:12.5px; white-space:nowrap;">butter(0,"low",200,1000)</td></tr>
+</tbody>
+</table>
+</div>
+<p style="font-size:12.5px; color: var(--muted); margin-top:8px;">Plus 12 more minor items in the full agent_q.txt report &mdash; Image type reporting <code>[0,0]</code> from <code>size()</code>/<code>shape()</code>, <code>hampel</code> never flagging an outlier when local MAD is 0, <code>trace</code> on a non-square matrix silently summing the short diagonal, <code>builtin-index.md</code> undercounting its own listed builtins by 3, and a scalar-vs-vector unit-stripping asymmetry across <code>abs</code>/<code>max</code>/<code>min</code>/<code>mean</code>/<code>sum</code> that produces no wrong numbers but no predictable rule either.</p>
+
+<h3>Test suite health</h3>
+<p>The authoritative test count is the narrow build, not the workspace-wide one: <code>cargo test --workspace</code> unifies features through <code>qu-cli</code> (turning on <code>codec</code>/<code>xlsx</code>) and can read green while <code>-p qu-interp</code> alone is red. The log's own most recent narrow run &mdash; <code>cargo test -j1 -p qu-interp --release --lib</code> off <code>43885dcd</code>, 2026-09-11 &mdash; came back <strong>1778 passed, 0 failed</strong>, and a second session verified the same count independently the same day.</p>
+<div class="note">
+<p><strong>Known, tolerated flake.</strong> A <code>list_files</code> concurrency test intermittently fails only under parallel test execution (seen twice: 1679/5 and 1668/5). Logged both times as the same known flake, not a regression &mdash; still not root-caused.</p>
+</div>
+
+<h3>Also tracked in board2.txt / BACKLOG.md</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Finding</th><th>Status</th><th>Commit</th><th>Date</th></tr></thead>
+<tbody>
+<tr><td>Axis-honouring builtins silently ignored nonsense <code>axis=</code> on vectors</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">80270546</td><td>09-10</td></tr>
+<tr><td>Typo&#8217;d keyword (<code>axsi=</code>) reported &#8220;takes no keyword arguments&#8221; instead of naming it</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">80270546</td><td>09-10</td></tr>
+<tr><td>QuStudio&#8217;s embedded sidecar binary was stale, shipped a wrong answer</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">6d20fd9e</td><td>09-10</td></tr>
+<tr><td><code>make_public.sh</code> reported &#8220;clean&#8221; while still leaking the private LogSumExp method into &gt;60 files</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">094f4010</td><td>09-10</td></tr>
+<tr><td>Length units (<code>mm</code>/<code>cm</code>/<code>km</code>) were parse errors; bare <code>m</code> ambiguous with milli</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">74466b57</td><td>09-09</td></tr>
+<tr><td>Unknown unit was an uncatchable parse error, killing the whole file</td><td><span class="pill good">FIXED</span></td><td class="mono" style="font-family:var(--mono);">&mdash;</td><td>09-09</td></tr>
+<tr><td>Unit-tag equality: <code>contains</code>/<code>index_of</code> wrong on tagged quantities</td><td><span class="pill warn">OPEN</span></td><td class="mono" style="font-family:var(--mono);">&mdash;</td><td>09-09</td></tr>
+<tr><td>No Energy/Charge unit family (J, Wh, kWh, C, As)</td><td><span class="pill warn">OPEN</span></td><td class="mono" style="font-family:var(--mono);">&mdash;</td><td>09-11</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Sign-off gates</h3>
+<div class="note warn">
+<p><strong>QA declined to sign the Studio installer.</strong> &#8220;The CLI half is READY &hellip; I did not verify the Studio installer &hellip; I will not sign off on a binary I did not run.&#8221; Installer verification was carved out and handed to Git Admin rather than rubber-stamped.</p>
+</div>
+
+<h3>Open as of 2026-09-16</h3>
+<ul>
+<li><strong><code>as &lt;bare token&gt;</code> is silently parsed and discarded when unknown.</strong> Unlike <code>as name(args)</code>, which errors on an unrecognised call, a bare cast token &mdash; including any misspelled unit &mdash; is accepted and dropped with no diagnostic. Freshest confirmed-open defect in the coordination log.</li>
+<li>8 non-blocking usability findings from the 2026-09-10 release pass remain unfixed: nested-quote string interpolation, <code>[[1,2],[3,4]]</code> flattening instead of forming a matrix, unrecognised CLI args exiting 0, demo temp-file litter, duplicate savefig advisories.</li>
+</ul>
+</section>
+
+<section>
+<h2>Performance</h2>
+<p class="sub">matty-suite, fair methodology, 2026-09-11.</p>
+
+<p>Standing goal is to beat MATLAB and NumPy on the 5-kernel matty suite. The only trustworthy numbers are from <code>bench_fair.*</code> &mdash; data allocated outside the timer, one warm-up discarded, best of three &mdash; because a single cold trial is proven to reverse the result (MATLAB&#8217;s JIT needs one call to warm up).</p>
+
+<div class="chartcard">
+  <h3 style="margin-bottom:2px;">Speed ratio by kernel, relative to Qu</h3>
+  <p style="font-size:12.5px; color: var(--muted); margin: 0 0 10px;">Bars right of centre = Qu is slower than that language; left of centre = Qu is faster. Log scale.</p>
+  <svg viewBox="0 0 760 300" style="width:100%; height:auto; font-family: var(--mono);">
+    <line x1="380" y1="14" x2="380" y2="272" stroke="var(--rule)" stroke-width="1.5"></line>
+    <g id="chart-rows"></g>
+    <text x="380" y="292" text-anchor="middle" font-size="10.5" fill="var(--muted)">1&times; (parity)</text>
+  </svg>
+  <div class="legend">
+    <span><i style="background: var(--accent);"></i>Qu / MATLAB</span>
+    <span><i style="background: var(--muted);"></i>Qu / NumPy</span>
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+<thead><tr><th>Kernel</th><th class="num">Qu (s)</th><th class="num">MATLAB (s)</th><th class="num">NumPy (s)</th><th class="num">Qu/MATLAB</th><th class="num">Qu/NumPy</th></tr></thead>
+<tbody>
+<tr><td>matrix_multiply</td><td class="num">0.0076</td><td class="num">0.0090</td><td class="num">0.0054</td><td class="num win">0.84&times;</td><td class="num">1.41&times;</td></tr>
+<tr><td>element_wise_ops <span class="pill warn" style="margin-left:6px;">65% of total</span></td><td class="num">0.0698</td><td class="num">0.0391</td><td class="num">0.1664</td><td class="num">1.79&times;</td><td class="num win">0.42&times;</td></tr>
+<tr><td>fft</td><td class="num">0.0018</td><td class="num">0.0007</td><td class="num">0.0036</td><td class="num">2.57&times;</td><td class="num win">0.50&times;</td></tr>
+<tr><td>array_creation</td><td class="num">0.0265</td><td class="num">0.0238</td><td class="num">0.0287</td><td class="num">1.11&times;</td><td class="num">0.92&times;</td></tr>
+<tr><td>loop_performance</td><td class="num">0.0009</td><td class="num">0.0003</td><td class="num">0.0019</td><td class="num">3.00&times;*</td><td class="num win">0.47&times;</td></tr>
+<tr style="font-weight:600;"><td>Total</td><td class="num">0.1066</td><td class="num">0.0729</td><td class="num">0.2060</td><td class="num">1.46&times;</td><td class="num win">0.68&times;</td></tr>
+</tbody>
+</table>
+</div>
+<p style="font-size:12px; color: var(--faint); margin-top:8px;">*loop_performance sits inside the suite&#8217;s own documented sub-millisecond noise band &mdash; not a meaningful signal at this scale.</p>
+
+<div class="note">
+<p><strong>FFT, revisited 2026-09-16 (<code>5f5336c5</code>).</strong> A 2026-09-11 claim that the FFT gap &#8220;grows to 3.14&times; at N=1,000,000&#8221; did not reproduce under careful re-measurement &mdash; best-of-three at that size is 1.32&times;, and the earlier figure is attributed to ~40% pass-to-pass machine noise; retracted on <code>website/benchmarks.html</code>. What holds: at true prime lengths Qu is <strong>~2&times; faster</strong> than MATLAB; MATLAB still leads ~2.5&#8211;2.8&times; at composite/power-of-two sizes. Root cause sits in <code>rustfft</code> itself &mdash; Qu&#8217;s own wrapper overhead is 0.96&#8211;1.22&times;, i.e. negligible.</p>
+</div>
+
+<h3>Weak spots, tracked to closure</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Issue</th><th>Status</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Quadratic <code>append</code> (O(n&sup2;), 81,000&times; slower than Python at 200k lines)</td><td><span class="pill good">FIXED</span></td><td>0.03s, was &gt;10 min</td></tr>
+<tr><td>Uncached regex compile (90&times; slower than Python per call)</td><td><span class="pill good">FIXED</span></td><td>~25.6&times; on repeated patterns</td></tr>
+<tr><td>Sequential scalar loops (biquad filter): was 108&times; behind MATLAB</td><td><span class="pill good">MOSTLY FIXED</span></td><td>~7&times; behind MATLAB, 3.6&times; faster than CPython</td></tr>
+<tr><td>Elementwise-ops interpreter dispatch overhead</td><td><span class="pill crit">OPEN &mdash; largest gap</span></td><td>kernel math already ~8% ahead of MATLAB; dispatch is ~48% of wall time. <strong>Assigned to a dedicated agent by Ahmed, 2026-09-16</strong> &mdash; brief: decompose before designing a cache.</td></tr>
+<tr><td>Dense linear algebra (<code>svd</code>/<code>rank</code>/<code>polyfit</code>, N&ge;500&#8211;1000)</td><td><span class="pill warn">OPEN</span></td><td>no BLAS/LAPACK backing; ~4&times; behind at N=3M</td></tr>
+<tr><td><code>firls</code> filter design (O(n&sup3;) dense solve)</td><td><span class="pill warn">OPEN</span></td><td>50&#8211;500&times; slower than scipy at high order</td></tr>
+<tr><td>Cranelift JIT (M4)</td><td><span class="pill mute">PARKED</span></td><td>cheap interpreter fixes closed most of the gap it targeted, cheaper</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+<p><strong>Read these numbers with the machine, not just the math.</strong> Cold single-trial timing reverses results (MATLAB&#8217;s JIT is 34&times; faster warm than cold on fft). This is a shared, non-dedicated bench box &mdash; expect 2&#8211;3&times; run-to-run drift, mitigated here by interleaving passes and taking a minimum of several runs. All figures above are single-threaded; parallel/rayon numbers are tracked separately and not folded into this table.</p>
+</div>
+
+<p><strong>Verdict:</strong> Qu is currently <strong>46% behind MATLAB</strong> and <strong>48% faster than NumPy</strong> on the fair 5-kernel total. It wins outright on matrix multiply and, as of the 2026-09-16 re-check, on FFT at prime lengths. The entire net deficit against MATLAB is concentrated in one diagnosed, non-architectural bottleneck &mdash; elementwise-op dispatch overhead, 65% of total wall time &mdash; now assigned and under active investigation, with a recent precedent (the scalar-loop fix closing a 108&times; gap without a JIT) suggesting it is fixable the same way.</p>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  <div>Qu 0.1.0 &middot; internal report, not part of the public site &middot; compiled by the QA &amp; Performance reporter session (qu-44)</div>
+  <div>Sources: <code>board2.txt</code>, <code>BACKLOG.md</code>, <code>agent_q.txt</code>, <code>benchmarks/matty_suite/README.md</code> at master @ 7d15ba78</div>
+</div></footer>
+<script src="../assets/site.js"></script>
+<script>
+(function () {
+  var rows = [
+    { name: 'matrix_multiply', matlab: 0.84, numpy: 1.41 },
+    { name: 'element_wise_ops', matlab: 1.79, numpy: 0.42 },
+    { name: 'fft', matlab: 2.57, numpy: 0.50 },
+    { name: 'array_creation', matlab: 1.11, numpy: 0.92 },
+    { name: 'loop_performance', matlab: 3.00, numpy: 0.47 }
+  ];
+  var cx = 380, top = 30, rowH = 44, barH = 9, maxLog = Math.log2(4);
+  var svgNS = 'http://www.w3.org/2000/svg';
+  var g = document.getElementById('chart-rows');
+  var css = getComputedStyle(document.documentElement);
+  var accent = css.getPropertyValue('--accent').trim() || '#0072bd';
+  var muted = css.getPropertyValue('--muted').trim() || '#59616f';
+  var textCol = css.getPropertyValue('--ink').trim() || '#12161d';
+
+  function scale(v) {
+    var l = Math.log2(v) / maxLog;
+    l = Math.max(-1, Math.min(1, l));
+    return l * 330;
+  }
+
+  rows.forEach(function (r, i) {
+    var y = top + i * rowH;
+    var label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('x', 10);
+    label.setAttribute('y', y - 6);
+    label.setAttribute('font-size', '11');
+    label.setAttribute('fill', textCol);
+    label.textContent = r.name;
+    g.appendChild(label);
+
+    [{ v: r.matlab, color: accent, dy: 0 }, { v: r.numpy, color: muted, dy: barH + 3 }].forEach(function (b) {
+      var w = scale(b.v);
+      var rect = document.createElementNS(svgNS, 'rect');
+      var x = w >= 0 ? cx : cx + w;
+      rect.setAttribute('x', x);
+      rect.setAttribute('y', y + b.dy);
+      rect.setAttribute('width', Math.abs(w));
+      rect.setAttribute('height', barH);
+      rect.setAttribute('rx', 2);
+      rect.setAttribute('fill', b.color);
+      rect.setAttribute('opacity', '0.9');
+      g.appendChild(rect);
+
+      var vt = document.createElementNS(svgNS, 'text');
+      vt.setAttribute('x', w >= 0 ? cx + Math.abs(w) + 6 : cx - Math.abs(w) - 6);
+      vt.setAttribute('y', y + b.dy + barH - 1.5);
+      vt.setAttribute('font-size', '10');
+      vt.setAttribute('fill', textCol);
+      vt.setAttribute('text-anchor', w >= 0 ? 'start' : 'end');
+      vt.textContent = b.v.toFixed(2) + '×';
+      g.appendChild(vt);
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+# Every line style Qu draws.
+#
+# Five shapes and two adjectives, rather than a list of fifteen names to
+# memorise: `dashed`, and `loose dashed` and `dense dashed` beside it. That
+# composes the way the rest of Qu's word commands already do (`legend
+# outside right`, `axis scale x log`), and density scales the GAPS only --
+# keeping the marks the same size is what makes `dense dashed` read as
+# dashed packed tighter rather than as a fourth unrelated style.
+#
+# Marks are defined in MILLIMETRES, not in multiples of the line width.
+# A dash on a printed page is measured with a ruler, and Qu's canvas unit
+# already is one (1/10 mm), so these lengths can be checked against the
+# output directly. Width still has a say -- the pattern grows for a heavy
+# stroke -- it just never shrinks into nothing for a hairline.
+#
+# Run:  qu run catalog/qu_line_styles.qu
+
+theme("publication")
+figure_size(4.6, 7.4, unit = "in")
+
+x = linspace(0, 10, 400)
+
+shapes    = ("solid", "dotted", "dashed", "dashdot", "dashdotdot")
+densities = ("loose", "", "dense")
+
+# ---- 1. the grammar: five shapes x three densities ----------------------
+subplot(2, 1, 1)
+row = 0
+for si in 1 to 5 do
+  for di in 1 to 3 do
+    name = densities[di - 1] + " " + shapes[si - 1]
+    plot(x, 0*x + row, style = name, color = "#222222")
+    text(10.15, row, name)
+    row = row - 1
+  end for
+end for
+xlim(0, 14)
+ylim(row + 0.5, 0.5)
+title("Five shapes, three densities")
+grid off
+
+# ---- 2. custom patterns, and offset -------------------------------------
+# `dashes = (...)` is the escape hatch: alternating on/off lengths in
+# canvas units (1/10 mm), for anything the names do not cover.
+subplot(2, 1, 2)
+plot(x, 0*x + 0,  dashes = (20, 6),                 color = "#222222")
+text(10.15, 0,  "dashes = (20, 6)")
+plot(x, 0*x - 1,  dashes = (2, 3, 2, 3, 12, 6),     color = "#222222")
+text(10.15, -1, "dashes = (2, 3, 2, 3, 12, 6)")
+plot(x, 0*x - 2,  dashes = (14, 4), dash_offset = 0,  color = "#4477AA")
+plot(x, 0*x - 2.3, dashes = (14, 4), dash_offset = 9, color = "#C0392B")
+text(10.15, -2.15, "same pattern, dash_offset 0 and 9")
+plot(x, 0*x - 3.3, style = "dashed", width = 0.6, color = "#222222")
+text(10.15, -3.3, "dashed at width 0.6")
+plot(x, 0*x - 4.3, style = "dashed", width = 3.0, color = "#222222")
+text(10.15, -4.3, "dashed at width 3.0 (pattern grows)")
+xlim(0, 14)
+ylim(-5, 0.6)
+title("Custom patterns, offset, and weight")
+grid off
+
+savefig("qu_line_styles.svg")
+savefig("qu_line_styles.pdf")
+print("wrote qu_line_styles.svg and .pdf")

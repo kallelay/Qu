@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>corrmat — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>corrmat</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig">result = <code>corr_heatmap(t)</code></pre>
+<p class="fnnote">Input: t &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Computes the pairwise Pearson correlation of Table <code>t</code>'s numeric columns. <code>corr_heatmap</code>/<code>corrplot</code> render it directly as a heatmap and return nothing; <code>corrmat(t)</code> instead returns a tagged Model (<code>.matrix</code>, an <code>n</code>-by-<code>n</code> Mat of correlation values, plus <code>.labels</code>, a List of the <code>n</code> column names) for when you want the numbers rather than a picture — calling <code>.plot()</code> on that Model also renders the labeled heatmap.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = corr_heatmap(t)</code></td><td><div class="ioitem"><code>t</code> <span class="iotype">Table, Model, matrix, Mat, List, or number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model, matrix, Mat, or List</span></div>
+</td><td>Returns a tagged <code>Model</code> from <code>corrmat</code> — <code>.matrix</code>, an <code>n</code>-by-<code>n</code> <code>Mat</code> of correlations, plus <code>.labels</code>, a <code>List</code> of the <code>n</code> column names; <code>corr_heatmap</code>/<code>corrplot</code> draw instead and hand back no value.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
+    <span class="a">temp</span>     = [<span class="n">21.5</span>, <span class="n">22.1</span>, <span class="n">35.0</span>, <span class="n">21.8</span>, <span class="n">36.2</span>, <span class="n">22.0</span>, <span class="n">34.5</span>, <span class="n">21.6</span>, <span class="n">35.8</span>, <span class="n">22.3</span>],
+    <span class="a">humidity</span> = [<span class="n">45.2</span>, <span class="n">46.0</span>, <span class="n">20.1</span>, <span class="n">45.5</span>, <span class="n">19.5</span>, <span class="n">45.8</span>, <span class="n">21.0</span>, <span class="n">45.1</span>, <span class="n">20.4</span>, <span class="n">46.2</span>],
+    <span class="a">pressure</span> = [<span class="n">1012.1</span>, <span class="n">1011.8</span>, <span class="n">1009.5</span>, <span class="n">1012.0</span>, <span class="n">1008.9</span>, <span class="n">1012.3</span>, <span class="n">1009.8</span>, <span class="n">1012.2</span>, <span class="n">1009.1</span>, <span class="n">1011.9</span>],
+    <span class="a">label</span>    = [<span class="s">"ok"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>]
+), <span class="s">"sensors.csv"</span>)
+
+df = <span class="f">read_csv</span>(<span class="s">"sensors.csv"</span>)
+<span class="f">print</span>(<span class="s">"rows = {nrow(df)}, cols = {ncol(df)}"</span>)
+<span class="f">print</span>(<span class="f">head</span>(df, <span class="n">3</span>))
+
+numeric = <span class="f">drop</span>(df, <span class="s">"label"</span>)
+c = <span class="f">corrmat</span>(numeric)
+<span class="f">print</span>(c.matrix)
+c.<span class="f">plot</span>()
+<span class="f">savefig</span>(<span class="s">"quickstart_corrmat.svg"</span>)
+
+scaled_temp = <span class="f">standardize</span>(df.temp)
+<span class="f">print</span>(<span class="s">"standardized temp[0] = {scaled_temp[0]:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"mean(standardized) = {mean(scaled_temp):.4f}, std(standardized) = {std(scaled_temp):.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<h2>How it works</h2>
+<p><code>data.corrmat()</code> — the pairwise Pearson correlation matrix of <code>data</code>'s NUMERIC columns only (text columns silently skipped, same filter <code>corr_heatmap</code>/<code>describe</code> already apply — a correlation of a text column isn't meaningful). Builds a samples-by-features <code>Mat</code> from those columns and delegates the actual computation to the existing <code>corrcoef_matrix</code> (landed at 85f1631 as the <code>corrcoef(X)</code> builtin) rather than a second copy of that math. Returns a <code>Value::Model</code> (kind="corrmat", fields <code>matrix</code> + <code>labels</code>), NOT a bare <code>Value::Mat</code> — so <code>.plot()</code> can recognize "this came from corrmat()" and render a labeled heatmap instead of falling through to the ordinary flattened-line-plot path an arbitrary <code>Mat</code> gets (see the <code>"plot"</code> arm below). The alternative from the spec — treat ANY square Mat with a diagonal of 1s as "must be a correlation matrix, render as heatmap" — was rejected: an unrelated square matrix that happens to have 1s on its diagonal (<code>eye(n)</code>, a similarity/adjacency matrix, ...) would then silently misrender as a heatmap with no way to opt back into a normal plot. A <code>Model</code> tag can never collide with an unrelated value by accident, matching how <code>kmeans</code>/<code>pca</code>/ every other tagged-result builtin here already works.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="corr_heatmap.html"><code>corr_heatmap</code></a>, <a href="corrplot.html"><code>corrplot</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

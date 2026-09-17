@@ -1,0 +1,36 @@
+# csv_load.qu -- large multi-column CSV load benchmark.
+#
+# Bigger and wider than csv_filters/ (500k rows, 2 cols): 3,000,000 rows x
+# 6 numeric columns, pure load-throughput focus (not the load-then-filter
+# workflow csv_filters/ covers, and not the table-ops-on-load-data workflow
+# a concurrent session's benchmarks/data_wrangling/ covers -- this is
+# specifically about `read_csv` itself at a wider/larger shape).
+#
+# Run: qu run benchmarks/file_io/csv_load.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/file_io/csv_load.qu)
+
+backend auto
+
+N = 3000000
+path = "benchmarks/file_io/wide_data.csv"
+
+# --- data (untimed prep: "data acquisition") --------------------------------
+seed(3)
+c1 = randn(N, 1)
+c2 = randn(N, 1)
+c3 = randn(N, 1)
+c4 = randn(N, 1)
+c5 = randn(N, 1)
+c6 = randn(N, 1)
+df_out = table(c1=c1, c2=c2, c3=c3, c4=c4, c5=c5, c6=c6)
+write_csv(df_out, path)
+
+# --- load ---------------------------------------------------------------------
+tic()
+df = read_csv(path)
+t_load = toc()
+print("read_csv ({N} rows x 6 cols) : {t_load:.4f} s")
+
+print("mean(c1) = {mean(df.c1):.6f}")
+print("mean(c6) = {mean(df.c6):.6f}")
+print("nrow = {nrow(df)}  ncol = {ncol(df)}")

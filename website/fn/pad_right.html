@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pad_right — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pad_right</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>pad_right(s, width, [fill=" "])</code></pre>
+<p class="fnnote">Input: s, width, fill &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Same parameters and return as <code>pad_left</code>, padding on the right instead.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pad_right(s, width, [fill=" "])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc">Returns a <code>Str</code> of at least <code>width</code> characters — <code>s</code> unchanged when it is already that long.</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">Str</span><span class="iodesc">Returns a <code>Str</code> of at least <code>width</code> characters — <code>s</code> unchanged when it is already that long.</span></div>
+<div class="ioitem"><code>fill</code> <span class="iotype">optional (default <code>" "</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td>Returns a <code>Str</code> of at least <code>width</code> characters — <code>s</code> unchanged when it is already that long.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
+<span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">2</span>))          <span class="c"># "Qu"</span>
+<span class="f">print</span>(<span class="f">left</span>(s, <span class="n">5</span>))            <span class="c"># "Hello"</span>
+<span class="f">print</span>(<span class="f">right</span>(s, <span class="n">6</span>))           <span class="c"># "World!"</span>
+<span class="f">print</span>(<span class="f">reverse</span>(<span class="s">"abc"</span>))        <span class="c"># "cba"</span>
+<span class="f">print</span>(<span class="f">lower</span>(<span class="s">"SHOUT"</span>))        <span class="c"># "shout"</span>
+<span class="f">print</span>(<span class="f">ucase</span>(<span class="s">"shout"</span>))        <span class="c"># "SHOUT"</span>
+<span class="f">print</span>(<span class="f">lcase</span>(<span class="s">"SHOUT"</span>))        <span class="c"># "shout"</span>
+<span class="f">print</span>(<span class="f">toupper</span>(<span class="s">"mix"</span>))        <span class="c"># "MIX"</span>
+<span class="f">print</span>(<span class="f">tolower</span>(<span class="s">"MIX"</span>))        <span class="c"># "mix"</span>
+<span class="f">print</span>(<span class="f">capitalize</span>(<span class="s">"ada lovelace"</span>))  <span class="c"># "Ada lovelace"</span>
+<span class="f">print</span>(<span class="f">ltrim</span>(<span class="s">"   padded"</span>))    <span class="c"># "padded"</span>
+<span class="f">print</span>(<span class="f">rtrim</span>(<span class="s">"padded   "</span>) + <span class="s">"|"</span>)   <span class="c"># "padded|"</span>
+<span class="f">print</span>(<span class="f">pad_right</span>(<span class="s">"ab"</span>, <span class="n">5</span>, <span class="s">"."</span>))    <span class="c"># "ab..."</span>
+<span class="f">print</span>(<span class="f">compare</span>(<span class="s">"apple"</span>, <span class="s">"banana"</span>)) <span class="c"># -1</span>
+<span class="f">print</span>(<span class="f">asc</span>(<span class="s">"A"</span>))              <span class="c"># 65</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>pad_left(s, width, [fill])</code> / <code>pad_right(...)</code> — pad to a width in CHARACTERS. A string already at or past the width is returned unchanged rather than truncated: padding is for lining columns up, and silently losing text to make a column fit is never what was meant.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

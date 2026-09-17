@@ -1,0 +1,7 @@
+# @name: Multisine synthesis
+# @desc: Sum K tones into one signal via an outer-product broadcast.
+f as vector(K, 1)
+t as vector(1, N)
+phase = 2 * pi * f * t          # (K,1)*(1,N) -> (K,N)
+tones = A .* cos(phase + phi)   # per-tone amplitude/phase broadcast
+x = sum(tones, axis=0)

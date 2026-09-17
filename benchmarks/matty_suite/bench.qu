@@ -1,0 +1,56 @@
+# bench.qu — Qu port of matty's BenchmarkSuite (matty/benchmarks/benchmark_suite.py).
+#
+# Same five kernels, same problem sizes, so timings are directly comparable
+# across Qu / MATLAB / numpy / matty's own backends. Uses `tic`/`toc`
+# (real wall-clock, MATLAB-compatible) for each kernel independently.
+#
+# Run: qu run benchmarks/matty_suite/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/matty_suite/bench.qu)
+
+backend auto
+
+# --- matrix_multiply --------------------------------------------------------
+tic()
+A = randn(1000, 1000)
+B = randn(1000, 1000)
+C = A * B
+t_matmul = toc()
+print("matrix_multiply   : {t_matmul:.4f} s")
+
+# --- element_wise_ops --------------------------------------------------------
+tic()
+A2 = randn(10000, 10000)
+B2 = randn(10000, 10000)
+C2 = A2 .* B2 + sin(A2) .* cos(B2)
+D2 = abs(C2)
+t_elemwise = toc()
+print("element_wise_ops  : {t_elemwise:.4f} s")
+
+# --- fft ----------------------------------------------------------------------
+tic()
+x = randn(100000, 1)
+X = fft(x)
+xr = ifft(X)
+t_fft = toc()
+print("fft               : {t_fft:.4f} s")
+
+# --- array_creation -----------------------------------------------------------
+tic()
+Az = zeros(5000, 5000)
+Bo = ones(5000, 5000)
+Ce = eye(5000)
+Dr = rand(5000, 5000)
+t_arrcreate = toc()
+print("array_creation    : {t_arrcreate:.4f} s")
+
+# --- loop_performance -----------------------------------------------------------
+tic()
+result = 0
+for i = 1 to 100000
+    result = result + i
+end for
+t_loop = toc()
+print("loop_performance  : {t_loop:.4f} s  (result = {result})")
+
+total = t_matmul + t_elemwise + t_fft + t_arrcreate + t_loop
+print("total             : {total:.4f} s")

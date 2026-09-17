@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>boxplot — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>boxplot</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>boxplot(data)</code> / <code>boxplot(data1, data2, ...)</code></pre>
+<p class="fnnote">Input: data &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>One group per argument (each a Vec of numbers), placed at <code>x = 0, 1, 2, ...</code>; draws a Tukey five-number summary (min/Q1/median/Q3/max plus outliers) per group as a box-and-whisker.</p>
+<h2>Overloads</h2>
+<p><code>boxplot</code>'s argument count, not a keyword, decides how many groups are drawn side by side — the same pattern also used by <code>spiderplot</code> and <code>raincloud</code>, shown once here rather than three times.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-boxplot-0" checked>
+<input type="radio" name="typetab" id="tt-boxplot-1">
+<div class="tabbar">
+<label for="tt-boxplot-0">one group</label>
+<label for="tt-boxplot-1">multiple groups</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>boxplot(data)</code></td><td><div class="ioitem"><code>data</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>A single Vec argument draws one box.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">boxplot</span>(<span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">20</span>))
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>boxplot(data1, data2, ...)</code></td><td><div class="ioitem"><code>data1</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>data2</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">Vec, repeatable</span><span class="iodesc">One group per argument (each a Vec of numbers), placed at <code>x = 0, 1, 2, ...</code>.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Each further Vec argument adds its own box at the next integer x position. Look for three boxes side by side instead of one.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">boxplot</span>(<span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">20</span>), <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">21</span>) + <span class="n">0.5</span>, <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span> = <span class="n">22</span>) - <span class="n">0.3</span>)
+</code></pre>
+</div>
+<p>The line/scatter family covers continuous data; these five cover data that is naturally discrete or already summed. Reach for <code>stem</code> when each sample is its own event (a Kronecker-delta-like sequence, an impulse response) and a connecting line would misleadingly imply values in between; for <code>stair</code> when the value is genuinely constant between changes (a clock signal, a piecewise-constant control setpoint); for <code>groupbar</code>/<code>stackbar</code> when you have several numbers per category and want them either side-by-side (comparing magnitudes) or stacked (comparing a total and its composition); and for <code>waterfall</code> when you have several related traces (successive measurement passes, a parameter sweep) and want each to stay legible instead of drawing directly on top of the last. Six figures come out of this block — look for the stem's lollipops, the stair's right-angle corners, the two bar layouts' different use of the same three numbers, and the waterfall's traces climbing up and to the right of one another:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+y = <span class="f">sin</span>(x / <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">stem</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">stair</span>(x, y)
+<span class="f">figure</span>()
+<span class="f">groupbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+<span class="f">stackbar</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">3</span>, <span class="n">5</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+Z = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>; <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>; <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>]
+<span class="f">waterfall</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">4</span>, Z)
+</code></pre>
+</div>
+<p>These four fit or summarize data rather than drawing it raw. <code>splineplot</code> and <code>pwl</code> both take a handful of control points and turn them into a smooth curve, but for different reasons: a spline is for when the points *are* the truth and you want a visually smooth curve through all of them exactly, while <code>pwl</code> is for when the underlying process is closer to piecewise-linear and you want a *fit* — its four segments won't pass through every point. <code>spiderplot</code> and <code>raincloud</code> are both about a shape rather than a fit: <code>spiderplot</code> compares several quantities on one radar chart, <code>raincloud</code> shows the full distribution (not just mean and spread) of two or more samples side by side, with the boxplot's summary, the KDE cloud's shape, and the individual jittered points all in one figure. Watch for the spline bending smoothly through the same five points <code>pwl</code> approximates with straight segments, and the raincloud's two "clouds" leaning the same direction as their generating distribution:</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">splineplot</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], [<span class="n">0</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">2</span>])
+<span class="f">figure</span>()
+<span class="f">pwl</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>], [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1.5</span>, <span class="n">3</span>, <span class="n">3.2</span>, <span class="n">3.5</span>, <span class="n">5</span>])
+<span class="f">figure</span>()
+<span class="f">spiderplot</span>([<span class="n">3</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">5</span>, <span class="n">4</span>])
+<span class="f">figure</span>()
+<span class="f">raincloud</span>(<span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">6</span>), <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">7</span>))
+</code></pre>
+</div>
+<p>Two different kinds of "more than one number per point" live here. <code>errorbar</code> and <code>fill_between</code> both communicate uncertainty around a central curve — a whisker per sample versus a continuous shaded band — and <code>bubble</code> communicates a third *dimension* by encoding it as marker size rather than position. <code>donut</code> and <code>pie</code> are the odd ones out: they show how a whole splits into parts, which is a fundamentally different question ("what fraction is this?") from everything else on this page ("how does this vary against that?"), which is also why pie/donut charts are worth reaching for sparingly. In the rendered figures, check that the error whiskers and the <code>fill_between</code> band both widen and narrow with the same <code>0.1</code>/<code>±0.2</code> envelope around the same sine wave, and that the donut's hollow center is the only visual difference from the plain pie beside it:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+y = <span class="f">sin</span>(x / <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">errorbar</span>(x, y, <span class="n">0.1</span> * <span class="f">ones</span>(<span class="n">10</span>))
+<span class="f">figure</span>()
+<span class="f">fill_between</span>(x, y - <span class="n">0.2</span>, y + <span class="n">0.2</span>)
+<span class="f">figure</span>()
+<span class="f">bubble</span>(x, y, <span class="f">abs</span>(y) * <span class="n">20</span> + <span class="n">5</span>)
+<span class="f">figure</span>()
+<span class="f">donut</span>([<span class="n">30</span>, <span class="n">20</span>, <span class="n">50</span>], <span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>)
+<span class="f">figure</span>()
+<span class="f">pie</span>([<span class="n">30</span>, <span class="n">20</span>, <span class="n">50</span>], <span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>)
+</code></pre>
+</div>
+<p>Four unrelated needs share this block only because they all involve a transform of the axes or the data before plotting. <code>semilogx</code>/<code>semilogy</code>/ <code>loglog</code> are for data that spans decades — a Bode magnitude, an exponential growth curve — where a linear axis would crush most of the interesting structure into a few pixels at one end. <code>hist</code> turns raw samples into a distribution shape. <code>contour</code>/<code>contourf</code> need a full 2-D field: note that <code>meshgrid</code> returns one <code>Record</code> with <code>.x</code>/<code>.y</code> fields (not two separate values), and that <code>contour</code>/<code>contourf</code> always take three arguments — <code>(X, Y, Z)</code> — never <code>Z</code> alone, because Qu has no notion of "the implicit grid a matrix was measured on". <code>corr_heatmap</code>/<code>corrplot</code> close the block by turning a table's numeric columns into a single correlation matrix. In the output, the semilog plot should look straight (or straighten a curve that was exponential), the log-log Bode-style curve should show a shallow slope rather than a hooked one, and the correlation heatmap's diagonal should read as the same colour throughout — a column is always perfectly correlated with itself:</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">200</span>)
+mag = <span class="n">1</span> ./ <span class="f">sqrt</span>(<span class="n">1</span> + (f / <span class="n">100</span>) .^ <span class="n">2</span>)
+<span class="f">semilogx</span>(f, mag)
+<span class="f">figure</span>()
+x = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+<span class="f">semilogy</span>(x, <span class="f">exp</span>(<span class="n">0.1</span> * x))
+<span class="f">figure</span>()
+<span class="f">loglog</span>(f, mag)
+<span class="f">figure</span>()
+samples = <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">2</span>)
+<span class="f">hist</span>(samples, <span class="a">bins</span> = <span class="n">15</span>)
+<span class="f">figure</span>()
+g = <span class="f">meshgrid</span>(-<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>, -<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>)
+Z = <span class="f">sin</span>(<span class="f">sqrt</span>(g.x .^ <span class="n">2</span> + g.y .^ <span class="n">2</span>))
+<span class="f">contour</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+<span class="f">contourf</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+tbl = <span class="f">table</span>(<span class="a">a</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">3</span>), <span class="a">b</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">4</span>), <span class="a">c</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">5</span>))
+<span class="f">corr_heatmap</span>(tbl)
+<span class="f">figure</span>()
+<span class="f">corrplot</span>(tbl)
+</code></pre>
+</div>
+<p>If your data already lives in a <code>table(...)</code> (a data frame, in other languages' terms), the <code>sns_*</code> family saves you the step of pulling columns out into loose vectors by hand — you name the columns and Qu does the grouping. <code>sns_scatter</code> colours points by a categorical column, <code>sns_box</code> draws one boxplot group per category, and <code>sns_bar</code> aggregates a numeric column within each category before plotting the result. This example builds one small table with a numeric <code>x</code>, <code>y</code> and a two-level categorical <code>grp</code> column, then feeds it to all three; look for the scatter's two colours (<code>"a"</code> vs <code>"b"</code>), the two boxplot groups, and the two bars showing each group's mean <code>y</code>:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">1</span>), <span class="a">y</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">2</span>),
+           <span class="a">grp</span> = [<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,
+                  <span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,
+                  <span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>,<span class="s">"a"</span>,<span class="s">"b"</span>])
+<span class="f">sns_scatter</span>(df, <span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"grp"</span>)
+<span class="f">figure</span>()
+<span class="f">sns_box</span>(df, <span class="s">"grp"</span>, <span class="s">"y"</span>)
+<span class="f">figure</span>()
+<span class="f">sns_bar</span>(df, <span class="s">"grp"</span>, <span class="s">"y"</span>)
+<span class="f">print</span>(<span class="s">"rows: "</span> + <span class="f">str</span>(<span class="f">rows</span>(df)))
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>boxplot(data)</code> (one group) or <code>boxplot(data1, data2, ...)</code> (one group per argument, placed at x = 0, 1, 2, ...) -- Tukey five-number summary per group (Â§ plotting::boxplot_stats).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

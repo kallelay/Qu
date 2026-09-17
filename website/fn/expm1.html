@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>expm1 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>expm1</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>expm1(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>e^x - 1</code>, computed so it stays accurate for <code>x</code> near zero (<code>expm1(1e-15)</code> does not lose precision to the cancellation that <code>exp(x) - 1</code> would hit there). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = expm1(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns exactly the same type and shape as <code>x</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/core-math.html">Core maths</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>expm1(x) = e^x - 1</code>, <code>log1p(x) = ln(1+x)</code>: the entire point of both is numerical accuracy near zero, where the naive <code>exp(x) - 1</code> / <code>ln(1 + x)</code> loses precision to catastrophic cancellation (<code>exp(1e-15) - 1</code> rounds to a value with only a couple of correct digits; <code>f64::exp_m1</code>/<code>f64::ln_1p</code> do not). Using the naive formula here would defeat the reason these functions exist -- see the <code>expm1_is_accurate_near_zero</code>/ <code>log1p_is_accurate_near_zero</code> tests below, which fail under the naive formula and pass under <code>exp_m1</code>/<code>ln_1p</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

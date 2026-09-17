@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>logspace — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>logspace</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>logspace([a=0], [b=1], [n=50])</code></pre>
+<p class="fnnote">Input: a, b, n &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>a</code>, <code>b</code> (optional numbers, decade exponents); <code>n</code> (optional number, integer count).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = logspace([a=0], [b=1], [n=50])</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">number, optional (default <code>0</code>)</span><span class="iodesc"><code>a</code>, <code>b</code> (optional numbers, decade exponents).</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>a</code>, <code>b</code> (optional numbers, decade exponents).</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number, optional (default <code>50</code>)</span><span class="iodesc"><code>n</code> (optional number, integer count).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>n</code> real vector, <code>n</code> logarithmically spaced points, <code>10^linspace(a, b, n)</code> — used for frequency axes in Bode-style plots and rLKK's default DRT grid.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
+R = <span class="n">100</span>
+C = <span class="n">1e-6</span>
+w = <span class="n">2</span> * pi * freqs
+Z = R / (<span class="n">1</span> + <span class="n">1j</span> * w * R * C)         <span class="c"># a simple RC impedance, as measured data</span>
+
+target = <span class="f">logspace</span>(-<span class="n">1</span>, <span class="n">5</span>, <span class="n">10</span>)         <span class="c"># extends past the measured band on both sides</span>
+Z_ext = <span class="f">rlkk_extrapolate</span>(Z, freqs, target, <span class="a">lambda</span>=<span class="n">1e-4</span>)
+<span class="f">print</span>(<span class="s">"extrapolated {length(Z_ext)} points, first = {Z_ext[0]}, last = {Z_ext[9]}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>amp = <span class="f">db2mag</span>(-<span class="n">6</span>)     <span class="c"># amplitude ratio for -6 dB</span>
+pow = <span class="f">db2pow</span>(-<span class="n">3</span>)     <span class="c"># power ratio for -3 dB</span>
+<span class="f">print</span>(<span class="s">"db2mag(-6) = {amp}, db2pow(-3) = {pow}"</span>)
+
+w_hamming = <span class="f">hamming</span>(<span class="n">8</span>)
+w_blackman = <span class="f">blackman</span>(<span class="n">8</span>)
+w_kaiser = <span class="f">kaiser</span>(<span class="n">9</span>, <span class="n">5</span>)             <span class="c"># beta=5, odd length so there's an exact center sample</span>
+<span class="f">print</span>(<span class="s">"hamming[0] = {w_hamming[0]}, blackman[0] = {w_blackman[0]}, kaiser center = {w_kaiser[4]}"</span>)
+
+f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">4</span>)               <span class="c"># 1, 10, 100, 1000 -- a log-spaced frequency axis</span>
+<span class="f">print</span>(<span class="s">"logspace(0,3,4) = {f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
+R = <span class="n">100</span>
+C = <span class="n">1e-6</span>
+w = <span class="n">2</span> * pi * freqs
+Z = R / (<span class="n">1</span> + <span class="n">1j</span> * w * R * C)         <span class="c"># a simple RC impedance, as measured data</span>
+
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>)     <span class="c"># fit.z, fit.gamma</span>
+v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-3</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="k">if</span> v.valid
+    <span class="f">print</span>(<span class="s">"measurement is causal/linear/stable within {v.max_residual}%"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
+<span class="k">end</span>
+
+<span class="f">nyquist</span>(Z)   <span class="c"># Re(Z) vs -Im(Z), the standard EIS view</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>randles = <span class="f">series</span>(<span class="f">resistor</span>(<span class="n">0.2</span>), <span class="f">parallel</span>(<span class="f">resistor</span>(<span class="n">0.01</span>), <span class="f">capacitor</span>(<span class="n">100e-6</span>)))
+Z = <span class="f">impedance</span>(randles, <span class="f">logspace</span>(-<span class="n">2</span>, <span class="n">5</span>, <span class="n">200</span>))     <span class="c"># frequencies in Hz</span>
+<span class="f">nyquist</span>(Z)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ui_slider — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>ui_slider</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig">result = <code>ui_slider(label, min, max, [default], [step=], [id=])</code></pre>
+<p class="fnnote">Input: label, min, max, default, step, id &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Declares a slider control (for a value you sweep) in an <code>explore</code> page or Qu Studio, labeled <code>label</code> (string) with range <code>min</code>..<code>max</code> (numbers). <code>default</code> (number, positional, default <code>min</code>) is the starting value; <code>step=</code> (number) sets the increment; <code>id=</code> (string, default <code>label</code>) is the identifier the host uses to persist/report a value, useful when two sliders would otherwise share a label. Outside a host, returns the current (or default) value as a number — arguments are positional, not <code>steps=</code>-style keywords, and <code>min</code>/<code>max</code> (not <code>from</code>/<code>to</code>) are the names that matter.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = ui_slider(label, min, max, [default], [step=], [id=])</code></td><td><div class="ioitem"><code>label</code> <span class="iotype">string or number</span><span class="iodesc">Declares a slider control (for a value you sweep) in an <code>explore</code> page or Qu Studio, labeled <code>label</code> (string) with range <code>min</code>..<code>max</code> (numbers).</span></div>
+<div class="ioitem"><code>min</code> <span class="iotype">string or number</span><span class="iodesc">Declares a slider control (for a value you sweep) in an <code>explore</code> page or Qu Studio, labeled <code>label</code> (string) with range <code>min</code>..<code>max</code> (numbers).</span></div>
+<div class="ioitem"><code>max</code> <span class="iotype">string or number</span><span class="iodesc">Declares a slider control (for a value you sweep) in an <code>explore</code> page or Qu Studio, labeled <code>label</code> (string) with range <code>min</code>..<code>max</code> (numbers).</span></div>
+<div class="ioitem"><code>default</code> <span class="iotype">number, optional</span><span class="iodesc"><code>default</code> (number, positional, default <code>min</code>) is the starting value.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>step=</code> (number) sets the increment.</span></div>
+<div class="ioitem"><code>id</code> <span class="iotype">string, optional</span><span class="iodesc"><code>id=</code> (string, default <code>label</code>) is the identifier the host uses to persist/report a value, useful when two sliders would otherwise share a label.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
+</td><td>Returns a scalar <code>Num</code> — the host's current value for this control, or <code>default</code> outside one.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>freq = <span class="f">ui_slider</span>(<span class="s">"freq"</span>, <span class="n">1</span>, <span class="n">20</span>, <span class="n">5</span>)
+gain = <span class="f">ui_number</span>(<span class="s">"gain"</span>, <span class="n">1.0</span>)
+mode = <span class="f">ui_select</span>(<span class="s">"mode"</span>, [<span class="s">"fast"</span>, <span class="s">"slow"</span>])
+enabled = <span class="f">ui_checkbox</span>(<span class="s">"enabled"</span>, <span class="k">true</span>)
+pressed = <span class="f">ui_button</span>(<span class="s">"reset"</span>)
+label = <span class="f">ui_text</span>(<span class="s">"label"</span>, <span class="s">"wave"</span>)
+<span class="f">print</span>(freq)
+<span class="f">print</span>(gain)
+<span class="f">print</span>(mode)
+<span class="f">print</span>(enabled)
+<span class="f">print</span>(pressed)
+<span class="f">print</span>(label)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p>Each of these DECLARES a control and returns its current value in one call, so a script reads like straight-line code (<code>freq = ui_slider("freq", 1, 10)</code>) rather than wiring up callbacks. With no host supplying values -- a bare <code>qu run</code>, or the very first run before anything's been touched -- every one returns its own default, so the same script is still a perfectly ordinary runnable script. That property is what makes these safe to put in demos. <code>ui_slider(label, min, max, [default], [step=], [id=])</code></p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

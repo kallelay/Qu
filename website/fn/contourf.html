@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>contourf — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>contourf</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>contour(x, y, Z)</code></pre>
+<p class="fnnote">Input: x, y, Z &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Iso-lines through scalar field <code>Z</code> (a Mat with <code>len(y)</code> rows and <code>len(x)</code> columns) over axis vectors <code>x</code>, <code>y</code> (Vecs of numbers); <code>contourf</code> fills the bands between levels instead of only outlining them. <strong>All three arguments are always required</strong> — <code>contour(Z)</code> alone is a runtime error (<code>contour(x, y, Z) needs three arguments</code>), even though <code>Z</code> alone is enough information for some other libraries' contour calls. <code>levels=</code> (integer count, or a Vec of explicit level values) controls how many iso-lines are drawn or exactly which.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>contour(x, y, Z)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Mat, vector, Vec, or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">scalar, Mat, vector, Vec, or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>Z</code> <span class="iotype">scalar, Mat, vector, Vec, or number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>levels=</code> (integer count, or a Vec of explicit level values) controls how many iso-lines are drawn or exactly which.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">200</span>)
+mag = <span class="n">1</span> ./ <span class="f">sqrt</span>(<span class="n">1</span> + (f / <span class="n">100</span>) .^ <span class="n">2</span>)
+<span class="f">semilogx</span>(f, mag)
+<span class="f">figure</span>()
+x = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+<span class="f">semilogy</span>(x, <span class="f">exp</span>(<span class="n">0.1</span> * x))
+<span class="f">figure</span>()
+<span class="f">loglog</span>(f, mag)
+<span class="f">figure</span>()
+samples = <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">2</span>)
+<span class="f">hist</span>(samples, <span class="a">bins</span> = <span class="n">15</span>)
+<span class="f">figure</span>()
+g = <span class="f">meshgrid</span>(-<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>, -<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.2</span>)
+Z = <span class="f">sin</span>(<span class="f">sqrt</span>(g.x .^ <span class="n">2</span> + g.y .^ <span class="n">2</span>))
+<span class="f">contour</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+<span class="f">contourf</span>(g.x, g.y, Z)
+<span class="f">figure</span>()
+tbl = <span class="f">table</span>(<span class="a">a</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">3</span>), <span class="a">b</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">4</span>), <span class="a">c</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">5</span>))
+<span class="f">corr_heatmap</span>(tbl)
+<span class="f">figure</span>()
+<span class="f">corrplot</span>(tbl)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>contour(x, y, Z)</code> / <code>contourf(x, y, Z)</code> -- iso-lines and filled bands over a scalar field. <code>x</code> and <code>y</code> are the axis vectors and <code>Z</code> is a matrix with <code>y.len()</code> rows and <code>x.len()</code> columns, matching what <code>meshgrid</code> implies and what matplotlib accepts. Passing the meshgrid matrices themselves works too: only their first row and first column carry new information, so they are reduced to axis vectors rather than rejected -- a script transcribed from Python passes <code>contourf(KK, NN, Z)</code> and should not have to be rewritten to say <code>contourf(K, nuT, Z)</code>. <code>NaN</code> in <code>Z</code> masks a cell out, which is how a "the formula does not apply here" region is drawn (<code>np.where(cond, v, np.nan)</code> in the original).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="contour.html"><code>contour</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

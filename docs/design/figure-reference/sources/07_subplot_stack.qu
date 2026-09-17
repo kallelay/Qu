@@ -1,0 +1,18 @@
+t = linspace(0, 1, 200)
+subplot(3, 1, 1)
+plot(t, sin(2*pi*3*t), label="ch1")
+ylabel("Voltage (V)")
+title("Channel 1")
+grid on
+subplot(3, 1, 2)
+plot(t, cos(2*pi*5*t), label="ch2")
+ylabel("Current (mA)")
+title("Channel 2")
+grid on
+subplot(3, 1, 3)
+plot(t, exp(-3*t), label="ch3")
+xlabel("Time (s)")
+ylabel("Envelope")
+title("Channel 3")
+grid on
+savefig("07_subplot_stack.svg")

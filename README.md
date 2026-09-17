@@ -1,0 +1,112 @@
+# Qu
+
+An array language for measurement science: signals, spectra, impedance,
+and the figures that go in the paper.
+
+Qu is a small interpreted language with a numerical standard library and a
+publication-quality plotting backend. It exists because the alternative —
+prototype in one language, plot in another, and hand-transcribe the
+numbers into a manuscript — puts a copy step between the computation and
+the claim, and that step is where results go wrong.
+
+```qu
+# A noisy tone, filtered, measured and plotted — all of it here.
+fs = 1000
+t  = (0 to 999) / fs
+y  = sin(2 * pi * 50 * t) + 0.2 * randn(1000, seed = 1)
+lp = butter(4, "low", 120, fs)
+z  = filtfilt(lp, y)
+print("residual rms {rms(z - sin(2 * pi * 50 * t)):.4f}")
+
+theme("publication")
+plot(t[0:400], z[0:400], color = "#0072BD", lw = pt(0.8))
+xlabel("time $t$ [s]")
+ylabel("amplitude")
+savefig("filtered.pdf")
+```
+
+## What it has
+
+**Numerics.** Real and complex scalars, vectors and matrices. FFT, filter
+design and application, resampling, windows, spectral estimates. Dense
+linear algebra — LU, QR, SVD, Cholesky, eigen, pseudo-inverse, least
+squares — on real *and* complex matrices. `nnls`, nonlinear
+`least_squares` with box bounds, optimizers, root finders.
+
+**Plotting that ends in a figure, not a screenshot.** SVG, PDF with
+embedded and subset fonts, and TikZ. Maths in labels (`$\eta_{\mathrm
+{exc}}$` sets the way LaTeX would, variables italic and operators
+upright), twin axes with independent scales, contours, error bars,
+colorbars, thirty-odd marker glyphs.
+
+**Data in the shapes instruments produce it.** MATLAB `.mat` files read
+natively, CSV with the provenance headers instruments emit, raw binary
+arrays and structs, images.
+
+**The rest.** Tables, statistics, a machine-learning set (SVM, forests,
+gradient boosting, k-NN, PCA, GMM, MLPs), parallel `pmap`/pools, GPU
+matmul, serial and TCP I/O.
+
+## Getting started
+
+```
+cargo build --release --manifest-path engine/Cargo.toml
+engine/target/release/qu run examples/hello.qu
+engine/target/release/qu repl
+```
+
+The [book](book/src/SUMMARY.md) is the place to start reading: a guided
+tour, three fundamentals volumes, and a standard-library reference
+organised by domain. [`docs/qu-language-spec.md`](docs/qu-language-spec.md)
+is the normative specification.
+
+[`catalog/`](catalog/) holds around a hundred worked scripts, each one a
+complete program that runs.
+
+## Design commitments
+
+These are the things Qu will not trade away, stated so you can hold it to
+them.
+
+**A keyword the callee never reads is an error.** Not ignored. Qu tracks
+which style keys a builtin actually looked at and rejects the rest, so a
+typo or a keyword that belongs to a sibling function cannot be silently
+dropped. This is checked from the code itself, so it cannot drift out of
+step with what the code does.
+
+**A function cannot rewrite its caller's variables.** Assignment inside a
+function binds locally; reads fall through to the enclosing scope; and
+`global` is available when writing through is what you mean.
+
+**Silence is the worst failure.** Where Qu can either guess or say so, it
+says so — a shape mismatch, a non-positive-definite matrix, a scale that
+cannot be applied. Wrong answers that look right are the failure mode this
+language is organised against.
+
+## Status
+
+Version 0.2.1, and honest about what that means: one implementation, a
+small number of users, and a specification that is ahead of the engine in
+places. The numerical core is checked against reference implementations —
+several ports reproduce NumPy, SciPy and MATLAB results exactly — and the
+test suite runs to some 2,200 cases. It is being used for real work; it
+has not yet been used for *your* real work, and that is the difference
+between 0.x and 1.0.
+
+## Credits
+
+Vibe-coded by Ahmed Yahia Kallel, with the help of Claude Code (Opus 5,
+Sonnet 5) and Qwen 3.6 (27B, 35B).
+
+## Licence
+
+Dual-licensed, with attribution to Ahmed Yahia Kallel required in both
+halves and no non-commercial restriction:
+
+- **Code** (the engine, `qu-core` and friends, and every `.qu` source
+  file) — Apache License 2.0. See [LICENSE-APACHE](LICENSE-APACHE).
+- **Docs, book prose, and the website** — Creative Commons
+  Attribution-ShareAlike 4.0 (CC BY-SA 4.0). See [LICENSE-DOCS](LICENSE-DOCS).
+
+See [LICENSE](LICENSE) for the exact split, and [NOTICE](NOTICE) for the
+attribution notices Apache-2.0 requires derivative works to carry forward.

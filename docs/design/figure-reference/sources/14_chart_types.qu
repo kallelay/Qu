@@ -1,0 +1,90 @@
+# 14 — The chart types added for measurement work, on one sheet.
+#
+# Six readings that were missing or misframed. Three of them are about
+# SAMPLE SIZE -- which summary is honest at n = 40, n = 400, n = 20000 --
+# and three are about geometry, where the frame has to agree with the
+# quantity or the figure says something the data does not.
+#
+# Run:  qu run docs/design/figure-reference/sources/14_chart_types.qu
+
+theme("publication")
+figure_size(10.0, 13.0, unit = "in")
+
+BLUE = "#1f77b4"
+GREEN = "#2e7d32"
+RED = "#d62728"
+
+a = randn(300, seed = 11)
+b = randn(300, seed = 12) * 1.6 + 2
+c = randn(300, seed = 13) * 0.6 - 1
+
+# ---------------------------------------------- (a) distributions, small n
+#
+# Every sample drawn, nudged sideways only as far as it must be to clear
+# its neighbours, so the WIDTH is the count rather than the darkness of a
+# smear. Below a few hundred per group this is the most honest of the
+# three: nothing is estimated.
+subplot(3, 2, 1)
+beeswarm(a[0:59], b[0:59], c[0:59], ms = pt(1.7))
+xlabel("beeswarm -- n = 60 per group")
+title("(a) Show every point")
+
+# ------------------------------------------------- (b) distributions, big n
+#
+# The density and the summary together. The violin's shape is a KERNEL
+# estimate and its width is partly the bandwidth's doing, which is what
+# the ECDF beside it does not ask the reader to trust.
+subplot(3, 2, 2)
+violin(a, b, c)
+xlabel("violin -- n = 300 per group")
+title("(b) Show the shape")
+
+# ------------------------------------------------------------- (c) ecdf
+#
+# No bandwidth, no bins, no choice for the reader to have to see past: the
+# curve IS the data, sorted. Two distributions can be compared without
+# either of them having been smoothed first.
+subplot(3, 2, 3)
+ecdf(a, color = BLUE)
+ecdf(b, color = GREEN)
+ecdf(c, color = RED)
+xlabel("value")
+ylabel("$F(x)$")
+title("(c) Compare without smoothing")
+
+# ----------------------------------------------------------- (d) hexbin
+#
+# What a scatter cannot do. Past a few thousand marks the picture
+# saturates into a blob whose darkest region says "many" and nothing more,
+# and the overlap hides exactly the structure being looked for.
+subplot(3, 2, 4)
+u = randn(20000, seed = 21)
+v = randn(20000, seed = 22)
+hexbin(u, 0.7 * u + 0.7 * v, bins = 30, colormap = "ylorrd")
+xlabel("hexbin -- 20000 points")
+title("(d) Show density, not ink")
+
+# ------------------------------------------------------------ (e) polar
+#
+# Polar AXES, not a polar-shaped curve on a Cartesian box. The rings are
+# ordinary series, so this needs no second renderer.
+subplot(3, 2, 5)
+th = linspace(0, 2 * pi, 400)
+polarplot(th, 1 + 0.6 * cos(3 * th), color = BLUE, lw = pt(1.1))
+title("(e) polarplot")
+
+# ------------------------------------------------------------ (f) smith
+#
+# A series RLC swept through resonance. Its locus is a circle of constant
+# normalized resistance -- R/z0 = 0.24 here -- which is why it sits just
+# inside the r = 0.2 grid circle. That agreement is the check: the chart
+# is right when the physics lands where the ruling says it should.
+subplot(3, 2, 6)
+w = logspace(9, 11, 600)
+Z = 12 + 1i * w * 8e-9 + 1 ./ (1i * w * 1.2e-12)
+smith(Z, z0 = 50, color = RED, lw = pt(1.2))
+title("(f) smith, series RLC")
+
+savefig("14_chart_types.svg")
+savefig("14_chart_types.pdf")
+print("six charts drawn")

@@ -1,0 +1,182 @@
+name: Release
+
+# Builds the `qu` binary for every platform we can honestly support, and
+# attaches them to a GitHub release.
+#
+# Triggered by pushing a tag (`v0.2.0`), or by hand from the Actions tab
+# with `workflow_dispatch` for a dry run that builds without publishing.
+#
+# Not covered, and why:
+#
+#   iPadOS / iOS  There is no way to ship this as a normal application.
+#                 iOS has no terminal and no subprocesses, and the App
+#                 Store rules on executable code mean an interpreter has
+#                 to be embedded in an app rather than installed. The
+#                 realistic route is a browser build, which needs the
+#                 INTERPRETER compiled to wasm32 -- `qu-wasm` today wraps
+#                 only the numeric core, and `serialport` and the
+#                 filesystem builtins would need feature-gating first.
+#                 Tracked, not solved.
+#
+#   Android       Same reasoning, minus the store restriction. A Termux
+#                 build of the Linux aarch64 binary works today for anyone
+#                 who wants it.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # The optional features pull in libtorch, TensorFlow and a GPU stack.
+  # A release binary is the default build: portable, no system libraries
+  # beyond a C toolchain.
+  CARGO_PROFILE_RELEASE_LTO: "thin"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+
+          - name: windows-arm64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            archive: zip
+
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            archive: tar
+            deb: true
+
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: tar
+            deb: true
+
+          # Statically linked against musl, so it runs on any Linux
+          # regardless of glibc version -- the answer for "other Linux",
+          # including Alpine and older enterprise distributions.
+          - name: linux-x86_64-static
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            archive: tar
+
+          - name: macos-arm64
+            os: macos-14
+            target: aarch64-apple-darwin
+            archive: tar
+
+          - name: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+            archive: tar
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # `serialport` needs libudev on Linux; musl needs the cross linker.
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} --manifest-path engine/Cargo.toml
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          BIN="engine/target/${{ matrix.target }}/release/qu"
+          [ -f "$BIN" ] || BIN="$BIN.exe"
+          # Cross-built binaries cannot run on the builder; only test native.
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ] && [ "${{ runner.arch }}" != "ARM64" ]; then
+            echo "cross-built, skipping run"
+          else
+            echo 'print("ok {1 + 1}")' > smoke.qu
+            "$BIN" run smoke.qu
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="dev"
+          DIR="qu-${VERSION}-${{ matrix.name }}"
+          mkdir -p "$DIR"
+          BIN="engine/target/${{ matrix.target }}/release/qu"
+          if [ -f "$BIN.exe" ]; then cp "$BIN.exe" "$DIR/"; else cp "$BIN" "$DIR/"; fi
+          cp README.md LICENSE NOTICE CHANGELOG.md "$DIR/"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a "$DIR.zip" "$DIR"
+          else
+            tar czf "$DIR.tar.gz" "$DIR"
+          fi
+
+      - name: Build .deb
+        if: matrix.deb
+        run: |
+          cargo install cargo-deb --locked
+          cargo deb --no-build --target ${{ matrix.target }} \
+            --manifest-path engine/crates/qu-cli/Cargo.toml \
+            --output "qu-${GITHUB_REF_NAME#v}-${{ matrix.name }}.deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            qu-*.zip
+            qu-*.tar.gz
+            qu-*.deb
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: CHANGELOG.md
+          draft: true
+          generate_release_notes: true

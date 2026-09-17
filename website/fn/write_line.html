@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_line — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>write_line</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>write_line(f, s)</code></pre>
+<p class="fnnote">Input: f, s &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes <code>s</code> (string) to <code>f</code> (file handle, opened writable/appendable) plus a trailing <code>\n</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>write_line(f, s)</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>s</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line one"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line two"</span>)
+<span class="f">close</span>(n)
+<span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"notes.txt"</span>))
+<span class="c"># line one</span>
+<span class="c"># line two</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(f, <span class="s">"run started"</span>)
+<span class="f">write_line</span>(f, <span class="s">"value = "</span> + <span class="f">str</span>(<span class="n">42</span>))
+<span class="f">close</span>(f)
+<span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"log.txt"</span>))    <span class="c"># 23 -- "run started\n" + "value = 42\n"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
+<span class="c"># log.txt that the chapter does not create until 700 lines further down,</span>
+<span class="c"># so this block failed and was dropped from the page while the build</span>
+<span class="c"># reported success.</span>
+w = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(w, <span class="s">"a"</span>)
+<span class="f">write_line</span>(w, <span class="s">"b"</span>)
+<span class="f">write_line</span>(w, <span class="s">"c"</span>)
+<span class="f">close</span>(w)
+
+f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+first_line = <span class="f">peek_line</span>(f)          <span class="c"># doesn't consume anything</span>
+same_line  = <span class="f">read_line</span>(f)          <span class="c"># sees first_line again</span>
+next_line  = <span class="f">read_line</span>(f)          <span class="c"># only NOW does this move on</span>
+<span class="f">print</span>(<span class="s">"{first_line} | {same_line} | {next_line}"</span>)
+<span class="f">close</span>(f)
+<span class="c"># a | a | b</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"streaming_demo.txt"</span>, <span class="s">"w"</span>)
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    <span class="f">write_line</span>(f, <span class="s">"line "</span> + <span class="f">str</span>(i))
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"streaming_demo.txt"</span>, <span class="s">"r"</span>)
+n = <span class="n">0</span>
+<span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(g)
+    line = <span class="f">read_line</span>(g)
+    n = n + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"lines read = {n}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>write(f, s)</code> (file form, above) — raw string/bytes, no added newline. <code>write_line(f, s)</code> — the same, plus a trailing <code>\n</code>. Writing to a handle opened in <code>"r"</code> mode errors clearly (<code>file_check_writable</code>), never silently no-ops or panics.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

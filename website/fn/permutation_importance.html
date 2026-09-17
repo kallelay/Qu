@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>permutation_importance — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>permutation_importance</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>permutation_importance(model, X, y, [n_repeats=])</code></pre>
+<p class="fnnote">Input: model, X, y, n_repeats &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Shuffles one column of an <code>N</code>-row, <code>D</code>-column <code>X</code> at a time and re-scores an already-fitted model Record <code>model</code> against the matching length-<code>N</code> target <code>y</code>, over <code>n_repeats</code> shuffles per column (integer).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = permutation_importance(model, X, y, [n_repeats=])</code></td><td><div class="ioitem"><code>model</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>X</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_repeats</code> <span class="iotype">Record, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>D</code> vector of importance scores (drop in score caused by shuffling that column); works on any fitted model because it perturbs the input rather than reaching inside the model itself.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+
+m = <span class="f">ols_model</span>(X, y)
+yhat = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"mae: {round(mae(y, yhat), 4)}, mse: {round(mse(y, yhat), 4)}"</span>)
+
+cm = <span class="f">knn_model</span>(Xc, yc, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+predc = cm.<span class="f">predict</span>(Xc)
+<span class="f">print</span>(<span class="s">"precision: {round(precision(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"recall:    {round(recall(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"f1:        {round(f1(yc, predc), 3)}"</span>)
+
+folds = <span class="f">k_fold</span>(X, y, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"k_fold: {len(folds)} folds, first fold trains on {rows(folds[0].X_train)} rows"</span>)
+
+stab = <span class="f">cv_stability</span>(Xc, yc, <span class="a">n_repeats</span> = <span class="n">5</span>, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"cv_stability: {round(mean(stab), 3)} +/- {round(std(stab), 3)}"</span>)
+
+ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"ablation_study scores: {round(ab, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"rfe keeps:             {rfe(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"mutual_info_classif:   {round(mutual_info_classif(Xc, yc, k = 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>permutation_importance(model, X, y, [n_repeats=10], [seed=])</code> — the standard model-agnostic explainability method (any fitted <code>_model</code> handle with <code>.predict</code>/<code>.score</code> — not just the tree-based kinds <code>ablation_study</code>/<code>rfe</code>/ <code>astar_mrmr</code> are restricted to, since this perturbs the *input*, never touches the model's own internals): shuffle one feature column at a time (breaking its relationship with <code>y</code> while leaving every other column's joint distribution untouched), re-score the already-fitted model, and average the score drop over <code>n_repeats</code> independent shuffles. A large drop means the model actually depends on that feature; ~0 or negative means it doesn't (or the shuffle got lucky). Genuinely single-threaded (each <code>model_predict</code>/<code>model_score</code> call needs <code>&amp;mut Interp</code>, unlike <code>ablation_study</code>/<code>cv_stability</code>/<code>rfe</code>/<code>astar_mrmr</code>'s direct-Rust <code>TreeBuilder</code> calls) — but each call is one cheap prediction pass, not a fit, so this doesn't need the same acceleration those do.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imag — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imag</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>im(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Imaginary component of a <code>Complex</code>/<code>CVec</code>/<code>CMat</code> (<code>0</code> elementwise when <code>x</code> is real). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = im(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Complex, CVec, Vec, CMat, Mat, or scalar</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Complex, Num, CVec, Vec, CMat, or Mat</span></div>
+</td><td>Returns the same shape as <code>x</code> but always real-valued — a <code>Complex</code> gives a <code>Num</code>, a <code>CVec</code> a real <code>Vec</code>, a <code>CMat</code> a real <code>Mat</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs  = <span class="n">1000</span>
+t   = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+x   = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+sig = <span class="f">signal</span>(x, fs)
+
+X = <span class="f">fft</span>(sig)
+<span class="f">print</span>(<span class="s">"df = {X.df} Hz, Nyquist = {X.nyquist} Hz"</span>)
+<span class="f">print</span>(<span class="s">"power at 100 Hz: {band_power(X, 90, 110)}"</span>)     <span class="c"># 0.5  = 1.0^2/2</span>
+<span class="f">print</span>(<span class="s">"power at 300 Hz: {band_power(X, 290, 310)}"</span>)    <span class="c"># 0.125 = 0.5^2/2</span>
+
+clean = <span class="f">ifft</span>(<span class="f">band_zero</span>(X, <span class="n">250</span>, <span class="n">350</span>))                    <span class="c"># notch out the 300 Hz tone</span>
+<span class="f">print</span>(<span class="s">"residual imaginary part: {max(abs(imag(clean)))}"</span>)   <span class="c"># ~1e-16, still real</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0.5</span>
+<span class="f">print</span>(<span class="s">"tan={tan(x)}  asin={asin(x)}  acos={acos(x)}  atan={atan(x)}"</span>)
+<span class="f">print</span>(<span class="s">"sinh={sinh(x)}  cosh={cosh(x)}  tanh={tanh(x)}"</span>)
+<span class="f">print</span>(<span class="s">"ln(e^2)={ln(exp(2))}  log(e^2)={log(exp(2))}  log2(8)={log2(8)}"</span>)
+
+z = <span class="n">3</span> + <span class="n">4j</span>
+<span class="f">print</span>(<span class="s">"arg={arg(z)}  phase={phase(z)}  re={re(z)}  imag={imag(z)}  im={im(z)}  conj={conj(z)}"</span>)
+
+<span class="f">print</span>(<span class="f">ceil</span>(<span class="n">2.1</span>))   <span class="c"># 3</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<h2>See also</h2>
+<p><a href="im.html"><code>im</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

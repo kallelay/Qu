@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tail — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>tail</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>head(s, n)</code></pre>
+<p class="fnnote">Input: s, n &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> is a <code>Str</code>, <code>List</code>, <code>Vec</code>, or <code>Table</code>; <code>n</code> (number, default 5 when used on a table).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = head(s, n)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str, List, Vec, or Table</span><span class="iodesc"><code>s</code> is a <code>Str</code>, <code>List</code>, <code>Vec</code>, or <code>Table</code>.</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code> (number, default 5 when used on a table).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the first (<code>head</code>) or last (<code>tail</code>) <code>n</code> elements/rows, same type as <code>s</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
+log = <span class="s">"INFO start\nERROR disk full\nINFO retry\nERROR timeout"</span>
+<span class="f">print</span>(<span class="f">grep</span>(log, <span class="s">"ERROR"</span>))     <span class="c"># ("ERROR disk full", "ERROR timeout")</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>head</code>/<code>tail</code> of the first thing you reach for them with. A table was the only one they took, so <code>head(s, 2)</code> on a string -- the obvious spelling -- was an error naming tables.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="head.html"><code>head</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

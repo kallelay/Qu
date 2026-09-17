@@ -1,0 +1,44 @@
+# bench_fft_factorization.qu -- follow-up to bench_fft_1m.qu, per
+# QuMaster's three concrete questions about the power-of-two-vs-not FFT
+# gap: is it rustfft or Qu's wrapper, where does it start (does it track
+# the largest prime factor), and would a cached plan help.
+#
+# The cached-plan question is already answered by reading the source:
+# qu-core's `FFT_PLANNER` is a thread-local, reused across calls (see
+# qu-core/src/lib.rs) -- Qu does not replan per call. Not a candidate fix.
+#
+# The rustfft-vs-wrapper question is answered by a standalone Rust probe
+# (qu-core/examples/fft_mixed_radix_probe.rs) that calls rustfft directly
+# with the SAME cached-planner pattern, bypassing Qu's Complex64 <->
+# RustComplex copies entirely, and separately measures Qu's exact copy
+# overhead on top: wrap/raw was 0.96x-1.22x at all four sizes below --
+# negligible, so Qu's wrapper is not the story either.
+#
+# What's left is comparing Qu's TIME (not ratio) against MATLAB's TIME
+# at the same four factorizations, since the raw-rustfft probe showed
+# something the original ratio-only framing missed: rustfft's own time
+# is roughly FLAT across power-of-two/3-smooth/5-smooth (~0.010-0.011s)
+# and only blows up at the prime size (~0.038s, Bluestein's algorithm).
+# If Qu's absolute time barely moves across the first three sizes, a
+# GROWING ratio there must mean MATLAB/FFTW gets FASTER at those sizes,
+# not that Qu gets slower -- a different, more precise conclusion than
+# "rustfft's mixed-radix path is worse."
+
+sizes = [1048576, 995328, 1000000, 1000003]
+labels = ["2^20 (power of two)", "2^12*3^5 (3-smooth)", "2^6*5^6 (5-smooth)", "1000003 (prime)"]
+
+for i = 0 to 3
+    N = sizes[i]
+    x = randn(N)
+    X = fft(x)          # warm-up, discarded
+    best_t = 1.0e9
+    for r = 1 to 3
+        tic()
+        X = fft(x)
+        t = toc()
+        if t < best_t then
+            best_t = t
+        end if
+    end for
+    print("{labels[i]}: N={N}  time={best_t:.6f} s")
+end for

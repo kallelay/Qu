@@ -1,0 +1,17 @@
+# demo_sine.qu — plot a sine wave.
+#
+# The simplest possible version of the thing Qu is built for: a time axis,
+# a waveform, and a plot. No filtering, no noise, no units -- just sin().
+#
+# Exercises:
+#   to (range), elementwise sin(), plot(), show plot
+
+backend auto
+
+#%% Make a sine wave
+t = 0 to 2 * pi step 0.05
+y = sin(t)
+
+#%% Plot it
+plot(t, y)
+show plot

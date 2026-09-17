@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fir1 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fir1</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>fir1(n, cutoff, [kind="low"], [window="hamming"], [fs=2], [beta=])</code></pre>
+<p class="fnnote">Input: n, cutoff, kind, window, fs, beta &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>n</code>: number (order, taps = <code>n+1</code>); <code>cutoff</code>: number or length-2 vector; <code>kind</code> (optional string); <code>window</code> (optional string: <code>"hamming"</code>, <code>"hann"</code>/<code>"hanning"</code>, <code>"blackman"</code>, or <code>"kaiser"</code> — the last needs <code>beta=</code>, a required number when chosen); <code>fs</code> (optional number, default <code>2.0</code>, MATLAB's normalized convention where <code>1</code> = Nyquist) — pass an explicit <code>fs=</code> for <code>butter</code>-style Hz cutoffs.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>cutoff</code> can be number or vector.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-fir1-0" checked>
+<input type="radio" name="typetab" id="tt-fir1-1">
+<div class="tabbar">
+<label for="tt-fir1-0"><code>fir1(n, cutoff, kind="low"/"high", ...)</code></label>
+<label for="tt-fir1-1"><code>fir1(n, cutoff, kind="band"/"stop", ...)</code></label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fir1(n, cutoff, kind="low"/"high", ...)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: number (order, taps = <code>n+1</code>).</span></div>
+<div class="ioitem"><code>cutoff</code> <span class="iotype">number or vector</span><span class="iodesc"><code>cutoff</code>: number or length-2 vector.</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">string (default <code>"low"/"high"</code>)</span><span class="iodesc"><code>kind</code> (optional string).</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td>A single normalized/Hz number.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+<span class="f">print</span>(<span class="s">"FIR poles: {poles(fir)}"</span>)
+<span class="c"># FIR poles: [0, 0, 0, 0, 0, 0]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp = <span class="f">fir1</span>(<span class="n">20</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+bp = <span class="f">fir1</span>(<span class="n">20</span>, [<span class="n">80</span>, <span class="n">120</span>], <span class="a">kind</span>=<span class="s">"band"</span>, <span class="a">fs</span>=fs)
+<span class="f">print</span>(<span class="s">"lowpass taps: {length(lp.b)}"</span>)    <span class="c"># lowpass taps: 21</span>
+<span class="f">print</span>(<span class="s">"bandpass taps: {length(bp.b)}"</span>)   <span class="c"># bandpass taps: 21</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+sf = <span class="f">filter_init</span>(fir)
+<span class="f">print</span>(<span class="s">"FIR state length: {length(sf.z)}"</span>)   <span class="c"># FIR state length: 6</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+y_fir = <span class="f">sosfilt</span>(fir, x)
+<span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fir1(n, cutoff, kind="band"/"stop", ...)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: number (order, taps = <code>n+1</code>).</span></div>
+<div class="ioitem"><code>cutoff</code> <span class="iotype">number or vector</span><span class="iodesc"><code>cutoff</code>: number or length-2 vector.</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">string (default <code>"band"/"stop"</code>)</span><span class="iodesc"><code>kind</code> (optional string).</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>A length-2 <code>[low, high]</code> number/Hz vector.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+<span class="f">print</span>(<span class="s">"FIR poles: {poles(fir)}"</span>)
+<span class="c"># FIR poles: [0, 0, 0, 0, 0, 0]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp = <span class="f">fir1</span>(<span class="n">20</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+bp = <span class="f">fir1</span>(<span class="n">20</span>, [<span class="n">80</span>, <span class="n">120</span>], <span class="a">kind</span>=<span class="s">"band"</span>, <span class="a">fs</span>=fs)
+<span class="f">print</span>(<span class="s">"lowpass taps: {length(lp.b)}"</span>)    <span class="c"># lowpass taps: 21</span>
+<span class="f">print</span>(<span class="s">"bandpass taps: {length(bp.b)}"</span>)   <span class="c"># bandpass taps: 21</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+sf = <span class="f">filter_init</span>(fir)
+<span class="f">print</span>(<span class="s">"FIR state length: {length(sf.z)}"</span>)   <span class="c"># FIR state length: 6</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+y_fir = <span class="f">sosfilt</span>(fir, x)
+<span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>fir1(n, cutoff, [kind="low"], [window="hamming"], [fs=2])</code> — windowed-sinc FIR design (MATLAB's/SciPy's <code>fir1</code>): the ideal lowpass/highpass/bandpass/bandstop impulse response truncated to <code>n+1</code> taps, multiplied by the requested window (reusing <code>hamming</code>/<code>hann</code>/<code>blackman</code>/<code>kaiser</code>'s own Rust functions directly — <code>raised_cosine_window</code>/<code>kaiser_window</code> below — not reimplemented), normalized to unity gain at the passband center. <code>kind</code> accepts the same aliases as <code>butter</code>. <code>fs</code> defaults to <code>2.0</code>, MATLAB's own *normalized* <code>fir1</code> convention (<code>cutoff</code> directly in <code>[0, 1]</code>, <code>1</code> = Nyquist — also <code>fvtool</code>'s own existing fallback below); pass an explicit <code>fs=</code> for <code>butter</code>-style Hz cutoffs instead. Model kind <code>"filter"</code>, field <code>b</code> (a plain tap vector) — no <code>sos</code> field at all, since an FIR filter has no feedback/denominator and can't be forced into a biquad cascade without first factoring its transfer-function polynomial into quadratic roots (a real numerical step this design function doesn't do). Every generic filter function below (<code>sosfilt</code>/ <code>filtfilt</code>/<code>freqz</code>/<code>group_delay</code>/<code>fvtool</code>/<code>filter_init</code>/ <code>filter_next</code>/<code>poles</code>/<code>zeros</code>/<code>is_stable</code>/<code>pzplot</code>) branches on whether a filter model has <code>sos</code> or <code>b</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

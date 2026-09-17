@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rms — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rms</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>rms(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Root-mean-square, <code>sqrt(mean(x.^2))</code>, of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rms(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, Num, or vector</span></div>
+</td><td>Returns a scalar <code>Num</code>. Errors on an empty vector.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>noisy = signal + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"clean {rms(signal):.3f}, noisy {rms(noisy):.3f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
+<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t)          <span class="c"># 50 Hz, one value per sample</span>
+y = x + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)   <span class="c"># the same signal, with noise on it</span>
+<span class="f">print</span>(<span class="s">"clean rms {rms(x):.4f}, noisy rms {rms(y):.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
+smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
+<span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
+G = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="s">"colsum = {sum(G, axis=0)}"</span>)
+<span class="f">print</span>(<span class="s">"rowsum = {sum(G, axis=1)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

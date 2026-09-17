@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zoom_inset — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>zoom_inset</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>zoom_inset(x0, x1, y0, y1, [position=], [outside=], [clip=])</code></pre>
+<p class="fnnote">Input: x0, x1, y0, y1, position, outside, clip &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it. <code>position=</code> (string, reuses the legend's keyword vocabulary: <code>"top right"</code>, <code>"best"</code>, ...) chooses where the inset sits; <code>outside=true</code> (bool, default false) reserves margin and places the inset entirely outside the plot area instead of overlapping it; <code>clip=</code> (bool) controls whether the inset's own contents are clipped to its box.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>zoom_inset(x0, x1, y0, y1, [position=], [outside=], [clip=])</code></td><td><div class="ioitem"><code>x0</code> <span class="iotype">number</span><span class="iodesc">Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it.</span></div>
+<div class="ioitem"><code>x1</code> <span class="iotype">number</span><span class="iodesc">Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it.</span></div>
+<div class="ioitem"><code>y0</code> <span class="iotype">number</span><span class="iodesc">Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it.</span></div>
+<div class="ioitem"><code>y1</code> <span class="iotype">number</span><span class="iodesc">Magnifies the data region <code>x</code> in <code>[x0, x1]</code>, <code>y</code> in <code>[y0, y1]</code> (numbers, data units) into an auto-placed inset panel, with a dashed zoom-box drawn over the source region and connector lines back to it.</span></div>
+<div class="ioitem"><code>position</code> <span class="iotype">string, optional</span><span class="iodesc"><code>position=</code> (string, reuses the legend's keyword vocabulary: <code>"top right"</code>, <code>"best"</code>, ...) chooses where the inset sits.</span></div>
+<div class="ioitem"><code>outside</code> <span class="iotype">bool, optional</span><span class="iodesc"><code>outside=true</code> (bool, default false) reserves margin and places the inset entirely outside the plot area instead of overlapping it.</span></div>
+<div class="ioitem"><code>clip</code> <span class="iotype">bool, optional</span><span class="iodesc"><code>clip=</code> (bool) controls whether the inset's own contents are clipped to its box.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>xs = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">400</span>)
+ys = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1.2</span> * xs) .* <span class="f">exp</span>(-<span class="n">0.3</span> * xs)
+y_at_3 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1.2</span> * <span class="n">3</span>) * <span class="f">exp</span>(-<span class="n">0.3</span> * <span class="n">3</span>)
+<span class="f">plot</span>(xs, ys)
+<span class="f">vline</span>(<span class="n">3</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">annotate</span>(<span class="n">3</span>, y_at_3, <span class="s">"transient"</span>)
+<span class="f">zoom_inset</span>(<span class="n">2.8</span>, <span class="n">3.2</span>, -<span class="n">0.1</span>, <span class="n">0.1</span>, <span class="a">position</span>=<span class="s">"top right"</span>, <span class="a">outside</span>=<span class="k">true</span>)
+<span class="f">print</span>(y_at_3)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>zoom_inset(x0, x1, y0, y1)</code> — magnifies that data region into an auto-placed inset panel with a dashed zoom-box + connector lines back to it (see <code>plotting::Panel.inset</code>'s doc comment for what does/doesn't replay into the inset). <code>position</code> reuses the legend's own keyword vocabulary ("top right", "best", ...); <code>outside=true</code> reserves margin and places the inset entirely outside the plot, guaranteeing no overlap — the honest escape hatch when <code>best</code>'s zero-overlap interior search can't find a clear spot (see <code>InsetZoom</code>'s own doc comment for why that isn't auto-detected).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

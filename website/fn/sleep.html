@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sleep — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sleep</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig"><code>sleep(seconds)</code></pre>
+<p class="fnnote">Input: seconds &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>seconds</code> (number, fractional values honoured, e.g. <code>0.5</code> for half a second). Pauses the calling thread for that long.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>sleep(seconds)</code></td><td><div class="ioitem"><code>seconds</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>0.5</code> for half a second). Pauses the calling thread for that long.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n = <span class="n">0</span>
+watch <span class="f">file</span>(<span class="s">"data.csv"</span>) <span class="k">do</span>
+    n = n + <span class="n">1</span>
+<span class="k">end</span>
+
+wait <span class="k">until</span> n &gt;= <span class="n">1</span>
+    <span class="f">sleep</span>(<span class="n">200</span>)          <span class="c"># real wall-clock pause between checks</span>
+    <span class="f">pump_watches</span>()
+<span class="k">end</span> <span class="k">until</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+<span class="k">function</span> <span class="f">run_listener</span>()
+    <span class="f">listen_pool</span>(<span class="n">9321</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))
+<span class="k">end</span> <span class="k">function</span>
+
+w = <span class="f">spawn</span>(<span class="s">"run_listener"</span>)     <span class="c"># the "remote" side, on its own thread here</span>
+<span class="f">sleep</span>(<span class="n">0.3</span>)                    <span class="c"># give it time to bind before connecting</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">1</span>, remote=(<span class="s">"127.0.0.1:9321"</span>)
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers    <span class="c"># some local, some "remote" — one ordered List</span>
+<span class="f">print</span>(results)                <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>sleep(ms)</code> (§ wait until / sleep, scoped 2026-08-26) — a REAL OS sleep (<code>std::thread::sleep</code>), not a simulated- timeline wait like <code>every</code>/<code>after</code>/<code>at</code>'s <code>run_for</code> virtual clock. This is the one piece that makes <code>wait until COND ... end until</code> actually usable instead of busy-spinning a CPU core at 100%: <code>wait until</code> is plain sugar for a <code>while</code> loop (see <code>qu-syntax</code>'s <code>wait_until_stmt</code>), and a <code>while</code> loop re-checking a condition with no delay between checks has no way to yield the CPU without this. Blocks only the calling thread — doesn't touch <code>pool</code>/<code>run</code>'s worker threads, produces no value, and consults no RNG state, so it doesn't interact with <code>seed(n)</code>/order-stable-reduction determinism at all; it's real wall-clock time, which this codebase already accepts as inherently non-reproducible elsewhere (<code>tic</code>/<code>toc</code>).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

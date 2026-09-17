@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>elepow — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>elepow</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>elemul(a, b, ...)</code></pre>
+<p class="fnnote">Input: a, b, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The <code>.*</code>, <code>./</code> and <code>.^</code> family: <strong>always</strong> elementwise, whatever the shapes. The distinction from <code>mul</code>/<code>div</code>/<code>pow</code> only bites on matrices, which is exactly why both families have names.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = elemul(a, b, ...)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">Num, scalar, Vec, or Mat</span><span class="iodesc">Returns the broadcast shape of the arguments — a <code>Num</code> from two scalars, otherwise a <code>Vec</code> or <code>Mat</code>, or the complex counterpart of either as soon as one side is complex.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Num, scalar, Vec, or Mat</span></div>
+</td><td>Returns the broadcast shape of the arguments — a <code>Num</code> from two scalars, otherwise a <code>Vec</code> or <code>Mat</code>, or the complex counterpart of either as soon as one side is complex.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/core-math.html">Core maths</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>zip</code>/<code>map</code>/<code>dict</code> (§47.4, scoped/shipped 2026-08-26 — see BACKLOG.md "<code>for</code> over collections, <code>zip</code>, <code>map</code>, <code>dict</code>") (see that module's own doc comment); these arms are just the thin wiring into it. <code>get</code>/<code>set</code>/<code>keys</code>/<code>values</code> are plain functions, not new syntax — <code>d.get("k")</code> already works for free via <code>eval_call</code>'s existing <code>recv.method(args) == method(recv, args)</code> sugar. The operators as named functions, for the places a NAME is what you can pass: <code>reduce</code>-style folds, a table of operations, a pipeline stage. Each one routes through the very same <code>binop</code> the operator does, so there is no second set of arithmetic rules that could drift from the first -- broadcasting, units, complex, matrices and every error message are whatever <code>a + b</code> already does. <code>mul</code>/<code>div</code> follow <code>*</code> and <code>/</code>, which on two MATRICES mean matrix multiply and solve. <code>elemul</code>/<code>elediv</code> are <code>.*</code> and <code>./</code> -- always elementwise, whatever the shapes. That is the one distinction worth having names for, and the reason both families exist rather than just the short ones. Variadic and folded left, so <code>add(a, b, c)</code> reads as the sum it looks like rather than needing to be nested. <code>subtract</code>, not <code>sub</code>: <code>sub</code> is a KEYWORD -- it opens a subroutine -- so a builtin of that name could never be called. The parser rejects <code>sub(a, b)</code> before the interpreter is reached.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="elemul.html"><code>elemul</code></a>, <a href="elediv.html"><code>elediv</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

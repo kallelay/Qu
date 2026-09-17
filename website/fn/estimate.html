@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>estimate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>estimate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>state.estimate()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Estimation-family only: reads a point estimate off a filter state Record <code>state</code> with no arguments.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = state.estimate()</code></td><td><span class="ionone">no input</span></td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns the particle filter's weighted-mean particle vector, or a Kalman/EKF/UKF filter's <code>state.x</code> vector directly.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">process</span>(p) := p + <span class="n">0.05</span>*<span class="f">randn</span>()                       <span class="c"># process_fn injects its</span>
+                                                        <span class="c"># own noise, like monte_carlo</span>
+<span class="f">likelihood</span>(p, z) := <span class="f">exp</span>(-(p[<span class="n">0</span>]-z[<span class="n">0</span>])^<span class="n">2</span> / (<span class="n">2</span>*<span class="n">0.25</span>))    <span class="c"># Gaussian likelihood, sigma=0.5</span>
+
+pf = <span class="f">particle_filter_init</span>([<span class="n">0</span>], <span class="n">200</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">1</span>)   <span class="c"># 200 particles around x0=0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">10</span>
+    pf = pf.<span class="f">predict</span>(<span class="s">"process"</span>)
+    pf = pf.<span class="f">update</span>(<span class="s">"likelihood"</span>, [<span class="n">2</span>])    <span class="c"># repeatedly measuring z=2</span>
+<span class="k">end</span> <span class="k">for</span>
+est = pf.<span class="f">estimate</span>()   <span class="c"># weighted-mean point estimate, converges toward 2</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>truth = <span class="f">zeros</span>(<span class="n">60</span>)
+meas = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    truth[t] = <span class="n">0.5</span> * t
+    meas[t] = truth[t] + <span class="f">randn</span>() * <span class="n">2</span>
+<span class="k">end</span> <span class="k">for</span>
+
+F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)     <span class="c"># column-major: rows are [1, 1] and [0, 1]</span>
+Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+H = [<span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">10</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+est = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [meas[t]], R)
+    est[t] = s.<span class="f">estimate</span>()[<span class="n">0</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">"measurement error: {round(rmse(truth, meas), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"filtered error:    {round(rmse(truth, est), 3)}"</span>)
+<span class="f">scatter</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, meas, <span class="a">color</span> = <span class="s">"#94a3b8"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, truth, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">label</span> = <span class="s">"truth"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, est, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"Kalman"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"constant-velocity Kalman filter"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>estimate(state)</code> — callable as <code>state.estimate()</code>. The particle filter's weighted-mean point estimate (plain <code>mean(state.particles)</code> would silently ignore the weights); for the linear/EKF/UKF filters this is just <code>state.x</code>, kept here too so every estimation-theory state answers the same question the same way.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

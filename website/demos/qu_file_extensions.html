@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File formats — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Data &amp; I/O</p>
+<h1>File formats</h1>
+<p class="lede">three real filesystem extensions in one flow: `touch(path)` (Unix `touch` semantics), streaming reads via ordinary `fopen`/`read_line` (no longer an eager whole-file load internally), and read-only memory-mapped random access (`mmap_open`/`mmap_len`/</p>
+<p class="srcpath">catalog/qu_file_extensions.qu</p>
+<p>`mmap_read`) over the exact bytes just written.</p>
+<p>The demo file itself is created via `tmp_file()`, which allocates a real, unique path under the OS temp directory rather than a fixed name in this repo's own working directory -- deliberately, because Qu has no remove/delete-file builtin at all (grepped `lib.rs` for `remove_file`/ `delete_file`/`unlink`, zero hits), so a fixed name written straight into `catalog/` would be a stray artifact left behind on every run. Using the OS temp dir keeps this demo from scattering files into the repo even though it can't clean up after itself with a builtin.</p>
+<p>Honest scope note on "show its mtime changed": Qu has no builtin that reads a file's mtime back into a script (confirmed against `docs/qu-language-tour.md`'s own `touch(path)` section, which states this outright) -- the "mtime advances without touching content" half of `touch`'s contract is only verified at the Rust unit-test level, not observable from a `.qu` script. What *is* observable here, and is exactly what the tour's own worked example demonstrates, is the other half of the contract: `touch` on a not-yet-existing path flips `file_exists` from `false` to `true`, and `touch`ing an existing file a second time leaves its content byte-for-byte unchanged -- both checked below with real values, not asserted blindly.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>tmp_file()                              -- a real, unique OS-temp-dir path</li>
+<li>file_exists(path)                       -- before/after existence check</li>
+<li>touch(path)                             -- create-or-bump-mtime, content-preserving</li>
+<li>fopen(path, "wb") / write_byte / close  -- write real bytes to map later</li>
+<li>fopen(path, "r") / read_line / eof      -- a real streaming read pass</li>
+<li>mmap_open(path) / mmap_len / mmap_read  -- read-only memory-mapped access</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A real, unique temp path -- no fixed filename, no repo-directory litter</h3>
+<pre class="hl"><code>path = <span class="f">tmp_file</span>()
+<span class="c"># Only the shape of the path, never the path. The build captures what</span>
+<span class="c"># this prints and pins it into the demo page, and the real value names</span>
+<span class="c"># whoever ran the build -- it went out on the published site until the</span>
+<span class="c"># leak check learned to see backslashes.</span>
+<span class="f">print</span>(<span class="s">"temp file allocated: {len(path) &gt; 0} (path is machine-specific)"</span>)
+
+<span class="c"># `tmp_file()` already created the file (empty), so `touch` below is</span>
+<span class="c"># exercising its "existing file" branch first; check the interesting</span>
+<span class="c"># "didn't exist yet" branch against a second, never-created sibling path</span>
+<span class="c"># instead, exactly like the tour's own worked example does.</span>
+sibling_path = path + <span class="s">".touch_only"</span>
+had_before = <span class="f">file_exists</span>(sibling_path)
+<span class="f">touch</span>(sibling_path)
+exists_after_touch = <span class="f">file_exists</span>(sibling_path)
+<span class="f">print</span>(<span class="s">"sibling_path had_before={had_before}, exists_after_touch={exists_after_touch}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Write eight real bytes (ASCII 'A'..'H') into the temp file</h3>
+<pre class="hl"><code>f = <span class="f">fopen</span>(path, <span class="s">"wb"</span>)
+<span class="k">for</span> b = <span class="n">65</span> <span class="k">to</span> <span class="n">72</span>
+    <span class="f">write_byte</span>(f, b)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">close</span>(f)
+</code></pre>
+</section>
+<section class="step">
+<h3>touch an EXISTING file -- content must survive untouched</h3>
+<pre class="hl"><code><span class="f">touch</span>(path)
+</code></pre>
+</section>
+<section class="step">
+<h3>A real streaming read pass: fopen/read_line/eof over the same file,</h3>
+<p>reopened in text mode. There's only one unterminated "line" in an 8-byte binary blob with no newlines, so this reads exactly one line back.</p>
+<pre class="hl"><code>g = <span class="f">fopen</span>(path, <span class="s">"r"</span>)
+lines_read = <span class="n">0</span>
+last_line = <span class="s">""</span>
+<span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(g)
+    last_line = <span class="f">read_line</span>(g)
+    lines_read = lines_read + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"streaming read: lines_read={lines_read}, content=\"{last_line}\""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Memory-map the same file and pull out real byte ranges without ever</h3>
+<p>loading the whole thing through a read call</p>
+<pre class="hl"><code>m = <span class="f">mmap_open</span>(path)
+n = <span class="f">mmap_len</span>(m)
+first4 = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">4</span>)
+last4 = <span class="f">mmap_read</span>(m, <span class="n">4</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"mmap_len = {n}"</span>)
+<span class="f">print</span>(<span class="s">"mmap_read(0,4) = {first4}"</span>)
+<span class="f">print</span>(<span class="s">"mmap_read(4,4) = {last4}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Verify the mapped bytes actually match what was written (65..72, A-H)</h3>
+<pre class="hl"><code>expected = <span class="f">zeros</span>(<span class="n">0</span>)
+<span class="k">for</span> b = <span class="n">65</span> <span class="k">to</span> <span class="n">72</span>
+    expected = <span class="f">append</span>(expected, b)
+<span class="k">end</span> <span class="k">for</span>
+whole = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">8</span>)
+matches = <span class="k">true</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">7</span>
+    <span class="k">if</span> whole[i] != expected[i]
+        matches = <span class="k">false</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"mmap content matches what was written: {matches}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>temp file allocated: true (path is machine-specific)
+sibling_path had_before=false, exists_after_touch=true
+streaming read: lines_read=1, content="ABCDEFGH"
+mmap_len = 8
+mmap_read(0,4) = [65, 66, 67, 68]
+mmap_read(4,4) = [69, 70, 71, 72]
+mmap content matches what was written: true</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_file_extensions.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_file_extensions.qu -- three real filesystem extensions in one flow:</span>
+<span class="c"># `touch(path)` (Unix `touch` semantics), streaming reads via ordinary</span>
+<span class="c"># `fopen`/`read_line` (no longer an eager whole-file load internally), and</span>
+<span class="c"># read-only memory-mapped random access (`mmap_open`/`mmap_len`/</span>
+<span class="c"># `mmap_read`) over the exact bytes just written.</span>
+<span class="c">#</span>
+<span class="c"># The demo file itself is created via `tmp_file()`, which allocates a real,</span>
+<span class="c"># unique path under the OS temp directory rather than a fixed name in this</span>
+<span class="c"># repo's own working directory -- deliberately, because Qu has no</span>
+<span class="c"># remove/delete-file builtin at all (grepped `lib.rs` for `remove_file`/</span>
+<span class="c"># `delete_file`/`unlink`, zero hits), so a fixed name written straight into</span>
+<span class="c"># `catalog/` would be a stray artifact left behind on every run. Using the</span>
+<span class="c"># OS temp dir keeps this demo from scattering files into the repo even</span>
+<span class="c"># though it can't clean up after itself with a builtin.</span>
+<span class="c">#</span>
+<span class="c"># Honest scope note on "show its mtime changed": Qu has no builtin that</span>
+<span class="c"># reads a file's mtime back into a script (confirmed against</span>
+<span class="c"># `docs/qu-language-tour.md`'s own `touch(path)` section, which states this</span>
+<span class="c"># outright) -- the "mtime advances without touching content" half of</span>
+<span class="c"># `touch`'s contract is only verified at the Rust unit-test level, not</span>
+<span class="c"># observable from a `.qu` script. What *is* observable here, and is exactly</span>
+<span class="c"># what the tour's own worked example demonstrates, is the other half of the</span>
+<span class="c"># contract: `touch` on a not-yet-existing path flips `file_exists` from</span>
+<span class="c"># `false` to `true`, and `touch`ing an existing file a second time leaves</span>
+<span class="c"># its content byte-for-byte unchanged -- both checked below with real</span>
+<span class="c"># values, not asserted blindly.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   tmp_file()                              -- a real, unique OS-temp-dir path</span>
+<span class="c">#   file_exists(path)                       -- before/after existence check</span>
+<span class="c">#   touch(path)                             -- create-or-bump-mtime, content-preserving</span>
+<span class="c">#   fopen(path, "wb") / write_byte / close  -- write real bytes to map later</span>
+<span class="c">#   fopen(path, "r") / read_line / eof      -- a real streaming read pass</span>
+<span class="c">#   mmap_open(path) / mmap_len / mmap_read  -- read-only memory-mapped access</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A real, unique temp path -- no fixed filename, no repo-directory litter</span>
+path = <span class="f">tmp_file</span>()
+<span class="c"># Only the shape of the path, never the path. The build captures what</span>
+<span class="c"># this prints and pins it into the demo page, and the real value names</span>
+<span class="c"># whoever ran the build -- it went out on the published site until the</span>
+<span class="c"># leak check learned to see backslashes.</span>
+<span class="f">print</span>(<span class="s">"temp file allocated: {len(path) &gt; 0} (path is machine-specific)"</span>)
+
+<span class="c"># `tmp_file()` already created the file (empty), so `touch` below is</span>
+<span class="c"># exercising its "existing file" branch first; check the interesting</span>
+<span class="c"># "didn't exist yet" branch against a second, never-created sibling path</span>
+<span class="c"># instead, exactly like the tour's own worked example does.</span>
+sibling_path = path + <span class="s">".touch_only"</span>
+had_before = <span class="f">file_exists</span>(sibling_path)
+<span class="f">touch</span>(sibling_path)
+exists_after_touch = <span class="f">file_exists</span>(sibling_path)
+<span class="f">print</span>(<span class="s">"sibling_path had_before={had_before}, exists_after_touch={exists_after_touch}"</span>)
+
+<span class="c">#%% Write eight real bytes (ASCII 'A'..'H') into the temp file</span>
+f = <span class="f">fopen</span>(path, <span class="s">"wb"</span>)
+<span class="k">for</span> b = <span class="n">65</span> <span class="k">to</span> <span class="n">72</span>
+    <span class="f">write_byte</span>(f, b)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">close</span>(f)
+
+<span class="c">#%% touch an EXISTING file -- content must survive untouched</span>
+<span class="f">touch</span>(path)
+
+<span class="c">#%% A real streaming read pass: fopen/read_line/eof over the same file,</span>
+<span class="c"># reopened in text mode. There's only one unterminated "line" in an 8-byte</span>
+<span class="c"># binary blob with no newlines, so this reads exactly one line back.</span>
+g = <span class="f">fopen</span>(path, <span class="s">"r"</span>)
+lines_read = <span class="n">0</span>
+last_line = <span class="s">""</span>
+<span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(g)
+    last_line = <span class="f">read_line</span>(g)
+    lines_read = lines_read + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"streaming read: lines_read={lines_read}, content=\"{last_line}\""</span>)
+
+<span class="c">#%% Memory-map the same file and pull out real byte ranges without ever</span>
+<span class="c"># loading the whole thing through a read call</span>
+m = <span class="f">mmap_open</span>(path)
+n = <span class="f">mmap_len</span>(m)
+first4 = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">4</span>)
+last4 = <span class="f">mmap_read</span>(m, <span class="n">4</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"mmap_len = {n}"</span>)
+<span class="f">print</span>(<span class="s">"mmap_read(0,4) = {first4}"</span>)
+<span class="f">print</span>(<span class="s">"mmap_read(4,4) = {last4}"</span>)
+
+<span class="c">#%% Verify the mapped bytes actually match what was written (65..72, A-H)</span>
+expected = <span class="f">zeros</span>(<span class="n">0</span>)
+<span class="k">for</span> b = <span class="n">65</span> <span class="k">to</span> <span class="n">72</span>
+    expected = <span class="f">append</span>(expected, b)
+<span class="k">end</span> <span class="k">for</span>
+whole = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">8</span>)
+matches = <span class="k">true</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">7</span>
+    <span class="k">if</span> whole[i] != expected[i]
+        matches = <span class="k">false</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"mmap content matches what was written: {matches}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>curve_fit — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>curve_fit</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>curve_fit(model, xdata, ydata, p0, [max_iter=200], [tol=1e-10])</code></pre>
+<p class="fnnote">Input: model, xdata, ydata, p0, max_iter, tol &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>model</code>: a string naming a user-defined function <code>model(x, params)</code> (<code>x</code> a scalar, <code>params</code> a length-P vector) returning a scalar; <code>xdata</code>, <code>ydata</code>: length-N vectors; <code>p0</code>: a length-P vector, the initial parameter guess; <code>max_iter</code>/<code>tol</code> (optional numbers).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = curve_fit(model, xdata, ydata, p0, [max_iter=200], [tol=1e-10])</code></td><td><div class="ioitem"><code>model</code> <span class="iotype">string, scalar, or vector</span><span class="iodesc"><code>model</code>: a string naming a user-defined function <code>model(x, params)</code> (<code>x</code> a scalar, <code>params</code> a length-P vector) returning a scalar.</span></div>
+<div class="ioitem"><code>xdata</code> <span class="iotype">vector</span><span class="iodesc"><code>xdata</code>, <code>ydata</code>: length-N vectors.</span></div>
+<div class="ioitem"><code>ydata</code> <span class="iotype">vector</span><span class="iodesc"><code>xdata</code>, <code>ydata</code>: length-N vectors.</span></div>
+<div class="ioitem"><code>p0</code> <span class="iotype">vector</span><span class="iodesc"><code>p0</code>: a length-P vector, the initial parameter guess.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>max_iter</code>/<code>tol</code> (optional numbers).</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-10</code>)</span><span class="iodesc"><code>max_iter</code>/<code>tol</code> (optional numbers).</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"curve_fit"</code></span></div>
+<div class="ioitem"><code>params</code> <span class="iotype">vector</span><span class="iodesc">a length-P vector</span></div>
+<div class="ioitem"><code>cost</code> <span class="iotype">number</span><span class="iodesc">a number, residual sum of squares</span></div>
+<div class="ioitem"><code>converged</code> <span class="iotype">boolean</span><span class="iodesc">a boolean</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"curve_fit"</code>) with fields <code>params</code> (a length-P vector), <code>cost</code> (a number, residual sum of squares), <code>converged</code> (a boolean). Nonlinear least-squares curve fitting via Levenberg-Marquardt (the Jacobian is numerical, forward differences): finds <code>params</code> minimizing <code>sum((model(x_i, params) - y_i)^2)</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
+<span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+xdata = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">50</span>)
+ydata = <span class="n">3</span> * <span class="f">exp</span>(-<span class="n">0.7</span> * xdata) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span>=<span class="n">1</span>)   <span class="c"># noisy samples of a=3, b=0.7</span>
+fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
+<span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>curve_fit(model, xdata, ydata, p0, [max_iter=200], [tol=1e-10])</code> — nonlinear least-squares curve fitting via Levenberg-Marquardt: finds <code>params</code> minimizing <code>sum((model(x_i, params) - y_i)^2)</code>. <code>model</code> takes a scalar <code>x</code> and a <code>params</code> vector; the Jacobian is computed numerically (forward differences), since Qu has no automatic differentiation. Model kind <code>"curve_fit"</code>, fields <code>params</code>, <code>cost</code> (the residual sum of squares at the returned parameters), and <code>converged</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bwlabel — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>bwlabel</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>bwlabel(binary_img, [connectivity=8])</code> (alias of <code>label_blobs</code>)</pre>
+<p class="fnnote">Input: binary_img, connectivity &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>binary_img</code> is a binary (0/255) <code>Image</code>. <code>connectivity</code> is an optional named number, <code>4</code> or <code>8</code> (default 8), the neighbor rule used for flood-fill labeling. Connected-component labeling.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = bwlabel(binary_img, [connectivity=8]) (alias of label_blobs)</code></td><td><div class="ioitem"><code>binary_img</code> <span class="iotype">Image</span><span class="iodesc"><code>binary_img</code> is a binary (0/255) <code>Image</code>.</span></div>
+<div class="ioitem"><code>connectivity</code> <span class="iotype">number, optional (default <code>8</code>)</span><span class="iodesc"><code>connectivity</code> is an optional named number, <code>4</code> or <code>8</code> (default 8), the neighbor rule used for flood-fill labeling.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"blobs"</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"blobs"</code>) with fields <code>.labels</code> (a <code>Mat</code> of the same height/width as <code>binary_img</code>, integer label ids, background = 0), <code>.count</code> (a number, the blob count), <code>.width</code>, <code>.height</code> (the source image's own dimensions).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c"># Three bright discs on a dark field, written out and read back. The blob</span>
+<span class="c"># count printed below is then checkable against an image the reader can</span>
+<span class="c"># see being built, rather than asserted about a file nobody has.</span>
+n = <span class="n">60</span>
+field = <span class="f">zeros</span>(n, n)
+centres = [<span class="n">15</span>, <span class="n">15</span>; <span class="n">42</span>, <span class="n">20</span>; <span class="n">30</span>, <span class="n">45</span>]
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+    <span class="k">for</span> j <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+        <span class="k">for</span> k <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">2</span>
+            dy = i - centres[k, <span class="n">0</span>]
+            dx = j - centres[k, <span class="n">1</span>]
+            <span class="k">if</span> dy * dy + dx * dx &lt; <span class="n">64</span>
+                field[i, j] = <span class="n">230</span>
+            <span class="k">end</span> <span class="k">if</span>
+        <span class="k">end</span> <span class="k">for</span>
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">save_image</span>(<span class="s">"cells.bmp"</span>, <span class="f">image_from_matrix</span>(field))
+
+img = <span class="f">load_image</span>(<span class="s">"cells.bmp"</span>)
+level = <span class="f">otsu_threshold</span>(img)
+mask = <span class="f">threshold</span>(img, level)
+clean = <span class="f">bwareaopen</span>(mask, <span class="n">20</span>)          <span class="c"># drop specks smaller than 20 px</span>
+<span class="f">imshow</span>(clean)
+
+labeled = <span class="f">bwlabel</span>(clean)
+<span class="f">print</span>(labeled.count)                  <span class="c"># number of detected blobs</span>
+
+stats = <span class="f">regionprops</span>(labeled)
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> labeled.count
+    r = stats[i - <span class="n">1</span>]
+    <span class="f">print</span>(r.label, r.area, r.centroid_x, r.centroid_y)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>label_blobs(binary_img, [connectivity=8])</code> (alias <code>bwlabel</code>) — connected-component labeling (see <code>image::Image::label_components</code>'s doc comment for the flood-fill algorithm). Returns a <code>Value::Model</code> (kind <code>"blobs"</code>, the multi-result-in-one-handle protocol this codebase's model values already use) rather than a tuple: <code>.labels</code> (a <code>Value::Mat</code> of integer label ids, background = 0), <code>.count</code> (blob count), plus <code>.width</code>/<code>.height</code> (the source image's own dimensions).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

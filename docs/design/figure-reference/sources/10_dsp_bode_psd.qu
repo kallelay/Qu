@@ -1,0 +1,30 @@
+# 10 — two stacked panels with different y-scalings: a dB Bode magnitude
+# above a log-y Welch PSD. Stresses whether two panels with unrelated
+# scales still read as one figure (shared left margin, aligned axes,
+# consistent tick density) and whether semilogx and semilogy coexist.
+Fs = 10000
+lp = butter(4, "low", 500, Fs)
+H  = freqz(lp, 512)
+fax = linspace(0, Fs/2, length(H))
+
+figure_size(900, 520)
+subplot(2, 1, 1)
+semilogx(fax[1:end], 20*log10(abs(H[1:end])))
+title("4th-order Butterworth, fc = 500 Hz at Fs = 10 kHz")
+xlabel("frequency [Hz]")
+ylabel("magnitude [dB]")
+grid on
+
+subplot(2, 1, 2)
+N = 8192
+t = (0 to N-1)/Fs
+x = sin(2*pi*300*t) + 0.3*sin(2*pi*1700*t) + 0.2*randn(N)
+P = welch(x, Fs, nperseg=1024)
+fw = linspace(0, Fs/2, length(P))
+semilogy(fw, P)
+title("Welch PSD, two tones in noise")
+xlabel("frequency [Hz]")
+ylabel("PSD")
+grid on
+
+savefig("10_dsp_bode_psd.svg")

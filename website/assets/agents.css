@@ -1,0 +1,46 @@
+/* The agents page: long-form, alternating grounds so the four topics read
+   as four rather than one scroll. Everything else comes from site.css. */
+
+section.alt { background: var(--panel); border-block: 1px solid var(--rule); }
+
+#mcp h2 { display: flex; align-items: baseline; gap: 12px; }
+#mcp h2 code {
+  background: none; padding: 0; font-size: .8em; color: var(--accent);
+  font-weight: 500;
+}
+
+section h3 {
+  font-size: 16px; font-weight: 600; margin: 34px 0 10px;
+  letter-spacing: -.005em;
+}
+section > .wrap > p { max-width: 72ch; }
+section pre { margin: 0 0 18px; max-width: 72ch; }
+
+/* Numbered because these ARE a sequence: the first two are about indexing
+   and the rest follow from reading the code left to right. */
+.rules { counter-reset: r; list-style: none; margin: 24px 0 22px; padding: 0; max-width: 74ch; }
+.rules li {
+  counter-increment: r; position: relative;
+  padding: 0 0 16px 44px; margin: 0;
+  line-height: 1.6;
+}
+.rules li::before {
+  content: counter(r, decimal-leading-zero);
+  position: absolute; left: 0; top: 2px;
+  font-family: var(--mono); font-size: 12px; color: var(--faint);
+  letter-spacing: .06em;
+}
+.rules strong { font-weight: 600; }
+
+.cards .go { margin-top: 12px; font-size: 14px; }
+.cards .go a { color: var(--accent); text-decoration: none; }
+.cards .go a:hover { text-decoration: underline; }
+
+td.mono, .mono { font-family: var(--mono); font-size: 12.5px; }
+
+.note {
+  margin-top: 18px; padding: 12px 16px;
+  border-left: 3px solid var(--warm);
+  background: color-mix(in srgb, var(--warm) 6%, transparent);
+  color: var(--muted); font-size: 14.5px; max-width: 72ch;
+}

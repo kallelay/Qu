@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imwarp — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imwarp</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imwarp(img, M, [method="bilinear"], [bbox="loose"], [fill=0])</code></pre>
+<p class="fnnote">Input: img, M, method, bbox, fill &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>; <code>M</code> is a 3x3 (or 2x3, auto-padded with <code>[0,0,1]</code>) affine <code>Mat</code> — from the <code>affine_*</code> builders above, a literal matrix, or any composition of the two via <code>*</code>/<code>matmul</code>. <code>method</code> is an optional named string (<code>"nearest"</code>/<code>"bilinear"</code>, default <code>"bilinear"</code>). <code>bbox</code> is an optional named string, <code>"loose"</code> (default, grows the canvas to fit) or <code>"crop"</code> (keeps the input's size). <code>fill</code> is an optional named number 0–255 (default 0) applied to all 3 channels for pixels that map outside the source image. Applies <code>M</code> to <code>img</code> in one resampling pass via inverse mapping.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imwarp(img, M, [method="bilinear"], [bbox="loose"], [fill=0])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>M</code> <span class="iotype">Mat or matrix</span><span class="iodesc"><code>M</code> is a 3x3 (or 2x3, auto-padded with <code>[0,0,1]</code>) affine <code>Mat</code> — from the <code>affine_*</code> builders above, a literal matrix, or any composition of the two via <code>*</code>/<code>matmul</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"bilinear"</code>)</span><span class="iodesc"><code>method</code> is an optional named string (<code>"nearest"</code>/<code>"bilinear"</code>, default <code>"bilinear"</code>).</span></div>
+<div class="ioitem"><code>bbox</code> <span class="iotype">string, optional (default <code>"loose"</code>)</span><span class="iodesc"><code>bbox</code> is an optional named string, <code>"loose"</code> (default, grows the canvas to fit) or <code>"crop"</code> (keeps the input's size).</span></div>
+<div class="ioitem"><code>fill</code> <span class="iotype">number, optional (default <code>0</code>)</span><span class="iodesc"><code>fill</code> is an optional named number 0–255 (default 0) applied to all 3 channels for pixels that map outside the source image.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">load_image</span>(<span class="s">"sample.bmp"</span>)
+
+<span class="c"># Rotate 30 degrees about the origin, then shift right/down by (50, 20).</span>
+M = <span class="f">affine_translate</span>(<span class="n">50</span>, <span class="n">20</span>) * <span class="f">affine_rotate</span>(<span class="n">30</span>)
+out = <span class="f">imwarp</span>(img, M, <span class="a">method</span>=<span class="s">"bilinear"</span>, <span class="a">bbox</span>=<span class="s">"loose"</span>, <span class="a">fill</span>=<span class="n">255</span>)
+<span class="f">imshow</span>(out)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>imwarp(img, M, [method="bilinear"], [bbox="loose"|"crop"], [fill=0])</code> — applies an arbitrary 3x3 (or 2x3, padded with a <code>[0,0,1]</code> bottom row) affine <code>Value::Mat</code> to <code>img</code> in ONE resampling pass via inverse mapping (<code>Image::warp</code>'s doc including why forward mapping is deliberately not used and where the rayon parallelization lives). <code>M</code> may come from the builders above, direct literal construction, OR any composition of the two via Qu's own <code>*</code>/<code>matmul</code> — this builtin doesn't care how <code>M</code> was built, only that it's a 3x3/2x3 real matrix.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>str — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>str</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>str(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Renders <code>x</code> (any value/type) the same way <code>print</code>/<code>disp</code> would.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = str(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Str</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td>Returns a <code>Str</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span>:<span class="n">10</span>
+<span class="f">print</span>(<span class="s">"sum = "</span> + <span class="f">str</span>(<span class="f">sum</span>(x)))
+<span class="f">write_report</span>(<span class="s">"summary.html"</span>)
+<span class="f">print</span>(<span class="f">file_exists</span>(<span class="s">"summary.html"</span>))       <span class="c"># true</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">a</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">3</span>), <span class="a">b</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">4</span>), <span class="a">c</span> = <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">5</span>))
+<span class="f">eda</span>(df)   <span class="c"># correlation heatmap + one histogram per numeric column, auto-gridded</span>
+<span class="f">print</span>(<span class="s">"columns: "</span> + <span class="f">str</span>(<span class="f">cols</span>(df)))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(f, <span class="s">"run started"</span>)
+<span class="f">write_line</span>(f, <span class="s">"value = "</span> + <span class="f">str</span>(<span class="n">42</span>))
+<span class="f">close</span>(f)
+<span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"log.txt"</span>))    <span class="c"># 23 -- "run started\n" + "value = 42\n"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>m = <span class="f">randn</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="a">seed</span> = <span class="n">4</span>)
+<span class="f">heatmap</span>(m, <span class="a">colormap</span>=<span class="s">"viridis"</span>)
+colorbar
+<span class="f">title</span>(<span class="s">"Random field"</span>)
+<span class="f">print</span>(<span class="s">"value range: ["</span> + <span class="f">str</span>(<span class="f">min</span>(m)) + <span class="s">", "</span> + <span class="f">str</span>(<span class="f">max</span>(m)) + <span class="s">"]"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>str(x)</code> — render any value the same way <code>print</code>/<code>disp</code> would, as a string. Exists mainly so loop bodies can build per-iteration labels (<code>"s" + str(i+1)</code>) — see the <code>+</code> string-concat case in <code>binop</code> below, which this pairs with.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

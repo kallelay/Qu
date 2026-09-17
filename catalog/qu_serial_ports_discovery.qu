@@ -1,0 +1,75 @@
+# qu_serial_ports_discovery.qu -- a lighter-weight, general-purpose
+# companion to qu_serial_realtime.qu, focused specifically on
+# `serial_ports()` discovery and on `serial_open`/`.write()`/`.close()` in
+# isolation, WITHOUT the full real-time acquisition loop (that's already
+# covered by qu_serial_realtime.qu).
+#
+# Hardware reality on this machine: `serial_ports()` genuinely reports real
+# COM ports (COM1, COM3 at the time this was written). COM3 in particular
+# is very likely a real display-panel controller rather than a generic
+# loopback device, so this demo deliberately never `.write()`s arbitrary
+# bytes to any REAL port it discovers -- it only opens and immediately
+# closes each one (proving `serial_open` genuinely acquires the OS handle),
+# and demonstrates the write/read ERROR paths against a port name that
+# does not exist on this machine instead. That keeps this script safe to
+# run on any machine with real serial hardware attached, honest about what
+# it can prove without a loopback pair, and non-overlapping with the fuller
+# real-time capture loop in qu_serial_realtime.qu.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   serial_ports()                    -- real OS enumeration; a List of Str port names
+#   serial_open(port, baud, ...)      -- open a real port / a clear error for a bad one
+#   close(conn)                       -- release the OS handle
+#   write(conn, data) / conn.write()  -- error path against a never-open handle's port
+#   try/catch                         -- graceful handling of both error paths
+
+backend auto
+
+#%% Discovery: `serial_ports()` returns a List of Str port names -- an
+# empty list on a machine with no serial hardware is a correct, honest
+# result, not an error (see serial_ops.rs's own doc comment).
+ports = serial_ports()
+print("serial_ports() found {length(ports)} port(s): {ports}")
+if length(ports) > 0
+    print("first entry: \"{ports[0]}\" (a plain Str, exactly like every other entry in the list)")
+end if
+
+#%% Real hardware, read-only touch: open and immediately close every real
+# port this machine reports. No `.write()` and no `.read_line()` here --
+# deliberately, since at least one of these (COM3 on this machine) is
+# suspected real display-panel hardware, not a safe-to-poke loopback
+# device. This still proves `serial_open`/`close` genuinely acquire and
+# release a real OS handle for each one.
+for i = 0 to length(ports) - 1
+    port = ports[i]
+    try
+        conn = serial_open(port, 9600, timeout_ms=200)
+        close(conn)
+        print("  {port}: opened and closed cleanly")
+    catch err
+        print("  {port}: could not open ({err.message})")
+    end
+end for
+
+#%% The error path: a port name that (almost certainly) does not exist on
+# any machine. `serial_open` itself is where this fails -- there is no
+# handle to `.write()` to at all, so the honest demonstration is that the
+# OPEN attempt is rejected with a clear, actionable message naming the
+# port, rather than a crash or a hang.
+missing_port = "COM249"
+already_taken = false
+for i = 0 to length(ports) - 1
+    if ports[i] == missing_port
+        already_taken = true
+    end if
+end for
+print("attempting to open a nonexistent port \"{missing_port}\" (already in real port list: {already_taken})")
+
+try
+    bad_conn = serial_open(missing_port, 9600, timeout_ms=200)
+    write(bad_conn, "should never get here")
+    close(bad_conn)
+    print("  unexpectedly succeeded opening \"{missing_port}\" -- treat that as real hardware present")
+catch err
+    print("  serial_open(\"{missing_port}\", ...) failed as expected: {err.message}")
+end

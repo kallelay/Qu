@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shape — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>shape</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>shape(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The full shape of <code>A</code> as a 2-element <code>Vec</code>, <code>[rows, cols]</code>, using the same per-type shape rules as <code>rows</code>/<code>cols</code> above. <code>size</code> is the same builtin — MATLAB's name for it. (<code>sizeof</code> is a third name for it and is deprecated: it means a byte count everywhere else). <strong>An </strong><code>Image</code> is the one exception and reports <code>[width, height]</code><strong>, not rows-first — because an image's own constructors are width-first (</strong><code>image_new(width, height)</code>, <code>resize(img, width, height)</code>, <code>crop(img, x0, y0, width, height)</code>), and answering rows-first made <code>image_new(640, 480)</code> report <code>[480, 640]</code>. A <code>Mat</code> of pixels is still a matrix and still <code>[rows, cols]</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = shape(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Vec, Image, Mat, or matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec</span></div>
+</td><td>Returns a 2-element <code>Vec</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
+<span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)))  <span class="c"># [2, 2]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+bp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
+<span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
+<span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp = <span class="f">ellip</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="n">40</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+bp = <span class="f">ellip</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="n">40</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
+<span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
+<span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp = <span class="f">cheby1</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+bp = <span class="f">cheby1</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
+<span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
+<span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>See also</h2>
+<p><a href="size.html"><code>size</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

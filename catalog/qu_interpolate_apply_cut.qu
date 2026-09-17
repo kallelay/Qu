@@ -1,0 +1,71 @@
+# qu_interpolate_apply_cut.qu -- signal-aware interpolation, elementwise
+# transforms, and range extraction (commit 48ea648).
+#
+# Three small, composable Signal operations:
+#   interpolate_at(sig, t_query, [method]) -- interp1 against the signal's
+#     OWN implicit time axis (sig.t = [0, 1/Fs, 2/Fs, ...]), so the caller
+#     never has to reconstruct that axis by hand. Returns a plain
+#     Num/Vec (never re-wrapped as a Signal -- arbitrary query times have
+#     no honest Fs to attach).
+#   sig.apply(fnName) -- runs a user-defined (:= or `function`) scalar
+#     function elementwise over a Signal's samples, preserving it AS a
+#     Signal (same Fs in, same Fs out) -- unlike interpolate_at, this one
+#     genuinely stays a Signal because the sample rate is unchanged.
+#   cut(sig, t_start, t_end) -- slices out the range [t_start, t_end],
+#     INCLUSIVE of both ends, by rounding to the nearest sample index at
+#     the signal's own Fs.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   signal(data, Fs) / sig.Fs / sig.t     -- Signal construction + fields
+#   interp1(x, y, xq)                     -- reference for interpolate_at
+#   interpolate_at(sig, t_query, [method])
+#   double(x) := x * 2  /  sig.apply("double")
+#   cut(sig, t_start, t_end)
+
+backend auto
+
+#%% Build a real signal: 5 Hz sine, Fs=100 Hz, 0.5 s (50 samples)
+Fs = 100
+N  = 50
+n  = 0 to N - 1
+t_axis = n / Fs
+values = sin(2 * pi * 5 * t_axis)
+sig = signal(values, Fs)
+print("sig: N={length(values)} samples, Fs={sig.Fs} Hz, duration={N / Fs} s")
+
+#%% interpolate_at vs interp1 on the signal's own time axis -- must agree
+# exactly (interpolate_at just reuses interp1_eval with sig.t as x).
+queries = [0.055, 0.123, 0.301]
+via_interpolate_at = interpolate_at(sig, queries)
+via_interp1 = interp1(sig.t, sig, queries)
+print("query times        = {queries}")
+print("interpolate_at(sig)= {via_interpolate_at}")
+print("interp1(sig.t, sig)= {via_interp1}")
+print("max abs difference = {max(abs(via_interpolate_at - via_interp1)):.2e} (expect 0 -- same algorithm)")
+
+# Sanity: value at t=0.055 sits between samples 5 (t=0.05) and 6 (t=0.06).
+y5 = sin(2 * pi * 5 * 0.05)
+y6 = sin(2 * pi * 5 * 0.06)
+hand_linear = y5 + (0.055 - 0.05) / (0.06 - 0.05) * (y6 - y5)
+print("hand-computed linear interp at t=0.055 = {hand_linear:.6f} vs interpolate_at = {via_interpolate_at[0]:.6f}")
+
+#%% sig.apply("double") -- elementwise transform, still a Signal, same Fs
+double(x) := x * 2
+doubled = sig.apply("double")
+print("doubled[0:4]  = {doubled[0:4]}")
+print("original[0:4] = {sig[0:4]}")
+print("doubled.Fs == sig.Fs? {doubled.Fs == sig.Fs} (Fs preserved: {doubled.Fs})")
+print("doubled really is 2x: max abs diff = {max(abs(doubled - 2 * sig)):.2e}")
+
+#%% cut(sig, t_start, t_end) -- extract a range, verify length/duration
+segment = cut(sig, 0.1, 0.3)
+# Both ends are kept, so the count is the span in samples PLUS ONE -- the
+# fencepost. A window from t=0.1 to t=0.3 at 100 Hz holds samples 10
+# through 30, which is 21 of them, not 20.
+expected_len = round((0.3 - 0.1) * Fs) + 1
+print("cut(sig, 0.1, 0.3): length={length(segment)} (expected {expected_len}), Fs={segment.Fs}")
+# ... and the duration spanned is one sample interval longer than the
+# difference of the two times, for the same reason.
+expected_dur = (0.3 - 0.1) + 1 / Fs
+print("segment duration = {length(segment) / segment.Fs} s (expected {expected_dur} s)")
+print("segment[0] should equal original sample at t=0.1 (index 10): segment[0]={segment[0]:.6f}, sig[10]={sig[10]:.6f}")

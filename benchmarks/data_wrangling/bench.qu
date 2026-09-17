@@ -1,0 +1,111 @@
+# bench.qu -- Table/DataFrame operations benchmark, Qu side.
+#
+# Scenario: a real tabular-analysis workflow (not a synthetic microbenchmark)
+# on a shared 1M-row dataset (dataset.csv, built once by generate_data.py,
+# read identically by bench.py and bench.m too): load, filter rows, group by
+# a categorical column with three aggregates, sort by a column, compute
+# descriptive stats, and a correlation matrix. Prints timings AND the actual
+# computed values so results can be cross-checked against pandas/MATLAB, not
+# just timed.
+#
+# `group_by_agg(table, group_col, [(value_col, agg), ...])` now also takes a
+# list of (value_col, agg) pairs in ONE call, computed in a single pass over
+# the table (Table::group_by_agg_multi, engine/crates/qu-interp/src/table.rs)
+# -- the "groupby+agg" step below uses that multi-agg form, matching pandas'
+# `.agg(["mean","sum","count"])` / MATLAB's `groupsummary` with multiple
+# functions in one call, instead of three separate full-table passes.
+#
+# Run: qu run benchmarks/data_wrangling/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/data_wrangling/bench.qu)
+
+backend auto
+
+csv_path = "benchmarks/data_wrangling/dataset.csv"
+
+# --- 1. load -----------------------------------------------------------------
+tic()
+df = read_csv(csv_path)
+t_load = toc()
+print("load          : {t_load:.4f} s  ({nrow(df)} rows, {ncol(df)} cols)")
+
+# --- 2. filter: x1 > 0 --------------------------------------------------------
+tic()
+filtered = filter(df, df.x1 > 0)
+t_filter = toc()
+print("filter        : {t_filter:.4f} s  ({nrow(filtered)} rows kept)")
+
+# --- 3. groupby(category) + agg(mean/sum/count of x2), one multi-agg call -----
+tic()
+g_multi = group_by_agg(df, "category", (("x2", "mean"), ("x2", "sum"), ("x2", "count")))
+t_group = toc()
+print("groupby_agg   : {t_group:.4f} s  ({nrow(g_multi)} groups)")
+
+# --- 4. sort by x3 -------------------------------------------------------------
+tic()
+sorted_df = sort_by(df, "x3")
+t_sort = toc()
+print("sort_by       : {t_sort:.4f} s")
+
+# --- 5. descriptive stats: describe() on numeric columns -----------------------
+tic()
+desc = describe(df)
+t_describe = toc()
+print("describe      : {t_describe:.4f} s")
+
+# --- 6. correlation matrix (pairwise corr(x,y) -- no full-matrix builtin) ------
+tic()
+c11 = corr(df.x1, df.x1)
+c12 = corr(df.x1, df.x2)
+c13 = corr(df.x1, df.x3)
+c14 = corr(df.x1, df.x4)
+c22 = corr(df.x2, df.x2)
+c23 = corr(df.x2, df.x3)
+c24 = corr(df.x2, df.x4)
+c33 = corr(df.x3, df.x3)
+c34 = corr(df.x3, df.x4)
+c44 = corr(df.x4, df.x4)
+t_corr = toc()
+print("corr_matrix   : {t_corr:.4f} s")
+
+total = t_load + t_filter + t_group + t_sort + t_describe + t_corr
+print("total         : {total:.4f} s")
+
+# --- correctness cross-check printout ------------------------------------------
+# `df.category` (a text column) has no Qu value type of its own yet (no
+# vector-of-strings type -- see the `eval_field` doc comment in lib.rs), so
+# the group labels themselves can't be printed directly. Instead, sort each
+# 1-row-per-group result table by its (text) category column -- this is a
+# cheap, untimed 8-row sort, not part of the timed groupby_agg step above --
+# so the numeric aggregate columns come out in a fixed, language-independent
+# order (grp_0..grp_7 alphabetically) that lines up with pandas' own
+# `.sort_index()` and MATLAB's default `groupsummary` group order.
+g_multi_sorted = sort_by(g_multi, "category")
+
+print("")
+print("=== correctness cross-check values ===")
+print("total_rows          = {nrow(df)}")
+print("filtered_rows(x1>0) = {nrow(filtered)}")
+print("group means (grp_0..grp_7, alphabetical): {g_multi_sorted.mean_x2}")
+print("group sums  (grp_0..grp_7, alphabetical): {g_multi_sorted.sum_x2}")
+print("group counts(grp_0..grp_7, alphabetical): {g_multi_sorted.count_x2}")
+
+n = nrow(sorted_df)
+print("sorted_first_x3     = {sorted_df.x3[0]:.6f}")
+print("sorted_last_x3      = {sorted_df.x3[n - 1]:.6f}")
+
+# `describe(df)`'s `stat` column is text too (same limitation as above), but
+# its row order is the fixed, documented sequence ["count","mean","std",
+# "min","25%","50%","75%","max"] (lib.rs `describe` builtin), so each
+# numeric column can be printed positionally against that known order.
+print("describe() stat order: count, mean, std, min, 25%, 50%, 75%, max")
+print("describe().x1 = {desc.x1}")
+print("describe().x2 = {desc.x2}")
+print("describe().x3 = {desc.x3}")
+print("describe().x4 = {desc.x4}")
+
+print("corr matrix:")
+print("        x1        x2        x3        x4")
+print("x1  {c11:.6f}  {c12:.6f}  {c13:.6f}  {c14:.6f}")
+print("x2  {c12:.6f}  {c22:.6f}  {c23:.6f}  {c24:.6f}")
+print("x3  {c13:.6f}  {c23:.6f}  {c33:.6f}  {c34:.6f}")
+print("x4  {c14:.6f}  {c24:.6f}  {c34:.6f}  {c44:.6f}")

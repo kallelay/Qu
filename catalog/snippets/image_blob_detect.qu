@@ -1,0 +1,6 @@
+# @name: Threshold and label blobs in an image
+# @desc: Otsu-binarize an image and measure its connected components.
+binary = threshold(img, otsu_threshold(img))
+labeled = label_blobs(binary)
+stats = blob_stats(labeled)
+print("found {labeled.count} blob(s)")

@@ -1,0 +1,101 @@
+# bench_fair.qu -- the same five kernels as bench.qu, measured so that the
+# per-kernel numbers describe the per-kernel labels.
+#
+# bench.qu measures each kernel ONCE, COLD, with its data generation INSIDE
+# the timed region. Both are defensible for an end-to-end "how long does this
+# script take" figure, and bench.qu is kept as exactly that. Neither supports
+# a claim of the form "Qu beats X at FFT", for two measured reasons:
+#
+#   - MATLAB's first call is warm-up dominated: fft 0.0237 s cold, 0.0007 s
+#     on the third call -- 34x. A single cold trial compares start-up costs.
+#   - `randn` inside the timed region dominates some kernels. Python's
+#     "matrix_multiply" is 82% random number generation.
+#
+# So here: data is built OUTSIDE the clock, one warm-up run is discarded,
+# and the best of three timed runs is reported. Best-of-three rather than
+# mean because the machine is shared -- the minimum is the run least
+# contaminated by whatever else was scheduled.
+
+reps = 3
+
+# ---------------------------------------------------------------- matmul --
+A = randn(1000, 1000)
+B = randn(1000, 1000)
+C = A * B                                   # warm-up, discarded
+best_mm = 1.0e9
+for r = 1 to reps
+    tic()
+    C = A * B
+    t = toc()
+    if t < best_mm
+        best_mm = t
+    end if
+end for
+print("matrix_multiply   : {best_mm:.4f} s   (data pre-built, best of {reps})")
+
+# ------------------------------------------------------------- elementwise --
+A2 = randn(3000, 3000)
+B2 = randn(3000, 3000)
+C2 = A2 .* B2 + sin(A2) .* cos(B2)          # warm-up, discarded
+best_ew = 1.0e9
+for r = 1 to reps
+    tic()
+    C2 = A2 .* B2 + sin(A2) .* cos(B2)
+    D2 = abs(C2)
+    t = toc()
+    if t < best_ew
+        best_ew = t
+    end if
+end for
+print("element_wise_ops  : {best_ew:.4f} s   (3000x3000, data pre-built, best of {reps})")
+
+# --------------------------------------------------------------------- fft --
+x = randn(100000, 1)
+X = fft(x)                                  # warm-up, discarded
+best_fft = 1.0e9
+for r = 1 to reps
+    tic()
+    X = fft(x)
+    xr = ifft(X)
+    t = toc()
+    if t < best_fft
+        best_fft = t
+    end if
+end for
+print("fft               : {best_fft:.4f} s   (data pre-built, best of {reps})")
+
+# ---------------------------------------------------------- array_creation --
+Az = zeros(5000, 5000)                      # warm-up, discarded
+best_ac = 1.0e9
+for r = 1 to reps
+    tic()
+    Az = zeros(5000, 5000)
+    Bo = ones(5000, 5000)
+    Ce = eye(5000)
+    t = toc()
+    if t < best_ac
+        best_ac = t
+    end if
+end for
+print("array_creation    : {best_ac:.4f} s   (no rand, best of {reps})")
+
+# --------------------------------------------------------- loop_performance --
+warm = 0
+for i = 1 to 100000
+    warm = warm + i
+end for
+best_lp = 1.0e9
+for r = 1 to reps
+    tic()
+    result = 0
+    for i = 1 to 100000
+        result = result + i
+    end for
+    t = toc()
+    if t < best_lp
+        best_lp = t
+    end if
+end for
+print("loop_performance  : {best_lp:.4f} s   (best of {reps}, result = {result})")
+
+print("total             : {best_mm + best_ew + best_fft + best_ac + best_lp:.4f} s")

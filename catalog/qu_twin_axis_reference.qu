@@ -1,0 +1,62 @@
+# A two-panel figure of the shape journals actually print: a distribution
+# with its two summary statistics called out, and a dual-axis panel whose
+# axes are colour-bound to their own series.
+#
+# Kept as a catalogue case because it is the hardest ordinary figure to
+# make well -- a bar series and a line series on independent y axes, each
+# axis tinted to say which numbers belong to it, categorical x labels, and
+# real mathematics in every title and axis label.
+#
+# Run:  qu run catalog/qu_twin_axis_reference.qu
+
+theme("publication")
+figure_size(7.16, 2.9, unit = "in")
+
+# ----------------------------------------------------------- (a) the gain
+# A right-skewed distribution with a small spike of zeros at each end --
+# households where the flexible model bought nothing, and where it bought
+# a great deal.
+n = 6000
+seed(11)
+gain = 0.055 + 0.045 * randn(n)
+gain = gain + 0.06 * max(0, randn(n))
+gain[0:119] = -0.115
+gain[5970:5999] = 0.325
+
+subplot(1, 2, 1)
+hist(gain, bins = 60, color = "#8f57b5", alpha = 0.95)
+vline(0, color = "#555555", width = 1.2)
+vline(median(gain), color = "#c0392b", dash = true, width = 1.6,
+      label = "realised, median +{median(gain):.3f}")
+vline(0.043, color = "#2f6fb5", dot = true, width = 1.6,
+      label = "$\widehat{\Delta}_{\mathrm{NL}}$ predicted, median +0.043")
+xlabel("gain: trees $R^2$ $-$ fitted ridge $R^2$")
+ylabel("households")
+title("(a) what trees actually buy over ridge")
+legend top right
+
+# ------------------------------------------------ (b) the twin-axis panel
+subplot(1, 2, 2)
+
+ceiling  = ("$\leq$ 0.3", "0.3-0.4", "0.4-0.5", "0.5-0.6", "0.6-0.7", "> 0.7")
+relative = [0.0755, 0.0820, 0.0810, 0.0772, 0.0763, 0.0733]
+absolute = [0.0608, 0.0580, 0.0513, 0.0443, 0.0355, 0.0245]
+
+C_bar  = "#e07b1a"
+C_line = "#1f6fb4"
+
+bar(relative, color = C_bar, width = 0.62)
+xticklabels(ceiling)
+ylabel("relative dividend  gain/(1 $-$ $\widehat{\Pi}^{\mathrm{lin}}$)")
+ylim(0, 0.088)
+
+yyaxis right
+plot(absolute, color = C_line, marker = "o-", fill = true,
+     ms = pt(3.2), lw = pt(1.6))
+ylabel("absolute gain (median)")
+yyaxis left
+
+xlabel("linear ceiling  $\Pi^{\mathrm{lin}*}$ (test window)")
+title("(b) the $(1-\Pi^{\mathrm{lin}})$ scaling, cross-estimator: flat once de-artefacted")
+
+savefig("qu_twin_axis_reference.svg")

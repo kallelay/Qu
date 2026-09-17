@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codec.decode_flac — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>codec.decode_flac</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>codec.decode_flac(src, [channel=])</code></pre>
+<p class="fnnote">Input: src, channel &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Decodes a FLAC file to samples. <code>src</code> (string path, or <code>Vec</code> of bytes) is the stream. <code>channel</code> (number, optional, named only) picks one channel out of a multi-channel file, numbered from <code>0</code>.</p>
+<h2>Overloads</h2>
+<p>What comes back depends on how many series the call produces, because there is no one type that fits both without lying about one of them.</p>
+<p class="ioacross"><code>src</code> can be string or Vec.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-codec.decode_flac-0" checked>
+<input type="radio" name="typetab" id="tt-codec.decode_flac-1">
+<div class="tabbar">
+<label for="tt-codec.decode_flac-0">one series — mono, or <code>channel=</code></label>
+<label for="tt-codec.decode_flac-1">several series — multi-channel</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = codec.decode_flac(src, [channel=])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">string or Vec</span><span class="iodesc"><code>src</code> is a mono file.</span></div>
+<div class="ioitem"><code>channel</code> <span class="iotype">number, optional</span><span class="iodesc"><code>channel</code>, when given, picks one channel out of any file, numbered from <code>0</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
+</td><td>Returns a <code>Signal</code>: the sample rate travels with the samples, so <code>spectrogram</code>/<code>welch</code>/<code>sosfilt</code> need no second argument. That is the whole reason <code>Signal</code> exists, and it is the common case.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form. Not run by the build &mdash; it needs something the repository cannot supply, so there is no captured output below.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+x = codec.<span class="f">decode_flac</span>(<span class="s">"take.flac"</span>, <span class="a">channel</span> = <span class="n">0</span>)
+<span class="f">spectrogram</span>(x)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = codec.decode_flac(src, [channel=])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">string or Vec</span><span class="iodesc"><code>src</code> is a file with more than one channel.</span></div>
+<div class="ioitem"><code>channel</code> <span class="iotype">number, optional</span><span class="iodesc"><code>channel</code> is absent, so no single series is picked out.</span></div>
+</td><td><div class="ioitem"><code>fs</code> <span class="iotype">Num</span><span class="iodesc">the sample rate in Hz</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">Num</span><span class="iodesc">bits per sample</span></div>
+<div class="ioitem"><code>frames</code> <span class="iotype">Num</span><span class="iodesc">samples per channel</span></div>
+<div class="ioitem"><code>channels</code> <span class="iotype">List or Signal</span><span class="iodesc"><code>List</code> of <code>Signal</code>, one per channel, each already carrying the rate — so <code>a.channels[0]</code> goes straight into anything that takes a signal, with no reassembly needed</span></div>
+</td><td>Returns a <code>Record</code> with fields: <code>fs</code> (<code>Num</code>, the sample rate in Hz), <code>bits</code> (<code>Num</code>, bits per sample), <code>frames</code> (<code>Num</code>, samples per channel), <code>channels</code> (<code>List</code> of <code>Signal</code>, one per channel, each already carrying the rate — so <code>a.channels[0]</code> goes straight into anything that takes a signal, with no reassembly needed). A <code>Signal</code> is one series and a <code>Mat</code> has nowhere to put the sample rate, which is why this form cannot hand back either of them.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form. Not run by the build &mdash; it needs something the repository cannot supply, so there is no captured output below.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+a = codec.<span class="f">decode_flac</span>(<span class="s">"stereo.flac"</span>)
+<span class="f">print</span>(<span class="s">"{a.fs} Hz, {len(a.channels)} channels, {a.frames} frames"</span>)
+<span class="f">welch</span>(a.channels[<span class="n">0</span>])
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p>One body for all three. They differ only in which decoder runs, because <code>qu_codec</code> gives them a common <code>Audio</code> -- so the shape a script gets back cannot drift between formats, which is the thing that would actually hurt.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

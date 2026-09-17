@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cos — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cos</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>sin(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Standard trigonometric functions, computed elementwise. <code>x</code> is the input angle in radians — a scalar, a <code>Vec</code> of any length, or a <code>Mat</code>/<code>Signal</code> of any shape.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sin(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns exactly the same type and shape as <code>x</code>, one trig value per element.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c"># `grid` does not depend on `p`, so building it per call is waste.</span>
+grid   = <span class="f">outer</span>(f, t)            <span class="c"># K x N, built ONCE</span>
+<span class="f">shape</span>(p) := <span class="f">sum</span>(A .* <span class="f">cos</span>(grid + p), <span class="a">axis</span> = <span class="n">0</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">8</span>
+n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+x = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">2</span> * n / N)     <span class="c"># a pure tone at bin 2</span>
+X = <span class="f">fft</span>(x, N)
+<span class="f">print</span>(<span class="s">"mag = {abs(X)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>K = <span class="n">4</span>
+N = <span class="n">64</span>
+Fs = <span class="n">64</span>
+bins = [<span class="n">2</span>, <span class="n">5</span>, <span class="n">11</span>, <span class="n">17</span>]
+f = bins * (Fs / N)
+t = <span class="n">0</span> <span class="k">to</span> (N - <span class="n">1</span>) / Fs <span class="k">step</span> <span class="n">1</span>/Fs
+
+f <span class="k">as</span> <span class="f">vector</span>(K, <span class="n">1</span>)      <span class="c"># frequency column (K,1)</span>
+t <span class="k">as</span> <span class="f">vector</span>(<span class="n">1</span>, N)      <span class="c"># time row        (1,N)</span>
+
+phase = <span class="n">2</span> * pi * f * t             <span class="c"># (K,1)*(1,N) -&gt; (K,N), one row per tone</span>
+A = <span class="f">ones</span>(K, <span class="n">1</span>) / <span class="f">sqrt</span>(K)           <span class="c"># unit-RMS amplitude per tone</span>
+x = <span class="f">sum</span>(A .* <span class="f">cos</span>(phase), <span class="a">axis</span>=<span class="n">0</span>)   <span class="c"># sum the tones down the rows</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t))
+<span class="f">plot</span>(t, <span class="f">cos</span>(t))
+<span class="f">legend</span>(<span class="s">"sin(x)"</span>, <span class="s">"cos(x)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>See also</h2>
+<p><a href="sin.html"><code>sin</code></a>, <a href="tan.html"><code>tan</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

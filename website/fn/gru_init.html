@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gru_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gru_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>gru_init(input_size, hidden_size, [seed=])</code></pre>
+<p class="fnnote">Input: input_size, hidden_size, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds fresh GRU weights for an input of size <code>input_size</code> (integer) and a hidden state of size <code>hidden_size</code> (integer): Xavier-scaled weight matrices and zero biases for the update, reset and candidate gates, plus an optional integer <code>seed=</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = gru_init(input_size, hidden_size, [seed=])</code></td><td><div class="ioitem"><code>input_size</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>hidden_size</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a plain, untracked Record with fields <code>wz</code>, <code>uz</code>, <code>bz</code>, <code>wr</code>, <code>ur</code>, <code>br</code>, <code>wh</code>, <code>uh</code>, <code>bh</code> — wrap the ones you want trained in <code>param(...)</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
+     wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
+     wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">gru_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"gru_forward last hidden state: {round(h_last, 4)}"</span>)
+
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
+<span class="f">print</span>(<span class="s">"dL/dwz: {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()
+
+h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
+<span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>gru_init(input_size, hidden_size, [seed=])</code> — weight initializer matching <code>particle_filter_init</code>'s own <code>seed=</code> reproducibility convention (an explicit seed reseeds <code>self.rng</code> before drawing, so the SAME seed always produces the SAME weights; no seed just advances the persistent stream). Returns a <code>Value::Record</code> (fields <code>wz</code>/<code>uz</code>/<code>bz</code>/ <code>wr</code>/<code>ur</code>/<code>br</code>/<code>wh</code>/<code>uh</code>/<code>bh</code>) of PLAIN (untracked) values — matching <code>particle_filter_init</code>'s own choice to return plain data rather than pre-wrapped <code>param()</code> tensors, since not every caller trains every field (e.g. a fixed, non-trained <code>h0</code>). Wrap whichever fields should be trainable with <code>param(...)</code> before building the weights record <code>gru_cell</code>/<code>gru_forward</code> expect. <code>Wz</code>/<code>Wr</code>/<code>Wh</code> are <code>(hidden_size, input_size)</code>; <code>Uz</code>/<code>Ur</code>/ <code>Uh</code> are <code>(hidden_size, hidden_size)</code>; each gate's bias is a zero-initialized <code>Value::Vec</code> of length <code>hidden_size</code> (the standard zero-bias-init choice — no per-gate bias tricks like LSTM's common "init the forget gate bias to 1" shortcut, since the task asked for the standard equations, not a variant). Each weight matrix is Xavier/Glorot-scaled (<code>std = 1/sqrt(fan_in)</code>, fan-in <code>input_size</code> for the <code>W</code>s and <code>hidden_size</code> for the <code>U</code>s) — the same reasoning any dense-layer init uses, not a GRU-specific trick.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON / CSV / XML — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Data &amp; I/O</p>
+<h1>JSON / CSV / XML</h1>
+<p class="lede">the data-format conversion builtin family (§ format conversion builtins, 2026-09-01, Ahmed's ask -- BACKLOG.md's "Format conversion builtins" entry): three formats (JSON/CSV/XML), each with an `xify(value) -&gt; str` / `parse_x(str) -&gt; value` primitive pair,</p>
+<p class="srcpath">catalog/qu_format_conversion.qu</p>
+<p>plus pairwise converters that are one-line compositions of those primitives (`json2csv(s) = csvify(parse_json(s))`, etc.) -- not six independent implementations.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>jsonify(value) / parse_json(str)   -- Value &lt;-&gt; JSON string</li>
+<li>csvify(table) / parse_csv(str)     -- Table &lt;-&gt; CSV string</li>
+<li>xmlify(value) / parse_xml(str)     -- Value &lt;-&gt; XML string (the new piece)</li>
+<li>csv2json(str), json2xml(str)       -- two of the six pairwise converters</li>
+<li>Every check below compares an ACTUAL value read back out of the round</li>
+<li>trip against the ORIGINAL data, printed side by side -- not just "it ran</li>
+<li>without error".</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>JSON: a plain number and a vector round-trip exactly</h3>
+<pre class="hl"><code>n = <span class="n">3.14159265358979</span>
+n_json = <span class="f">jsonify</span>(n)
+n_back = <span class="f">parse_json</span>(n_json)
+<span class="f">print</span>(<span class="s">"n_json = {n_json}"</span>)
+<span class="f">print</span>(<span class="s">"n round-trips exactly: {n == n_back}"</span>)
+
+v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30.5</span>]
+v_json = <span class="f">jsonify</span>(v)
+v_back = <span class="f">parse_json</span>(v_json)
+<span class="f">print</span>(<span class="s">"v_json = {v_json}"</span>)
+<span class="f">print</span>(<span class="s">"v round-trips exactly: {v[0] == v_back[0] and v[1] == v_back[1] and v[2] == v_back[2]}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>CSV: real sample data, hand-written, parsed into a Table and back</h3>
+<pre class="hl"><code>csv_text = <span class="s">"name,age,city
+Alice,30,Paris
+Bob,25,Tunis
+"</span>
+t = <span class="f">parse_csv</span>(csv_text)
+<span class="f">print</span>(<span class="s">"parsed table: {nrow(t)} rows x {ncol(t)} cols, columns = {t.name}, {t.age}, {t.city}"</span>)
+<span class="f">print</span>(<span class="s">"row 0: name={t.name[0]}, age={t.age[0]}, city={t.city[0]}"</span>)
+<span class="f">print</span>(<span class="s">"row 1: name={t.name[1]}, age={t.age[1]}, city={t.city[1]}"</span>)
+
+back_csv = <span class="f">csvify</span>(t)
+t2 = <span class="f">parse_csv</span>(back_csv)
+same_shape = (<span class="f">nrow</span>(t) == <span class="f">nrow</span>(t2)) <span class="k">and</span> (<span class="f">ncol</span>(t) == <span class="f">ncol</span>(t2))
+same_data = (t.name[<span class="n">0</span>] == t2.name[<span class="n">0</span>]) <span class="k">and</span> (t.age[<span class="n">0</span>] == t2.age[<span class="n">0</span>]) <span class="k">and</span> (t.name[<span class="n">1</span>] == t2.name[<span class="n">1</span>]) <span class="k">and</span> (t.age[<span class="n">1</span>] == t2.age[<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"csvify -&gt; parse_csv round trip preserves shape and data: {same_shape and same_data}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>XML: the same table, converted to XML text and back -- print the raw</h3>
+<p>XML so the row-oriented shape (one &lt;row&gt; per record, one child element per column, a per-column `kind` attribute) is visible, not just asserted.</p>
+<pre class="hl"><code>xml_text = <span class="f">xmlify</span>(t)
+<span class="f">print</span>(<span class="s">"--- xmlify(t) output ---"</span>)
+<span class="f">print</span>(xml_text)
+<span class="f">print</span>(<span class="s">"--- end xmlify(t) output ---"</span>)
+
+t3 = <span class="f">parse_xml</span>(xml_text)
+xml_round_trip_ok = (<span class="f">nrow</span>(t3) == <span class="f">nrow</span>(t)) <span class="k">and</span> (t3.name[<span class="n">0</span>] == t.name[<span class="n">0</span>]) <span class="k">and</span> (t3.age[<span class="n">1</span>] == t.age[<span class="n">1</span>]) <span class="k">and</span> (t3.city[<span class="n">1</span>] == t.city[<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"xmlify -&gt; parse_xml round trip preserves data: {xml_round_trip_ok}"</span>)
+
+<span class="c"># A plain record round-trips through XML too (Num + Str fields, wrapped one</span>
+<span class="c"># level down under their own field-name element -- see xml_ops.rs's own</span>
+<span class="c"># module doc comment for the full Value&lt;-&gt;XML mapping).</span>
+r = {city = <span class="s">"Sfax"</span>, population = <span class="n">955421</span>}
+r_xml = <span class="f">xmlify</span>(r)
+r_back = <span class="f">parse_xml</span>(r_xml)
+<span class="f">print</span>(<span class="s">"record xmlify output: {r_xml}"</span>)
+<span class="f">print</span>(<span class="s">"record round-trips exactly: {r.city == r_back.city and r.population == r_back.population}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Pairwise converters -- one-line compositions, exercised on real data</h3>
+<pre class="hl"><code>csv_for_pairwise = <span class="s">"product,price
+Widget,9.99
+Gadget,19.5
+"</span>
+j_from_csv = <span class="f">csv2json</span>(csv_for_pairwise)
+<span class="f">print</span>(<span class="s">"csv2json output: {j_from_csv}"</span>)
+back_via_json = <span class="f">parse_json</span>(j_from_csv)
+<span class="f">print</span>(<span class="s">"csv2json round trip: product[0]={back_via_json.product[0]}, price[1]={back_via_json.price[1]}"</span>)
+
+t_json = <span class="f">jsonify</span>(t)
+xml_from_json = <span class="f">json2xml</span>(t_json)
+back_via_xml = <span class="f">parse_xml</span>(xml_from_json)
+json2xml_ok = (<span class="f">nrow</span>(back_via_xml) == <span class="f">nrow</span>(t)) <span class="k">and</span> (back_via_xml.name[<span class="n">0</span>] == t.name[<span class="n">0</span>]) <span class="k">and</span> (back_via_xml.age[<span class="n">0</span>] == t.age[<span class="n">0</span>])
+<span class="f">print</span>(<span class="s">"json2xml(jsonify(t)) -&gt; parse_xml recovers the same table: {json2xml_ok}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>A genuinely-can't-convert case: a bare scalar has no CSV/tabular shape</h3>
+<pre class="hl"><code><span class="k">try</span>
+    <span class="f">csvify</span>(<span class="n">42</span>)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"csvify(42) correctly refuses with: {err.message}"</span>)
+<span class="k">end</span>
+
+<span class="c"># ...and a live handle can't become JSON/XML data, either -- the same</span>
+<span class="c"># clear refusal `save`/`save_all` already give (jsonify/xmlify reuse it</span>
+<span class="c"># verbatim rather than a bespoke message).</span>
+<span class="k">function</span> <span class="f">noop</span>()
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+w = <span class="f">spawn</span>(<span class="s">"noop"</span>)
+<span class="k">try</span>
+    <span class="f">jsonify</span>(w)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"jsonify(a worker handle) correctly refuses with: {err.message}"</span>)
+<span class="k">end</span>
+<span class="f">join</span>(w)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>n_json = {"type":"num","v":3.14159265358979}
+n round-trips exactly: true
+v_json = {"type":"vec","v":[10.0,20.0,30.5]}
+v round-trips exactly: true
+parsed table: 2 rows x 3 cols, columns = ("Alice", "Bob"), [30, 25], ("Paris", "Tunis")
+row 0: name=Alice, age=30, city=Paris
+row 1: name=Bob, age=25, city=Tunis
+csvify -&gt; parse_csv round trip preserves shape and data: true
+--- xmlify(t) output ---
+&lt;table&gt;
+  &lt;columns&gt;
+    &lt;column kind="str"&gt;name&lt;/column&gt;
+    &lt;column kind="num"&gt;age&lt;/column&gt;
+    &lt;column kind="str"&gt;city&lt;/column&gt;
+  &lt;/columns&gt;
+  &lt;row&gt;
+    &lt;name&gt;Alice&lt;/name&gt;
+    &lt;age&gt;30&lt;/age&gt;
+    &lt;city&gt;Paris&lt;/city&gt;
+  &lt;/row&gt;
+  &lt;row&gt;
+    &lt;name&gt;Bob&lt;/name&gt;
+    &lt;age&gt;25&lt;/age&gt;
+    &lt;city&gt;Tunis&lt;/city&gt;
+  &lt;/row&gt;
+&lt;/table&gt;
+--- end xmlify(t) output ---
+xmlify -&gt; parse_xml round trip preserves data: true
+record xmlify output: &lt;record&gt;
+  &lt;city&gt;
+    ... 12 more lines</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_format_conversion.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_format_conversion.qu -- the data-format conversion builtin family</span>
+<span class="c"># (§ format conversion builtins, 2026-09-01, Ahmed's ask -- BACKLOG.md's</span>
+<span class="c"># "Format conversion builtins" entry): three formats (JSON/CSV/XML), each</span>
+<span class="c"># with an `xify(value) -&gt; str` / `parse_x(str) -&gt; value` primitive pair,</span>
+<span class="c"># plus pairwise converters that are one-line compositions of those</span>
+<span class="c"># primitives (`json2csv(s) = csvify(parse_json(s))`, etc.) -- not six</span>
+<span class="c"># independent implementations.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   jsonify(value) / parse_json(str)   -- Value &lt;-&gt; JSON string</span>
+<span class="c">#   csvify(table) / parse_csv(str)     -- Table &lt;-&gt; CSV string</span>
+<span class="c">#   xmlify(value) / parse_xml(str)     -- Value &lt;-&gt; XML string (the new piece)</span>
+<span class="c">#   csv2json(str), json2xml(str)       -- two of the six pairwise converters</span>
+<span class="c">#</span>
+<span class="c"># Every check below compares an ACTUAL value read back out of the round</span>
+<span class="c"># trip against the ORIGINAL data, printed side by side -- not just "it ran</span>
+<span class="c"># without error".</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% JSON: a plain number and a vector round-trip exactly</span>
+n = <span class="n">3.14159265358979</span>
+n_json = <span class="f">jsonify</span>(n)
+n_back = <span class="f">parse_json</span>(n_json)
+<span class="f">print</span>(<span class="s">"n_json = {n_json}"</span>)
+<span class="f">print</span>(<span class="s">"n round-trips exactly: {n == n_back}"</span>)
+
+v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30.5</span>]
+v_json = <span class="f">jsonify</span>(v)
+v_back = <span class="f">parse_json</span>(v_json)
+<span class="f">print</span>(<span class="s">"v_json = {v_json}"</span>)
+<span class="f">print</span>(<span class="s">"v round-trips exactly: {v[0] == v_back[0] and v[1] == v_back[1] and v[2] == v_back[2]}"</span>)
+
+<span class="c">#%% CSV: real sample data, hand-written, parsed into a Table and back</span>
+csv_text = <span class="s">"name,age,city
+Alice,30,Paris
+Bob,25,Tunis
+"</span>
+t = <span class="f">parse_csv</span>(csv_text)
+<span class="f">print</span>(<span class="s">"parsed table: {nrow(t)} rows x {ncol(t)} cols, columns = {t.name}, {t.age}, {t.city}"</span>)
+<span class="f">print</span>(<span class="s">"row 0: name={t.name[0]}, age={t.age[0]}, city={t.city[0]}"</span>)
+<span class="f">print</span>(<span class="s">"row 1: name={t.name[1]}, age={t.age[1]}, city={t.city[1]}"</span>)
+
+back_csv = <span class="f">csvify</span>(t)
+t2 = <span class="f">parse_csv</span>(back_csv)
+same_shape = (<span class="f">nrow</span>(t) == <span class="f">nrow</span>(t2)) <span class="k">and</span> (<span class="f">ncol</span>(t) == <span class="f">ncol</span>(t2))
+same_data = (t.name[<span class="n">0</span>] == t2.name[<span class="n">0</span>]) <span class="k">and</span> (t.age[<span class="n">0</span>] == t2.age[<span class="n">0</span>]) <span class="k">and</span> (t.name[<span class="n">1</span>] == t2.name[<span class="n">1</span>]) <span class="k">and</span> (t.age[<span class="n">1</span>] == t2.age[<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"csvify -&gt; parse_csv round trip preserves shape and data: {same_shape and same_data}"</span>)
+
+<span class="c">#%% XML: the same table, converted to XML text and back -- print the raw</span>
+<span class="c"># XML so the row-oriented shape (one &lt;row&gt; per record, one child element</span>
+<span class="c"># per column, a per-column `kind` attribute) is visible, not just asserted.</span>
+xml_text = <span class="f">xmlify</span>(t)
+<span class="f">print</span>(<span class="s">"--- xmlify(t) output ---"</span>)
+<span class="f">print</span>(xml_text)
+<span class="f">print</span>(<span class="s">"--- end xmlify(t) output ---"</span>)
+
+t3 = <span class="f">parse_xml</span>(xml_text)
+xml_round_trip_ok = (<span class="f">nrow</span>(t3) == <span class="f">nrow</span>(t)) <span class="k">and</span> (t3.name[<span class="n">0</span>] == t.name[<span class="n">0</span>]) <span class="k">and</span> (t3.age[<span class="n">1</span>] == t.age[<span class="n">1</span>]) <span class="k">and</span> (t3.city[<span class="n">1</span>] == t.city[<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"xmlify -&gt; parse_xml round trip preserves data: {xml_round_trip_ok}"</span>)
+
+<span class="c"># A plain record round-trips through XML too (Num + Str fields, wrapped one</span>
+<span class="c"># level down under their own field-name element -- see xml_ops.rs's own</span>
+<span class="c"># module doc comment for the full Value&lt;-&gt;XML mapping).</span>
+r = {city = <span class="s">"Sfax"</span>, population = <span class="n">955421</span>}
+r_xml = <span class="f">xmlify</span>(r)
+r_back = <span class="f">parse_xml</span>(r_xml)
+<span class="f">print</span>(<span class="s">"record xmlify output: {r_xml}"</span>)
+<span class="f">print</span>(<span class="s">"record round-trips exactly: {r.city == r_back.city and r.population == r_back.population}"</span>)
+
+<span class="c">#%% Pairwise converters -- one-line compositions, exercised on real data</span>
+csv_for_pairwise = <span class="s">"product,price
+Widget,9.99
+Gadget,19.5
+"</span>
+j_from_csv = <span class="f">csv2json</span>(csv_for_pairwise)
+<span class="f">print</span>(<span class="s">"csv2json output: {j_from_csv}"</span>)
+back_via_json = <span class="f">parse_json</span>(j_from_csv)
+<span class="f">print</span>(<span class="s">"csv2json round trip: product[0]={back_via_json.product[0]}, price[1]={back_via_json.price[1]}"</span>)
+
+t_json = <span class="f">jsonify</span>(t)
+xml_from_json = <span class="f">json2xml</span>(t_json)
+back_via_xml = <span class="f">parse_xml</span>(xml_from_json)
+json2xml_ok = (<span class="f">nrow</span>(back_via_xml) == <span class="f">nrow</span>(t)) <span class="k">and</span> (back_via_xml.name[<span class="n">0</span>] == t.name[<span class="n">0</span>]) <span class="k">and</span> (back_via_xml.age[<span class="n">0</span>] == t.age[<span class="n">0</span>])
+<span class="f">print</span>(<span class="s">"json2xml(jsonify(t)) -&gt; parse_xml recovers the same table: {json2xml_ok}"</span>)
+
+<span class="c">#%% A genuinely-can't-convert case: a bare scalar has no CSV/tabular shape</span>
+<span class="k">try</span>
+    <span class="f">csvify</span>(<span class="n">42</span>)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"csvify(42) correctly refuses with: {err.message}"</span>)
+<span class="k">end</span>
+
+<span class="c"># ...and a live handle can't become JSON/XML data, either -- the same</span>
+<span class="c"># clear refusal `save`/`save_all` already give (jsonify/xmlify reuse it</span>
+<span class="c"># verbatim rather than a bespoke message).</span>
+<span class="k">function</span> <span class="f">noop</span>()
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+w = <span class="f">spawn</span>(<span class="s">"noop"</span>)
+<span class="k">try</span>
+    <span class="f">jsonify</span>(w)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"jsonify(a worker handle) correctly refuses with: {err.message}"</span>)
+<span class="k">end</span>
+<span class="f">join</span>(w)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

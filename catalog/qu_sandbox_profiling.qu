@@ -1,0 +1,83 @@
+# qu_sandbox_profiling.qu -- `sandbox_mode(on)`, `profiling_mode(on)`, and
+# `profile_stats()` as in-program controls, distinct from the CLI's
+# process-wide `--sandbox`/`--profile` flags: a script can profile or
+# sandbox just the one section it cares about, mid-run, and read the
+# results back as ordinary Qu values instead of an external report.
+#
+# Scenario: profile a moderately-sized hot numeric loop and print the
+# resulting Table, then sandbox a section that tries a denied builtin
+# (`touch`, a file-write operation) and catch the resulting error cleanly,
+# then turn sandboxing back off and show the same call succeeding.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   profiling_mode(on)             -- start/stop the in-program profiler
+#   profile_stats()                -- returns a real Table: function/calls/seconds
+#   sandbox_mode(on)                -- start/stop the in-program capability sandbox
+#   try / catch                    -- catching the denied-builtin error
+#   touch(path)                    -- the file-write builtin used to prove both sides
+
+backend auto
+
+#%% A slightly bigger "hot" function: sums squared residuals over a sizable
+#%% vector, called repeatedly -- enough real work that profiling has
+#%% something non-trivial to measure.
+function hot_workload(n)
+    total = 0
+    xs = 1 to n
+    for i = 0 to n - 1
+        total = total + (xs[i] - n / 2) ^ 2
+    end for
+    return total
+end function
+
+function helper_normalize(v, n)
+    return v / n
+end function
+
+# Warm-up call outside the profiling window -- must NOT show up in the
+# stats below, proving profiling only tracks its own enabled window.
+hot_workload(50)
+
+profiling_mode(true)
+result_a = hot_workload(2000)
+result_b = hot_workload(2000)
+normalized = helper_normalize(result_a, 2000)
+profiling_mode(false)
+
+# This call happens AFTER profiling_mode(false) -- also must not be counted.
+hot_workload(50)
+
+stats = profile_stats()
+print("Profiled section results: result_a={result_a}, normalized={normalized:.4f}")
+print("profile_stats() Table: {nrow(stats)} rows x {ncol(stats)} cols")
+print(stats)
+
+#%% Sandbox a risky section: deny file-write builtins for just this part.
+audit_path = "qu_sandbox_profiling_audit.txt"
+if file_exists(audit_path)
+    # best-effort cleanup from a previous run, done BEFORE sandboxing
+    f = fopen(audit_path, "w")
+    write_line(f, "reset")
+    close(f)
+end if
+
+sandbox_mode(true)
+blocked = false
+blocked_message = ""
+try
+    touch(audit_path)
+    print("unexpected: touch succeeded while sandboxed")
+catch err
+    blocked = true
+    blocked_message = err.message
+end
+sandbox_mode(false)
+
+print("")
+print("Sandboxed touch() denied: {blocked}")
+print("Caught error message: {blocked_message}")
+
+# Sandbox is off again now -- the identical call should succeed.
+touch(audit_path)
+exists_after_unsandboxed_touch = file_exists(audit_path)
+print("Unsandboxed touch() succeeded: {exists_after_unsandboxed_touch}")

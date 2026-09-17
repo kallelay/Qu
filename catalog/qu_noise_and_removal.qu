@@ -1,0 +1,187 @@
+# qu_noise_and_removal.qu — putting noise in, and taking it out again.
+#
+# The point of a noise module is not to make a signal look untidy. It is to
+# let you state exactly how hard a problem is, hand the same problem to
+# several methods, and see which one wins and where.
+#
+# NOISE IS SPECIFIED IN DECIBELS. "Add noise of amplitude 0.1" is not a
+# statement about a measurement -- it depends entirely on how big the signal
+# is. "Add noise at 3 dB SNR" is, and it is what a datasheet, a standard and
+# a reviewer all speak. Every kind here honours that number, including the
+# four that are not linear in their own parameter and get there by solving
+# for it.
+#
+# NOISE IS NOT ONE THING. Using white noise for all of it is how a method
+# comes to look robust in simulation and fail on the bench:
+#
+#   gaussian    thermal, and the sum of many small independent causes
+#   pink 1/f    flicker in semiconductors, sensor drift; worse the slower
+#               you measure, which is why a long integration is not free
+#   brown 1/f^2 a random walk -- baseline wander
+#   shot        Poisson arrival of quanta; its variance is its mean, so it
+#               grows WITH the signal, unlike everything above
+#   quantize    what the ADC does; correlated with the signal, which is why
+#               it sounds worse than its power suggests
+#   salt-pepper dead pixels, bit errors. Not additive: it REPLACES samples,
+#               which is exactly why a linear filter cannot remove it
+#
+# INTERFERENCE IS NOT NOISE. Hum and EMI are deterministic -- they have
+# structure, and that structure is what lets you remove them.
+#
+# DISTORTION IS NEITHER. It is a function of the signal, so averaging does
+# nothing at all and the only cure is not to distort.
+#
+# Exercises:
+#   add_noise(x, kind, snr=)      — every kind, one parameter
+#   hum / emf                     — mains and switching pickup
+#   distort                       — clip, soft, crossover, harmonic
+#   medfilt / smooth / savgol / hampel / detrend
+#   measure_snr(clean, noisy)     — the loop-closer
+
+backend auto
+
+FS = 1000.0
+N = 2048
+t = (0 to N - 1) / FS
+clean = sin(2 * pi * 7 * t) + 0.4 * sin(2 * pi * 23 * t)
+
+#%% Ask for a number, get that number
+print("Gaussian noise, asked for and measured:")
+for target in (20, 10, 3, 0, -6)
+    y = add_noise(clean, "gaussian", snr = target, seed = 7)
+    print("  asked {pad_left(str(target), 3)} dB   measured {measure_snr(clean, y):.2f} dB")
+end for
+print("")
+
+print("Every kind at 6 dB -- one parameter, one meaning:")
+for kind in ("gaussian", "uniform", "pink", "brown", "blue", "shot", "quantize", "salt_pepper", "impulse")
+    y = add_noise(clean, kind, snr = 6, seed = 3)
+    print("  {pad_right(kind, 12)} {measure_snr(clean, y):.2f} dB")
+end for
+print("")
+
+#%% The pairing that matters: salt-and-pepper against a median
+#
+# An average is pulled by an outlier in proportion to how far out it is. A
+# median ignores it entirely, as long as fewer than half the window is
+# corrupt. The gap below is twenty decibels.
+sp = add_noise(clean, "salt_pepper", amplitude = 0.08, seed = 5)
+sp_med = medfilt(sp, 5)
+sp_avg = smooth(sp, 5, method = "moving")
+print("Salt-and-pepper at 8% of samples:")
+print("  as measured        {measure_snr(clean, sp):.2f} dB")
+print("  median filter (5)  {measure_snr(clean, sp_med):.2f} dB")
+print("  moving average (5) {measure_snr(clean, sp_avg):.2f} dB")
+print("")
+
+#%% And the opposite case, so neither is mistaken for a universal answer
+#
+# On plain Gaussian noise a moving average wins outright -- it is the
+# optimal linear estimator for it. The median is for OUTLIERS, not for
+# noise, and using one for the other costs you.
+g = add_noise(clean, "gaussian", snr = 6, seed = 11)
+g_avg = smooth(g, 11, method = "moving")
+g_med = medfilt(g, 11)
+print("Gaussian at 6 dB:")
+print("  moving average (11) {measure_snr(clean, g_avg):.2f} dB")
+print("  median filter (11)  {measure_snr(clean, g_med):.2f} dB")
+print("")
+
+#%% Where Savitzky-Golay earns its place: when the SHAPE matters
+#
+# A moving average is a low-pass filter and a peak is high-frequency, so it
+# flattens the peak while it removes the noise. Savitzky-Golay fits a local
+# polynomial instead, and keeps the height and width.
+peak = zeros(N)
+for i in 0 to N - 1
+    u = (i - 1024) / 60.0
+    peak[i] = exp(-u * u)
+end for
+noisy_peak = add_noise(peak, "gaussian", snr = 10, seed = 2)
+sg = savgol(noisy_peak, 61, 3)
+ma = smooth(noisy_peak, 61, method = "moving")
+print("A Gaussian peak under 10 dB of noise, both smoothed with a 61-point window:")
+print("  true height          1.000")
+print("  Savitzky-Golay       {max(sg):.3f}")
+print("  moving average       {max(ma):.3f}")
+print("  (the average removes more noise and destroys the measurement)")
+print("")
+
+#%% Interference, and why the harmonics matter
+#
+# Mains pickup arrives through a symmetric nonlinearity -- a rectifier, a
+# saturating core -- and a symmetric nonlinearity generates ODD harmonics.
+# `harmonics = 3` therefore means 50, 150 and 250 Hz, and a notch at 50
+# alone leaves two thirds of the problem behind.
+h = hum(clean, FS, freq = 50, harmonics = 3, snr = 6)
+print("50 Hz mains hum with three odd harmonics: {measure_snr(clean, h):.2f} dB")
+e = emf(clean, FS, carrier = 150, snr = 6)
+print("EMI: a modulated carrier plus switching-edge bursts: {measure_snr(clean, e):.2f} dB")
+print("")
+
+#%% Outliers are a different problem again
+#
+# `hampel` replaces a sample by the local median ONLY when it is more than
+# n_sigma robust deviations away. Everything it does not flag it leaves bit
+# for bit -- which is the difference from a median filter, and the reason
+# to reach for it when the data are good apart from a few spikes.
+spiky = clean * 1.0
+spiky[400] = 6.0
+spiky[900] = -7.0
+spiky[1500] = 5.5
+r = hampel(spiky, 7, 3)
+print("Three spikes in {N} samples:")
+print("  hampel replaced {r.replaced} samples")
+print("  error after      {measure_snr(clean, r.x):.2f} dB")
+print("")
+
+#%% Baseline wander
+drifting = clean + 2.0 + 0.0015 * (0 to N - 1)
+flat = detrend(drifting, 1)
+print("With a DC offset and a ramp: detrend recovers {measure_snr(clean, flat):.1f} dB")
+print("")
+
+#%% Distortion is not noise
+#
+# Averaging a hundred records removes noise and does absolutely nothing to
+# distortion, because distortion is the same every time.
+# A SINGLE tone, because THD counts every non-fundamental component as a
+# harmonic -- and the two-tone signal above would have its second tone
+# counted as distortion that is not there.
+pure = sin(2 * pi * 31 * t)
+print("Total harmonic distortion, in dB below the fundamental:")
+print("  clean tone          {thd(pure):.1f} dB")
+for kind in ("soft", "crossover", "harmonic", "clip")
+    print("  {pad_right(kind, 12)} 0.4   {thd(distort(pure, kind, 0.4)):.1f} dB")
+end for
+print("  (averaging a hundred records changes none of these:")
+print("   distortion is a function of the signal, so it is identical")
+print("   in every record and averaging is powerless against it)")
+d = distort(clean, "clip", 0.4)
+
+#%% The figure
+panel(3, 1, 1)
+plot(t[0:400], sp[0:400], color = "#c8ccd4", width = 0.9, label = "salt-and-pepper")
+plot(t[0:400], sp_med[0:400], color = "royalblue", width = 1.4, label = "median (5)")
+plot(t[0:400], sp_avg[0:400], color = "crimson", width = 1.2, dash = true, label = "average (5)")
+ylabel("amplitude")
+title("A median removes what an average only spreads")
+legend()
+
+panel(3, 1, 2)
+idx = 700 to 1350
+plot(t[idx], noisy_peak[idx], color = "#c8ccd4", width = 0.9, label = "10 dB noise")
+plot(t[idx], sg[idx], color = "royalblue", width = 1.5, label = "Savitzky-Golay")
+plot(t[idx], ma[idx], color = "crimson", width = 1.3, dash = true, label = "moving average")
+ylabel("amplitude")
+title("...and a local polynomial keeps a peak the average flattens")
+legend()
+
+panel(3, 1, 3)
+plot(t[0:400], h[0:400], color = "#b5651d", width = 1.0, label = "50 Hz hum + odd harmonics")
+plot(t[0:400], clean[0:400], color = "#26303f", width = 1.2, label = "clean")
+xlabel("time [s]")
+ylabel("amplitude")
+title("Interference has structure, which is what lets you remove it")
+legend()
+show plot

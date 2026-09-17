@@ -1,0 +1,112 @@
+# qu_signal_explorer.qu — a filter you can feel, as a page you can send.
+#
+# Three sliders over a band-pass: where it sits, how wide it is, and how
+# sharp. Drag any of them and the whole figure -- the time record, the
+# spectrum, the poles -- responds at once.
+#
+# WHAT THIS IS FOR. Reading a transfer function tells you what a filter
+# does. Widening the band from 20 Hz to 200 and watching the ringing
+# shorten while the skirts fall away tells you what it MEANS, and the
+# second is the one that stays learned. It is also how you hand a colleague
+# a result they can interrogate rather than a figure they can only look at.
+#
+# HOW IT WORKS, AND ITS LIMIT. There is no Qu in a browser. `explore`
+# renders every combination up front and the sliders CHOOSE among them, so
+# the cost is the product of the step counts and it is capped. Ten by six
+# by four is 240 figures: a large page, an instant response, and no server,
+# no network, no install.
+#
+# `ui_slider` is the other half of this story -- it declares a control for
+# a HOST to render, which is right when QuStudio is running the script and
+# useless when you want to email someone a file. Both exist because both
+# questions are real.
+#
+# Exercises:
+#   explore(fn, path, names=, from=, to=, steps=)  — the interactive export
+#   butter / sosfilt / freqz / poles / is_stable   — the real filter API
+#   panel(3, 1, k)                                 — three views, one figure
+#   circle / axis off                              — the unit circle
+
+backend auto
+
+FS = 1000.0
+N = 512
+
+#%% A test signal worth filtering: three tones and noise.
+#
+# Built once, outside the explorer, so every combination sees exactly the
+# same input -- otherwise a slider would appear to change the noise as well
+# as the filter, and the comparison would be worthless.
+t = (0 to N - 1) / FS
+x = sin(2 * pi * 60 * t) + 0.8 * sin(2 * pi * 180 * t) + 0.6 * sin(2 * pi * 340 * t)
+x = x + 0.35 * randn(N, seed = 4)
+
+function explorer(centre, width, order)
+    n = round(order)
+    lo = max(centre - width / 2, 5.0)
+    hi = min(centre + width / 2, FS / 2 - 5.0)
+    filt = butter(n, "bandpass", [lo, hi], FS)
+    y = sosfilt(filt, x)
+
+    #%% The time record, before and after
+    panel(3, 1, 1)
+    plot(t, x, color = "#c8ccd4", width = 0.9, label = "input")
+    plot(t, y, color = "royalblue", width = 1.3, label = "filtered")
+    xlabel("time [s]")
+    ylabel("amplitude")
+    title("band-pass {lo:.0f}-{hi:.0f} Hz, order {n}")
+    ylim(-3.2, 3.2)
+    legend()
+
+    #%% The spectrum, with the filter drawn over it
+    panel(3, 1, 2)
+    spec = abs(rfft(y)) / (N / 2)
+    freqs = (0 to len(spec) - 1) * FS / N
+    plot(freqs, mag2db(spec + 1e-9), color = "#c8ccd4", width = 0.9, label = "output spectrum")
+
+    fr = abs(freqz(filt, 400))
+    ff = (0 to len(fr) - 1) * (FS / 2) / (len(fr) - 1)
+    plot(ff, mag2db(fr + 1e-9), color = "crimson", width = 1.5, label = "filter")
+
+    # The three tones, so you can see which survive.
+    vline(60, dash = true, color = "#8a92a0", width = 0.8)
+    vline(180, dash = true, color = "#8a92a0", width = 0.8)
+    vline(340, dash = true, color = "#8a92a0", width = 0.8)
+    xlabel("frequency [Hz]")
+    ylabel("[dB]")
+    ylim(-70, 10)
+    xlim(0, FS / 2)
+    legend()
+
+    #%% Where the poles are
+    #
+    # The whole behaviour above is these dots. A narrower band pushes them
+    # toward the unit circle and the ringing lengthens; a higher order adds
+    # more of them and the skirts steepen. Watching the three panels move
+    # together is the point of the page.
+    panel(3, 1, 3)
+    # `axis equal` matters here and nowhere else on this figure: the unit
+    # circle is only a circle if the two scales agree, and without it the
+    # panel's width turns it into a very flat ellipse.
+    axis equal
+    xlim(-1.25, 1.25)
+    ylim(-1.25, 1.25)
+    circle(0, 0, 1, color = "#c0c8d4", width = 1.0)
+    hline(0, color = "#e2e6ec", width = 0.8)
+    vline(0, color = "#e2e6ec", width = 0.8)
+
+    p = poles(filt)
+    scatter(re(p), im(p), color = "crimson", marker = "x", size = 80)
+    worst = max(abs(p))
+    text(0.0, -1.16, "largest |pole| = {worst:.4f}", size = 11, color = "#59616f")
+    axis off
+end function
+
+#%% Build the page
+print("rendering the parameter grid -- this takes a moment")
+explore("explorer", "signal_explorer.html",
+        names = ("centre [Hz]", "bandwidth [Hz]", "order"),
+        from  = (80, 20, 2),
+        to    = (350, 220, 5),
+        steps = (10, 6, 4))
+print("open signal_explorer.html and drag -- no server, no network")

@@ -1,0 +1,153 @@
+/* Demos: an index of cards by subject, and one page per program.
+   Everything else comes from site.css. */
+
+/* ── the index ────────────────────────────────────────────────────── */
+.demogroup { padding: 40px 0 8px; }
+.demogroup + .demogroup { padding-top: 20px; }
+.demogroup h2 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint);
+  margin: 0 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--rule);
+}
+.demogrid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.demo {
+  display: block; padding: 18px 20px 16px;
+  background: var(--panel); border: 1px solid var(--rule-soft);
+  border-radius: 8px; text-decoration: none; color: inherit;
+  border-left: 3px solid transparent;
+  /* opacity here duplicates .reveal's own transition: this rule's higher
+     specificity (.demo beats .reveal) would otherwise wipe out .reveal's
+     shorthand entirely and make the fade-in instant. transform is shared
+     between the hover lift and the reveal settle, at one duration. */
+  transition: border-left-color .25s var(--ease), transform .3s var(--ease),
+              box-shadow .25s var(--ease), opacity .6s var(--ease);
+  transition-delay: 0s, 0s, 0s, var(--reveal-delay, 0s);
+}
+.demo:hover {
+  border-left-color: var(--accent); text-decoration: none;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.demo h3 {
+  margin: 0 0 6px; font-size: 16px; font-weight: 600;
+  font-family: var(--serif); letter-spacing: -.005em;
+}
+.demo p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.demo .file {
+  margin-top: 10px; font-family: var(--mono); font-size: 11px;
+  color: var(--faint);
+}
+
+/* ── one demo ─────────────────────────────────────────────────────── */
+.demomain { padding: 36px 0 88px; }
+.demomain .wrap { max-width: 880px; }
+.backlink { margin: 0 0 22px; font-size: 13.5px; }
+.backlink a { color: var(--muted); text-decoration: none; }
+.backlink a:hover { color: var(--accent); }
+
+.demomain .eyebrow {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint); margin: 0 0 8px;
+}
+.demomain h1 {
+  font-family: var(--serif); font-weight: 600; font-size: 38px;
+  letter-spacing: -.018em; line-height: 1.12; margin: 0 0 10px;
+  text-wrap: balance;
+}
+.demomain .lede {
+  font-family: var(--serif); font-size: 19px; color: var(--muted);
+  margin: 0 0 8px; max-width: 60ch;
+}
+.demomain .srcpath {
+  font-family: var(--mono); font-size: 12px; color: var(--faint);
+  margin: 0 0 28px;
+}
+.demomain h2 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint);
+  margin: 40px 0 14px; padding-bottom: 9px; border-bottom: 1px solid var(--rule);
+}
+.demomain p { margin: 0 0 15px; max-width: 68ch; }
+
+/* The figure leads: it is the fastest statement of what the program is
+   for. Drawn light in both themes, like the ones in the documentation. */
+.demofig {
+  margin: 0 0 30px; padding: 16px 18px; background: #fff;
+  border: 1px solid var(--rule-soft); border-radius: 10px;
+}
+.demofig svg { display: block; width: 100%; height: auto; }
+
+.uses { margin: 0 0 16px; padding-left: 20px; }
+.uses li {
+  margin: 0 0 5px; font-family: var(--mono); font-size: 12.5px;
+  color: var(--muted); line-height: 1.55;
+}
+
+.demomain .out {
+  border: 1px solid var(--rule-soft); border-left: 3px solid var(--accent-2);
+  border-radius: 8px; background: color-mix(in srgb, var(--accent-2) 5%, var(--panel));
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.demomain .out pre {
+  background: none; border: none; padding: 0; margin: 0;
+  font-size: 12.5px; line-height: 1.6; color: var(--muted);
+}
+
+.demomain pre.hl { font-size: 13px; line-height: 1.65; }
+
+@media (max-width: 700px) {
+  .demomain h1 { font-size: 30px; }
+  .demogrid { grid-template-columns: 1fr; }
+}
+
+/* A figure too large to inline. Saying so is more useful than a blank
+   space: a demo that draws five megabytes of vector graphics is telling
+   you something about the demo. */
+.bigfig {
+  margin: 0 0 28px; padding: 14px 18px;
+  border: 1px dashed var(--rule); border-radius: 8px;
+  color: var(--muted); font-size: 14px;
+}
+.demomain h3 {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  letter-spacing: .01em; color: var(--ink);
+  margin: 26px 0 8px; text-transform: none;
+}
+.demomain ul { margin: 0 0 16px; padding-left: 22px; max-width: 68ch; }
+.demomain li { margin: 0 0 6px; }
+
+/* ── the walk-through ─────────────────────────────────────────────── */
+/* Each `#%%` cell of the script becomes one step: what it does, why, and
+   the code that does it. The rule down the left ties the three together
+   and separates one step from the next without a box round each. */
+.step {
+  margin: 0 0 26px;
+  padding-left: 18px;
+  border-left: 2px solid var(--rule);
+  transition: border-left-color .25s var(--ease);
+}
+.step:hover { border-left-color: var(--accent); }
+.step h3 {
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  margin: 0 0 8px; color: var(--ink); letter-spacing: -.003em;
+}
+.step p { margin: 0 0 12px; font-size: 14.5px; max-width: 68ch; }
+.step pre.hl { margin: 0; font-size: 12.5px; }
+
+/* The figure is a result, not a header, so it is captioned as one. */
+.demofig figcaption {
+  margin-top: 10px; font-size: 12.5px; color: var(--faint);
+  font-family: var(--mono);
+}
+.demomain .out .lbl {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--faint);
+  margin-bottom: 5px;
+}
+.srcnote {
+  font-size: 13.5px; color: var(--muted); margin: 0 0 14px;
+}
+.srcnote code { font-size: 12.5px; }

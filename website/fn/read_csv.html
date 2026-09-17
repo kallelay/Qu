@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>read_csv — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>read_csv</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>read_csv(path, [headers=true], [sep=","], [decimal="."])</code></pre>
+<p class="fnnote">Input: path, headers, sep, decimal &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Reads a CSV file into a <code>Table</code>. <code>path</code> (string) is the file to read. <code>headers</code> (boolean, optional, default <code>true</code>) — <code>false</code> treats the first line as data instead of column names (columns are then auto-named <code>col1</code>, <code>col2</code>, ...). <code>sep</code> (string, optional, default <code>","</code>) is the field delimiter. <code>decimal</code> (string, optional, default <code>"."</code>) is the decimal-point marker (e.g. <code>sep=";", decimal=","</code> for the European convention).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = read_csv(path, [headers=true], [sep=","], [decimal="."])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc"><code>path</code> (string) is the file to read.</span></div>
+<div class="ioitem"><code>headers</code> <span class="iotype">boolean, optional (default <code>true</code>)</span><span class="iodesc"><code>headers</code> (boolean, optional, default <code>true</code>) — <code>false</code> treats the first line as data instead of column names (columns are then auto-named <code>col1</code>, <code>col2</code>, ...).</span></div>
+<div class="ioitem"><code>sep</code> <span class="iotype">string, optional (default <code>","</code>)</span><span class="iodesc"><code>sep</code> (string, optional, default <code>","</code>) is the field delimiter.</span></div>
+<div class="ioitem"><code>decimal</code> <span class="iotype">string, optional (default <code>"."</code>)</span><span class="iodesc"><code>decimal</code> (string, optional, default <code>"."</code>) is the decimal-point marker (e.g.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Table</span></div>
+</td><td>Returns a <code>Table</code> with one row per data line and one column per field. <code>table.load(path)</code> is sugar for this (no keyword-argument forwarding — use <code>read_csv</code> directly for <code>headers=</code>/<code>sep=</code>/<code>decimal=</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">read_csv</span>(path, <span class="a">headers</span> = <span class="k">true</span>)
+<span class="f">print</span>(<span class="s">"rows: {nrow(t)}"</span>)
+<span class="f">print</span>(<span class="f">head</span>(t, <span class="n">2</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
+<span class="f">print</span>(df2)
+table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
+df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
+<span class="f">print</span>(df3)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">load_and_process</span>(path)
+    <span class="f">profiling_mode</span>(<span class="k">true</span>)
+    data = <span class="f">read_csv</span>(path, <span class="a">headers</span>=<span class="k">true</span>)
+    result = data.<span class="f">sort_by</span>(<span class="s">"value"</span>)
+    <span class="f">profiling_mode</span>(<span class="k">false</span>)
+    <span class="f">print</span>(<span class="f">profile_stats</span>())     <span class="c"># a real Table: function / calls / seconds</span>
+
+    <span class="f">sandbox_mode</span>(<span class="k">true</span>)
+    <span class="k">try</span>
+        <span class="f">touch</span>(<span class="s">"audit.log"</span>)     <span class="c"># denied -- sandboxed for this section only</span>
+    <span class="k">catch</span> err
+        <span class="f">print</span>(<span class="s">"blocked: {err.message}"</span>)
+    <span class="k">end</span>
+    <span class="f">sandbox_mode</span>(<span class="k">false</span>)
+
+    <span class="k">return</span> result
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
+    <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
+    <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
+)
+<span class="f">write_csv</span>(measurements, <span class="s">"measurements.csv"</span>)
+
+df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
+<span class="f">print</span>(<span class="f">nrow</span>(df))
+<span class="f">print</span>(<span class="f">describe</span>(df))
+<span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
+<span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<h2>How it works</h2>
+<p><code>read_csv(path, [headers=], [sep=], [decimal=])</code> — <code>headers</code> (default <code>true</code>) treats the first line as data instead of column names when <code>false</code> (columns auto-named <code>col1</code>, <code>col2</code>, ...); <code>sep</code> (default <code>","</code>) is the field delimiter; <code>decimal</code> (default <code>"."</code>) is the decimal-point marker (<code>","</code> for the European convention). See <code>Table::from_csv_opts</code>'s own doc comment for the motivating <code>sep=";"</code> + <code>decimal=","</code> case and why there's no implicit per-field decimal auto-detection.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

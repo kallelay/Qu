@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>animate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>animate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>animate("fn", frames, path, [fps=])</code></pre>
+<p class="fnnote">Input: "fn", frames, path, fps &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Calls function <code>"fn"</code> (string) once per frame index from <code>0</code> to <code>frames - 1</code> (integer) and writes the sequence to <code>path</code> (string) as one animated SVG, no JavaScript. <code>fps=</code> (number, default 24) sets playback speed.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>animate("fn", frames, path, [fps=])</code></td><td><div class="ioitem"><code>"fn"</code> <span class="iotype">string</span><span class="iodesc">Calls function <code>"fn"</code> (string) once per frame index from <code>0</code> to <code>frames - 1</code> (integer) and writes the sequence to <code>path</code> (string) as one animated SVG, no JavaScript.</span></div>
+<div class="ioitem"><code>frames</code> <span class="iotype">string</span><span class="iodesc">Calls function <code>"fn"</code> (string) once per frame index from <code>0</code> to <code>frames - 1</code> (integer) and writes the sequence to <code>path</code> (string) as one animated SVG, no JavaScript.</span></div>
+<div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc">Calls function <code>"fn"</code> (string) once per frame index from <code>0</code> to <code>frames - 1</code> (integer) and writes the sequence to <code>path</code> (string) as one animated SVG, no JavaScript.</span></div>
+<div class="ioitem"><code>fps</code> <span class="iotype">number, optional</span><span class="iodesc"><code>fps=</code> (number, default 24) sets playback speed.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">function</span> <span class="f">frame</span>(i)
+    t = <span class="n">2</span> * pi * i / <span class="n">60</span>
+    x = (<span class="n">0</span> <span class="k">to</span> <span class="n">200</span>) / <span class="n">20</span>
+    <span class="f">plot</span>(x, <span class="f">sin</span>(x - t), <span class="a">color</span> = <span class="s">"royalblue"</span>)
+    <span class="f">ylim</span>(-<span class="n">1.2</span>, <span class="n">1.2</span>)
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">animate</span>(<span class="s">"frame"</span>, <span class="n">60</span>, <span class="s">"wave.svg"</span>, <span class="a">fps</span> = <span class="n">24</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>savefig(path, embed_fonts=true)</code> — inline the actual font bytes (only possible for a curated <code>fontfamily(...)</code> preset) so the figure renders identically everywhere. Only the glyphs the figure actually draws are inlined (<code>font_subset</code>), so that costs tens of kilobytes rather than the whole font file. See <code>Interp::save_figure</code>. <code>animate("draw", frames, "out.svg", fps = 24)</code> — call a function you wrote once per frame, and write the sequence as one animated SVG. <strong>Why SVG and not GIF.</strong> A GIF needs an LZW encoder, caps the palette at 256 colours, and produces a raster that is wrong at any size but the one it was made at. An animated SVG is one file, opens in any browser, stays sharp at any size, and reuses the renderer that already exists -- the frames ARE ordinary Qu figures. <strong>How it animates without JavaScript.</strong> Each frame becomes a <code>&lt;g&gt;</code>, and each group carries a CSS animation that shows it for its own slot of the cycle and hides it otherwise. No SMIL (deprecated in places, unevenly supported) and no script, so the file works when opened from disk, embedded in a page, or dropped into a slide. The cost is size: a hundred frames is a hundred figures in one file. That is the honest trade, and the frame count is yours to choose.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

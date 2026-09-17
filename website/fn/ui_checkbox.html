@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ui_checkbox — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>ui_checkbox</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig">result = <code>ui_checkbox(label, [default], [id=])</code></pre>
+<p class="fnnote">Input: label, default, id &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Declares an on/off toggle, labeled <code>label</code> (string). <code>default</code> (bool, positional, default false) and <code>id=</code> (string) as above.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = ui_checkbox(label, [default], [id=])</code></td><td><div class="ioitem"><code>label</code> <span class="iotype">string</span><span class="iodesc">Declares an on/off toggle, labeled <code>label</code> (string).</span></div>
+<div class="ioitem"><code>default</code> <span class="iotype">bool or string, optional</span><span class="iodesc"><code>default</code> (bool, positional, default false) and <code>id=</code> (string) as above.</span></div>
+<div class="ioitem"><code>id</code> <span class="iotype">bool or string, optional</span><span class="iodesc"><code>default</code> (bool, positional, default false) and <code>id=</code> (string) as above.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">bool</span></div>
+</td><td>Returns the current (or default) value as a bool. These two (<code>ui_select</code>/<code>ui_checkbox</code>) are for a parameter that is a mode rather than a magnitude.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>freq = <span class="f">ui_slider</span>(<span class="s">"freq"</span>, <span class="n">1</span>, <span class="n">20</span>, <span class="n">5</span>)
+gain = <span class="f">ui_number</span>(<span class="s">"gain"</span>, <span class="n">1.0</span>)
+mode = <span class="f">ui_select</span>(<span class="s">"mode"</span>, [<span class="s">"fast"</span>, <span class="s">"slow"</span>])
+enabled = <span class="f">ui_checkbox</span>(<span class="s">"enabled"</span>, <span class="k">true</span>)
+pressed = <span class="f">ui_button</span>(<span class="s">"reset"</span>)
+label = <span class="f">ui_text</span>(<span class="s">"label"</span>, <span class="s">"wave"</span>)
+<span class="f">print</span>(freq)
+<span class="f">print</span>(gain)
+<span class="f">print</span>(mode)
+<span class="f">print</span>(enabled)
+<span class="f">print</span>(pressed)
+<span class="f">print</span>(label)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>ui_checkbox(label, [default], [id=])</code></p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

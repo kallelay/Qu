@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spawn — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>spawn</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>spawn("fnName", arg1, arg2, ...)</code></pre>
+<p class="fnnote">Input: "fnName", arg1, arg2, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Runs an already-defined user function on <code>rayon</code>'s global thread pool (the <code>Worker</code> abstraction). <code>"fnName"</code> (string) names a function already defined in this script; <code>arg1, arg2, ...</code> (any number of values of any type, zero or more) are forwarded to it positionally, exactly as if calling it directly. The worker gets an ISOLATED snapshot of the current globals and function table plus a freshly-drawn RNG seed — never the live shared environment — so nothing a worker does can race with the caller or another worker. Only a user-defined function can be spawned, never a builtin (builtins like <code>plot</code>/<code>savefig</code> mutate state with no meaning off the main thread).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = spawn("fnName", arg1, arg2, ...)</code></td><td><div class="ioitem"><code>"fnName"</code> <span class="iotype">string</span><span class="iodesc"><code>"fnName"</code> (string) names a function already defined in this script.</span></div>
+<div class="ioitem"><code>arg1</code> <span class="iotype">number</span><span class="iodesc"><code>arg1, arg2, ...</code> (any number of values of any type, zero or more) are forwarded to it positionally, exactly as if calling it directly.</span></div>
+<div class="ioitem"><code>arg2</code> <span class="iotype">number</span><span class="iodesc"><code>arg1, arg2, ...</code> (any number of values of any type, zero or more) are forwarded to it positionally, exactly as if calling it directly.</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">number, repeatable</span><span class="iodesc"><code>arg1, arg2, ...</code> (any number of values of any type, zero or more) are forwarded to it positionally, exactly as if calling it directly.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Worker or Mutex</span></div>
+</td><td>Returns a <code>Worker</code> handle (a lightweight opaque token, <code>type(w) == "worker"</code>) immediately, before the function has necessarily finished; <code>join</code>/<code>worker_done</code> observe completion via a <code>Mutex</code>+<code>Condvar</code> under the hood, since the pool's own dispatch is fire-and-forget.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">6</span>)
+<span class="f">print</span>(<span class="f">join</span>(w))   <span class="c"># 36</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
+result = <span class="f">join</span>(w)
+<span class="f">print</span>(<span class="s">"result = {result}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)                  <span class="c"># runs on its own OS thread</span>
+<span class="k">while</span> <span class="k">not</span> <span class="f">worker_done</span>(w)               <span class="c"># non-blocking poll; handle stays valid</span>
+<span class="k">end</span> <span class="k">while</span>
+result = <span class="f">join</span>(w)                       <span class="c"># blocks for the result (49)</span>
+<span class="f">print</span>(result)                          <span class="c"># 49</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"spawned result {join(w)}"</span>)
+
+results = <span class="f">zeros</span>(<span class="n">10</span>)
+parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    results[i] = <span class="f">heavy</span>(i)
+<span class="k">end</span> parallel
+<span class="f">print</span>(<span class="s">"parallel results {results}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<h2>How it works</h2>
+<p><code>spawn("fnName", arg1, arg2, ...)</code> runs an already-defined user function (one-line <code>:=</code> or block <code>function ... end</code>) on its own OS thread, the Worker abstraction (§47/§54): an ISOLATED environment (a full snapshot of the current globals and function table, plus a freshly-drawn RNG seed), never the live shared <code>env</code> — so nothing a worker does can race with the calling script or with another worker. Only a user function can be spawned (not a builtin): builtins like <code>plot</code>/<code>savefig</code> mutate figure/output state that has no meaning off the main thread. Returns a <code>Value::Worker</code> handle; get the result (blocking) with <code>join(w)</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

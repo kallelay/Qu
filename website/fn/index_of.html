@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>index_of — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>index_of</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>index_of(s, sub)</code></pre>
+<p class="fnnote">Input: s, sub &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> and <code>sub</code> are <code>Str</code>s.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = index_of(s, sub)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>sub</code> <span class="iotype">Str</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>number</code> <span class="iotype">&mdash;</span><span class="iodesc">0-based character position of the first occurrence</span></div>
+</td><td>Returns a <code>number</code> (0-based character position of the first occurrence) or <code>none</code> if <code>sub</code> is absent.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
+<span class="f">print</span>(<span class="f">ends_with</span>(path, <span class="s">".txt"</span>))         <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">index_of</span>(path, <span class="s">"_"</span>))              <span class="c"># 6</span>
+<span class="f">print</span>(<span class="f">last_index_of</span>(path, <span class="s">"_"</span>))         <span class="c"># 12</span>
+<span class="f">print</span>(<span class="f">insert</span>(<span class="s">"helloworld"</span>, <span class="n">5</span>, <span class="s">", "</span>))    <span class="c"># "hello, world"</span>
+<span class="f">print</span>(<span class="f">remove</span>(<span class="s">"hello, world"</span>, <span class="s">", "</span>))     <span class="c"># "helloworld"</span>
+line = <span class="s">"key: value"</span>
+<span class="f">print</span>(<span class="f">after</span>(line, <span class="s">": "</span>))                <span class="c"># "value"</span>
+<span class="f">print</span>(<span class="f">before</span>(line, <span class="s">": "</span>))               <span class="c"># "key"</span>
+full = <span class="s">"a/b/c.txt"</span>
+<span class="f">print</span>(<span class="f">after_last</span>(full, <span class="s">"/"</span>))            <span class="c"># "c.txt"</span>
+<span class="f">print</span>(<span class="f">before_last</span>(full, <span class="s">"/"</span>))           <span class="c"># "a/b"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>indexof(collection, value)</code> — index of the first element equal to <code>value</code>, or <code>Value::Nothing</code> if absent. <code>Nothing</code> (not <code>-1</code>) is Qu's existing "absent" marker (see how <code>??</code>/ <code>Expr::Coalesce</code> already treats it specially) — composes directly with that operator: <code>indexof(xs, v) ?? -1</code> for scripts that do want a sentinel index. <code>index_of</code> is accepted as well: it is the spelling most people reach for, and having only one of the two is a guessing game with no payoff.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

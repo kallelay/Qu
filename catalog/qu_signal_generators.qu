@@ -1,0 +1,71 @@
+# qu_signal_generators.qu -- the `signals.` namespace sugar for the five
+# periodic-waveform generators (square, impulse, pwm, sawtooth, triangle).
+#
+# Backstory (see docs/qu-language-tour.md's write-up of the 2026-09-01
+# argument-validation audit): `square` the *waveform generator* and "square"
+# as in "x squared" are both completely reasonable readings of the bare
+# name `square(...)` to a new reader, and that ambiguity is a real footgun
+# in a language where `x^2` and `square(freq, fs, n)` can both plausibly
+# appear on the same page. The fix wasn't renaming anything -- the bare
+# `square`/`impulse`/`pwm`/`sawtooth`/`triangle` builtins are unchanged and
+# still callable directly -- it was adding a closed, parser-level
+# `signals.*` namespace alias (the same mechanism `table.load`/`timer.start`
+# already used) that rewrites `signals.square(...)` straight to the exact
+# same `Call` AST as `square(...)`, byte-identical, zero runtime cost, pure
+# disambiguation. This demo always spells the namespaced form for that
+# reason, even though the bare names would produce identical output.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   signals.square(freq, fs, n, [duty=])   -- bipolar +-1 pulse train
+#   signals.impulse(n, [index=], [amplitude=]) -- single spike in a zero vector
+#   signals.pwm(modulator, carrier_freq, fs, [carrier=]) -- natural-sampling PWM
+#   signals.sawtooth(freq, fs, n)          -- linear ramp -1 -> +1, instant drop
+#   signals.triangle(freq, fs, n)          -- continuous -1 -> +1 -> -1 ramp
+#   plot(t, x, label=, color=) / legend() / subplot-free overlay
+
+backend auto
+
+#%% Shared timebase
+Fs = 1000
+N  = 200
+t  = (0 to N - 1) / Fs
+
+#%% Generate all five, all through the disambiguating signals.* spelling
+sq  = signals.square(10, Fs, N, duty=0.5)
+imp = signals.impulse(N, index=20, amplitude=1.0)
+saw = signals.sawtooth(10, Fs, N)
+tri = signals.triangle(10, Fs, N)
+
+# pwm needs a modulator signal to compare against its triangle carrier --
+# a slow sine, well within [-1, 1], sampled at the same Fs/N.
+modulator = 0.6 * sin(2 * pi * 3 * t)
+pwm_sig = signals.pwm(modulator, 50, Fs)
+
+print("square  : first 5 samples = {sq[0:4]}")          # +1 while duty phase < 0.5
+print("impulse : nonzero at index 20 = {imp[20]}, elsewhere e.g. imp[0] = {imp[0]}")
+print("sawtooth: first 5 samples = {saw[0:4]}")          # linear ramp from -1
+print("triangle: first 5 samples = {tri[0:4]}")          # linear ramp from -1, different slope than sawtooth
+print("pwm     : first 5 samples = {pwm_sig[0:4]}")     # +-1, natural-sampled against a triangle carrier
+
+# Same instant (sample 55), five different generators -- the values below
+# are read straight off each waveform, not hand-picked to differ.
+i = 55
+print("at sample {i}: square={sq[i]}, impulse={imp[i]}, sawtooth={saw[i]:.3f}, triangle={tri[i]:.3f}, pwm={pwm_sig[i]}")
+
+# Prove square is genuinely a WAVEFORM, not "x squared": compare against the
+# actual squaring operation on the same time vector to show they are nothing
+# alike -- this is precisely the confusion `signals.square` exists to avoid.
+squared_t = t ^ 2
+print("signals.square(10,{Fs},{N})[0:2] = {sq[0:2]}  vs.  t^2 [0:2] = {squared_t[0:2]:.5f} -- unrelated waveforms")
+
+#%% Overlaid plot with a legend and distinct colors
+plot(t, sq,      label="square (duty=0.5)", color="blue")
+plot(t, imp,     label="impulse (idx=20)",  color="black")
+plot(t, saw,     label="sawtooth",          color="orange")
+plot(t, tri,     label="triangle",          color="green")
+plot(t, pwm_sig, label="pwm (mod=3Hz sine)", color="red")
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("signals.* generators: square / impulse / sawtooth / triangle / pwm")
+legend()
+show plot

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR & SVD — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Math &amp; linear algebra</p>
+<h1>QR &amp; SVD</h1>
+<p class="lede">QR and SVD decompositions, and a least-squares solve.</p>
+<p class="srcpath">catalog/qu_qr_svd.qu</p>
+<p>`qr`/`svd` (like `ols_model`/`findpeaks`/`kalman_init`) return a `Value::Model` carrying their named results, rather than a MATLAB-style tuple -- Qu has no multi-return/tuple-unpacking assignment.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>qr(A)  -&gt; Model(.q, .r),    A = Q*R</li>
+<li>svd(A) -&gt; Model(.u, .s, .vt), A = U * diag(s) * V'</li>
+<li>the `\` left-division (linear solve) operator for a least-squares fit</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Setup — a small, hand-checkable matrix</h3>
+<pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">2</span>; <span class="n">1</span>, <span class="n">3</span>; <span class="n">1</span>, <span class="n">4</span>]     <span class="c"># (4,2) design matrix: column of ones + x</span>
+b = [<span class="n">6</span>, <span class="n">5</span>, <span class="n">7</span>, <span class="n">10</span>]
+</code></pre>
+</section>
+<section class="step">
+<h3>QR decomposition</h3>
+<pre class="hl"><code>qrf = <span class="f">qr</span>(A)
+<span class="f">print</span>(<span class="s">"Q = {qrf.q}"</span>)
+<span class="f">print</span>(<span class="s">"R = {qrf.r}"</span>)
+recon = qrf.q * qrf.r
+<span class="f">print</span>(<span class="s">"max |A - Q*R| = {max(abs(A - recon)):.2e}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>SVD</h3>
+<pre class="hl"><code>s = <span class="f">svd</span>(A)
+<span class="f">print</span>(<span class="s">"singular values = {s.s}"</span>)
+rank_est = <span class="f">length</span>(<span class="f">where</span>(s.s &gt; <span class="n">1e-9</span> * <span class="f">max</span>(s.s)))
+<span class="f">print</span>(<span class="s">"estimated rank = {rank_est}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Least squares via the QR factors</h3>
+<p>x = R \ (Q' * b)  solves min ||A*x - b||^2</p>
+<pre class="hl"><code>Qtb = qrf.q' * b
+x = qrf.r \ Qtb
+<span class="f">print</span>(<span class="s">"least-squares fit: intercept={x[0]:.4f}, slope={x[1]:.4f}"</span>)
+
+resid = A * x - b
+<span class="f">print</span>(<span class="s">"residual norm = {norm(resid):.4f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot the fit</h3>
+<pre class="hl"><code>xs = A[:, <span class="n">1</span>]
+<span class="f">plot</span>(xs, b, <span class="a">marker</span>=<span class="s">"o"</span>, <span class="a">label</span>=<span class="s">"data"</span>)
+fit_line = A * x
+<span class="f">plot</span>(xs, fit_line, <span class="a">label</span>=<span class="s">"least-squares fit"</span>, <span class="a">color</span>=<span class="s">"orange"</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"y"</span>)
+<span class="f">title</span>(<span class="s">"QR-based least squares"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Q = [0.5, -0.67082; 0.5, -0.223607; 0.5, 0.223607; 0.5, 0.67082]
+R = [2, 5; 0, 2.236068]
+max |A - Q*R| = 2.44e-15
+singular values = [5.779379, 0.773809]
+estimated rank = 2
+least-squares fit: intercept=3.5000, slope=1.4000
+residual norm = 2.0494</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="508.87" x2="866.00" y2="508.87" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="508.87" x2="86.00" y2="508.87" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="513.35" font-size="12.8" text-anchor="end" fill="#5a5a5a">5.0</text>
+<line x1="86.00" y1="465.02" x2="866.00" y2="465.02" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="465.02" x2="86.00" y2="465.02" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="469.50" font-size="12.8" text-anchor="end" fill="#5a5a5a">5.5</text>
+<line x1="86.00" y1="421.17" x2="866.00" y2="421.17" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="421.17" x2="86.00" y2="421.17" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="425.65" font-size="12.8" text-anchor="end" fill="#5a5a5a">6.0</text>
+<line x1="86.00" y1="377.32" x2="866.00" y2="377.32" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="377.32" x2="86.00" y2="377.32" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="381.80" font-size="12.8" text-anchor="end" fill="#5a5a5a">6.5</text>
+<line x1="86.00" y1="333.47" x2="866.00" y2="333.47" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="333.47" x2="86.00" y2="333.47" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="337.95" font-size="12.8" text-anchor="end" fill="#5a5a5a">7.0</text>
+<line x1="86.00" y1="289.61" x2="866.00" y2="289.61" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="289.61" x2="86.00" y2="289.61" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="294.09" font-size="12.8" text-anchor="end" fill="#5a5a5a">7.5</text>
+<line x1="86.00" y1="245.76" x2="866.00" y2="245.76" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="245.76" x2="86.00" y2="245.76" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="250.24" font-size="12.8" text-anchor="end" fill="#5a5a5a">8.0</text>
+<line x1="86.00" y1="201.91" x2="866.00" y2="201.91" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="201.91" x2="86.00" y2="201.91" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="206.39" font-size="12.8" text-anchor="end" fill="#5a5a5a">8.5</text>
+<line x1="86.00" y1="158.06" x2="866.00" y2="158.06" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="158.06" x2="86.00" y2="158.06" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="162.54" font-size="12.8" text-anchor="end" fill="#5a5a5a">9.0</text>
+<line x1="86.00" y1="114.21" x2="866.00" y2="114.21" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="114.21" x2="86.00" y2="114.21" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="118.69" font-size="12.8" text-anchor="end" fill="#5a5a5a">9.5</text>
+<line x1="86.00" y1="70.36" x2="866.00" y2="70.36" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="70.36" x2="86.00" y2="70.36" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="74.84" font-size="12.8" text-anchor="end" fill="#5a5a5a">10.0</text>
+<line x1="121.45" y1="48.00" x2="121.45" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="121.45" y1="540.00" x2="121.45" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="121.45" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.0</text>
+<line x1="239.64" y1="48.00" x2="239.64" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="239.64" y1="540.00" x2="239.64" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="239.64" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.5</text>
+<line x1="357.82" y1="48.00" x2="357.82" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="357.82" y1="540.00" x2="357.82" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="357.82" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.0</text>
+<line x1="476.00" y1="48.00" x2="476.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="476.00" y1="540.00" x2="476.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="476.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.5</text>
+<line x1="594.18" y1="48.00" x2="594.18" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="594.18" y1="540.00" x2="594.18" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="594.18" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.0</text>
+<line x1="712.36" y1="48.00" x2="712.36" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="712.36" y1="540.00" x2="712.36" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="712.36" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.5</text>
+<line x1="830.55" y1="48.00" x2="830.55" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="830.55" y1="540.00" x2="830.55" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="830.55" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4.0</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<circle cx="121.45" cy="421.17" r="3.2" fill="none" stroke="#5B7CFA"><title>x=1, y=6</title></circle>
+<circle cx="357.82" cy="508.87" r="3.2" fill="none" stroke="#5B7CFA"><title>x=2, y=5</title></circle>
+<circle cx="594.18" cy="333.47" r="3.2" fill="none" stroke="#5B7CFA"><title>x=3, y=7</title></circle>
+<circle cx="830.55" cy="70.36" r="3.2" fill="none" stroke="#5B7CFA"><title>x=4, y=10</title></circle>
+<polyline points="121.45,517.64 357.82,394.86 594.18,272.07 830.55,149.29" fill="none" stroke="#ffa500" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">QR-based least squares</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">x</text>
+<text x="42.96" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 42.96 294.00)">y</text>
+<rect x="94.00" y="56.00" width="132.43" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<circle cx="111.00" cy="72.00" r="3.5" fill="none" stroke="#5B7CFA"/>
+<text x="127.00" y="75.50" font-size="12" text-anchor="start" fill="#222">data</text>
+<line x1="101.00" y1="90.00" x2="121.00" y2="90.00" stroke="#ffa500" stroke-width="2.2"/>
+<text x="127.00" y="93.50" font-size="12" text-anchor="start" fill="#222">least-squares fit</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_qr_svd.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_qr_svd.qu — QR and SVD decompositions, and a least-squares solve.</span>
+<span class="c">#</span>
+<span class="c"># `qr`/`svd` (like `ols_model`/`findpeaks`/`kalman_init`) return a</span>
+<span class="c"># `Value::Model` carrying their named results, rather than a MATLAB-style</span>
+<span class="c"># tuple -- Qu has no multi-return/tuple-unpacking assignment.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   qr(A)  -&gt; Model(.q, .r),    A = Q*R</span>
+<span class="c">#   svd(A) -&gt; Model(.u, .s, .vt), A = U * diag(s) * V'</span>
+<span class="c">#   the `\` left-division (linear solve) operator for a least-squares fit</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Setup — a small, hand-checkable matrix</span>
+A = [<span class="n">1</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">2</span>; <span class="n">1</span>, <span class="n">3</span>; <span class="n">1</span>, <span class="n">4</span>]     <span class="c"># (4,2) design matrix: column of ones + x</span>
+b = [<span class="n">6</span>, <span class="n">5</span>, <span class="n">7</span>, <span class="n">10</span>]
+
+<span class="c">#%% QR decomposition</span>
+qrf = <span class="f">qr</span>(A)
+<span class="f">print</span>(<span class="s">"Q = {qrf.q}"</span>)
+<span class="f">print</span>(<span class="s">"R = {qrf.r}"</span>)
+recon = qrf.q * qrf.r
+<span class="f">print</span>(<span class="s">"max |A - Q*R| = {max(abs(A - recon)):.2e}"</span>)
+
+<span class="c">#%% SVD</span>
+s = <span class="f">svd</span>(A)
+<span class="f">print</span>(<span class="s">"singular values = {s.s}"</span>)
+rank_est = <span class="f">length</span>(<span class="f">where</span>(s.s &gt; <span class="n">1e-9</span> * <span class="f">max</span>(s.s)))
+<span class="f">print</span>(<span class="s">"estimated rank = {rank_est}"</span>)
+
+<span class="c">#%% Least squares via the QR factors</span>
+<span class="c"># x = R \ (Q' * b)  solves min ||A*x - b||^2</span>
+Qtb = qrf.q' * b
+x = qrf.r \ Qtb
+<span class="f">print</span>(<span class="s">"least-squares fit: intercept={x[0]:.4f}, slope={x[1]:.4f}"</span>)
+
+resid = A * x - b
+<span class="f">print</span>(<span class="s">"residual norm = {norm(resid):.4f}"</span>)
+
+<span class="c">#%% Plot the fit</span>
+xs = A[:, <span class="n">1</span>]
+<span class="f">plot</span>(xs, b, <span class="a">marker</span>=<span class="s">"o"</span>, <span class="a">label</span>=<span class="s">"data"</span>)
+fit_line = A * x
+<span class="f">plot</span>(xs, fit_line, <span class="a">label</span>=<span class="s">"least-squares fit"</span>, <span class="a">color</span>=<span class="s">"orange"</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"y"</span>)
+<span class="f">title</span>(<span class="s">"QR-based least squares"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

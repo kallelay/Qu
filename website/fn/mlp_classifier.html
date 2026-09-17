@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mlp_classifier — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>mlp_classifier</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>mlp_classifier(in_dim, hidden_dims, n_classes, [seed=])</code></pre>
+<p class="fnnote">Input: in_dim, hidden_dims, n_classes, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Shortcut that builds a <code>dense_layer(..., activation="relu")</code> for every size in <code>hidden_dims</code> (a vector of positive integers, e.g. <code>[64, 32]</code>) followed by a final <code>dense_layer(..., activation="none")</code> down to <code>n_classes</code> (a positive integer) raw logits, then initializes them with <code>sequential</code> (optional integer <code>seed=</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = mlp_classifier(in_dim, hidden_dims, n_classes, [seed=])</code></td><td><div class="ioitem"><code>in_dim</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>hidden_dims</code> <span class="iotype">vector</span><span class="iodesc">Shortcut that builds a <code>dense_layer(..., activation="relu")</code> for every size in <code>hidden_dims</code> (a vector of positive integers, e.g.</span></div>
+<div class="ioitem"><code>n_classes</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>[64, 32]</code>) followed by a final <code>dense_layer(..., activation="none")</code> down to <code>n_classes</code> (a positive integer) raw logits, then initializes them with <code>sequential</code> (optional integer <code>seed=</code>).</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc"><code>[64, 32]</code>) followed by a final <code>dense_layer(..., activation="none")</code> down to <code>n_classes</code> (a positive integer) raw logits, then initializes them with <code>sequential</code> (optional integer <code>seed=</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model</span></div>
+</td><td>Returns an initialized, not-yet-fitted <code>kind="sequential"</code> Model; pair <code>.fit(X, Y, loss = "cross_entropy")</code> (one-hot <code>Y</code>) with <code>softmax_rows</code>/<code>argmax</code> on <code>.predict</code>'s output yourself.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
+c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
+c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
+c1y = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">4</span>)
+
+Xc0 = <span class="f">hstack</span>(<span class="f">reshape</span>(c0x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c0y, n_per_class, <span class="n">1</span>))
+Xc1 = <span class="f">hstack</span>(<span class="f">reshape</span>(c1x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c1y, n_per_class, <span class="n">1</span>))
+Xc = <span class="f">vstack</span>(Xc0, Xc1)             <span class="c"># (120, 2)</span>
+
+n = <span class="n">2</span> * n_per_class
+idx = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+y = <span class="f">floor</span>(idx / n_per_class)      <span class="c"># 0 for the first 60 rows, 1 for the last 60</span>
+
+<span class="k">function</span> <span class="f">one_hot</span>(labels, rows, k)
+    m = <span class="f">zeros</span>(rows, k)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        m[i, labels[i]] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> m
+<span class="k">end</span> <span class="k">function</span>
+
+Y = <span class="f">one_hot</span>(y, n, <span class="n">2</span>)
+
+net = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<span class="n">200</span>, <span class="a">lr</span>=<span class="n">0.1</span>, <span class="a">loss</span>=<span class="s">"cross_entropy"</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model, X, Ytrue, rows)
+    logits = model.<span class="f">predict</span>(X)
+    correct = <span class="n">0</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        <span class="k">if</span> <span class="f">argmax</span>(logits[i, :]) == <span class="f">argmax</span>(Ytrue[i, :]) <span class="k">then</span>
+            correct = correct + <span class="n">1</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> correct / rows
+<span class="k">end</span> <span class="k">function</span>
+
+acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
+<span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
+dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
+net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"layer count: {length(net.layers)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">optimizer</span> = <span class="f">adam</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"sequential + dropout_layer: loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+mc = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+Yc = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>]
+mc = mc.<span class="f">fit</span>(Xxor, Yc, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">loss</span> = <span class="s">"cross_entropy"</span>)
+nc = <span class="f">length</span>(mc.loss_history)
+<span class="f">print</span>(<span class="s">"mlp_classifier: loss {round(mc.loss_history[0], 4)} -&gt; {round(mc.loss_history[nc - 1], 4)}"</span>)
+preds = mc.<span class="f">predict</span>(Xxor)
+<span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p>primitives above, the same "convenience constructor, no new grammar" spirit as <code>sequential</code>/<code>gru_init</code>. <code>mlp_classifier</code> builds directly on the just-landed <code>sequential</code>/<code>dense_layer</code> API (a dense+relu stack is exactly what <code>sequential</code> already does), so its <code>.fit()</code>/<code>.predict()</code> are the ordinary <code>kind="sequential"</code> ones — no new dispatch needed at all. <code>simple_cnn</code>/<code>simple_rnn_classifier</code> can't reuse <code>sequential</code> the same way: <code>sequential</code>'s layer protocol only knows <code>"dense"</code>/<code>"dropout"</code> (see its own doc comment), and — per the existing CNN acceptance test's own reasoning — <code>conv2d</code>/ <code>gru_forward</code> don't fit that per-layer <code>dense(h, w, b)</code> shape at all (a <code>List</code>-of-images batch, and a column-shaped hidden state, respectively, not a <code>(n, features)</code> row matrix). Both are built directly on the raw tracked primitives (<code>conv2d</code>/<code>maxpool2d</code>/<code>gru_forward</code>/<code>param</code>/ <code>grad</code>) instead, each getting its own <code>ModelHandle.kind</code> (<code>"simple_cnn"</code>/<code>"simple_rnn_classifier"</code>) and a matching branch in the <code>"fit"</code>/<code>"predict"</code> builtins further down — see <code>simple_cnn_fit</code>/<code>simple_rnn_fit</code>'s own doc comments for the training loop (same per-epoch <code>param()</code>+<code>grad()</code>+manual- SGD idiom <code>sequential_fit</code> and the GRU/CNN acceptance tests already use, since <code>sgd</code>/<code>train_loop</code> only support one flat parameter). <code>mlp_classifier(in_dim, hidden_dims, n_classes, [seed=])</code> — <code>hidden_dims</code> a <code>Vec</code> of hidden layer sizes (e.g. <code>[64, 32]</code>). Builds <code>dense_layer(prev, h, activation="relu")</code> for each hidden size in turn, then a final <code>dense_layer(last, n_classes, activation="none")</code> — raw logits, "softmax-ready" (the task's own wording): pair with <code>fit(X, Y, loss="cross_entropy")</code> (one-hot <code>Y</code>) and read <code>predict(X)</code>'s <code>(n, n_classes)</code> output through <code>softmax_rows</code>/<code>argmax</code> yourself, exactly the same contract every other <code>kind="sequential"</code> model already has.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

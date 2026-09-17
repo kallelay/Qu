@@ -1,0 +1,61 @@
+# Every marker Qu draws, at the size a figure actually uses.
+#
+# A marker table is only useful at working size. Printed large, every
+# outline looks fine; at the 2-4 pt a real series uses, the question is
+# whether two of them can still be told apart -- so each row here shows the
+# glyph twice, hollow at 6 pt to check the shape and filled at 2.5 pt to
+# check it survives.
+#
+# Run:  qu run catalog/qu_markers.qu
+
+theme("publication")
+figure_size(7.16, 6.4, unit = "in")
+
+# name, and what it is for
+glyphs = ("o", "s", "D", "^", "v", "<", ">",
+          "p", "h", "8",
+          "*", "star6", "star4", "star8", "star12", "asterisk", "doublestar",
+          "P", "X", "x", "astroid",
+          "klee", "klee4", "flower", "daisy",
+          "heart", "spade", "club",
+          "gear", "snowflake", "flag",
+          "boxplus", "boxtimes", "boxdiamond",
+          "circleplus", "circletimes", "crosshair")
+
+names = ("o  circle", "s  square", "D  losange", "^  up", "v  down",
+         "<  left", ">  right",
+         "p  pentagon", "h  hexagon", "8  octagon",
+         "*  star", "star6", "star4", "star8", "star12", "asterisk",
+         "doublestar",
+         "P  plus", "X  cross", "x  stroke", "astroid",
+         "klee  3-leaf", "klee4  4-leaf", "flower", "daisy",
+         "heart", "spade", "club",
+         "gear", "snowflake", "flag",
+         "boxplus", "boxtimes", "boxdiamond",
+         "circleplus", "circletimes", "crosshair")
+
+# Six colours, cycled, so neighbouring rows never share one.
+inks = ("#1f77b4", "#d95319", "#2ca02c", "#7e2f8e", "#c0392b", "#0f7f7f")
+
+cols = 4
+n = len(glyphs)
+for i in 0 to n - 1
+    row = floor(i / cols)
+    col = i - row * cols
+    ink = inks[i - floor(i / 6) * 6]
+    # Hollow at 6 pt: the shape. Filled at 2.5 pt: the working size.
+    plot([col * 3.0 + 0.6], [-row], marker = glyphs[i], color = ink,
+         ms = pt(6), fill = false)
+    plot([col * 3.0 + 1.15], [-row], marker = glyphs[i], color = ink,
+         ms = pt(2.5), fill = true)
+    text(col * 3.0 + 1.5, -row + 0.24, names[i], color = "#333333")
+end for
+
+xlim(0, 12)
+ylim(-9.4, 0.9)
+title("Qu marker set: hollow at 6 pt, filled at 2.5 pt")
+
+# The axes carry no quantity here -- this is a specimen sheet, not a plot.
+xticks([])
+
+savefig("qu_markers.svg")

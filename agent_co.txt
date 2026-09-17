@@ -1,0 +1,585 @@
+=======================================================================
+REQUEST TO agent_co  --  from: version organizer (Qu maturity ladder)
+opened: 2026-09-10        reply: append below the REPLY line at the end
+=======================================================================
+
+You are being asked into the ASPIRE lane -- the top of Qu's ladder in
+ambition and the bottom in commitment. Rung 0.1.0-1.asp is defined as
+"looking here and there, inspiring to check how to make things more OOP,
+more easy, more intuitive." Its only two outcomes are: interesting and
+useful, which moves an idea toward 0.1.0-2.x and an experiment; or not,
+which moves it to Garbage.txt WITH ITS REASONING INTACT, so the next
+person to have the idea finds out why it was dropped instead of
+re-having it.
+
+Currently versions/aspire.tsv holds two rows and neither has a verdict.
+That is the state of the lane: it exists, and it is nearly empty.
+
+CONTEXT YOU NEED
+
+Qu is a scientific-computing language -- 838 builtins, aimed at the work
+MATLAB and NumPy are used for: signals, impedance spectroscopy, DSP,
+plotting, tables. Its function surface is FLAT: `fft(sig)`, `mean(x)`,
+`plot(x, y)`. Everything dispatches through one table (BUILTIN_NAMES in
+engine/crates/qu-interp/src/lib.rs).
+
+THE OPEN QUESTION
+
+Row 1 of aspire.tsv is method-call syntax on values -- `sig.fft()`
+beside `fft(sig)`. The objection recorded against it is not taste, it is
+drift: is it sugar over the SAME dispatch table, or a second surface
+that can disagree with the first? A second surface that can disagree is
+how you get a language where `sig.fft()` and `fft(sig)` quietly differ
+on unit handling, and nobody notices for a year.
+
+Row 2 is a presentation finding, not a language one: a 2026-09-09 audit
+of the public-release material found OOP elevated in the demos and the
+examples skewed advanced for a first-time reader.
+
+WHAT WOULD BE USEFUL FROM YOU
+
+Not a list of features. Specifically:
+
+  1. Is there a shape of method-call syntax that CANNOT drift from the
+     flat surface -- i.e. where the two are the same code path by
+     construction rather than by discipline? If yes, describe it
+     concretely enough to argue about. If no, say that: "this cannot be
+     done safely" is a verdict and it belongs in Garbage.txt.
+
+  2. What makes a scientific language INTUITIVE, in your reading, that
+     Qu does not do? Be concrete and be willing to be wrong. An idea
+     that gets rejected with a reason is worth more here than an idea
+     that gets politely shelved.
+
+  3. Which of your own suggestions would you kill? The Aspire lane's
+     value is its rejection rate. A lane where everything is
+     "interesting" is a lane that decides nothing.
+
+CONSTRAINTS THAT ARE NOT NEGOTIABLE, so you do not spend effort there
+
+  - Nothing leaves the repository. No publishing, no external hosting.
+  - Qu's own auxiliary tooling is written in Qu, not Python. Python is
+    reserved for genuine cross-language comparisons.
+  - Whatever you propose, someone has to test it, and Beta and above are
+    granted by Ahmed alone. Ideas that cannot be demonstrated to a
+    person are ideas that cannot climb the ladder.
+
+HOW TO REPLY
+
+  IDEA: <one line>
+  KIND: language | library | presentation | tooling
+  CASE FOR: <why it would make Qu easier or more intuitive>
+  CASE AGAINST: <the strongest objection you can construct, not a token one>
+  YOUR VERDICT: pursue | drop | needs-a-decision-from-Ahmed
+  IF DROP, WHY: <this is the part that gets written into Garbage.txt>
+
+Do not edit anything above this line. Append below it.
+
+=======================================================================
+REPLY
+=======================================================================
+
+agent_co reply -- 2026-09-10 -- Aspire review, not a maturity promotion
+
+FIRST, A CORRECTION TO THE PREMISE
+Method calls already exist. In engine/crates/qu-interp/src/lib.rs:7786,
+eval_call handles recv.method(args), prepends the receiver, and normally
+uses call_named, as flat calls do. eval_call_args is shared. The source
+even records an earlier method-keyword bug at this branch. BUILTIN_NAMES
+is a list of names, not the whole dispatch mechanism: call_named (11477)
+resolves user overloads, seed and axis behavior; call_builtin and
+ dispatch_builtin handle the builtin path.
+
+The sharing is useful but is not universal equivalence. Flat calls first
+check for a variable holding a function; receiver calls do not perform
+that same check. Module namespaces, GUI handles and record fields holding
+functions also have separate branches. A statement-level discarded-method
+warning is another observable distinction (warn_if_discarded_method_call).
+Do not describe every dotted call as flat-call sugar today.
+
+Evidence: using the existing engine/target/release/qu.exe:
+  qu eval 'x = [1, 2, 3]; print(mean(x)); print(x.mean()); print(fft(x)); print(x.fft()); mean = v => 99; print(mean(x)); print(x.mean())'
+Output: 2; 2; identical three-element FFTs; then 99; 2.
+  qu eval 'a = [1, 2, 3, 4] -> (2, 2); print(mean(a, axis=1)); print(a.mean(axis=1)); help("mean")'
+Output: [2, 3] twice. Help names the builtin and related names and points
+to catalog/, but does not give its signature or axis contract.
+These are smoke checks of the existing binary (dated 2026-09-09 19:59),
+not a rebuilt current-source test suite. Current source inspection agrees
+with the name-resolution mismatch; no engine implementation was changed.
+
+IDEA: Make receiver syntax lower to the exact ordinary-call AST before evaluation.
+KIND: language
+CASE FOR: Yes, a shape with one computation path is possible. The strict
+rule is Lower(Call(Field(r, f), args)) = Call(Name(f), [Pos(r)] + args).
+Recursively lower chains: r.f(a).g(b) becomes g(f(r, a), b). Keep the
+receiver expression as one argument node, never evaluate or copy it in a
+separate method evaluator. Preserve argument order and named keys and
+use the ordinary callee lookup, argument evaluation, callable-argument
+normalization, overload selection, keyword checks, units and backend
+selection. No runtime MethodCall dispatch and no second builtin table.
+This also preserves the flat call's callee-resolution timing if receiver
+or argument evaluation has side effects. Optimizers must see the same
+canonical nodes; source spans may differ for error locations. For the
+same environment and initial state, computation cannot differ merely
+because the user used a dot. This is a structural property, not a promise
+that somebody will keep two implementations synchronized.
+CASE AGAINST: Applying that rule to ALL existing dotted calls changes
+xlsx.read(path), GUI calls and records with callable fields. Preserving
+those exceptions means the equivalence has a stated boundary, not a
+universal guarantee. Runtime receiver inspection before lowering would
+also undermine the simple evaluation-order proof. Ahmed must choose
+between a strict meaning with a migration for the other call forms, or
+retaining their documented exceptions and using a distinct unambiguous
+form for strict receiver sugar. Do not silently change existing programs.
+The current syntax-specific discarded-result warning also needs an
+explicit decision if identical diagnostics are part of the contract.
+YOUR VERDICT: needs-a-decision-from-Ahmed
+IF DROP, WHY: Not dropped. Pursue the canonical-call experiment once the
+compatibility boundary is chosen; adding the dot syntax itself is stale
+work because it is already implemented.
+DEMONSTRATION GATE: Show equal normalized ASTs (ignoring source spans),
+then equal values/types/units/errors for both spellings. Include the
+function-variable counterexample above, user overloads, axis and seed,
+unknown keywords, a receiver with a counted side effect, argument-order
+side effects, and a function-valued receiver. Exercise module, GUI and
+record calls as explicit compatibility cases. A shared backend alone is
+insufficient evidence. No Beta or higher claim follows from this review.
+
+IDEA: Make one verified first-session route the default; defer OOP and advanced domains.
+KIND: presentation
+CASE FOR: Intuitive means a newcomer can reach a useful result and predict
+what the next instruction does. Qu already has a good foundation in
+book/src/getting-started/start-here.md and from-zero.md; it does not need
+another beginner tutorial. The concrete missing piece is consistency:
+README.md:54 runs examples/hello.qu, which is absent; start-here.md:23
+says to install from a downloads page, while quickstart.md:16 says there
+is no packaged installer. GETTING_STARTED.md begins with Studio frontend
+dependencies. Route the README to one tested CLI first session, with
+Studio as an optional next step. Start with readings, mean and a plot;
+state expected output, zero-based indexing and inclusive ranges beside
+the first use. Introduce method notation only after the flat example.
+CASE AGAINST: The README already leads with flat scientific code, and
+Start Here already teaches beginners. The old OOP audit is not evidence
+that every current page is bad. Removing useful domain examples or
+writing another tour would increase fragmentation. Narrow this proposal
+to fixing entry links, installation consistency and lesson order.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped.
+DEMONSTRATION GATE: A person follows the default route from a fresh local
+checkout, runs the supplied data without downloading private inputs,
+gets the stated mean and plot, then changes a reading and predicts the
+result. Record dead links, unexplained steps and actual output. Keep all
+review artifacts local; publishing is outside this request.
+
+IDEA: Give five beginner builtins executable call contracts and useful local help.
+KIND: tooling
+CASE FOR: Predictability also means knowing required arguments, shapes,
+axis conventions and return values before guessing. The observed
+help("mean") does not explain these. Experiment on mean, fft, plot,
+size and read_csv: a single contract definition consumed by validation
+and help, plus one runnable Qu example and expected result per builtin.
+Expose supported details only; explicitly identify anything not modeled.
+Use Qu for auxiliary generation/checking. This is a bounded experiment,
+not a request to handwrite a parallel registry for all 838 names.
+CASE AGAINST: Existing runtime dispatch and checks are complex; prose or
+an independent signature table can become another lying surface. A
+small schema may fail on overloads and units, or require an expensive
+refactor. Simple links to existing reference pages might outperform it.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped, but kill the metadata approach if it cannot
+share enforceable facts with runtime validation without duplicating them.
+DEMONSTRATION GATE: Have a reader choose mean's axis and repair an invalid
+call using local help. For the five functions, demonstrate that a contract
+change updates validation and displayed help together. Compare against
+the existing reference-link approach before widening the scope.
+
+IDEA: Build a separate OO wrapper library with its own numeric methods.
+KIND: library
+CASE FOR: Discoverable fluent calls and domain-specific names could make
+signal-processing scripts easier to read.
+CASE AGAINST: A second implementation of fft/mean/unit handling is exactly
+the drift risk raised in the request; receiver sugar already supplies
+chaining. Wrapper-specific defaults add a second scientific contract.
+YOUR VERDICT: drop
+IF DROP, WHY: Reject a parallel numeric method implementation. It adds
+maintenance and a place for units, keywords and defaults to disagree
+without providing a capability the shared call path lacks. Reconsider
+only a representation with a demonstrated missing capability and all
+computation delegated to the canonical call implementation. Check
+lib.rs eval_call/call_named and method_chain_runs before reviving it.
+
+IDEA: Make numerical calls forgiving by silently reshaping inputs or guessing units.
+KIND: language
+CASE FOR: Fewer errors may make the first script appear easier to write.
+CASE AGAINST: A plausible answer for the wrong axis or unit is harder to
+notice than an explicit error. Several interpretations can be valid;
+a language cannot infer the experimenter's intent from shape alone.
+YOUR VERDICT: drop
+IF DROP, WHY: Reject new silent recovery for ambiguous shapes or missing
+physical units. Ease means an explainable contract and actionable error,
+not guessing a scientific meaning. Existing explicitly specified
+broadcasting or unit conversion is not being rejected. Re-check this
+against README.md's "Silence is the worst failure" commitment and
+explicit shape/unit contracts in docs/qu-language-spec.md. A replacement
+must require an explicit operation or a uniquely defined documented rule.
+
+IDEA: Write a new OOP-first beginner tutorial to make Qu feel more intuitive.
+KIND: presentation
+CASE FOR: A uniform objects-and-methods story could make discovery easier
+for readers arriving from an object-oriented language.
+CASE AGAINST: Existing Start Here and From Zero already lead from numbers
+to scientific results. A new route increases contradictory instructions
+and requires an extra conceptual layer before the first measurement.
+YOUR VERDICT: drop
+IF DROP, WHY: Reject a duplicate OOP-first onboarding route. Repair the
+existing path instead; this rejection does not remove advanced OOP
+material. Re-check book/src/SUMMARY.md, start-here.md and from-zero.md
+before proposing another beginner chapter. Reopen only if an observed
+beginner task fails for a reason that revising those pages cannot solve.
+
+Disposition: two pursue experiments, one explicit Ahmed decision, three
+rejections. The two standing Aspire rows receive verdicts; local-help
+contracts are a new Aspire row. Rejection reports go to
+versions/garbage.tsv and the Qu generator renders them into Garbage.txt.
+No language change, maturity promotion, publication or hosting was done.
+Hourly checks should act on new requests, not repeat this completed review.
+
+=======================================================================
+agent_co follow-up -- 2026-09-10 -- registers, speed and language quality
+Ahmed asked: "What about prepare numbers for registers? How to make it
+faster? How to make the language Qu better?"
+
+Preparing execution before processing numbers is a useful direction.
+There are two different meanings of registers here:
+- Numbered variable slots: resolve names once, then operate on slots.
+  Qu already does this for supported scalar loops and functions; see
+  engine/crates/qu-interp/src/lib.rs:3634 (FastExpr/eval_fast), the
+  whole-function fast path around 4021, and CompiledFn around 4550.
+- Physical CPU/SIMD registers: compile a tight numeric kernel whose
+  intermediate values can stay inside the processor. Qu's Vec<f64>
+  slot array does not itself guarantee physical register allocation.
+Ahmed has not yet specified which meaning he intended; both are covered.
+
+IDEA: Prepare and fuse array expressions before evaluating their elements.
+KIND: language
+CASE FOR: For Y = A .* B + C, evaluate each output element in one loop:
+load A[i], B[i], C[i]; multiply then add; store Y[i]. The product can stay
+in a CPU register instead of a full temporary array. For three separate
+same-shaped input arrays, separate multiply/add operations require six
+logical element reads/writes (including the temporary); fusion requires
+four. This removes one intermediate allocation. It does not establish a
+speedup: caches, compilation cost, SIMD and workload size affect timing.
+Qu's numeric kernels are already native; the opportunity is combining
+operations. See benchmarks/README.md, Known gaps, and qu-core/src/matrix.rs.
+CASE AGAINST: Fusion must preserve defined types, shapes, units, aliasing,
+errors, function resolution and side effects. Restrict the first experiment
+to pure, same-shaped numeric arrays with validated preconditions. Avoid
+silently enabling floating-point reassociation or multiply-add contraction
+that changes existing rounding. Tiny arrays may lose to preparation cost;
+very large fused expressions can exhaust registers and spill to memory.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped; a bounded measured experiment, not a promise
+of a particular speedup or authorization to change numerical semantics.
+DEMONSTRATION GATE: Compare existing evaluation with a fused A .* B + C
+implementation on small and large arrays. Measure result correctness,
+total elapsed time, preparation time, repeat-call time and allocated bytes.
+Include NaN/infinity/signed-zero and aliasing cases. Preserve operation
+order under the existing numerical contract. Use Qu for auxiliary tooling;
+engine kernels remain in the engine's implementation language. No new
+benchmark or engine change was performed for this discussion.
+
+IDEA: Reuse prepared plans and broaden the existing scalar register tier where profiles justify it.
+KIND: language
+CASE FOR: Cache reusable plans so repeated computation does not repeatedly
+resolve names or rebuild expression trees. Extend the existing fast path
+to frequently encountered unsupported expressions, rather than starting
+another register subsystem. Current eval_fast still walks a typed tree;
+a compact instruction sequence is a possible experiment if that traversal
+is measured as costly. Existing whole-function caching is a starting point,
+not a missing feature to reimplement.
+CASE AGAINST: Cached plans become incorrect if function definitions,
+relevant types/shapes, captures or other specialization assumptions change.
+Require guards or invalidation for those assumptions. Do not cache input
+values when only the execution plan is reusable. More compilation and
+larger caches can hurt short-lived scripts, and scalar work may account
+for little of an array-heavy workload's total time.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped, conditional on representative profiles showing
+repeated preparation or unsupported scalar execution is material.
+DEMONSTRATION GATE: Record cache hit/miss and preparation costs; compare
+cold and repeated runs. Redefine a function or change an input type and
+verify correct invalidation/fallback. Optimize time saved in actual work,
+not the largest isolated slowdown ratio in a benchmark table.
+
+IDEA: Apply SIMD to suitable fused kernels and explain optimization choices.
+KIND: tooling
+CASE FOR: After eliminating unnecessary array passes, SIMD can process
+several elements per instruction. Expose preparation cost, selected path,
+allocations and concrete fallback reasons so a user can understand why a
+computation is slow. An unsupported operation should name the reason it
+prevented optimization. This makes performance discoverable.
+CASE AGAINST: Wider vectors do not fix excess memory traffic; register
+pressure, CPU support, tails and small-array setup can erase gains. SIMD
+reductions may alter floating-point order. LLVM documents these constraints
+at https://llvm.org/docs/Vectorizers.html#reductions . Explanation output
+must describe the actual chosen plan, not an independently maintained claim.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped; measure SIMD after establishing the fused baseline
+and preserve numerical behavior. No ISA-specific speed claims were measured.
+DEMONSTRATION GATE: Compare scalar and SIMD implementations over sizes,
+unaligned inputs and tail lengths; confirm supported CPU selection and
+fallback. Check explanation output against actual execution paths.
+
+Language quality remains part of the recommendation: consistent flat and
+method-call resolution, helpful signatures/shape information, and examples
+that execute on the current engine. A concrete documentation inconsistency
+found during this review is book/src/performance.md's obsolete description
+of while-condition name collection: current try_fast_while_plan around
+lib.rs:5605 already calls collect_fast_cond_names. Do not teach workarounds
+for a limitation the current source has removed; refresh affected claims
+with current measurements rather than copying historical timing ratios.
+
+Suggested order: (1) bounded fusion experiment, (2) reuse preparation where
+measured, (3) extend the scalar tier for demonstrated hot cases, (4) SIMD on
+suitable kernels, (5) explain actual optimization decisions. Explanation can
+be developed alongside each experiment. Historical benchmark notes identify
+candidates but do not prove current end-to-end speedups.
+
+This follow-up records recommendations only. No engine changes, performance
+measurements, maturity promotions or publication were made. Existing hourly
+checks remain responsible for new actionable file instructions; this saved
+answer is not itself a request to launch every proposed experiment.
+
+=======================================================================
+Ahmed's scope clarification -- 2026-09-10
+"It's for signal processing, math computation and machine learning."
+
+This clarifies the intended workloads; it does not choose between numbered
+variable slots and physical CPU registers. Evaluate both against these
+three application areas rather than treating scalar loops as the default.
+
+Representative performance gates:
+1. SIGNAL PROCESSING: an end-to-end window -> FFT -> spectral measurement
+   pipeline, FIR/IIR filtering, and repeated processing of signal blocks.
+   Measure throughput, per-block latency, allocations and numerical error.
+   Profile repeated transform setup, reusable buffers and surrounding
+   elementwise passes. Preserve state across blocks for streaming filters
+   where the API calls for it; do not assume every filter is parallel across
+   time samples. Hoist setup only when its inputs are unchanged.
+2. MATHEMATICAL COMPUTATION: elementwise expressions, reductions, matrix
+   multiplication, linear solves and repeated solves with an unchanged
+   coefficient matrix. Test realistic dimensions and memory use. Consider
+   reusable factorizations where applicable. Choose algorithms and remove
+   temporary arrays before assuming wider SIMD is the main missing piece.
+   Include small computations so setup costs cannot hide in large cases.
+3. MACHINE LEARNING: representative training steps and repeated inference,
+   including matrix operations, activations, reductions and gradient work
+   when relevant. Measure full-step latency, throughput, peak memory and
+   numerical agreement. Investigate per-element interpreter callbacks and
+   repeated allocations. Fuse only supported pure operations with the
+   correct forward and, where applicable, backward semantics. Explicitly
+   define precision; no silent f64-to-f32 change to obtain a faster number.
+
+An appropriate direction is a shared prepared numeric representation that
+can describe typed scalar operations, array operations, shapes, units where
+present, and side effects. It should enable guarded reuse, pure elementwise
+fusion and calls to existing specialized kernels. FFTs, factorizations and
+matrix products should retain suitable specialized algorithms; they do not
+all become one generic elementwise loop. Preserve each operation's defined
+semantics and use physical registers for short-lived values where generated
+code permits. Do not attempt to fit entire scientific arrays into registers.
+
+The previous priority ordering is provisional. Weight measured time saved
+by Ahmed's actual workload mix: a streaming filter, a large matrix solve
+and an ML training step can have different bottlenecks. Report per-domain
+results and complete pipelines, with cold versus repeated execution shown
+separately. Do not extrapolate a single fusion benchmark to all of Qu.
+
+Language-quality goal: users should be able to express these workloads
+clearly, inspect shape/type/unit and precision behavior, understand errors,
+and reproduce results. Automatic optimization should reduce the need for
+manual performance tricks while preserving the same computation.
+
+Recorded clarification and evaluation criteria only; no implementation,
+new measurement or maturity promotion is claimed.
+
+=======================================================================
+agent_co audit -- 2026-09-11 -- missing features and improvements
+Requested by Ahmed: "Check Qu for any suggestion and report missing
+features and how to improve it"; continued on his instruction.
+
+REPORT AND REPRODUCIBLE EVIDENCE
+Full report: D:/QuWorkspace/.claude/worktrees/codex-qu-audit-20260911/docs/reviews/qu-audit-2026-09-11.md
+Qu probes: D:/QuWorkspace/.claude/worktrees/codex-qu-audit-20260911/docs/reviews/qu-audit-2026-09-11.qu
+Captured output: D:/QuWorkspace/.claude/worktrees/codex-qu-audit-20260911/docs/reviews/qu-audit-2026-09-11-output.txt
+
+Source baseline: master snapshot 3cca819874bdb9995a4c5dc79c38a62b0e0f7ca9,
+isolated branch codex/qu-audit-20260911. The ROOT checkout is parked and
+286 master commits behind (with 3 unique commits), so it is not an oracle
+for current Qu. Initial root inspection/build was stopped after identifying
+this; findings were rechecked against the master snapshot. This append is
+in the root file because Ahmed explicitly uses it as this agent's mailbox.
+
+Runtime: existing relocated-session/engine/target/release/qu.exe, SHA256
+4D0F445711022DF7508C46432B24B0124C1A898A6501CC879C65D2293A5A1B57.
+The newer tic(1) -> help("tic") behavioral marker was checked. This does
+not establish exact binary commit provenance. No fresh master build or
+full regression suite is claimed. All 11 probe groups completed, exit 0;
+expected feature errors were caught, not treated as passing features.
+Source evidence matching each substantive runtime finding is in the report.
+
+IDEA: Reject unsupported or invalid dimensions before adding general N-D arrays.
+KIND: language
+CASE FOR: P04/P10 show zeros(2,3,4), zeros([2,3,4]) and ones(2,3,4)
+return size [2,3]; zeros(2.5,3) also returns [2,3]. shape_args marks all
+arguments read but consumes only two dimensions. Higher-dimensional MAT
+imports also flatten dimensions (source-only finding). Reject invalid
+rank/fractional dimensions immediately; preserve shape metadata in a later
+N-D representation with explicit strides and broadcasting.
+CASE AGAINST: Full N-D storage affects much of the engine; validation is a
+separate, smaller fix and must not wait for the whole tensor redesign.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: no silently ignored dimensions; invalid
+sizes fail before allocation; future N-D shape survives indexing/save/load.
+
+IDEA: Preserve fitted-model configuration and support explicit training continuation.
+KIND: library
+CASE FOR: P11 confirms fit returns a model without its prior loss or
+optimizer fields. P07 gives prediction_difference=0.000296 for four Adam
+epochs versus two calls of two epochs from the same initial weights.
+sequential_fit creates fresh optimizer state every call and returns only
+layers, params and histories. Keep configuration and optimizer buffers,
+step/scheduler/RNG state in an explicit resumable training record.
+CASE AGAINST: Some users may expect each fit to reset training; define
+resume/reset semantics explicitly. Existing model saving is real and must
+not be reported as absent; saving weights alone cannot restore discarded
+optimizer state. Optional HDF5 was not exercised.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: config survives fit; deterministic
+uninterrupted versus checkpoint/resume training agrees; explicit reset works.
+
+IDEA: Give filtfilt a documented boundary and initial-state policy.
+KIND: library
+CASE FOR: P02 applies a fourth-order 100 Hz lowpass at 1000 Hz to 100 ones:
+filtfilt returns first=0.601905, middle=1.000002, last=0.004824. The source
+explicitly uses no padding and resets state on both passes. Offer defined
+padding/initial-state handling and an explicit legacy/no-padding option.
+CASE AGAINST: Boundary artifacts cannot all be eliminated; changing defaults
+changes answers. This is a known simplification, not proof the filter-design
+library is wrong. Short records need their own defined behavior.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: constant, ramp and endpoint-impulse tests,
+short records, and a documented reference configuration, including edges.
+
+IDEA: Make unit behavior consistent across shapes and mathematical operations.
+KIND: language
+CASE FOR: P08 shows abs(9 ohm) errors while abs([1 ohm,-2.5 kohm])
+returns [1,2500] Ohm; sin(9 ohm) returns 0.412118. The vector result retains
+a displayed unit in this binary. Do not repeat the older blanket assertion
+that this vector operation strips units. Use shared operation contracts.
+CASE AGAINST: Some scalar unwrapping is deliberate in the current design;
+strict dimensional analysis is a compatibility decision, not just a fix.
+YOUR VERDICT: needs-a-decision-from-Ahmed
+IF DROP, WHY: Not dropped. Choose strict dimensional rules or documented
+coercion, then test scalar/vector/matrix behavior under the chosen contract.
+
+IDEA: Add inverse STFT with a complete reconstruction contract.
+KIND: library
+CASE FOR: stft is implemented but istft is absent and its call errors in
+P04. Define the window, hop, length, scaling, padding and overlap-add
+normalization together so spectral editing can return to a signal.
+CASE AGAINST: The existing forward transform keeps complete frames and
+uses a Hann window; information lost at boundaries cannot be recovered by
+simply adding an IFFT. Forward API changes may be necessary.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: round trips at awkward lengths and record
+boundaries; reject non-invertible window/hop combinations explicitly.
+
+IDEA: Add stateful block filtering using the existing step kernels.
+KIND: library
+CASE FOR: P03 verifies streaming sample-by-sample output matches batch
+output across all 200 samples (max_error=0). Streaming filters EXIST.
+filter_next rejects vector input, and its source reconstructs state/model
+buffers each sample. A block API can amortize that work while returning
+both outputs and final state.
+CASE AGAINST: No throughput deficit was measured here. A separate filter
+implementation would risk state drift; reuse the current SOS/FIR kernels.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: arbitrary block partitions yield the same
+samples and final state; measure allocations, throughput and block latency.
+
+IDEA: Add general sparse storage and carefully scoped sparse linear algebra.
+KIND: library
+CASE FOR: No general sparse value/CSR/CSC public representation was found
+in native engine/core; the MAT reader explicitly marks sparse arrays
+unsupported. Sparse-signal recovery exists but does not provide sparse
+matrix storage. Start with construction/matvec/transpose/dense conversion,
+then one solver selected for an actual scientific or ML workload.
+CASE AGAINST: Sparse operations are not always faster, and accidental
+densification can be disastrous. Solver assumptions must be explicit.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped, workload-dependent. Gate: memory and residuals
+on a real sparse case, with a small dense correctness oracle.
+
+IDEA: Make existing neural operations compose through a coherent tensor/layer API.
+KIND: library
+CASE FOR: Autodiff, convolution, recurrent and attention operations already
+exist. The narrower gap is composition: Sequential initialization accepts
+dense/dropout, while conv2d accepts a matrix image or a list of images with
+a matrix kernel. Pick a multichannel signal classifier and define its
+batch/channel/time axes, gradients and persistence end to end.
+CASE AGAINST: A broad tensor redesign is expensive; dedicated constructors
+may suffice for the ML Ahmed actually runs. Do not equate an absent layer
+constructor with an absent numerical operation.
+YOUR VERDICT: needs-a-decision-from-Ahmed
+IF DROP, WHY: Not dropped. Choose a target ML architecture first; gate on
+train/predict/save/load plus gradient and shape checks for that architecture.
+
+IDEA: Prototype bounded pure-array fusion before broad JIT work.
+KIND: language
+CASE FOR: Deferred := still evaluates eagerly (P06); val remains identity.
+General fusion of chained array operations is unfinished. Prototype
+A .* B + C, measure allocations and full pipeline time, and reuse plans
+only with valid guards. Scalar registers and whole-function caching EXIST.
+CASE AGAINST: Preparation may lose on small arrays; aliasing, effects,
+units and floating-point semantics constrain optimization. No new speed
+ratio was measured by this audit, and separate lazy bindings are not fusion.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: small/large, cold/repeated runs; correct
+results and allocated-byte counts; no silent reassociation or contraction.
+
+IDEA: Unify ordinary callable resolution across flat and method forms.
+KIND: language
+CASE FOR: P09 reconfirms mean=v=>99 gives mean(values)=99 while
+values.mean()=2 for values=[1,2,3]. The branches resolve callables differently.
+CASE AGAINST: Module, record-function and GUI member calls have existing
+semantics. A universal syntax rewrite cannot silently erase them.
+YOUR VERDICT: needs-a-decision-from-Ahmed
+IF DROP, WHY: Not dropped. Set the compatibility boundary; require matched
+lookup, argument order, keywords and errors within the promised domain.
+
+IDEA: Extend useful help and executable documentation with build provenance.
+KIND: tooling
+CASE FOR: help("fft") gives related names but no signature/normalization;
+help("hold") gives real command help. Extend the path that already works.
+The performance book still documents an old while-bound limitation that
+current try_fast_while_plan fixes. README references absent examples/hello.qu.
+Record actual source revision, binary identity and enabled features in audits.
+CASE AGAINST: Another unchecked prose registry would worsen drift; source
+occurrences and examples are not equivalent to numerical test coverage.
+YOUR VERDICT: pursue
+IF DROP, WHY: Not dropped. Gate: executable examples and verified contracts
+for fft/stft/filtfilt/mean/fit, including reproducible build identification.
+
+Priority: dimension validation and Sequential configuration/state first;
+filter boundaries and numeric contracts next; inverse STFT/block filtering
+and measured fusion after those. Sparse storage and a general ML layer
+model depend on actual workloads. Previously rejected broad rewrites,
+silent unit/shape guessing and duplicate numeric dispatch remain rejected.
+This report does not authorize changing language compatibility by assumption.
+
+All work stayed local. Artifacts are in the isolated audit worktree; other
+lanes' maturity TSVs and reports were not overwritten. No engine changes,
+merge, publication or Beta/higher promotion was performed. These entries
+are a completed audit response, not instructions for the hourly monitor
+to implement every proposed feature without a selected task.

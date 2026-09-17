@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cast — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cast</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>cast(x, type)</code></pre>
+<p class="fnnote">Input: x, type &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code> is any value; <code>type</code> is a <code>Str</code> naming the target: <code>num</code>, <code>bool</code>, <code>str</code>, <code>vec</code>, <code>mat</code>, <code>complex</code>, <code>cvec</code>, <code>cmat</code>, <code>signal</code>, <code>mask</code>, <code>table</code>, <code>model</code>, <code>list</code>, <code>record</code>, <code>image</code>, <code>timer</code>, <code>file</code>, <code>worker</code>, <code>mutex</code>, <code>semaphore</code>, <code>none</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cast(x, type)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>x</code> is any value.</span></div>
+<div class="ioitem"><code>type</code> <span class="iotype">Str or bool</span><span class="iodesc"><code>type</code> is a <code>Str</code> naming the target: <code>num</code>, <code>bool</code>, <code>str</code>, <code>vec</code>, <code>mat</code>, <code>complex</code>, <code>cvec</code>, <code>cmat</code>, <code>signal</code>, <code>mask</code>, <code>table</code>, <code>model</code>, <code>list</code>, <code>record</code>, <code>image</code>, <code>timer</code>, <code>file</code>, <code>worker</code>, <code>mutex</code>, <code>semaphore</code>, <code>none</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a value of that kind. A conversion that is not defined is an error, not a best effort.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
+  <span class="f">print</span>(n)                               <span class="c"># [1, 2.5, -3]</span>
+  s = <span class="f">cast</span>([<span class="n">1</span>, <span class="n">2.5</span>, -<span class="n">3</span>], <span class="s">"str"</span>)
+  <span class="f">print</span>(s)                               <span class="c"># ("1", "2.5", "-3")</span>
+  b = <span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>)
+  <span class="f">print</span>(b)                               <span class="c"># 42, via method-chain sugar</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>cast(value, tag)</code> — explicit type conversion between real Qu value kinds, using the SAME closed tag vocabulary (<code>qu_syntax::TYPE_TAGS</code>) typed function parameters already use (<code>num, bool, str, vec, ...</code>) rather than a parallel naming scheme. Deliberately distinct from <code>x as vector(3)</code> (<code>Expr::As</code>/<code>apply_shape_contract</code>), which is a shape *contract* check on an already-typed value, not a type conversion — the two features solve unrelated problems and must not collide. Only the pairings below are wired up (most of the 21×21 possible (source, target) combinations are meaningless, e.g. casting a <code>signal</code> to a <code>worker</code>); anything else is a clear named error, never a silent no-op or a panic. Automatically gets <code>x.cast(tag)</code> method-chain syntax for free via the existing generic <code>recv.method(args) == method(recv, args)</code> sugar (<code>eval_call</code>) — no extra wiring needed here for that.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

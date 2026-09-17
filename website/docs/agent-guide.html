@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Guide — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html" class="here">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Agent Guide</h1>
+<nav class="onthispage"><a href="#s0">First: is the binary you are about to trust current?</a><a href="#s70">Quick arithmetic</a><a href="#s105">Reading files</a><a href="#s138">Text</a><a href="#s162">Collections</a><a href="#s193">Timing</a><a href="#s219">Finding your way without leaving Qu</a><a href="#s274">When you get the arguments wrong</a><a href="#s326">A worked example</a><a href="#s362">Traps</a><a href="#s387">When you edit this file</a></nav>
+<p>Qu is the language for tooling in this repository — parsing a file, summarising a CSV, checking an assumption, doing arithmetic you would otherwise do in your head. Python is reserved for what it is uniquely for here: running the *other* side of a cross-language comparison.</p>
+<p>That rule erodes for one reason. Reaching for Python is a reflex, and the reflex wins whenever "how do I do this in Qu?" takes longer to answer than just writing the Python. So this guide is organised around the tasks people reach for Python for, not around the language's features.</p>
+<p><strong>Every example here was run before it was written</strong>, from <code>docs/guide_probe.qu</code>, which contains them all in one file. If you change an example, run it. The rule exists because the failure mode in this document is not a broken example — it is a *plausible* one.</p>
+<hr>
+<h2 id="s0">First: is the binary you are about to trust current?</h2>
+<p>Stale artefacts are the most productive source of wrong conclusions in this project — a stale binary and a stale source tree both answer every question fluently and never mention being stale. <strong>Timestamps do not tell you.</strong> Ask the binary something only a current one answers:</p>
+<pre><code>qu eval 'tic(1)'
+</code></pre>
+<ul>
+<li>suggests <strong></strong><code>help("tic")</code><strong> → post-2026-09-10, safe to trust</strong></li>
+<li>suggests <strong></strong><code>available("tic")</code><strong> → older, </strong>do not draw conclusions from it<strong></strong></li>
+</ul>
+<p>Measured across five binaries on one machine:</p>
+<pre><code>  09-09 14:18   PRE-FIX    qu-studio-tauri sidecar
+  09-09 19:59   PRE-FIX    D:/QuWorkspace engine
+  09-09 21:37   PRE-FIX    a worktree build
+  09-10 15:21   PRE-FIX    &lt;- built the SAME DAY as the one below
+  09-10 18:07   POST-FIX
+</code></pre>
+<p>Two builds three hours apart on the same day fall on opposite sides. No ordering of mtimes would have told you which.</p>
+<p>I have a stake in this one. The fix it detects is mine, from that afternoon — and the <code>09-10 15:21</code> binary above is also mine, the one I had just used to verify a different fix. <strong>The probe exists because a stale binary would have hidden my own work from me</strong>, and it flags my own build.</p>
+<p><strong>It is a FLOOR, not a version.</strong> It separates "predates 2026-09-10" from "does not". It cannot tell you how current a passing binary is, and once nothing that old survives it will pass for everything and tell you nothing. A dated probe that outlives its subject becomes a false all-clear — which is the same failure one generation on. If you need "current as of today", pick a defect fixed today and probe for that instead.</p>
+<p>Two companion habits, same reasoning:</p>
+<ul>
+<li><strong>Read source with </strong><code>git show master:&lt;path&gt;</code><strong>, not from a working tree you have not verified. A worktree can be hundreds of commits behind and looks identical.</strong></li>
+<li><strong>A ~2,000-line offset for the same function in the same file is staleness, not a different function.</strong> Line-number drift is the tell: a citation at 30287 where master has 32386 is one tree being old, not two functions with one name.</li>
+</ul>
+<hr>
+<h2 id="s70">Quick arithmetic</h2>
+<p>The commonest thing anyone opens Python for, and the least defensible.</p>
+<div class="example"><pre class="hl"><code>bytes_moved = <span class="n">1500000</span> * <span class="n">51</span> * <span class="n">8</span>
+gb = bytes_moved / <span class="n">1e9</span>
+<span class="f">print</span>(<span class="s">"moved {gb} GB"</span>)                       <span class="c"># moved 0.612 GB</span>
+
+secs = <span class="n">0.0269</span>
+<span class="f">print</span>(<span class="s">"effective {bytes_moved / secs / 1e9} GB/s"</span>)   <span class="c"># 22.750929 GB/s</span>
+</code></pre>
+</div>
+<p><code>{...}</code> inside a string interpolates an expression, so there is no <code>format</code>/f-string ceremony for the common case. Put a script in a scratch file and <code>qu run scratch.qu</code>.</p>
+<hr>
+<h2 id="s105">Reading files</h2>
+<p>Whole file as text:</p>
+<div class="example"><pre class="hl"><code>txt = <span class="f">read_all_text</span>(path)
+<span class="f">print</span>(<span class="s">"chars: {len(txt)}"</span>)
+</code></pre>
+</div>
+<p>Line by line — <code>lines()</code> splits, <code>trim()</code> first so a trailing newline does not hand you an empty last line:</p>
+<div class="example"><pre class="hl"><code><span class="k">for</span> line <span class="k">in</span> <span class="f">lines</span>(<span class="f">trim</span>(txt))
+    parts = <span class="f">split</span>(line, <span class="s">","</span>)
+    <span class="f">print</span>(<span class="s">"  {parts[0]} -&gt; {parts[1]}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div>
+<p>A CSV goes straight to a table, with headers:</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">read_csv</span>(path, <span class="a">headers</span> = <span class="k">true</span>)
+<span class="f">print</span>(<span class="s">"rows: {nrow(t)}"</span>)
+<span class="f">print</span>(<span class="f">head</span>(t, <span class="n">2</span>))
+</code></pre>
+</div>
+<pre><code>name  score
+----  -----
+a         1
+b         4
+</code></pre>
+<p><code>tmp_file()</code> gives you a scratch path and <code>write_text(path, s)</code> fills it — enough to make a fixture inline rather than shipping a data file with a probe script.</p>
+<p>Also there: <code>read_csv</code>, <code>write_csv</code>, <code>parse_csv</code>, <code>parse_json</code>, <code>parse_xml</code>, <code>read_all</code>, <code>file_exists</code>, <code>file_size</code>, <code>list_files</code>, <code>glob</code>, <code>load</code>, <code>save</code>. For binary, the typed readers — <code>read_int16</code>, <code>read_uint32</code>, <code>read_double</code>, <code>read_structs</code> — are a complete toolkit; see the worked example below.</p>
+<hr>
+<h2 id="s138">Text</h2>
+<div class="example"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
+<span class="f">print</span>(<span class="s">"[{trim(s)}]"</span>)              <span class="c"># [Measurement Lane]</span>
+<span class="f">print</span>(<span class="f">upper</span>(<span class="f">trim</span>(s)))             <span class="c"># MEASUREMENT LANE</span>
+<span class="f">print</span>(<span class="f">contains</span>(s, <span class="s">"Lane"</span>))        <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">replace</span>(s, <span class="s">"Lane"</span>, <span class="s">"Window"</span>))
+</code></pre>
+</div>
+<p>Regex — <strong>the string comes first, the pattern second</strong>:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"abc123"</span>, <span class="s">"[0-9]+"</span>))     <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">regex_count</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))  <span class="c"># 3</span>
+</code></pre>
+</div>
+<p>Also <code>regex_find</code>, <code>regex_find_all</code>, <code>regex_groups</code>, <code>regex_replace</code>, <code>regex_split</code>, plus <code>starts_with</code>, <code>ends_with</code>, <code>index_of</code>, <code>substr</code>, <code>pad_left</code>, <code>split</code>, <code>chars</code>.</p>
+<hr>
+<h2 id="s162">Collections</h2>
+<p>A <code>(...)</code> literal is a <strong>list</strong> and a <code>[...]</code> literal is a <strong>vector</strong>. The list is the general container; the vector is numeric and is what maths operates on. Build a list by appending:</p>
+<div class="example"><pre class="hl"><code>acc = ()
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">6</span>
+    acc = <span class="f">append</span>(acc, i * i)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(acc)          <span class="c"># (1, 4, 9, 16, 25, 36)</span>
+<span class="f">print</span>(<span class="f">len</span>(acc))     <span class="c"># 6</span>
+</code></pre>
+</div>
+<p><code>filter</code> and <code>fold</code> take the name of a function you defined, <strong>as a string</strong>:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(n)
+    <span class="k">return</span> n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">add2</span>(a, b)
+    <span class="k">return</span> a + b
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="f">filter</span>(acc, <span class="s">"is_even"</span>))     <span class="c"># (4, 16, 36)</span>
+<span class="f">print</span>(<span class="f">fold</span>(acc, <span class="s">"add2"</span>, <span class="n">0</span>))       <span class="c"># 91</span>
+</code></pre>
+</div>
+<p>Also <code>map</code>, <code>reduce</code>, <code>sort</code>, <code>sort_by</code>, <code>unique</code>, <code>first</code>, <code>last</code>, <code>take</code>, <code>drop</code>, <code>zip</code>, <code>group_by_agg</code>, <code>dict</code>, <code>keys</code>, <code>values</code>, <code>items</code>, <code>table</code>.</p>
+<hr>
+<h2 id="s193">Timing</h2>
+<p>One global stopwatch. <code>tic()</code> and <code>toc()</code> take no arguments.</p>
+<div class="example"><pre class="hl"><code><span class="f">tic</span>()
+<span class="c"># ... work ...</span>
+dt = <span class="f">toc</span>()          <span class="c"># a number, in seconds</span>
+</code></pre>
+</div>
+<hr>
+<h2 id="s219">Finding your way without leaving Qu</h2>
+<p>You do not have to grep the source or the book to find a function:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">apropos</span>(<span class="s">"csv"</span>))
+</code></pre>
+</div>
+<pre><code>("csv2json", "csv2xml", "csvify", "json2csv", "parse_csv", "read_csv",
+ "write_csv", "xml2csv")
+</code></pre>
+<p><code>help(name)</code> prints a function's documentation, <code>describe(x)</code> summarises a value, and <code>type(x)</code> names its kind. A misspelled call already suggests the nearest match, so a wrong guess is cheap.</p>
+<hr>
+<h2 id="s274">When you get the arguments wrong</h2>
+<p>Qu catches it, and tells you the arity:</p>
+<div class="example"><pre class="hl"><code><span class="f">tic</span>(<span class="n">1</span>)
+<span class="c"># tic: 1 arguments given, but tic reads 0 arguments -- 1 would be silently</span>
+<span class="c"># ignored. Check the order, or `help("tic")` for related names and worked</span>
+<span class="c"># examples.</span>
+</code></pre>
+</div>
+<p><strong>There is currently no way to ask a builtin for its signature from inside Qu.</strong> <code>help(name)</code> gives the name, related names, and a pointer to <code>catalog/</code>; it does not state parameters, for any builtin. <code>apropos(name)</code> finds names. Neither answers "what are the arguments, in what order".</p>
+<p>For that, read the function's page in the book, or — usually faster — find a real call:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">help</span>(<span class="s">"read_csv"</span>))
+<span class="c">#   read_csv is a Qu builtin.</span>
+<span class="c">#   related: read, re</span>
+<span class="c">#   worked examples live in catalog/ -- search it for `read_csv(`.</span>
+</code></pre>
+</div>
+<p>That last line is the honest route: <code>catalog/</code> is full of working scripts, and a real call answers the question a signature would.</p>
+<p>This entry is here twice over. The error message first suggested <code>available("tic")</code> — a <strong>serial port</strong> builtin, so following it produced a second, stranger error. That was fixed to <code>help(...)</code>, still promising "for what it takes" — which <code>help</code> does not do for any of the six builtins I checked. A quieter false promise, but the same one. The message now claims only what <code>help</code> returns.</p>
+<p><strong>A well-written wrong answer is harder to catch than a badly-written one.</strong> That message names the failure, the consequence and a remedy; it reads beautifully; it was reviewed and praised. Nobody ran the remedy.</p>
+<p><strong>This message's own history doubles as a way to date a binary.</strong> Three texts have existed for this exact error, in order: <code>available("tic")</code> "for what it takes" (wrong — <code>available</code> is the serial-port builtin), <code>help("tic")</code> "for what it takes" (still wrong — <code>help</code> doesn't state parameters), then <code>help("tic")</code> "for related names and worked examples" (the current, accurate one, shown above). Running <code>qu eval 'tic(1)'</code> and checking which text comes back tells you which side of each fix the binary is on — useful when several builds of the same worktree are floating around a shared machine and you need to know whether the one in hand actually has a change you're relying on.</p>
+<p>One real trial of this, the first done independently rather than by whoever wrote the fix: a binary came back with the FIRST text (<code>available</code>). Traced to source rather than assumed — that binary's own worktree still had the old string verbatim, several commits behind where the second and third fixes landed. The probe called it correctly.</p>
+<p><strong>A failed probe answers "is this binary current for THIS fix", not "is this binary usable."</strong> Those are different questions, and it is a mistake to collapse them in either direction: don't discard a binary that failed this one probe if the work in front of you touches none of what the probe is dating, and don't wave the failure off as harmless just because the work in front of you happened to be fine — check what your work actually depends on before concluding either way. In the one real trial above, the stale binary was still completely correct for every builtin the task at hand used (none of them were behind any recent fix) — both things were true at once, and neither one excused skipping the check on the message this probe actually dates.</p>
+<hr>
+<h2 id="s326">A worked example</h2>
+<p><code>catalog/qu_prm_loader.qu</code> is a complete binary-format parser — a Re-Volt <code>.PRM</code> 3D mesh reader — written <strong>entirely in Qu</strong>, on <code>read_structs</code> and <code>read_int16</code>, with no new engine code. 109 lines, including a header whose two counts appear in different orders across game builds and are disambiguated by checking each reading against the file's actual length.</p>
+<p>Read it before assuming a job needs Python. It is the honest answer to "can Qu really do this kind of work".</p>
+<hr>
+<h2 id="s362">Traps</h2>
+<p>Everything below produces a <strong>wrong answer or a confusing error</strong>, not an obvious failure. They are here because they cost real time.</p>
+<p><strong>The dangerous failure is not the one that returns nothing — it is the one that returns something believable.</strong> Read that twice before writing a smoke test.</p>
+<h3>A variable named <code>where</code> cannot be subscripted</h3>
+<p><code>where</code> is a builtin, and assigning to it is accepted. The variable is <strong>fine</strong> — it is the *indexing* that breaks, because <code>where[...]</code> reads as the masking builtin rather than as an index into your value:</p>
+<div class="example"><pre class="hl"><code>where = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
+<span class="f">print</span>(<span class="f">len</span>(where))        <span class="c"># 3       &lt;- the list is intact</span>
+<span class="f">print</span>(where[<span class="n">0</span>])          <span class="c"># []      &lt;- no error, no warning</span>
+</code></pre>
+</div>
+<p>That <code>len</code> is correct is the cruel part: everything you check to reassure yourself looks right, and only the subscript lies. <strong>If a variable reads back empty but its length is correct, check the name against the builtins.</strong></p>
+<p><code>where</code> is the only name I found that does this. <code>filter</code>, <code>find</code> and <code>at</code> are builtins too and are <strong>not</strong> affected — <code>filter = [10, 20, 30]</code> then <code>filter[0]</code> gives <code>10</code>. They are named here only so nobody renames a working variable on a rumour.</p>
+<h3>A reversed regex can return <code>true</code></h3>
+<p><code>regex_match(s, pattern)</code> — string first. Reversed, it does not reliably return <code>false</code>; it returns <code>true</code> whenever the pattern text occurs literally in the string, which includes the case where you test it against itself:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"[0-9]+"</span>, <span class="s">"abc123"</span>))    <span class="c"># false</span>
+<span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"[0-9]+"</span>, <span class="s">"[0-9]+"</span>))    <span class="c"># true   &lt;- a smoke test passes</span>
+</code></pre>
+</div>
+<p>So the tell is a count or result that looks plausible, not a zero.</p>
+<h3>A nested list literal is not a matrix</h3>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
+<span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)))  <span class="c"># [2, 2]</span>
+</code></pre>
+</div>
+<p>No error. Every reduction over it then answers about four numbers rather than two rows, and <code>axis=</code> looks ignored.</p>
+<p>And <code>as matrix</code> fills <strong>column-major</strong>: <code>[1,2,3,4] as matrix(2,2)</code> is <code>[1, 3; 2, 4]</code>, not <code>[1, 2; 3, 4]</code>.</p>
+<h3>Lists are not vectors</h3>
+<p><code>(1, 2)</code> has no arithmetic and does not stack:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>((<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>) <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>,<span class="n">2</span>))     <span class="c"># cannot reshape a list</span>
+<span class="f">print</span>(<span class="f">hstack</span>((<span class="s">"a"</span>,), (<span class="s">"b"</span>,)))       <span class="c"># expected a number, found list</span>
+</code></pre>
+</div>
+<p>Use <code>[...]</code> when you want maths, <code>(...)</code> when you want a container.</p>
+<h3>Asserting on contiguous text in generated SVG</h3>
+<p><code>render_math_svg</code> splits text into runs wherever styling changes, so the input string does not appear contiguously in the output. A test asserting that it does <strong>fails against correct output</strong> — the renderer is right and the assertion is wrong, which is the expensive direction.</p>
+<p>Assert on a property that survives the split — the script font-size, say — rather than on the input string appearing in the result.</p>
+<h3><code>step</code> is a keyword and fails loudly</h3>
+<p>Not a silent trap — filed here so it is not confused with one:</p>
+<pre><code>step = [10, 20, 30]
+<span class="e">qu: parse error at 1:1: unexpected Keyword("step") in expression</span>
+</code></pre>
+<p>Column 1, line 1, before anything runs. Same for other keywords used as names.</p>
+<h3><code>mod</code> is an operator, not a function</h3>
+<div class="example"><pre class="hl"><code>n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>        <span class="c"># correct</span>
+<span class="k">mod</span>(n, <span class="n">2</span>)           <span class="c"># parse error: unexpected Keyword("mod") in expression</span>
+</code></pre>
+</div>
+<p>Same for <code>and</code>, <code>or</code>, <code>not</code>, <code>in</code>, <code>to</code>, <code>step</code>, <code>by</code>.</p>
+<h3>Define functions before you use them</h3>
+<p>A function defined *below* its first use is not found:</p>
+<pre><code>where: no user function named `is_even`
+</code></pre>
+<p>Hoist definitions to the top of a probe script. This bites specifically when you add a helper while debugging and append it at the bottom.</p>
+<h3>A bare <code>{</code> in a string interpolates — sometimes silently</h3>
+<p><code>{...}</code> inside a string is an expression to evaluate. If the name inside happens to exist, there is <strong>no error at all</strong> and your prose changes under you:</p>
+<div class="example"><pre class="hl"><code>set = <span class="n">42</span>
+<span class="f">print</span>(<span class="s">"the {set} of values"</span>)     <span class="c"># the 42 of values</span>
+</code></pre>
+</div>
+<p>That is the form that bites, because the words most likely to appear in a sentence — <code>set</code>, <code>value</code>, <code>n</code>, <code>x</code> — are also the names most likely to be live variables.</p>
+<p>If the name does *not* exist you get a <strong>runtime</strong> error, not a parse error:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"literal {braces} here"</span>)
+<span class="c"># qu: runtime error: `braces` is not defined</span>
+</code></pre>
+</div>
+<p>Which matters for tooling: the file passes a parse check clean, so a corpus-acceptance run that only parses will give it a pass.</p>
+<p>A nested double-quoted string inside <code>{...}</code> also breaks the parse — hoist the value to a variable first.</p>
+<h3>Every range is inclusive</h3>
+<p><code>0 to 9</code> is ten values. So is a slice: <code>v[0:4]</code> is five elements. To take the first <code>n</code>, write <code>v[0:n - 1]</code>.</p>
+<h3>Comments are <code>#</code>, not <code>//</code></h3>
+<p><code>//</code> parses as division and fails on line one.</p>
+<h3>Elementwise operators are dotted</h3>
+<p><code>*</code> is matrix multiplication and <code>^</code> is matrix power; <code>.*</code> and <code>.^</code> are elementwise. On a 300x300 grid <code>^</code> silently computes a matrix power.</p>
+<h3>Assignment inside a function is local</h3>
+<p>Reads fall through to module scope; writes do not. Declare <code>global</code> to write through.</p>
+<h3><code>import</code> runs the WHOLE target file, top level included</h3>
+<p><code>import "path.qu"</code> executes every top-level statement in that file, not just its function definitions — including a demo or self-test written at the bottom of it. This one needs two files, so it is outside <code>guide_probe.qu</code>'s single-file convention; run directly instead (<code>lib.qu</code> defines <code>double</code> and prints on load, <code>caller.qu</code> imports it):</p>
+<pre><code>$ qu run caller.qu
+lib_with_toplevel.qu ran its own top level
+caller ran, double(21) = 42
+imported a second time
+</code></pre>
+<p>A caller who only wants <code>double</code> gets that print anyway, on the first import — there is no <code>if __name__ == "__main__":</code> equivalent to guard it. A file meant to be imported for its functions should not put a demo at its top level; a file that does both (this repo's own convention — <code>backend auto</code> then <code>#%%</code>, so a module both documents and proves itself when run directly) will fire that demo's side effects — extra output, extra work, and for a plotting demo specifically, extra shapes drawn into whatever figure the importer already had open (see the two plotting traps above) — on whoever imports it first.</p>
+<p><strong>One thing this is NOT</strong>: importing the SAME file a second time does not re-run it — Qu tracks already-imported paths and skips the repeat, which is exactly what <code>imported a second time</code> above proves (no second <code>lib_with_toplevel.qu ran its own top level</code> line). The cost is paid once, on first import, not on every one.</p>
+<h3>A filled shape defaults to 18% opacity</h3>
+<p><code>polygon(xs, ys, fill = "...")</code>, and any other shape drawn with <code>fill=</code>, renders at <code>alpha = 0.18</code> unless you say otherwise. Tuned for stacking several translucent fills (<code>area()</code>-style) so each stays visible under the others — but it applies just the same to a single shape, and to anyone drawing SOLID fills, which is exactly what a filled map region or a triangle-mesh renderer needs:</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#ff0000"</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">contains</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"opacity=\"0.18\""</span>))   <span class="c"># true</span>
+</code></pre>
+</div>
+<p>No error, no warning — the SVG just has a faint fill, or, if several such shapes overlap, the ones meant to occlude each other show straight through instead. Pass <code>alpha = 1.0</code> explicitly for a solid fill.</p>
+<h3><code>figure_size(...)</code> sets the canvas, it does not clear it</h3>
+<p>Only the bare <code>figure()</code> (no arguments) starts a blank canvas. Sizing an existing one leaves whatever was already drawn in place — shapes drawn before it keep accumulating:</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
+<span class="f">polygon</span>([<span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">3.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#0000ff"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">regex_count</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"&lt;polygon"</span>))   <span class="c"># 2, not 1</span>
+</code></pre>
+</div>
+<p>Same distinction as matplotlib's <code>plt.figure()</code> versus a <code>figsize=</code> kwarg. A function meant to be callable more than once per run — or called after ANY other plotting in the same run, including another function's own self-test firing on <code>import</code> (see above) — should call <code>figure()</code> itself before drawing, rather than assume it starts clean. Found by rendering two different meshes back to back through one shared render function: the second SVG silently contained the first mesh's leftover triangles too, at their own old coordinates, layered underneath.</p>
+<hr>
+<h3><code>bitand</code>/<code>bitor</code>/<code>bitxor</code>/<code>bitcmp</code>/<code>bitshift</code> round-trip through</h3>
+<h3><code>f64</code> on the way OUT, not just on the way in</h3>
+<p>Every value in Qu is a 64-bit float, exact only up to <code>2^53</code>. It is easy to assume that's only a hazard for the INPUTS to a bitwise op — check that your operands fit, and the result is safe. It isn't: the engine computes the correct answer internally as a real integer, then casts <code>as f64</code> to return it, which is a SECOND, separate rounding — one that can corrupt a result even when both inputs were exact:</p>
+<div class="example"><pre class="hl"><code>r = <span class="f">bitor</span>(<span class="n">9007199254740992</span>, <span class="n">1</span>)   <span class="c"># 2^53 OR 1 -- both operands exact</span>
+<span class="f">print</span>(r)          <span class="c"># 9007199254740992 -- unchanged!</span>
+<span class="c"># true answer:      9007199254740993 -- odd, and f64 only represents</span>
+<span class="c">#                   EVEN integers exactly once you're past 2^53</span>
+</code></pre>
+</div>
+<p>Found porting SHA-256 (Qu-8 lane, 2026-09-16): <code>bitor(21248329, 91260882377506816)</code> returns <code>91260882398755152</code> in Qu; the true integer OR is <code>91260882398755145</code> — silently off by 7, no error, no warning. Confirmed by reading the source (<code>engine/crates/qu-interp/src/lib.rs</code>, the <code>"bitand"</code>/<code>"bitor"</code>/<code>"bitxor"</code>/<code>"bitcmp"</code>/<code>"bitshift"</code> builtin arms): all five share the identical pattern, <code>(int_arg(...) &lt;op&gt; int_arg(...)) as f64</code> — the internal arithmetic is exact, correct 64-bit integer math; only the RETURN cast loses it.</p>
+<p><strong>The practical rule this changes</strong>: it is not enough for the value you actually care about to fit under <code>2^53</code> (or under 32/53 significant bits, however you're framing it) — every INTERMEDIATE result that passes back out through one of these five builtins is a chance to lose precision, even in a chain where the final answer would have been fine. A 32-bit rotate built as <code>bitor(bitshift(x, -n), bitshift(x, 32 - n))</code> is a real example that breaks: the unmasked left-shift term can need up to 63 raw bits before you mask it back down to 32, and that intermediate value round-trips through the same lossy <code>as f64</code> return on its way out of <code>bitshift</code> alone, before <code>bitor</code> ever sees it. The fix in that case is to mask each shifted half down to its intended width BEFORE combining them, not after — never let an oversized intermediate touch one of these five builtins at all.</p>
+<p><strong>No engine-level fix decided yet</strong> — whether these should gain a genuine integer return path, or whether large-magnitude bitwise work is simply out of scope for a float-backed <code>Value::Num</code>, is a real design question, flagged to Ahmed rather than patched here.</p>
+<hr>
+<h2 id="s387">When you edit this file</h2>
+<p>Two rules, both learned by nearly getting them wrong:</p>
+<p>1. <strong>Run every example, before and after.</strong> An earlier draft of the shadowing entry said <code>where</code> was a reserved keyword — which is what the failure looks like. Running it showed <code>where = 1</code> is fine and the real mechanism is builtin shadowing with silent empty results: different, and worse. A guide whose purpose is stopping confidently-wrong probes cannot itself be confidently wrong.</p>
+<p>2. <strong>A correct example can conceal a trap by being correct.</strong> The nested-literal entry used <code>as matrix</code> — correct, and therefore it never showed the form *without* it, which is the one that bites. Look for places your examples do the right thing in a way that never demonstrates the adjacent wrong thing.</p>
+<p>3. <strong>Testing the mechanism is not testing the claim.</strong> The sharpest example is this file's own history. An earlier draft said <code>where</code> was a reserved keyword; that was tested, found wrong, and corrected to builtin shadowing — good work. The corrected *mechanism* was then applied to four more builtin names without testing any of them. Three of the four are innocent, and the fourth (<code>step</code>) is a keyword, which is what the original discarded instinct had said. A later edit repeated the same move: it copied the list of five forward on the strength of having verified one.</p>
+<p>Getting the mechanism right does not license generalising past the evidence. Run each name.</p>
+<p>4. <strong>And the mirror: disproving a claim is not disproving the mechanism behind it.</strong> The <code>where</code> entry went the other way too. Someone proposed that <code>help</code> answers for command verbs but not for real builtins — a correct model. Their example was wrong (<code>tic</code> is in the stub class, not the command-verb class), and when the example fell, the model was discarded with it and rewritten as "help is uniformly useless". It is not: <code>help("hold")</code> returns a real description.</p>
+<p>That mattered practically. "Uniformly useless" tells whoever fixes it they are starting from zero; "works for one class, not the other" tells them to extend a path that already exists. Different job, different size. When an example fails, check whether it took the rule down with it or only itself.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

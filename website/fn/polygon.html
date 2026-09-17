@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>polygon — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>polygon</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>polygon(xs, ys)</code></pre>
+<p class="fnnote">Input: xs, ys &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Draws a closed shape connecting the points <code>(xs[i], ys[i])</code> in order and back to the first. <code>xs</code> and <code>ys</code> are equal-length Vecs of numbers (data units).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>polygon(xs, ys)</code></td><td><div class="ioitem"><code>xs</code> <span class="iotype">Vec or number</span><span class="iodesc"><code>xs</code> and <code>ys</code> are equal-length Vecs of numbers (data units).</span></div>
+<div class="ioitem"><code>ys</code> <span class="iotype">&mdash;</span><span class="iodesc">Draws a closed shape connecting the points <code>(xs[i], ys[i])</code> in order and back to the first.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#ff0000"</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">contains</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"opacity=\"0.18\""</span>))   <span class="c"># true</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
+<span class="f">polygon</span>([<span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">3.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#0000ff"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">regex_count</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"&lt;polygon"</span>))   <span class="c"># 2, not 1</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code><span class="c"># A square canvas, so that equal ranges really are equal scales and the</span>
+<span class="c"># circle below comes out round. Without it the figure would render an</span>
+<span class="c"># ellipse while the paragraph above it explained how to avoid one.</span>
+<span class="f">figure_size</span>(<span class="n">560</span>, <span class="n">560</span>)
+<span class="f">xlim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+<span class="f">ylim</span>(-<span class="n">2</span>, <span class="n">2</span>)
+axis equal
+<span class="f">circle</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">fill</span> = <span class="s">"royalblue"</span>)
+<span class="f">ellipse</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.6</span>, <span class="n">0.7</span>, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">rotate</span> = <span class="n">30</span>)
+<span class="f">arc</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.3</span>, <span class="n">0</span>, <span class="n">120</span>, <span class="a">color</span> = <span class="s">"seagreen"</span>, <span class="a">width</span> = <span class="n">2</span>)
+<span class="f">polygon</span>([<span class="n">0.8</span>, <span class="n">1.6</span>, <span class="n">1.2</span>], [-<span class="n">1.6</span>, -<span class="n">1.6</span>, -<span class="n">0.9</span>], <span class="a">color</span> = <span class="s">"purple"</span>, <span class="a">fill</span> = <span class="s">"plum"</span>)
+<span class="f">rectangle</span>(-<span class="n">1.8</span>, -<span class="n">1.8</span>, -<span class="n">1.2</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"orange"</span>)
+<span class="f">rect</span>(<span class="n">1.0</span>, -<span class="n">1.8</span>, <span class="n">1.8</span>, -<span class="n">1.2</span>, <span class="a">color</span> = <span class="s">"teal"</span>)
+<span class="f">point</span>(<span class="n">0</span>, <span class="n">1.9</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>polygon(xs, ys)</code> — a closed shape through the given points. Two vectors rather than a list of pairs, because that is how every other drawing call here takes coordinates and how the data usually arrives.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>savefig — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>savefig</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>savefig(path, [embed_fonts=])</code></pre>
+<p class="fnnote">Input: path, embed_fonts &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Exports the current figure to <code>path</code> (string, a filesystem path); format is chosen by the file extension. <code>.svg</code>, <code>.html</code>/<code>.htm</code> (an SVG embedded in a minimal page), <code>.tikz</code>/<code>.tex</code> (LaTeX/TikZ source) and <code>.pdf</code> are implemented and share one draw-command list so they never visually disagree. <code>.png</code> is <strong>not implemented</strong> for a whole figure (it needs a real 2-D rasterizer) and raises a clear error saying so; <code>save_image(path, img)</code> does write a PNG of raster <code>Value::Image</code> content. <code>embed_fonts=</code> (bool) inlines the actual font bytes (only possible for the curated <code>fontfamily(...)</code> presets), subset to the glyphs the figure actually draws so a journal-theme figure costs tens of kilobytes rather than the whole font file; it defaults to on under a print-ready theme and off otherwise. A <code>.pdf</code> always embeds its faces, and subsets them the same way.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>savefig(path, [embed_fonts=])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc">Exports the current figure to <code>path</code> (string, a filesystem path).</span></div>
+<div class="ioitem"><code>embed_fonts</code> <span class="iotype">bool, optional</span><span class="iodesc"><code>embed_fonts=</code> (bool) inlines the actual font bytes (only possible for the curated <code>fontfamily(...)</code> presets), subset to the glyphs the figure actually draws so a journal-theme figure costs tens of kilobytes rather than the whole font file.</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>.svg</code>, <code>.html</code>/<code>.htm</code> (an SVG embedded in a minimal page), <code>.tikz</code>/<code>.tex</code> (LaTeX/TikZ source) and <code>.pdf</code> are implemented and share one draw-command list so they never visually disagree. A <code>.pdf</code> always embeds its faces, and subsets them the same way.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>(t, noisy, <span class="a">color</span> = <span class="s">"#b0b0b0"</span>)
+<span class="f">plot</span>(t, signal, <span class="a">color</span> = <span class="s">"#0072BD"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">savefig</span>(<span class="s">"my-first-figure.pdf"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>(v, v .^ <span class="n">2</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"x^2"</span>)
+grid on
+<span class="f">savefig</span>(<span class="s">"squares.pdf"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#ff0000"</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">contains</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"opacity=\"0.18\""</span>))   <span class="c"># true</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
+<span class="f">polygon</span>([<span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">3.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#0000ff"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">regex_count</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"&lt;polygon"</span>))   <span class="c"># 2, not 1</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

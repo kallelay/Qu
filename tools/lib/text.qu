@@ -1,0 +1,357 @@
+# tools/lib/text.qu — the helpers every site generator was writing again.
+#
+# Nine tools under `tools/` and, between them, five copies of `esc`, three
+# of `strip_ticks`, three of `inline`, two of `highlight`. They had already
+# drifted: two spellings of `esc` and two of `strip_ticks`, functionally the
+# same but no longer one function. That is what a language without modules
+# costs, and it stopped being a hypothetical the day a generator had to read
+# HTML back out of `website/docs/` because it could not share the
+# highlighter with the tool that wrote it.
+#
+# Qu has modules, and since imports resolve relative to the importing file,
+# a tool can say `import "lib/text.qu"` and be run from anywhere.
+#
+#   import "lib/text.qu"          # from a file in tools/
+#   import "lib/text.qu" as text  # ... or namespaced
+
+BT = "`"
+IDENT_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+# The three characters that change meaning inside HTML. Ampersand first --
+# escaping it after the others would double-escape what they produced.
+#
+# First, undo the OTHER escaping a table cell carries: a literal `|`
+# is written `\|` in the markdown source so `split_cells` doesn't read
+# it as a column boundary (e.g. `box`'s `box on\|off`). That escaping
+# is only meaningful for parsing the table -- left in, a reader sees
+# the backslash. Found via `gen_function_pages.qu`'s box.html, which
+# had been silently rendering it for who knows how long.
+function esc(s)
+    s = replace(s, "\\|", "|")
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    return replace(s, ">", "&gt;")
+end function
+
+# `` `sqrt` `` -> `sqrt`. Markdown table cells name functions in backticks
+# and every generator has to take them off again.
+function strip_ticks(s)
+    out = ""
+    for k in 0 to len(s) - 1
+        c = substr(s, k, 1)
+        if c != BT
+            out = out + c
+        end if
+    end for
+    return trim(out)
+end function
+
+# Whether `c` can appear in a Qu identifier. Used to match a name as a whole
+# word: without it, `n` matches inside `snr` and the wrong row gets the
+# wrong description.
+function is_ident(c)
+    return contains(IDENT_CHARS, c)
+end function
+
+function seen(xs, nm)
+    for x in xs
+        if x == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+function index_of_name(xs, nm)
+    for k in 0 to len(xs) - 1
+        if xs[k] == nm
+            return k
+        end if
+    end for
+    return -1
+end function
+
+# The cells of one markdown table row.
+#
+# A cell may hold an escaped pipe -- `axis scale x\|y`, or
+# `[method="linear"\|"spline"]`. Splitting the row on every `|` cuts such a
+# cell in half and shifts every cell after it left, which is how
+# `interp1`'s line in the builtin index came to read `"spline"\`. Split on
+# the unescaped pipes only, then put the real ones back.
+PIPE_HOLD = chr(1)
+
+# Restored to `\|`, NOT a bare `|` -- an escaped pipe in the source is
+# semantically different from one that was never there, and a consumer
+# downstream needs to tell them apart. Restoring to bare `|` here was the
+# earlier version of this function, and it is what let `md_cell_text`
+# re-escape an already-safe `\|Z\|` into `\/Z\/` one call site later: by
+# the time that function saw the text, the escape was already gone, so
+# every pipe looked equally bare. Each consumer now converts `\|` to
+# whatever ITS format needs (see `md_cell_text` and `rust_str`).
+function split_cells(line)
+    out = ()
+    for cell in split(replace(line, "\\|", PIPE_HOLD), "|")
+        out = append(out, replace(cell, PIPE_HOLD, "\\|"))
+    end for
+    return out
+end function
+
+# Inline markdown code spans, enough for a one-line description: `x` becomes
+# <code>x</code>. HTML-escaped first, so a description mentioning `<` cannot
+# close a tag.
+function md_inline(s)
+    s = esc(s)
+    out = ""
+    open = false
+    for i in 0 to len(s) - 1
+        c = substr(s, i, 1)
+        if c == BT
+            if open
+                out = out + "</code>"
+            else
+                out = out + "<code>"
+            end if
+            open = not open
+        else
+            out = out + c
+        end if
+    end for
+    if open
+        out = out + "</code>"
+    end if
+    return out
+end function
+
+# ---------------------------------------------------------------------
+# Turning a chapter table's description cell into ONE line.
+#
+# Moved here from `gen_builtin_index.qu` when `gen_builtin_docs.qu` became
+# a second consumer. It is shared rather than copied for a specific
+# reason: the naive version of this -- `split(desc, ". ")[0]` -- looks
+# correct and is wrong on roughly a quarter of the corpus, so two
+# independent implementations would not merely duplicate work, they would
+# disagree, and the one that got it wrong would look plausible.
+# ---------------------------------------------------------------------
+
+# Is this sentence about an ARGUMENT rather than about the function?
+#
+# Chapter cells are commonly written argument-first -- "`x`: a length-N
+# real vector. `max_lag` (optional number, ...): highest lag to compute.
+# Returns a vector ...". Taking the first sentence of that gives the index
+# a row reading "`x`: a length-N real vector" under `acf`, which describes
+# a parameter and never says what the function does. 242 of ~830 rows read
+# that way.
+#
+# The shape to detect is a backticked identifier at the very start,
+# followed by the punctuation that introduces its type: "`x`:", "`x` is",
+# "`x` (", "`g` is a `graph` handle".
+function is_arg_sentence(s)
+    t = trim(s)
+    # The same thing said without opening on the name: "Each of `a`, `b`,
+    # ... is a `Vec`/`List`", "Takes one argument, `on` (a boolean)",
+    # "One argument `mask` (...)", "With no arguments: an empty store".
+    # All of them describe the call's inputs, none says what it computes.
+    low = lower(t)
+    for lead in ("each of ", "each `", "takes no argument", "takes one argument",
+                 "takes two arguments", "takes three arguments", "one argument ",
+                 "two arguments", "three arguments", "four arguments",
+                 "with no arguments", "the argument ", "both arguments ",
+                 "otherwise `")
+        if starts_with(low, lead)
+            return true
+        end if
+    end for
+    if not starts_with(t, BT)
+        return false
+    end if
+    close = index_of(substr(t, 1, len(t) - 1), BT) ?? -1
+    if close < 0
+        return false
+    end if
+    name = substr(t, 1, close)
+    if len(name) == 0 or len(name) > 24 or contains(name, " ")
+        return false
+    end if
+    rest = trim(substr(t, close + 2, len(t) - close - 2))
+    for lead in (":", "is ", "(", ",", "and ", "or ", "/")
+        if starts_with(rest, lead)
+            return true
+        end if
+    end for
+    return false
+end function
+
+# A description is one line in the index, so a long one is cut at the first
+# sentence -- the first sentence that describes the FUNCTION, skipping any
+# the author wrote about its arguments first. The chapter still has the
+# whole thing, and that is where the link goes.
+function one_line(s)
+    s = trim(replace(s, "**", ""))
+
+    # Sentences, without splitting inside an ellipsis. "a type declared
+    # with `enum ... end` (not a string)" contains ". " in the middle of
+    # its `...`, and splitting there gave `enum_values` an index row
+    # reading "end` (not a string".
+    # An abbreviation ends in a dot too. "(e.g. `qu run analyse.qu -- ...`)"
+    # split inside its own parenthesis and left `argv`'s row ending "(e.g".
+    hold = chr(2)
+    egh = chr(3)
+    ieh = chr(4)
+    vsh = chr(5)
+    held = replace(s, "...", hold)
+    held = replace(held, "e.g. ", egh)
+    held = replace(held, "i.e. ", ieh)
+    # "vs." ends in a dot too, and 6 chapter rows use it. Without this,
+    # `bode_magnitude`'s "Magnitude half of a Bode plot: 20*log10(|Z|) vs.
+    # frequency" was cut to "... vs", losing the half that says what the
+    # x axis is.
+    held = replace(held, "vs. ", vsh)
+    parts = ()
+    for part in split(held, ". ")
+        p = replace(part, hold, "...")
+        p = replace(p, egh, "e.g. ")
+        p = replace(p, ieh, "i.e. ")
+        parts = append(parts, replace(p, vsh, "vs. "))
+    end for
+
+    picked = ""
+    for i in 0 to len(parts) - 1
+        one = trim(parts[i])
+        # Skip what the author wrote about the ARGUMENTS -- both the
+        # "`x`: a length-N real vector" form and the "Takes no arguments"
+        # that opens a nullary function's entry. Neither says what the
+        # function does, which is the one question an index answers.
+        if is_arg_sentence(one)
+            continue
+        end if
+        picked = one
+        # "Returns a `bool`." is true and useless. When the sentence that
+        # describes the function is this thin, carry the next one with it
+        # -- for `and` that is the short-circuit rule, which is the whole
+        # reason to look the function up.
+        if len(picked) < 30
+            if i + 1 < len(parts)
+                picked = picked + ". " + trim(parts[i + 1])
+            else
+                # Nothing follows: the entry's substance is in the sentence
+                # about its arguments, so use the whole cell rather than
+                # print "Returns a new 3x3 `Mat`" and call it a description.
+                picked = s
+            end if
+        end if
+        break
+    end for
+    # Every sentence was about the arguments: keep the text rather than
+    # emptying the row. A parameter description is a poor summary, but it
+    # beats a blank and it shows as a gap to fix in the chapter.
+    if len(picked) == 0
+        picked = s
+    end if
+    s = picked
+
+    # Long entries are cut at a word boundary rather than at the first
+    # dash. An em dash in this codebase introduces the substance -- "Complex
+    # argument — the angle from the positive real axis" -- so cutting there
+    # threw away the half that explains the half it kept.
+    if len(s) > 190
+        cut = 190
+        for k in 120 to 189
+            if substr(s, k, 1) == " "
+                cut = k
+            end if
+        end for
+        s = trim(substr(s, 0, cut)) + "..."
+    end if
+    if ends_with(s, ".")
+        s = substr(s, 0, len(s) - 1)
+    end if
+    # Returned VERBATIM. This used to end `replace(s, "|", "/")`, because a
+    # pipe would close a Markdown table cell early -- true, but that is the
+    # Markdown consumer's problem, not a property of the sentence. Once a
+    # second consumer existed (a Rust string table, where a pipe is just a
+    # pipe) the escape became silent corruption: `bode_magnitude`'s
+    # "20*log10(|Z|)" came out as "20*log10(/Z/)", turning a magnitude into
+    # a division, in 15 rows. Each consumer escapes for its own format now
+    # -- `md_cell` is the Markdown one.
+    return s
+end function
+
+# Escape a one-line description for a Markdown TABLE CELL: a pipe would
+# close the cell early and take the rest of the row with it.
+#
+# A source chapter can ALREADY carry a correctly-escaped `\|` -- its own
+# table cell needed the same protection this function exists to add. This
+# used to re-escape those too, turning the already-safe `\|Z\|` into
+# `\/Z\/`: the exact "20*log10(|Z|)" -> "20*log10(/Z/)" corruption this
+# file's own history above describes, just reintroduced one call site
+# later. Protect any `\|` first so it passes through unchanged, and only
+# convert pipes that are genuinely bare.
+function md_cell_text(s)
+    placeholder = "@@ESCAPED_PIPE@@"
+    s = replace(s, "\\|", placeholder)
+    s = replace(s, "|", "/")
+    s = replace(s, placeholder, "\\|")
+    return s
+end function
+# ---------------------------------------------------------------------
+# Which column of a chapter table holds the description.
+#
+# Shared for the same reason as `one_line` below: this was already copied
+# into two generators and the copies had begun to drift (in comments
+# first, which is how it always starts).
+# ---------------------------------------------------------------------
+# Is this line a markdown table's own separator row (`|---|---|---|`,
+# alignment colons optional) rather than a DATA row that merely
+# contains a dash-heavy substring somewhere in its prose?
+#
+# Found the hard way: `progress()`'s own chapter row illustrates its
+# output inline -- `[####------] 42% (420/1000) ...` -- and six
+# consecutive hyphens is exactly the shape every generator here used
+# to test for with a bare `contains(line, "---")`. That matched the
+# DATA, not the table syntax, so the row was silently read as this
+# table's separator (used only to look up `desc_column` from the
+# header above it) and skipped entirely -- never reaching the actual
+# name/signature/summary extraction below. `tic`/`toc`, the two rows
+# immediately before it in the same table, have no triple-hyphen
+# substring anywhere and so never tripped it.
+#
+# A real separator row, once every `|`/`-`/`:` is stripped out, has
+# nothing left. A data row -- however dash-heavy its prose -- still
+# has letters. `contains(t, "-")` on the ORIGINAL (unstripped) line
+# guards against an edge case in the other direction: a header
+# immediately followed by a genuinely blank line should not itself
+# read as a separator just because stripping punctuation from nothing
+# leaves nothing.
+function is_separator_row(line)
+    t = trim(line)
+    if len(t) == 0
+        return false
+    end if
+    stripped = trim(replace(replace(replace(t, "|", ""), "-", ""), ":", ""))
+    return len(stripped) == 0 and contains(t, "-")
+end function
+
+# Which column of a table holds the description. Most chapters use
+# `| Function | Signature | Description |`, but not all of them do, and a
+# fixed column number silently reads whatever happens to sit there -- the
+# noise chapter's `| Kind | Models | Spectrum |` once had `uniform`
+# documented as "Flat". So ask the header.
+function desc_column(header)
+    cells = split_cells(header)
+    n = len(cells) - 2
+    if n < 2
+        return 2
+    end if
+    for i in 2 to n
+        h = lower(trim(cells[i]))
+        if contains(h, "description") or contains(h, "what it") or contains(h, "meaning") or contains(h, "models") or contains(h, "result") or contains(h, "properties")
+            return i
+        end if
+    end for
+    # No named description column: the usual three-column shape puts it
+    # third, and a two-column table has nowhere else for it to be.
+    if n >= 3
+        return 3
+    end if
+    return 2
+end function

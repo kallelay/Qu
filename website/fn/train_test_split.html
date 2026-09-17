@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>train_test_split — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>train_test_split</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code></pre>
+<p class="fnnote">Input: X, y, test_size, seed, shuffle &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into training and test sets, <code>X</code> and <code>y</code> permuted together by the same random order (unless <code>shuffle=false</code>). <code>test_size</code> is a number in <code>(0, 1)</code> giving the test fraction (default 0.2), and <code>seed=</code> an optional integer.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix or vector</span><span class="iodesc">Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into training and test sets, <code>X</code> and <code>y</code> permuted together by the same random order (unless <code>shuffle=false</code>).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">matrix or vector</span><span class="iodesc">Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into training and test sets, <code>X</code> and <code>y</code> permuted together by the same random order (unless <code>shuffle=false</code>).</span></div>
+<div class="ioitem"><code>test_size</code> <span class="iotype">number, optional (default <code>0.2</code>)</span><span class="iodesc"><code>test_size</code> is a number in <code>(0, 1)</code> giving the test fraction (default 0.2), and <code>seed=</code> an optional integer.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">number, optional</span><span class="iodesc"><code>test_size</code> is a number in <code>(0, 1)</code> giving the test fraction (default 0.2), and <code>seed=</code> an optional integer.</span></div>
+<div class="ioitem"><code>shuffle</code> <span class="iotype">matrix or vector, optional (default <code>true</code>)</span><span class="iodesc">Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into training and test sets, <code>X</code> and <code>y</code> permuted together by the same random order (unless <code>shuffle=false</code>).</span></div>
+</td><td><div class="ioitem"><code>X_test</code> <span class="iotype">&mdash;</span><span class="iodesc">matrices</span></div>
+<div class="ioitem"><code>y_test</code> <span class="iotype">vector</span><span class="iodesc">vectors</span></div>
+</td><td>Returns a Record with <code>X_train</code>, <code>X_test</code> (matrices), <code>y_train</code>, <code>y_test</code> (vectors).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
+scaler = <span class="f">fit_scaler</span>(split.X_train, <span class="a">method</span> = <span class="s">"standard"</span>)
+<span class="f">print</span>(<span class="s">"training column means: {round(scaler.mean, 3)}"</span>)
+
+Xtr = scaler.<span class="f">transform</span>(split.X_train)
+Xte = scaler.<span class="f">transform</span>(split.X_test)
+<span class="f">print</span>(<span class="s">"train columns after scaling: {round(mean(Xtr, axis = 0), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"test columns after scaling:  {round(mean(Xte, axis = 0), 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>Xc = <span class="f">randn</span>(<span class="n">200</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">41</span>)
+yc = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> Xc[i, <span class="n">0</span>] + Xc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        yc[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+s = <span class="f">train_test_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model)
+    yhat = model.<span class="f">predict</span>(s.X_test)
+    hit = yhat == s.y_test
+    <span class="k">return</span> <span class="f">len</span>(yhat[hit]) / <span class="f">len</span>(yhat)
+<span class="k">end</span> <span class="k">function</span>
+
+names = (<span class="s">"knn"</span>, <span class="s">"tree"</span>, <span class="s">"forest"</span>, <span class="s">"bayes"</span>)
+scores = (
+    <span class="f">accuracy</span>(<span class="f">knn_model</span>(s.X_train, s.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">tree_model</span>(s.X_train, s.y_train, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">random_forest_model</span>(s.X_train, s.y_train, <span class="n">40</span>, <span class="a">seed</span> = <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">naive_bayes_model</span>(s.X_train, s.y_train))
+)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">3</span>
+    <span class="f">print</span>(<span class="s">"{names[i]}: {round(scores[i], 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">bar</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>, scores, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">values</span> = <span class="k">true</span>)
+<span class="f">xticks</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>)
+<span class="f">xticklabels</span>(names)
+<span class="f">ylim</span>(<span class="n">0</span>, <span class="n">1</span>)
+<span class="f">ylabel</span>(<span class="s">"test accuracy"</span>)
+<span class="f">title</span>(<span class="s">"held-out accuracy, same split"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code> — scikit-learn's <code>train_test_split</code>: a random row permutation (<code>shuffle=true</code>, the default) split into a leading train fraction and a trailing test fraction, <code>X</code>/<code>y</code> permuted in lockstep so no row's features and label ever separate. An explicit <code>seed=</code> gives a fresh reproducible local RNG stream (two calls with the same <code>seed=</code> produce byte-identical splits); omitted, it advances the interpreter's persistent stream instead — the same fork <code>randn</code>'s own doc comment describes, not a new convention. <code>shuffle=false</code> keeps the original row order (see <code>sequential_split</code> for why that's also exposed under its own name). Returns a <code>"split"</code> model handle with <code>.X_train</code>/<code>.X_test</code>/<code>.y_train</code>/<code>.y_test</code> fields.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

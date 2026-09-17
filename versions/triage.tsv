@@ -1,0 +1,59 @@
+# HAND-CONFIRMED TRIAGE of the dotted-call names.
+#
+# DO NOT REGENERATE THIS FILE WITH A SCRIPT. Every row was confirmed by
+# reading the call sites. The verification lane tried to automate it
+# twice: the first heuristic cleared 35 of 36 uniformly (nothing
+# legitimately does that, which is how it was caught), and the second
+# scored 12/12 against hand-read names and STILL misclassified viterbi
+# and diff, because it gave up walking after 25 lines and none of the
+# twelve happened to sit far from its `run(`. Its own phrasing: "12/12
+# bought real confidence in the wrong thing."
+#
+# That is why this is data and not a derivation.
+#
+# Columns, tab-separated:
+#   name	verdict	confirmed_by	date	note
+#
+# verdict is one of:
+#   qu-tested   already exercised by Qu tests; the counter cannot see it
+#               because a dotted call in a .rs file is ambiguous. Needs
+#               only a small .qu test to become COUNTABLE -- the coverage
+#               already exists. Cheap.
+#   rust-only   every dotted hit is a Rust host method. Genuinely
+#               untested. Needs real tests.
+estimate	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+forward	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+inverse_transform	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+move	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+reset	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+simulate	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+stationary	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+transform	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+update	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+add_edge	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+add_node	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+at	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+has_edge	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+index	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+is_full	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+neighbors	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+peek	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+pop	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+pop_back	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+pop_front	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+push_back	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+push_front	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+shortest_path	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+swap	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+freqz	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+fvtool	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+pzplot	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+viterbi	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+diff	qu-tested	verification lane	2026-09-11	dotted calls read by hand and found to be Qu method calls
+push	rust-only	verification lane	2026-09-11	every dotted hit is Rust, e.g. sequences.push(mat_value(...)); 90 dotted calls, the high count was itself the hint
+count	rust-only	verification lane	2026-09-11	every dotted hit is Rust, e.g. it.out.matches(...).count()
+is_empty	rust-only	verification lane	2026-09-11	every dotted hit is a Rust host method
+chars	rust-only	verification lane	2026-09-11	every dotted hit is a Rust host method
+lines	rust-only	verification lane	2026-09-11	every dotted hit is a Rust host method
+ceil	rust-only	verification lane	2026-09-11	every dotted hit is a Rust host method
+matmul	rust-only	verification lane	2026-09-11	every dotted hit is a Rust host method

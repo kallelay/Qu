@@ -1,0 +1,67 @@
+[workspace]
+members = [
+    "qu-core",
+    "qu-dsp",
+    "qu-data",
+    "qu-ml",
+    "qu-gpu",
+    "qu-wasm",
+]
+exclude = ["qu-studio-tauri/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Qu Language Team"]
+license = "Apache-2.0"
+
+[workspace.dependencies]
+# Internal crates
+qu-core = { path = "./qu-core" }
+qu-dsp = { path = "./qu-dsp" }
+qu-data = { path = "./qu-data" }
+qu-ml = { path = "./qu-ml" }
+qu-gpu = { path = "./qu-gpu" }
+
+# External dependencies
+wasm-bindgen = "0.2.91"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+log = "0.4"
+wasm-logger = "0.2"
+
+# Math/FFT
+rustfft = "6.2"
+# rustfft's own real-FFT companion: `rfft`/`irfft` today pack real samples
+# into `Complex64` (imaginary=0) and run a full complex FFT via `rustfft`,
+# discarding half the output — real work, not just a real *output shape*.
+# `realfft` exploits Hermitian symmetry algorithmically (packs two reals
+# into one half-length complex FFT) for ~2x less work on a real-valued
+# transform. See `qu-core/src/lib.rs`'s `fft_real`/`rfft` for the swap.
+realfft = "3.3"
+nalgebra = "0.33"
+
+# Data parallelism: vendor-neutral multi-core (no MKL/vendor dispatch issues,
+# same "just works on Intel and AMD" reasoning as the matrixmultiply crate
+# recommendation in the root BACKLOG.md's performance section).
+rayon = "1.10"
+# The matrixmultiply crate recommendation itself (BACKLOG.md's `[design]`
+# entry, IMPL.md §7's "call vendor kernels, don't rewrite them" applied to a
+# pure-Rust kernel instead of a C library): the same portable, SIMD-dispatched
+# GEMM `ndarray` uses internally. No C/Fortran toolchain, no system BLAS
+# install, no Intel-vendor-ID slow path (unlike MKL) -- works identically on
+# this machine's Ryzen 9700X and on Intel. Default features only (no
+# `threading`): that feature pulls in its own `num_cpus`/`thread-tree` thread
+# pool, which would compound with `qu-core`'s existing `rayon`-based
+# column-parallel matmul in ways not worth the added dependency weight for a
+# win that plain per-core SIMD already delivers (see `qu-core/src/matrix.rs`'s
+# `matmul` doc comment for the measured comparison). Optional at the qu-core
+# level (`fast-matmul` feature) per this section's own "behind a feature when
+# a minimal/WASM build should not pay for it" rule.
+matrixmultiply = "0.3"
+
+# For qu-gpu (WebGPU)
+wgpu = "0.19"
+bytemuck = "1.14"

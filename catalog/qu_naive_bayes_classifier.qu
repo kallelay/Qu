@@ -1,0 +1,50 @@
+# qu_naive_bayes_classifier.qu -- Gaussian Naive Bayes on a small, hand-
+# understandable 2-feature, 3-class dataset: three well-separated clusters
+# arranged so the correct class for any held-out point is obvious by eye.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   naive_bayes_model(X, y)  -- fits per-class/per-feature mean & variance
+#                                (features treated as conditionally
+#                                independent given the class)
+#   model.classes/.means/.variances/.priors  -- read-only fitted fields
+#   model.predict(Xnew)      -- log-posterior-maximizing class
+
+backend auto
+
+#%% Three obviously-separated 2-D clusters: class 0 near (0,0),
+# class 1 near (10,0), class 2 near (5,10). Each cluster is a tight
+# 4-point square so the per-class mean is exactly the cluster center.
+X = [0, 0; 1, 0; 0, 1; 1, 1; 10, 0; 11, 0; 10, 1; 11, 1; 5, 10; 6, 10; 5, 11; 6, 11] as matrix(12, 2)
+y = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]
+
+m = naive_bayes_model(X, y)
+print("Classes: {m.classes}")
+print("Per-class feature means (rows=classes, cols=features):")
+print(m.means)
+print("Priors (should all be 1/3, equal class counts): {m.priors}")
+
+#%% Held-out points, each obviously closest to one cluster by eye.
+near_class0 = [0.5, 0.5] as matrix(1, 2)   # clearly inside the (0,0) cluster
+near_class1 = [10.5, 0.5] as matrix(1, 2)  # clearly inside the (10,0) cluster
+near_class2 = [5.5, 10.5] as matrix(1, 2)  # clearly inside the (5,10) cluster
+
+p0 = m.predict(near_class0)
+p1 = m.predict(near_class1)
+p2 = m.predict(near_class2)
+print("predict([0.5, 0.5])   = {p0}  (expected 0)")
+print("predict([10.5, 0.5])  = {p1}  (expected 1)")
+print("predict([5.5, 10.5])  = {p2}  (expected 2)")
+
+#%% Verify against the obviously-correct classes by hand-reasoning: each
+# held-out point sits well inside one cluster's tight 1x1 square and more
+# than 4 units from either other cluster's square, so Gaussian Naive Bayes
+# (which classifies by nearest-scaled-distance-to-class-mean here, since
+# priors are equal and per-feature variances are the same order of
+# magnitude within each tiny cluster) has no way to get this wrong.
+expected = [0, 1, 2]
+got = [p0[0], p1[0], p2[0]]
+if sum(abs(got - expected)) < 1e-9 then
+    print("All three held-out points classified into their obviously-correct cluster.")
+else
+    print("MISMATCH: naive_bayes_model.predict disagrees with the obvious clustering!")
+end if

@@ -1,0 +1,58 @@
+# qu_gridworld_rl.qu -- tabular reinforcement learning on a grid world:
+# Q-learning (off-policy) vs SARSA (on-policy), trained side by side.
+#
+# `gridworld_env` builds an NxN grid with a start/goal cell and a per-step
+# reward; `q_learning`/`sarsa` share the same signature and both return a
+# Model with `.q_table` and `.rewards` (one total-reward entry per episode)
+# so the two algorithms can be compared directly on identical episodes.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   gridworld_env(n, start=, goal=, step_reward=, goal_reward=)
+#   q_learning(env, episodes, alpha=, gamma=, epsilon=, seed=) -- off-policy
+#   sarsa(env, episodes, ...)                                 -- on-policy
+#   env.reset() / env.step(state, action)                     -- manual rollout
+#   argmax                                                     -- greedy policy from a Q-row
+
+backend auto
+
+#%% Build a 6x6 grid world: start top-left, goal bottom-right
+env = gridworld_env(6, start=0, goal=35, step_reward=-1, goal_reward=20)
+print("grid: {env.n}x{env.n}, {env.n_states} states, {env.n_actions} actions")
+
+#%% Train both algorithms on the same number of episodes
+episodes = 400
+q = q_learning(env, episodes, alpha=0.2, gamma=0.95, epsilon=0.15, seed=1)
+s = sarsa(env, episodes, alpha=0.2, gamma=0.95, epsilon=0.15, seed=1)
+
+mean_first_50 = mean(q.rewards[0:49])
+mean_last_50 = mean(q.rewards[episodes-50:end])
+print("Q-learning: mean reward first 50 eps = {mean_first_50:.2f}, last 50 eps = {mean_last_50:.2f}")
+
+mean_first_50_s = mean(s.rewards[0:49])
+mean_last_50_s = mean(s.rewards[episodes-50:end])
+print("SARSA:      mean reward first 50 eps = {mean_first_50_s:.2f}, last 50 eps = {mean_last_50_s:.2f}")
+
+#%% Roll out the greedy Q-learning policy from the start state
+state = env.reset()
+path = [state]
+total_reward = 0
+for hop = 1 to env.n_states
+    action = argmax(q.q_table[state, :])
+    result = env.step(state, action)
+    total_reward = total_reward + result.reward
+    state = result.next_state
+    path = [path, state]
+    if result.done
+        break
+    end if
+end for
+print("Greedy rollout: {length(path)} steps, total reward = {total_reward}, reached goal cell {path[length(path)-1]}")
+
+#%% Learning curves
+plot(1 to episodes, q.rewards, label="Q-learning", color="blue")
+plot(1 to episodes, s.rewards, label="SARSA", color="orange")
+xlabel("Episode")
+ylabel("Total reward")
+title("Gridworld: Q-learning vs SARSA")
+legend()
+show plot

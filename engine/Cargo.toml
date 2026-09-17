@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/qu-lexer",
+    "crates/qu-syntax",
+    "crates/qu-interp",
+    "crates/qu-cli",
+    "crates/qu-llm",
+    "crates/qu-xlsx",
+    "crates/qu-codec",
+]
+
+[workspace.package]
+version = "0.2.1"
+edition = "2021"
+license = "Apache-2.0"
+description = "Qu — a scientific scripting language (reference engine)"
+repository = "https://github.com/kallelay/Qu"
+
+# Dependency-free by design for the M0–M2 core: std only, so it builds
+# reproducibly anywhere (and later to wasm32) with no network. Numeric
+# crates (faer, rustfft, ndarray-linalg, wgpu) arrive at their milestones.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

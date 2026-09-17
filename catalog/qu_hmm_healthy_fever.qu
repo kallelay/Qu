@@ -1,0 +1,44 @@
+# qu_hmm_healthy_fever.qu -- the classic 2-state Hidden Markov Model
+# ("a patient is Healthy or has a Fever; a doctor only observes symptoms")
+# used to hand-verify HMM forward/Viterbi implementations against a
+# well-known reference answer.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   hmm(transition, emission, initial)  -- validates both matrices are
+#                                           row-stochastic
+#   model.forward(obs)                  -- total probability of an
+#                                           observation sequence
+#   model.viterbi(obs)                  -- most likely hidden-state path
+
+backend auto
+
+#%% States: Healthy=0, Fever=1. Symptoms: normal=0, cold=1, dizzy=2.
+transition = [0.7, 0.3; 0.4, 0.6]
+emission   = [0.5, 0.4, 0.1; 0.1, 0.3, 0.6]
+initial    = [0.6, 0.4]
+
+model = hmm(transition, emission, initial)
+
+#%% Three days of symptoms: normal, then cold, then dizzy.
+obs = [0, 1, 2]
+
+likelihood = model.forward(obs)
+path = model.viterbi(obs)
+
+print("P(observing normal, cold, dizzy) = {likelihood:.5f}")   # hand-computed: 0.03628
+print("Most likely state sequence: {path}")                    # hand-computed: [0, 0, 1]
+print("  (0 = Healthy, 1 = Fever)")
+
+#%% Sanity check against the hand-derived reference values.
+expected_likelihood = 0.03628
+expected_path = [0, 0, 1]
+if abs(likelihood - expected_likelihood) < 1e-6 then
+    print("forward() matches the hand-computed likelihood.")
+else
+    print("MISMATCH: forward() disagrees with the hand-computed likelihood!")
+end if
+if sum(abs(path - expected_path)) < 1e-9 then
+    print("viterbi() matches the hand-computed most-likely path.")
+else
+    print("MISMATCH: viterbi() disagrees with the hand-computed path!")
+end if

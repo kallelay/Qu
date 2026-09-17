@@ -1,0 +1,230 @@
+# receiver_check.qu — which signatures fail the receiver test.
+#
+# qu-10 moved `map` to take the collection first, and the reason was not
+# symmetry. It was that `xs.map(f)` and `xs |> map(f)` could not exist at
+# all, because `recv.method(args)` means `method(recv, args)` and `|>`
+# fills the first slot. So the test for any signature is:
+#
+#     does `recv.f(args)` and `x |> f(args)` mean the obvious thing?
+#
+# That has an answer, unlike "be consistent", which is a preference. `map`
+# failed it; `apply` and `pmap` passed it. Nobody had swept for the rest.
+#
+# This reports the first parameter of every documented signature, grouped,
+# so the ones that take an option or a function name before their subject
+# stand out. Judgement stays with the reader -- the tool finds candidates,
+# it does not decide.
+#
+#   qu run tools/receiver_check.qu
+
+import "lib/text.qu"
+
+chapters = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+# A first parameter that names what the call is ABOUT. A signature leading
+# with one of these passes the test by construction.
+SUBJECTS = ("f", "x", "xs", "v", "a", "s", "t", "y", "A", "M", "X", "m", "img",
+            "data", "signal", "sig", "text", "path", "model", "df", "t1",
+            "state", "chain", "hmm", "layer", "g", "q", "d", "l", "b",
+            "coeffs", "filt", "z", "Z", "n", "points", "pts", "samples",
+            "half_spectrum", "actual", "handle", "port", "sock", "opt",
+            "env", "scaler", "pipelineSpec", "raw", "contract", "spec")
+
+# A first parameter that is an option, a mode, or a function -- the shape
+# `map(f, xs)` had.
+OPTIONS = ("fn", "func", "name", "kind", "method", "mode", "fmt",
+           "predicate", "callback", "op", "rows", "cols", "k", "bits",
+           # `dim`/`axis` select which way an operation runs, so a
+           # signature leading with one puts the receiver in the
+           # option slot. Added because `cat(dim, a, b, ...)` -- the
+           # ONE real failure this tool was written to find -- fell
+           # into the unclassified list below instead of the
+           # candidates above, where a hundred other words hid it.
+           "dim", "axis")
+
+# `name(...)` or `recv.name(...)`, and nothing else. Several rows put prose
+# in the signature column, and a sentence fragment parsed as a parameter
+# name buries a real finding in noise.
+function looks_like_a_call(sig)
+    at = index_of(sig, "(") ?? -1
+    if at < 1
+        return false
+    end if
+    head = substr(sig, 0, at)
+    if contains(head, " ") or len(head) == 0
+        return false
+    end if
+    for i in 0 to len(head) - 1
+        c = substr(head, i, 1)
+        if not is_ident(c) and c != "."
+            return false
+        end if
+    end for
+    return true
+end function
+
+function first_param(sig)
+    inner = ""
+    at = index_of(sig, "(") ?? -1
+    if at < 0
+        return ""
+    end if
+    rest = substr(sig, at + 1, len(sig) - at - 1)
+    tok = ""
+    for i in 0 to len(rest) - 1
+        c = substr(rest, i, 1)
+        if c == "," or c == ")" or c == "="
+            break
+        end if
+        tok = tok + c
+    end for
+    tok = trim(tok)
+    # `[bins=]` -- an optional first parameter is still the first one.
+    if starts_with(tok, "[")
+        tok = trim(substr(tok, 1, len(tok) - 1))
+    end if
+    return tok
+end function
+
+names = ()
+firsts = ()
+sigs = ()
+
+for ci in 0 to len(chapters) - 1
+    if not file_exists(chapters[ci])
+        continue
+    end if
+    for raw in lines(read_all_text(chapters[ci]))
+        line = trim(raw)
+        if not starts_with(line, "| `") or is_separator_row(line)
+            continue
+        end if
+        cells = split(line, "|")
+        if len(cells) < 4
+            continue
+        end if
+        nm = strip_ticks(trim(cells[1]))
+        sig = strip_ticks(trim(cells[2]))
+        if len(nm) == 0 or not looks_like_a_call(sig)
+            continue
+        end if
+        # Only the first name of a shared row; the signature is one call.
+        cut = index_of(nm, ",") ?? -1
+        if cut > 0
+            nm = trim(substr(nm, 0, cut))
+        end if
+        if seen(names, nm)
+            continue
+        end if
+        names = append(names, nm)
+        sigs = append(sigs, sig)
+        firsts = append(firsts, first_param(sig))
+    end for
+end for
+
+print("{len(names)} signatures read")
+print("")
+print("Leading with an option, a mode or a function -- candidates:")
+print("")
+
+flagged = 0
+found = ()
+for i in 0 to len(names) - 1
+    fp = firsts[i]
+    if len(fp) == 0
+        continue
+    end if
+    if not seen(OPTIONS, fp)
+        continue
+    end if
+    # `state.predict(...)` names its receiver before the dot: the test is
+    # satisfied by the spelling itself.
+    #
+    # The dot has to be looked for BEFORE the open paren. Searching the
+    # whole signature also matched the `...` in every variadic one, so
+    # `cat(dim, a, b, ...)` -- the single real failure this tool exists to
+    # find -- was skipped silently, along with every other variadic call.
+    head = substr(sigs[i], 0, index_of(sigs[i], "(") ?? 0)
+    if contains(head, ".")
+        continue
+    end if
+    # A call with only that one parameter has no subject to move ahead of
+    # it, so the test does not apply.
+    if not contains(sigs[i], ",")
+        continue
+    end if
+    flagged = flagged + 1
+    found = append(found, names[i])
+    print("  " + sigs[i])
+end for
+
+print("")
+print("{flagged} to look at by hand")
+print("")
+
+# ── does this checker still work? ──────────────────────────────────────
+#
+# `cat(dim, a, b, ...)` is known to fail the receiver test: `a.cat(1, b)`
+# puts the receiver in the axis slot and errors. It is here as a canary.
+#
+# This tool has already gone quiet once. The method-form skip matched the
+# `...` of every variadic signature and `dim` was missing from the
+# vocabulary, so `cat` -- the single real finding -- was reported nowhere,
+# and the output read as "nothing to see". A checker that misses a finding
+# its author already knows about is worse than no checker, because the next
+# person reads the silence as evidence.
+#
+# So it has to prove it can still see one.
+if not seen(found, "cat")
+    print("SELF-CHECK FAILED")
+    print("")
+    print("  `cat(dim, a, b, ...)` fails the receiver test and this run did")
+    print("  not report it. The sweep is broken, not clean -- do not read")
+    print("  the list above as a result.")
+    print("")
+    print("  Likely causes, both of which have happened: a skip rule that")
+    print("  matches more than it means, or a first-parameter name missing")
+    print("  from OPTIONS so it falls into the unclassified list below.")
+    error("receiver_check: the canary was not reported")
+end if
+print("self-check: `cat` still reported, so the sweep can see a failure")
+print("")
+
+# Anything whose first parameter is neither a known subject nor a known
+# option is a name this tool has not seen. Listed so the vocabulary above
+# can be corrected rather than silently under-reporting.
+print("First parameters in neither list -- the vocabulary above has not")
+print("seen these, so anything real among them is unreported, not absent:")
+unknown = ()
+for i in 0 to len(names) - 1
+    fp = firsts[i]
+    if len(fp) == 0 or seen(SUBJECTS, fp) or seen(OPTIONS, fp) or seen(unknown, fp)
+        continue
+    end if
+    unknown = append(unknown, fp)
+end for
+line = "  "
+for u in unknown
+    line = line + u + " "
+    if len(line) > 70
+        print(line)
+        line = "  "
+    end if
+end for
+if len(trim(line)) > 0
+    print(line)
+end if
+print("")
+print("{len(unknown)} unclassified of {len(names)} signatures. A large")
+print("number here means the vocabulary is stale and the report above is")
+print("narrower than it looks.")

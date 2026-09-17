@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_array — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>write_array</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>write_array(path, data, [type="f64"], [endian="little"])</code></pre>
+<p class="fnnote">Input: path, data, type, endian &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes a whole <code>Vec</code>/<code>Mat</code>/<code>Signal</code> (or a bare number/<code>bool</code>) to a binary file in one call, without an explicit <code>fopen</code> — the write-side counterpart <code>read_array</code> never had. <code>path</code> (string) is the destination, overwritten if it exists. <code>data</code> is the value to write; a <code>Mat</code> is flattened in its own column-major storage order (the same order <code>A -&gt; (r, c)</code> fills), not row-major — reading it back with <code>read_array</code> and reshaping recovers the original matrix, since a flat binary file carries no shape of its own. <code>type</code>/<code>endian</code> as in <code>read_array</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>write_array(path, data, [type="f64"], [endian="little"])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc"><code>path</code> (string) is the destination, overwritten if it exists.</span></div>
+<div class="ioitem"><code>data</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>data</code> is the value to write.</span></div>
+<div class="ioitem"><code>type</code> <span class="iotype">optional (default <code>"f64"</code>)</span><span class="iodesc"><code>type</code>/<code>endian</code> as in <code>read_array</code>.</span></div>
+<div class="ioitem"><code>endian</code> <span class="iotype">optional (default <code>"little"</code>)</span><span class="iodesc"><code>type</code>/<code>endian</code> as in <code>read_array</code>.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Writes a whole <code>Vec</code>/<code>Mat</code>/<code>Signal</code> (or a bare number/<code>bool</code>) to a binary file in one call, without an explicit <code>fopen</code> — the write-side counterpart <code>read_array</code> never had.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="c"># The file is written here first. Mapping one the repository does not</span>
+<span class="c"># carry would make this block fail, and a block that fails is dropped</span>
+<span class="c"># from the page while the build still reports success.</span>
+<span class="f">write_array</span>(<span class="s">"big_dataset.bin"</span>, <span class="n">0</span> <span class="k">to</span> <span class="n">511</span>, <span class="a">type</span> = <span class="s">"u8"</span>)
+
+m = <span class="f">mmap_open</span>(<span class="s">"big_dataset.bin"</span>)
+n = <span class="f">mmap_len</span>(m)
+header = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">16</span>)          <span class="c"># first 16 bytes, wherever they live</span>
+record5 = <span class="f">mmap_read</span>(m, <span class="n">5</span> * <span class="n">64</span>, <span class="n">64</span>)    <span class="c"># the 6th fixed-width 64-byte record</span>
+<span class="f">print</span>(n)
+<span class="f">print</span>(header)
+<span class="f">print</span>(record5)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"wb"</span>)
+<span class="f">write_int64</span>(f, -<span class="n">123456789012</span>)
+<span class="f">write_uint64</span>(f, <span class="n">9007199254740993</span>)   <span class="c"># 1 past 2^53 -- the exact-precision edge</span>
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"rb"</span>)
+a = <span class="f">read_int64</span>(g)
+b = <span class="f">read_uint64</span>(g)
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"{a} {b}"</span>)               <span class="c"># -123456789012 9007199254740992 -- rounded</span>
+
+M = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">write_array</span>(<span class="s">"matrix.bin"</span>, M, <span class="a">type</span> = <span class="s">"int32"</span>)
+back = <span class="f">read_array</span>(<span class="s">"matrix.bin"</span>, <span class="a">type</span> = <span class="s">"int32"</span>) -&gt; (<span class="n">2</span>, <span class="n">3</span>)
+<span class="f">print</span>(back)                    <span class="c"># [1, 2, 3; 4, 5, 6] -- shape recovered via reshape</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

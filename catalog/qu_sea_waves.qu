@@ -1,0 +1,249 @@
+# qu_sea_waves.qu — an animated sea, from the wave equation rather than
+# from a sine.
+#
+# The point of doing this in a measurement language rather than a drawing
+# one: the water is not decoration, it is a superposition of real gravity
+# waves, and every number in it means something.
+#
+# THE PHYSICS
+#
+# Deep-water gravity waves are DISPERSIVE: a wave's speed depends on its
+# wavelength. From the dispersion relation
+#
+#     omega^2 = g * k         (deep water, k = 2*pi/wavelength)
+#
+# a long swell travels fast and a short chop travels slowly, so a sea built
+# from several components never repeats its shape -- which is exactly why a
+# single sine looks like a cartoon and this does not. Summing components
+# with random phases is the standard model (a Pierson-Moskowitz-like
+# spectrum), and the amplitudes here fall off with frequency the way a real
+# wind sea's do.
+#
+# Foam appears where the surface slope is steepest, which is where a real
+# wave breaks. Nothing chooses it by hand: it is a threshold on d(eta)/dx.
+#
+# THE HORIZON is a second, slower field drawn small and pale -- the same
+# maths at a distance, which is all perspective is here.
+#
+# Exercises:
+#   animate("frame", n, path, fps=)  — one figure per frame, one SVG
+#   polygon / plot / circle          — the surface, the crests, the sun
+#   hsv                              — a sky gradient whose bands all weigh
+#                                      the same
+#   the deep-water dispersion relation, honestly applied
+
+backend auto
+
+FRAMES = 60
+W = 20.0
+H = 11.0
+G = 9.81
+
+#%% The sea state
+#
+# Eight components. Each carries a wavelength, an amplitude, and a phase;
+# the frequency is not chosen, it FOLLOWS from the wavelength through the
+# dispersion relation, which is the whole point.
+
+N_WAVES = 8
+lengths = ()
+amps = ()
+phases = ()
+for i in 0 to N_WAVES - 1
+    # Wavelengths from 24 m down to 2 m, geometrically spaced.
+    wl = 24.0 * (0.72 ^ i)
+    lengths = append(lengths, wl)
+    # A wind sea's short waves are small: amplitude falls with wavelength.
+    amps = append(amps, 0.34 * (wl / 24.0) ^ 0.8)
+    # Fixed phases, so the animation is reproducible frame for frame.
+    phases = append(phases, 6.2831853 * ((i * 0.6180339887) - floor(i * 0.6180339887)))
+end for
+
+function surface(x, t, scale)
+    # eta(x, t) = sum a_i * cos(k_i * x - omega_i * t + phi_i),
+    # with omega_i = sqrt(g * k_i) -- the deep-water dispersion relation.
+    eta = 0.0
+    for i in 0 to N_WAVES - 1
+        k = 2 * pi / lengths[i]
+        omega = sqrt(G * k)
+        eta = eta + amps[i] * cos(k * x - omega * t + phases[i])
+    end for
+    return eta * scale
+end function
+
+function slope(x, t, scale)
+    # d(eta)/dx, analytically rather than by differencing -- the derivative
+    # of a sum of cosines is free, and a difference would need a step size
+    # chosen against the shortest wavelength.
+    d = 0.0
+    for i in 0 to N_WAVES - 1
+        k = 2 * pi / lengths[i]
+        omega = sqrt(G * k)
+        d = d - amps[i] * k * sin(k * x - omega * t + phases[i])
+    end for
+    return d * scale
+end function
+
+#%% Drawing
+
+# Blend two colours the way the eye reads a gradient, not the way the
+# numbers happen to sit.
+#
+# This is the whole argument for having Lab. Walking HUE from a warm
+# horizon (24 degrees) to a blue zenith (218) passes through yellow and
+# GREEN on the way -- the first version of this sky looked like a swamp.
+# Lab is perceptually uniform, so a straight line through it is a straight
+# line to the eye, and the blend goes warm-to-blue without visiting a
+# colour nobody asked for.
+function mix_lab(c1, c2, t)
+    a = to_lab(c1)
+    b = to_lab(c2)
+    return lab(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+end function
+
+HORIZON = "#ffb26b"
+MIDSKY  = "#e2726b"
+ZENITH  = "#1d3a63"
+
+function sky(t)
+    steps = 26
+    for k in -1 to steps + 1
+        u = k / steps
+        # Each band overlaps the next by a fifth of a step. Abutting
+        # polygons leave an anti-aliased seam at every shared edge, which is
+        # invisible once and reads as banding twenty times over.
+        y0 = 4.05 + (H - 4.05) * u
+        y1 = 4.05 + (H - 4.05) * (u + 1.2 / steps)
+        # Two segments: the warm band near the horizon is narrow and the
+        # blue above it is wide, which is how a dusk sky actually divides.
+        if u < 0.30
+            band = mix_lab(HORIZON, MIDSKY, u / 0.30)
+        else
+            band = mix_lab(MIDSKY, ZENITH, (u - 0.30) / 0.70)
+        end if
+        polygon((0, W, W, 0), (y0, y0, y1, y1), fill = band, alpha = 1.0)
+    end for
+end function
+
+function sun(t)
+    # Low and steady, with a halo. It does not move: the sea does.
+    cx = 14.4
+    cy = 4.9 + 0.06 * sin(t * 0.5)
+    for k in 5 to 1 step -1
+        glow = hsv(32, 0.55, 1.0)
+        circle(cx, cy, 0.34 * k, fill = glow, alpha = 0.055, width = 0.2)
+    end for
+    disc = hsv(38, 0.32, 1.0)
+    circle(cx, cy, 0.42, fill = disc, alpha = 1.0, width = 0.3)
+end function
+
+function distant_sea(t)
+    # The same maths at a tenth of the amplitude, drawn pale. Perspective,
+    # cheaply and correctly: distant waves subtend a smaller angle.
+    xs = ()
+    ys = ()
+    n = 120
+    for i in 0 to n
+        x = W * i / n
+        xs = append(xs, x)
+        ys = append(ys, 4.05 + surface(x * 3.0, t, 0.10))
+    end for
+    for i in n to 0 step -1
+        xs = append(xs, W * i / n)
+        ys = append(ys, 0.0)
+    end for
+    far = mix_lab(ZENITH, "#2f6f96", 0.55)
+    polygon(xs, ys, fill = far, alpha = 1.0)
+end function
+
+function water(t)
+    # The surface itself, as a filled polygon from the waterline down.
+    n = 300
+    xs = ()
+    ys = ()
+    for i in 0 to n
+        x = W * i / n
+        xs = append(xs, x)
+        ys = append(ys, 2.9 + surface(x, t, 1.0))
+    end for
+    for i in n to 0 step -1
+        xs = append(xs, W * i / n)
+        ys = append(ys, 0.0)
+    end for
+    deep = hsv(207, 0.70, 0.34)
+    polygon(xs, ys, fill = deep, alpha = 1.0)
+
+    # The sun's path on the water: a bright streak that follows the surface
+    # and only shows where the slope tilts a facet toward the light.
+    for i in 0 to n
+        x = W * i / n
+        s = slope(x, t, 1.0)
+        if abs(x - 14.4) < 4.0 and abs(s) < 0.22
+            y = 2.9 + surface(x, t, 1.0)
+            near = 1.0 - abs(x - 14.4) / 4.0
+            gleam = hsv(40, 0.42, 1.0)
+            circle(x, y, 0.055 + 0.05 * near, fill = gleam,
+                   alpha = 0.20 + 0.55 * near, width = 0.1)
+        end if
+    end for
+end function
+
+function foam(t)
+    # Where the surface is steepest is where a real wave breaks, so that is
+    # where the foam goes. A threshold on the analytic slope, not a
+    # scattering of random dots.
+    n = 260
+    for i in 0 to n
+        x = W * i / n
+        s = slope(x, t, 1.0)
+        if s < -0.28
+            y = 2.9 + surface(x, t, 1.0)
+            strength = min((abs(s) - 0.28) / 0.35, 1.0)
+            white = hsv(200, 0.06, 1.0)
+            circle(x, y + 0.02, 0.05 + 0.09 * strength, fill = white,
+                   alpha = 0.35 + 0.5 * strength, width = 0.1)
+        end if
+    end for
+
+    # And the crest lines themselves, as a thin bright stroke on top of the
+    # surface -- what catches the light on a real sea.
+    xs = ()
+    ys = ()
+    n2 = 300
+    for i in 0 to n2
+        x = W * i / n2
+        xs = append(xs, x)
+        ys = append(ys, 2.9 + surface(x, t, 1.0))
+    end for
+    plot(xs, ys, color = hsv(196, 0.22, 0.94), width = 1.1)
+end function
+
+function frame(i)
+    # Time advances so the LONGEST wave completes exactly one period over
+    # the animation, which is what makes the loop seamless: every other
+    # component is faster, and the slowest one closing means the sea
+    # returns to the pose it started in.
+    k_long = 2 * pi / lengths[0]
+    period = 2 * pi / sqrt(G * k_long)
+    t = period * i / FRAMES
+
+    figure_size(1100, 620)
+    xlim(0, W)
+    ylim(0, H)
+    theme("bw")
+
+    sky(t)
+    sun(t)
+    distant_sea(t)
+    water(t)
+    foam(t)
+
+    axis off
+end function
+
+#%% Render
+print("sea state: {N_WAVES} components, {lengths[N_WAVES - 1]:.1f} m to {lengths[0]:.1f} m")
+k_long = 2 * pi / lengths[0]
+print("the longest wave has period {2 * pi / sqrt(G * k_long):.2f} s -- one loop")
+animate("frame", FRAMES, "sea_waves.svg", fps = 20)
+print("open sea_waves.svg in a browser")

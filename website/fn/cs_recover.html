@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cs_recover — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cs_recover</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></pre>
+<p class="fnnote">Input: A, y, method, sparsity, lambda, iters, tol, step, rho, debias &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>. <code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros); the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead. <code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>; <code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>A</code> can be vector or matrix; <code>y</code> can be vector or matrix; <code>method</code> can be string, number, or matrix; <code>sparsity</code> can be string, number, or matrix; <code>lambda</code> can be number or matrix; <code>iters</code> can be number or matrix; <code>tol</code> can be number or matrix; <code>step</code> can be number or matrix; <code>rho</code> can be number or matrix.</p>
+<p class="fnnote">8 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-cs_recover-0" checked>
+<input type="radio" name="typetab" id="tt-cs_recover-1">
+<input type="radio" name="typetab" id="tt-cs_recover-2">
+<input type="radio" name="typetab" id="tt-cs_recover-3">
+<input type="radio" name="typetab" id="tt-cs_recover-4">
+<input type="radio" name="typetab" id="tt-cs_recover-5">
+<input type="radio" name="typetab" id="tt-cs_recover-6">
+<input type="radio" name="typetab" id="tt-cs_recover-7">
+<div class="tabbar">
+<label for="tt-cs_recover-0">Greedy (<code>omp</code>)</label>
+<label for="tt-cs_recover-1">Convex (<code>fista</code>)</label>
+<label for="tt-cs_recover-2">Greedy (<code>cosamp</code>)</label>
+<label for="tt-cs_recover-3">Greedy (<code>sp</code>)</label>
+<label for="tt-cs_recover-4">Greedy (<code>iht</code>)</label>
+<label for="tt-cs_recover-5">Greedy (<code>niht</code>)</label>
+<label for="tt-cs_recover-6">Convex (<code>ista</code>)</label>
+<label for="tt-cs_recover-7">Convex (<code>bp</code>)</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc">Told the true sparsity <code>k = 3</code> up front, OMP picks one column per iteration and stops the moment it has three — <code>.iterations</code> comes out equal to <code>k</code>, and the least-squares re-solve on that exact support drives the error to floating-point zero.</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">The same <code>A</code>, <code>x</code>, and <code>y</code>, handed to FISTA instead — no <code>sparsity=</code> at all, the support falls out of the <code>l1</code> penalty — takes hundreds of proximal-gradient steps rather than three, and still settles for an error around <code>1e-3</code> instead of machine precision, the shrinkage bias the next section is about.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">The same <code>A</code>, <code>x</code>, and <code>y</code>, handed to FISTA instead — no <code>sparsity=</code> at all, the support falls out of the <code>l1</code> penalty — takes hundreds of proximal-gradient steps rather than three, and still settles for an error around <code>1e-3</code> instead of machine precision, the shrinkage bias the next section is about.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc">The same <code>A</code>, <code>x</code>, and <code>y</code>, handed to FISTA instead — no <code>sparsity=</code> at all, the support falls out of the <code>l1</code> penalty — takes hundreds of proximal-gradient steps rather than three, and still settles for an error around <code>1e-3</code> instead of machine precision, the shrinkage bias the next section is about.</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">matrix, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">matrix, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">matrix, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">matrix, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">matrix, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">matrix, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">matrix, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">matrix, optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Same problem, <code>2k</code>-at-a-time candidate selection with pruning — converges in even fewer iterations than plain OMP here because the prune corrects for any early misstep, though OMP already had no misstep to correct on this well-conditioned a matrix.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"cosamp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Subspace pursuit: the same structure as CoSaMP with a <code>k</code>-sized rather than <code>2k</code>-sized working set each round — cheaper per iteration, same machine-precision result on this problem.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"sp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc">No least-squares solve at all — just a gradient step and a hard threshold to the <code>k</code> largest entries, repeated.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Needs many more iterations than the solve-based greedy methods above to reach the same precision, the real cost of avoiding the solve.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"iht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc">The normalised variant of <code>iht</code>: the step size is recomputed from the gradient every iteration instead of held fixed, so it needs roughly a third as many iterations here and, unlike plain <code>iht</code>, cannot diverge from a poorly chosen fixed step.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"niht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">the convex family <code>fista</code>, <code>ista</code> and <code>bp</code> need <code>lambda=</code> (named number, the penalty) instead.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>The same LASSO objective as <code>fista</code>, without the Nesterov momentum term. Both hit the iteration cap on this problem, but where <code>fista</code> still lands at a <code>1e-3</code>-scale error, plain <code>ista</code>'s slower <code>O(1/t)</code> convergence leaves it far short — the practical reason FISTA, not ISTA, is the default convex choice.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"ista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cs_recover(A, y, [method="omp"], [sparsity=], [lambda=], [iters=200], [tol=1e-9], [step=], [rho=1.0], [debias=false])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">vector or matrix</span><span class="iodesc">Compressed-sensing reconstruction of a sparse vector <code>x</code> from an M×N sensing matrix <code>A</code> and a length-M measurement vector <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc">Basis pursuit by ADMM: solves <code>min ‖x‖₁ subject to Ax = y</code> exactly rather than a penalized version of it — no <code>lambda=</code> to choose at all — landing between the greedy methods' machine precision and FISTA/ISTA's shrinkage bias, at a cost of roughly a hundred iterations on this problem.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string or number, optional (default <code>"omp"</code>)</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>sparsity</code> <span class="iotype">string or number, optional</span><span class="iodesc"><code>method</code> (named string) selects the algorithm: the greedy family <code>omp</code>, <code>cosamp</code>, <code>sp</code> and <code>iht</code>/<code>niht</code> need <code>sparsity=</code> (named integer, the assumed number of non-zeros).</span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">number, optional</span><span class="iodesc">Basis pursuit by ADMM: solves <code>min ‖x‖₁ subject to Ax = y</code> exactly rather than a penalized version of it — no <code>lambda=</code> to choose at all — landing between the greedy methods' machine precision and FISTA/ISTA's shrinkage bias, at a cost of roughly a hundred iterations on this problem.</span></div>
+<div class="ioitem"><code>iters</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-9</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">number, optional</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>rho</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>iters</code> (named integer) caps the iteration count, <code>tol</code> (named number) the convergence tolerance, <code>step</code> (named number) the IHT step size, <code>rho</code> (named number) the ADMM penalty for <code>bp</code>.</span></div>
+<div class="ioitem"><code>debias</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>debias=true</code> re-fits the recovered support by plain least squares afterwards.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"bp"</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>nnls(A, b)</code> — the <code>x &gt;= 0</code> least-squares solution, by Lawson-Hanson. A DRT's unknowns are resistances, and a negative resistance is not a slightly wrong answer but an impossible one; clipping an unconstrained fit at zero is a different estimate, because excluding a variable changes what the others should be. ── compressed sensing ────────────────────────────────── One dispatcher rather than eight builtins: the argument list is the same for all of them (<code>A</code>, <code>y</code>, and a sparsity or a penalty), and the choice of method is a keyword, so a script can compare methods by changing one word rather than one call. See <code>qu_core::cs</code>'s module doc for how to choose.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+n_states = 5
+n_symbols = 5
+T = 8000
+
+transition = zeros(n_states, n_states)
+for i = 0 to n_states - 1
+    rowsum = 0
+    for j = 0 to n_states - 1
+        v = 1.5 + sin(2*i + 5*j + 0.3)
+        transition[i, j] = v
+        rowsum = rowsum + v
+    end for
+    for j = 0 to n_states - 1
+        transition[i, j] = transition[i, j] / rowsum
+    end for
+end for
+
+emission = zeros(n_states, n_symbols)
+for i = 0 to n_states - 1
+    rowsum = 0
+    for j = 0 to n_symbols - 1
+        v = 1.5 + sin(2*i + 5*j + 0.3)
+        emission[i, j] = v
+        rowsum = rowsum + v
+    end for
+    for j = 0 to n_symbols - 1
+        emission[i, j] = emission[i, j] / rowsum
+    end for
+end for
+
+initial = zeros(1, n_states)
+for i = 0 to n_states - 1
+    initial[i] = 1.0 / n_states
+end for
+
+seed = 7
+obs = zeros(1, T)
+for i = 0 to T - 1
+    seed = (25173 * seed + 13849) mod 65536
+    obs[i] = seed mod n_symbols
+end for
+
+tic()
+model = hmm(transition, emission, initial)
+path = model.viterbi(obs)
+elapsed_ms = toc() * 1000
+
+print("[Qu] path length={length(path)}")
+print("[Qu] first 20 states={path[0:19]}")
+print("[Qu] checksum(sum of states)={sum(path)}")
+print("[Qu] elapsed={elapsed_ms:.2f} ms for {n_states} states x {T} steps")

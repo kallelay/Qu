@@ -1,0 +1,54 @@
+# Qu
+
+> An array language for measurement science: signals, spectra, impedance,
+> and the figures that go in the paper. Interpreted, with a numerical
+> standard library and a publication-quality plotting backend that exports
+> PDF with embedded fonts, SVG and TikZ.
+
+Qu ships an MCP server, so an assistant does not have to guess at all:
+`qu mcp` speaks JSON-RPC on stdin and stdout and exposes six tools —
+`qu_eval` runs source and returns what it printed, `qu_check` parses without
+executing, `qu_builtins` answers from the interpreter's own dispatch table,
+`qu_docs` reads a page, `qu_figure` returns the figure a script draws as SVG,
+and `qu_run_file` runs a file. Calls are sandboxed and time-limited. Add it
+with `claude mcp add qu -- qu mcp`, or the equivalent `mcpServers` block in
+any MCP client.
+
+Failing that, an assistant that has read the two files below can write
+correct Qu without guessing. Read `llms-agent-guide.md` first — it is short,
+and it is mostly about the places where Qu differs from the language you
+would otherwise assume.
+
+## Essential
+
+- [Agent guide](docs/llms-agent-guide.md): the differences that cause wrong
+  code — evaluation rules, argument orders, and the traps, each with the
+  error message it produces.
+- [Builtin index](book/src/stdlib/builtin-index.md): every function name the
+  engine answers to, generated from the interpreter's own table. If a name
+  is not here, the engine does not have it.
+
+## Language
+
+- [Specification](docs/qu-language-spec.md): normative, and ahead of the
+  engine in places — treat the builtin index as the authority on what
+  exists.
+- [From Zero](book/src/getting-started/from-zero.md): a complete first
+  session that runs as written, no external data.
+- [Fundamentals](book/src/getting-started/book1-fundamentals.md): types,
+  contracts, control flow, error handling.
+
+## Standard library
+
+- [Overview](book/src/stdlib/overview.md)
+- [Core maths and linear algebra](book/src/stdlib/core-math.md)
+- [Signal processing and filters](book/src/stdlib/signal-processing.md)
+- [Plotting](book/src/stdlib/plotting.md)
+- [Statistics and machine learning](book/src/stdlib/statistics-ml.md)
+- [File I/O](book/src/stdlib/file-io.md)
+
+## Optional
+
+- [Worked programs](catalog/): around a hundred complete scripts, each one
+  runnable as it stands.
+- [Language tour](docs/qu-language-tour.md)

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>freqz — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>freqz</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>freqz(filt, [n=512])</code></pre>
+<p class="fnnote">Input: filt, n &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>); <code>n</code> (optional number, default 512): number of frequency points.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = freqz(filt, [n=512])</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>).</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number, optional (default <code>512</code>)</span><span class="iodesc"><code>n</code> (optional number, default 512): number of frequency points.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector or CVec</span></div>
+</td><td>Returns a length-<code>n</code> complex vector (<code>CVec</code>), the response <code>H(e^{jω})</code> at <code>n</code> points from DC to Nyquist inclusive. <code>abs(freqz(filt))</code> is the magnitude response, <code>angle(freqz(filt))</code> the phase. Pairs with <code>linspace(0, fs/2, n)</code> for the matching frequency axis.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
+fc = <span class="n">60</span>
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)
+H = <span class="f">freqz</span>(lp, <span class="n">512</span>)
+<span class="f">print</span>(H)
+mag_db = <span class="n">20</span> * <span class="f">log10</span>(<span class="f">abs</span>(H))
+i_fc = <span class="f">round</span>(fc / (Fs / <span class="n">2</span>) * (<span class="f">length</span>(H) - <span class="n">1</span>))
+i_dc = <span class="n">0</span>
+i_nyq = <span class="f">length</span>(H) - <span class="n">1</span>
+<span class="f">print</span>(<span class="s">"Gain at DC: {mag_db[i_dc]:.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"Gain near cutoff ({fc} Hz): {mag_db[i_fc]:.2f} dB (expect close to -3 dB)"</span>)
+<span class="f">print</span>(<span class="s">"Gain at Nyquist: {mag_db[i_nyq]:.2f} dB"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+b = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+h = <span class="f">freqz</span>(b, <span class="n">512</span>)
+f = <span class="f">linspace</span>(<span class="n">0</span>, fs / <span class="n">2</span>, <span class="n">512</span>)
+<span class="f">plot</span>(f, <span class="f">mag2db</span>(<span class="f">abs</span>(h)), <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">2</span>)
+<span class="f">xscale</span>(<span class="s">"log"</span>)
+<span class="f">ylim</span>(-<span class="n">80</span>, <span class="n">5</span>)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"magnitude (dB)"</span>)
+<span class="f">title</span>(<span class="s">"4th-order Butterworth, 100 Hz cutoff"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs     = <span class="n">1000</span>
+t      = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">220</span> * t) + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">2</span>)
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)             <span class="c"># 4th-order lowpass, 100 Hz cutoff</span>
+notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"notch"</span>, [<span class="n">45</span>, <span class="n">55</span>], fs)   <span class="c"># removes 45-55 Hz mains hum</span>
+
+filtered = <span class="f">sosfilt</span>(lp, signal)             <span class="c"># causal, one pass</span>
+zero_phase = <span class="f">filtfilt</span>(lp, signal)          <span class="c"># zero-phase, double effective order</span>
+<span class="f">print</span>(<span class="s">"lp is stable: {is_stable(lp)}, notch is stable: {is_stable(notch)}"</span>)
+
+H = <span class="f">freqz</span>(lp, <span class="n">512</span>)
+<span class="f">plot</span>(<span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="n">2</span>, <span class="n">512</span>), <span class="f">mag2db</span>(<span class="f">abs</span>(H)))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>freqz(filt, [n=512])</code> — complex frequency response <code>H(e^{jω})</code> at <code>n</code> points from DC to Nyquist inclusive (see <code>numeric::filter::freqz</code>'s own doc comment for the exact convention). Pairs with <code>linspace(0, fs/2, n)</code> for the matching frequency axis, since Qu has no multi-return to hand both back from one call. <code>abs(freqz(filt))</code> is the magnitude response, <code>angle(freqz(filt))</code> the phase. For an FIR filter this is the simpler <code>sum_k b[k]*e^{-jkω}</code> direct evaluation — no denominator at all.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

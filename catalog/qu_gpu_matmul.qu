@@ -1,0 +1,63 @@
+# qu_gpu_matmul.qu -- explicit GPU matrix multiplication, with an honest
+# CPU fallback when the GPU feature isn't compiled in.
+#
+# `gpu_matmul(A, B)` is only real when `qu-interp` is built with
+# `--features gpu` (pulls in `qu-gpu`/wgpu, opt-in per IMPL.md's M6
+# milestone). A default build's `gpu_matmul` arm just returns a clear
+# error naming that requirement -- it does NOT silently fall back to CPU
+# on its own, so this script does the fallback itself, via try/catch, and
+# says out loud which path actually ran. That matters because this
+# codebase has already MEASURED, not assumed, that GPU dispatch is not a
+# universal win:
+#   - `benchmarks/particle_filter_gpu/README.md`: a "tall and skinny"
+#     (n, 4) x (4, 4) GEMM never wins on the GPU at ANY particle count
+#     tested, up to 10 million particles -- the fixed per-call
+#     upload/submit/readback overhead never amortizes for a workload this
+#     thin, even well past the measured square-matmul crossover.
+#   - `benchmarks/multisine_acceleration/README.md`: GPU dispatch only
+#     wins for genuinely large, roughly SQUARE GEMM shapes (the process-
+#     global crossover `gpu_probe` measures is `m=n=k` matmuls); thin or
+#     small shapes lose to plain CPU `matmul` once transfer/setup overhead
+#     is counted.
+# So this demo runs a modest, clearly-labeled matrix multiply and reports
+# whichever real result it could produce -- GPU if available, CPU
+# `matmul` (the correctness-equivalent operation) if not -- rather than
+# overclaiming a speedup that would only be real for a much bigger, more
+# square-shaped problem than this small illustrative example.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   gpu_matmul(A, B)     -- explicit GPU dispatch, feature="gpu" only
+#   matmul(A, B)          -- the CPU-equivalent operation, always available
+#   try / catch err       -- graceful handling of the "feature not built" case
+#   err.message            -- the caught error's text
+
+backend auto
+
+#%% A small, square-ish matrix multiply -- easy to verify by eye
+A = [1, 2, 3; 4, 5, 6]
+B = [7, 8; 9, 10; 11, 12]
+print("A is {rows(A)}x{cols(A)}, B is {rows(B)}x{cols(B)}")
+
+cpu_result = matmul(A, B)
+print("CPU matmul(A, B) = {cpu_result}")
+
+#%% Try the GPU path; fall back honestly if the feature isn't compiled in
+try
+    gpu_result = gpu_matmul(A, B)
+    diff = max(abs(gpu_result - cpu_result))
+    print("GPU gpu_matmul(A, B) = {gpu_result}")
+    print("GPU feature IS compiled into this build -- result matches CPU matmul, max abs diff = {diff:.2e}")
+catch err
+    print("gpu_matmul was not usable on this build: {err.message}")
+    print("GPU feature not compiled into this build, showing the CPU-equivalent `matmul` result instead:")
+    print("matmul(A, B) = {cpu_result}")
+end
+
+#%% Honesty note, not a benchmark: this A/B pair is tiny and non-square --
+# exactly the "thin" shape the benchmarks above found the GPU losing on --
+# so even on a `--features gpu` build, nobody should expect (or measure) a
+# GPU speedup here. The point of this script is correctness/availability,
+# not performance; see benchmarks/particle_filter_gpu/README.md and
+# benchmarks/multisine_acceleration/README.md for real measured timings at
+# problem sizes where the GPU path can plausibly win.
+print("done -- for real GPU-vs-CPU timing comparisons, see benchmarks/multisine_acceleration/ and benchmarks/particle_filter_gpu/")

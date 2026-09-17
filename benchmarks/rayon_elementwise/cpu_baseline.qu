@@ -1,0 +1,11 @@
+# CPU-TIME probe, baseline. Wall time on a contended machine is unusable (measured
+# 2-3x run-to-run drift here); total process CPU time is far more robust,
+# because a thread that is descheduled does not accrue CPU time. Subtracting
+# the baseline script -- identical but with zero op reps -- removes process
+# startup and data generation, leaving the CPU cost of the op alone.
+m = reshape(randn(4000000, 1), 2000, 2000)
+x = abs(m)
+for r = 1 to 60
+    
+end for
+print("{m[0,0]:.4f}")

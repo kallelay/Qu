@@ -1,0 +1,45 @@
+# Does CHUNK GEOMETRY alone change the cost of an identical computation?
+#
+# Matrix::broadcast parallelizes over columns: par_chunks_mut(rows) hands
+# rayon `cols` tasks of `rows` elements each. matmul guards this same
+# geometry with `n >= rayon::current_num_threads()` -- its doc says n=4
+# column tasks are "too few to keep a live thread count busy". broadcast has
+# no such guard, so both degenerate directions are reachable.
+#
+# Every row below is the SAME 4,000,000 f64s (one randn, reshaped) and the
+# same `.*`, so the arithmetic and the memory traversal are identical --
+# columns are contiguous, so a full same-shape traversal is linear in memory
+# whatever the shape. The only thing that varies is how rayon carves it up.
+
+n = 4000000
+reps = 5
+base = randn(n, 1)
+
+function timed_mul(m, reps)
+    p = m .* m                       # warm-up, discarded
+    best = 1.0e9
+    for r = 1 to reps
+        tic()
+        p = m .* m
+        t = toc()
+        if t < best
+            best = t
+        end if
+    end for
+    return best
+end function
+
+print("4,000,000 elements, `x .* x`, best of {reps} (pool width set by RAYON_NUM_THREADS)")
+print("")
+print("   shape            tasks      elems/task    best of {reps}")
+
+shapes_r = [4, 100, 2000, 40000, 1000000]
+shapes_c = [1000000, 40000, 2000, 100, 4]
+
+for i = 0 to 4
+    r = shapes_r[i]
+    c = shapes_c[i]
+    m = reshape(base, r, c)
+    t = timed_mul(m, reps)
+    print("   {r} x {c}       {c}        {r}        {t:.4f} s")
+end for

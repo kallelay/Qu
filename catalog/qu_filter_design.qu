@@ -1,0 +1,54 @@
+# qu_filter_design.qu -- digital IIR filter design, diagnostics, and
+# zero-phase filtering of a noisy signal.
+#
+# Unlike qu_rc_filter.qu (an analog RC network with a closed-form transfer
+# function), this designs an actual DIGITAL filter from a spec (order +
+# cutoff + sample rate) via a second-order-sections Butterworth design,
+# inspects it with the built-in filter-diagnostic tool, then applies it two
+# ways: a plain causal pass (sosfilt, with phase lag) and a zero-phase pass
+# (filtfilt, forward-backward, no lag) on a sine buried in noise.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   butter(order, kind, cutoff, fs)  -- SOS Butterworth design, model kind "filter"
+#   freqz(filt, n) / fvtool(filt)    -- frequency response + 2x2 diagnostic figure
+#   sosfilt(filt, x) / filtfilt(filt, x) -- causal vs zero-phase filtering
+#   randn                            -- synthetic measurement noise
+
+backend auto
+
+#%% Design a low-pass Butterworth filter
+Fs = 2000
+fc = 60
+lp = butter(4, "low", fc, Fs)
+print("Butterworth order 4, cutoff {fc} Hz @ Fs={Fs} Hz -- sos shape: {rows(lp.sos)}x{cols(lp.sos)}")
+
+H = freqz(lp, 512)
+mag_db = 20 * log10(abs(H))
+i_fc = round(fc / (Fs / 2) * (length(H) - 1))
+print("Gain near cutoff: {mag_db[i_fc]:.2f} dB (expect close to -3 dB)")
+
+#%% Visual diagnostic: magnitude, phase, group delay, impulse response
+fvtool(lp)
+
+#%% Apply the filter to a noisy signal: causal vs zero-phase
+N = 1000
+t = (0 to N - 1) / Fs
+clean = sin(2*pi*20*t)
+noisy = clean + 0.5 * randn(N)
+
+causal = sosfilt(lp, noisy)
+zerophase = filtfilt(lp, noisy)
+
+err_causal = rms(causal[100:N-2] - clean[100:N-2])
+err_zerophase = rms(zerophase[100:N-2] - clean[100:N-2])
+print("RMS error vs clean (steady-state): causal={err_causal:.4f}, zero-phase={err_zerophase:.4f}")
+
+#%% Plot the three signals
+plot(t, noisy, label="noisy", color="gray")
+plot(t, causal, label="sosfilt (causal)", color="orange")
+plot(t, zerophase, label="filtfilt (zero-phase)", color="blue")
+xlabel("Time (s)")
+ylabel("Amplitude")
+title("60 Hz low-pass Butterworth: causal vs zero-phase filtering")
+legend()
+show plot

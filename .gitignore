@@ -1,0 +1,171 @@
+# Rust build artifacts
+target/
+engine/target/
+**/target/
+
+# Tauri sidecar binary (qu.exe, built from engine/ and copied here with its
+# target-triple suffix so `tauri-build`'s externalBin step can find and
+# bundle it) — a build artifact, not source. Regenerate with:
+#   cargo build --release --manifest-path engine/Cargo.toml -p qu-cli
+# then copy engine/target/release/qu.exe to
+# qu-studio-tauri/src-tauri/binaries/qu-<target-triple>.exe
+qu-studio-tauri/src-tauri/binaries/
+
+# Editor/tool working directories
+.zcode/
+.claude/
+.vscode/
+.idea/
+
+# QuStudio's per-file save-snapshot history (main.rs's `save_file` writes
+# here before every overwrite) -- edit history, not project content, and
+# lives beside whatever file it belongs to wherever that file happens to be.
+.qu-versions/
+
+# Node/JS build artifacts (qu-studio-tauri/, qu-ui-components/) — installed
+# via npm, fully reproducible from package.json/package-lock.json, and huge
+# (tens of thousands of files) — never source.
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# Zipped project backups (git itself is the backup mechanism going forward)
+backups/*.zip
+
+# Retired scaffolding already slated for deletion; contains a stale nested
+# .git repo that would otherwise block `git add` at the parent level
+_to_delete/
+
+# A separate, unrelated Python project (~2.3GB, includes a full bundled
+# Octave install + lots of scratch/.tmp files) that happens to live inside
+# this directory tree — not Qu source. Remove this line if you want it
+# tracked here too.
+matty/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Generated benchmark datasets — fully reproducible from the bench script's
+# own seeded RNG, regenerated on every run; not source.
+benchmarks/csv_filters/signal.csv
+benchmarks/full_pipeline/pipeline_signal.csv
+benchmarks/full_pipeline/pipeline_features.csv
+benchmarks/data_wrangling/dataset.csv
+benchmarks/image_processing/test_image.bmp
+benchmarks/image_processing/*_output_*.bmp
+benchmarks/file_io/*.bin
+benchmarks/file_io/*.csv
+benchmarks/file_io/*.bmp
+benchmarks/file_io/*.png
+benchmarks/large_pipeline/pipeline_signal*.csv
+benchmarks/large_pipeline/pipeline_features*.csv
+# advanced_validation/peak_finding's 3 noise-level signals are 200k rows
+# each (~4MB) -- large enough to skip committing like the above, unlike
+# the small (<40KB) close_peaks/ambiguous_pair/plateau CSVs in the same
+# dir, which stay committed (shallow_ml/mlp convention: small enough that
+# byte-identical cross-language reuse is worth the repo weight).
+benchmarks/advanced_validation/peak_finding/low_noise.csv
+benchmarks/advanced_validation/peak_finding/medium_noise.csv
+benchmarks/advanced_validation/peak_finding/high_noise.csv
+# image_stress's test image, same reasoning as image_processing/test_image.bmp
+# above: large-ish binary, deterministic from generate_image.py's seeded RNG,
+# nothing lost by not committing it. ground_truth.csv/qu_blob_stats.csv stay
+# committed (small, and the whole point of the exercise is a fixed reference
+# to check against).
+benchmarks/advanced_validation/image_stress/test_image.bmp
+benchmarks/advanced_validation/image_stress/cv2_output_binary.bmp
+# advanced_validation/linalg_stress's flattened n=300/n=1000 matrix CSVs are
+# 1.8MB/19.9MB (n^2 values each, one per line) -- large enough to skip
+# committing like peak_finding's noise signals above; the small b_n*.csv
+# (right-hand-side vectors) and x_qu_n*.csv (Qu's dumped solve results)
+# stay committed, same size-based convention as the rest of this file.
+# Regenerate with: python benchmarks/advanced_validation/linalg_stress/make_data.py
+benchmarks/advanced_validation/linalg_stress/a_n300.csv
+benchmarks/advanced_validation/linalg_stress/a_n1000.csv
+# advanced_validation/table_stress's shared 30,000-row dataset.csv is
+# ~2.4MB -- large enough to skip committing like the above, unlike the
+# small (<1MB) group_agg_qu.csv/corrcoef_qu.csv/filter_sort_qu.csv result
+# dumps in the same dir, which stay committed (deterministic, regenerated
+# by table_stress.qu on every run anyway, and small enough that keeping
+# them around for inspection is worth the repo weight).
+benchmarks/advanced_validation/table_stress/dataset.csv
+vite.config.ts.timestamp-*.mjs
+.scratch-figs/
+# Generated paper figures: regenerable by re-running the .qu script, and
+# a filled contour map is megabytes of SVG that changes on every run.
+papers/*/img/
+
+# The assembled Overleaf tree: the .tex, .bib and biography photos are
+# copied in from the original project, and everything else is produced by
+# papers/why-cf-matters/build.sh from the Qu scripts.
+papers/*/overleaf/img/
+papers/*/overleaf/*.pdf
+# This paper reuses the manuscript's own \graphicspath{{figs/}} instead of
+# img/; only the four Qu-generated figures are build output, the other
+# four (fig_benchmark/fig_identification/fig_lti/fig_realdata) are the
+# ORIGINAL pdfs kept as fallback source material and stay tracked.
+papers/*/overleaf/figs/fig_illposed.pdf
+papers/*/overleaf/figs/fig_lambda.pdf
+papers/*/overleaf/figs/fig_example.pdf
+papers/*/overleaf/figs/fig_drift.pdf
+papers/*/overleaf/*.aux
+papers/*/overleaf/*.bbl
+papers/*/overleaf/*.blg
+papers/*/overleaf/*.log
+papers/*/overleaf/*.out
+papers/*/overleaf/*.fls
+papers/*/overleaf/*.fdb_latexmk
+papers/*/overleaf/*.png
+.figwork/
+
+# Documentation example extracts and their captured output (tools/build_docs_site.sh)
+.doc-run/
+.demo-run/
+
+# Output that documentation examples write into whatever directory they
+# are run from. The examples name bare relative paths on purpose -- a
+# tutorial that says `savefig("waves.svg")` is teaching the reader the
+# call, not a directory layout -- so running the docs drops these in the
+# repository root. Anchored with a leading `/` so an actual `data.csv` or
+# `config.txt` somewhere in the tree is still tracked.
+/.arity-check/
+/[0-9][0-9]_*.svg
+/config.txt
+/data.csv
+/data2.csv
+/results.csv
+/waves.svg
+/quickstart_plot.svg
+/first.pdf
+/first-figure.pdf
+/my-first-figure.pdf
+
+# `tools/build_function_pages.sh` builds the 700+ pages here and then
+# publishes by renaming the directory into place. It is scaffolding for
+# one run, 3.9 MB of it, and it is never the source of anything.
+/website/.fn.new/
+.link-check
+
+# A scratch directory for comparing figure output side by side -- SVGs
+# rendered two ways plus a `view.html` to flip between them. Untracked and
+# unignored, it was 190 KB that any `git add website/` would sweep into an
+# unrelated commit, which has happened here more than once. Ignored rather
+# than deleted: it is somebody's live workspace, it just is not history.
+/website/.probe/
+
+# Qu-8 lane: rapid literature-to-Qu beta-test loop (search -> ref/ downloads
+# -> synthetic test -> Qu port -> Matlab/Python port -> report). ref/ holds
+# downloaded papers/reference material (copyright, not ours to publish; see
+# qu-nothing-leaves-the-repo) and the whole tree churns too fast per-loop to
+# be worth commit history -- Ahmed's own instruction: this directory does
+# not sync to git. Promote an individual finished port out to the tracked
+# private/ (see private/README.md) by hand if it earns a place there.
+private/Qu8/
+
+# Qu-8 research lane: local-only per Ahmed 2026-09-16. Never tracked,
+# never synced. The working copy lives in the lane's own worktree and the
+# backup on H:. `private/` itself IS tracked, so without this line an
+# untracked Qu8 tree here is one broad `git add` away from four mirrors.
+private/Qu8/

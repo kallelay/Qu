@@ -1,0 +1,48 @@
+# qu_temperature_units.qu -- tracked physical units for temperature (degC/
+# degF), an affine (not linear) scale.
+#
+# A temperature literal (`10 degC`) stays a distinct unit-tagged value, not
+# a bare number: it compares correctly across scales (through Kelvin
+# internally), a plain-number shift keeps it a temperature ("5 degrees
+# warmer"), but scaling one (`2 * (10 degC)`) is rejected outright, since
+# doubling a Celsius reading isn't physically meaningful the way doubling a
+# Kelvin one is -- the offset doesn't scale. Subtracting two temperatures
+# IS meaningful (the affine offset cancels) and yields a plain number, a
+# delta in Kelvin/Celsius-sized degrees, not a temperature itself.
+#
+# Constructs exercised (all real, verified-working syntax):
+#   10 degC / 98.6 degF        -- unit literals
+#   (a degC) - (b degC)        -- a plain Num delta
+#   (a degC) + 5               -- stays a temperature
+#   (a degC) == (b degF)       -- cross-scale comparison via Kelvin
+#   try/catch on an affine-scale violation (2 * temperature)
+
+backend auto
+
+#%% Unit literals and cross-scale comparison (converted through Kelvin)
+room = 21 degC
+body = 98.6 degF
+print("room = {room}")
+print("body = {body}")
+print("body warmer than room: {body > room}")
+
+freezing_c = 0 degC
+freezing_f = 32 degF
+print("0 degC == 32 degF: {freezing_c == freezing_f}")
+
+#%% Deltas: subtracting two temperatures cancels the offset -> a plain number
+morning = 15 degC
+afternoon = 23 degC
+warmup = afternoon - morning
+print("warmup = {warmup} degrees (a plain number, not itself a temperature)")
+
+#%% A temperature shifted by a plain number stays a temperature
+forecast = morning + 5
+print("forecast = {forecast}")
+
+#%% Scaling a temperature is physically meaningless and rejected
+try
+    doubled = 2 * room
+catch err
+    print("rejected as expected: {err.message}")
+end

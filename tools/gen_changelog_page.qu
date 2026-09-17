@@ -1,0 +1,257 @@
+# Render CHANGELOG.md into the website's changelog page.
+#
+# Generated rather than written twice, so the page and the file cannot
+# disagree about what changed. A minimal Markdown subset is enough here --
+# the changelog only uses headings, lists, tables, code spans and links.
+#
+# Run:  qu run tools/gen_changelog_page.qu
+
+SRC  = "CHANGELOG.md"
+HEAD = "website/assets/header.html"
+OUT  = "website/changelog.html"
+
+BT = substr("`x", 0, 1)          # a backtick, without writing one in a string
+
+# Is this line a markdown table's own separator row (`|---|---|---|`)
+# rather than a DATA row that merely contains a dash-heavy substring in
+# its prose? A bare `contains(line, "---")` matches both -- found via
+# `progress()`'s own chapter row, whose description illustrates its
+# output inline (`[####------] 42%`, six consecutive hyphens) and so
+# was silently read as a table separator and skipped. See
+# `tools/lib/text.qu`'s own `is_separator_row` (the canonical version;
+# this file predates that import and duplicates the small check locally
+# rather than risk colliding with its own `esc`/`inline` below).
+function is_separator_row(line)
+    t = trim(line)
+    if len(t) == 0
+        return false
+    end if
+    stripped = trim(replace(replace(replace(t, "|", ""), "-", ""), ":", ""))
+    return len(stripped) == 0 and contains(t, "-")
+end function
+
+function esc(s)
+    # See gen_function_pages.qu's `esc` for why: a cell escapes a literal
+    # `|` as `\|` so the table splitter doesn't read it as a column
+    # boundary (e.g. `box`'s `box on\|off`), and that has to be undone
+    # before the text reaches a reader.
+    s = replace(s, "\\|", "|")
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    s = replace(s, ">", "&gt;")
+    return s
+end function
+
+# `code` -> <code>code</code>, and [text](url) -> <a href="url">text</a>.
+function inline(s)
+    s = esc(s)
+    parts = split(s, BT)
+    out = ""
+    for i in 0 to len(parts) - 1
+        if i - 2 * floor(i / 2) == 1
+            out = out + "<code>" + parts[i] + "</code>"
+        else
+            out = out + parts[i]
+        end if
+    end for
+    # **bold** -> <strong>
+    if contains(out, "**")
+        bits = split(out, "**")
+        rebuilt = ""
+        for i in 0 to len(bits) - 1
+            if i - 2 * floor(i / 2) == 1
+                rebuilt = rebuilt + "<strong>" + bits[i] + "</strong>"
+            else
+                rebuilt = rebuilt + bits[i]
+            end if
+        end for
+        out = rebuilt
+    end if
+    # Links: split on "](" and repair the halves.
+    if contains(out, "](")
+        segs = split(out, "](")
+        rebuilt = segs[0]
+        for i in 1 to len(segs) - 1
+            open_at = index_of(rebuilt, "[")
+            close_at = index_of(segs[i], ")")
+            if open_at >= 0 and close_at > 0
+                text = substr(rebuilt, open_at + 1, len(rebuilt) - open_at - 1)
+                url  = substr(segs[i], 0, close_at)
+                rest = substr(segs[i], close_at + 1, len(segs[i]) - close_at - 1)
+                # A link to a documentation source becomes its rendered
+                # page: the site should never send a reader to raw
+                # Markdown.
+                if ends_with(url, ".md")
+                    slash = 0
+                    for k in 0 to len(url) - 1
+                        if substr(url, k, 1) == "/"
+                            slash = k + 1
+                        end if
+                    end for
+                    stem = substr(url, slash, len(url) - slash - 3)
+                    if stem == "book1-fundamentals"
+                        stem = "fundamentals"
+                    end if
+                    url = "docs/" + stem + ".html"
+                end if
+                rebuilt = substr(rebuilt, 0, open_at) + "<a href=\"" + url + "\">" + text + "</a>" + rest
+            else
+                rebuilt = rebuilt + "](" + segs[i]
+            end if
+        end for
+        out = rebuilt
+    end if
+    return out
+end function
+
+text = read_all_text(SRC)
+lines = split(text, "
+")
+
+body = "<header class=\"hero\"><div class=\"wrap\">
+"
+body = body + "  <h1>Changelog</h1>
+"
+body = body + "  <p class=\"lede\">Generated from CHANGELOG.md, so this page and the file"
+body = body + " cannot disagree about what changed.</p>
+</div></header>
+
+"
+body = body + "<section><div class=\"wrap\">
+"
+
+# One pass, one open block at a time.
+#
+# `pending` holds the text of the paragraph or list item being built, and
+# `mode` says which. Markdown wraps lines for the file's benefit, so a
+# wrapped sentence is one paragraph and a wrapped bullet is one bullet --
+# emitting per source line turns both into a column of fragments.
+pending = ""
+mode = "none"          # none | para | item
+in_list = false
+in_table = false
+
+for raw in lines
+    line = trim(raw)
+
+    is_head  = starts_with(line, "#")
+    is_item  = starts_with(line, "- ")
+    is_row   = starts_with(line, "|")
+    is_blank = len(line) == 0
+
+    # Close whatever is open, when this line cannot continue it.
+    starts_block = is_blank or is_head or is_item or is_row
+    if starts_block and len(pending) > 0
+        if mode == "item"
+            body = body + "  <li>" + inline(pending) + "</li>
+"
+        else
+            body = body + "<p class=\"sub\">" + inline(pending) + "</p>
+"
+        end if
+        pending = ""
+        mode = "none"
+    end if
+    if (is_blank or is_head or is_row) and in_list
+        body = body + "</ul>
+"
+        in_list = false
+    end if
+    if not is_row and in_table
+        body = body + "</table></div>
+"
+        in_table = false
+    end if
+
+    if is_blank
+        continue
+    end if
+
+    if is_row
+        if not in_table
+            body = body + "<div class=\"tablewrap\"><table>
+"
+            in_table = true
+        end if
+        if not is_separator_row(line)
+            cells = split(line, "|")
+            row = "<tr>"
+            for c in 1 to len(cells) - 2
+                row = row + "<td>" + inline(trim(cells[c])) + "</td>"
+            end for
+            body = body + row + "</tr>
+"
+        end if
+        continue
+    end if
+
+    if starts_with(line, "### ")
+        body = body + "<h3 style=\"font-family:var(--serif);font-size:19px;margin:34px 0 10px\">"
+        body = body + inline(substr(line, 4, len(line) - 4)) + "</h3>
+"
+        continue
+    end if
+    if starts_with(line, "## ")
+        body = body + "<h2 style=\"margin-top:44px\">" + inline(substr(line, 3, len(line) - 3)) + "</h2>
+"
+        continue
+    end if
+    if starts_with(line, "# ")
+        continue
+    end if
+
+    if is_item
+        if not in_list
+            body = body + "<ul>
+"
+            in_list = true
+        end if
+        pending = substr(line, 2, len(line) - 2)
+        mode = "item"
+        continue
+    end if
+
+    # Anything else continues whatever is open, or starts a paragraph.
+    if len(pending) > 0
+        pending = pending + " " + line
+    else
+        pending = line
+        mode = "para"
+    end if
+end for
+
+if len(pending) > 0
+    if mode == "item"
+        body = body + "  <li>" + inline(pending) + "</li>
+"
+    else
+        body = body + "<p class=\"sub\">" + inline(pending) + "</p>
+"
+    end if
+end if
+if in_list
+    body = body + "</ul>
+"
+end if
+if in_table
+    body = body + "</table></div>
+"
+end if
+body = body + "</div></section>
+"
+
+head = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
+head = head + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+head = head + "<title>Qu changelog</title>\n"
+head = head + "<meta name=\"description\" content=\"What changed in Qu, generated from CHANGELOG.md.\">\n"
+head = head + "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap\">\n"
+head = head + "<link rel=\"stylesheet\" href=\"assets/site.css\">\n</head>\n<body>\n"
+
+foot = "\n<footer><div class=\"wrap\">\n  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>\n"
+foot = foot + "  <div><a href=\"index.html\">Home</a> &nbsp; <a href=\"learn.html\">Learn</a> &nbsp; <a href=\"docs.html\">Docs</a></div>\n"
+foot = foot + "</div></footer>\n<script src=\"assets/site.js\"></script>\n</body>\n</html>\n"
+
+h = fopen(OUT, "w")
+write(h, head + read_all_text(HEAD) + body + foot)
+close(h)
+print("wrote " + OUT + " from " + SRC)

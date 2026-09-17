@@ -1,0 +1,43 @@
+# qu_classification_report.qu -- train a k-NN classifier on two synthetic
+# clusters, evaluate on a held-out split, and inspect a confusion matrix.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   train_test_split(X, y, test_size=, seed=)   -- Model with .X_train/.X_test/.y_train/.y_test
+#   knn_model(X, y, k, kind="classification")   -- k-nearest-neighbor classifier
+#   model.predict(Xnew)                          -- ordinary recv.method(args) sugar
+#   where(mask)                                  -- indices where a comparison mask is true
+#   confusion_matrix(actual, predicted)          -- pushes a heatmap panel
+
+backend auto
+
+#%% Two overlapping Gaussian blobs in 2-D
+n = 60
+class0 = randn(n, 2) + [2, 2]
+class1 = randn(n, 2) + [-1.5, -1.5]
+X = vstack(class0, class1)
+y = [zeros(n), ones(n)]
+print("dataset: {rows(X)} points, {cols(X)} features, {n} per class")
+
+#%% Split, train, predict
+split = train_test_split(X, y, test_size=0.3, seed=7)
+print("train={rows(split.X_train)}, test={rows(split.X_test)}")
+
+model = knn_model(split.X_train, split.y_train, 5, kind="classification")
+pred = model.predict(split.X_test)
+
+correct = length(where(pred == split.y_test))
+accuracy = correct / length(pred)
+print("test accuracy: {accuracy:.3f} ({correct}/{length(pred)})")
+
+#%% Per-class breakdown via a confusion matrix
+actual_pos = pred[where(split.y_test == 1)]
+actual_neg = pred[where(split.y_test == 0)]
+tp = length(where(actual_pos == 1))
+fn = length(where(actual_pos == 0))
+tn = length(where(actual_neg == 0))
+fp = length(where(actual_neg == 1))
+print("TP={tp} TN={tn} FP={fp} FN={fn}")
+
+confusion_matrix(split.y_test, pred)
+title("k-NN confusion matrix (k=5)")
+show plot

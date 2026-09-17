@@ -1,0 +1,21 @@
+# SIGNED MATURITY ROWS -- the only way a function gets past 0.1.0-4.aplus.
+#
+# tools/gen_version_ladder.qu computes rungs up to Alpha++ from evidence
+# in the tree (tests, benchmarks, docs, examples). It CANNOT compute
+# Beta, RC or Public, because those rungs assert that a PERSON tried the
+# function with awkward inputs and was satisfied -- and no amount of
+# scraping shows that. Those rungs come from here.
+#
+# Columns, tab-separated:
+#   name	rung	signed_by	date	what was actually tried
+#
+# rung is one of: 0.1.0-2.x  0.1.0-3.a  0.1.0-4.aplus  0.2.0-5.b  0.3.0-6.rc  0.4.0
+#
+# A signature does not create evidence. If you sign `welch` at 0.2.0-5.b and
+# no test executes `welch`, the generator prints that contradiction
+# rather than believing the row. That is deliberate: a gate nothing
+# checks is this repo's most common defect, and this file is a gate.
+#
+# Empty on purpose. Nothing has been signed off yet -- the review queue
+# in All_functions_and_Features.md ("Waiting for Ahmed") is the worklist
+# that fills it.

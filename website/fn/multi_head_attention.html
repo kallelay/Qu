@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multi_head_attention — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>multi_head_attention</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>multi_head_attention(x, heads, n_heads)</code></pre>
+<p class="fnnote">Input: x, heads, n_heads &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Runs several attention heads over the same <code>(N, D)</code> input <code>x</code> in parallel: <code>heads</code> is a tuple of <code>n_heads</code> (integer) Records, each with fields <code>wq</code>, <code>wk</code>, <code>wv</code> (per-head projection matrices) and <code>wo</code> (the head's output projection), and self-attention (<code>q = k = v = x</code> projected through each head's own weights) is computed per head, then the results are combined through each head's <code>wo</code> and summed.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = multi_head_attention(x, heads, n_heads)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>heads</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_heads</code> <span class="iotype">Record</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">matrix</span></div>
+</td><td>Returns an <code>(N, D)</code> matrix.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
+<span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
+
+q = [<span class="n">1.0</span>, <span class="n">0.5</span>; -<span class="n">0.5</span>, <span class="n">1.0</span>; <span class="n">0.2</span>, -<span class="n">0.3</span>]
+k = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+v = [<span class="n">1.0</span>, <span class="n">2.0</span>; <span class="n">3.0</span>, <span class="n">4.0</span>; <span class="n">5.0</span>, <span class="n">6.0</span>]
+attn = <span class="f">scaled_dot_product_attention</span>(q, k, v)
+<span class="f">print</span>(<span class="s">"attention output: {round(attn, 3)}"</span>)
+
+eye2 = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>]
+head = {wq = eye2, wk = eye2, wv = eye2, wo = eye2}
+mh = <span class="f">multi_head_attention</span>(q, (head,), <span class="n">1</span>)
+plain = <span class="f">scaled_dot_product_attention</span>(q, q, q)
+<span class="f">print</span>(<span class="s">"multi_head_attention with 1 identity head matches plain self-attention: {sum(abs(mh - plain)) &lt; 1e-9}"</span>)
+
+weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln1_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w1 = [<span class="n">0.2</span>, -<span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>], b1 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w2 = [<span class="n">0.1</span>, -<span class="n">0.2</span>; <span class="n">0.3</span>, <span class="n">0.1</span>], b2 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           ln2_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln2_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>]}
+block_out = <span class="f">transformer_block</span>(q, weights)
+<span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>multi_head_attention(x, weights, n_heads, [mask])</code> — splits into <code>n_heads</code> independent heads, each with its own <code>wq</code>/ <code>wk</code>/<code>wv</code>/<code>wo</code> projections, and combines them. <code>weights</code> is a <code>Value::List</code> of exactly <code>n_heads</code> <code>Value::Record</code>s, each <code>{wq, wk, wv, wo}</code>: <code>wq</code>/<code>wk</code>/<code>wv</code> are <code>(d_model, d_head)</code> (<code>x @ wq</code> projects <code>x</code>'s <code>(seq_len, d_model)</code> down to this head's own <code>(seq_len, d_head)</code> q/k/v), and <code>wo</code> is <code>(d_head, d_model)</code> — this head's own ROW-BLOCK slice of the usual combined output projection. Concatenating the heads' <code>(seq_len, d_head)</code> outputs and multiplying by one big <code>(n_heads*d_head, d_model)</code> <code>Wo</code> is the textbook formulation, but it needs a <code>concat</code> tracked primitive nothing else here needs (<code>TapeEntry</code> only carries two input slots, so a variadic concat was never on the table anyway). Splitting <code>Wo</code> into per-head row blocks (<code>wo</code> above) and SUMMING <code>attn_head @ wo_head</code> instead is the identical computation by the standard block-matmul identity (<code>[A1 A2] @ [B1; B2] == A1@B1 + A2@B2</code>) — so this needs only <code>tb</code>'s existing <code>"*"</code>/<code>"+"</code>, no new primitive and no new <code>tensor_vjp</code> rule. CPU parallelism: heads run in a sequential Rust <code>for</code> loop, not a <code>rayon</code> fan-out, because every iteration mutates <code>self.tape</code> (<code>&amp;mut self</code>) — racing multiple heads across threads against one shared, non-atomic <code>Vec&lt;TapeEntry&gt;</code> would corrupt node numbering, the same constraint <code>gru_forward</code>'s own doc comment documents for timesteps. The actual parallel win is one level down: each head's own <code>Q@K^T</code>/<code>probs@V</code> matmuls already run on <code>qu-core</code>'s rayon thread pool once they cross <code>Matrix::PARALLEL_MATMUL_THRESHOLD</code>, same as every other tracked matmul in this interpreter.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

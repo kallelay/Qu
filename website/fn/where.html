@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>where — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>where</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig"><code>where(mask)</code> or <code>where(cond, a, b)</code></pre>
+<p class="fnnote">Input: mask &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>One argument <code>mask</code> (a <code>Vec</code>/<code>Mat</code> of booleans, typically produced by a comparison like <code>x &lt; 0</code>) returns a <code>Vec</code> of the 0-based indices where it is true. Three arguments — <code>cond</code> (a boolean mask), <code>a</code>, <code>b</code> (scalars or arrays broadcastable to <code>cond</code>'s shape) — instead select elementwise: <code>a</code>'s value where <code>cond</code> is true, <code>b</code>'s otherwise (NumPy's <code>where(cond, a, b)</code>), returning the same shape as <code>cond</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>mask</code> can be Vec, Mat, boolean, or scalar; <code>cond</code> can be boolean or scalar; <code>a</code> can be Vec, Mat, or boolean; <code>b</code> can be boolean or scalar.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-where-0" checked>
+<input type="radio" name="typetab" id="tt-where-1">
+<div class="tabbar">
+<label for="tt-where-0"><code>where(mask)</code></label>
+<label for="tt-where-1"><code>where(cond, a, b)</code></label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = where(mask)</code></td><td><div class="ioitem"><code>mask</code> <span class="iotype">Vec, Mat, boolean, or scalar</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>mask</code> <span class="iotype">Vec or Mat</span><span class="iodesc">a <code>Vec</code>/<code>Mat</code></span></div>
+</td><td>Indices where the boolean <code>mask</code> (a <code>Vec</code>/<code>Mat</code>) is true, as a <code>Vec</code> — the 1-argument form.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<span class="f">print</span>(<span class="f">where</span>(mask))          <span class="c"># [0, 2] -- indices, 1-argument form</span>
+<span class="f">print</span>(<span class="f">where</span>(mask, <span class="n">1</span>, <span class="n">0</span>))    <span class="c"># [1, 0, 1] -- elementwise pick, 3-argument form</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code>Z = [<span class="n">100</span> - <span class="n">20i</span>, <span class="n">80</span> - <span class="n">45i</span>, <span class="n">50</span> - <span class="n">55i</span>, <span class="n">30</span> - <span class="n">35i</span>, <span class="n">22</span> - <span class="n">12i</span>]   <span class="c"># measured impedance</span>
+freqs = [<span class="n">0.1</span>, <span class="n">1</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">1000</span>]                          <span class="c"># Hz</span>
+
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span> = <span class="n">1e-4</span>) <span class="c"># fit.z, fit.gamma</span>
+v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">threshold</span> = <span class="n">2.0</span>)
+<span class="k">if</span> v.valid
+    <span class="f">print</span>(<span class="s">"consistent within {v.max_residual:.2f}%"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
+R = <span class="n">100</span>
+C = <span class="n">1e-6</span>
+w = <span class="n">2</span> * pi * freqs
+Z = R / (<span class="n">1</span> + <span class="n">1j</span> * w * R * C)         <span class="c"># a simple RC impedance, as measured data</span>
+
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>)     <span class="c"># fit.z, fit.gamma</span>
+v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-3</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="k">if</span> v.valid
+    <span class="f">print</span>(<span class="s">"measurement is causal/linear/stable within {v.max_residual}%"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
+<span class="k">end</span>
+
+<span class="f">nyquist</span>(Z)   <span class="c"># Re(Z) vs -Im(Z), the standard EIS view</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = where(cond, a, b)</code></td><td><div class="ioitem"><code>cond</code> <span class="iotype">boolean or scalar</span><span class="iodesc">Three arguments — <code>cond</code> (a boolean mask), <code>a</code>, <code>b</code> (scalars or arrays broadcastable to <code>cond</code>'s shape) — instead select elementwise: <code>a</code>'s value where <code>cond</code> is true, <code>b</code>'s otherwise (NumPy's <code>where(cond, a, b)</code>), returning the same shape as <code>cond</code>.</span></div>
+<div class="ioitem"><code>a</code> <span class="iotype">Vec, Mat, or boolean</span><span class="iodesc">One argument <code>mask</code> (a <code>Vec</code>/<code>Mat</code> of booleans, typically produced by a comparison like <code>x &lt; 0</code>) returns a <code>Vec</code> of the 0-based indices where it is true.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">boolean or scalar</span><span class="iodesc">Three arguments — <code>cond</code> (a boolean mask), <code>a</code>, <code>b</code> (scalars or arrays broadcastable to <code>cond</code>'s shape) — instead select elementwise: <code>a</code>'s value where <code>cond</code> is true, <code>b</code>'s otherwise (NumPy's <code>where(cond, a, b)</code>), returning the same shape as <code>cond</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Elementwise selection: <code>a</code> where <code>cond</code> is true, <code>b</code> otherwise (NumPy's <code>where(cond, a, b)</code>) — the 3-argument form, returning <code>cond</code>'s shape rather than a list of indices.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<span class="f">print</span>(<span class="f">where</span>(mask))          <span class="c"># [0, 2] -- indices, 1-argument form</span>
+<span class="f">print</span>(<span class="f">where</span>(mask, <span class="n">1</span>, <span class="n">0</span>))    <span class="c"># [1, 0, 1] -- elementwise pick, 3-argument form</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code><span class="c">## periodic_profile: a burst that recurs every 2 seconds, folded onto one cycle</span>
+fs = <span class="n">200</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1999</span>          <span class="c"># 10 seconds</span>
+t = n / fs
+x = <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">2000</span>, <span class="a">seed</span>=<span class="n">6</span>)
+x = x + <span class="f">where</span>((t <span class="k">mod</span> <span class="n">2.0</span>) &lt; <span class="n">0.1</span>, <span class="n">1.0</span>, <span class="n">0.0</span>)   <span class="c"># a short spike once per 2s cycle</span>
+prof = <span class="f">periodic_profile</span>(x, fs, <span class="n">2.0</span>, <span class="n">20</span>, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"periodic_profile bins: {length(prof)}, spike bin mean = {max(prof)}, baseline ~ {prof[10]}"</span>)
+
+<span class="c">## hourly_profile: a day/night sinusoid, sampled once per minute over 2 days</span>
+fs_h = <span class="n">1.0</span>/<span class="n">60.0</span>
+n_h = <span class="n">0</span>:<span class="n">1</span>:<span class="n">2879</span>        <span class="c"># 2 days at 1 sample/min</span>
+t_h = n_h / fs_h
+hour_of_day = (t_h/<span class="n">3600</span>) <span class="k">mod</span> <span class="n">24</span>
+xh = <span class="f">sin</span>(<span class="n">2</span>*pi*hour_of_day/<span class="n">24</span>) + <span class="n">0.1</span>*<span class="f">randn</span>(<span class="n">2880</span>, <span class="a">seed</span>=<span class="n">7</span>)
+hp = <span class="f">hourly_profile</span>(xh, fs_h, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"hourly_profile: {length(hp)} bins, quietest hour idx = {find_peaks(-hp)[0]}"</span>)
+
+<span class="c">## minutely_profile: activity concentrated in the first 5 minutes of each hour</span>
+fs_m = <span class="n">1.0</span>
+n_m = <span class="n">0</span>:<span class="n">1</span>:<span class="n">10799</span>       <span class="c"># 3 hours at 1 Hz</span>
+t_m = n_m / fs_m
+minute_of_hour = (t_m/<span class="n">60</span>) <span class="k">mod</span> <span class="n">60</span>
+xm = <span class="f">where</span>(minute_of_hour &lt; <span class="n">5</span>, <span class="n">1.0</span>, <span class="n">0.0</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">10800</span>, <span class="a">seed</span>=<span class="n">8</span>)
+mp = <span class="f">minutely_profile</span>(xm, fs_m, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"minutely_profile: {length(mp)} bins, busiest minute idx = {find_peaks(mp)[0]}"</span>)
+
+<span class="c">## daily_profile: weekday/weekend pattern, one sample per hour over 3 weeks</span>
+fs_d = <span class="n">1.0</span>/<span class="n">3600.0</span>
+n_d = <span class="n">0</span>:<span class="n">1</span>:<span class="n">503</span>         <span class="c"># 21 days at 1 sample/hour</span>
+t_d = n_d / fs_d
+day_of_week = (t_d/<span class="n">86400</span>) <span class="k">mod</span> <span class="n">7</span>
+xd = <span class="f">where</span>(day_of_week &lt; <span class="n">5</span>, <span class="n">1.0</span>, <span class="n">0.0</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">504</span>, <span class="a">seed</span>=<span class="n">9</span>)   <span class="c"># higher on weekdays</span>
+dp = <span class="f">daily_profile</span>(xd, fs_d, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"daily_profile: {length(dp)} bins (0=day0..6), values = {dp}"</span>)
+
+<span class="c">## monthly_profile: an annual cycle, one sample per day over ~2 years</span>
+fs_mo = <span class="n">1.0</span>/<span class="n">86400.0</span>
+n_mo = <span class="n">0</span>:<span class="n">1</span>:<span class="n">729</span>        <span class="c"># 2 years at 1 sample/day</span>
+t_mo = n_mo / fs_mo
+xmo = <span class="f">sin</span>(<span class="n">2</span>*pi*t_mo/<span class="n">31557600</span>) + <span class="n">0.05</span>*<span class="f">randn</span>(<span class="n">730</span>, <span class="a">seed</span>=<span class="n">10</span>)
+mop = <span class="f">monthly_profile</span>(xmo, fs_mo, <span class="a">stat</span>=<span class="s">"mean"</span>)
+<span class="f">print</span>(<span class="s">"monthly_profile: {length(mop)} bins, values = {mop}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p>selection: <code>where(cond)</code> -&gt; indices where the mask is true. <code>find(collection, fnName)</code> — predicate search (§ collections, 2026-08-24), a *different* 2-argument form distinguished by arity (a mask and a (collection, function-name) pair can't be confused): returns the first element for which <code>fnName</code> is truthy, via <code>find_predicate</code>. <code>where</code> keeps its original 1-argument-only meaning — <code>where(xs, "fn")</code> is a clear error rather than silently reinterpreted, since <code>where</code> never meant "search a collection".</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

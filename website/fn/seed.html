@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>seed — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>seed</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig"><code>seed(n)</code></pre>
+<p class="fnnote">Input: n &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Reseeds the shared random stream with integer <code>n</code>, so subsequent calls to <code>rand</code>/<code>randn</code>/etc. without their own <code>seed=</code> become reproducible from this point on.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>seed(n)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>without their own <code>seed=</code> become reproducible from this point on.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">seed</span>(<span class="n">42</span>)
+a = <span class="f">rand</span>(<span class="n">1</span>, <span class="n">3</span>)
+<span class="f">seed</span>(<span class="n">42</span>)
+b = <span class="f">rand</span>(<span class="n">1</span>, <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"a = {a}"</span>)
+<span class="f">print</span>(<span class="s">"b = {b}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example"><pre class="hl"><code>a = <span class="f">rand</span>(<span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"shape a: {size(a)}"</span>)
+
+<span class="f">seed</span>(<span class="n">5</span>)
+p = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</span>)
+junk = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+q = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</span>)
+
+<span class="f">seed</span>(<span class="n">5</span>)
+p2 = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</span>)
+q2 = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</span>)
+
+<span class="f">print</span>(<span class="s">"q == q2: {q == q2}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example"><pre class="hl"><code><span class="f">seed</span>(<span class="n">42</span>)                             <span class="c"># reseed the shared stream</span>
+u = <span class="f">rand</span>(<span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)                <span class="c"># an explicit seed still wins</span>
+<span class="f">print</span>(<span class="s">"rand draws: {round(u, 3)}"</span>)
+<span class="f">print</span>(<span class="s">"chi2pdf(2, 3):  {round(chi2pdf(2, 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"normpdf(0):     {round(normpdf(0), 4)}"</span>)
+
+walk = <span class="f">random_walk</span>(<span class="n">20</span>, <span class="a">drift</span> = <span class="n">0.1</span>, <span class="a">volatility</span> = <span class="n">1.0</span>, <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"random walk, last value: {round(walk[19], 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
+x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
+z = <span class="f">dense</span>(x, w, b)
+a = <span class="f">relu</span>(z)
+p = <span class="f">sigmoid</span>(a)
+loss = <span class="f">sum</span>(p .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w)
+<span class="f">print</span>(<span class="s">"relu:    {round(a, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"sigmoid: {round(p, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dw:   {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()                    <span class="c"># clear the tape before the next computation</span>
+
+scores = [<span class="n">2.0</span>, <span class="n">1.0</span>, <span class="n">0.1</span>; <span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">0.5</span>]
+probs = <span class="f">softmax_rows</span>(scores)
+<span class="f">print</span>(<span class="s">"softmax row 0: {round(probs[0, :], 4)}"</span>)
+
+<span class="f">seed</span>(<span class="n">3</span>)
+kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n">1</span>, <span class="n">8</span>), <span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
+<span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>seed(n)</code> reseeds the persistent random stream.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

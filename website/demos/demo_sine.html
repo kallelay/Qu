@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plot a sine wave — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Getting started</p>
+<h1>Plot a sine wave</h1>
+<p class="lede">plot a sine wave.</p>
+<p class="srcpath">catalog/demo_sine.qu</p>
+<p>The simplest possible version of the thing Qu is built for: a time axis, a waveform, and a plot. No filtering, no noise, no units -- just sin().</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>to (range), elementwise sin(), plot(), show plot</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Make a sine wave</h3>
+<pre class="hl"><code>t = <span class="n">0</span> <span class="k">to</span> <span class="n">2</span> * pi <span class="k">step</span> <span class="n">0.05</span>
+y = <span class="f">sin</span>(t)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot it</h3>
+<pre class="hl"><code><span class="f">plot</span>(t, y)
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="517.65" x2="866.00" y2="517.65" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="517.65" x2="86.00" y2="517.65" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="522.13" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.0</text>
+<line x1="86.00" y1="472.92" x2="866.00" y2="472.92" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="472.92" x2="86.00" y2="472.92" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="477.40" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.8</text>
+<line x1="86.00" y1="428.19" x2="866.00" y2="428.19" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="428.19" x2="86.00" y2="428.19" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="432.67" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.6</text>
+<line x1="86.00" y1="383.45" x2="866.00" y2="383.45" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="383.45" x2="86.00" y2="383.45" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="387.93" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.4</text>
+<line x1="86.00" y1="338.72" x2="866.00" y2="338.72" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="338.72" x2="86.00" y2="338.72" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="343.20" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.2</text>
+<line x1="86.00" y1="293.98" x2="866.00" y2="293.98" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="293.98" x2="86.00" y2="293.98" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="298.46" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="249.25" x2="866.00" y2="249.25" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="249.25" x2="86.00" y2="249.25" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="253.73" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.2</text>
+<line x1="86.00" y1="204.52" x2="866.00" y2="204.52" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="204.52" x2="86.00" y2="204.52" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="209.00" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="159.78" x2="866.00" y2="159.78" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="159.78" x2="86.00" y2="159.78" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="164.26" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.6</text>
+<line x1="86.00" y1="115.05" x2="866.00" y2="115.05" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="115.05" x2="86.00" y2="115.05" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="119.53" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="86.00" y1="70.32" x2="866.00" y2="70.32" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="70.32" x2="86.00" y2="70.32" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="74.80" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="204.86" y1="48.00" x2="204.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="204.86" y1="540.00" x2="204.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="204.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1</text>
+<line x1="323.71" y1="48.00" x2="323.71" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="323.71" y1="540.00" x2="323.71" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="323.71" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2</text>
+<line x1="442.57" y1="48.00" x2="442.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="442.57" y1="540.00" x2="442.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="442.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3</text>
+<line x1="561.43" y1="48.00" x2="561.43" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="561.43" y1="540.00" x2="561.43" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="561.43" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4</text>
+<line x1="680.29" y1="48.00" x2="680.29" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="680.29" y1="540.00" x2="680.29" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="680.29" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">5</text>
+<line x1="799.14" y1="48.00" x2="799.14" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="799.14" y1="540.00" x2="799.14" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="799.14" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">6</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,293.98 91.94,282.81 97.89,271.65 103.83,260.56 109.77,249.55 115.71,238.65 121.66,227.89 127.60,217.29 133.54,206.88 139.49,196.70 145.43,186.75 151.37,177.08 157.31,167.69 163.26,158.62 169.20,149.89 175.14,141.52 181.09,133.53 187.03,125.95 192.97,118.78 198.91,112.05 204.86,105.77 210.80,99.97 216.74,94.65 222.69,89.83 228.63,85.52 234.57,81.73 240.51,78.47 246.46,75.75 252.40,73.57 258.34,71.95 264.29,70.88 270.23,70.36 276.17,70.41 282.11,71.02 288.06,72.18 294.00,73.90 299.94,76.16 305.89,78.98 311.83,82.33 317.77,86.20 323.71,90.60 329.66,95.51 335.60,100.91 341.54,106.80 347.49,113.15 353.43,119.95 359.37,127.19 365.31,134.85 371.26,142.90 377.20,151.34 383.14,160.12 389.09,169.25 395.03,178.68 400.97,188.41 406.91,198.39 412.86,208.62 418.80,219.06 424.74,229.68 430.69,240.47 436.63,251.39 442.57,262.42 448.51,273.53 454.46,284.68 460.40,295.86 466.34,307.04 472.29,318.18 478.23,329.27 484.17,340.26 490.11,351.14 496.06,361.88 502.00,372.44 507.94,382.81 513.89,392.96 519.83,402.86 525.77,412.49 531.71,421.83 537.66,430.84 543.60,439.51 549.54,447.82 555.49,455.74 561.43,463.26 567.37,470.35 573.31,477.01 579.26,483.20 585.20,488.93 591.14,494.17 597.09,498.90 603.03,503.13 608.97,506.83 614.91,510.00 620.86,512.63 626.80,514.71 632.74,516.24 638.69,517.22 644.63,517.64 650.57,517.50 656.51,516.80 662.46,515.54 668.40,513.73 674.34,511.37 680.29,508.47 686.23,505.03 692.17,501.06 698.11,496.58 704.06,491.59 710.00,486.10 715.94,480.14 721.89,473.71 727.83,466.83 733.77,459.52 739.71,451.79 745.66,443.67 751.60,435.18 757.54,426.33 763.49,417.16 769.43,407.67 775.37,397.90 781.31,387.87 787.26,377.61 793.20,367.14 799.14,356.48 805.09,345.67 811.03,334.73 816.97,323.69 822.91,312.57 828.86,301.41" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/demo_sine.qu</code></p>
+<pre class="hl"><code><span class="c"># demo_sine.qu — plot a sine wave.</span>
+<span class="c">#</span>
+<span class="c"># The simplest possible version of the thing Qu is built for: a time axis,</span>
+<span class="c"># a waveform, and a plot. No filtering, no noise, no units -- just sin().</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   to (range), elementwise sin(), plot(), show plot</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Make a sine wave</span>
+t = <span class="n">0</span> <span class="k">to</span> <span class="n">2</span> * pi <span class="k">step</span> <span class="n">0.05</span>
+y = <span class="f">sin</span>(t)
+
+<span class="c">#%% Plot it</span>
+<span class="f">plot</span>(t, y)
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

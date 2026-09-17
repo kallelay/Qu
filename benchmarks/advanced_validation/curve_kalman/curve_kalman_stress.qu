@@ -1,0 +1,105 @@
+# curve_kalman_stress.qu -- nonlinear curve fitting (Levenberg-Marquardt)
+# and linear Kalman filtering, each at a real stress scale, each compared
+# against a Python reference on the SAME data:
+#
+#   1. curve_fit: a 4-parameter damped sinusoid (N=1000) fit from a GOOD
+#      initial guess and again from a deliberately POOR one (tests LM
+#      robustness to starting point, not just the happy path), plus a
+#      genuinely harder 5-parameter sum-of-two-exponentials model --
+#      3x catalog/qu_curve_fit.qu's single N=80 example count and stresses
+#      a harder model besides.
+#   2. Kalman filtering: a 2D constant-velocity tracker run for N=5,000
+#      steps (25x catalog/qu_kalman_tracking.qu's N=60 1D toy) against a
+#      target whose true velocity isn't quite constant (small sinusoidal
+#      wobble) -- a real, not-trivially-linear tracking scenario -- cross-
+#      checked against an independent from-scratch numpy Kalman
+#      implementation of the identical linear-algebra update equations.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   curve_fit(model_fn, xdata, ydata, p0, max_iter=, tol=) -- Levenberg-Marquardt
+#   kalman_init(x0, P0), state.predict(F, Q), state.update(H, z, R)
+#   tic()/toc(), read_csv, write_csv/table
+#
+# Run: qu run benchmarks/advanced_validation/curve_kalman/curve_kalman_stress.qu
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/curve_kalman/"
+
+# =========================== Part 1: curve_fit ===============================
+function damped_sine(x, p)
+    return p[0] * exp(-x / p[1]) * sin(2*pi*p[2]*x + p[3])
+end function
+
+function double_exp(x, p)
+    return p[0] * exp(-x / p[1]) + p[2] * exp(-x / p[3]) + p[4]
+end function
+
+sine_df = read_csv(DATA + "damped_sine.csv")
+xs = sine_df.x
+ys = sine_df.y
+true_params_sine = [2.0, 1.5, 1.2, 0.3]
+
+# -- good initial guess, close to the truth ---------------------------------
+p0_good = [1.0, 1.0, 1.0, 0.0]
+tic()
+fit_good = curve_fit("damped_sine", xs, ys, p0_good, max_iter=300)
+t_good = toc()
+print("damped_sine (good init):  converged={fit_good.converged}  cost={fit_good.cost:.6f}  time={t_good*1000:.3f} ms")
+print("  true_params   = {true_params_sine}")
+print("  fitted_params = {fit_good.params}")
+
+# -- deliberately poor initial guess (far from the truth in every param) ---
+p0_poor = [10.0, 0.1, 5.0, 3.0]
+tic()
+fit_poor = curve_fit("damped_sine", xs, ys, p0_poor, max_iter=300)
+t_poor = toc()
+print("damped_sine (poor init):  converged={fit_poor.converged}  cost={fit_poor.cost:.6f}  time={t_poor*1000:.3f} ms")
+print("  fitted_params = {fit_poor.params}")
+print("")
+
+# -- a genuinely harder 5-parameter model -----------------------------------
+exp_df = read_csv(DATA + "double_exp.csv")
+xe = exp_df.x
+ye = exp_df.y
+true_params_exp = [3.0, 0.8, 1.5, 3.0, 0.2]
+p0_exp = [1.0, 1.0, 1.0, 1.0, 0.0]
+tic()
+fit_exp = curve_fit("double_exp", xe, ye, p0_exp, max_iter=500)
+t_exp = toc()
+print("double_exp (5 params):    converged={fit_exp.converged}  cost={fit_exp.cost:.6f}  time={t_exp*1000:.3f} ms")
+print("  true_params   = {true_params_exp}")
+print("  fitted_params = {fit_exp.params}")
+print("")
+
+# =========================== Part 2: Kalman filter ============================
+track = read_csv(DATA + "kalman_track.csv")
+N = nrow(track)
+dt = track.t[1] - track.t[0]
+meas_std = 0.5
+
+F = [1, 0, dt, 0; 0, 1, 0, dt; 0, 0, 1, 0; 0, 0, 0, 1]
+Q = [0.001, 0, 0, 0; 0, 0.001, 0, 0; 0, 0, 0.01, 0; 0, 0, 0, 0.01]
+H = [1, 0, 0, 0; 0, 1, 0, 0]
+R = [meas_std*meas_std, 0; 0, meas_std*meas_std]
+
+s = kalman_init([0, 0, 0, 0], [10, 0, 0, 0; 0, 10, 0, 0; 0, 0, 10, 0; 0, 0, 0, 10])
+est_px = zeros(1, N)
+est_py = zeros(1, N)
+
+tic()
+for k = 0 to N - 1
+    s = s.predict(F, Q)
+    s = s.update(H, [track.meas_px[k], track.meas_py[k]], R)
+    est_px[k] = s.x[0]
+    est_py[k] = s.x[1]
+end for
+t_kalman = toc()
+
+raw_err = rms((track.meas_px - track.true_px)) + rms((track.meas_py - track.true_py))
+filt_err = rms((est_px - track.true_px)) + rms((est_py - track.true_py))
+print("kalman: N={N} steps  time={t_kalman:.4f} s  per_step={1000*t_kalman/N:.4f} ms")
+print("kalman: raw sensor RMS error (x+y) = {raw_err:.4f}")
+print("kalman: filtered RMS error (x+y)   = {filt_err:.4f}")
+
+write_csv(table(qu_est_px=est_px, qu_est_py=est_py), DATA + "kalman_qu_estimates.csv")

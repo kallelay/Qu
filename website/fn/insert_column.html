@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>insert_column — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>insert_column</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>insert_column(t, name, values, [pos=])</code></pre>
+<p class="fnnote">Input: t, name, values, pos &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>t</code> is a <code>Table</code>; <code>name</code> is a <code>Str</code>; <code>values</code> is a numeric <code>Vec</code>/<code>List</code> of <code>Str</code> (or a scalar to broadcast) the same length as <code>t</code>'s rows; optional named <code>pos</code> (number, default: append at the end) sets the column's position.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = insert_column(t, name, values, [pos=])</code></td><td><div class="ioitem"><code>t</code> <span class="iotype">Table</span><span class="iodesc"><code>t</code> is a <code>Table</code>.</span></div>
+<div class="ioitem"><code>name</code> <span class="iotype">Str</span><span class="iodesc"><code>name</code> is a <code>Str</code>.</span></div>
+<div class="ioitem"><code>values</code> <span class="iotype">Vec, List, Str, or scalar</span><span class="iodesc"><code>values</code> is a numeric <code>Vec</code>/<code>List</code> of <code>Str</code> (or a scalar to broadcast) the same length as <code>t</code>'s rows.</span></div>
+<div class="ioitem"><code>pos</code> <span class="iotype">number, optional</span><span class="iodesc">optional named <code>pos</code> (number, default: append at the end) sets the column's position.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Table</span></div>
+</td><td>Returns a NEW <code>Table</code>; the original is untouched.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(
+    <span class="a">channel</span>  = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>],
+    <span class="a">baseline</span> = [<span class="n">0.412</span>, <span class="n">0.508</span>, <span class="n">0.377</span>],
+    <span class="a">treated</span>  = [<span class="n">0.240</span>, <span class="n">0.301</span>, <span class="n">0.219</span>]
+)
+runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</span>, <span class="n">1</span> - runs.treated / runs.baseline)
+<span class="f">print</span>(runs)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<h2>How it works</h2>
+<p><code>insert_column(t, "name", values, [pos=])</code> (§ table row index, 2026-08-26) — a new <code>Table</code> with a new column inserted at <code>pos</code> (default: appended). <code>values</code> is a <code>Vec</code> for a numeric column or a <code>Value::List</code> of strings for a text column (the same list-of-strings shape <code>column_names_arg</code>/<code>drop</code>'s tuple form already accepts elsewhere), matching the just-fixed <code>df.colname</code> text-column read shape (<code>Value::List</code> of <code>Value::Str</code>) on the way back out.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

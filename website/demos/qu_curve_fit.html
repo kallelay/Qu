@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curve fitting — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>Curve fitting</h1>
+<p class="lede">nonlinear least-squares curve fitting and general multivariate minimization.</p>
+<p class="srcpath">catalog/qu_curve_fit.qu</p>
+<p>`curve_fit` wraps Levenberg-Marquardt around a user-defined model function `f(x, params)`; `minimize` runs L-BFGS on any scalar objective of a parameter vector. Both return a Model rather than a bare vector, since each call's outputs (fitted params, cost/value, convergence flag) are one related result, not independent ones -- Qu's usual named-return convention.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>curve_fit(model_fn, xdata, ydata, p0, max_iter=, tol=) -- Levenberg-Marquardt</li>
+<li>minimize(f, x0, max_iter=, tol=)                        -- L-BFGS</li>
+<li>randn                                                   -- synthetic measurement noise</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Fit a damped-sinusoid model to noisy data</h3>
+<pre class="hl"><code><span class="k">function</span> <span class="f">damped_sine</span>(x, p)
+    <span class="k">return</span> p[<span class="n">0</span>] * <span class="f">exp</span>(-x / p[<span class="n">1</span>]) * <span class="f">sin</span>(<span class="n">2</span>*pi*p[<span class="n">2</span>]*x + p[<span class="n">3</span>])
+<span class="k">end</span> <span class="k">function</span>
+
+N = <span class="n">80</span>
+x = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4</span>, N)
+true_params = [<span class="n">2.0</span>, <span class="n">1.5</span>, <span class="n">1.2</span>, <span class="n">0.3</span>]
+y_clean = <span class="f">damped_sine</span>(x, true_params)
+y = y_clean + <span class="n">0.08</span> * <span class="f">randn</span>(N)
+
+p0 = [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+fit = <span class="f">curve_fit</span>(<span class="s">"damped_sine"</span>, x, y, p0, <span class="a">max_iter</span>=<span class="n">300</span>)
+<span class="f">print</span>(<span class="s">"converged={fit.converged}, cost={fit.cost:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"true params:   {true_params}"</span>)
+<span class="f">print</span>(<span class="s">"fitted params: {fit.params}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>General minimization: find the minimum of a bowl-shaped objective</h3>
+<pre class="hl"><code><span class="k">function</span> <span class="f">rosenbrock</span>(p)
+    a = <span class="n">1</span> - p[<span class="n">0</span>]
+    b = p[<span class="n">1</span>] - p[<span class="n">0</span>] * p[<span class="n">0</span>]
+    <span class="k">return</span> a * a + <span class="n">100</span> * b * b
+<span class="k">end</span> <span class="k">function</span>
+
+result = <span class="f">minimize</span>(<span class="s">"rosenbrock"</span>, [-<span class="n">1.2</span>, <span class="n">1.0</span>], <span class="a">max_iter</span>=<span class="n">500</span>)
+<span class="f">print</span>(<span class="s">"minimize: converged={result.converged}, value={result.value:.6f}, params={result.params}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot data vs the fitted curve</h3>
+<pre class="hl"><code>xf = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">300</span>)
+yf = <span class="f">damped_sine</span>(xf, fit.params)
+
+<span class="f">plot</span>(x, y, <span class="a">label</span>=<span class="s">"noisy data"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(xf, yf, <span class="a">label</span>=<span class="s">"curve_fit"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"y"</span>)
+<span class="f">title</span>(<span class="s">"Levenberg-Marquardt fit of a damped sinusoid"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>converged=true, cost=0.5539
+true params:   [2, 1.5, 1.2, 0.3]
+fitted params: [2.044156, 1.447219, 1.201374, 0.288305]
+minimize: converged=true, value=0.000000, params=[1, 1]</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="535.52" x2="866.00" y2="535.52" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="535.52" x2="86.00" y2="535.52" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="540.00" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.5</text>
+<line x1="86.00" y1="467.21" x2="866.00" y2="467.21" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="467.21" x2="86.00" y2="467.21" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="471.69" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.0</text>
+<line x1="86.00" y1="398.90" x2="866.00" y2="398.90" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="398.90" x2="86.00" y2="398.90" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="403.38" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.5</text>
+<line x1="86.00" y1="330.59" x2="866.00" y2="330.59" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="330.59" x2="86.00" y2="330.59" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="335.07" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="262.27" x2="866.00" y2="262.27" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="262.27" x2="86.00" y2="262.27" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="266.75" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.5</text>
+<line x1="86.00" y1="193.96" x2="866.00" y2="193.96" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="193.96" x2="86.00" y2="193.96" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="198.44" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="125.65" x2="866.00" y2="125.65" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="125.65" x2="86.00" y2="125.65" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="130.13" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.5</text>
+<line x1="86.00" y1="57.34" x2="866.00" y2="57.34" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="57.34" x2="86.00" y2="57.34" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="61.82" font-size="12.8" text-anchor="end" fill="#5a5a5a">2.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="178.86" y1="48.00" x2="178.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="178.86" y1="540.00" x2="178.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="178.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.5</text>
+<line x1="271.71" y1="48.00" x2="271.71" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="271.71" y1="540.00" x2="271.71" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="271.71" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.0</text>
+<line x1="364.57" y1="48.00" x2="364.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="364.57" y1="540.00" x2="364.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="364.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.5</text>
+<line x1="457.43" y1="48.00" x2="457.43" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="457.43" y1="540.00" x2="457.43" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="457.43" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.0</text>
+<line x1="550.29" y1="48.00" x2="550.29" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="550.29" y1="540.00" x2="550.29" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="550.29" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.5</text>
+<line x1="643.14" y1="48.00" x2="643.14" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="643.14" y1="540.00" x2="643.14" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="643.14" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.0</text>
+<line x1="736.00" y1="48.00" x2="736.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="736.00" y1="540.00" x2="736.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="736.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.5</text>
+<line x1="828.86" y1="48.00" x2="828.86" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="828.86" y1="540.00" x2="828.86" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="828.86" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4.0</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,260.53 95.40,150.72 104.81,99.23 114.21,70.36 123.61,110.06 133.02,135.36 142.42,222.88 151.82,283.77 161.23,379.40 170.63,442.81 180.03,481.25 189.44,504.24 198.84,499.02 208.24,492.31 217.65,443.62 227.05,377.85 236.45,301.28 245.86,262.60 255.26,197.66 264.66,205.83 274.07,185.11 283.47,217.32 292.87,219.68 302.27,286.11 311.68,327.83 321.08,381.69 330.48,414.24 339.89,458.50 349.29,432.63 358.69,415.94 368.10,410.48 377.50,349.57 386.90,344.09 396.31,307.29 405.71,267.35 415.11,275.08 424.52,246.90 433.92,263.33 443.32,286.34 452.73,314.39 462.13,306.26 471.53,339.99 480.94,363.17 490.34,385.00 499.74,392.68 509.15,370.40 518.55,369.63 527.95,352.75 537.36,337.28 546.76,333.71 556.16,299.68 565.57,292.22 574.97,295.53 584.37,264.66 593.78,290.96 603.18,305.98 612.58,316.50 621.99,352.69 631.39,333.74 640.79,350.90 650.20,359.60 659.60,344.77 669.00,349.53 678.41,361.51 687.81,350.46 697.21,321.03 706.61,318.90 716.02,284.54 725.42,291.51 734.82,297.87 744.23,294.32 753.63,286.21 763.03,323.64 772.44,320.38 781.84,334.34 791.24,349.33 800.65,350.39 810.05,343.38 819.45,346.32 828.86,340.63" fill="none" stroke="#808080" stroke-width="1.5"/>
+<polyline points="86.00,251.18 88.48,225.57 90.97,201.49 93.45,179.17 95.94,158.80 98.42,140.55 100.91,124.58 103.39,110.99 105.88,99.88 108.36,91.33 110.84,85.37 113.33,82.01 115.81,81.25 118.30,83.04 120.78,87.32 123.27,93.99 125.75,102.95 128.24,114.07 130.72,127.18 133.20,142.12 135.69,158.71 138.17,176.75 140.66,196.02 143.14,216.31 145.63,237.39 148.11,259.03 150.60,281.00 153.08,303.08 155.57,325.03 158.05,346.64 160.53,367.68 163.02,387.97 165.50,407.29 167.99,425.49 170.47,442.38 172.96,457.83 175.44,471.70 177.93,483.87 180.41,494.27 182.89,502.81 185.38,509.43 187.86,514.12 190.35,516.85 192.83,517.64 195.32,516.50 197.80,513.50 200.29,508.69 202.77,502.15 205.25,493.99 207.74,484.31 210.22,473.24 212.71,460.93 215.19,447.51 217.68,433.15 220.16,418.01 222.65,402.26 225.13,386.06 227.61,369.60 230.10,353.04 232.58,336.56 235.07,320.31 237.55,304.47 240.04,289.19 242.52,274.61 245.01,260.86 247.49,248.07 249.98,236.36 252.46,225.83 254.94,216.55 257.43,208.60 259.91,202.04 262.40,196.91 264.88,193.24 267.37,191.03 269.85,190.28 272.34,190.97 274.82,193.07 277.30,196.53 279.79,201.30 282.27,207.29 284.76,214.43 287.24,222.62 289.73,231.76 292.21,241.73 294.70,252.43 297.18,263.73 299.66,275.50 302.15,287.62 304.63,299.95 307.12,312.37 309.60,324.75 312.09,336.96 314.57,348.88 317.06,360.40 319.54,371.40 322.02,381.78 324.51,391.46 326.99,400.33 329.48,408.34 331.96,415.40 334.45,421.48 336.93,426.51 339.42,430.48 341.90,433.36 344.39,435.14 346.87,435.82 349.35,435.42 351.84,433.96 354.32,431.47 356.81,428.00 359.29,423.61 361.78,418.34 364.26,412.28 366.75,405.50 369.23,398.08 371.71,390.11 374.20,381.68 376.68,372.89 379.17,363.82 381.65,354.59 384.14,345.27 386.62,335.98 389.11,326.80 391.59,317.84 394.07,309.16 396.56,300.86 399.04,293.02 401.53,285.70 404.01,278.97 406.50,272.89 408.98,267.51 411.47,262.88 413.95,259.01 416.43,255.95 418.92,253.70 421.40,252.27 423.89,251.67 426.37,251.88 428.86,252.89 431.34,254.67 433.83,257.19 436.31,260.42 438.80,264.30 441.28,268.78 443.76,273.81 446.25,279.32 448.73,285.26 451.22,291.55 453.70,298.12 456.19,304.90 458.67,311.82 461.16,318.80 463.64,325.77 466.12,332.67 468.61,339.42 471.09,345.95 473.58,352.21 476.06,358.13 478.55,363.67 481.03,368.77 483.52,373.38 486.00,377.48 488.48,381.02 490.97,383.98 493.45,386.35 495.94,388.10 498.42,389.24 500.91,389.76 503.39,389.67 505.88,388.98 508.36,387.70 510.84,385.87 513.33,383.51 515.81,380.65 518.30,377.34 520.78,373.61 523.27,369.51 525.75,365.09 528.24,360.40 530.72,355.49 533.20,350.42 535.69,345.24 538.17,340.00 540.66,334.77 543.14,329.59 545.63,324.51 548.11,319.59 550.60,314.87 553.08,310.40 555.57,306.21 558.05,302.35 560.53,298.85 563.02,295.73 565.50,293.03 567.99,290.76 570.47,288.93 572.96,287.57 575.44,286.66 577.93,286.22 580.41,286.24 582.89,286.71 585.38,287.62 587.86,288.95 590.35,290.68 592.83,292.78 595.32,295.23 597.80,297.99 600.29,301.04 602.77,304.33 605.25,307.83 607.74,311.49 610.22,315.28 612.71,319.16 615.19,323.09 617.68,327.02 620.16,330.91 622.65,334.73 625.13,338.43 627.61,341.99 630.10,345.37 632.58,348.53 635.07,351.46 637.55,354.11 640.04,356.48 642.52,358.55 645.01,360.29 647.49,361.69 649.98,362.76 652.46,363.47 654.94,363.84 657.43,363.87 659.91,363.55 662.40,362.91 664.88,361.94 667.37,360.68 669.85,359.13 672.34,357.32 674.82,355.27 677.30,353.01 679.79,350.56 682.27,347.95 684.76,345.22 687.24,342.38 689.73,339.48 692.21,336.53 694.70,333.59 697.18,330.66 699.66,327.79 702.15,325.00 704.63,322.32 707.12,319.77 709.60,317.38 712.09,315.16 714.57,313.15 717.06,311.34 719.54,309.77 722.02,308.44 724.51,307.36 726.99,306.53 729.48,305.96 731.96,305.66 734.45,305.61 736.93,305.82 739.42,306.28 741.90,306.97 744.39,307.90 746.87,309.04 749.35,310.37 751.84,311.89 754.32,313.57 756.81,315.39 759.29,317.34 761.78,319.38 764.26,321.50 766.75,323.67 769.23,325.88 771.71,328.09 774.20,330.29 776.68,332.45 779.17,334.55 781.65,336.57 784.14,338.49 786.62,340.30 789.11,341.98 791.59,343.51 794.07,344.88 796.56,346.08 799.04,347.10 801.53,347.93 804.01,348.57 806.50,349.02 808.98,349.27 811.47,349.32 813.95,349.19 816.43,348.86 818.92,348.36 821.40,347.69 823.89,346.85 826.37,345.86 828.86,344.74" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Levenberg-Marquardt fit of a damped sinusoid</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">x</text>
+<text x="42.76" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 42.76 294.00)">y</text>
+<rect x="759.61" y="56.00" width="98.39" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="766.61" y1="72.00" x2="786.61" y2="72.00" stroke="#808080" stroke-width="2.2"/>
+<text x="792.61" y="75.50" font-size="12" text-anchor="start" fill="#222">noisy data</text>
+<line x1="766.61" y1="90.00" x2="786.61" y2="90.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="792.61" y="93.50" font-size="12" text-anchor="start" fill="#222">curve_fit</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_curve_fit.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_curve_fit.qu -- nonlinear least-squares curve fitting and general</span>
+<span class="c"># multivariate minimization.</span>
+<span class="c">#</span>
+<span class="c"># `curve_fit` wraps Levenberg-Marquardt around a user-defined model function</span>
+<span class="c"># `f(x, params)`; `minimize` runs L-BFGS on any scalar objective of a</span>
+<span class="c"># parameter vector. Both return a Model rather than a bare vector, since</span>
+<span class="c"># each call's outputs (fitted params, cost/value, convergence flag) are one</span>
+<span class="c"># related result, not independent ones -- Qu's usual named-return convention.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   curve_fit(model_fn, xdata, ydata, p0, max_iter=, tol=) -- Levenberg-Marquardt</span>
+<span class="c">#   minimize(f, x0, max_iter=, tol=)                        -- L-BFGS</span>
+<span class="c">#   randn                                                   -- synthetic measurement noise</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Fit a damped-sinusoid model to noisy data</span>
+<span class="k">function</span> <span class="f">damped_sine</span>(x, p)
+    <span class="k">return</span> p[<span class="n">0</span>] * <span class="f">exp</span>(-x / p[<span class="n">1</span>]) * <span class="f">sin</span>(<span class="n">2</span>*pi*p[<span class="n">2</span>]*x + p[<span class="n">3</span>])
+<span class="k">end</span> <span class="k">function</span>
+
+N = <span class="n">80</span>
+x = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4</span>, N)
+true_params = [<span class="n">2.0</span>, <span class="n">1.5</span>, <span class="n">1.2</span>, <span class="n">0.3</span>]
+y_clean = <span class="f">damped_sine</span>(x, true_params)
+y = y_clean + <span class="n">0.08</span> * <span class="f">randn</span>(N)
+
+p0 = [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+fit = <span class="f">curve_fit</span>(<span class="s">"damped_sine"</span>, x, y, p0, <span class="a">max_iter</span>=<span class="n">300</span>)
+<span class="f">print</span>(<span class="s">"converged={fit.converged}, cost={fit.cost:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"true params:   {true_params}"</span>)
+<span class="f">print</span>(<span class="s">"fitted params: {fit.params}"</span>)
+
+<span class="c">#%% General minimization: find the minimum of a bowl-shaped objective</span>
+<span class="k">function</span> <span class="f">rosenbrock</span>(p)
+    a = <span class="n">1</span> - p[<span class="n">0</span>]
+    b = p[<span class="n">1</span>] - p[<span class="n">0</span>] * p[<span class="n">0</span>]
+    <span class="k">return</span> a * a + <span class="n">100</span> * b * b
+<span class="k">end</span> <span class="k">function</span>
+
+result = <span class="f">minimize</span>(<span class="s">"rosenbrock"</span>, [-<span class="n">1.2</span>, <span class="n">1.0</span>], <span class="a">max_iter</span>=<span class="n">500</span>)
+<span class="f">print</span>(<span class="s">"minimize: converged={result.converged}, value={result.value:.6f}, params={result.params}"</span>)
+
+<span class="c">#%% Plot data vs the fitted curve</span>
+xf = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">300</span>)
+yf = <span class="f">damped_sine</span>(xf, fit.params)
+
+<span class="f">plot</span>(x, y, <span class="a">label</span>=<span class="s">"noisy data"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(xf, yf, <span class="a">label</span>=<span class="s">"curve_fit"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"y"</span>)
+<span class="f">title</span>(<span class="s">"Levenberg-Marquardt fit of a damped sinusoid"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

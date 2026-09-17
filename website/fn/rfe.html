@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rfe — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rfe</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>rfe(X, y, n_features)</code></pre>
+<p class="fnnote">Input: X, y, n_features &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Recursive feature elimination on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>, down to an integer target <code>n_features</code>: repeatedly drops the weakest-scoring remaining column and refits.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rfe(X, y, n_features)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_features</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a vector of the kept column indices, zero-based, length <code>n_features</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+
+m = <span class="f">ols_model</span>(X, y)
+yhat = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"mae: {round(mae(y, yhat), 4)}, mse: {round(mse(y, yhat), 4)}"</span>)
+
+cm = <span class="f">knn_model</span>(Xc, yc, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+predc = cm.<span class="f">predict</span>(Xc)
+<span class="f">print</span>(<span class="s">"precision: {round(precision(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"recall:    {round(recall(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"f1:        {round(f1(yc, predc), 3)}"</span>)
+
+folds = <span class="f">k_fold</span>(X, y, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"k_fold: {len(folds)} folds, first fold trains on {rows(folds[0].X_train)} rows"</span>)
+
+stab = <span class="f">cv_stability</span>(Xc, yc, <span class="a">n_repeats</span> = <span class="n">5</span>, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"cv_stability: {round(mean(stab), 3)} +/- {round(std(stab), 3)}"</span>)
+
+ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"ablation_study scores: {round(ab, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"rfe keeps:             {rfe(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"mutual_info_classif:   {round(mutual_info_classif(Xc, yc, k = 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>rfe(X, y, n_features, [cv_folds=3], [max_depth=3], [seed=], [kind="classification"])</code> — recursive feature elimination, model-agnostic; see <code>rfe_select</code>'s own doc comment. Returns the kept 0-based column indices, same convention as <code>astar_mrmr</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

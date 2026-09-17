@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spectrogram — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>spectrogram</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>spectrogram(x, [nfft=256], [hop=nfft/2], [fs=1])</code></pre>
+<p class="fnnote">Input: x, nfft, hop, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>. <code>nfft</code>/<code>hop</code> (optional numbers): STFT frame size and hop, as in <code>stft</code>. <code>fs</code> (optional number, Hz): scales row ticks to Hz and column ticks to seconds. <strong>If </strong><code>x</code> is a <code>Signal</code>, its own <code>Fs</code> is used and <code>fs</code> need not be passed<strong>; passing one that disagrees with the signal's rate is an error rather than a silent relabelling (see *Which rate is used*, below). The default of </strong><code>1</code> applies only to a plain vector, which carries no rate. Renders a heatmap of <code>stft(x, nfft, hop)</code>'s magnitude, restricted to the positive-frequency half (<code>nfft/2+1</code> rows), in dB (floored at -120dB); frequency increases upward (row 0 = Nyquist). Draws <strong>and</strong> returns: the surface would otherwise be unreachable, with no way to read a level off it or hand it to Qu Studio's Interactive Mode.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = spectrogram(x, [nfft=256], [hop=nfft/2], [fs=1])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>nfft</code> <span class="iotype">number, optional (default <code>256</code>)</span><span class="iodesc"><code>nfft</code>/<code>hop</code> (optional numbers): STFT frame size and hop, as in <code>stft</code>.</span></div>
+<div class="ioitem"><code>hop</code> <span class="iotype">number, optional (default <code>nfft/2</code>)</span><span class="iodesc"><code>nfft</code>/<code>hop</code> (optional numbers): STFT frame size and hop, as in <code>stft</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>fs</code> (optional number, Hz): scales row ticks to Hz and column ticks to seconds.</span></div>
+</td><td><div class="ioitem"><code>db</code> <span class="iotype">Mat</span><span class="iodesc">an <code>(nfft/2+1, frames)</code> <code>Mat</code> of dB magnitudes, row 0 = DC — the honest axis order, the opposite of the drawn picture's</span></div>
+<div class="ioitem"><code>freq</code> <span class="iotype">Vec</span><span class="iodesc">a length-<code>nfft/2+1</code> <code>Vec</code>, Hz</span></div>
+<div class="ioitem"><code>time</code> <span class="iotype">Vec</span><span class="iodesc">a length-<code>frames</code> <code>Vec</code>, seconds</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>db</code> (an <code>(nfft/2+1, frames)</code> <code>Mat</code> of dB magnitudes, row 0 = DC — the honest axis order, the opposite of the drawn picture's), <code>freq</code> (a length-<code>nfft/2+1</code> <code>Vec</code>, Hz) and <code>time</code> (a length-<code>frames</code> <code>Vec</code>, seconds).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+x = codec.<span class="f">decode_flac</span>(<span class="s">"take.flac"</span>, <span class="a">channel</span> = <span class="n">0</span>)
+<span class="f">spectrogram</span>(x)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">80</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+<span class="f">spectrogram</span>(x, <span class="n">128</span>, <span class="n">32</span>, Fs)
+<span class="f">title</span>(<span class="s">"Two stationary tones"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">80</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+<span class="f">spectrogram</span>(x, <span class="n">128</span>, <span class="n">32</span>, Fs)
+<span class="f">title</span>(<span class="s">"Two stationary tones"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>spectrogram(x, [nfft], [hop], [fs])</code> — heatmap-style render of <code>stft(x, nfft, hop)</code>'s magnitude, restricted to the positive-frequency half (a real input's spectrum mirrors around Nyquist, so the other half is redundant) and shown in dB (<code>20*log10</code>, floored at -120dB) since a handful of loud low-frequency bins would otherwise wash out everything else on a linear color scale. <code>fs</code> (default 1, i.e. normalized frequency) scales the row ticks to Hz and column ticks to seconds; frequency increases upward (row 0 = Nyquist), the usual spectrogram reading convention.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

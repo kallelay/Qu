@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blob_stats — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>blob_stats</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>blob_stats(img)</code></pre>
+<p class="fnnote">Input: img &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is a <code>Model</code> produced by <code>label_blobs</code>/<code>bwlabel</code>. Per-region area, centroid and bounding box, from a labelled image (identical operation to <code>regionprops</code> above).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = blob_stats(img)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">List or Record</span></div>
+</td><td>Returns a <code>List</code> of <code>Record</code>s, one per blob.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
+binary = <span class="f">image_from_matrix</span>(m)
+
+cleaned = <span class="f">remove_small_blobs</span>(binary, <span class="n">3</span>)     <span class="c"># drop the two 1-pixel specks</span>
+<span class="f">imshow</span>(cleaned)
+labeled = <span class="f">label_blobs</span>(cleaned)
+stats = <span class="f">blob_stats</span>(labeled)
+
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> labeled.count
+    r = stats[i - <span class="n">1</span>]
+    <span class="f">print</span>(r.label, r.area, r.centroid_x, r.centroid_y)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>blob_stats(labeled)</code> (alias <code>regionprops</code>) — per-blob geometry from a <code>label_blobs</code>/<code>bwlabel</code> result: a <code>Value::List</code> of one <code>Value::Record</code> per blob (<code>label</code>, <code>area</code>, <code>centroid_x</code>, <code>centroid_y</code>, <code>bbox_x</code>, <code>bbox_y</code>, <code>bbox_width</code>, <code>bbox_height</code>), in label-id order. <code>centroid_x</code>/<code>centroid_y</code> are the real arithmetic mean of that blob's own pixel coordinates (not a bounding-box-center approximation); <code>bbox_*</code> is the tightest axis-aligned rectangle containing every one of that blob's pixels.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

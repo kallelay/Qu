@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>interp2 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>interp2</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>interp2(x, y, Z, xq, yq, [method="bilinear"|"nearest"])</code></pre>
+<p class="fnnote">Input: x, y, Z, xq, yq, method &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-<code>ncols</code> vector, the grid's COLUMN coordinates (strictly increasing); <code>y</code>: a length-<code>nrows</code> vector, the grid's ROW coordinates (strictly increasing); <code>Z</code>: an <code>(nrows, ncols)</code> matrix with <code>Z[i,j]</code> the value at <code>(y[i], x[j])</code> — <code>Matrix::get(row, col)</code>'s own indexing convention used everywhere else in this codebase, not a swapped axis order; <code>xq</code>/<code>yq</code>: paired query coordinates, either both numbers or both length-M vectors (<code>xq[k]</code>/<code>yq[k]</code> is query point <code>k</code> — not an implied meshgrid over every combination); <code>method</code> (optional string: <code>"bilinear"</code> default or <code>"nearest"</code>). 2-D grid interpolation (MATLAB's <code>interp2</code>): a query exactly at a grid coordinate returns that exact stored value, not an approximation; extrapolation beyond the grid is always on, matching <code>interp1</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = interp2(x, y, Z, xq, yq, [method="bilinear"|"nearest"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-<code>ncols</code> vector, the grid's COLUMN coordinates (strictly increasing).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc"><code>y</code>: a length-<code>nrows</code> vector, the grid's ROW coordinates (strictly increasing).</span></div>
+<div class="ioitem"><code>Z</code> <span class="iotype">matrix</span><span class="iodesc"><code>Z</code>: an <code>(nrows, ncols)</code> matrix with <code>Z[i,j]</code> the value at <code>(y[i], x[j])</code> — <code>Matrix::get(row, col)</code>'s own indexing convention used everywhere else in this codebase, not a swapped axis order.</span></div>
+<div class="ioitem"><code>xq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>xq</code>/<code>yq</code>: paired query coordinates, either both numbers or both length-M vectors (<code>xq[k]</code>/<code>yq[k]</code> is query point <code>k</code> — not an implied meshgrid over every combination).</span></div>
+<div class="ioitem"><code>yq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>xq</code>/<code>yq</code>: paired query coordinates, either both numbers or both length-M vectors (<code>xq[k]</code>/<code>yq[k]</code> is query point <code>k</code> — not an implied meshgrid over every combination).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"bilinear"|"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional string: <code>"bilinear"</code> default or <code>"nearest"</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>Returns a number (if <code>xq</code>/<code>yq</code> are numbers) or a length-M vector (if they are vectors).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]              <span class="c"># column coordinates</span>
+y = [<span class="n">0</span>, <span class="n">1</span>]                 <span class="c"># row coordinates</span>
+Z = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]     <span class="c"># Z[i,j] at (y[i], x[j])</span>
+v_grid   = <span class="f">interp2</span>(x, y, Z, <span class="n">1</span>, <span class="n">1</span>)         <span class="c"># exact grid point, no interpolation error</span>
+v_center = <span class="f">interp2</span>(x, y, Z, <span class="n">0.5</span>, <span class="n">0.5</span>)     <span class="c"># bilinear average of the 4 surrounding corners</span>
+<span class="f">print</span>(<span class="s">"interp2 at grid point (x=1,y=1): {v_grid}"</span>)
+<span class="f">print</span>(<span class="s">"interp2 at center (x=0.5,y=0.5): {v_center}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>interp2(x, y, Z, xq, yq, [method])</code> — 2D grid interpolation (MATLAB's <code>interp2</code>). <code>x</code> (length <code>ncols</code>) are the grid's COLUMN coordinates and <code>y</code> (length <code>nrows</code>) its ROW coordinates; <code>Z</code> is an <code>(nrows, ncols)</code> matrix with <code>Z[i,j]</code> the value at <code>(y[i], x[j])</code> — <code>Matrix::get(row, col)</code>'s own indexing convention used everywhere else in this codebase (<code>heatmap</code>, <code>matrix_row</code>, ...), NOT a transposed/swapped axis order. <code>x</code>/<code>y</code> are each assumed strictly increasing (the same convention <code>interp1</code>'s <code>x</code> already assumes, per its own doc comment). <code>xq</code>/<code>yq</code> are paired query coordinates — either both scalars (one point) or both vectors of the SAME length (<code>xq[k]</code>/<code>yq[k]</code> is query point <code>k</code>, MATLAB's convention — not an implied meshgrid over every combination of the two). <code>method</code> is <code>"bilinear"</code> (default) or <code>"nearest"</code>; extrapolation beyond the grid is always on, matching <code>interp1</code>. Exactness at grid points: <code>interp_grid_bracket</code>'s own doc comment proves each axis's fractional position <code>t</code> comes out as EXACTLY <code>0.0</code> or <code>1.0</code> (not just close) whenever the query coordinate exactly equals one of that axis's own grid coordinates, floating-point division of identical nonzero values being exact in IEEE 754 — so a query at <code>(x[j], y[i])</code> collapses the bilinear blend to <code>Z[i,j]</code> with no rounding error at all, verified directly in the acceptance tests rather than just assumed from the algebra.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

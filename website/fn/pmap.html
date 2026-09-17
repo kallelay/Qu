@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pmap — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pmap</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>map(xs, f)</code></pre>
+<p class="fnnote">Input: xs, f &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>f</code> is a one-argument function — the function itself (<code>double</code>, <code>sqrt</code>, <code>(x) := x * 2</code>), or a <code>Str</code> naming one you defined.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = map(xs, f)</code></td><td><div class="ioitem"><code>xs</code> <span class="iotype">Vec or List</span><span class="iodesc"><code>xs</code> is a <code>Vec</code>/<code>List</code>.</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">Str</span><span class="iodesc"><code>f</code> is a one-argument function — the function itself (<code>double</code>, <code>sqrt</code>, <code>(x) := x * 2</code>), or a <code>Str</code> naming one you defined.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">List</span></div>
+</td><td>Returns a <code>List</code>: <code>f</code> applied to every element. The <strong>collection comes first</strong>, like every other higher-order builtin, which is what makes <code>xs.map(f)</code> and <code>xs</code></td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
+xs = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+out = xs |&gt; <span class="f">pmap</span>(<span class="s">"extract"</span>)            <span class="c"># same as pmap(xs, "extract")</span>
+<span class="f">print</span>(out)                             <span class="c"># [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>pmap(xs, fnName)</code> — apply a named function to every element of <code>xs</code> across <code>available_parallelism()</code> threads, same isolation model as <code>parallel for</code>/<code>spawn</code> (share-nothing: each worker gets its own env/funcs snapshot and RNG stream drawn up front from the parent's own stream, for reproducibility) — but shaped as an expression returning a new vector, for the common "apply this pure function to every sample" pipeline stage. <code>xs</code> comes FIRST (not <code>fnName</code>) specifically so <code>|&gt;</code> composes naturally: <code>signals |&gt; pmap("extract_features")</code> is <code>pmap(signals, "extract_features")</code>, matching <code>|&gt;</code>'s own rule that the piped value lands in the first argument slot.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="map.html"><code>map</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

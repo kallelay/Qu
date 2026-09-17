@@ -1,0 +1,1321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compressed sensing — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Compressed sensing</h1>
+<p class="lede">recovering a signal from far fewer samples than Nyquist demands, six different ways.</p>
+<p class="srcpath">catalog/qu_compressed_sensing.qu</p>
+<p>THE CLAIM. A signal with 200 unknowns, of which only 5 are non-zero, is recovered EXACTLY from 60 measurements. Nyquist would have insisted on 200. The missing information is supplied not by more samples but by one assumption: the signal is sparse.</p>
+<p>That assumption is not exotic. A spectrum is a handful of tones among thousands of bins; an impedance sweep is a few relaxation processes; a vibration record is a few modes. Whenever the interesting part of a measurement is small compared with the grid it is measured on, this applies.</p>
+<p>WHY SIX METHODS. Finding the sparsest solution is combinatorial and NP-hard, so every practical method is a tractable stand-in, and they fail in different ways:</p>
+<ul>
+<li>greedy (omp, cosamp, sp, niht) build the support one decision at a</li>
+<p>time. Fast, need the sparsity up front, and brittle -- a column chosen wrongly early is a wrong answer, though cosamp and sp can undo one and omp cannot.</p>
+<li>convex (fista, bp) replace the count of non-zeros with the l1 norm,</li>
+<p>which is its tightest convex relaxation, and solve that exactly. Slower, and they do NOT need to be told the sparsity.</p>
+</ul>
+<p>WHAT TO NOTICE in the output below:</p>
+<ul>
+<li>the coherence guarantee proves only k=1 is recoverable, and k=5</li>
+<p>recovers perfectly. The bound is real but badly pessimistic; treat a pass as proof and a failure as no information.</p>
+<li>fista needs ~850 iterations where omp needs 5, and finds the same</li>
+<p>answer without being told there were 5 spikes.</p>
+<li>without `debias=true`, fista's answer is systematically SHRUNK. The</li>
+<p>l1 penalty finds the support and pulls the coefficients toward zero with the same term; once the support is known, that pull has no purpose. One least-squares re-fit removes it.</p>
+</ul>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>randn(m, n, seed=)              — a Gaussian sensing matrix</li>
+<li>coherence(A) / cs_guarantee(A)  — is this matrix any good</li>
+<li>cs_recover(A, y, method=, ...)  — all six reconstruction methods</li>
+<li>tv_denoise(y, lambda)           — the other sparsity: few CHANGES</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>The problem</h3>
+<p>200 unknowns, 5 of them non-zero, measured 60 times. The sensing matrix is Gaussian and scaled so its columns have roughly unit norm.</p>
+<p>Random is not laziness. A random matrix satisfies the recovery conditions with high probability, and no deterministic construction is known that does better for general use -- so the honest choice is a random one with a fixed seed, which is reproducible.</p>
+<pre class="hl"><code>n = <span class="n">200</span>
+m = <span class="n">60</span>
+k = <span class="n">5</span>
+
+<span class="c"># A Gaussian matrix, scaled so its columns have roughly unit norm. Random</span>
+<span class="c"># is not laziness: a random matrix satisfies the recovery conditions with</span>
+<span class="c"># high probability, and no deterministic construction is known that does</span>
+<span class="c"># better for general use.</span>
+A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(m)
+
+x = <span class="f">zeros</span>(n)
+x[<span class="n">7</span>]   = <span class="n">1.5</span>
+x[<span class="n">33</span>]  = -<span class="n">2.0</span>
+x[<span class="n">91</span>]  = <span class="n">0.75</span>
+x[<span class="n">140</span>] = <span class="n">3.0</span>
+x[<span class="n">177</span>] = -<span class="n">1.25</span>
+
+y = A * x
+
+<span class="f">print</span>(<span class="s">"{n} unknowns, {k} of them non-zero, measured {m} times"</span>)
+<span class="f">print</span>(<span class="s">"compression: {n / m:.1f}x below Nyquist"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Is this matrix any good?</h3>
+<p>Coherence is the largest inner product between two different normalised columns; smaller is better. `cs_guarantee` turns it into the largest sparsity that coherence alone can PROVE recoverable.</p>
+<p>Watch what it says against what actually happens: it proves 1, and 5 recovers perfectly. The bound is real and badly pessimistic, which is why it is a sanity check and never a budget.</p>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"coherence         {coherence(A):.3f}   (smaller is better)"</span>)
+<span class="f">print</span>(<span class="s">"provable sparsity {cs_guarantee(A)}       (and yet k = {k} recovers -- the bound is pessimistic)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Every method, on the same data</h3>
+<p>One dispatcher, so comparing methods is one word rather than one call. The `told k?` column is the interesting one: the greedy methods are handed the sparsity and the convex ones work it out.</p>
+<p>`debias = true` re-fits the found support by least squares. The l1 penalty finds the support and shrinks the coefficients with the same term; once the support is known that shrinkage has no purpose.</p>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"method   residual    rel.error   iters  told k?"</span>)
+<span class="k">for</span> method <span class="k">in</span> (<span class="s">"omp"</span>, <span class="s">"cosamp"</span>, <span class="s">"sp"</span>, <span class="s">"niht"</span>, <span class="s">"fista"</span>, <span class="s">"bp"</span>)
+    r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = method, <span class="a">sparsity</span> = k, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">debias</span> = <span class="k">true</span>)
+    err = <span class="f">norm</span>(r.x - x) / <span class="f">norm</span>(x)
+    knows = <span class="s">"yes"</span>
+    <span class="k">if</span> method == <span class="s">"fista"</span> <span class="k">or</span> method == <span class="s">"bp"</span>
+        knows = <span class="s">"no"</span>
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="f">print</span>(<span class="s">"{pad_right(method, 8)} {r.residual:.2e}    {err:.2e}    {pad_left(str(r.iterations), 4)}   {knows}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>What the l1 penalty costs, and what debiasing buys back</h3>
+<p>The same solver, twice, with and without the re-fit. The difference is nine orders of magnitude -- and it is systematic, not noise: every coefficient is pulled toward zero by the same penalty that found it.</p>
+<pre class="hl"><code>raw = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">debias</span> = <span class="k">true</span>)
+<span class="f">print</span>(<span class="s">"fista alone:    largest coefficient error {max(abs(raw.x - x)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"fista debiased: largest coefficient error {max(abs(fixed.x - x)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>The recovered signal against the truth</h3>
+<p>Both stems on one axis. There is nothing to see in the difference, which is the point of the figure.</p>
+<pre class="hl"><code><span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, x, <span class="a">color</span> = <span class="s">"#c0c8d4"</span>, <span class="a">label</span> = <span class="s">"true"</span>)
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, fixed.x, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">label</span> = <span class="s">"recovered from 60 of 200"</span>)
+<span class="f">xlabel</span>(<span class="s">"index"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A 5-sparse signal, recovered from 30% of Nyquist"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<section class="step">
+<h3>The other kind of sparsity</h3>
+<p>Everything above assumes few non-zero SAMPLES. Total variation assumes few CHANGES instead -- a staircase, a segmented profile, a step response. An l1 method applied to a step flattens it; TV keeps the edge exactly, which is the property it is famous for.</p>
+<pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">200</span>
+clean = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> i &gt;= <span class="n">60</span> <span class="k">and</span> i &lt; <span class="n">130</span>
+        clean[i] = <span class="n">1.0</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+noisy = clean + <span class="n">0.15</span> * <span class="f">randn</span>(<span class="n">200</span>, <span class="a">seed</span> = <span class="n">3</span>)
+tv = <span class="f">tv_denoise</span>(noisy, <span class="n">0.3</span>)
+
+<span class="c"># A moving average that removes a comparable amount of noise, for contrast.</span>
+<span class="c"># This is the honest comparison: both reach about the same RMS error, and</span>
+<span class="c"># the question is what they did to the edge to get there.</span>
+w = <span class="n">9</span>
+avg = <span class="f">filtfilt</span>(<span class="f">fir1</span>(w, <span class="n">0.12</span>), noisy)
+
+<span class="c"># How many samples the 10-90% transition takes AT THE KNOWN EDGE. Measured</span>
+<span class="c"># locally rather than over the whole record, because a noise excursion</span>
+<span class="c"># anywhere else would otherwise be counted as part of the rise.</span>
+<span class="k">function</span> <span class="f">rise_at</span>(v, edge)
+    first = edge - <span class="n">12</span>
+    last = edge + <span class="n">12</span>
+    lo = -<span class="n">1</span>
+    hi = -<span class="n">1</span>
+    <span class="k">for</span> i <span class="k">in</span> first <span class="k">to</span> last
+        <span class="k">if</span> v[i] &gt; <span class="n">0.1</span> <span class="k">and</span> lo &lt; <span class="n">0</span>
+            lo = i
+        <span class="k">end</span> <span class="k">if</span>
+        <span class="k">if</span> v[i] &gt; <span class="n">0.9</span> <span class="k">and</span> hi &lt; <span class="n">0</span>
+            hi = i
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">if</span> lo &lt; <span class="n">0</span> <span class="k">or</span> hi &lt; <span class="n">0</span>
+        <span class="k">return</span> -<span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="k">return</span> hi - lo
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"rms error      : TV {rms(tv - clean):.3f}, low-pass {rms(avg - clean):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"total variation: {sum(abs(diff(noisy))):.1f} measured -&gt; TV {sum(abs(diff(tv))):.1f}, low-pass {sum(abs(diff(avg))):.1f}"</span>)
+<span class="f">print</span>(<span class="s">"10-90% rise    : TV {rise_at(tv, 60)} samples, low-pass {rise_at(avg, 60)} samples (the truth is 1)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Both remove most of the noise. TV does it at half the error and a"</span>)
+<span class="f">print</span>(<span class="s">"shorter rise, because it never assumed the signal was smooth -- only"</span>)
+<span class="f">print</span>(<span class="s">"that it changes rarely. The price is a nonlinear method with a"</span>)
+<span class="f">print</span>(<span class="s">"penalty to choose, where a filter has a cutoff."</span>)
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, noisy, <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(t, avg, <span class="a">color</span> = <span class="s">"#b5651d"</span>, <span class="a">width</span> = <span class="n">1.4</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"moving average, {w} wide"</span>)
+<span class="f">plot</span>(t, tv, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.6</span>, <span class="a">label</span> = <span class="s">"total variation"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Both remove the noise; only one keeps the edge"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>200 unknowns, 5 of them non-zero, measured 60 times
+compression: 3.3x below Nyquist
+
+coherence         0.558   (smaller is better)
+provable sparsity 1       (and yet k = 5 recovers -- the bound is pessimistic)
+
+method   residual    rel.error   iters  told k?
+omp      5.36e-12    1.47e-12       5   yes
+cosamp   5.36e-12    1.47e-12       2   yes
+sp       5.36e-12    1.47e-12       1   yes
+niht     5.36e-12    1.47e-12      22   yes
+fista    5.36e-12    1.47e-12     855   no
+bp       5.36e-12    1.47e-12     165   no
+
+fista alone:    largest coefficient error 1.43e-3
+fista debiased: largest coefficient error 5.43e-12
+
+rms error      : TV 0.052, low-pass 0.095
+total variation: 36.5 measured -&gt; TV 2.5, low-pass 3.7
+10-90% rise    : TV 5 samples, low-pass 7 samples (the truth is 1)
+
+Both remove most of the noise. TV does it at half the error and a
+shorter rise, because it never assumed the signal was smooth -- only
+that it changes rarely. The price is a nonlinear method with a
+penalty to choose, where a filter has a cutoff.</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="517.64" x2="866.00" y2="517.64" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="517.64" x2="86.00" y2="517.64" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="522.12" font-size="12.8" text-anchor="end" fill="#5a5a5a">-2.0</text>
+<line x1="86.00" y1="472.91" x2="866.00" y2="472.91" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="472.91" x2="86.00" y2="472.91" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="477.39" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.5</text>
+<line x1="86.00" y1="428.18" x2="866.00" y2="428.18" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="428.18" x2="86.00" y2="428.18" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="432.66" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1.0</text>
+<line x1="86.00" y1="383.45" x2="866.00" y2="383.45" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="383.45" x2="86.00" y2="383.45" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="387.93" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.5</text>
+<line x1="86.00" y1="338.73" x2="866.00" y2="338.73" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="338.73" x2="86.00" y2="338.73" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="343.21" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="294.00" x2="866.00" y2="294.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="294.00" x2="86.00" y2="294.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="298.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.5</text>
+<line x1="86.00" y1="249.27" x2="866.00" y2="249.27" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="249.27" x2="86.00" y2="249.27" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="253.75" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="204.55" x2="866.00" y2="204.55" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="204.55" x2="86.00" y2="204.55" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="209.03" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.5</text>
+<line x1="86.00" y1="159.82" x2="866.00" y2="159.82" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="159.82" x2="86.00" y2="159.82" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="164.30" font-size="12.8" text-anchor="end" fill="#5a5a5a">2.0</text>
+<line x1="86.00" y1="115.09" x2="866.00" y2="115.09" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="115.09" x2="86.00" y2="115.09" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="119.57" font-size="12.8" text-anchor="end" fill="#5a5a5a">2.5</text>
+<line x1="86.00" y1="70.36" x2="866.00" y2="70.36" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="70.36" x2="86.00" y2="70.36" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="74.84" font-size="12.8" text-anchor="end" fill="#5a5a5a">3.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="160.66" y1="48.00" x2="160.66" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="160.66" y1="540.00" x2="160.66" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="160.66" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">20</text>
+<line x1="235.32" y1="48.00" x2="235.32" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="235.32" y1="540.00" x2="235.32" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="235.32" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">40</text>
+<line x1="309.98" y1="48.00" x2="309.98" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="309.98" y1="540.00" x2="309.98" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="309.98" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">60</text>
+<line x1="384.64" y1="48.00" x2="384.64" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="384.64" y1="540.00" x2="384.64" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="384.64" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">80</text>
+<line x1="459.30" y1="48.00" x2="459.30" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="459.30" y1="540.00" x2="459.30" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="459.30" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">100</text>
+<line x1="533.95" y1="48.00" x2="533.95" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="533.95" y1="540.00" x2="533.95" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="533.95" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">120</text>
+<line x1="608.61" y1="48.00" x2="608.61" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="608.61" y1="540.00" x2="608.61" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="608.61" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">140</text>
+<line x1="683.27" y1="48.00" x2="683.27" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="683.27" y1="540.00" x2="683.27" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="683.27" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">160</text>
+<line x1="757.93" y1="48.00" x2="757.93" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="757.93" y1="540.00" x2="757.93" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="757.93" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">180</text>
+<line x1="832.59" y1="48.00" x2="832.59" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="832.59" y1="540.00" x2="832.59" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="832.59" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">200</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<line x1="86.00" y1="338.73" x2="86.00" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="86.00" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="89.73" y1="338.73" x2="89.73" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="89.73" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="93.47" y1="338.73" x2="93.47" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="93.47" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="97.20" y1="338.73" x2="97.20" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="97.20" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="100.93" y1="338.73" x2="100.93" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="100.93" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="104.66" y1="338.73" x2="104.66" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="104.66" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="108.40" y1="338.73" x2="108.40" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="108.40" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="112.13" y1="338.73" x2="112.13" y2="204.55" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="112.13" cy="204.55" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="115.86" y1="338.73" x2="115.86" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="115.86" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="119.60" y1="338.73" x2="119.60" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="119.60" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="123.33" y1="338.73" x2="123.33" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="123.33" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="127.06" y1="338.73" x2="127.06" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="127.06" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="130.80" y1="338.73" x2="130.80" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="130.80" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="134.53" y1="338.73" x2="134.53" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="134.53" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="138.26" y1="338.73" x2="138.26" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="138.26" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="141.99" y1="338.73" x2="141.99" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="141.99" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="145.73" y1="338.73" x2="145.73" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="145.73" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="149.46" y1="338.73" x2="149.46" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="149.46" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="153.19" y1="338.73" x2="153.19" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="153.19" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="156.93" y1="338.73" x2="156.93" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="156.93" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="160.66" y1="338.73" x2="160.66" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="160.66" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="164.39" y1="338.73" x2="164.39" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="164.39" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="168.12" y1="338.73" x2="168.12" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="168.12" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="171.86" y1="338.73" x2="171.86" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="171.86" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="175.59" y1="338.73" x2="175.59" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="175.59" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="179.32" y1="338.73" x2="179.32" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="179.32" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="183.06" y1="338.73" x2="183.06" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="183.06" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="186.79" y1="338.73" x2="186.79" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="186.79" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="190.52" y1="338.73" x2="190.52" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="190.52" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="194.26" y1="338.73" x2="194.26" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="194.26" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="197.99" y1="338.73" x2="197.99" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="197.99" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="201.72" y1="338.73" x2="201.72" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="201.72" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="205.45" y1="338.73" x2="205.45" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="205.45" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="209.19" y1="338.73" x2="209.19" y2="517.64" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="209.19" cy="517.64" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="212.92" y1="338.73" x2="212.92" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="212.92" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="216.65" y1="338.73" x2="216.65" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="216.65" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="220.39" y1="338.73" x2="220.39" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="220.39" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="224.12" y1="338.73" x2="224.12" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="224.12" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="227.85" y1="338.73" x2="227.85" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="227.85" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="231.59" y1="338.73" x2="231.59" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="231.59" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="235.32" y1="338.73" x2="235.32" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="235.32" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="239.05" y1="338.73" x2="239.05" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="239.05" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="242.78" y1="338.73" x2="242.78" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="242.78" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="246.52" y1="338.73" x2="246.52" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="246.52" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="250.25" y1="338.73" x2="250.25" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="250.25" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="253.98" y1="338.73" x2="253.98" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="253.98" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="257.72" y1="338.73" x2="257.72" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="257.72" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="261.45" y1="338.73" x2="261.45" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="261.45" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="265.18" y1="338.73" x2="265.18" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="265.18" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="268.91" y1="338.73" x2="268.91" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="268.91" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="272.65" y1="338.73" x2="272.65" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="272.65" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="276.38" y1="338.73" x2="276.38" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="276.38" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="280.11" y1="338.73" x2="280.11" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="280.11" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="283.85" y1="338.73" x2="283.85" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="283.85" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="287.58" y1="338.73" x2="287.58" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="287.58" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="291.31" y1="338.73" x2="291.31" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="291.31" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="295.05" y1="338.73" x2="295.05" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="295.05" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="298.78" y1="338.73" x2="298.78" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="298.78" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="302.51" y1="338.73" x2="302.51" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="302.51" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="306.24" y1="338.73" x2="306.24" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="306.24" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="309.98" y1="338.73" x2="309.98" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="309.98" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="313.71" y1="338.73" x2="313.71" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="313.71" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="317.44" y1="338.73" x2="317.44" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="317.44" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="321.18" y1="338.73" x2="321.18" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="321.18" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="324.91" y1="338.73" x2="324.91" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="324.91" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="328.64" y1="338.73" x2="328.64" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="328.64" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="332.37" y1="338.73" x2="332.37" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="332.37" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="336.11" y1="338.73" x2="336.11" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="336.11" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="339.84" y1="338.73" x2="339.84" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="339.84" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="343.57" y1="338.73" x2="343.57" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="343.57" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="347.31" y1="338.73" x2="347.31" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="347.31" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="351.04" y1="338.73" x2="351.04" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="351.04" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="354.77" y1="338.73" x2="354.77" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="354.77" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="358.51" y1="338.73" x2="358.51" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="358.51" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="362.24" y1="338.73" x2="362.24" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="362.24" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="365.97" y1="338.73" x2="365.97" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="365.97" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="369.70" y1="338.73" x2="369.70" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="369.70" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="373.44" y1="338.73" x2="373.44" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="373.44" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="377.17" y1="338.73" x2="377.17" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="377.17" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="380.90" y1="338.73" x2="380.90" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="380.90" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="384.64" y1="338.73" x2="384.64" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="384.64" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="388.37" y1="338.73" x2="388.37" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="388.37" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="392.10" y1="338.73" x2="392.10" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="392.10" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="395.83" y1="338.73" x2="395.83" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="395.83" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="399.57" y1="338.73" x2="399.57" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="399.57" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="403.30" y1="338.73" x2="403.30" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="403.30" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="407.03" y1="338.73" x2="407.03" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="407.03" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="410.77" y1="338.73" x2="410.77" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="410.77" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="414.50" y1="338.73" x2="414.50" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="414.50" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="418.23" y1="338.73" x2="418.23" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="418.23" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="421.97" y1="338.73" x2="421.97" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="421.97" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="425.70" y1="338.73" x2="425.70" y2="271.64" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="425.70" cy="271.64" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="429.43" y1="338.73" x2="429.43" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="429.43" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="433.16" y1="338.73" x2="433.16" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="433.16" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="436.90" y1="338.73" x2="436.90" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="436.90" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="440.63" y1="338.73" x2="440.63" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="440.63" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="444.36" y1="338.73" x2="444.36" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="444.36" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="448.10" y1="338.73" x2="448.10" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="448.10" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="451.83" y1="338.73" x2="451.83" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="451.83" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="455.56" y1="338.73" x2="455.56" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="455.56" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="459.30" y1="338.73" x2="459.30" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="459.30" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="463.03" y1="338.73" x2="463.03" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="463.03" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="466.76" y1="338.73" x2="466.76" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="466.76" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="470.49" y1="338.73" x2="470.49" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="470.49" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="474.23" y1="338.73" x2="474.23" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="474.23" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="477.96" y1="338.73" x2="477.96" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="477.96" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="481.69" y1="338.73" x2="481.69" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="481.69" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="485.43" y1="338.73" x2="485.43" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="485.43" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="489.16" y1="338.73" x2="489.16" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="489.16" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="492.89" y1="338.73" x2="492.89" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="492.89" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="496.62" y1="338.73" x2="496.62" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="496.62" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="500.36" y1="338.73" x2="500.36" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="500.36" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="504.09" y1="338.73" x2="504.09" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="504.09" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="507.82" y1="338.73" x2="507.82" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="507.82" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="511.56" y1="338.73" x2="511.56" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="511.56" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="515.29" y1="338.73" x2="515.29" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="515.29" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="519.02" y1="338.73" x2="519.02" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="519.02" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="522.76" y1="338.73" x2="522.76" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="522.76" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="526.49" y1="338.73" x2="526.49" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="526.49" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="530.22" y1="338.73" x2="530.22" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="530.22" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="533.95" y1="338.73" x2="533.95" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="533.95" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="537.69" y1="338.73" x2="537.69" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="537.69" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="541.42" y1="338.73" x2="541.42" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="541.42" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="545.15" y1="338.73" x2="545.15" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="545.15" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="548.89" y1="338.73" x2="548.89" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="548.89" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="552.62" y1="338.73" x2="552.62" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="552.62" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="556.35" y1="338.73" x2="556.35" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="556.35" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="560.08" y1="338.73" x2="560.08" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="560.08" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="563.82" y1="338.73" x2="563.82" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="563.82" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="567.55" y1="338.73" x2="567.55" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="567.55" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="571.28" y1="338.73" x2="571.28" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="571.28" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="575.02" y1="338.73" x2="575.02" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="575.02" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="578.75" y1="338.73" x2="578.75" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="578.75" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="582.48" y1="338.73" x2="582.48" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="582.48" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="586.22" y1="338.73" x2="586.22" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="586.22" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="589.95" y1="338.73" x2="589.95" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="589.95" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="593.68" y1="338.73" x2="593.68" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="593.68" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="597.41" y1="338.73" x2="597.41" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="597.41" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="601.15" y1="338.73" x2="601.15" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="601.15" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="604.88" y1="338.73" x2="604.88" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="604.88" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="608.61" y1="338.73" x2="608.61" y2="70.36" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="608.61" cy="70.36" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="612.35" y1="338.73" x2="612.35" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="612.35" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="616.08" y1="338.73" x2="616.08" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="616.08" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="619.81" y1="338.73" x2="619.81" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="619.81" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="623.54" y1="338.73" x2="623.54" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="623.54" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="627.28" y1="338.73" x2="627.28" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="627.28" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="631.01" y1="338.73" x2="631.01" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="631.01" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="634.74" y1="338.73" x2="634.74" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="634.74" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="638.48" y1="338.73" x2="638.48" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="638.48" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="642.21" y1="338.73" x2="642.21" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="642.21" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="645.94" y1="338.73" x2="645.94" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="645.94" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="649.68" y1="338.73" x2="649.68" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="649.68" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="653.41" y1="338.73" x2="653.41" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="653.41" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="657.14" y1="338.73" x2="657.14" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="657.14" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="660.87" y1="338.73" x2="660.87" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="660.87" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="664.61" y1="338.73" x2="664.61" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="664.61" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="668.34" y1="338.73" x2="668.34" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="668.34" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="672.07" y1="338.73" x2="672.07" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="672.07" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="675.81" y1="338.73" x2="675.81" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="675.81" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="679.54" y1="338.73" x2="679.54" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="679.54" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="683.27" y1="338.73" x2="683.27" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="683.27" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="687.01" y1="338.73" x2="687.01" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="687.01" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="690.74" y1="338.73" x2="690.74" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="690.74" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="694.47" y1="338.73" x2="694.47" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="694.47" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="698.20" y1="338.73" x2="698.20" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="698.20" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="701.94" y1="338.73" x2="701.94" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="701.94" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="705.67" y1="338.73" x2="705.67" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="705.67" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="709.40" y1="338.73" x2="709.40" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="709.40" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="713.14" y1="338.73" x2="713.14" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="713.14" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="716.87" y1="338.73" x2="716.87" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="716.87" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="720.60" y1="338.73" x2="720.60" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="720.60" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="724.33" y1="338.73" x2="724.33" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="724.33" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="728.07" y1="338.73" x2="728.07" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="728.07" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="731.80" y1="338.73" x2="731.80" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="731.80" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="735.53" y1="338.73" x2="735.53" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="735.53" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="739.27" y1="338.73" x2="739.27" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="739.27" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="743.00" y1="338.73" x2="743.00" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="743.00" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="746.73" y1="338.73" x2="746.73" y2="450.55" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="746.73" cy="450.55" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="750.47" y1="338.73" x2="750.47" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="750.47" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="754.20" y1="338.73" x2="754.20" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="754.20" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="757.93" y1="338.73" x2="757.93" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="757.93" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="761.66" y1="338.73" x2="761.66" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="761.66" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="765.40" y1="338.73" x2="765.40" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="765.40" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="769.13" y1="338.73" x2="769.13" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="769.13" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="772.86" y1="338.73" x2="772.86" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="772.86" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="776.60" y1="338.73" x2="776.60" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="776.60" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="780.33" y1="338.73" x2="780.33" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="780.33" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="784.06" y1="338.73" x2="784.06" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="784.06" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="787.79" y1="338.73" x2="787.79" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="787.79" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="791.53" y1="338.73" x2="791.53" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="791.53" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="795.26" y1="338.73" x2="795.26" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="795.26" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="798.99" y1="338.73" x2="798.99" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="798.99" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="802.73" y1="338.73" x2="802.73" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="802.73" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="806.46" y1="338.73" x2="806.46" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="806.46" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="810.19" y1="338.73" x2="810.19" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="810.19" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="813.93" y1="338.73" x2="813.93" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="813.93" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="817.66" y1="338.73" x2="817.66" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="817.66" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="821.39" y1="338.73" x2="821.39" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="821.39" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="825.12" y1="338.73" x2="825.12" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="825.12" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="828.86" y1="338.73" x2="828.86" y2="338.73" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="828.86" cy="338.73" r="2.6" fill="#c0c8d4" stroke="none"/>
+<line x1="86.00" y1="338.73" x2="86.00" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="86.00" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="89.73" y1="338.73" x2="89.73" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="89.73" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="93.47" y1="338.73" x2="93.47" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="93.47" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="97.20" y1="338.73" x2="97.20" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="97.20" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="100.93" y1="338.73" x2="100.93" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="100.93" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="104.66" y1="338.73" x2="104.66" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="104.66" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="108.40" y1="338.73" x2="108.40" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="108.40" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="112.13" y1="338.73" x2="112.13" y2="204.55" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="112.13" cy="204.55" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="115.86" y1="338.73" x2="115.86" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="115.86" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="119.60" y1="338.73" x2="119.60" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="119.60" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="123.33" y1="338.73" x2="123.33" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="123.33" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="127.06" y1="338.73" x2="127.06" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="127.06" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="130.80" y1="338.73" x2="130.80" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="130.80" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="134.53" y1="338.73" x2="134.53" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="134.53" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="138.26" y1="338.73" x2="138.26" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="138.26" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="141.99" y1="338.73" x2="141.99" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="141.99" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="145.73" y1="338.73" x2="145.73" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="145.73" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="149.46" y1="338.73" x2="149.46" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="149.46" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="153.19" y1="338.73" x2="153.19" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="153.19" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="156.93" y1="338.73" x2="156.93" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="156.93" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="160.66" y1="338.73" x2="160.66" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="160.66" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="164.39" y1="338.73" x2="164.39" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="164.39" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="168.12" y1="338.73" x2="168.12" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="168.12" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="171.86" y1="338.73" x2="171.86" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="171.86" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="175.59" y1="338.73" x2="175.59" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="175.59" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="179.32" y1="338.73" x2="179.32" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="179.32" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="183.06" y1="338.73" x2="183.06" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="183.06" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="186.79" y1="338.73" x2="186.79" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="186.79" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="190.52" y1="338.73" x2="190.52" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="190.52" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="194.26" y1="338.73" x2="194.26" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="194.26" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="197.99" y1="338.73" x2="197.99" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="197.99" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="201.72" y1="338.73" x2="201.72" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="201.72" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="205.45" y1="338.73" x2="205.45" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="205.45" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="209.19" y1="338.73" x2="209.19" y2="517.64" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="209.19" cy="517.64" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="212.92" y1="338.73" x2="212.92" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="212.92" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="216.65" y1="338.73" x2="216.65" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="216.65" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="220.39" y1="338.73" x2="220.39" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="220.39" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="224.12" y1="338.73" x2="224.12" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="224.12" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="227.85" y1="338.73" x2="227.85" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="227.85" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="231.59" y1="338.73" x2="231.59" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="231.59" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="235.32" y1="338.73" x2="235.32" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="235.32" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="239.05" y1="338.73" x2="239.05" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="239.05" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="242.78" y1="338.73" x2="242.78" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="242.78" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="246.52" y1="338.73" x2="246.52" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="246.52" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="250.25" y1="338.73" x2="250.25" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="250.25" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="253.98" y1="338.73" x2="253.98" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="253.98" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="257.72" y1="338.73" x2="257.72" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="257.72" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="261.45" y1="338.73" x2="261.45" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="261.45" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="265.18" y1="338.73" x2="265.18" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="265.18" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="268.91" y1="338.73" x2="268.91" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="268.91" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="272.65" y1="338.73" x2="272.65" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="272.65" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="276.38" y1="338.73" x2="276.38" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="276.38" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="280.11" y1="338.73" x2="280.11" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="280.11" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="283.85" y1="338.73" x2="283.85" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="283.85" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="287.58" y1="338.73" x2="287.58" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="287.58" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="291.31" y1="338.73" x2="291.31" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="291.31" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="295.05" y1="338.73" x2="295.05" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="295.05" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="298.78" y1="338.73" x2="298.78" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="298.78" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="302.51" y1="338.73" x2="302.51" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="302.51" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="306.24" y1="338.73" x2="306.24" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="306.24" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="309.98" y1="338.73" x2="309.98" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="309.98" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="313.71" y1="338.73" x2="313.71" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="313.71" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="317.44" y1="338.73" x2="317.44" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="317.44" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="321.18" y1="338.73" x2="321.18" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="321.18" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="324.91" y1="338.73" x2="324.91" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="324.91" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="328.64" y1="338.73" x2="328.64" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="328.64" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="332.37" y1="338.73" x2="332.37" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="332.37" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="336.11" y1="338.73" x2="336.11" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="336.11" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="339.84" y1="338.73" x2="339.84" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="339.84" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="343.57" y1="338.73" x2="343.57" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="343.57" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="347.31" y1="338.73" x2="347.31" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="347.31" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="351.04" y1="338.73" x2="351.04" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="351.04" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="354.77" y1="338.73" x2="354.77" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="354.77" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="358.51" y1="338.73" x2="358.51" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="358.51" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="362.24" y1="338.73" x2="362.24" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="362.24" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="365.97" y1="338.73" x2="365.97" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="365.97" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="369.70" y1="338.73" x2="369.70" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="369.70" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="373.44" y1="338.73" x2="373.44" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="373.44" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="377.17" y1="338.73" x2="377.17" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="377.17" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="380.90" y1="338.73" x2="380.90" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="380.90" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="384.64" y1="338.73" x2="384.64" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="384.64" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="388.37" y1="338.73" x2="388.37" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="388.37" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="392.10" y1="338.73" x2="392.10" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="392.10" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="395.83" y1="338.73" x2="395.83" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="395.83" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="399.57" y1="338.73" x2="399.57" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="399.57" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="403.30" y1="338.73" x2="403.30" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="403.30" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="407.03" y1="338.73" x2="407.03" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="407.03" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="410.77" y1="338.73" x2="410.77" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="410.77" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="414.50" y1="338.73" x2="414.50" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="414.50" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="418.23" y1="338.73" x2="418.23" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="418.23" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="421.97" y1="338.73" x2="421.97" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="421.97" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="425.70" y1="338.73" x2="425.70" y2="271.64" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="425.70" cy="271.64" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="429.43" y1="338.73" x2="429.43" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="429.43" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="433.16" y1="338.73" x2="433.16" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="433.16" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="436.90" y1="338.73" x2="436.90" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="436.90" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="440.63" y1="338.73" x2="440.63" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="440.63" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="444.36" y1="338.73" x2="444.36" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="444.36" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="448.10" y1="338.73" x2="448.10" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="448.10" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="451.83" y1="338.73" x2="451.83" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="451.83" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="455.56" y1="338.73" x2="455.56" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="455.56" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="459.30" y1="338.73" x2="459.30" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="459.30" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="463.03" y1="338.73" x2="463.03" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="463.03" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="466.76" y1="338.73" x2="466.76" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="466.76" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="470.49" y1="338.73" x2="470.49" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="470.49" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="474.23" y1="338.73" x2="474.23" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="474.23" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="477.96" y1="338.73" x2="477.96" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="477.96" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="481.69" y1="338.73" x2="481.69" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="481.69" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="485.43" y1="338.73" x2="485.43" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="485.43" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="489.16" y1="338.73" x2="489.16" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="489.16" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="492.89" y1="338.73" x2="492.89" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="492.89" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="496.62" y1="338.73" x2="496.62" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="496.62" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="500.36" y1="338.73" x2="500.36" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="500.36" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="504.09" y1="338.73" x2="504.09" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="504.09" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="507.82" y1="338.73" x2="507.82" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="507.82" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="511.56" y1="338.73" x2="511.56" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="511.56" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="515.29" y1="338.73" x2="515.29" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="515.29" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="519.02" y1="338.73" x2="519.02" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="519.02" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="522.76" y1="338.73" x2="522.76" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="522.76" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="526.49" y1="338.73" x2="526.49" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="526.49" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="530.22" y1="338.73" x2="530.22" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="530.22" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="533.95" y1="338.73" x2="533.95" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="533.95" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="537.69" y1="338.73" x2="537.69" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="537.69" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="541.42" y1="338.73" x2="541.42" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="541.42" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="545.15" y1="338.73" x2="545.15" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="545.15" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="548.89" y1="338.73" x2="548.89" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="548.89" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="552.62" y1="338.73" x2="552.62" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="552.62" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="556.35" y1="338.73" x2="556.35" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="556.35" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="560.08" y1="338.73" x2="560.08" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="560.08" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="563.82" y1="338.73" x2="563.82" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="563.82" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="567.55" y1="338.73" x2="567.55" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="567.55" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="571.28" y1="338.73" x2="571.28" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="571.28" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="575.02" y1="338.73" x2="575.02" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="575.02" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="578.75" y1="338.73" x2="578.75" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="578.75" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="582.48" y1="338.73" x2="582.48" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="582.48" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="586.22" y1="338.73" x2="586.22" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="586.22" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="589.95" y1="338.73" x2="589.95" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="589.95" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="593.68" y1="338.73" x2="593.68" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="593.68" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="597.41" y1="338.73" x2="597.41" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="597.41" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="601.15" y1="338.73" x2="601.15" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="601.15" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="604.88" y1="338.73" x2="604.88" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="604.88" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="608.61" y1="338.73" x2="608.61" y2="70.36" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="608.61" cy="70.36" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="612.35" y1="338.73" x2="612.35" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="612.35" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="616.08" y1="338.73" x2="616.08" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="616.08" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="619.81" y1="338.73" x2="619.81" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="619.81" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="623.54" y1="338.73" x2="623.54" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="623.54" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="627.28" y1="338.73" x2="627.28" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="627.28" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="631.01" y1="338.73" x2="631.01" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="631.01" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="634.74" y1="338.73" x2="634.74" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="634.74" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="638.48" y1="338.73" x2="638.48" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="638.48" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="642.21" y1="338.73" x2="642.21" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="642.21" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="645.94" y1="338.73" x2="645.94" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="645.94" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="649.68" y1="338.73" x2="649.68" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="649.68" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="653.41" y1="338.73" x2="653.41" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="653.41" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="657.14" y1="338.73" x2="657.14" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="657.14" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="660.87" y1="338.73" x2="660.87" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="660.87" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="664.61" y1="338.73" x2="664.61" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="664.61" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="668.34" y1="338.73" x2="668.34" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="668.34" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="672.07" y1="338.73" x2="672.07" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="672.07" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="675.81" y1="338.73" x2="675.81" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="675.81" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="679.54" y1="338.73" x2="679.54" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="679.54" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="683.27" y1="338.73" x2="683.27" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="683.27" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="687.01" y1="338.73" x2="687.01" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="687.01" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="690.74" y1="338.73" x2="690.74" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="690.74" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="694.47" y1="338.73" x2="694.47" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="694.47" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="698.20" y1="338.73" x2="698.20" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="698.20" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="701.94" y1="338.73" x2="701.94" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="701.94" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="705.67" y1="338.73" x2="705.67" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="705.67" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="709.40" y1="338.73" x2="709.40" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="709.40" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="713.14" y1="338.73" x2="713.14" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="713.14" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="716.87" y1="338.73" x2="716.87" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="716.87" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="720.60" y1="338.73" x2="720.60" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="720.60" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="724.33" y1="338.73" x2="724.33" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="724.33" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="728.07" y1="338.73" x2="728.07" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="728.07" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="731.80" y1="338.73" x2="731.80" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="731.80" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="735.53" y1="338.73" x2="735.53" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="735.53" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="739.27" y1="338.73" x2="739.27" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="739.27" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="743.00" y1="338.73" x2="743.00" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="743.00" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="746.73" y1="338.73" x2="746.73" y2="450.55" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="746.73" cy="450.55" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="750.47" y1="338.73" x2="750.47" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="750.47" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="754.20" y1="338.73" x2="754.20" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="754.20" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="757.93" y1="338.73" x2="757.93" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="757.93" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="761.66" y1="338.73" x2="761.66" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="761.66" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="765.40" y1="338.73" x2="765.40" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="765.40" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="769.13" y1="338.73" x2="769.13" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="769.13" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="772.86" y1="338.73" x2="772.86" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="772.86" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="776.60" y1="338.73" x2="776.60" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="776.60" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="780.33" y1="338.73" x2="780.33" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="780.33" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="784.06" y1="338.73" x2="784.06" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="784.06" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="787.79" y1="338.73" x2="787.79" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="787.79" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="791.53" y1="338.73" x2="791.53" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="791.53" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="795.26" y1="338.73" x2="795.26" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="795.26" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="798.99" y1="338.73" x2="798.99" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="798.99" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="802.73" y1="338.73" x2="802.73" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="802.73" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="806.46" y1="338.73" x2="806.46" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="806.46" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="810.19" y1="338.73" x2="810.19" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="810.19" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="813.93" y1="338.73" x2="813.93" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="813.93" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="817.66" y1="338.73" x2="817.66" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="817.66" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="821.39" y1="338.73" x2="821.39" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="821.39" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="825.12" y1="338.73" x2="825.12" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="825.12" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="828.86" y1="338.73" x2="828.86" y2="338.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="828.86" cy="338.73" r="2.6" fill="#4169e1" stroke="none"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">A 5-sparse signal, recovered from 30% of Nyquist</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">index</text>
+<text x="42.54" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 42.54 294.00)">amplitude</text>
+<rect x="670.56" y="56.00" width="187.44" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="687.56" y1="77.00" x2="687.56" y2="67.00" stroke="#c0c8d4" stroke-width="1.2"/>
+<circle cx="687.56" cy="67.00" r="2.2" fill="#c0c8d4" stroke="none"/>
+<text x="703.56" y="75.50" font-size="12" text-anchor="start" fill="#222">true</text>
+<line x1="687.56" y1="95.00" x2="687.56" y2="85.00" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="687.56" cy="85.00" r="2.2" fill="#4169e1" stroke="none"/>
+<text x="703.56" y="93.50" font-size="12" text-anchor="start" fill="#222">recovered from 60 of 200</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_compressed_sensing.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_compressed_sensing.qu — recovering a signal from far fewer samples</span>
+<span class="c"># than Nyquist demands, six different ways.</span>
+<span class="c">#</span>
+<span class="c"># THE CLAIM. A signal with 200 unknowns, of which only 5 are non-zero, is</span>
+<span class="c"># recovered EXACTLY from 60 measurements. Nyquist would have insisted on</span>
+<span class="c"># 200. The missing information is supplied not by more samples but by one</span>
+<span class="c"># assumption: the signal is sparse.</span>
+<span class="c">#</span>
+<span class="c"># That assumption is not exotic. A spectrum is a handful of tones among</span>
+<span class="c"># thousands of bins; an impedance sweep is a few relaxation processes; a</span>
+<span class="c"># vibration record is a few modes. Whenever the interesting part of a</span>
+<span class="c"># measurement is small compared with the grid it is measured on, this</span>
+<span class="c"># applies.</span>
+<span class="c">#</span>
+<span class="c"># WHY SIX METHODS. Finding the sparsest solution is combinatorial and</span>
+<span class="c"># NP-hard, so every practical method is a tractable stand-in, and they fail</span>
+<span class="c"># in different ways:</span>
+<span class="c">#</span>
+<span class="c">#   - greedy (omp, cosamp, sp, niht) build the support one decision at a</span>
+<span class="c">#     time. Fast, need the sparsity up front, and brittle -- a column</span>
+<span class="c">#     chosen wrongly early is a wrong answer, though cosamp and sp can undo</span>
+<span class="c">#     one and omp cannot.</span>
+<span class="c">#   - convex (fista, bp) replace the count of non-zeros with the l1 norm,</span>
+<span class="c">#     which is its tightest convex relaxation, and solve that exactly.</span>
+<span class="c">#     Slower, and they do NOT need to be told the sparsity.</span>
+<span class="c">#</span>
+<span class="c"># WHAT TO NOTICE in the output below:</span>
+<span class="c">#</span>
+<span class="c">#   - the coherence guarantee proves only k=1 is recoverable, and k=5</span>
+<span class="c">#     recovers perfectly. The bound is real but badly pessimistic; treat a</span>
+<span class="c">#     pass as proof and a failure as no information.</span>
+<span class="c">#   - fista needs ~850 iterations where omp needs 5, and finds the same</span>
+<span class="c">#     answer without being told there were 5 spikes.</span>
+<span class="c">#   - without `debias=true`, fista's answer is systematically SHRUNK. The</span>
+<span class="c">#     l1 penalty finds the support and pulls the coefficients toward zero</span>
+<span class="c">#     with the same term; once the support is known, that pull has no</span>
+<span class="c">#     purpose. One least-squares re-fit removes it.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   randn(m, n, seed=)              — a Gaussian sensing matrix</span>
+<span class="c">#   coherence(A) / cs_guarantee(A)  — is this matrix any good</span>
+<span class="c">#   cs_recover(A, y, method=, ...)  — all six reconstruction methods</span>
+<span class="c">#   tv_denoise(y, lambda)           — the other sparsity: few CHANGES</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% The problem</span>
+<span class="c">#</span>
+<span class="c"># 200 unknowns, 5 of them non-zero, measured 60 times. The sensing matrix</span>
+<span class="c"># is Gaussian and scaled so its columns have roughly unit norm.</span>
+<span class="c">#</span>
+<span class="c"># Random is not laziness. A random matrix satisfies the recovery</span>
+<span class="c"># conditions with high probability, and no deterministic construction is</span>
+<span class="c"># known that does better for general use -- so the honest choice is a</span>
+<span class="c"># random one with a fixed seed, which is reproducible.</span>
+n = <span class="n">200</span>
+m = <span class="n">60</span>
+k = <span class="n">5</span>
+
+<span class="c"># A Gaussian matrix, scaled so its columns have roughly unit norm. Random</span>
+<span class="c"># is not laziness: a random matrix satisfies the recovery conditions with</span>
+<span class="c"># high probability, and no deterministic construction is known that does</span>
+<span class="c"># better for general use.</span>
+A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(m)
+
+x = <span class="f">zeros</span>(n)
+x[<span class="n">7</span>]   = <span class="n">1.5</span>
+x[<span class="n">33</span>]  = -<span class="n">2.0</span>
+x[<span class="n">91</span>]  = <span class="n">0.75</span>
+x[<span class="n">140</span>] = <span class="n">3.0</span>
+x[<span class="n">177</span>] = -<span class="n">1.25</span>
+
+y = A * x
+
+<span class="f">print</span>(<span class="s">"{n} unknowns, {k} of them non-zero, measured {m} times"</span>)
+<span class="f">print</span>(<span class="s">"compression: {n / m:.1f}x below Nyquist"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Is this matrix any good?</span>
+<span class="c">#</span>
+<span class="c"># Coherence is the largest inner product between two different normalised</span>
+<span class="c"># columns; smaller is better. `cs_guarantee` turns it into the largest</span>
+<span class="c"># sparsity that coherence alone can PROVE recoverable.</span>
+<span class="c">#</span>
+<span class="c"># Watch what it says against what actually happens: it proves 1, and 5</span>
+<span class="c"># recovers perfectly. The bound is real and badly pessimistic, which is</span>
+<span class="c"># why it is a sanity check and never a budget.</span>
+<span class="f">print</span>(<span class="s">"coherence         {coherence(A):.3f}   (smaller is better)"</span>)
+<span class="f">print</span>(<span class="s">"provable sparsity {cs_guarantee(A)}       (and yet k = {k} recovers -- the bound is pessimistic)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Every method, on the same data</span>
+<span class="c">#</span>
+<span class="c"># One dispatcher, so comparing methods is one word rather than one call.</span>
+<span class="c"># The `told k?` column is the interesting one: the greedy methods are</span>
+<span class="c"># handed the sparsity and the convex ones work it out.</span>
+<span class="c">#</span>
+<span class="c"># `debias = true` re-fits the found support by least squares. The l1</span>
+<span class="c"># penalty finds the support and shrinks the coefficients with the same</span>
+<span class="c"># term; once the support is known that shrinkage has no purpose.</span>
+<span class="f">print</span>(<span class="s">"method   residual    rel.error   iters  told k?"</span>)
+<span class="k">for</span> method <span class="k">in</span> (<span class="s">"omp"</span>, <span class="s">"cosamp"</span>, <span class="s">"sp"</span>, <span class="s">"niht"</span>, <span class="s">"fista"</span>, <span class="s">"bp"</span>)
+    r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = method, <span class="a">sparsity</span> = k, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">debias</span> = <span class="k">true</span>)
+    err = <span class="f">norm</span>(r.x - x) / <span class="f">norm</span>(x)
+    knows = <span class="s">"yes"</span>
+    <span class="k">if</span> method == <span class="s">"fista"</span> <span class="k">or</span> method == <span class="s">"bp"</span>
+        knows = <span class="s">"no"</span>
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="f">print</span>(<span class="s">"{pad_right(method, 8)} {r.residual:.2e}    {err:.2e}    {pad_left(str(r.iterations), 4)}   {knows}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% What the l1 penalty costs, and what debiasing buys back</span>
+<span class="c">#</span>
+<span class="c"># The same solver, twice, with and without the re-fit. The difference is</span>
+<span class="c"># nine orders of magnitude -- and it is systematic, not noise: every</span>
+<span class="c"># coefficient is pulled toward zero by the same penalty that found it.</span>
+raw = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">debias</span> = <span class="k">true</span>)
+<span class="f">print</span>(<span class="s">"fista alone:    largest coefficient error {max(abs(raw.x - x)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"fista debiased: largest coefficient error {max(abs(fixed.x - x)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% The recovered signal against the truth</span>
+<span class="c">#</span>
+<span class="c"># Both stems on one axis. There is nothing to see in the difference, which</span>
+<span class="c"># is the point of the figure.</span>
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, x, <span class="a">color</span> = <span class="s">"#c0c8d4"</span>, <span class="a">label</span> = <span class="s">"true"</span>)
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, fixed.x, <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">label</span> = <span class="s">"recovered from 60 of 200"</span>)
+<span class="f">xlabel</span>(<span class="s">"index"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A 5-sparse signal, recovered from 30% of Nyquist"</span>)
+<span class="f">legend</span>()
+show plot
+
+<span class="c">#%% The other kind of sparsity</span>
+<span class="c">#</span>
+<span class="c"># Everything above assumes few non-zero SAMPLES. Total variation assumes</span>
+<span class="c"># few CHANGES instead -- a staircase, a segmented profile, a step response.</span>
+<span class="c"># An l1 method applied to a step flattens it; TV keeps the edge exactly,</span>
+<span class="c"># which is the property it is famous for.</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">200</span>
+clean = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> i &gt;= <span class="n">60</span> <span class="k">and</span> i &lt; <span class="n">130</span>
+        clean[i] = <span class="n">1.0</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+noisy = clean + <span class="n">0.15</span> * <span class="f">randn</span>(<span class="n">200</span>, <span class="a">seed</span> = <span class="n">3</span>)
+tv = <span class="f">tv_denoise</span>(noisy, <span class="n">0.3</span>)
+
+<span class="c"># A moving average that removes a comparable amount of noise, for contrast.</span>
+<span class="c"># This is the honest comparison: both reach about the same RMS error, and</span>
+<span class="c"># the question is what they did to the edge to get there.</span>
+w = <span class="n">9</span>
+avg = <span class="f">filtfilt</span>(<span class="f">fir1</span>(w, <span class="n">0.12</span>), noisy)
+
+<span class="c"># How many samples the 10-90% transition takes AT THE KNOWN EDGE. Measured</span>
+<span class="c"># locally rather than over the whole record, because a noise excursion</span>
+<span class="c"># anywhere else would otherwise be counted as part of the rise.</span>
+<span class="k">function</span> <span class="f">rise_at</span>(v, edge)
+    first = edge - <span class="n">12</span>
+    last = edge + <span class="n">12</span>
+    lo = -<span class="n">1</span>
+    hi = -<span class="n">1</span>
+    <span class="k">for</span> i <span class="k">in</span> first <span class="k">to</span> last
+        <span class="k">if</span> v[i] &gt; <span class="n">0.1</span> <span class="k">and</span> lo &lt; <span class="n">0</span>
+            lo = i
+        <span class="k">end</span> <span class="k">if</span>
+        <span class="k">if</span> v[i] &gt; <span class="n">0.9</span> <span class="k">and</span> hi &lt; <span class="n">0</span>
+            hi = i
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">if</span> lo &lt; <span class="n">0</span> <span class="k">or</span> hi &lt; <span class="n">0</span>
+        <span class="k">return</span> -<span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="k">return</span> hi - lo
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"rms error      : TV {rms(tv - clean):.3f}, low-pass {rms(avg - clean):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"total variation: {sum(abs(diff(noisy))):.1f} measured -&gt; TV {sum(abs(diff(tv))):.1f}, low-pass {sum(abs(diff(avg))):.1f}"</span>)
+<span class="f">print</span>(<span class="s">"10-90% rise    : TV {rise_at(tv, 60)} samples, low-pass {rise_at(avg, 60)} samples (the truth is 1)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"Both remove most of the noise. TV does it at half the error and a"</span>)
+<span class="f">print</span>(<span class="s">"shorter rise, because it never assumed the signal was smooth -- only"</span>)
+<span class="f">print</span>(<span class="s">"that it changes rarely. The price is a nonlinear method with a"</span>)
+<span class="f">print</span>(<span class="s">"penalty to choose, where a filter has a cutoff."</span>)
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, noisy, <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(t, avg, <span class="a">color</span> = <span class="s">"#b5651d"</span>, <span class="a">width</span> = <span class="n">1.4</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"moving average, {w} wide"</span>)
+<span class="f">plot</span>(t, tv, <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.6</span>, <span class="a">label</span> = <span class="s">"total variation"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Both remove the noise; only one keeps the edge"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

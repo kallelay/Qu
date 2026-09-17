@@ -1,0 +1,51 @@
+# qu_multiple_dispatch.qu — user-overloadable functions, dispatched on type.
+#
+# Defines the SAME function name multiple times, once per parameter type
+# tag; each call runs whichever overload's tags match its actual argument
+# types (Qu's multiple-dispatch surface, phase 1-3).
+#
+# Constructs exercised (all real, verified-working syntax):
+#   function name(x: vec) / (x: mat) / (x: num) — type-tagged overloads
+#   dispatch on TWO parameters at once (describe_pair)
+#   a plain, untyped fallback overload
+
+backend auto
+
+#%% Overloaded on one argument
+function describe(x: vec)
+    print "vec of length {length(x)}, sum={sum(x)}"
+end function
+
+function describe(x: mat)
+    print "mat {rows(x)}x{cols(x)}"
+end function
+
+function describe(x: num)
+    print "num {x}"
+end function
+
+function describe(x: str)
+    print "string \"{x}\""
+end function
+
+describe([1, 2, 3])
+describe([1, 2; 3, 4])
+describe(42)
+describe("hello")
+
+#%% Overloaded on two arguments, plus an untyped fallback
+function combine(a: num, b: num)
+    print "num+num -> {a + b}"
+end function
+
+function combine(a: vec, b: vec)
+    print "vec+vec -> {a + b}"
+end function
+
+function combine(a, b)
+    print "fallback: no specific overload for this pair"
+end function
+
+combine(2, 3)
+combine([1, 2, 3], [10, 20, 30])
+combine("x", true)   # falls through to the untyped overload

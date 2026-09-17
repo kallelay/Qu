@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>theme — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>theme</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>theme(name)</code></pre>
+<p class="fnnote">Input: name &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Sets the whole-figure visual theme from <code>name</code> (string): one of <code>"default"</code>, <code>"publication"</code>, <code>"bw"</code>, <code>"minimal"</code>, <code>"grey"</code>, <code>"classic"</code>. <code>"publication"</code> also embeds fonts, because a figure asked to be print-ready has to look the same wherever it lands.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>theme(name)</code></td><td><div class="ioitem"><code>name</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td><code>"publication"</code> also embeds fonts, because a figure asked to be print-ready has to look the same wherever it lands.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">theme</span>(<span class="s">"publication"</span>)
+<span class="f">figure_size</span>(<span class="n">3.5</span>, <span class="n">2.4</span>, <span class="a">unit</span> = <span class="s">"in"</span>)
+
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], y[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#b0b0b0"</span>, <span class="a">lw</span> = <span class="f">pt</span>(<span class="n">0.6</span>), <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], smoothed[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#0072BD"</span>, <span class="a">lw</span> = <span class="f">pt</span>(<span class="n">1.2</span>), <span class="a">label</span> = <span class="s">"filtered"</span>)
+<span class="f">xlabel</span>(<span class="s">"time $t$ [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A 50 Hz tone, low-pass filtered"</span>)
+<span class="f">legend</span>()
+<span class="f">savefig</span>(<span class="s">"first-figure.pdf"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<h2>How it works</h2>
+<p><code>theme("minimal")</code> / <code>theme("default")</code> — see <code>plotting::Figure.minimal</code>. Figure-level, like <code>fontfamily</code>/ <code>fontsize</code>/<code>figure_background</code>, not per-panel. Any name other than <code>"minimal"</code> (including a typo) resolves to the default journal-style theme rather than erroring, matching <code>colormap</code>'s own "bad name is not fatal" convention. <code>theme("minimal")</code> / <code>theme("publication")</code> / <code>theme("screen")</code>. <code>"publication"</code> is a TARGET, not just a look (see <code>plotting::Figure.publication</code>): the figure is bound for a printed page rather than this monitor. Because that target implies a whole set of choices that would be tedious and easy to get wrong one call at a time, it also sets the two companions a print figure almost always wants -- Latin Modern (the typeface a LaTeX paper is already set in) and the colourblind-safe Okabe-Ito palette. Both remain overridable: call <code>fontfamily(...)</code>/<code>colormap(...)</code> AFTER <code>theme(...)</code> and your choice wins, exactly like <code>fontsize</code> after <code>figure_size</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

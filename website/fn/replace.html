@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>replace — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>replace</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>replace(s, old, new)</code></pre>
+<p class="fnnote">Input: s, old, new &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = replace(s, old, new)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is the <code>Str</code> to search.</span></div>
+<div class="ioitem"><code>old</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>new</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td>Returns a <code>Str</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>)                     <span class="c"># "axb Z"   the dot is a dot</span>
+<span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>, <span class="a">pattern</span>=<span class="s">"regex"</span>)    <span class="c"># "Z Z"</span>
+<span class="f">replace</span>(<span class="s">"a1 b2 c3"</span>, <span class="s">"?#"</span>, <span class="s">"X"</span>, <span class="a">pattern</span>=<span class="s">"wildcard"</span>) <span class="c"># "X X X"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
+<span class="f">print</span>(<span class="s">"[{trim(s)}]"</span>)              <span class="c"># [Measurement Lane]</span>
+<span class="f">print</span>(<span class="f">upper</span>(<span class="f">trim</span>(s)))             <span class="c"># MEASUREMENT LANE</span>
+<span class="f">print</span>(<span class="f">contains</span>(s, <span class="s">"Lane"</span>))        <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">replace</span>(s, <span class="s">"Lane"</span>, <span class="s">"Window"</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<h2>How it works</h2>
+<p><code>replace(s, old, new)</code> — every occurrence of <code>old</code> replaced by <code>new</code> (literal substring match, not regex).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

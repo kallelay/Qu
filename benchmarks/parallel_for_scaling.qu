@@ -1,0 +1,47 @@
+# parallel_for_scaling.qu — re-runnable version of the "Real multithreaded
+# `parallel for`" measurement (BACKLOG.md, 2026-08-25 dev session: 16
+# iterations of a synthetic CPU-heavy function, 6.500s serial -> 1.017s
+# parallel, a real 6.4x). That number came from two separate manual process
+# invocations, not a script — this pins it down as one reproducible
+# scenario instead.
+#
+# `heavy(i)` is deliberately builtin-call-heavy (sin/cos), not the plain
+# arithmetic the `for`/`while` fast path (2026-08-23) covers — this
+# exercises the ordinary tree-walking interpreter under real multi-core
+# parallelism, a different scenario than `matty_suite/bench.qu`'s
+# loop_performance kernel.
+#
+# Run: qu run benchmarks/parallel_for_scaling.qu
+
+backend auto
+
+function heavy(i)
+    total = 0
+    for k = 1 to 200000
+        total = total + sin(k * 0.001) * cos(i)
+    end for
+    return total
+end function
+
+n = 16
+
+tic()
+results_serial = zeros(n)
+for i = 0 to n - 1
+    results_serial[i] = heavy(i)
+end for
+t_serial = toc()
+
+tic()
+results_parallel = zeros(n)
+parallel for i in 0 to n - 1
+    results_parallel[i] = heavy(i)
+end parallel
+t_parallel = toc()
+
+diff = max(abs(results_serial - results_parallel))
+
+print("serial   : {t_serial:.4f} s")
+print("parallel : {t_parallel:.4f} s")
+print("speedup  : {t_serial / t_parallel:.2f}x")
+print("max diff : {diff:.2e}")  # bit-identical work, isolated per iteration -- should be ~0

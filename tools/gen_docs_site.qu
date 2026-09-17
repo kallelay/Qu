@@ -1,0 +1,669 @@
+# Render every documentation page into the website as styled HTML.
+#
+# The docs are written in Markdown because that is the right source
+# format -- it diffs, and the example-checker can run the code blocks out
+# of it. But a link to a `.md` file opens raw text in a browser, which is
+# not a website. This renders the lot into `website/docs/`, in the site's
+# own design, with a sidebar built from the book's own SUMMARY.
+#
+# Regenerated rather than hand-maintained, so the site and the docs
+# cannot drift.
+#
+# Run:  qu run tools/gen_docs_site.qu
+
+# Two optional working directories turn on the two extras. With
+# `QU_DOC_EXTRACT` set, each ```qu block is written out as a runnable file
+# with every earlier block of the same page in front of it (that is how a
+# reader meets it: the tutorial that says "now plot it" defined `x` three
+# paragraphs up). `tools/run_doc_outputs.sh` runs those and leaves a `.out`
+# beside each; with `QU_DOC_OUTPUTS` pointing at the same directory, a
+# second pass folds the printed output in under its own example.
+#
+# `tools/build_docs_site.sh` runs all three steps.
+OUT     = "website/docs"
+EXTRACT = getenv("QU_DOC_EXTRACT") ?? ""
+RUNS    = getenv("QU_DOC_OUTPUTS") ?? ""
+BT  = substr("`x", 0, 1)             # a backtick, unwritable in a string
+QUOTE  = "\""
+BSLASH = "\\"
+
+DIGITS = "0123456789"
+ALPHA  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+
+# Straight from `qu-lexer`'s KEYWORDS. Words the parser promotes only in
+# statement position are deliberately absent: colouring `run` or `pool`
+# everywhere would paint ordinary variables.
+KEYS = ("and", "or", "not", "mod", "in", "as", "to", "step", "skip", "by",
+        "if", "then", "else", "elseif", "end", "for", "while", "do", "repeat",
+        "until", "return", "function", "sub", "class", "new", "true", "false",
+        "none", "backend", "with", "import", "const", "constant", "try",
+        "catch", "unsafe", "global")
+
+# The pages, in reading order: title, source, output name.
+srcs   = ("book/src/getting-started/start-here.md",
+          "book/src/getting-started/from-zero.md",
+          "book/src/getting-started/quickstart.md",
+          "book/src/getting-started/book1-fundamentals.md",
+          "book/src/getting-started/book2-numerics-dsp.md",
+          "book/src/getting-started/book3-specialized.md",
+          "book/src/stdlib/overview.md",
+          "book/src/stdlib/builtin-index.md",
+          "book/src/stdlib/core-math.md",
+          "book/src/stdlib/signal-processing.md",
+          "book/src/stdlib/compressed-sensing.md",
+          "book/src/stdlib/noise.md",
+          "book/src/stdlib/statistics-ml.md",
+          "book/src/stdlib/plotting.md",
+          "book/src/stdlib/images.md",
+          "book/src/stdlib/collections-strings.md",
+          "book/src/stdlib/file-io.md",
+          "book/src/stdlib/concurrency.md",
+          "book/src/stdlib/repl-diagnostics.md",
+          "book/src/performance.md",
+          "docs/llms-agent-guide.md",
+          "docs/qu-language-tour.md",
+          "docs/qu-language-spec.built.md")
+
+names  = ("start-here", "from-zero", "quickstart", "fundamentals",
+          "numerics-dsp", "specialized", "stdlib-overview", "builtin-index",
+          "core-math", "signal-processing", "compressed-sensing", "noise",
+          "statistics-ml",
+          "plotting",
+          "images", "collections-strings", "file-io", "concurrency",
+          "repl-diagnostics", "performance", "agent-guide", "tour", "spec")
+
+titles = ("Start Here", "From Zero", "Quickstart", "Fundamentals",
+          "Numerics, DSP & Linear Algebra", "Specialized Domains",
+          "Standard Library", "Builtin Index", "Core Maths & Linear Algebra",
+          "Signal Processing", "Compressed Sensing", "Noise & Distortion",
+             "Statistics & ML", "Plotting",
+             "Images",
+          "Collections & Strings", "File I/O", "Concurrency",
+          "REPL & Diagnostics", "Performance & Optimization", "Agent Guide",
+          "Language Tour", "Language Specification")
+
+# Which sidebar group each page belongs to, in order.
+groups = ("Getting started", "Getting started", "Getting started",
+          "Getting started", "Getting started", "Getting started",
+          "Standard library", "Standard library", "Standard library",
+          "Standard library", "Standard library", "Standard library",
+          "Standard library", "Standard library", "Standard library",
+          "Standard library", "Standard library", "Standard library",
+          "Standard library",
+          "Performance",
+          "Reference", "Reference", "Reference")
+
+function esc(s)
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    s = replace(s, ">", "&gt;")
+    return s
+end function
+
+function is_digit(c)
+    return contains(DIGITS, c)
+end function
+
+function is_word(c)
+    return contains(ALPHA, c) or contains(DIGITS, c)
+end function
+
+function is_key(w)
+    for k in KEYS
+        if w == k
+            return true
+        end if
+    end for
+    return false
+end function
+
+# Highlight Qu source. A hand-written scanner rather than a library,
+# because the page has to be readable with JavaScript off and because the
+# rules are the language's own: `qu-lexer`'s keyword list, an identifier
+# followed by `(` is a call, and a name followed by `=` inside parentheses
+# is a keyword argument -- which in Qu is worth seeing, since supplying one
+# the builtin does not read is an error.
+function highlight(code)
+    out = ""
+    plain = ""
+    n = len(code)
+    i = 0
+    depth = 0
+    while i < n
+        c = substr(code, i, 1)
+
+        if c == "#"                          # comment to end of line
+            j = i
+            while j < n and substr(code, j, 1) != "\n"
+                j = j + 1
+            end while
+            out = out + esc(plain) + "<span class=\"c\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+
+        if c == QUOTE                        # string, escapes included
+            j = i + 1
+            closed = false
+            while j < n and not closed
+                d = substr(code, j, 1)
+                if d == BSLASH
+                    j = j + 2
+                elseif d == QUOTE
+                    j = j + 1
+                    closed = true
+                else
+                    j = j + 1
+                end if
+            end while
+            out = out + esc(plain) + "<span class=\"s\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+
+        if is_digit(c)
+            j = i
+            while j < n and (is_digit(substr(code, j, 1)) or substr(code, j, 1) == ".")
+                j = j + 1
+            end while
+            if j < n and (substr(code, j, 1) == "e" or substr(code, j, 1) == "E")
+                p = j + 1
+                if p < n and (substr(code, p, 1) == "+" or substr(code, p, 1) == "-")
+                    p = p + 1
+                end if
+                if p < n and is_digit(substr(code, p, 1))
+                    j = p
+                    while j < n and is_digit(substr(code, j, 1))
+                        j = j + 1
+                    end while
+                end if
+            end if
+            # A unit or the imaginary suffix rides on the number: `50kHz`
+            # and `1i` are single literals, so they get a single colour.
+            while j < n and contains(ALPHA, substr(code, j, 1))
+                j = j + 1
+            end while
+            out = out + esc(plain) + "<span class=\"n\">" + esc(substr(code, i, j - i)) + "</span>"
+            plain = ""
+            i = j
+            continue
+        end if
+
+        if contains(ALPHA, c)
+            j = i
+            while j < n and is_word(substr(code, j, 1))
+                j = j + 1
+            end while
+            word = substr(code, i, j - i)
+            cls = ""
+            if is_key(word)
+                cls = "k"
+            elseif j < n and substr(code, j, 1) == "("
+                cls = "f"
+            elseif depth > 0
+                p = j
+                while p < n and substr(code, p, 1) == " "
+                    p = p + 1
+                end while
+                # `name =` but not `name ==`: an argument, not a test.
+                if p < n and substr(code, p, 1) == "="
+                    if p + 1 >= n or substr(code, p + 1, 1) != "="
+                        cls = "a"
+                    end if
+                end if
+            end if
+            if len(cls) > 0
+                out = out + esc(plain) + "<span class=\"" + cls + "\">" + esc(word) + "</span>"
+                plain = ""
+            else
+                plain = plain + word
+            end if
+            i = j
+            continue
+        end if
+
+        if c == "("
+            depth = depth + 1
+        elseif c == ")"
+            if depth > 0
+                depth = depth - 1
+            end if
+        end if
+        plain = plain + c
+        i = i + 1
+    end while
+    return out + esc(plain)
+end function
+
+# Blocks that are not Qu are terminal transcripts: a command to type, or
+# the diagnostic the engine printed back. Only the diagnostic is marked,
+# because that is the line the reader is being asked to recognise.
+function highlight_plain(code)
+    out = ""
+    lines = split(code, "\n")
+    for k in 0 to len(lines) - 1
+        if k > 0
+            out = out + "\n"
+        end if
+        if starts_with(trim(lines[k]), "qu: ")
+            out = out + "<span class=\"e\">" + esc(lines[k]) + "</span>"
+        else
+            out = out + esc(lines[k])
+        end if
+    end for
+    return out
+end function
+
+# A documentation source path becomes its rendered page. Handles an
+# anchor after the filename, and the few pages whose output name differs
+# from their source stem.
+function md_to_page(url)
+    frag = ""
+    # `index_of` yields `none` when the needle is absent, so the presence
+    # test comes first rather than comparing `none` to a number.
+    if contains(url, "#")
+        hash_at = index_of(url, "#")
+        frag = substr(url, hash_at, len(url) - hash_at)
+        url = substr(url, 0, hash_at)
+    end if
+    if not ends_with(url, ".md")
+        return url + frag
+    end if
+    slash = 0
+    for k in 0 to len(url) - 1
+        if substr(url, k, 1) == "/"
+            slash = k + 1
+        end if
+    end for
+    stem = substr(url, slash, len(url) - slash - 3)
+    froms = ("book1-fundamentals", "book2-numerics-dsp", "book3-specialized",
+             "qu-language-spec.built", "qu-language-tour", "llms-agent-guide",
+             "overview", "SUMMARY", "introduction")
+    tos   = ("fundamentals", "numerics-dsp", "specialized",
+             "spec", "tour", "agent-guide",
+             "stdlib-overview", "start-here", "start-here")
+    for i in 0 to len(froms) - 1
+        if stem == froms[i]
+            stem = tos[i]
+        end if
+    end for
+    return stem + ".html" + frag
+end function
+
+# Inline markup: code spans first (so nothing inside them is touched),
+# then bold, then links.
+function inline(s)
+    out = ""
+    parts = split(esc(s), BT)
+    for i in 0 to len(parts) - 1
+        if i - 2 * floor(i / 2) == 1
+            out = out + "<code>" + parts[i] + "</code>"
+        else
+            seg = parts[i]
+            if contains(seg, "**")
+                bits = split(seg, "**")
+                seg = ""
+                for j in 0 to len(bits) - 1
+                    if j - 2 * floor(j / 2) == 1
+                        seg = seg + "<strong>" + bits[j] + "</strong>"
+                    else
+                        seg = seg + bits[j]
+                    end if
+                end for
+            end if
+            out = out + seg
+        end if
+    end for
+    # [text](target) -- and a .md target becomes its rendered .html page.
+    if contains(out, "](")
+        segs = split(out, "](")
+        built = segs[0]
+        for i in 1 to len(segs) - 1
+            a = index_of(built, "[")
+            b = index_of(segs[i], ")")
+            if a >= 0 and b > 0
+                text = substr(built, a + 1, len(built) - a - 1)
+                url  = substr(segs[i], 0, b)
+                rest = substr(segs[i], b + 1, len(segs[i]) - b - 1)
+                url = md_to_page(url)
+                built = substr(built, 0, a) + "<a href=\"" + url + "\">" + text + "</a>" + rest
+            else
+                built = built + "](" + segs[i]
+            end if
+        end for
+        out = built
+    end if
+    return out
+end function
+
+# Markdown -> HTML for the subset the documentation actually uses.
+function render(text, page)
+    lines = split(text, "\n")
+    body = ""
+    pending = ""
+    mode = "none"
+    in_list = false
+    in_table = false
+    in_code = false
+    code = ""
+    toc = ""
+    info = ""
+    nblk = 0
+    drew = 0
+    ran = 0
+
+    private = false
+
+    for raw in lines
+        line = raw
+        trimmed = trim(line)
+
+        # published. `tools/make_public.sh` strips them when it builds the
+        # public tree, but the website is generated from the working copy,
+        # so the renderer has to honour them too -- otherwise a rendered
+        # page carries what the stripped source does not.
+            private = false
+            continue
+        end if
+        if private
+            continue
+        end if
+
+        if starts_with(trimmed, "```")
+            if in_code
+                is_qu = info == "qu" or starts_with(info, "qu,") or starts_with(info, "qu ")
+                if is_qu
+                    nblk = nblk + 1
+                    runnable = not (contains(info, "ignore") or contains(info, "no_run"))
+                    # Each block is written out alone. The runner does the
+                    # stitching, because only it knows which earlier blocks
+                    # actually ran -- a fragment that names a file the
+                    # reader has must not blank the rest of the page.
+                    if len(EXTRACT) > 0
+                        ext = ".body"
+                        if not runnable
+                            ext = ".skip"
+                        end if
+                        eh = fopen(EXTRACT + "/" + page + "_" + str(nblk) + ext, "w")
+                        write(eh, code)
+                        close(eh)
+                    end if
+                    shown = ""
+                    drawn = ""
+                    if len(RUNS) > 0
+                        opath = RUNS + "/" + page + "_" + str(nblk) + ".out"
+                        if file_exists(opath)
+                            shown = read_all_text(opath)
+                        end if
+                        # The figure the block actually drew, inlined as
+                        # SVG. A plotting language whose plotting chapter
+                        # shows no plots is asking to be taken on trust.
+                        fpath = RUNS + "/" + page + "_" + str(nblk) + ".svg"
+                        if file_exists(fpath)
+                            drawn = read_all_text(fpath)
+                        end if
+                    end if
+                    tail = ""
+                    if len(trim(shown)) > 0
+                        ran = ran + 1
+                        tail = tail + "<div class=\"out\"><span class=\"lbl\">output</span><pre>"
+                        tail = tail + esc(shown) + "</pre></div>"
+                    end if
+                    if len(trim(drawn)) > 0
+                        drew = drew + 1
+                        tail = tail + "<figure class=\"fig\">" + drawn + "</figure>"
+                    end if
+                    cls = "example"
+                    if len(tail) > 0
+                        cls = "example hasout"
+                    end if
+                    # A block the chapter marked `ignore`/`no_run` was
+                    # never executed -- it needs a file, a device or a
+                    # frame loop the build has no way to supply. Say so in
+                    # the markup, because a page that reuses these blocks
+                    # (the per-function pages do) would otherwise present
+                    # them under the same "run by the build" promise as
+                    # every other example, which for these is not true.
+                    if not runnable
+                        cls = cls + " norun"
+                    end if
+                    body = body + "<div class=\"" + cls + "\"><pre class=\"hl\"><code>"
+                    body = body + highlight(code) + "</code></pre>\n" + tail + "</div>\n"
+                else
+                    body = body + "<pre><code>" + highlight_plain(code) + "</code></pre>\n"
+                end if
+                code = ""
+                in_code = false
+            else
+                info = trim(substr(trimmed, 3, len(trimmed) - 3))
+                if len(pending) > 0
+                    if mode == "item"
+                        body = body + "<li>" + inline(pending) + "</li>\n"
+                    else
+                        body = body + "<p>" + inline(pending) + "</p>\n"
+                    end if
+                    pending = ""
+                end if
+                if in_list
+                    body = body + "</ul>\n"
+                    in_list = false
+                end if
+                in_code = true
+            end if
+            continue
+        end if
+        if in_code
+            code = code + line + "\n"
+            continue
+        end if
+
+        is_head  = starts_with(trimmed, "#")
+        is_item  = starts_with(trimmed, "- ") or starts_with(trimmed, "* ")
+        is_row   = starts_with(trimmed, "|")
+        is_rule  = trimmed == "---" or trimmed == "***"
+        is_blank = len(trimmed) == 0
+
+        breaks = is_blank or is_head or is_item or is_row or is_rule
+        if breaks and len(pending) > 0
+            if mode == "item"
+                body = body + "<li>" + inline(pending) + "</li>\n"
+            else
+                body = body + "<p>" + inline(pending) + "</p>\n"
+            end if
+            pending = ""
+            mode = "none"
+        end if
+        if (is_blank or is_head or is_row or is_rule) and in_list
+            body = body + "</ul>\n"
+            in_list = false
+        end if
+        if not is_row and in_table
+            body = body + "</table></div>\n"
+            in_table = false
+        end if
+
+        if is_blank
+            continue
+        end if
+        if is_rule
+            body = body + "<hr>\n"
+            continue
+        end if
+
+        if is_row
+            if not in_table
+                body = body + "<div class=\"tablewrap\"><table>\n"
+                in_table = true
+            end if
+            if not contains(trimmed, "---")
+                # `\|` inside a cell (e.g. `` `\|x\|` `` for the math
+                # notation |x|) is a literal pipe, not a column separator --
+                # protect it before the naive split, then restore it in
+                # each cell before handing off to inline().
+                protected = replace(trimmed, BSLASH + "|", "@@PIPE@@")
+                cells = split(protected, "|")
+                row = "<tr>"
+                for c in 1 to len(cells) - 2
+                    cell = replace(trim(cells[c]), "@@PIPE@@", "|")
+                    row = row + "<td>" + inline(cell) + "</td>"
+                end for
+                body = body + row + "</tr>\n"
+            end if
+            continue
+        end if
+
+        if starts_with(trimmed, "#### ")
+            body = body + "<h4>" + inline(substr(trimmed, 5, len(trimmed) - 5)) + "</h4>\n"
+            continue
+        end if
+        if starts_with(trimmed, "### ")
+            body = body + "<h3>" + inline(substr(trimmed, 4, len(trimmed) - 4)) + "</h3>\n"
+            continue
+        end if
+        if starts_with(trimmed, "## ")
+            head = substr(trimmed, 3, len(trimmed) - 3)
+            anchor = "s" + str(len(toc))
+            body = body + "<h2 id=\"" + anchor + "\">" + inline(head) + "</h2>\n"
+            toc = toc + "<a href=\"#" + anchor + "\">" + inline(head) + "</a>"
+            continue
+        end if
+        if starts_with(trimmed, "# ")
+            continue                         # the page header carries the title
+        end if
+
+        if is_item
+            if not in_list
+                body = body + "<ul>\n"
+                in_list = true
+            end if
+            pending = substr(trimmed, 2, len(trimmed) - 2)
+            mode = "item"
+            continue
+        end if
+
+        if len(pending) > 0
+            pending = pending + " " + trimmed
+        else
+            pending = trimmed
+            mode = "para"
+        end if
+    end for
+
+    if len(pending) > 0
+        if mode == "item"
+            body = body + "<li>" + inline(pending) + "</li>\n"
+        else
+            body = body + "<p>" + inline(pending) + "</p>\n"
+        end if
+    end if
+    if in_list
+        body = body + "</ul>\n"
+    end if
+    if in_table
+        body = body + "</table></div>\n"
+    end if
+    if in_code
+        body = body + "<pre><code>" + esc(code) + "</code></pre>\n"
+    end if
+    return {html = body, toc = toc, blocks = nblk, ran = ran, drew = drew}
+end function
+
+# The sidebar is the same on every page, with the current one marked.
+function sidebar(current)
+    s = "<nav class=\"side\">\n"
+    last = ""
+    for i in 0 to len(names) - 1
+        if groups[i] != last
+            if len(last) > 0
+                s = s + "</ul>\n"
+            end if
+            s = s + "<p class=\"sidegroup\">" + groups[i] + "</p>\n<ul>\n"
+            last = groups[i]
+        end if
+        mark = ""
+        if names[i] == current
+            mark = " class=\"here\""
+        end if
+        s = s + "<li><a href=\"" + names[i] + ".html\"" + mark + ">" + titles[i] + "</a></li>\n"
+    end for
+    return s + "</ul>\n</nav>\n"
+end function
+
+head_tpl = read_all_text("website/assets/doc-head.html")
+foot_tpl = read_all_text("website/assets/doc-foot.html")
+
+made = 0
+blocks = 0
+withrun = 0
+withfig = 0
+for i in 0 to len(srcs) - 1
+    if not file_exists(srcs[i])
+        print("  skipped (missing): " + srcs[i])
+        continue
+    end if
+    r = render(read_all_text(srcs[i]), names[i])
+    blocks = blocks + r.blocks
+    withrun = withrun + r.ran
+    withfig = withfig + r.drew
+    page = replace(head_tpl, "@@TITLE@@", titles[i])
+    page = replace(page, "@@SIDEBAR@@", sidebar(names[i]))
+    page = replace(page, "@@TOC@@", r.toc)
+    page = page + r.html + foot_tpl
+    h = fopen(OUT + "/" + names[i] + ".html", "w")
+    write(h, page)
+    close(h)
+    made = made + 1
+end for
+print("rendered {made} documentation pages into " + OUT)
+print("  {blocks} Qu examples, {withrun} showing their real output, {withfig} their figure")
+
+# ---------------------------------------------------------------- the index
+#
+# `website/docs.html` was written by hand and listed three of the
+# twenty-two pages it links to. The other nineteen were reachable only by
+# guessing that strings live under "Standard library", or that serial ports
+# live under "Concurrency" -- and the page itself claims, two sections
+# further down, that the documentation is kept true by mechanical means
+# "because prose about code drifts". It had drifted.
+#
+# Generated from the SAME `names`/`titles`/`groups` arrays the pages
+# themselves come from, so a page cannot exist without appearing here.
+# Only the marked block is replaced; the hand-written prose around it is
+# left alone.
+INDEX = "website/docs.html"
+MARK_A = "<!-- PAGES:BEGIN -->"
+MARK_B = "<!-- PAGES:END -->"
+
+function index_block()
+    out = MARK_A + "\n"
+    for g in ("Getting started", "Standard library", "Reference")
+        out = out + "<section><div class=\"wrap\">\n  <h2>" + g + "</h2>\n"
+        out = out + "  <div class=\"cards\">\n"
+        for i in 0 to len(names) - 1
+            if groups[i] == g
+                out = out + "    <div><h3>" + esc(titles[i]) + "</h3>\n"
+                out = out + "      <p style=\"margin-top:10px\"><a href=\"docs/"
+                out = out + names[i] + ".html\">Open &rarr;</a></p></div>\n"
+            end if
+        end for
+        out = out + "  </div>\n</div></section>\n"
+    end for
+    return out + MARK_B
+end function
+
+if file_exists(INDEX)
+    page = read_all_text(INDEX)
+    if contains(page, MARK_A) and contains(page, MARK_B)
+        # `split`, not slicing: a Qu string cannot be indexed.
+        before = split(page, MARK_A)[0]
+        rest   = split(page, MARK_B)[1]
+        h = fopen(INDEX, "w")
+        write(h, before + index_block() + rest)
+        close(h)
+        print("rebuilt the page list in " + INDEX)
+    else
+        print("  note: " + INDEX + " has no " + MARK_A + " block -- page list not updated")
+    end if
+end if

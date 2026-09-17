@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>adc — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>adc</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>adc(x, [bits=12], [vmin=], [vmax=], [dither=false], [seed=])</code></pre>
+<p class="fnnote">Input: x, bits, vmin, vmax, dither, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Quantises <code>x</code> (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside <code>[vmin, vmax]</code> <strong>clips</strong> instead of being quantised as if the range were infinite. <code>bits</code> (positional or named integer, at least 1, default <code>12</code>) fixes the code count <code>2^bits</code>; <code>vmin</code>/<code>vmax</code> (named numbers) default to <code>-peak</code>/<code>+peak</code> of <code>x</code> itself; <code>dither</code> (named boolean, default <code>false</code>) adds two-LSB peak-to-peak TPDF noise before quantising, with <code>seed</code> (named integer) the RNG seed it uses. See the section above for the full field-by-field discussion.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = adc(x, [bits=12], [vmin=], [vmax=], [dither=false], [seed=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number or vector</span><span class="iodesc">Quantises <code>x</code> (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside <code>[vmin, vmax]</code> <strong>clips</strong> instead of being quantised as if the range were infinite.</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">optional (default <code>12</code>)</span><span class="iodesc"><code>bits</code> (positional or named integer, at least 1, default <code>12</code>) fixes the code count <code>2^bits</code>.</span></div>
+<div class="ioitem"><code>vmin</code> <span class="iotype">number, optional</span><span class="iodesc"><code>vmin</code>/<code>vmax</code> (named numbers) default to <code>-peak</code>/<code>+peak</code> of <code>x</code> itself.</span></div>
+<div class="ioitem"><code>vmax</code> <span class="iotype">number or vector, optional</span><span class="iodesc">Quantises <code>x</code> (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside <code>[vmin, vmax]</code> <strong>clips</strong> instead of being quantised as if the range were infinite.</span></div>
+<div class="ioitem"><code>dither</code> <span class="iotype">boolean, optional (default <code>false</code>)</span><span class="iodesc"><code>dither</code> (named boolean, default <code>false</code>) adds two-LSB peak-to-peak TPDF noise before quantising, with <code>seed</code> (named integer) the RNG seed it uses.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">boolean, optional</span><span class="iodesc"><code>dither</code> (named boolean, default <code>false</code>) adds two-LSB peak-to-peak TPDF noise before quantising, with <code>seed</code> (named integer) the RNG seed it uses.</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec</span><span class="iodesc">a length-N <code>Vec</code>, the quantised signal</span></div>
+<div class="ioitem"><code>lsb</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, <code>(vmax - vmin) / 2^bits</code></span></div>
+<div class="ioitem"><code>clipped</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, how many samples fell outside the range</span></div>
+<div class="ioitem"><code>snr_ideal</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, dB</span></div>
+<div class="ioitem"><code>vmin</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, the low end of the range actually used</span></div>
+<div class="ioitem"><code>vmax</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, the high end</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, the word length actually used</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>x</code> (a length-N <code>Vec</code>, the quantised signal), <code>lsb</code> (a <code>Num</code>, <code>(vmax - vmin) / 2^bits</code>), <code>clipped</code> (a <code>Num</code>, how many samples fell outside the range), <code>snr_ideal</code> (a <code>Num</code>, dB), <code>vmin</code> (a <code>Num</code>, the low end of the range actually used), <code>vmax</code> (a <code>Num</code>, the high end) and <code>bits</code> (a <code>Num</code>, the word length actually used).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
+v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
+
+c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
+<span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<h2>How it works</h2>
+<p>── noise, interference, distortion ───────────────────────── <code>add_noise(x, "gaussian", snr = 3)</code> — noise specified the way a datasheet, a standard and a reviewer all specify it. An amplitude is not a statement about a measurement, because it depends entirely on how big the signal is; an SNR is. Pass <code>amplitude=</code> instead when a raw figure is what you were actually given. Works on a vector and on an image alike: every kind here is per-sample, so one function covers 1-D and 2-D rather than two that drift apart. <code>adc(x, bits = 12, vmin = -1, vmax = 1, dither = false)</code> — quantise the way an instrument does: a REFERENCE RANGE and a RESOLUTION, not a step size. <code>add_noise(x, "quantize", ...)</code> takes a raw step, which is the mathematician's parameter. A converter has a range, and the difference is not cosmetic: outside it the signal CLIPS, and a step-based model cannot express that at all -- it will happily quantise a signal ten times the converter's range and report no problem. Returns a record rather than a bare signal, because <code>.clipped</code> is not a detail: a converter that clips has stopped measuring, and a script that never looks at that number will report a flat-topped waveform as data.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

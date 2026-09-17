@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>split — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>split</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>split(s, delim, [limit])</code></pre>
+<p class="fnnote">Input: s, delim, limit &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>s</code> and <code>delim</code> are <code>Str</code>s; optional <code>limit</code> (number of pieces, default: unlimited) stops after that many pieces and leaves the remainder undivided as the last one — <code>split(line, ": ", 2)</code> takes <code>key: value with: colons</code> apart that way.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = split(s, delim, [limit])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> and <code>delim</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>delim</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> and <code>delim</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>limit</code> <span class="iotype">number, optional</span><span class="iodesc">optional <code>limit</code> (number of pieces, default: unlimited) stops after that many pieces and leaves the remainder undivided as the last one — <code>split(line, ": ", 2)</code> takes <code>key: value with: colons</code> apart that way.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">List or Str</span></div>
+</td><td>Returns a <code>List</code> of <code>Str</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">for</span> line <span class="k">in</span> <span class="f">lines</span>(<span class="f">trim</span>(txt))
+    parts = <span class="f">split</span>(line, <span class="s">","</span>)
+    <span class="f">print</span>(<span class="s">"  {parts[0]} -&gt; {parts[1]}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"  Hello, Qu World!  "</span>
+trimmed = <span class="f">trim</span>(s)
+parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)
+<span class="f">print</span>(parts)                  <span class="c"># ["Hello", "Qu World!"]</span>
+<span class="f">print</span>(<span class="f">upper</span>(parts[<span class="n">0</span>]))        <span class="c"># HELLO</span>
+<span class="f">print</span>(<span class="f">starts_with</span>(trimmed, <span class="s">"Hello"</span>))  <span class="c"># true</span>
+<span class="f">print</span>(<span class="s">"hello"</span>.<span class="f">substr</span>(<span class="n">0</span>, <span class="n">2</span>).<span class="f">replace</span>(<span class="s">"e"</span>, <span class="s">"i"</span>).<span class="f">flip</span>().<span class="f">flip</span>())
+<span class="f">print</span>(<span class="s">"hi world"</span>.<span class="f">split</span>(<span class="s">" "</span>).<span class="f">join</span>(<span class="s">", "</span>) + <span class="s">"!"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

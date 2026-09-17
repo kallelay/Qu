@@ -1,0 +1,63 @@
+# Text processing: Qu vs Python. A gap, not a re-run.
+#
+# Nothing in benchmarks/ touches strings. Verified 2026-09-10: zero .qu
+# benchmark files contain replace(, regex_, split(, contains(, upper( or
+# join(. That matters more than an ordinary omission, because text is the
+# area Qu is understood to be WEAKEST in against CPython -- so the showdown
+# has been silent about the one place the answer is least flattering.
+#
+# Same corpus, same operations, same order as bench.py beside this file.
+# Data is built once, outside every timed region.
+
+n = 20000
+
+# --- corpus: build once, outside the clock ---------------------------------
+lines = ["row 0 sensor=A value=0 status=ok"]
+for i = 1 to n - 1
+    v = (i * 7) mod 1000
+    lines = append(lines, "row {i} sensor=A value={v} status=ok")
+end for
+text = join(lines, "\n")
+print("corpus: {n} lines, {len(text)} chars")
+
+# --- 1. count lines containing a substring ---------------------------------
+tic()
+hits = 0
+for i = 0 to n - 1
+    if contains(lines[i], "status=ok")
+        hits = hits + 1
+    end if
+end for
+t_scan = toc()
+print("scan for substring   : {t_scan:.4f} s   ({hits} hits)")
+
+# --- 2. split one big string into lines ------------------------------------
+tic()
+parts = split(text, "\n")
+t_split = toc()
+print("split into lines     : {t_split:.4f} s   ({len(parts)} parts)")
+
+# --- 3. replace across the whole corpus ------------------------------------
+tic()
+swapped = replace(text, "sensor=A", "sensor=B")
+t_replace = toc()
+print("replace whole corpus : {t_replace:.4f} s   ({len(swapped)} chars)")
+
+# --- 4. regex extract on every line ----------------------------------------
+tic()
+found = 0
+for i = 0 to n - 1
+    if regex_match(lines[i], "value=[0-9]+")
+        found = found + 1
+    end if
+end for
+t_regex = toc()
+print("regex match per line : {t_regex:.4f} s   ({found} matched)")
+
+# --- 5. uppercase the corpus -----------------------------------------------
+tic()
+up = upper(text)
+t_upper = toc()
+print("upper whole corpus   : {t_upper:.4f} s   ({len(up)} chars)")
+
+print("total                : {t_scan + t_split + t_replace + t_regex + t_upper:.4f} s")

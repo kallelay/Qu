@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>table — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>table</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>DataFrame(name=values, ...)</code></pre>
+<p class="fnnote">Input: name, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Each named argument is a column: <code>values</code> is either a numeric <code>Vec</code> / <code>List</code> of <code>Str</code> (a real column) or a scalar <code>number</code>/<code>Str</code> (broadcast to every row). Builds a <code>Table</code> from the named columns, in the order the arguments were written; a scalar/string column broadcasts to the row count set by whichever columns are actual vectors, and vector columns must all agree in length.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = DataFrame(name=values, ...)</code></td><td><div class="ioitem"><code>name</code> <span class="iotype">&mdash; (default <code>values</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Table</span></div>
+</td><td>Returns a <code>Table</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
+    name  | density | modulus
+    steel | 7.85    | 200
+    alu   | 2.70    | 69
+"</span>, <span class="a">sep</span> = <span class="s">"|"</span>)
+<span class="f">print</span>(alloys)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
+<span class="f">print</span>(<span class="s">"standardize on a table, per numeric column (label untouched):"</span>)
+<span class="f">print</span>(<span class="f">standardize</span>(st))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(
+    <span class="a">channel</span>  = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>],
+    <span class="a">baseline</span> = [<span class="n">0.412</span>, <span class="n">0.508</span>, <span class="n">0.377</span>],
+    <span class="a">treated</span>  = [<span class="n">0.240</span>, <span class="n">0.301</span>, <span class="n">0.219</span>]
+)
+runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</span>, <span class="n">1</span> - runs.treated / runs.baseline)
+<span class="f">print</span>(runs)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
+    channel, baseline, treated
+    1,       0.412,    0.240
+    2,       0.508,    0.301
+    3,       0.377,    0.219
+"</span>)
+<span class="f">print</span>(runs)
+<span class="f">print</span>(<span class="f">mean</span>(runs.baseline))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>See also</h2>
+<p><a href="DataFrame.html"><code>DataFrame</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

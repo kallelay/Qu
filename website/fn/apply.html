@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apply — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>apply</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>apply(x, f)</code></pre>
+<p class="fnnote">Input: x, f &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a number, boolean, vector, matrix, or <code>Signal</code>; <code>f</code>: a one-argument function of a number returning a number — the function itself, or a <code>Str</code> naming one you defined.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be number, boolean, Vec, Mat, or Signal; <code>f</code> can be number, boolean, Vec, Mat, Signal, or List.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-apply-0" checked>
+<input type="radio" name="typetab" id="tt-apply-1">
+<input type="radio" name="typetab" id="tt-apply-2">
+<div class="tabbar">
+<label for="tt-apply-0">scalar</label>
+<label for="tt-apply-1">vector or matrix</label>
+<label for="tt-apply-2">Signal</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = apply(x, f)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number or boolean</span><span class="iodesc"><code>x</code> a bare number (or boolean).</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">number or boolean</span><span class="iodesc"><code>f</code>: a one-argument function of a number returning a number — the function itself, or a <code>Str</code> naming one you defined.</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal, vector, matrix, number, or boolean</span><span class="iodesc">a <code>Signal(xs, fs)</code> comes back as a new <code>Signal</code> at the same <code>fs</code>, a vector/matrix keeps its own shape, a bare number/boolean applies the function once</span></div>
+<div class="ioitem"><code>map(xs, f)</code> <span class="iotype">string</span><span class="iodesc">[Collections, Strings &amp; Data Frames](collections-strings.md)</span></div>
+</td><td>Applies <code>fnName</code> exactly once, returning a number.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+n = <span class="f">apply</span>(<span class="n">5</span>, <span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"scalar: {n}"</span>)   <span class="c"># scalar: 10</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = apply(x, f)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec or Mat</span><span class="iodesc"><code>x</code> a <code>Vec</code>/<code>Mat</code>.</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">Vec or Mat</span><span class="iodesc"><code>f</code>: a one-argument function of a number returning a number — the function itself, or a <code>Str</code> naming one you defined.</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal, vector, matrix, number, or boolean</span><span class="iodesc">a <code>Signal(xs, fs)</code> comes back as a new <code>Signal</code> at the same <code>fs</code>, a vector/matrix keeps its own shape, a bare number/boolean applies the function once</span></div>
+<div class="ioitem"><code>map(xs, f)</code> <span class="iotype">string</span><span class="iodesc">[Collections, Strings &amp; Data Frames](collections-strings.md)</span></div>
+</td><td>Applies <code>fnName</code> elementwise, returning the same shape.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+v = <span class="f">apply</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"vector: {v}"</span>)   <span class="c"># vector: [2, 4, 6]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = apply(x, f)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal</span><span class="iodesc"><code>x</code> a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">Signal or List</span><span class="iodesc"><code>f</code>: a one-argument function of a number returning a number — the function itself, or a <code>Str</code> naming one you defined.</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal, vector, matrix, number, or boolean</span><span class="iodesc">a <code>Signal(xs, fs)</code> comes back as a new <code>Signal</code> at the same <code>fs</code>, a vector/matrix keeps its own shape, a bare number/boolean applies the function once</span></div>
+<div class="ioitem"><code>map(xs, f)</code> <span class="iotype">string</span><span class="iodesc">[Collections, Strings &amp; Data Frames](collections-strings.md)</span></div>
+</td><td>Applies <code>fnName</code> elementwise and re-wraps the result at the SAME <code>Fs</code> — the one case <code>map</code> can't reproduce, since <code>map</code> always returns a plain <code>List</code> and drops the sample rate.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
+s = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"signal: {s}"</span>)   <span class="c"># signal: signal(Fs=8) [2, 4, 6, 8]</span>
+</code></pre>
+</div>
+<p><code>apply</code> is the one to reach for when you have your own user-defined transform and need it applied elementwise while KEEPING whatever container you started with — a <code>Signal</code>'s sample rate in particular, which <code>map</code> would silently drop. The example below defines a trivial doubling function and applies it to a <code>Signal</code>, printing the result to show the <code>Fs</code> survives the round trip.</p>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
+out = sig.<span class="f">apply</span>(<span class="s">"double"</span>)     <span class="c"># same Fs, genuinely transformed</span>
+<span class="f">print</span>(<span class="s">"apply(double): {out}"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

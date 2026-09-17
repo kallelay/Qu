@@ -1,0 +1,326 @@
+# check_example_files.qu — every file an example opens, against what git tracks.
+#
+# On 2026-09-09 a rebuild of the function pages silently deleted worked
+# examples from `describe`, `filter` and `nrow`. The chapter source was
+# fine. The build reported success: 839 pages, 783 with worked examples,
+# exit zero. What it did not report was that `measurements.csv` does not
+# exist.
+#
+# The doc build RUNS each example and captures its real output, which is
+# the best thing about it -- a published example cannot be wrong about
+# what it prints. The cost is that an example which fails produces no
+# output and is simply not published, which looks identical to an example
+# that was never there. So a missing file removes documentation quietly.
+#
+# `measurements.csv` appears once in file-io.md, being READ. Nothing in
+# the repo creates it. It is absent from this checkout and from the live
+# one. The examples that used it were captured when the file happened to
+# exist in somebody's scratch sandbox, and cannot be regenerated now by
+# anyone, on any machine, including whoever made them.
+#
+# This reads git's list rather than the filesystem for the same reason
+# check_links.qu does: `file_exists` cannot tell a committed fixture from
+# a leftover in one working copy, and the leftover is exactly the case
+# that breaks a clone while looking fine here.
+#
+#   bash tools/check_example_files.sh
+
+import "lib/text.qu"
+
+MANIFEST = ".link-check/tracked-all.txt"
+BUILTINS = ".link-check/builtins.txt"
+HEAD_INFO = ".link-check/head.txt"
+
+CHAPTERS = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+# Opening a file for reading. A path here must already exist.
+#
+# TAKEN FROM `BUILTIN_NAMES`, NOT FROM MEMORY. The first version of this
+# list was written from habit and eleven of its twenty-four names were not
+# Qu builtins at all -- `imread`, `imwrite`, `read_json`, `write_all_text`
+# and friends are MATLAB and Python names. Meanwhile the real `load_image`
+# was missing, which is how this checker walked past three .bmp files in
+# images.md and reported a clean chapter. A checker built on an invented
+# vocabulary reports what it can see, and it cannot see what it never
+# heard of.
+#
+# The assertion below is the guard: every name here must exist in the
+# engine, so a name typed from another language fails loudly instead of
+# silently matching nothing forever.
+READERS = ("read_csv", "read_all_text", "read_all", "read_array", "read_bin",
+           "read_mat", "read_struct", "read_structs", "read_values",
+           "read_line", "load", "load_image", "load_model")
+
+# Namespaced readers, checked separately: a dotted name is not in
+# BUILTIN_NAMES (it lives in MODULE_EXPORTS), so the assertion skips it.
+NS_READERS = ("xlsx.read", "codec.decode_wav", "codec.decode_flac",
+              "codec.decode_mp3", "codec.flac_info")
+
+# Creating a file. A path written earlier in the same chapter is fine to
+# read afterwards -- that is a self-contained demonstration, not a
+# dependency on somebody's leftover.
+WRITERS = ("write_csv", "write_bin", "write_text", "write_array", "save",
+           "save_all", "save_image", "save_model", "savefig", "make_file",
+           "append_text", "write_report")
+
+NS_WRITERS = ("xlsx.write",)
+
+# `fopen` is BOTH reader and writer depending on its mode argument:
+# `fopen(p, "w")` creates the file, `fopen(p, "r")` requires it. Listing it
+# as a reader made this check report four files the chapter creates a few
+# lines earlier -- it cried wolf on its first run.
+FOPEN_WRITE_MODES = (chr(34) + "w" + chr(34), chr(34) + "wb" + chr(34),
+                     chr(34) + "a" + chr(34), chr(34) + "ab" + chr(34))
+
+# `+` does not concatenate lists in Qu, so join them explicitly.
+# ```qu runs; ```qu,ignore does not.
+#
+# This distinction IS the defect being measured, not a detail of it. A
+# missing file behind a RUNNABLE fence makes the example fail, produce no
+# output, and vanish from the page while the build reports success -- that
+# is the bug. A missing file behind an IGNORE fence is shown, marked
+# norun, and file-io.md says so in prose: the codec examples need a FLAC
+# and the repository carries no audio. Same absence, opposite verdicts,
+# and only one of them is wrong.
+#
+# Without this the tool carries permanent known-wrong entries, and a
+# checker with known-wrong entries is one people learn to skim -- which
+# lands back at warnings nobody reads.
+function fence_is_ignore(line)
+    return contains(line, "ignore") or contains(line, "norun")
+end function
+
+function joined(a, b)
+    out = ()
+    for x in a
+        out = append(out, x)
+    end for
+    for y in b
+        out = append(out, y)
+    end for
+    return out
+end function
+
+function has_dot(s)
+    for i in 0 to len(s) - 1
+        if substr(s, i, 1) == "."
+            return true
+        end if
+    end for
+    return false
+end function
+
+# The first string literal after `name(` on this line, or "" if there is
+# none. Interpolated paths (`"{dir}/x.csv"`) are skipped rather than
+# guessed at -- the check should be silent where it cannot be sure.
+function literal_after(line, name)
+    at = index_of(line, name + "(") ?? -1
+    if at < 0
+        return ""
+    end if
+    rest = substr(line, at, len(line) - at)
+    q1 = index_of(rest, chr(34)) ?? -1
+    if q1 < 0
+        return ""
+    end if
+    rest = substr(rest, q1 + 1, len(rest) - q1 - 1)
+    q2 = index_of(rest, chr(34)) ?? -1
+    if q2 < 0
+        return ""
+    end if
+    lit = substr(rest, 0, q2)
+    # A literal brace is written doubled; a single one opens an
+    # interpolation, which is what an interpolated PATH looks like too.
+    if contains(lit, "{{")
+        return ""
+    end if
+    if not has_dot(lit)
+        return ""
+    end if
+    return lit
+end function
+
+tracked = ()
+for line in lines(read_all_text(MANIFEST))
+    t = trim(line)
+    if len(t) > 0
+        tracked = append(tracked, t)
+    end if
+end for
+print("read from " + trim(read_all_text(HEAD_INFO)))
+print("{len(tracked)} files tracked")
+
+# --- guard 1: is the vocabulary real? ---------------------------------
+#
+# Every plain name above must be a builtin the engine actually has. The
+# first version of this file listed eleven names that were not, so those
+# entries matched nothing, forever, silently -- and the chapter they were
+# meant to cover came back clean.
+builtins = ()
+for line in lines(read_all_text(BUILTINS))
+    t = trim(line)
+    if len(t) > 0
+        builtins = append(builtins, t)
+    end if
+end for
+
+bogus = ()
+for n in joined(READERS, WRITERS)
+    if not seen(builtins, n)
+        bogus = append(bogus, n)
+    end if
+end for
+if len(bogus) > 0
+    print("names in READERS/WRITERS that the engine does not have:")
+    for b in bogus
+        print("  " + b)
+    end for
+    error("check_example_files: {len(bogus)} name(s) here are not builtins -- they match nothing and hide whatever they were meant to catch")
+end if
+
+# --- guard 2: does the extractor still extract? ------------------------
+#
+# qu-5a's equivalent check reported ZERO missing files, which looked like
+# good news and was a trailing quote left on every extracted filename, so
+# no comparison ever matched. **A file-existence checker that finds
+# nothing is likelier broken than right**, and nothing in a green run says
+# which. So the extractor is exercised on a known string before it is
+# trusted on the chapters.
+probe = "img = load_image(" + chr(34) + "sample.bmp" + chr(34) + ")"
+got = literal_after(probe, "load_image")
+if got != "sample.bmp"
+    error("check_example_files SELF-CHECK FAILED: extracted [" + got + "], expected [sample.bmp] -- the extractor is broken and a clean report would mean nothing")
+end if
+interpolated = literal_after("x = read_csv(" + chr(34) + "{{d}}/a.csv" + chr(34) + ")", "read_csv")
+if interpolated != ""
+    error("check_example_files SELF-CHECK FAILED: interpolated path [" + interpolated + "] should be skipped, not guessed at")
+end if
+# The discrimination itself, on QuMaster's pair: `sample.bmp` (runnable,
+# missing) must be a finding and `take.flac` (ignored, missing) must not.
+# Same absence, opposite verdicts -- if the tool cannot tell them apart it
+# is measuring file existence rather than the defect.
+#
+# Exercised on the two real fence lines rather than by asserting the two
+# real files stay broken. An assertion that `sample.bmp` is REPORTED would
+# start failing the day someone fixes it, which is the acknowledged-entry
+# rot QuMaster warned about: a canary that fires on success teaches people
+# to disable canaries.
+if fence_is_ignore("```qu")
+    error("check_example_files SELF-CHECK FAILED: a plain ```qu fence read as ignored -- every runnable example would be exempt and the tool would find nothing")
+end if
+if not fence_is_ignore("```qu,ignore")
+    error("check_example_files SELF-CHECK FAILED: ```qu,ignore read as runnable -- the flac examples would be reported forever")
+end if
+flac_line = "x = codec.decode_flac(" + chr(34) + "take.flac" + chr(34) + ", channel = 0)"
+if literal_after(flac_line, "codec.decode_flac") != "take.flac"
+    error("check_example_files SELF-CHECK FAILED: namespaced call not extracted -- every codec/xlsx path would be invisible")
+end if
+
+print("self-check ok (extractor works, {len(READERS) + len(WRITERS)} names verified against the engine)")
+
+# A path may be written relative to the repo root or to a sandbox, so a
+# bare basename match counts as tracked. That is deliberately generous:
+# this check should fire only when a file is genuinely nowhere.
+function is_tracked(path)
+    for t in tracked
+        if t == path
+            return true
+        end if
+        if ends_with(t, "/" + path)
+            return true
+        end if
+    end for
+    return false
+end function
+
+checked = 0
+missing = ()
+chapter_of = ()
+
+for ch in CHAPTERS
+    in_code = false
+    runnable = true
+    made = ()   # per CHAPTER: examples share one sandbox, and file-io.md
+                # writes a file in one block to read it in the next
+    for raw in lines(read_all_text(ch))
+        line = raw
+        if starts_with(trim(line), "```")
+            # The opening fence carries the runnability flag; the closing
+            # one carries nothing, so only the opener sets `runnable`.
+            if in_code
+                in_code = false
+            else
+                in_code = true
+                runnable = not fence_is_ignore(line)
+            end if
+            continue
+        end if
+        # An ignore block neither runs nor creates anything, so it can
+        # neither lose an example nor satisfy a later one.
+        if not in_code or not runnable
+            continue
+        end if
+        wrote_open = ""
+        for m in FOPEN_WRITE_MODES
+            if contains(line, "fopen(") and contains(line, m)
+                wrote_open = literal_after(line, "fopen")
+            end if
+        end for
+        if len(wrote_open) > 0 and not seen(made, wrote_open)
+            made = append(made, wrote_open)
+        end if
+        for w in joined(WRITERS, NS_WRITERS)
+            lit = literal_after(line, w)
+            if len(lit) > 0 and not seen(made, lit)
+                made = append(made, lit)
+            end if
+        end for
+        for r in joined(READERS, NS_READERS)
+            lit = literal_after(line, r)
+            if len(lit) == 0
+                continue
+            end if
+            checked = checked + 1
+            if seen(made, lit)
+                continue
+            end if
+            if is_tracked(lit)
+                continue
+            end if
+            if not seen(missing, lit)
+                missing = append(missing, lit)
+                chapter_of = append(chapter_of, ch)
+            end if
+        end for
+    end for
+end for
+
+print("{checked} file(s) opened for reading across {len(CHAPTERS)} chapters")
+print("")
+
+if len(missing) == 0
+    print("every file an example reads is either tracked or written by the example itself")
+else
+    print("{len(missing)} file(s) read by an example, created by nothing, tracked by nobody:")
+    print("")
+    for i in 0 to len(missing) - 1
+        print("  " + missing[i] + "   (" + chapter_of[i] + ")")
+    end for
+    print("")
+    print("An example that opens one of these produces no output, so the doc")
+    print("build drops it from the page and reports success. Fix by having the")
+    print("example write its own data first -- which demonstrates both halves")
+    print("and runs in a fresh clone -- or by committing the fixture.")
+    print("")
+    error("check_example_files: {len(missing)} example input(s) exist nowhere")
+end if

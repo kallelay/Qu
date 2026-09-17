@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smith — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>smith</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>smith(Z, [z0=], [grid=], [color=], [lw=], [ms=])</code></pre>
+<p class="fnnote">Input: Z, z0, grid, color, lw, ms &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Impedance on the reflection-coefficient plane: <code>z = Z/z0</code>, <code>Γ = (z−1)/(z+1)</code>, drawn on the unit disc ruled by constant-resistance circles and constant-reactance arcs. Both families are exact — the Möbius map takes circles to circles. <code>z0=</code> defaults to 50 Ω; <code>grid=false</code> draws the locus alone. Sets equal aspect, because on unequal axes the circles become ellipses and every angle on the chart is wrong.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>smith(Z, [z0=], [grid=], [color=], [lw=], [ms=])</code></td><td><div class="ioitem"><code>Z</code> <span class="iotype">&mdash;</span><span class="iodesc">Impedance on the reflection-coefficient plane: <code>z = Z/z0</code>, <code>Γ = (z−1)/(z+1)</code>, drawn on the unit disc ruled by constant-resistance circles and constant-reactance arcs.</span></div>
+<div class="ioitem"><code>z0</code> <span class="iotype">optional</span><span class="iodesc"><code>z0=</code> defaults to 50 Ω.</span></div>
+<div class="ioitem"><code>grid</code> <span class="iotype">optional</span><span class="iodesc"><code>grid=false</code> draws the locus alone.</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>lw</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>ms</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>Both families are exact — the Möbius map takes circles to circles. Sets equal aspect, because on unequal axes the circles become ellipses and every angle on the chart is wrong.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>g = <span class="f">reflection_coefficient</span>(<span class="n">100</span>)         <span class="c"># 100 ohm on a 50 ohm line</span>
+<span class="f">print</span>(<span class="s">"gamma = {g}"</span>)                     <span class="c"># 0.333333</span>
+<span class="f">print</span>(<span class="s">"VSWR  = {vswr(g)}"</span>)                <span class="c"># 2</span>
+<span class="f">print</span>(<span class="s">"RL    = {return_loss(g)} dB"</span>)      <span class="c"># 9.542425</span>
+
+swept = <span class="f">reflection_coefficient</span>([<span class="n">50</span>, <span class="n">100</span>, <span class="n">0</span>, <span class="n">25</span>])
+<span class="f">print</span>(<span class="s">"VSWR swept = {vswr(swept)}"</span>)       <span class="c"># [1, 2, inf, 2]  -- the short is inf</span>
+
+<span class="f">smith</span>([<span class="n">50</span>, <span class="n">100</span>, <span class="n">25</span>], <span class="a">z0</span>=<span class="n">50</span>)               <span class="c"># same arithmetic, drawn</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>polarplot(theta, r)</code> — plots <code>(theta, r)</code> polar-coordinate data by converting to Cartesian (<code>x = r*cos(theta)</code>, <code>y = r*sin(theta)</code>) and drawing an ordinary line/scatter series on a square-aspect panel. <strong>Not</strong> a native polar-axis renderer — there are no circular gridlines, angular tick correctly-shaped polar curve today without a from-scratch renderer rewrite, at the cost of Cartesian-looking axes. <code>smith(Z, [z0=], [rings=], [grid=])</code> -- impedance on the reflection-coefficient plane. z = Z / z0          (normalized impedance) G = (z - 1)/(z + 1) (reflection coefficient) The chart is the unit disc of G, ruled by two families of circles. Constant NORMALIZED RESISTANCE r maps to the circle centred at (r/(1+r), 0) with radius 1/(1+r); constant REACTANCE x maps to the circle centred at (1, 1/x) with radius 1/|x|, of which only the part inside the unit disc is physical. Both are exact, not approximations: the Moebius map that takes z to G takes circles to circles. Drawn as ordinary series, like the polar grid, so no second renderer is needed and every backend gets it for free.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

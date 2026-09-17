@@ -1,0 +1,11 @@
+# Smoke test for the AI-core inference primitive (llm_load/.generate).
+# Run with:
+#   cargo run -p qu-cli --features llm -- run engine/examples/llm_smoke_test.qu
+#
+# First run downloads TinyLlama-1.1B-Chat (Q4_K_M GGUF, ~669MB) plus its
+# tokenizer.json into the local Hugging Face cache; later runs reuse the
+# cached files and only pay real model-load + CPU-inference time.
+m = llm_load("tinyllama")
+print(m.name)
+out = m.generate("The capital of France is", 12)
+print(out)

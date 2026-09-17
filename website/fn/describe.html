@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>describe — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>describe</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>describe(df)</code></pre>
+<p class="fnnote">Input: df &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>df</code> is a <code>Table</code>. Pandas-style <code>describe()</code>: returns a <code>Table</code> with one row per summary statistic (<code>count</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>25%</code>, <code>50%</code>, <code>75%</code>, <code>max</code>) and one column per NUMERIC column of <code>df</code> (text columns are skipped).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = describe(df)</code></td><td><div class="ioitem"><code>df</code> <span class="iotype">Table</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Table</span></div>
+</td><td>Returns a <code>Table</code>, 8 rows by however many numeric columns <code>df</code> has.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
+    <span class="k">return</span> a + b
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"add(2,3) = {add(2,3)}"</span>)
+
+<span class="f">square</span>(x) := x^<span class="n">2</span>
+<span class="f">print</span>(<span class="s">"square(5) = {square(5)}"</span>)
+
+<span class="k">function</span> <span class="f">describe</span>(x: num)
+    <span class="k">return</span> <span class="s">"num: {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: str)
+    <span class="k">return</span> <span class="s">"str: {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="f">describe</span>(<span class="n">5</span>))
+<span class="f">print</span>(<span class="f">describe</span>(<span class="s">"hi"</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+<span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
+<span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
+tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
+xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class="s">"y"</span>)
+<span class="f">print</span>(xy)
+<span class="f">print</span>(<span class="f">describe</span>(df))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
+    <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
+    <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
+)
+<span class="f">write_csv</span>(measurements, <span class="s">"measurements.csv"</span>)
+
+df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
+<span class="f">print</span>(<span class="f">nrow</span>(df))
+<span class="f">print</span>(<span class="f">describe</span>(df))
+<span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
+<span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<h2>How it works</h2>
+<p><code>describe(df)</code> — pandas' <code>DataFrame.describe()</code>: one row per summary statistic (<code>count</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>25%</code>, <code>50%</code>, <code>75%</code>, <code>max</code>), one column per NUMERIC column of <code>df</code> (text columns are skipped, same filter <code>corr_heatmap</code> already applies — a mean/quantile of a text column isn't meaningful). Returned as a genuine <code>Value::Table</code> (not a <code>Model</code> handle): a table-of-stats reads and prints naturally with the existing table machinery (<code>head</code>, <code>select</code>, <code>print</code>, ...) and keeps the per-column layout pandas users expect, whereas a <code>Model</code> handle's flat named fields would force one field per column instead of one row-labeled table. Every number is computed via the existing free <code>std_dev</code>/<code>quantile_of</code> helpers (the same ones <code>std</code>/<code>quantile</code> themselves call) — no separate statistics implementation.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

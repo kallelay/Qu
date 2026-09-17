@@ -1,0 +1,54 @@
+# Is `parallel for` itself slow, or is the SAFE PATTERN it is forced into
+# expensive?
+#
+# In bench.qu, method [3] is 31x slower than a plain loop. But it cannot use
+# the natural shape (accumulate into one vector) because `parallel for` has
+# no reduction: it REFUSES a whole-value Vec reassignment with an error.
+# This comment previously said such reductions were "silently WRONG", which
+# was true when written and stopped being true at a116c451 (2026-08-31);
+# re-verified 2026-09-10 by running reduction_check.qu beside this file,
+# which now errors rather than printing a wrong vector. The distinction
+# matters for anyone reading this to decide whether reductions are safe to
+# use: a wrong answer you must detect yourself is a very different hazard
+# from a refusal you cannot miss. See bench.qu's header, which was corrected
+# first and which this line used to cite for the opposite claim. The
+# workaround writes each iteration into its own column of an (N,K) matrix:
+# 1,500,000 x 51 doubles = 612 MB, then a sum across it. That is a lot of
+# memory traffic the serial version never touches.
+#
+# So this asks the question the benchmark cannot: given a workload with NO
+# big shared buffer -- disjoint scalar writes, real compute per iteration --
+# does `parallel for` actually go faster?
+
+n = 48
+work = 400000
+
+# --- serial ---------------------------------------------------------------
+serial = zeros(n)
+tic()
+for k = 0 to n - 1
+    acc = 0.0
+    for j = 1 to work
+        acc = acc + sin(j * 0.000001 + k)
+    end for
+    serial[k] = acc
+end for
+t_serial = toc()
+
+# --- parallel, disjoint scalar writes (the pattern the engine supports) ---
+par = zeros(n)
+tic()
+parallel for k in 0 to n - 1
+    pacc = 0.0
+    for j = 1 to work
+        pacc = pacc + sin(j * 0.000001 + k)
+    end for
+    par[k] = pacc
+end parallel
+t_par = toc()
+
+d = max(abs(serial - par))
+print("serial            : {t_serial:.4f} s")
+print("parallel for      : {t_par:.4f} s")
+print("speedup           : {t_serial / t_par:.2f}x")
+print("max|serial - par| : {d:.3e}   (0 = same answer)")

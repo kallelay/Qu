@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lstm_cell — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>lstm_cell</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>lstm_cell(x_t, h_prev, c_prev, weights)</code></pre>
+<p class="fnnote">Input: x_t, h_prev, c_prev, weights &middot; Output: result</p>
+<h2>What it is</h2>
+<p>One LSTM timestep: <code>x_t</code> (length-<code>input_size</code> input vector), <code>h_prev</code>/<code>c_prev</code> (length-<code>hidden_size</code> previous hidden/cell state vectors), and <code>weights</code> (a Record with the twelve gate fields <code>lstm_init</code> produces, <code>param</code>-wrapped where you want gradients).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = lstm_cell(x_t, h_prev, c_prev, weights)</code></td><td><div class="ioitem"><code>x_t</code> <span class="iotype">vector or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>h_prev</code> <span class="iotype">vector or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>c_prev</code> <span class="iotype">vector or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>weights</code> <span class="iotype">vector or Record</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a Record <code>{h, c}</code> — two length-<code>hidden_size</code> states thread through an LSTM, unlike GRU's single <code>h</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>w1 = {wf=<span class="n">0.5</span>, uf=<span class="n">0.5</span>, bf=<span class="n">0.0</span>, wi=<span class="n">0.3</span>, ui=<span class="n">0.2</span>, bi=<span class="n">0.0</span>,
+      wo=<span class="n">0.4</span>, uo=<span class="n">0.1</span>, bo=<span class="n">0.0</span>, wg=<span class="n">0.6</span>, ug=<span class="n">0.3</span>, bg=<span class="n">0.0</span>}
+hc = <span class="f">lstm_cell</span>(<span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, w1)
+<span class="f">print</span>(<span class="s">"h = {round(hc.h, 4)}, c = {round(hc.c, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>lstm_cell(x_t, h_prev, c_prev, weights)</code> — one LSTM timestep (Hochreiter &amp; Schmidhuber 1997, the now-standard forget/input/ output-gate formulation with a per-gate shared bias, the same "paper's own equations, not a framework variant" choice <code>gru_cell_compute</code>'s own doc comment makes for GRU): <code></code><code>text f_t = sigmoid(Wf @ x_t + Uf @ h_{t-1} + bf)  -- forget gate i_t = sigmoid(Wi @ x_t + Ui @ h_{t-1} + bi)  -- input gate o_t = sigmoid(Wo @ x_t + Uo @ h_{t-1} + bo)  -- output gate g_t = tanh   (Wg @ x_t + Ug @ h_{t-1} + bg)  -- candidate cell state c_t = f_t .* c_{t-1} + i_t .* g_t h_t = o_t .* tanh(c_t) </code><code></code> <code>weights</code> is a <code>Value::Record</code> with fields <code>wf</code>/<code>uf</code>/<code>bf</code>/ <code>wi</code>/<code>ui</code>/<code>bi</code>/<code>wo</code>/<code>uo</code>/<code>bo</code>/<code>wg</code>/<code>ug</code>/<code>bg</code> (see <code>lstm_init</code>). Deliberately zero-initialized biases for every gate (no "initialize the forget-gate bias to 1" folklore trick some frameworks apply) — same reasoning <code>gru_init</code>'s own doc comment gives for skipping GRU-side init tricks: the task asked for the standard equations, and keeping every Qu recurrent cell's init convention identical is worth more than a training-speed folklore trick neither cell currently has. Two states thread through a sequence (<code>h</code> AND <code>c</code>, unlike GRU's single <code>h</code>), and Qu has no tuple/multi-return value, so this returns a <code>Value::Record</code> <code>{h = h_t, c = c_t}</code> — plain field access (<code>eval_field</code>'s existing <code>Value::Record</code> arm) reads either one back out with no new mechanism, exactly the same "record of named values, some of which happen to be tracked <code>Tensor</code>s" shape the <code>weights</code> record argument already relies on. See <code>lstm_forward</code> for how a whole sequence carries <code>c</code> across timesteps using this record. Composed entirely from already-tracked primitives (<code>tb</code>'s <code>"*"</code>/<code>"+"</code>/".*"<code>, </code>tm1<code>'s </code>"sigmoid"<code>/</code>"tanh"<code>), exactly like </code>gru_cell_compute<code> — no new </code>tensor_vjp<code> rule needed; BPTT falls out of the existing tape mechanism the same way GRU's own doc comment explains. See the module-level gradient-check test (mirroring </code>gru_gradient_matches_finite_differences_for_ weights_and_initial_hidden_state<code>) for the finite-difference verification, and a separate hand-computed-forward-pass test for the gate-assignment/activation correctness gradient- checking alone can't catch.</code></p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

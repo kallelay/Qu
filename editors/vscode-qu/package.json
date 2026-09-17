@@ -1,0 +1,79 @@
+{
+  "name": "qu-language",
+  "displayName": "Qu Language",
+  "description": "Syntax highlighting for the Qu scientific scripting language (.qu files).",
+  "version": "0.1.0",
+  "publisher": "qu-project",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:qu"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "qu",
+        "aliases": [
+          "Qu",
+          "qu"
+        ],
+        "extensions": [
+          ".qu"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "qu",
+        "scopeName": "source.qu",
+        "path": "./syntaxes/qu.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "qu.runFile",
+        "title": "Qu: Run File",
+        "category": "Qu"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "qu.runFile",
+        "key": "ctrl+alt+q",
+        "mac": "cmd+alt+q",
+        "when": "editorTextFocus && resourceLangId == qu"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "qu.runFile",
+          "when": "resourceLangId == qu",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Qu",
+      "properties": {
+        "qu.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the qu/qu.exe executable. Leave empty to search PATH automatically."
+        },
+        "qu.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show live parse-error diagnostics (squiggles + Problems panel) for .qu files, via `qu parse --json`."
+        }
+      }
+    }
+  }
+}

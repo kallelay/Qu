@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sqrt — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sqrt</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>sqrt(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Elementwise square root. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; a negative element gives <code>NaN</code> (there is no automatic promotion to a complex result).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sqrt(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the same shape as <code>x</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">unsafe</span> <span class="k">as</span> n_failed
+    y = <span class="f">sqrt</span>(-<span class="n">1</span>)              <span class="c"># NaN, not an error -- just continues</span>
+    z = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]       <span class="c"># a real error -- logged, counted, continues anyway</span>
+    <span class="f">print</span>(<span class="s">"still runs"</span>)
+<span class="k">end</span>
+<span class="f">print</span>(<span class="s">"failures = {n_failed}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>pi_val = <span class="n">3.14159265</span>
+<span class="f">print</span>(<span class="s">"pi = {pi_val:.2f}"</span>)
+<span class="f">print</span>(<span class="s">"pi rounded = {pi_val:.0f}"</span>)
+<span class="f">print</span>(<span class="s">"expr = {2+3*4}"</span>)
+<span class="f">print</span>(<span class="s">"nested = {sqrt(16) + 1}"</span>)
+v = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+<span class="f">print</span>(<span class="s">"vec sum = {sum(v):.1f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">tic</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">1000000</span>
+    x = <span class="f">sqrt</span>(i)
+<span class="k">end</span>
+elapsed_s = <span class="f">toc</span>()
+<span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<span class="f">print</span>(<span class="s">"coherence {coherence(A):.3f}, provable sparsity {cs_guarantee(A)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/compressed-sensing.html">compressed-sensing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

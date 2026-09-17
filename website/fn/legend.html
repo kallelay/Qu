@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>legend — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>legend</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>legend()</code> or <code>legend off</code></pre>
+<p class="fnnote">Input: no input &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Shows or hides the key for the current panel. With no argument it turns on and places itself where it overlaps least; <code>legend outside</code> (bare command) reserves margin instead. See also the function form <code>legend("label1", ...)</code> in the Figure &amp; Axes Control table above, which labels series rather than toggling visibility.</p>
+<h2>Overloads</h2>
+<p><code>legend</code> is two unrelated builtins sharing one name: the bare command form controls the legend box itself (on/off/position), and the function-call form instead labels the panel's own series. Neither one does the other's job.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-legend-0" checked>
+<input type="radio" name="typetab" id="tt-legend-1">
+<div class="tabbar">
+<label for="tt-legend-0">function form — label series</label>
+<label for="tt-legend-1">bare command — position/visibility</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>legend() or legend off</code></td><td><span class="ionone">no input</span></td><td><span class="ionone">no output</span></td><td><code>legend("sin(x)", "cos(x)")</code> labels the trailing two series of the current panel, in call order, and turns the legend on. Look for a legend box carrying those two exact strings.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t))
+<span class="f">plot</span>(t, <span class="f">cos</span>(t))
+<span class="f">legend</span>(<span class="s">"sin(x)"</span>, <span class="s">"cos(x)"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>legend() or legend off</code></td><td><span class="ionone">no input</span></td><td><span class="ionone">no output</span></td><td><code>legend top left</code> is unrelated to labeling — it only moves (or, with <code>off</code>, hides) whatever legend already exists, using whatever labels <code>plot</code>'s own <code>label=</code> set. Look for the box relocating to the top-left corner.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">50</span>)
+<span class="f">plot</span>(t, <span class="f">sin</span>(t), <span class="a">label</span> = <span class="s">"sin(x)"</span>)
+legend top left
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>legend("sin(x)", "cos(x)")</code> labels the trailing N series of the current panel, in call order, and turns the legend on; position and on/off are instead set by the bare <code>legend ...</code> command.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

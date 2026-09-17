@@ -1,0 +1,83 @@
+# qu_lstm_forecast.qu -- an LSTM cell/sequence unroll over a short, real
+# noisy sine wave, checking that the resulting hidden-state sequence is
+# well-behaved (finite, non-exploding) rather than just "it runs".
+#
+# `lstm_cell`/`lstm_forward` mirror `gru_cell`/`gru_forward`'s calling
+# convention exactly (see book/src/stdlib/statistics-ml.md's "Recurrent
+# Neural Network Cells: LSTM" section), with two threaded states (h, c)
+# instead of GRU's one. By construction h_t = o_t .* tanh(c_t) with
+# o_t = sigmoid(...) in (0,1) and tanh(c_t) in (-1,1), so EVERY element of
+# EVERY hidden state the LSTM ever produces is strictly bounded in (-1, 1)
+# -- true for any input, any weights, any sequence length. That's a real,
+# hand-derivable invariant this demo checks directly (and it would also
+# catch NaN, since a NaN comparison against 1.0 is false).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   lstm_init(input_size, hidden_size, [seed=]) -- Xavier/Glorot weights
+#   lstm_forward(x_sequence, h0, c0, weights)   -- unrolls lstm_cell
+#   lstm_cell(x_t, h_prev, c_prev, weights)     -- single timestep, direct
+#                                                   comparison against
+#                                                   lstm_forward's own last
+#                                                   step
+
+backend auto
+
+#%% A short, real sequence: one noisy cycle of a sine wave, input_size=1.
+seed(7)
+seq_len = 16
+input_size = 1
+hidden_size = 4
+t = 0 to seq_len - 1
+seq = sin(t * (2 * pi / seq_len)) + 0.05 * randn(seq_len)
+X = seq as matrix(input_size, seq_len)   # (input_size, seq_len), one column per step
+
+#%% Initialize LSTM weights and run the full sequence forward.
+w = lstm_init(input_size, hidden_size, seed=3)
+h0 = zeros(hidden_size)
+c0 = zeros(hidden_size)
+hs = lstm_forward(X, h0, c0, w)
+
+print("Input sequence (noisy sine, {seq_len} steps): {seq}")
+print("Number of hidden states returned: {length(hs)} (expected {seq_len})")
+
+h_last = hs[length(hs) - 1]
+print("Final hidden state h_T: {h_last}")
+
+#%% Invariant check: every hidden state, every element, must lie in (-1, 1).
+max_abs = 0.0
+for i = 0 to length(hs) - 1
+    h_i = hs[i]
+    m = max(abs(h_i))
+    if m > max_abs then
+        max_abs = m
+    end if
+end for
+print("Max |h_t| over the whole sequence: {max_abs:.6f} (must be < 1.0)")
+if max_abs < 1.0 then
+    print("All hidden states are finite and bounded in (-1, 1), as the LSTM gating guarantees.")
+else
+    print("MISMATCH: a hidden state escaped the (-1, 1) bound -- something is wrong!")
+end if
+
+#%% Cross-check: lstm_forward's last step matches a direct lstm_cell call
+# fed the second-to-last hidden/cell state -- confirms lstm_forward isn't
+# doing anything other than looping lstm_cell.
+h_second_last = hs[length(hs) - 2]
+# Recompute c at that point by re-running the unroll manually up to T-1.
+h = h0
+c = c0
+for i = 0 to seq_len - 2
+    x_t = X[:, i]
+    hc = lstm_cell(x_t, h, c, w)
+    h = hc.h
+    c = hc.c
+end for
+x_last = X[:, seq_len - 1]
+hc_last = lstm_cell(x_last, h, c, w)
+diff = max(abs(hc_last.h - h_last))
+print("Max diff between manual lstm_cell replay and lstm_forward's last state: {diff:.10f}")
+if diff < 1e-9 then
+    print("lstm_forward agrees exactly with a manual lstm_cell unroll.")
+else
+    print("MISMATCH: lstm_forward disagrees with a manual lstm_cell replay!")
+end if

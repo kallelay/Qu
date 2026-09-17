@@ -1,0 +1,106 @@
+# qu_format_conversion.qu -- the data-format conversion builtin family
+# (§ format conversion builtins, 2026-09-01, Ahmed's ask -- BACKLOG.md's
+# "Format conversion builtins" entry): three formats (JSON/CSV/XML), each
+# with an `xify(value) -> str` / `parse_x(str) -> value` primitive pair,
+# plus pairwise converters that are one-line compositions of those
+# primitives (`json2csv(s) = csvify(parse_json(s))`, etc.) -- not six
+# independent implementations.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   jsonify(value) / parse_json(str)   -- Value <-> JSON string
+#   csvify(table) / parse_csv(str)     -- Table <-> CSV string
+#   xmlify(value) / parse_xml(str)     -- Value <-> XML string (the new piece)
+#   csv2json(str), json2xml(str)       -- two of the six pairwise converters
+#
+# Every check below compares an ACTUAL value read back out of the round
+# trip against the ORIGINAL data, printed side by side -- not just "it ran
+# without error".
+
+backend auto
+
+#%% JSON: a plain number and a vector round-trip exactly
+n = 3.14159265358979
+n_json = jsonify(n)
+n_back = parse_json(n_json)
+print("n_json = {n_json}")
+print("n round-trips exactly: {n == n_back}")
+
+v = [10, 20, 30.5]
+v_json = jsonify(v)
+v_back = parse_json(v_json)
+print("v_json = {v_json}")
+print("v round-trips exactly: {v[0] == v_back[0] and v[1] == v_back[1] and v[2] == v_back[2]}")
+
+#%% CSV: real sample data, hand-written, parsed into a Table and back
+csv_text = "name,age,city
+Alice,30,Paris
+Bob,25,Tunis
+"
+t = parse_csv(csv_text)
+print("parsed table: {nrow(t)} rows x {ncol(t)} cols, columns = {t.name}, {t.age}, {t.city}")
+print("row 0: name={t.name[0]}, age={t.age[0]}, city={t.city[0]}")
+print("row 1: name={t.name[1]}, age={t.age[1]}, city={t.city[1]}")
+
+back_csv = csvify(t)
+t2 = parse_csv(back_csv)
+same_shape = (nrow(t) == nrow(t2)) and (ncol(t) == ncol(t2))
+same_data = (t.name[0] == t2.name[0]) and (t.age[0] == t2.age[0]) and (t.name[1] == t2.name[1]) and (t.age[1] == t2.age[1])
+print("csvify -> parse_csv round trip preserves shape and data: {same_shape and same_data}")
+
+#%% XML: the same table, converted to XML text and back -- print the raw
+# XML so the row-oriented shape (one <row> per record, one child element
+# per column, a per-column `kind` attribute) is visible, not just asserted.
+xml_text = xmlify(t)
+print("--- xmlify(t) output ---")
+print(xml_text)
+print("--- end xmlify(t) output ---")
+
+t3 = parse_xml(xml_text)
+xml_round_trip_ok = (nrow(t3) == nrow(t)) and (t3.name[0] == t.name[0]) and (t3.age[1] == t.age[1]) and (t3.city[1] == t.city[1])
+print("xmlify -> parse_xml round trip preserves data: {xml_round_trip_ok}")
+
+# A plain record round-trips through XML too (Num + Str fields, wrapped one
+# level down under their own field-name element -- see xml_ops.rs's own
+# module doc comment for the full Value<->XML mapping).
+r = {city = "Sfax", population = 955421}
+r_xml = xmlify(r)
+r_back = parse_xml(r_xml)
+print("record xmlify output: {r_xml}")
+print("record round-trips exactly: {r.city == r_back.city and r.population == r_back.population}")
+
+#%% Pairwise converters -- one-line compositions, exercised on real data
+csv_for_pairwise = "product,price
+Widget,9.99
+Gadget,19.5
+"
+j_from_csv = csv2json(csv_for_pairwise)
+print("csv2json output: {j_from_csv}")
+back_via_json = parse_json(j_from_csv)
+print("csv2json round trip: product[0]={back_via_json.product[0]}, price[1]={back_via_json.price[1]}")
+
+t_json = jsonify(t)
+xml_from_json = json2xml(t_json)
+back_via_xml = parse_xml(xml_from_json)
+json2xml_ok = (nrow(back_via_xml) == nrow(t)) and (back_via_xml.name[0] == t.name[0]) and (back_via_xml.age[0] == t.age[0])
+print("json2xml(jsonify(t)) -> parse_xml recovers the same table: {json2xml_ok}")
+
+#%% A genuinely-can't-convert case: a bare scalar has no CSV/tabular shape
+try
+    csvify(42)
+catch err
+    print("csvify(42) correctly refuses with: {err.message}")
+end
+
+# ...and a live handle can't become JSON/XML data, either -- the same
+# clear refusal `save`/`save_all` already give (jsonify/xmlify reuse it
+# verbatim rather than a bespoke message).
+function noop()
+    return 0
+end function
+w = spawn("noop")
+try
+    jsonify(w)
+catch err
+    print("jsonify(a worker handle) correctly refuses with: {err.message}")
+end
+join(w)

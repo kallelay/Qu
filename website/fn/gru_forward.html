@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gru_forward — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gru_forward</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>gru_forward(x_sequence, h0, weights)</code></pre>
+<p class="fnnote">Input: x_sequence, h0, weights &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Unrolls <code>gru_cell</code> over a whole sequence: <code>x_sequence</code> an <code>(input_size, seq_len)</code> matrix, <code>h0</code> a length-<code>hidden_size</code> initial hidden state, <code>weights</code> the same Record <code>gru_cell</code> takes.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = gru_forward(x_sequence, h0, weights)</code></td><td><div class="ioitem"><code>x_sequence</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>h0</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>weights</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>seq_len</code> list of length-<code>hidden_size</code> hidden-state vectors, one per timestep.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
+     wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
+     wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">gru_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"gru_forward last hidden state: {round(h_last, 4)}"</span>)
+
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
+<span class="f">print</span>(<span class="s">"dL/dwz: {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()
+
+h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
+<span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>gru_forward(x_sequence, h0, weights)</code> — unrolls <code>gru_cell</code> across a whole sequence, returning a <code>Value::List</code> of every timestep's hidden state (so a caller can read the final one via <code>hs[length(hs)-1]</code>, or feed all of them into a further layer — the same "return everything, let the caller slice" choice <code>train_loop</code> makes for its own per-epoch <code>losses</code>). Backprop-through-time needs no special handling here at all: each <code>gru_cell_compute</code> call below records its own ordinary tape entries (matmuls/adds/sigmoids/tanh), and a later timestep's entries reference an EARLIER timestep's <code>h</code> by tape node id exactly the way any other tracked value gets reused — <code>eval_grad</code>'s existing reverse walk over <code>self.tape</code> already chains gradients through that reuse correctly, the same mechanism that makes <code>w * x + w * y</code> correctly sum <code>w</code>'s gradient from both uses. BPTT is just that mechanism applied across a longer chain, not a separate algorithm — verified independently against finite differences in the acceptance tests rather than just assumed from this argument. <code>x_sequence</code> is either: - a <code>Value::Mat</code> of shape <code>(input_size, seq_len)</code> — one COLUMN per timestep, single un-batched sequence (a plain <code>Value::Vec</code> column, <code>to_matrix</code>'s existing convention, read out via <code>col_vec</code> per step); or - a <code>Value::List</code> of length <code>seq_len</code>, each element a <code>Value::Mat</code> of shape <code>(input_size, batch)</code> for that timestep — a batch of independent sequences, time-major. See this function's own module-level doc comment (in <code>Matrix::matmul</code>'s/<code>Matrix::broadcast</code>'s OWN existing rayon parallelism (both already parallelize once a matrix crosses their size threshold) rather than a hand-rolled rayon loop here: every op inside <code>gru_cell_compute</code> goes through <code>self.tape</code> (<code>&amp;mut self</code>, strictly sequential), so there is no safe way to run two timesteps' — or two batch sequences' — worth of tape-recording concurrently without a per-thread-tape redesign this task did not ask for.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

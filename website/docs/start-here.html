@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start Here — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html" class="here">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Start Here</h1>
+<nav class="onthispage"><a href="#s0">Why do this at all</a><a href="#s36">Opening the door</a><a href="#s71">Names for things</a><a href="#s106">Many numbers at once</a><a href="#s146">Making a signal and looking at it</a><a href="#s199">Doing something to every item</a><a href="#s248">Naming a recipe</a><a href="#s283">When something goes wrong</a><a href="#s328">Putting it in a file</a><a href="#s368">What you now know</a></nav>
+<p>This page assumes you have never programmed. If you have, skip to <a href="from-zero.html">From Zero</a>, which moves faster.</p>
+<p>You will need about twenty minutes. By the end you will have measured something and drawn a graph of it.</p>
+<h2 id="s0">Why do this at all</h2>
+<p>You probably already do this work in a spreadsheet, and spreadsheets are good. They stop being good at a particular point: when you have forty files instead of one, when you need the same twelve steps done to each, or when someone asks six months later *exactly* what you did and the answer is buried in a cell you cannot find.</p>
+<p>A program is a written-down recipe. It says what to do, in order, in a file you can read, keep, send to someone, and run again next year on new data and get the same answer. That is the whole idea.</p>
+<h2 id="s36">Opening the door</h2>
+<p>Install Qu (see the downloads page), then open a terminal and type:</p>
+<pre><code>qu repl
+</code></pre>
+<p><code>repl</code> is short for read-eval-print loop, which is a long name for a prompt that waits for you. Type something and press Enter:</p>
+<div class="example"><pre class="hl"><code><span class="n">2</span> + <span class="n">2</span>
+</code></pre>
+</div>
+<p>It says <code>4</code>. That is not a trick — you can use it as a calculator all day. Try <code>17 * 3</code>, or <code>2 ^ 10</code>, or <code>sqrt(2)</code>.</p>
+<p>To leave, type <code>exit</code> or press Ctrl+D.</p>
+<h2 id="s71">Names for things</h2>
+<p>Typing the same number repeatedly is tedious, so you give things names:</p>
+<div class="example"><pre class="hl"><code>sample_rate = <span class="n">1000</span>
+duration = <span class="n">2</span>
+total_samples = sample_rate * duration
+<span class="f">print</span>(<span class="s">"I will record {total_samples} samples"</span>)
+</code></pre>
+</div>
+<p>Three things are happening.</p>
+<p><code>sample_rate = 1000</code> puts the number 1000 in a box labelled <code>sample_rate</code>. The <code>=</code> does not mean "is equal to" the way it does in mathematics. It means "put this in that box". You can put something else in later and the box keeps the newest thing.</p>
+<p><code>print(...)</code> shows you something. The quotation marks make text.</p>
+<p><code>{total_samples}</code> inside the text means "and here, put whatever is in that box". Without the braces you would literally see the word.</p>
+<p>Names may contain letters, digits and underscores, and must start with a letter. <code>sample_rate</code> and <code>SampleRate</code> are different boxes. Choose names that say what the thing is; you are writing for the person who reads this in a year, and that person is you.</p>
+<h2 id="s106">Many numbers at once</h2>
+<p>Measurement is never one number. It is thousands, in order. Qu calls that a <strong>vector</strong>, and it is the thing the whole language is built around.</p>
+<div class="example"><pre class="hl"><code>readings = [<span class="n">2.1</span>, <span class="n">2.3</span>, <span class="n">2.2</span>, <span class="n">2.6</span>, <span class="n">2.4</span>]
+<span class="f">print</span>(<span class="s">"{len(readings)} readings, average {mean(readings):.2f}"</span>)
+</code></pre>
+</div>
+<p><code>[...]</code> with commas makes a vector. <code>len</code> is how many. <code>mean</code> is the average. The <code>:.2f</code> says "two digits after the point" — without it you get the full unrounded number, which is usually more than you wanted to read.</p>
+<p>The important part is what happens when you do arithmetic on it:</p>
+<div class="example"><pre class="hl"><code>doubled = readings * <span class="n">2</span>
+<span class="f">print</span>(doubled)
+</code></pre>
+</div>
+<p>Every element doubled, in one step. You did not have to say "for each reading, multiply it". This is the thing that makes the language worth learning: <strong>an operation on a whole set of numbers looks like an operation on one number.</strong></p>
+<p>Making a long vector by hand would be silly, so:</p>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
+<span class="f">print</span>(<span class="s">"{len(t)} values, from {t[0]} to {t[999]}"</span>)
+</code></pre>
+</div>
+<p><code>0 to 999</code> means every whole number from 0 to 999, both ends included — one thousand of them. Dividing by 1000 divides every one. So <code>t</code> is now a thousand time-points, one millisecond apart.</p>
+<p><code>t[0]</code> is the first one. <strong>Counting starts at zero</strong>, so the last of a thousand is <code>t[999]</code>. This trips up everyone at first, including people who have programmed for years.</p>
+<h2 id="s146">Making a signal and looking at it</h2>
+<div class="example"><pre class="hl"><code>signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+<span class="f">print</span>(<span class="s">"goes from {min(signal):.2f} to {max(signal):.2f}"</span>)
+</code></pre>
+</div>
+<p>That is a five-hertz sine wave: <code>sin</code> of two-pi-times-frequency-times-time, the formula from the textbook, written the way the textbook writes it. It swings between −1 and 1, which is what the print confirms.</p>
+<p>Real measurements are not clean, so add some mess:</p>
+<div class="example"><pre class="hl"><code>noisy = signal + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"clean {rms(signal):.3f}, noisy {rms(noisy):.3f}"</span>)
+</code></pre>
+</div>
+<p><code>randn</code> makes random numbers. <code>seed = 1</code> means *the same* random numbers every time you run it — which sounds like it defeats the point, and is exactly right: you want your results to be reproducible. <code>rms</code> is the root-mean-square, a standard measure of how big a wobbling signal is.</p>
+<p>Now draw it:</p>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>(t, noisy, <span class="a">color</span> = <span class="s">"#b0b0b0"</span>)
+<span class="f">plot</span>(t, signal, <span class="a">color</span> = <span class="s">"#0072BD"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">savefig</span>(<span class="s">"my-first-figure.pdf"</span>)
+</code></pre>
+</div>
+<p>Two <code>plot</code> calls put two lines on the same axes. <code>savefig</code> writes the file. Open it — that is a real, publication-quality PDF.</p>
+<h2 id="s199">Doing something to every item</h2>
+<p>Sometimes you genuinely need to handle things one at a time:</p>
+<div class="example"><pre class="hl"><code>levels = [<span class="n">0.5</span>, <span class="n">1.2</span>, <span class="n">0.8</span>, <span class="n">2.1</span>, <span class="n">1.7</span>]
+count = <span class="n">0</span>
+<span class="k">for</span> k <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(levels) - <span class="n">1</span>
+    <span class="k">if</span> levels[k] &gt; <span class="n">1.0</span>
+        count = count + <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"{count} readings above 1.0"</span>)
+</code></pre>
+</div>
+<p><code>for k in 0 to len(levels) - 1</code> repeats the middle part once for each position, with <code>k</code> being 0, then 1, then 2, and so on. <code>if</code> runs its part only when the test is true. <code>end if</code> and <code>end for</code> mark where each one stops — Qu wants you to say so, rather than guessing from indentation.</p>
+<p>Note <code>len(levels) - 1</code> again: five items, positions 0 to 4.</p>
+<p>Most of the time you do not need the loop at all:</p>
+<div class="example"><pre class="hl"><code>above = levels[levels &gt; <span class="n">1.0</span>]
+<span class="f">print</span>(<span class="s">"{len(above)} readings above 1.0, they are {above}"</span>)
+</code></pre>
+</div>
+<p><code>levels &gt; 1.0</code> asks the question of every element at once, and the square brackets keep the ones where the answer was yes.</p>
+<h2 id="s248">Naming a recipe</h2>
+<p>When you do the same thing more than once, give it a name:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">celsius_to_kelvin</span>(c)
+    <span class="k">return</span> c + <span class="n">273.15</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"{celsius_to_kelvin(25):.2f} K"</span>)
+<span class="f">print</span>(<span class="s">"{celsius_to_kelvin(-40):.2f} K"</span>)
+</code></pre>
+</div>
+<p><code>function</code> starts it, <code>c</code> is the placeholder for whatever you hand it, <code>return</code> says what comes back, <code>end function</code> closes it. Now the conversion exists in one place, and if it is wrong it is wrong in one place.</p>
+<p>A function's own names are private to it. If you use <code>c</code> inside, you are not disturbing any <code>c</code> outside.</p>
+<h2 id="s283">When something goes wrong</h2>
+<p>It will. Qu tries to tell you what and where:</p>
+<pre><code><span class="e">qu: runtime error: `redings` is not defined</span>
+</code></pre>
+<p>A typo. Qu will not guess what you meant, on purpose: guessing is how you get an answer that looks fine and is wrong.</p>
+<pre><code><span class="e">qu: runtime error: plot: unknown keyword argument `colour=` -- did you mean `color=`?</span>
+</code></pre>
+<p>British spelling. It tells you the nearest real name.</p>
+<p>The rule the whole language follows: <strong>it would rather stop and tell you than continue and be quietly wrong.</strong> When you see an error, you have been saved some trouble, not given some.</p>
+<h2 id="s328">Putting it in a file</h2>
+<p>The prompt is for trying things. Real work goes in a file. Put this in <code>first.qu</code>:</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+noisy  = signal + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)
+
+<span class="f">print</span>(<span class="s">"rms: clean {rms(signal):.4f}, noisy {rms(noisy):.4f}"</span>)
+
+<span class="f">plot</span>(t, noisy, <span class="a">color</span> = <span class="s">"#b0b0b0"</span>)
+<span class="f">plot</span>(t, signal, <span class="a">color</span> = <span class="s">"#0072BD"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">savefig</span>(<span class="s">"first.pdf"</span>)
+</code></pre>
+</div>
+<p>and run it:</p>
+<pre><code>qu run first.qu
+</code></pre>
+<p>Lines starting with <code>#</code> are notes to yourself; Qu ignores them. Use them.</p>
+<h2 id="s368">What you now know</h2>
+<p>You can store numbers, work on thousands at once, repeat things, make decisions, name a recipe, draw a graph, and read an error. That is most of what programming is. Everything else is more of the same, plus a larger vocabulary.</p>
+<p>Where to go next:</p>
+<ul>
+<li><strong><a href="from-zero.html">From Zero</a></strong> — the same ground faster, then filtering, curve fitting, and tables.</li>
+<li><strong><a href="fundamentals.html">Book 1 — Fundamentals</a></strong> — the language properly, if you have some programming behind you.</li>
+<li><code>catalog/</code> in the repository — about a hundred complete programs. Read one near your own work and change it.</li>
+</ul>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

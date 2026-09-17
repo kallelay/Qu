@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mutex & semaphore — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Concurrency &amp; performance</p>
+<h1>Mutex &amp; semaphore</h1>
+<p class="lede">shared mutable state across real worker threads.</p>
+<p class="srcpath">catalog/qu_mutex_semaphore.qu</p>
+<p>Every other concurrency demo in this catalog (qu_distributed_pool.qu, qu_tcp_echo.qu) uses `spawn`/`pool`/`queue`'s default SHARE-NOTHING model: each worker gets its own snapshot of the environment, and results come back through the queue's return values, not shared variables. `mutex` and `semaphore` are the deliberate, explicit opt-out of that default -- real shared, lockable state for when a script genuinely needs it (a running counter, a bounded-concurrency resource). Cloning a `Value::Mutex` clones the `Arc`, not the data, so even though each queued job runs against its own snapshotted environment, the mutex/semaphore CELL itself is still the one, real, shared cell every job's snapshot points at.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>mutex(v) / mutex_get(m) / mutex_set(m, v)</li>
+<li>mutex_add(m, delta)         -- atomic read-modify-write (no lost updates)</li>
+<li>mutex_update(m, "fnName")   -- atomic read-modify-write via a user function</li>
+<li>semaphore(n)                -- n permits, bounds concurrent access</li>
+<li>semaphore_acquire(s) / semaphore_release(s) / semaphore_available(s)</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>mutex_add: a shared counter incremented by many concurrent jobs.</h3>
+<p>The whole point of `mutex_add` over `mutex_set(m, mutex_get(m) + 1)`: the read-then-write is a SINGLE lock acquisition, so concurrent increments can never race and lose an update.</p>
+<pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+
+<span class="k">function</span> <span class="f">bump</span>(m)
+    <span class="f">mutex_add</span>(m, <span class="n">1</span>)
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+N = <span class="n">500</span>
+q = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    q.<span class="f">push</span>(<span class="s">"bump"</span>, counter, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+run q on workers
+
+final_count = <span class="f">mutex_get</span>(counter)
+<span class="f">print</span>(<span class="s">"mutex_add: {N} concurrent increments -&gt; counter = {final_count}"</span>)
+<span class="f">print</span>(<span class="s">"no lost updates: {final_count == N}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>semaphore: bound concurrent access to a simulated limited resource (a</h3>
+<p>hardware port, a connection-pool slot). 2 permits means at most 2 jobs are ever "inside" the critical section at once -- verified below by a mutex-protected high-water-mark counter, not just assumed.</p>
+<pre class="hl"><code>active = <span class="f">mutex</span>(<span class="n">0</span>)
+peak = <span class="f">mutex</span>(<span class="n">0</span>)
+pool_permits = <span class="f">semaphore</span>(<span class="n">2</span>)
+
+<span class="k">function</span> <span class="f">track_peak</span>(current)
+    now_active = <span class="f">mutex_get</span>(active)
+    <span class="k">if</span> now_active &gt; current
+        <span class="k">return</span> now_active
+    <span class="k">else</span>
+        <span class="k">return</span> current
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">use_resource</span>(sem)
+    <span class="f">semaphore_acquire</span>(sem)
+    <span class="f">mutex_add</span>(active, <span class="n">1</span>)
+    <span class="f">mutex_update</span>(peak, <span class="s">"track_peak"</span>)
+    <span class="f">sleep</span>(<span class="n">3</span>)
+    <span class="f">mutex_add</span>(active, -<span class="n">1</span>)
+    <span class="f">semaphore_release</span>(sem)
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"semaphore starts with {semaphore_available(pool_permits)} permits available"</span>)
+q2 = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">7</span>
+    q2.<span class="f">push</span>(<span class="s">"use_resource"</span>, pool_permits, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+run q2 on workers
+
+peak_seen = <span class="f">mutex_get</span>(peak)
+<span class="f">print</span>(<span class="s">"8 jobs, 4 worker threads, but only 2 permits -&gt; peak concurrent active = {peak_seen}"</span>)
+<span class="f">print</span>(<span class="s">"semaphore held the line: {peak_seen &lt;= 2}"</span>)
+<span class="f">print</span>(<span class="s">"semaphore released everything back: {semaphore_available(pool_permits) == 2}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>mutex_add: 500 concurrent increments -&gt; counter = 500
+no lost updates: true
+semaphore starts with 2 permits available
+8 jobs, 4 worker threads, but only 2 permits -&gt; peak concurrent active = 2
+semaphore held the line: true
+semaphore released everything back: true</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_mutex_semaphore.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_mutex_semaphore.qu -- shared mutable state across real worker threads.</span>
+<span class="c">#</span>
+<span class="c"># Every other concurrency demo in this catalog (qu_distributed_pool.qu,</span>
+<span class="c"># qu_tcp_echo.qu) uses `spawn`/`pool`/`queue`'s default SHARE-NOTHING model:</span>
+<span class="c"># each worker gets its own snapshot of the environment, and results come</span>
+<span class="c"># back through the queue's return values, not shared variables. `mutex`</span>
+<span class="c"># and `semaphore` are the deliberate, explicit opt-out of that default --</span>
+<span class="c"># real shared, lockable state for when a script genuinely needs it (a</span>
+<span class="c"># running counter, a bounded-concurrency resource). Cloning a `Value::Mutex`</span>
+<span class="c"># clones the `Arc`, not the data, so even though each queued job runs</span>
+<span class="c"># against its own snapshotted environment, the mutex/semaphore CELL itself</span>
+<span class="c"># is still the one, real, shared cell every job's snapshot points at.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   mutex(v) / mutex_get(m) / mutex_set(m, v)</span>
+<span class="c">#   mutex_add(m, delta)         -- atomic read-modify-write (no lost updates)</span>
+<span class="c">#   mutex_update(m, "fnName")   -- atomic read-modify-write via a user function</span>
+<span class="c">#   semaphore(n)                -- n permits, bounds concurrent access</span>
+<span class="c">#   semaphore_acquire(s) / semaphore_release(s) / semaphore_available(s)</span>
+
+<span class="k">backend</span> auto
+
+pool workers <span class="k">with</span> cpu = <span class="n">4</span>
+<span class="k">end</span> pool
+
+<span class="c">#%% mutex_add: a shared counter incremented by many concurrent jobs.</span>
+<span class="c"># The whole point of `mutex_add` over `mutex_set(m, mutex_get(m) + 1)`:</span>
+<span class="c"># the read-then-write is a SINGLE lock acquisition, so concurrent</span>
+<span class="c"># increments can never race and lose an update.</span>
+counter = <span class="f">mutex</span>(<span class="n">0</span>)
+
+<span class="k">function</span> <span class="f">bump</span>(m)
+    <span class="f">mutex_add</span>(m, <span class="n">1</span>)
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+N = <span class="n">500</span>
+q = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    q.<span class="f">push</span>(<span class="s">"bump"</span>, counter, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+run q on workers
+
+final_count = <span class="f">mutex_get</span>(counter)
+<span class="f">print</span>(<span class="s">"mutex_add: {N} concurrent increments -&gt; counter = {final_count}"</span>)
+<span class="f">print</span>(<span class="s">"no lost updates: {final_count == N}"</span>)
+
+<span class="c">#%% semaphore: bound concurrent access to a simulated limited resource (a</span>
+<span class="c"># hardware port, a connection-pool slot). 2 permits means at most 2 jobs</span>
+<span class="c"># are ever "inside" the critical section at once -- verified below by a</span>
+<span class="c"># mutex-protected high-water-mark counter, not just assumed.</span>
+active = <span class="f">mutex</span>(<span class="n">0</span>)
+peak = <span class="f">mutex</span>(<span class="n">0</span>)
+pool_permits = <span class="f">semaphore</span>(<span class="n">2</span>)
+
+<span class="k">function</span> <span class="f">track_peak</span>(current)
+    now_active = <span class="f">mutex_get</span>(active)
+    <span class="k">if</span> now_active &gt; current
+        <span class="k">return</span> now_active
+    <span class="k">else</span>
+        <span class="k">return</span> current
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">use_resource</span>(sem)
+    <span class="f">semaphore_acquire</span>(sem)
+    <span class="f">mutex_add</span>(active, <span class="n">1</span>)
+    <span class="f">mutex_update</span>(peak, <span class="s">"track_peak"</span>)
+    <span class="f">sleep</span>(<span class="n">3</span>)
+    <span class="f">mutex_add</span>(active, -<span class="n">1</span>)
+    <span class="f">semaphore_release</span>(sem)
+    <span class="k">return</span> <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"semaphore starts with {semaphore_available(pool_permits)} permits available"</span>)
+q2 = <span class="f">queue</span>()
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">7</span>
+    q2.<span class="f">push</span>(<span class="s">"use_resource"</span>, pool_permits, <span class="a">on</span>=<span class="s">"cpu"</span>)
+<span class="k">end</span> <span class="k">for</span>
+run q2 on workers
+
+peak_seen = <span class="f">mutex_get</span>(peak)
+<span class="f">print</span>(<span class="s">"8 jobs, 4 worker threads, but only 2 permits -&gt; peak concurrent active = {peak_seen}"</span>)
+<span class="f">print</span>(<span class="s">"semaphore held the line: {peak_seen &lt;= 2}"</span>)
+<span class="f">print</span>(<span class="s">"semaphore released everything back: {semaphore_available(pool_permits) == 2}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

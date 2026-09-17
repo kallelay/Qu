@@ -1,0 +1,82 @@
+# bench.qu — eig/svd/qr/lu/det/rank at scale, Qu vs numpy/scipy vs MATLAB vs matty.
+#
+# One symmetric "Wigner-style" random matrix per size (`A = M + M'`) feeds
+# every operation, including `eig` — Qu's `eig` only computes real
+# eigenvectors on a symmetric input (nalgebra's `symmetric_eigen`), so a
+# non-symmetric matrix would fall back to eigenvalues-only and there'd be
+# nothing to reconstruct/verify. Each decomposition is timed with
+# `tic()`/`toc()`, then verified by reconstructing `A` from its factors and
+# reporting the Frobenius-norm residual (`norm(...)` on a matrix flattens
+# and takes the 2-norm of every element, i.e. Frobenius) — a per-language
+# correctness check, not a cross-language bit-match (this script's `randn`
+# draws different numbers than numpy's/MATLAB's own RNG for the same seed,
+# same convention as `matty_suite/bench.qu`).
+#
+# Run: qu run benchmarks/linalg/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/linalg/bench.qu)
+
+backend auto
+seed(42)
+
+function run_size(n)
+    M = randn(n, n)
+    A = M + M'
+
+    tic()
+    eig_result = eig(A)
+    t_eig = toc()
+    lambda = eig_result.values
+    V = eig_result.vectors
+    D = zeros(n, n)
+    for i = 0 to n - 1
+        D[i, i] = lambda[i]
+    end for
+    eig_resid = norm(A * V - V * D)
+
+    tic()
+    qr_result = qr(A)
+    t_qr = toc()
+    Q = qr_result.q
+    R = qr_result.r
+    qr_resid = norm(A - Q * R)
+
+    tic()
+    lu_result = lu(A)
+    t_lu = toc()
+    L = lu_result.l
+    U = lu_result.u
+    P = lu_result.p
+    lu_resid = norm(P * A - L * U)
+
+    tic()
+    d = det(A)
+    t_det = toc()
+
+    tic()
+    r = rank(A)
+    t_rank = toc()
+
+    tic()
+    svd_result = svd(A)
+    t_svd = toc()
+    Us = svd_result.u
+    Sv = svd_result.s
+    Vt = svd_result.vt
+    Sd = zeros(n, n)
+    for i = 0 to n - 1
+        Sd[i, i] = Sv[i]
+    end for
+    svd_resid = norm(A - Us * Sd * Vt)
+
+    print("n={n}")
+    print("  eig  : {t_eig:.4f} s   resid={eig_resid:.3e}")
+    print("  qr   : {t_qr:.4f} s   resid={qr_resid:.3e}")
+    print("  lu   : {t_lu:.4f} s   resid={lu_resid:.3e}")
+    print("  det  : {t_det:.4f} s   d={d:.4e}")
+    print("  rank : {t_rank:.4f} s   r={r}")
+    print("  svd  : {t_svd:.4f} s   resid={svd_resid:.3e}")
+end function
+
+run_size(100)
+run_size(500)
+run_size(1000)

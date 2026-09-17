@@ -1,0 +1,74 @@
+# qu_rc_filter.qu -- RC low-pass filter: transient step response and Bode plot.
+#
+# A single-pole RC low-pass (Vin -- R -- node -- C -- ground) is simple
+# enough to model directly, with no circuit-solver package needed: the step
+# response has a closed form, and the frequency response is one line of
+# complex-vector arithmetic (a voltage divider against the capacitor's
+# frequency-dependent impedance). Both views are cross-checked against an
+# explicit-Euler integration of the governing ODE dv/dt = (vin - v) / tau.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   logspace, exp             -- frequency grid and the closed-form step
+#   1 ./ (1 + 2i*pi*f*tau)    -- the transfer function, complex elementwise
+#   abs / angle               -- magnitude and phase from a complex vector
+#   indexed assignment in a for loop -- explicit-Euler ODE integration
+#   subplot, semilogx, legend, grid on
+
+backend auto
+
+#%% Circuit
+R = 1e3          # Ohm
+C = 100e-9       # F
+tau = R * C      # time constant (s)
+fc = 1 / (2*pi*tau)
+print("R={R:.0f} Ohm, C={C*1e9:.0f} nF, tau={tau*1e6:.2f} us, fc={fc:.1f} Hz")
+
+#%% Step response: closed form vs explicit-Euler integration
+Fs = 2e6
+dt = 1 / Fs
+N = round(8 * tau / dt)
+t = (0 to N - 1) * dt
+
+v_exact = 1 - exp(-t / tau)
+
+v_euler = zeros(1, N)
+for k = 1 to N - 1
+    v_euler[k] = v_euler[k - 1] + dt * (1 - v_euler[k - 1]) / tau
+end for
+
+step_err = max(abs(v_euler - v_exact))
+print("Euler vs closed-form step response: max err = {step_err:.2e}")
+
+#%% Frequency response (Bode): H(f) = 1 / (1 + i*2*pi*f*tau)
+f = logspace(1, 7, 300)
+H = 1 ./ (1 + 2i*pi*f*tau)
+mag_db = 20 * log10(abs(H))
+phase_deg = angle(H) * 180 / pi
+
+Hc = 1 / (1 + 2i*pi*fc*tau)
+print("|H(fc)| = {abs(Hc):.4f} (should be ~0.7071, the -3 dB point)")
+
+#%% Plot
+subplot(1, 3, 1)
+plot(t * 1e6, v_exact, label="closed form", color="blue")
+plot(t * 1e6, v_euler, label="Euler", color="orange")
+xlabel("Time (us)")
+ylabel("Vout / Vin")
+title("Step response")
+legend()
+
+subplot(1, 3, 2)
+semilogx(f, mag_db)
+xlabel("Frequency (Hz)")
+ylabel("Magnitude (dB)")
+title("Bode magnitude, fc={fc:.0f} Hz")
+grid on
+
+subplot(1, 3, 3)
+semilogx(f, phase_deg)
+xlabel("Frequency (Hz)")
+ylabel("Phase (deg)")
+title("Bode phase")
+grid on
+
+show plot

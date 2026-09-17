@@ -1,0 +1,54 @@
+# qu_random_walk.qu -- a discretized Wiener-process-style random walk with
+# a real, nonzero drift, checking that the walk's mean per-step increment
+# converges toward the specified drift as n_steps grows (the Law of Large
+# Numbers applied to `random_walk`'s own definition).
+#
+# `random_walk(n_steps, drift=, volatility=, seed=)` builds x[0]=0,
+# x[i] = x[i-1] + drift + volatility*randn(). Since x[n] is just the sum
+# of n i.i.d. increments each with mean `drift` and variance
+# `volatility^2`, the sample mean increment x[n]/n has mean `drift` and
+# standard error `volatility/sqrt(n)` -- an exact, checkable statistical
+# property (see book/src/stdlib/statistics-ml.md's own
+# `random_walk_final_position_variance_grows_roughly_linearly_with_step_
+# count` reference and the `Var(x[n]) = n*volatility^2` note).
+#
+# Constructs exercised (all real, verified-working builtins):
+#   random_walk(n_steps, drift, volatility, [seed=]) -- drift/volatility
+#     are positional (confirmed against the engine's own regression tests
+#     in engine/crates/qu-interp/src/lib.rs, e.g.
+#     `random_walk(30, 0, 1, seed=11)`), only `seed` is named.
+
+backend auto
+
+#%% A walk with a real, nonzero drift and unit volatility.
+true_drift = 0.05
+volatility = 1.0
+
+#%% Try a few step counts and show the estimated per-step drift converging,
+# each with its own 4-standard-error band (a generous, still-checkable
+# bound: under the CLT, a sample mean landing outside +/-4 SE happens for
+# well under 1% of seeds).
+step_counts = [1000, 100000, 4000000]
+for k = 0 to length(step_counts) - 1
+    n_steps = step_counts[k]
+    path = random_walk(n_steps, true_drift, volatility, seed=k + 1)
+    est_drift = path[n_steps] / n_steps   # path[0] = 0, so this IS the mean increment
+    se = volatility / sqrt(n_steps)
+    err = abs(est_drift - true_drift)
+    print("n_steps={n_steps:>8}: estimated drift={est_drift:.5f}, true drift={true_drift:.5f}, |error|={err:.5f}, 4*SE={4.0*se:.5f}")
+    if err < 4.0 * se then
+        print("  -> within the 4-standard-error band (converging as expected).")
+    else
+        print("  -> MISMATCH: estimated drift is further than 4 standard errors from the truth!")
+    end if
+end for
+
+#%% Plot the smallest walk (most visually interesting -- still noisy).
+small_path = random_walk(step_counts[0], true_drift, volatility, seed=1)
+steps = 0 to step_counts[0]
+plot(steps, small_path, label="random walk (drift={true_drift})", color="purple")
+xlabel("step")
+ylabel("position")
+title("Random walk with drift: n_steps={step_counts[0]}")
+legend()
+show plot

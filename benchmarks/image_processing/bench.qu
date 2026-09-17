@@ -1,0 +1,76 @@
+# bench.qu -- CV pipeline benchmark: grayscale -> Otsu threshold ->
+# morphological opening -> connected-component labeling + blob stats ->
+# affine transform (rotate+scale) -> histogram equalization.
+#
+# Loads the SAME `test_image.bmp` bench.py loads (built once by
+# `generate_image.py`, not regenerated per run) so both scripts time and
+# verify against byte-identical input.
+#
+# Run: qu run benchmarks/image_processing/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/image_processing/bench.qu)
+
+backend auto
+
+img_path = "benchmarks/image_processing/test_image.bmp"
+
+# --- load (untimed: this is "data acquisition", not the benchmark) ---------
+img = load_image(img_path)
+print("loaded             : {img.width}x{img.height}")
+
+# --- stage 1: grayscale conversion ------------------------------------------
+tic()
+gray = grayscale(img)
+t_gray = toc()
+print("grayscale          : {t_gray:.4f} s")
+
+# --- stage 2: Otsu threshold -------------------------------------------------
+tic()
+level = otsu_threshold(gray)
+binary = threshold(gray, level)
+t_otsu = toc()
+print("otsu_threshold     : {t_otsu:.4f} s  (level={level:.2f})")
+
+# --- stage 3: morphological opening (noise cleanup) -------------------------
+tic()
+opened = imopen(binary, 2)
+t_open = toc()
+print("imopen              : {t_open:.4f} s")
+
+# --- stage 4: connected-component labeling + blob stats ---------------------
+tic()
+labeled = label_blobs(opened)
+stats = blob_stats(labeled)
+t_label = toc()
+print("label_blobs+stats  : {t_label:.4f} s  (count={labeled.count})")
+
+total_area = 0
+for i = 0 to length(stats) - 1
+    total_area = total_area + stats[i].area
+end for
+print("total_blob_area    = {total_area}")
+
+# --- stage 5: affine transform (rotate 15 deg + scale 0.75x) ----------------
+tic()
+rotated = imrotate(gray, 15, bbox="crop")
+warped = imscale(rotated, 0.75, bbox="crop")
+t_warp = toc()
+print("imrotate+imscale   : {t_warp:.4f} s  ({warped.width}x{warped.height})")
+
+# --- stage 6: histogram equalization ----------------------------------------
+tic()
+equalized = imequalize(warped)
+t_eq = toc()
+print("imequalize         : {t_eq:.4f} s")
+
+total = t_gray + t_otsu + t_open + t_label + t_warp + t_eq
+print("total              : {total:.4f} s")
+
+# sanity: equalization should widen the intensity spread (std of the
+# per-pixel luma histogram bin values, weighted by count) -- same
+# "before/after spread" check the imequalize/histeq builtin tests use.
+before = imhist(warped, 256)
+after = imhist(equalized, 256)
+print("histogram std (before -> after): {std(before):.2f} -> {std(after):.2f}")
+
+save_image("benchmarks/image_processing/qu_output_equalized.bmp", equalized)
+save_image("benchmarks/image_processing/qu_output_binary.bmp", opened)

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pipeline — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pipeline</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>pipeline(stage1, ..., finalStage)</code></pre>
+<p class="fnnote">Input: stage1, ..., finalStage &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Composes one or more stage names (strings naming functions already defined in the program) into a single unfitted pipeline spec — every stage but the last must be a function <code>(X) -&gt; X</code>; the last must be <code>(X, y) -&gt; Model</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pipeline(stage1, ..., finalStage)</code></td><td><div class="ioitem"><code>stage1</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>finalStage</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns an unfitted pipeline Record ready for <code>.fit</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+<span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(X, y)
+<span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
+<span class="f">final</span>(A, b) := <span class="f">ridge_model</span>(A, b, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"standardize_cols"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
+<span class="f">print</span>(<span class="s">"held-out R2: {round(fitted.score(split.X_test, split.y_test), 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>pipeline(stage1, stage2, ..., finalStage)</code> — composes named functions (by name, the same "string, not a value" convention <code>pmap</code>/<code>spawn</code> already use) into one unfitted spec. Every stage but the last is a plain <code>(X) -&gt; Xtransformed</code> transform (a one-liner <code>:=</code> function closing over any hyperparameters it needs, since Qu has no partial application); the last is an <code>(X, y) -&gt; Model</code> estimator, e.g. <code>ols_model</code>/ <code>ridge_model</code>/a user function wrapping one with fixed hyperparameters. Not implemented: the spec's <code>pipeline stage name = ... end pipeline</code> block syntax — that's a real grammar change; this gets the same composability and fit/predict/score protocol without touching the parser.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

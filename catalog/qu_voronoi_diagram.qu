@@ -1,0 +1,54 @@
+# qu_voronoi_diagram.qu -- the Voronoi diagram of a small, hand-chosen 2-D
+# point set, built on a real Delaunay triangulation (the `spade` crate),
+# checked against a hand-derivable geometric fact rather than just printed.
+#
+# Hand-derivable fact used as the check: a point's Voronoi cell is BOUNDED
+# (a closed polygon) only if that point is strictly interior to the
+# convex hull of the whole point set -- every point ON the convex hull
+# always has an unbounded cell (it borders the "outside" of the point
+# set, which no other point ever claims). Here the point set is a square
+# of 4 corners plus 2 edge midpoints (all 6 on the convex hull) plus 1
+# point at the exact center (strictly interior) -- so exactly ONE of the
+# 7 points, the center, should come back bounded.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   voronoi(points)          -- kind="voronoi" model: points/cells/bounded
+#   model.cells[i]           -- (m_i, 2) matrix of that cell's finite
+#                                vertices, in order
+#   model.bounded            -- 0/1 flag per point
+
+backend auto
+
+#%% 7 points: 4 square corners + 2 edge midpoints (all on the hull) + 1
+# center point (strictly interior).
+pts = [0, 0; 10, 0; 10, 10; 0, 10; 5, 0; 5, 10; 5, 5] as matrix(7, 2)
+labels = ("corner (0,0)", "corner (10,0)", "corner (10,10)", "corner (0,10)",
+          "edge mid (5,0)", "edge mid (5,10)", "center (5,5)")
+
+v = voronoi(pts)
+print("Voronoi diagram of {length(labels)} points:")
+for i = 0 to length(labels) - 1
+    n_verts = rows(v.cells[i])
+    is_bounded = v.bounded[i]
+    print("  {labels[i]}: {n_verts} finite vertex/vertices, bounded={is_bounded}")
+end for
+
+print("bounded flags: {v.bounded}")
+print("center cell's finite vertices (a closed hexagon around (5,5)):")
+print(v.cells[6])
+
+#%% Hand-derived check: exactly one point (the center, index 6) is
+# interior to the hull, so it must be the ONLY bounded cell.
+expected_bounded = [0, 0, 0, 0, 0, 0, 1]
+if sum(abs(v.bounded - expected_bounded)) < 1e-9 then
+    print("Matches the hand-derived expectation: only the center point has a bounded cell.")
+else
+    print("MISMATCH: bounded flags disagree with the hand-derived hull argument!")
+end if
+
+n_bounded_total = sum(v.bounded)
+if abs(n_bounded_total - 1.0) < 1e-9 then
+    print("Exactly 1 of {length(labels)} points has a bounded Voronoi cell, as expected for a hull of 6 + 1 interior point.")
+else
+    print("MISMATCH: expected exactly 1 bounded cell, got {n_bounded_total}!")
+end if

@@ -1,0 +1,481 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* `color-scheme` is set per theme alongside the token ramps (see
+   qu-ui-components/src/components/inspector.css). It used to be pinned to
+   `dark` here unconditionally, which is why the light theme rendered
+   native controls -- select popups, number spinners, the resize grip --
+   in dark chrome regardless of which theme the app was in. It is the one
+   property that has to agree with the theme or nothing the browser draws
+   for us will. */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbars were hardcoded to the old navy palette in BOTH themes, so a
+   light-theme window got near-black gutters down every scrolling panel --
+   the most-repeated element on screen disagreeing with everything around
+   it. Tokenised, they simply follow the theme. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--qu-border);
+  border-radius: 5px;
+  /* Inset by a transparent border so the thumb reads as a slim pill in a
+     10px gutter rather than a full-width slab. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--qu-muted);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Glass morphism utilities */
+.glass {
+  backdrop-filter: blur(20px);
+  background: rgba(22, 22, 21, 0.7);
+  border: 1px solid rgba(44, 44, 42, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-light {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(225, 224, 217, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ---- Shell primitives ----------------------------------------------
+ * The top bar's mode tabs, the editor tab strip and the panel sub-tabs
+ * were three separately-invented pill treatments that had drifted apart
+ * (different radii, different active fills, one of them with a
+ * dark-navy hover that only made sense in the theme it was written in).
+ * They are one control with three sizes, so they get one definition. */
+.qu-modetab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--qu-muted);
+  background: transparent;
+  /* The active pill is marked by an accent underline rather than by fill
+     alone. Fill alone was a flat grey that read as "disabled panel", and
+     with seven tabs the eye had nothing to lock onto -- which tab you are
+     on is the single most important piece of state in this bar. */
+  box-shadow: inset 0 -2px 0 transparent;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+.qu-modetab:hover:not([aria-selected="true"]) {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-modetab[aria-selected="true"] {
+  color: var(--qu-text);
+  background: var(--qu-hover);
+  box-shadow: inset 0 -2px 0 var(--qu-accent);
+}
+.qu-modetab:focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: 2px;
+}
+
+/* Top-bar controls. `qu-bar-icon` is the ghost square; `qu-bar-button`
+   the labelled one; `.is-primary` the single accent-filled action.
+   Every one of these previously spelled its own hover as a pair of
+   theme-ternary Tailwind classes, seventeen times in App.tsx alone. */
+.qu-bar-icon,
+.qu-bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  color: var(--qu-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.qu-bar-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.qu-bar-button {
+  height: 32px;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.qu-bar-icon:hover:not(:disabled),
+.qu-bar-button:hover:not(:disabled) {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+}
+.qu-bar-button[aria-pressed="true"] {
+  background: var(--qu-hover);
+  color: var(--qu-text);
+  border-color: var(--qu-border);
+}
+/* The one accent-filled control on the bar, and the only thing that
+   should win the first look. It used to share its colour with six other
+   things (the sidebar's "Open Folder", every banner's action button, the
+   Designer's sync arrow), which is why the eye had nowhere obvious to
+   land. Those are demoted below; this stays. */
+.qu-bar-button.is-primary {
+  background: var(--qu-accent-solid);
+  color: #ffffff;
+  padding: 0 15px;
+}
+.qu-bar-button.is-primary:hover:not(:disabled) {
+  background: var(--qu-accent-solid-hover);
+  color: #ffffff;
+}
+.qu-bar-button.is-primary:disabled {
+  /* A running script is not a disabled button -- it is the same button
+     reporting state -- so it keeps its identity and only loses its
+     affordance, rather than turning into the grey slab it used to. */
+  background: var(--qu-accent-solid);
+  color: #ffffff;
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.qu-bar-button.is-danger {
+  background: var(--qu-danger);
+  color: #ffffff;
+  padding: 0 15px;
+}
+.qu-bar-button.is-danger:hover:not(:disabled) {
+  background: var(--qu-danger);
+  filter: brightness(1.1);
+  color: #ffffff;
+}
+
+/* ---- Sidebar -------------------------------------------------------
+ * Section label, card, and plain row -- the three things the template /
+ * catalog / snippet lists are built from. All three were previously
+ * written inline per list with a theme ternary, and the ternaries had
+ * gone no-op in several places (`dark ? "text-[#898781]" : "text-[#898781]"`
+ * appears six times in App.tsx), which is how you can tell nobody had
+ * looked at the light theme for a while. */
+.qu-side-heading {
+  margin-bottom: 10px;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--qu-muted);
+}
+.qu-side-card {
+  display: block;
+  width: 100%;
+  padding: 10px 11px;
+  text-align: left;
+  border: 1px solid var(--qu-border);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.qu-side-card:hover {
+  background: var(--qu-hover);
+  border-color: var(--qu-muted);
+}
+.qu-side-row {
+  border-radius: 7px;
+  color: var(--qu-text);
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.qu-side-row:hover {
+  background: var(--qu-hover);
+}
+/* The sidebar's own primary action. Same accent as the top bar's Run
+   button, one step quieter (no fill on rest) so that two "the blue one"
+   buttons are not both shouting at once on the Files tab. */
+.qu-side-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--qu-accent-solid);
+  color: #ffffff;
+  transition: background-color 120ms ease;
+}
+.qu-side-action:hover:not(:disabled) {
+  background: var(--qu-accent-solid-hover);
+}
+.qu-side-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ML category chips. Three hand-mixed tint/text pairs before, none of
+   which appeared anywhere else; these borrow the semantic tokens so a
+   chip and a banner of the same meaning are the same colour. */
+.qu-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: 1px solid currentColor;
+  color: var(--qu-muted);
+}
+.qu-chip[data-kind="supervised"] { color: var(--qu-accent); }
+.qu-chip[data-kind="unsupervised"] { color: var(--qu-ok); }
+.qu-chip[data-kind="neural"] { color: #8b5cf6; }
+:root[data-theme="dark"] .qu-chip[data-kind="neural"] { color: #b39cf8; }
+
+/* ---- Inline banners ------------------------------------------------ */
+.qu-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-top: 1px solid;
+  flex-shrink: 0;
+}
+.qu-banner[data-kind="warning"] {
+  color: var(--qu-warning);
+  background: color-mix(in srgb, var(--qu-warning) 9%, transparent);
+  border-color: color-mix(in srgb, var(--qu-warning) 32%, transparent);
+}
+.qu-banner[data-kind="error"] {
+  color: var(--qu-danger);
+  background: color-mix(in srgb, var(--qu-danger) 9%, transparent);
+  border-color: color-mix(in srgb, var(--qu-danger) 32%, transparent);
+}
+.qu-banner-action,
+.qu-banner-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 500;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.qu-banner-action {
+  background: var(--qu-accent-solid);
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+.qu-banner-action:hover {
+  background: var(--qu-accent-solid-hover);
+}
+/* The secondary choice in a banner ("Show diff", "Keep mine") was
+   `bg-white/5` -- a 5% white wash, which on the light theme's white
+   editor is literally nothing at all. An outline reads on both. */
+.qu-banner-secondary {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+.qu-banner-secondary:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* Shared modal scrim. Three different overlays used three different
+   blacks (0.3 / 0.45 / 0.5) with no rule behind which. */
+.qu-scrim {
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(2px);
+}
+
+/* Free-standing text input on the shell (the AI instruction bar). */
+.qu-field {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--qu-border);
+  background: var(--qu-shell-sunken);
+  color: var(--qu-text);
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.qu-field::placeholder {
+  color: var(--qu-muted);
+}
+.qu-field:focus {
+  border-color: var(--qu-accent);
+}
+
+/* One focus ring for the whole shell. Several of these controls had no
+   visible focus state at all, which makes the app unusable from the
+   keyboard even though every action already has a binding. */
+.qu-shell :is(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Running GUI form (GuiRunnerWindow) -----------------------------
+ * The native window a `Frame(...).show()` script opens. It used to be
+ * bare HTML with no styling at all (a `<span>` for a label, an unstyled
+ * `<input>`) while GuiDesigner.tsx's own canvas drew a fully dressed
+ * mockup of the same tree -- so the Designer's WYSIWYG promise was a lie
+ * the moment you actually pressed Run. These mirror the canvas's card /
+ * title-bar / bordered-control look, this time on real interactive
+ * controls instead of `readOnly`/`tabIndex=-1` preview ones. */
+.qu-gui-run {
+  min-height: 100vh;
+  padding: 24px;
+}
+.qu-gui-form {
+  border: 1px solid var(--qu-border);
+  border-radius: 8px;
+  background: var(--qu-surface);
+  overflow: hidden;
+}
+.qu-gui-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--qu-hover);
+  border-bottom: 1px solid var(--qu-border);
+}
+.qu-gui-titlebar h2 {
+  margin: 0;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--qu-text);
+}
+.qu-gui-body {
+  padding: 18px;
+}
+.qu-gui-panel {
+  /* No fill, on purpose: `--qu-shell-*` is the CHROME ramp (sidebar,
+     topbar) and is meant to recede behind content, so using it here
+     painted a running form's own groupbox a chrome color instead of a
+     content one. Border-only also matches how GuiDesigner.tsx's own
+     canvas draws a container, so a nested panel looks the same designed
+     and running. */
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+  padding: 14px;
+}
+.qu-gui-panel-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--qu-muted);
+}
+.qu-gui-label {
+  font-size: 13px;
+  color: var(--qu-text);
+}
+.qu-gui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--qu-muted);
+}
+.qu-gui-field input[type="text"],
+.qu-gui-field input[type="number"],
+.qu-gui-field select {
+  border: 1px solid var(--qu-border);
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 13px;
+  background: var(--qu-bg);
+  color: var(--qu-text);
+}
+.qu-gui-field input[type="range"],
+.qu-gui-checkbox input[type="checkbox"] {
+  accent-color: var(--qu-accent);
+}
+.qu-gui-output {
+  font-size: 12px;
+  color: var(--qu-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5em;
+}
+.qu-gui-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--qu-text);
+}
+.qu-gui-button {
+  padding: 6px 16px;
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+  background: var(--qu-hover);
+  color: var(--qu-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.qu-gui-button:hover:not(:disabled) {
+  background: var(--qu-accent-soft);
+  border-color: var(--qu-accent);
+}
+.qu-gui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.qu-gui-button.is-close {
+  background: transparent;
+}
+.qu-gui-button:focus-visible,
+.qu-gui-run :is(input, select):focus-visible {
+  outline: 2px solid var(--qu-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qu-shell *,
+  .qu-gui-run *,
+  .qu-modetab {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+  }
+}

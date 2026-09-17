@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core Maths & Linear Algebra — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html" class="here">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Core Maths & Linear Algebra</h1>
+<nav class="onthispage"><a href="#s0">Example data</a><a href="#s30">Elementwise Math</a><a href="#s65">Reductions &amp; Descriptive Statistics</a><a href="#s123">Shape, Construction &amp; Introspection</a><a href="#s182">Rearranging Arrays</a><a href="#s220">Selection</a><a href="#s249">Matrix Algebra &amp; Decompositions</a><a href="#s304">More functions</a></nav>
+<p>The tables below are generated from the interpreter's own builtin dispatch table (the <code>fn call_builtin</code> match statement in <code>engine/crates/qu-interp/src/lib.rs</code>), not written speculatively ahead of the implementation — every function listed here runs today. Functions covering regression, clustering, and probability *models* (<code>polyfit</code>, <code>ridge</code>, <code>kmeans</code>, <code>pca</code>, <code>normpdf</code>, <code>mvnpdf</code>, ...) are documented in <a href="statistics-ml.html">Statistics &amp; Machine Learning</a> instead, to avoid splitting that workflow across two chapters.</p>
+<h2 id="s0">Example data</h2>
+<p>Names used by the examples below, defined here so each one runs.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">12</span>)
+a = <span class="f">randn</span>(<span class="n">3</span>, <span class="n">4</span>, <span class="a">seed</span> = <span class="n">6</span>)
+b = <span class="f">randn</span>(<span class="n">3</span>, <span class="n">4</span>, <span class="a">seed</span> = <span class="n">7</span>)
+v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+n = <span class="n">4</span>
+r = <span class="n">3</span>
+c = <span class="n">4</span>
+df = <span class="f">table</span>(<span class="a">price</span> = [<span class="n">10.0</span>, <span class="n">12.5</span>, <span class="n">9.75</span>, <span class="n">14.0</span>], <span class="a">volume</span> = [<span class="n">100</span>, <span class="n">80</span>, <span class="n">140</span>, <span class="n">60</span>])
+</code></pre>
+</div>
+<h2 id="s30">Elementwise Math</h2>
+<p>All of these accept a scalar, a <code>Vec</code>, or a <code>Mat</code>/<code>Signal</code> and apply elementwise; a handful (<code>abs</code>, <code>angle</code>/<code>arg</code>/<code>phase</code>, <code>real</code>/<code>re</code>, <code>imag</code>/ <code>im</code>, <code>conj</code>) are complex-aware and branch on whether the input is a real or complex value/array.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>sin</code>, <code>cos</code>, <code>tan</code></td><td><code>sin(x)</code></td><td>Standard trigonometric functions, computed elementwise. <code>x</code> is the input angle in radians — a scalar, a <code>Vec</code> of any length, or a <code>Mat</code>/<code>Signal</code> of any shape. Returns exactly the same type and shape as <code>x</code>, one trig value per element.</td></tr>
+<tr><td><code>asin</code>, <code>acos</code>, <code>atan</code></td><td><code>asin(x)</code></td><td>Inverse trigonometric functions, single-argument only (there is no two-argument <code>atan2</code> in this table). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; <code>asin</code>/<code>acos</code> expect values in <code>[-1, 1]</code> and return radians in <code>[-π/2, π/2]</code>/<code>[0, π]</code> (an out-of-domain element gives <code>NaN</code>), while <code>atan</code> accepts any real value and returns radians in <code>(-π/2, π/2)</code>. Return shape always matches <code>x</code>. Returns exactly the same type and shape as <code>x</code>, one angle per element.</td></tr>
+<tr><td><code>sinh</code>, <code>cosh</code>, <code>tanh</code></td><td><code>sinh(x)</code></td><td>Hyperbolic sine/cosine/tangent, elementwise. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; returns the same shape, one hyperbolic value per input element. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>coth</code>, <code>sech</code>, <code>csch</code></td><td><code>coth(x)</code></td><td>The other three hyperbolics: <code>coth(x) = cosh(x)/sinh(x)</code>, <code>sech(x) = 1/cosh(x)</code>, <code>csch(x) = 1/sinh(x)</code>. <code>x</code> is a real number or <code>Complex</code>. <code>coth</code>/<code>csch</code> have a pole at <code>x=0</code> (and, for a <code>Complex</code> argument, at every <code>x = i*k*pi</code>) — evaluating there is an <strong>error</strong>, not a silent <code>inf</code>/<code>NaN</code>. <code>sech</code> has no real pole (<code>cosh</code> is never zero).</td></tr>
+<tr><td><code>asinh</code>, <code>acosh</code>, <code>atanh</code></td><td><code>asinh(x)</code></td><td>Inverse hyperbolics. <code>asinh</code> is defined and finite on the whole real line. <code>acosh</code> is only real for <code>x &gt;= 1</code>; a real <code>x &lt; 1</code> gives <code>NaN</code> (same convention as <code>sqrt</code> on a negative real — no silent promotion to a complex result), but an explicit <code>Complex</code> argument still evaluates via the complex branch regardless of value. <code>atanh</code> has a pole at <code>x = +-1</code> (real or complex) — an <strong>error</strong>, not a silent <code>inf</code>. All three accept <code>Complex</code> as well as real input.</td></tr>
+<tr><td><code>exp</code></td><td><code>exp(x)</code></td><td><code>e^x</code>, elementwise. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; returns the same shape with every element exponentiated. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>exp2</code></td><td><code>exp2(x)</code></td><td><code>2^x</code>, elementwise, real only. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>expm1</code></td><td><code>expm1(x)</code></td><td><code>e^x - 1</code>, computed so it stays accurate for <code>x</code> near zero (<code>expm1(1e-15)</code> does not lose precision to the cancellation that <code>exp(x) - 1</code> would hit there). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>log</code>, <code>ln</code></td><td><code>ln(x)</code></td><td>Natural logarithm, elementwise (<code>log</code> is an alias for <code>ln</code> — it is <strong>not</strong> base-10; see <code>log10</code> for that). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; a non-positive element gives <code>NaN</code>/<code>-inf</code> rather than an error. Returns the same shape as <code>x</code>.</td></tr>
+<tr><td><code>log1p</code></td><td><code>log1p(x)</code></td><td><code>ln(1 + x)</code>, computed so it stays accurate for <code>x</code> near zero (<code>log1p(1e-15)</code> does not underflow to exactly <code>0</code>, unlike naively computing <code>1.0 + x</code> first). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>log10</code>, <code>log2</code></td><td><code>log10(x)</code></td><td>Base-10 / base-2 logarithm, elementwise, same domain behavior as <code>ln</code> on a non-positive element. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>sqrt</code></td><td><code>sqrt(x)</code></td><td>Elementwise square root. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; a negative element gives <code>NaN</code> (there is no automatic promotion to a complex result). Returns the same shape as <code>x</code>.</td></tr>
+<tr><td><code>cbrt</code></td><td><code>cbrt(x)</code></td><td>Real cube root, elementwise — unlike <code>x^(1/3)</code>, correctly handles a negative <code>x</code> (<code>cbrt(-8) = -2</code>, not <code>NaN</code>). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>gamma</code>, <code>lgamma</code></td><td><code>gamma(x)</code></td><td>The gamma function (<code>gamma(n) = (n-1)!</code> for a positive integer <code>n</code>) and its natural log (<code>lgamma(x) = ln|gamma(x)|</code>). <code>x</code> is a real scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Both have a pole at every non-positive integer (<code>0, -1, -2, ...</code>) — evaluating there is an <strong>error</strong>, not a silent <code>inf</code>/<code>NaN</code>.</td></tr>
+<tr><td><code>erf</code>, <code>erfc</code></td><td><code>erf(x)</code></td><td>The error function and its complement (<code>erfc(x) = 1 - erf(x)</code>, computed directly rather than by subtraction so it stays accurate for large <code>x</code>, where <code>erf(x)</code> itself has already saturated to <code>1.0</code>). <code>x</code> is a real scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; defined everywhere, no pole.</td></tr>
+<tr><td><code>abs</code></td><td><code>abs(x)</code></td><td>Absolute value on a real scalar/<code>Vec</code>/<code>Mat</code>; magnitude (<code>sqrt(re^2 + im^2)</code>) on a <code>Complex</code> scalar, <code>CVec</code>, or <code>CMat</code>. <code>x</code> is the value(s) to measure. Returns the same shape as <code>x</code> but always real-valued — a length-N <code>CVec</code> in gives a length-N real <code>Vec</code> out.</td></tr>
+<tr><td><code>angle</code>, <code>arg</code>, <code>phase</code></td><td><code>angle(x)</code></td><td>Complex argument — the angle from the positive real axis, in radians (<code>atan2(im, re)</code>) — on a <code>Complex</code>/<code>CVec</code>/<code>CMat</code>; on a signed real scalar or real <code>Vec</code>/<code>Mat</code> it degrades to <code>0</code> for a non-negative value or <code>π</code> for a negative one. <code>x</code> is the value(s) to measure. Returns the same shape as <code>x</code> but always real-valued — a length-N <code>CVec</code> in gives a length-N real <code>Vec</code> out, and a <code>Complex</code> scalar gives a <code>Num</code>.</td></tr>
+<tr><td><code>real</code>, <code>re</code></td><td><code>re(x)</code></td><td>Real component of a <code>Complex</code>/<code>CVec</code>/<code>CMat</code> (identity — <code>x</code> passed through unchanged — when <code>x</code> is already real). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex). Returns the same shape as <code>x</code> but always real-valued — a <code>Complex</code> gives a <code>Num</code>, a <code>CVec</code> a real <code>Vec</code>, a <code>CMat</code> a real <code>Mat</code>.</td></tr>
+<tr><td><code>imag</code>, <code>im</code></td><td><code>im(x)</code></td><td>Imaginary component of a <code>Complex</code>/<code>CVec</code>/<code>CMat</code> (<code>0</code> elementwise when <code>x</code> is real). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex). Returns the same shape as <code>x</code> but always real-valued — a <code>Complex</code> gives a <code>Num</code>, a <code>CVec</code> a real <code>Vec</code>, a <code>CMat</code> a real <code>Mat</code>.</td></tr>
+<tr><td><code>conj</code></td><td><code>conj(x)</code></td><td>Complex conjugate (negates the imaginary part); passes a real <code>x</code> through unchanged. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex). Returns exactly the same type and shape as <code>x</code> — a <code>Complex</code> stays a <code>Complex</code>, a real <code>Vec</code> stays a real <code>Vec</code>.</td></tr>
+<tr><td><code>floor</code>, <code>ceil</code>, <code>round</code></td><td><code>floor(x)</code></td><td>Standard rounding functions, elementwise: <code>floor</code> toward negative infinity, <code>ceil</code> toward positive infinity, <code>round</code> to the nearest integer (half away from zero). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>, rounded elementwise.</td></tr>
+<tr><td><code>sign</code></td><td><code>sign(x)</code></td><td>The sign of each element, using Rust's <code>f64::signum</code> semantics: <code>-1</code> for a negative value (including <code>-0.0</code>), <code>+1</code> for a non-negative value (including <code>+0.0</code> — so <code>sign(0)</code> returns <code>1</code>, never <code>0</code>, a real edge case worth knowing about), and <code>NaN</code> for a <code>NaN</code> input. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns exactly the same type and shape as <code>x</code>, one sign per element.</td></tr>
+</table></div>
+<h4>Overloads: <code>abs</code></h4>
+<h4>Case: scalar</h4>
+<p><code>x</code> a real number. Returns a <code>Num</code>, the standard real absolute value.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(-<span class="n">5</span>))   <span class="c"># 5</span>
+</code></pre>
+</div>
+<h4>Case: vector</h4>
+<p><code>x</code> a <code>Vec</code>. Returns a <code>Vec</code> of the same length, <code>abs</code> applied elementwise.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [2, 0.5, 0.5, 2]</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>Complex</code> value (the <code>i</code>/<code>j</code>-suffix literal). Returns a real <code>Num</code> — the magnitude <code>sqrt(re^2 + im^2)</code>, not either component alone — the case that most often surprises newcomers.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 5 — magnitude, not the real part</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>angle</code></h4>
+<h4>Case: real</h4>
+<p><code>x</code> a signed real number (scalar, <code>Vec</code>, or <code>Mat</code>). Degrades to <code>0</code> for a non-negative value or <code>π</code> for a negative one — there is no real angle to compute, so this is a convention, not a measurement.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"angle(5)={angle(5)}  angle(-5)={angle(-5)}"</span>)
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>Complex</code> value. Returns the true angle from the positive real axis, <code>atan2(im, re)</code>, in radians.</p>
+<div class="example"><pre class="hl"><code>z = <span class="n">3</span> + <span class="n">4j</span>
+<span class="f">print</span>(<span class="f">angle</span>(z))   <span class="c"># 0.927295</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>re</code></h4>
+<h4>Case: real</h4>
+<p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Identity — passed through unchanged.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">5</span>))   <span class="c"># 5</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>Complex</code> value. Returns just the real component, discarding the imaginary part.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>im</code></h4>
+<h4>Case: real</h4>
+<p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Always <code>0</code>, since a real value has no imaginary part.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">5</span>))   <span class="c"># 0</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>Complex</code> value. Returns just the imaginary component.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 4</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>conj</code></h4>
+<h4>Case: real</h4>
+<p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Identity — passed through unchanged, since conjugation is a no-op on a value with no imaginary part.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">5</span>))   <span class="c"># 5</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>Complex</code> value. Negates the imaginary part, leaving the real part alone.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3 - 4i</span>
+</code></pre>
+</div>
+<h4><code>sign</code>'s exact-zero case</h4>
+<p><code>sign</code> has its own exact-zero edge case worth seeing separately: it returns <code>+1</code>, never <code>0</code>, per Rust's <code>f64::signum</code>.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sign</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [-1, -1, 1, 1] — sign(0) would be +1, never 0</span>
+</code></pre>
+</div>
+<p>The remaining functions in this table — the rest of the trig and inverse-trig family, the hyperbolic functions, the log family, the complex-component accessors (<code>arg</code>/<code>phase</code>/<code>re</code>/<code>im</code>/<code>conj</code>), and <code>ceil</code> — all follow the exact same elementwise pattern already shown above: one function in, one value of the same shape out, with only the domain notes already given in the table above to keep in mind. The example below runs each of them once on a scalar (or, for the complex ones, a single complex literal) so their actual return values are visible side by side.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0.5</span>
+<span class="f">print</span>(<span class="s">"tan={tan(x)}  asin={asin(x)}  acos={acos(x)}  atan={atan(x)}"</span>)
+<span class="f">print</span>(<span class="s">"sinh={sinh(x)}  cosh={cosh(x)}  tanh={tanh(x)}"</span>)
+<span class="f">print</span>(<span class="s">"ln(e^2)={ln(exp(2))}  log(e^2)={log(exp(2))}  log2(8)={log2(8)}"</span>)
+
+z = <span class="n">3</span> + <span class="n">4j</span>
+<span class="f">print</span>(<span class="s">"arg={arg(z)}  phase={phase(z)}  re={re(z)}  imag={imag(z)}  im={im(z)}  conj={conj(z)}"</span>)
+
+<span class="f">print</span>(<span class="f">ceil</span>(<span class="n">2.1</span>))   <span class="c"># 3</span>
+</code></pre>
+</div>
+<h2 id="s65">Reductions &amp; Descriptive Statistics</h2>
+<p>Basic order-statistic and spread reductions. <code>corr</code>, <code>cov</code>, <code>mode</code>, <code>skewness</code>, and <code>kurtosis</code> are documented in <a href="statistics-ml.html">Statistics &amp; Machine Learning</a>. Several of the pure reductions below (<code>sum</code>, <code>prod</code>, <code>mean</code>, <code>std</code>, <code>max</code>, <code>min</code>, <code>argmax</code>, <code>argmin</code>) additionally accept an <code>axis=</code> keyword when <code>x</code> is a <code>Mat</code>: <code>axis=0</code> collapses each column to one number (a length-<code>cols</code> <code>Vec</code>), <code>axis=1</code> collapses each row (a length-<code>rows</code> <code>Vec</code>), instead of flattening the whole matrix to a single scalar.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>sum</code>, <code>prod</code></td><td><code>sum(x)</code></td><td>Sum / product of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code> (real; <code>sum</code> additionally accepts a <code>CVec</code>/<code>CMat</code> and returns a <code>Complex</code> in that case). With no other argument, reduces to one scalar <code>Num</code> (or <code>Complex</code>). On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a <code>Vec</code> of length <code>cols</code> (<code>axis=0</code>) or <code>rows</code> (<code>axis=1</code>). Returns a scalar <code>Num</code> — a <code>Complex</code> where <code>sum</code> reduced a <code>CVec</code>/<code>CMat</code> — or that <code>Vec</code> under <code>axis=</code>.</td></tr>
+<tr><td><code>mean</code></td><td><code>mean(x)</code></td><td>Arithmetic mean of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. With no other argument, flattens <code>x</code> to one scalar <code>Num</code> (errors on an empty vector). On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) computes the mean along just that dimension, returning a length-<code>cols</code> or length-<code>rows</code> <code>Vec</code> — see <code>row_mean</code> below for a dedicated column-<code>Mat</code>-returning version of the row case. Returns a scalar <code>Num</code> with no <code>axis=</code>, or that <code>Vec</code> with one.</td></tr>
+<tr><td><code>max</code>, <code>min</code></td><td><code>max(x)</code> or <code>max(a, b)</code></td><td>One argument reduces <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) to its largest/smallest element, a scalar <code>Num</code>. Two arguments <code>a</code>, <code>b</code> (matching or broadcastable shapes) instead compare elementwise and keep the larger/smaller of each pair — the "clip" idiom, e.g. <code>max(x, 0)</code>. In the one-argument form on a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a length-<code>cols</code>/<code>rows</code> <code>Vec</code> rather than a single scalar.</td></tr>
+<tr><td><code>argmin</code>, <code>argmax</code></td><td><code>argmin(x)</code></td><td>0-based index of the first-occurring minimum/maximum element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened). Returns a scalar <code>Num</code> index. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) instead returns the index of the extremum *within* each column or row — a <code>Vec</code> of length <code>cols</code>/<code>rows</code>, each entry an index into that column/row rather than into the flattened matrix.</td></tr>
+<tr><td><code>median</code></td><td><code>median(x)</code></td><td>Middle order statistic of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened): the middle element for an odd-length input, the average of the two middle elements when <code>len(x)</code> is even. Returns a scalar <code>Num</code>; no <code>axis=</code> support.</td></tr>
+<tr><td><code>quantile</code></td><td><code>quantile(x, q)</code></td><td>Linear-interpolation quantile (NumPy's default <code>interpolation="linear"</code> method). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code> (flattened); <code>q</code> is a scalar rank in <code>[0, 1]</code> (<code>0.5</code> is the median), interpolated between the two nearest order statistics when it doesn't land exactly on one. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>percentile</code></td><td><code>percentile(x, p)</code></td><td>Same computation as <code>quantile</code>, with <code>p</code> on a <code>0..100</code> scale instead of <code>0..1</code> (<code>p=50</code> is the median). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; <code>p</code> must lie in <code>[0, 100]</code> or the call errors. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>iqr</code></td><td><code>iqr(x)</code></td><td>Interquartile range: <code>percentile(x,75) - percentile(x,25)</code> — a spread measure robust to outliers, unlike <code>std</code>/<code>var</code>. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>argmedian</code></td><td><code>argmedian(x)</code></td><td>Index into <code>x</code> (a <code>Vec</code> or flattened <code>Mat</code>/<code>Signal</code>) of the element sitting at the median position. Because an even-length <code>x</code> has no single median element, this returns the lower of the two middle indices — a deliberate, documented tie-break (NumPy has no <code>argmedian</code>, precisely for this reason). Returns a scalar <code>Num</code> index (0-based).</td></tr>
+<tr><td><code>argquantile</code></td><td><code>argquantile(x, q)</code></td><td>Index into <code>x</code> (a <code>Vec</code> or flattened <code>Mat</code>/<code>Signal</code>) nearest the <code>q</code>-quantile rank, computed as <code>round(q*(n-1))</code> where <code>n = len(x)</code>; <code>q</code> is a scalar in <code>[0, 1]</code>. Unlike <code>quantile</code>, which may interpolate between two elements, this always lands on a real element of <code>x</code>. Returns a scalar <code>Num</code> index (0-based).</td></tr>
+<tr><td><code>argmean</code></td><td><code>argmean(x)</code></td><td>Index into <code>x</code> (a <code>Vec</code> or flattened <code>Mat</code>/<code>Signal</code>) of the element closest to <code>mean(x)</code> (ties broken by first occurrence) — not a true order-statistic index like the others above, since the mean generally isn't any actual data point. Returns a scalar <code>Num</code> index (0-based); errors on an empty <code>x</code>.</td></tr>
+<tr><td><code>clip</code>, <code>clamp</code></td><td><code>clip(x, lo, hi)</code></td><td>Elementwise clamp of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) into <code>[lo, hi]</code>. <code>lo</code> and <code>hi</code> are scalars (or broadcastable arrays); both are optional, defaulting to <code>-inf</code>/<code>+inf</code> respectively, so e.g. <code>clip(x, 0)</code> floors at zero and leaves the top end open. Returns the same shape as <code>x</code>.</td></tr>
+<tr><td><code>std</code></td><td><code>std(x)</code></td><td>Sample standard deviation (N-1, unbiased, denominator) of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. With no other argument, flattens <code>x</code> to one scalar <code>Num</code>. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) computes the standard deviation down each column or across each row instead, returning a length-<code>cols</code>/<code>rows</code> <code>Vec</code>. Returns a scalar <code>Num</code> with no <code>axis=</code>, or that <code>Vec</code> with one.</td></tr>
+<tr><td><code>var</code></td><td><code>var(x)</code></td><td>Sample variance, same N-1 (unbiased) denominator as <code>std</code>, so <code>var(x) == std(x)^2</code> always holds. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened. Unlike <code>std</code>, <code>var</code> does not currently accept an <code>axis=</code> keyword. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>rms</code></td><td><code>rms(x)</code></td><td>Root-mean-square, <code>sqrt(mean(x.^2))</code>, of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened. Returns a scalar <code>Num</code>. Errors on an empty vector.</td></tr>
+<tr><td><code>norm</code></td><td><code>norm(x)</code></td><td>Euclidean (L2) norm; for a matrix this is the Frobenius norm (every element treated as one long vector), not a matrix operator norm. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real, or <code>CVec</code>/<code>CMat</code>, which norm by magnitude). Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>logsumexp</code>, <code>lse</code></td><td><code>lse(x)</code></td><td>Numerically stable <code>log(sum(exp(x)))</code>, via the usual max-shift so a large input can't overflow <code>exp</code>. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened. Returns a scalar <code>Num</code> — <code>-inf</code> for an empty <code>x</code>.</td></tr>
+<tr><td><code>smoothmax</code></td><td><code>smoothmax(x, beta=1)</code></td><td>Smooth (differentiable) approximation to <code>max(x)</code>: <code>(1/beta) * logsumexp(beta * x)</code>, which tracks the true maximum more tightly as <code>beta</code> grows (at the cost of a stiffer gradient). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened; <code>beta</code> is an optional positional scalar defaulting to <code>1</code> (a non-positive or non-finite <code>beta</code> falls back to the plain hard <code>max</code>). Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>softmax</code></td><td><code>softmax(x)</code></td><td>Elementwise <code>exp(x_i) / sum(exp(x))</code> — the gradient of <code>logsumexp</code>, and a probability distribution that sums to 1. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened. Returns a <code>Vec</code> the same length as <code>x</code> whatever <code>x</code>'s original shape was — a <code>Mat</code> in still gives a flat <code>Vec</code> out, and an empty <code>x</code> an empty <code>Vec</code>.</td></tr>
+</table></div>
+<h4>Overloads: <code>sum</code></h4>
+<h4>Case: real</h4>
+<p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns a real scalar <code>Num</code>.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># 6</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>x</code> a <code>CVec</code> or <code>CMat</code>. Returns a <code>Complex</code> scalar instead of a <code>Num</code> — the one reduction in this table that changes its own return *type* based on its input, rather than just its shape.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span> + <span class="n">2j</span>]))   <span class="c"># 3 + 3i</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>max</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>max(x)</code></td><td>Largest element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened) — a single scalar <code>Num</code>.</td></tr>
+<tr><td><code>max(a, b)</code></td><td>Elementwise max of <code>a</code> and <code>b</code> (matching or broadcastable shapes) — the "clip" idiom, e.g. <code>max(x, 0)</code>. Returns the broadcast shape, not a scalar.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
+<span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [4, 5, 4] -- two-argument elementwise clip</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>min</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>min(x)</code></td><td>Smallest element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened) — a single scalar <code>Num</code>.</td></tr>
+<tr><td><code>min(a, b)</code></td><td>Elementwise min of <code>a</code> and <code>b</code> (matching or broadcastable shapes) — the same "clip" idiom as <code>max</code>, from the other side.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">min</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 1 -- one-argument reduction</span>
+<span class="f">print</span>(<span class="f">min</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [1, 4, 3] -- two-argument elementwise clip</span>
+</code></pre>
+</div>
+<p>The next example runs the everyday descriptive-statistics toolkit — <code>mean</code>, <code>std</code>, <code>iqr</code>, and <code>percentile</code> — over a batch of 1000 standard-normal draws from <code>randn</code>, the kind of quick numeric summary a script reaches for before deciding whether a distribution looks the way it should. <code>percentile(x, 95)</code> is included specifically to show the 0-100 scale, as opposed to <code>quantile</code>'s 0-1 scale for the same computation.</p>
+<div class="example"><pre class="hl"><code>samples = <span class="f">randn</span>(<span class="n">1000</span>, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"mean={mean(samples)}  std={std(samples)}  iqr={iqr(samples)}"</span>)
+<span class="f">print</span>(<span class="s">"p95={percentile(samples, 95)}"</span>)
+</code></pre>
+</div>
+<p>The second batch below covers the functions that don't fit neatly into the first example: <code>prod</code> (multiplicative reduction), the whole <code>arg*</code> index family (<code>argmedian</code>, <code>argquantile</code>, <code>argmean</code> — each returning a *position* into the data rather than a value), <code>clamp</code>'s three-argument clipping, and the <code>var</code>/<code>std</code> relationship (<code>var</code> is always <code>std</code> squared, which the last line checks directly), plus <code>lse</code> as the numerically stable form of <code>log(sum(exp(x)))</code>.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">5.0</span>, <span class="n">3.0</span>, <span class="n">8.0</span>, <span class="n">1.0</span>, <span class="n">9.0</span>]
+<span class="f">print</span>(<span class="s">"prod={prod(v)}"</span>)
+<span class="f">print</span>(<span class="s">"argmedian={argmedian(v)}  argquantile(0.9)={argquantile(v, 0.9)}  argmean={argmean(v)}"</span>)
+<span class="f">print</span>(<span class="s">"clamp={clamp([-5, 0, 5, 10], 0, 5)}"</span>)
+<span class="f">print</span>(<span class="s">"var={var(v)}  std^2={std(v)^2}"</span>)
+<span class="f">print</span>(<span class="s">"lse={lse(v)}"</span>)
+</code></pre>
+</div>
+<h2 id="s123">Shape, Construction &amp; Introspection</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>rows</code>, <code>cols</code></td><td><code>rows(A)</code></td><td>Row / column count of <code>A</code>. On a <code>Vec</code> (shape <code>(n, 1)</code>), a <code>Mat</code>/<code>Signal</code> (shape <code>(r, c)</code>), or a bare scalar (shape <code>(1, 1)</code>), returns the corresponding dimension as a scalar <code>Num</code>. On a <code>Table</code>, returns the same values as <code>nrow(df)</code>/<code>ncol(df)</code> — row count is the record count, column count the field count. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>size</code>, <code>shape</code></td><td><code>shape(A)</code></td><td>The full shape of <code>A</code> as a 2-element <code>Vec</code>, <code>[rows, cols]</code>, using the same per-type shape rules as <code>rows</code>/<code>cols</code> above. <code>size</code> is the same builtin — MATLAB's name for it. (<code>sizeof</code> is a third name for it and is deprecated: it means a byte count everywhere else). <strong>An </strong><code>Image</code> is the one exception and reports <code>[width, height]</code><strong>, not rows-first — because an image's own constructors are width-first (</strong><code>image_new(width, height)</code>, <code>resize(img, width, height)</code>, <code>crop(img, x0, y0, width, height)</code>), and answering rows-first made <code>image_new(640, 480)</code> report <code>[480, 640]</code>. A <code>Mat</code> of pixels is still a matrix and still <code>[rows, cols]</code>. Returns a 2-element <code>Vec</code>.</td></tr>
+<tr><td><code>length</code>, <code>numel</code></td><td><code>numel(x)</code></td><td>Total element count of <code>x</code>: <code>1</code> for a scalar, its length for a <code>Vec</code>/<code>CVec</code>/<code>Signal</code>, <code>rows*cols</code> for a <code>Mat</code>, a Unicode-aware character count for a <code>Str</code>, and the element/node count for <code>List</code>/<code>Record</code>/<code>Dict</code>/<code>fifo</code>/<code>linked_list</code>/<code>graph</code>. Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>zeros</code></td><td><code>zeros(n)</code> / <code>zeros(r, c)</code></td><td>A vector or matrix of zeros. One numeric argument <code>n</code> gives a length-<code>n</code> <code>Vec</code>; two arguments <code>r</code>, <code>c</code> give an <code>r×c</code> <code>Mat</code> — even a degenerate two-argument shape like <code>zeros(n, 1)</code> stays a genuine oriented matrix, distinct from the plain <code>Vec</code> that <code>zeros(n)</code> returns. Overloaded by argument type: <code>zeros(filt)</code>, where <code>filt</code> is a <code>"filter"</code> model (from <code>butter</code>/<code>fir1</code>/etc.), instead returns that filter's zeros as a <code>CVec</code> (see <a href="signal-processing.html">Signal Processing &amp; Filters</a>).</td></tr>
+<tr><td><code>ones</code></td><td><code>ones(n)</code> / <code>ones(r, c)</code></td><td>A vector or matrix of ones, with the same one-argument-vs-two-argument shape rules as <code>zeros</code> above. Returns a length-<code>n</code> <code>Vec</code> for <code>ones(n)</code>, or an <code>r×c</code> <code>Mat</code> for <code>ones(r, c)</code>.</td></tr>
+<tr><td><code>eye</code>, <code>identity</code></td><td><code>eye(n)</code></td><td>The <code>n×n</code> identity matrix (ones on the diagonal, zeros elsewhere). <code>n</code> is a single non-negative integer. <code>identity</code> is an alias for <code>eye</code>. Returns an <code>n×n</code> <code>Mat</code>.</td></tr>
+<tr><td><code>reshape</code></td><td><code>reshape(x, r, c)</code></td><td>Reinterprets a value as a matrix of a given shape. <code>x</code> is the value being reshaped, a scalar, <code>Vec</code> or <code>Mat</code>; <code>r</code> (number) is the row count of the result; <code>c</code> (number) is the column count, and <code>r * c</code> must equal the number of elements <code>x</code> holds. This is a genuine element relayout (column-major) when <code>x</code> is a scalar or <code>Vec</code>, or when <code>x</code> is already an <code>r×c</code> <code>Mat</code>; when <code>x</code> is a <code>Mat</code> with one dimension equal to <code>1</code> it is also a real reshape. <strong>Reshaping a matrix that has more than one row *and* more than one column into a different two-dimensional shape does not relayout the data</strong> — it falls through to a broadcast check instead and errors unless the two shapes are broadcast-compatible, a real, confirmed engine limitation rather than a documentation simplification. <code>expr -&gt; (r, c)</code> is postfix-style sugar for exactly this call — see below.</td></tr>
+<tr><td><code>hstack</code>, <code>vstack</code></td><td><code>hstack(a, b, ...)</code></td><td>Named equivalents of bracket-literal block concatenation (<code>[a, b]</code> horizontally / <code>[a; b]</code> vertically). Each of the 2+ required arguments is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex — any complex argument makes the whole result complex); <code>hstack</code> needs matching row counts, <code>vstack</code> needs matching column counts. Returns a <code>Mat</code> (or <code>CMat</code> if any input was complex).</td></tr>
+<tr><td><code>cat</code></td><td><code>cat(dim, a, b, ...)</code></td><td>MATLAB-style concatenation: <code>dim</code> (a scalar, <code>1</code> or <code>2</code>) selects the axis, then the 2+ remaining arguments (same shape rules as <code>hstack</code>/<code>vstack</code>) are joined along it — <code>dim=1</code> vertical (same as <code>vstack</code>), <code>dim=2</code> horizontal (same as <code>hstack</code>). Returns a <code>Mat</code>. Taking the axis first means <code>cat</code> is the one array builtin you cannot write as <code>a.cat(b)</code> or <code>a</code></td><td>&gt; cat(...)<code> — the receiver would land in the axis slot. Use </code>hstack<code>/</code>vstack<code> for those forms; they do the same job with the array first.</code></td></tr>
+</table></div>
+<h4>Overloads: <code>zeros</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>zeros(n)</code></td><td>A length-<code>n</code> <code>Vec</code> of zeros.</td></tr>
+<tr><td><code>zeros(r, c)</code></td><td>An <code>r×c</code> <code>Mat</code> of zeros — even <code>zeros(n, 1)</code> stays a genuine oriented matrix, distinct from <code>zeros(n)</code>.</td></tr>
+<tr><td><code>zeros(filt)</code></td><td><code>filt</code> a <code>"filter"</code> model (from <code>butter</code>/<code>fir1</code>/etc.), not a count at all — dispatch here is by argument *type*, not count. Returns that filter's zeros as a <code>CVec</code>.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
+<span class="f">print</span>(<span class="f">zeros</span>(<span class="n">2</span>, <span class="n">3</span>))                           <span class="c"># [0, 0, 0; 0, 0, 0]</span>
+filt = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, <span class="n">1000</span>)
+<span class="f">print</span>(<span class="f">zeros</span>(filt))                           <span class="c"># [-1, -1, -1, -1] -- a CVec, not a fresh zero-fill</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>reshape</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What happens</td></tr>
+<tr><td><code>reshape(x, r, c)</code> where <code>x</code> is a scalar, <code>Vec</code>, or a <code>Mat</code> with one dimension equal to <code>1</code></td><td>A genuine element relayout (column-major) into the new <code>r×c</code> shape.</td></tr>
+<tr><td><code>reshape(x, r, c)</code> where <code>x</code> is a <code>Mat</code> with more than one row <strong>and</strong> more than one column</td><td><strong>Not a relayout.</strong> Falls through to a broadcast check instead and errors unless the two shapes are broadcast-compatible — a real, confirmed engine limitation, not a documentation simplification.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
+</code></pre>
+</div>
+<p><code>reshape(A, 3, 2)</code> on the general <code>2×3</code> matrix <code>A = [1, 2, 3; 4, 5, 6]</code> from the earlier example, by contrast, does not relayout the data — it hits the broadcast check and errors:</p>
+<pre><code><span class="e">qu: runtime error: shapes (2x3) and (3x2) do not broadcast (each axis must match or be 1)</span>
+</code></pre>
+<p>The example below builds a small matrix and reads its shape back with <code>size</code>/<code>numel</code>, constructs identity matrices with both spellings (<code>eye</code>/<code>identity</code>), and shows the two <code>cat</code> orientations side by side — <code>dim=1</code> stacks the two vectors as new rows, <code>dim=2</code> lays them end to end as one longer row — the same distinction <code>vstack</code>/<code>hstack</code> make under more MATLAB-flavored names.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="s">"size={size(A)}  numel={numel(A)}"</span>)
+<span class="f">print</span>(<span class="f">eye</span>(<span class="n">3</span>))
+<span class="f">print</span>(<span class="f">identity</span>(<span class="n">2</span>))
+p = [<span class="n">1</span>, <span class="n">2</span>]
+q = [<span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">cat</span>(<span class="n">1</span>, p, q))   <span class="c"># vertical: stacks rows</span>
+<span class="f">print</span>(<span class="f">cat</span>(<span class="n">2</span>, p, q))   <span class="c"># horizontal: concatenates</span>
+</code></pre>
+</div>
+<h3><code>-&gt;</code> reshape operator</h3>
+<p><code>expr -&gt; (rows, cols)</code> is sugar for <code>reshape(expr, rows, cols)</code> — rewritten to that exact call at parse time (no separate evaluation path, so results are always identical to calling <code>reshape</code> directly). Scoped to the 2-argument form only (matching <code>reshape</code>'s own signature); there is no 1-argument <code>-&gt; n</code> shorthand. Because <code>reshape</code> itself only truly relays out data for a vector-like source (see the <code>reshape</code> row above), chaining two reshapes only works when the intermediate shape keeps one dimension equal to <code>1</code> — reshaping a genuinely two-dimensional intermediate result into yet another two-dimensional shape hits the same broadcast-only limitation and errors.</p>
+<p>Precedence: <code>-&gt;</code> sits *above* <code>|&gt;</code> (pipe) but *below* <code>as</code>/<code>??</code>/the ternary <code>? :</code> — it takes the <strong>entire</strong> preceding pipe/arithmetic expression as its value operand, not just the nearest operand:</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+m = v -&gt; (<span class="n">2</span>, <span class="n">3</span>)                  <span class="c"># same as reshape(v, 2, 3)</span>
+<span class="f">print</span>(m)
+mp = df.price -&gt; (n, <span class="n">1</span>)          <span class="c"># field access resolves first: (df.price) -&gt; (n, 1)</span>
+<span class="f">print</span>(mp)
+s = a + b -&gt; (r, c)              <span class="c"># reshapes the SUM: (a + b) -&gt; (r, c)</span>
+<span class="f">print</span>(s)
+r2 = x |&gt; normalize -&gt; (r, c)    <span class="c"># reshapes the PIPED RESULT: (x |&gt; normalize) -&gt; (r, c)</span>
+<span class="f">print</span>(r2)
+chained = v -&gt; (<span class="n">6</span>, <span class="n">1</span>) -&gt; (<span class="n">2</span>, <span class="n">3</span>)  <span class="c"># left-associative: reshape twice, via an intermediate column shape</span>
+<span class="f">print</span>(chained)
+</code></pre>
+</div>
+<h2 id="s182">Rearranging Arrays</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>val</code></td><td><code>val(x)</code></td><td>Materializes a value; currently the identity on any <code>x</code> (<code>:=</code> is already eager pre-M4) but will force evaluation of a deferred binding once M4 lazy fusion lands. Returns <code>x</code> unchanged, same type and shape.</td></tr>
+<tr><td><code>transpose</code></td><td><code>transpose(A)</code></td><td>Matrix/vector transpose: swaps rows and columns. <code>A</code> is a <code>Vec</code> (treated as a single row or column) or <code>Mat</code>/<code>CMat</code>; an <code>r×c</code> input returns a <code>c×r</code> output of the same element type. Returns a <code>Mat</code>, or a <code>CMat</code> for a complex input — including for a <code>Vec</code> argument, which comes back as an <code>n×1</code> column <code>Mat</code> rather than a <code>Vec</code>.</td></tr>
+<tr><td><code>ctranspose</code></td><td><code>ctranspose(A)</code></td><td>Conjugate transpose (Hermitian): transpose plus elementwise complex conjugation. <code>A</code> is a <code>Vec</code>/<code>Mat</code>/<code>CMat</code>; an <code>r×c</code> input returns a <code>c×r</code> output (real inputs behave exactly like <code>transpose</code>, since conjugation is a no-op on real numbers). Returns a <code>Mat</code>, or a <code>CMat</code> for a complex input.</td></tr>
+<tr><td><code>flipud</code>, <code>fliplr</code>, <code>mirror</code>, <code>flip</code></td><td><code>flip(A, dim=1)</code></td><td>Reverses row order (<code>flipud</code>, <code>dim=1</code>) or column order (<code>fliplr</code>/<code>mirror</code>, <code>dim=2</code>) of <code>A</code>, a <code>Str</code>, <code>Vec</code>, <code>Mat</code>, or <code>Image</code>. On a <code>Str</code> every spelling reverses the character order; on a plain <code>Vec</code> (which has no row/column orientation) both directions just reverse element order. <code>dim</code> (only meaningful for <code>flip</code>) is an optional keyword-or-positional scalar, <code>1</code> or <code>2</code>, defaulting to <code>1</code>. Returns the same type and shape as <code>A</code>.</td></tr>
+<tr><td><code>rot90</code></td><td><code>rot90(A, k=1)</code></td><td>Rotates <code>A</code> (a <code>Mat</code>, or anything coercible to one) 90°×<code>k</code> counterclockwise; <code>k</code> is an optional scalar defaulting to <code>1</code>, may be negative for clockwise rotation, and is taken mod 4. An <code>r×c</code> input becomes <code>c×r</code> after an odd number of quarter-turns, or stays <code>r×c</code> after an even number. Returns a <code>Mat</code>.</td></tr>
+</table></div>
+<p>The example below runs the identity operation <code>val</code> on a plain number (to show it really is just a pass-through today), transposes a small matrix, and reverses a vector with <code>mirror</code> — the three "rearrange, don't recompute" operations in this table that are easiest to check by eye.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+x = <span class="n">5</span>
+<span class="f">print</span>(<span class="s">"val={val(x)}"</span>)
+<span class="f">print</span>(<span class="f">transpose</span>(A))
+<span class="f">print</span>(<span class="s">"mirror={mirror([1, 2, 3])}"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>flip</code></h4>
+<h4>Case: Str</h4>
+<p><code>A</code> a <code>Str</code>. Every spelling (<code>flip</code>, <code>flipud</code>, <code>fliplr</code>, <code>mirror</code>) reverses character order the same way, regardless of <code>dim</code> — a string has no row/ column orientation to pick between.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>(<span class="s">"hello"</span>))   <span class="c"># olleh</span>
+</code></pre>
+</div>
+<h4>Case: Vec</h4>
+<p><code>A</code> a plain <code>Vec</code>, which likewise has no row/column orientation. Both directions just reverse element order, so <code>dim</code> makes no difference here either.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [3, 2, 1]</span>
+</code></pre>
+</div>
+<h4>Case: Mat</h4>
+<p><code>A</code> an <code>r×c</code> <code>Mat</code> (or <code>Image</code>). Here <code>dim</code> genuinely matters: <code>1</code> reverses row order (top-to-bottom), <code>2</code> reverses column order (left-to-right).</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">flip</span>(M, <span class="n">1</span>))   <span class="c"># [3, 4; 1, 2] -- rows reversed</span>
+</code></pre>
+</div>
+<h2 id="s220">Selection</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>where</code></td><td><code>where(mask)</code> or <code>where(cond, a, b)</code></td><td>One argument <code>mask</code> (a <code>Vec</code>/<code>Mat</code> of booleans, typically produced by a comparison like <code>x &lt; 0</code>) returns a <code>Vec</code> of the 0-based indices where it is true. Three arguments — <code>cond</code> (a boolean mask), <code>a</code>, <code>b</code> (scalars or arrays broadcastable to <code>cond</code>'s shape) — instead select elementwise: <code>a</code>'s value where <code>cond</code> is true, <code>b</code>'s otherwise (NumPy's <code>where(cond, a, b)</code>), returning the same shape as <code>cond</code>.</td></tr>
+<tr><td><code>find</code></td><td><code>find(mask)</code> or <code>find(collection, fnName)</code></td><td>One argument: identical to <code>where(mask)</code> — the indices where a boolean <code>mask</code> is true, as a <code>Vec</code>. Two arguments: <code>collection</code> (any indexable/iterable value) and <code>fnName</code> (a <code>Str</code> naming an already-defined one-argument predicate function); returns the first element of <code>collection</code> for which that predicate is truthy.</td></tr>
+</table></div>
+<h4>Overloads: <code>where</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>where(mask)</code></td><td>Indices where the boolean <code>mask</code> (a <code>Vec</code>/<code>Mat</code>) is true, as a <code>Vec</code> — the 1-argument form.</td></tr>
+<tr><td><code>where(cond, a, b)</code></td><td>Elementwise selection: <code>a</code> where <code>cond</code> is true, <code>b</code> otherwise (NumPy's <code>where(cond, a, b)</code>) — the 3-argument form, returning <code>cond</code>'s shape rather than a list of indices.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<span class="f">print</span>(<span class="f">where</span>(mask))          <span class="c"># [0, 2] -- indices, 1-argument form</span>
+<span class="f">print</span>(<span class="f">where</span>(mask, <span class="n">1</span>, <span class="n">0</span>))    <span class="c"># [1, 0, 1] -- elementwise pick, 3-argument form</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>find</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>find(mask)</code></td><td>Identical to <code>where(mask)</code> — the indices where a boolean <code>Vec</code>/<code>Mat</code> is true.</td></tr>
+<tr><td><code>find(collection, fnName)</code></td><td><code>collection</code> (any indexable/iterable value) and <code>fnName</code> (a <code>Str</code> naming an already-defined one-argument predicate) — returns the *first element* of <code>collection</code> for which that predicate is truthy, not an index.</td></tr>
+</table></div>
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<span class="f">print</span>(<span class="f">find</span>(mask))                 <span class="c"># [0, 2] -- same as where(mask)</span>
+
+<span class="f">is_even</span>(n) := n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+xs = [<span class="n">1</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">find</span>(xs, <span class="s">"is_even"</span>))        <span class="c"># 4 -- first element, not an index</span>
+</code></pre>
+</div>
+<p>The example below builds a small vector, zeroes out its negative entries with a boolean-mask assignment, then uses <code>where</code> to find which (now non-negative) entries exceed a threshold and pulls just those values back out with <code>x[idx]</code> — the round trip of "get the indices, then use them to index back into the data" that <code>where</code> exists for.</p>
+<div class="example"><pre class="hl"><code>x = [-<span class="n">2</span>, <span class="n">0.5</span>, <span class="n">4</span>, -<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>]
+x[x &lt; <span class="n">0</span>] = <span class="n">0</span>
+<span class="f">print</span>(x)              <span class="c"># [0, 0.5, 4, 0, 5, 2]</span>
+idx := where x &gt; <span class="n">3</span>
+<span class="f">print</span>(idx)             <span class="c"># [2, 4] -- 0-based positions of the entries above 3</span>
+<span class="f">print</span>(x[idx])          <span class="c"># [4, 5] -- the entries themselves</span>
+<span class="f">plot</span>(x[idx], <span class="s">"x"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+</code></pre>
+</div>
+<p><code>find</code>'s two-argument form searches by a named predicate instead of a mask — useful when the condition isn't a simple elementwise comparison but a small function of its own. The example below defines <code>is_even</code> as an ordinary one-argument Qu function, then hands its *name* (as a string) to <code>find</code> to get back the first element of <code>xs</code> that satisfies it.</p>
+<div class="example"><pre class="hl"><code><span class="f">is_even</span>(n) := n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+xs = [<span class="n">1</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">find</span>(xs, <span class="s">"is_even"</span>))   <span class="c"># 4 -- first element for which is_even is true</span>
+</code></pre>
+</div>
+<h2 id="s249">Matrix Algebra &amp; Decompositions</h2>
+<p>Decompositions that return more than one related result (<code>svd</code>, <code>qr</code>, <code>lu</code>, <code>eig</code>) come back as a <code>Value::Model</code> handle with named fields — the same convention the fitted-model protocol uses (see <a href="statistics-ml.html">Statistics &amp; Machine Learning</a>) — rather than a tuple, since Qu has no multi-return values.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>dot</code></td><td><code>dot(a, b)</code></td><td>Dot product of two equal-length vectors <code>a</code>, <code>b</code> (each a <code>Vec</code>; a length mismatch errors). Returns a scalar <code>Num</code>, <code>sum(a_i * b_i)</code>.</td></tr>
+<tr><td><code>add</code>, <code>subtract</code>, <code>mul</code>, <code>div</code>, <code>pow</code></td><td><code>add(a, b, ...)</code></td><td>The operators as named functions, so an operation can be passed where a name is what you can pass. Variadic and folded left: <code>add(a, b, c)</code> is <code>a + b + c</code>. Each routes through the very same code the operator does, so broadcasting, units, complex, matrices and every error message are whatever <code>a + b</code> already gives — there is no second set of arithmetic rules that could drift from the first. <code>mul</code>/<code>div</code> follow <code>*</code> and <code>/</code>, which on two <strong>matrices</strong> mean matrix multiply and solve. <strong></strong><code>subtract</code>, not <code>sub</code><strong> — </strong><code>sub</code> is a keyword (it opens a subroutine), so a builtin of that name could never be called. Returns whatever the matching operator returns for those arguments: a <code>Num</code> from two scalars, a <code>Vec</code> from a <code>Vec</code> and a scalar, a <code>Mat</code> from two matrices, a <code>Complex</code>/<code>CVec</code>/<code>CMat</code> as soon as either side is complex.</td></tr>
+<tr><td><code>elemul</code>, <code>elediv</code>, <code>elepow</code></td><td><code>elemul(a, b, ...)</code></td><td>The <code>.*</code>, <code>./</code> and <code>.^</code> family: <strong>always</strong> elementwise, whatever the shapes. The distinction from <code>mul</code>/<code>div</code>/<code>pow</code> only bites on matrices, which is exactly why both families have names. Returns the broadcast shape of the arguments — a <code>Num</code> from two scalars, otherwise a <code>Vec</code> or <code>Mat</code>, or the complex counterpart of either as soon as one side is complex.</td></tr>
+<tr><td><code>range</code></td><td><code>range(a, b, [step])</code></td><td>Inclusive numeric range as a <code>Vec</code>, from <code>a</code> to <code>b</code> (both scalars) in increments of <code>step</code> (an optional <strong>positional</strong> scalar, default <code>1</code> — <code>step=</code> as a keyword is rejected, unlike most optional Qu arguments) — distinct from the <code>to</code>/<code>a:step:b</code> loop-range syntax. Returns a <code>Vec</code> whose length depends on <code>a</code>, <code>b</code>, and <code>step</code>.</td></tr>
+<tr><td><code>matmul</code>, <code>mtimes</code></td><td><code>matmul(A, B)</code></td><td>Matrix multiplication of <code>A</code> (<code>r×k</code>) and <code>B</code> (<code>k×c</code>), both <code>Mat</code> (inner dimensions must agree). Returns an <code>r×c</code> <code>Mat</code>. <code>mtimes</code> is the exact same builtin under a second, MATLAB-flavored name.</td></tr>
+<tr><td><code>gpu_matmul</code></td><td><code>gpu_matmul(A, B)</code></td><td>WebGPU-accelerated matmul via <code>qu-gpu</code>, same <code>A</code>/<code>B</code> shape requirements and <code>r×c</code> <code>Mat</code> return as <code>matmul</code>; only present in builds compiled with <code>--features gpu</code>. <strong>f32 precision</strong> (~7 significant digits), not f64 — a real, documented tradeoff, not a bug. Returns an <code>m×n</code> <code>Mat</code> from an <code>m×k</code> <code>A</code> and a <code>k×n</code> <code>B</code>.</td></tr>
+<tr><td><code>pinv</code></td><td><code>pinv(A, tol=)</code></td><td>Moore-Penrose pseudo-inverse (SVD-based) of <code>A</code>, an <code>r×c</code> <code>Mat</code> or <code>CMat</code>. <code>tol</code> is an optional scalar relative tolerance for treating a singular value as zero; it defaults to <code>f64::EPSILON * max(rows, cols)</code> (real input) — the same tolerance <code>rank</code> reports. Returns a <code>c×r</code> <code>Mat</code>/<code>CMat</code>.</td></tr>
+<tr><td><code>inv</code></td><td><code>inv(A)</code></td><td>True inverse of <code>A</code> (a square <code>Mat</code> or <code>CMat</code>); requires full rank, errors otherwise. Returns an <code>n×n</code> matrix of the same real/complex kind as <code>A</code>.</td></tr>
+<tr><td><code>chol</code></td><td><code>chol(A)</code></td><td>Lower-triangular Cholesky factor <code>L</code> of <code>A = L·Lᵀ</code>, where <code>A</code> is a symmetric positive-definite <code>n×n</code> <code>Mat</code>; errors clearly if <code>A</code> isn't positive-definite. Returns an <code>n×n</code> <code>Mat</code>.</td></tr>
+<tr><td><code>det</code></td><td><code>det(A)</code></td><td>Determinant of a square <code>Mat</code> or <code>CMat</code>, via LU decomposition. Returns a scalar <code>Num</code> (or <code>Complex</code> for a <code>CMat</code>).</td></tr>
+<tr><td><code>rank</code></td><td><code>rank(A, tol=)</code></td><td>Numerical rank of <code>A</code> (an <code>r×c</code> <code>Mat</code> or <code>CMat</code>) — the count of singular values clearing the tolerance. <code>tol</code> is an optional scalar, same default and convention as <code>pinv</code>'s. Returns a scalar <code>Num</code> (integer-valued).</td></tr>
+<tr><td><code>svd</code></td><td><code>svd(A)</code></td><td>Thin SVD of <code>A</code> (<code>r×c</code> <code>Mat</code> or <code>CMat</code>), <code>A = U·diag(s)·Vᵀ</code>. Returns a <code>Model</code> (kind <code>"svd"</code>) with fields: <code>u</code> (<code>r×k</code> <code>Mat</code>), <code>s</code> (length-<code>k</code> <code>Vec</code> of singular values, <code>k = min(r,c)</code>), <code>vt</code> (<code>k×c</code> <code>Mat</code>) for a real <code>A</code>; a <code>CMat</code> input instead reports <code>values</code> (singular values), <code>condition</code>, and <code>rank</code> only.</td></tr>
+<tr><td><code>qr</code></td><td><code>qr(A)</code></td><td>Thin QR decomposition of <code>A</code> (<code>r×c</code> <code>Mat</code>), <code>A = Q·R</code>. Returns a <code>Model</code> (kind <code>"qr"</code>) with fields <code>q</code> (<code>r×k</code> <code>Mat</code>, orthonormal columns) and <code>r</code> (<code>k×c</code> <code>Mat</code>, upper triangular), <code>k = min(r,c)</code>.</td></tr>
+<tr><td><code>lu</code></td><td><code>lu(A)</code></td><td>LU decomposition with partial pivoting of a square <code>n×n</code> <code>Mat</code> <code>A</code>, <code>P·A = L·U</code>. Returns a <code>Model</code> (kind <code>"lu"</code>) with fields <code>l</code> (<code>n×n</code> lower-triangular <code>Mat</code>, unit diagonal), <code>u</code> (<code>n×n</code> upper-triangular <code>Mat</code>), and <code>p</code> (<code>n×n</code> permutation <code>Mat</code>).</td></tr>
+<tr><td><code>eig</code></td><td><code>eig(A)</code></td><td>Eigenvalues (and, for symmetric <code>A</code>, real eigenvectors) of a square <code>n×n</code> <code>Mat</code> <code>A</code>. Returns a <code>Model</code> (kind <code>"eig"</code>) with fields <code>values</code> (a length-<code>n</code> <code>Vec</code> if all eigenvalues are real, otherwise a length-<code>n</code> <code>CVec</code>) and <code>vectors</code> (an <code>n×n</code> <code>Mat</code> of eigenvectors as columns when <code>A</code> is symmetric, otherwise <code>Nothing</code>).</td></tr>
+</table></div>
+<p>Unlike <code>pinv</code>/<code>inv</code>/<code>det</code>/<code>svd</code>, <code>matmul</code> does not accept a <code>CMat</code> — calling it on a complex matrix errors with "cannot use complex matrix as a matrix" rather than producing a complex product; there is no complex overload to reach for here.</p>
+<p>One convention worth knowing before the example: a bracket literal like <code>[1, 1, 0, 0]</code> is a <strong>column</strong> vector (<code>4×1</code>) in Qu, the opposite of MATLAB's row-vector default for the same syntax — reshape with <code>-&gt; (1, n)</code> to get a row. The example below builds the row/column pair, multiplies them one way to get the <code>1×1</code> inner product (the dot product), then the other way to get the <code>4×4</code> outer product — the same progression MATLAB's own <code>mtimes</code> documentation uses, and the same two numbers it gets — before moving on to two same-shape square matrices multiplied via both names <code>matmul</code>/<code>mtimes</code> are known by.</p>
+<div class="example"><pre class="hl"><code>row = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>] -&gt; (<span class="n">1</span>, <span class="n">4</span>)
+col = [<span class="n">1</span>; <span class="n">2</span>; <span class="n">3</span>; <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">matmul</span>(row, col))    <span class="c"># 3 — inner product (dot product) of the two</span>
+<span class="f">print</span>(<span class="f">matmul</span>(col, row))    <span class="c"># 4x4 outer product: [1,1,0,0; 2,2,0,0; 3,3,0,0; 4,4,0,0]</span>
+
+A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+B = [<span class="n">5</span>, <span class="n">6</span>; <span class="n">7</span>, <span class="n">8</span>]
+<span class="f">print</span>(<span class="f">matmul</span>(A, B))
+<span class="f">print</span>(<span class="f">mtimes</span>(A, B))   <span class="c"># matmul and mtimes are the same builtin under two names</span>
+</code></pre>
+</div>
+<p><code>gpu_matmul(A, B)</code> has the same signature and result as <code>matmul</code>, but only runs in a build compiled with <code>--features gpu</code> (and dispatches to a real GPU device at runtime); a normal build errors clearly if called.</p>
+<p>The next example demonstrates two of the heavier decompositions: <code>chol</code>, which factors a symmetric positive-definite matrix into a lower-triangular square root (useful for generating correlated random samples or solving normal equations efficiently), and <code>svd</code>, whose singular values summarize how well- or ill-conditioned a matrix is. Multiplying the Cholesky factor by its own conjugate transpose should reproduce the original matrix exactly, which is the cheapest possible sanity check on the factorization.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+L = <span class="f">chol</span>(A)
+<span class="f">print</span>(L * L.<span class="f">ctranspose</span>())   <span class="c"># reproduces A</span>
+
+r = <span class="f">svd</span>(A)
+<span class="f">print</span>(r.s)   <span class="c"># singular values</span>
+</code></pre>
+</div>
+<h3>Seeing what a matrix does</h3>
+<p><code>cond(A)</code> is a number, and a number is hard to have intuition about. It is the ratio of the longest to the shortest axis of the ellipse <code>A</code> turns the unit circle into, so it can just be drawn:</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">3</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"cond(A) = {round(cond(A), 3)}"</span>)
+
+angles = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">2</span> * pi, <span class="n">200</span>)
+unit_x = <span class="f">cos</span>(angles)
+unit_y = <span class="f">sin</span>(angles)
+out_x = <span class="f">zeros</span>(<span class="n">200</span>)
+out_y = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    v = A * [unit_x[i], unit_y[i]]
+    out_x[i] = v[<span class="n">0</span>]
+    out_y[i] = v[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">plot</span>(unit_x, unit_y, <span class="a">color</span> = <span class="s">"#94a3b8"</span>, <span class="a">label</span> = <span class="s">"unit circle"</span>)
+<span class="f">plot</span>(out_x, out_y, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"A applied to it"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"what a 2x2 matrix does to a circle"</span>)
+</code></pre>
+</div>
+<p>A well-conditioned matrix gives a nearly round ellipse. As the condition number grows the ellipse flattens, and a solve loses digits along the short axis — which is what "ill-conditioned" means, drawn.</p>
+<h4>Overloads: <code>svd</code></h4>
+<h4>Case: real</h4>
+<p><code>A</code> a real <code>r×c</code> <code>Mat</code>. Returns a <code>Model</code> with fields <code>u</code> (<code>r×k</code> <code>Mat</code>), <code>s</code> (length-<code>k</code> <code>Vec</code> of singular values), and <code>vt</code> (<code>k×c</code> <code>Mat</code>), where <code>k = min(r,c)</code> — the full factorization, ready to reassemble <code>A</code>.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+r = <span class="f">svd</span>(A)
+<span class="f">print</span>(r.s)   <span class="c"># [4.618034, 2.381966]</span>
+</code></pre>
+</div>
+<h4>Case: complex</h4>
+<p><code>A</code> a <code>CMat</code>. Returns a *differently-shaped* <code>Model</code> — only <code>values</code> (the singular values), <code>condition</code>, and <code>rank</code>; there is no <code>u</code>/<code>vt</code> factor pair to reassemble <code>A</code> from in this branch.</p>
+<div class="example"><pre class="hl"><code>C = [<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span> - <span class="n">1j</span>]
+rc = <span class="f">svd</span>(C)
+<span class="f">print</span>(<span class="s">"values={rc.values}  condition={round(rc.condition, 3)}  rank={rc.rank}"</span>)
+</code></pre>
+</div>
+<h2 id="s304">More functions</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>diag</code></td><td><code>diag(M)</code> or <code>diag(v)</code></td><td>Overloaded on argument type: <code>diag(M)</code>, where <code>M</code> is an <code>r×c</code> <code>Mat</code>, returns its main diagonal as a length-<code>min(r,c)</code> <code>Vec</code>; <code>diag(v)</code>, where <code>v</code> is a length-<code>n</code> <code>Vec</code> (or scalar/other coercible value), returns an <code>n×n</code> <code>Mat</code> with <code>v</code>'s entries on the diagonal and zeros elsewhere. Returns a <code>Vec</code> when handed a <code>Mat</code>, and a <code>Mat</code> when handed a <code>Vec</code> — the argument's type decides, not a keyword.</td></tr>
+<tr><td><code>trace</code></td><td><code>trace(M)</code></td><td>The sum of the diagonal of <code>M</code>, a square (or rectangular — only <code>min(rows,cols)</code> diagonal entries are summed) <code>Mat</code>. Returns a scalar <code>Num</code>, equal to the sum of the eigenvalues — the cheap way to sanity-check an eigendecomposition.</td></tr>
+<tr><td><code>solve</code></td><td><code>solve(A, b)</code></td><td>Solves <code>A·x = b</code> for <code>x</code> by LU with partial pivoting (or, for a <code>CMat</code>/<code>CVec</code> <code>A</code>/<code>b</code>, by complex SVD least squares). <code>A</code> is an <code>n×n</code> <code>Mat</code>/<code>CMat</code>, <code>b</code> is a length-<code>n</code> <code>Vec</code>/<code>CVec</code> or an <code>n×k</code> <code>Mat</code>/<code>CMat</code> of multiple right-hand sides. Returns a <code>Mat</code>/<code>CMat</code> the same shape as <code>b</code>. Prefer it to <code>inv(A) * b</code>: it is faster and numerically better behaved.</td></tr>
+<tr><td><code>cond</code></td><td><code>cond(A)</code></td><td>The 2-norm condition number of <code>A</code> (an <code>r×c</code> <code>Mat</code> or <code>CMat</code>) — the ratio of its largest to smallest singular value. Returns a scalar <code>Num</code>, <code>+inf</code> for a singular matrix rather than an error (conditioning is routinely measured on matrices that turn out to be singular, and infinity *is* the answer there). Roughly how many digits a solve can lose, so <code>1e12</code> on a double means about four digits survive.</td></tr>
+<tr><td><code>nnls</code></td><td><code>nnls(A, b, max_iter=)</code></td><td>Non-negative least squares by Lawson-Hanson, for when a negative coefficient would be physically meaningless — a concentration, a mass, a relaxation strength. <code>A</code> is an <code>m×n</code> <code>Mat</code>, <code>b</code> a length-<code>m</code> <code>Vec</code>; <code>max_iter</code> is an optional scalar iteration cap (unset by default, meaning the solver's own internal limit applies). Returns a <code>Record</code> with fields <code>x</code> (length-<code>n</code> <code>Vec</code>, every entry <code>&gt;= 0</code>) and <code>residual</code> (a scalar <code>Num</code>, <code>‖A·x - b‖</code>).</td></tr>
+<tr><td><code>least_squares</code></td><td><code>least_squares("f", x0, lower=, upper=, max_iter=200, tol=1e-10)</code></td><td>Nonlinear least squares on a residual function you named, via Levenberg-Marquardt. <code>"f"</code> is a <code>Str</code> naming an already-defined function that takes a length-<code>p</code> parameter <code>Vec</code> and returns a residual <code>Vec</code>; <code>x0</code> is the length-<code>p</code> initial guess <code>Vec</code>. <code>lower=</code>/<code>upper=</code> are optional length-<code>p</code> <code>Vec</code>s of box bounds (enforced by clamping every trial point before it is evaluated, rather than by penalty); <code>max_iter=</code> (default <code>200</code>) caps the iteration count, <code>tol=</code> (default <code>1e-10</code>) sets the convergence tolerance. Returns a <code>Model</code> (kind <code>"least_squares"</code>) with fields <code>params</code> (length-<code>p</code> <code>Vec</code>, the fitted parameters), <code>residual</code> (<code>Vec</code>, the residual at the solution), <code>cost</code> (scalar <code>Num</code>), <code>iterations</code> (scalar <code>Num</code>), and <code>converged</code> (<code>Bool</code>).</td></tr>
+<tr><td><code>meshgrid</code></td><td><code>meshgrid(x, y)</code></td><td>The two coordinate matrices a surface or contour needs, from two axis vectors <code>x</code> (length <code>nx</code>) and <code>y</code> (length <code>ny</code>). Returns a <code>Record</code> with fields <code>x</code> and <code>y</code>, each an <code>ny×nx</code> <code>Mat</code>: <code>.x</code> repeats the <code>x</code> vector down every row, <code>.y</code> repeats the <code>y</code> vector across every column, so <code>(.x[j,i], .y[j,i])</code> is the grid point for <code>x[i]</code>, <code>y[j]</code>.</td></tr>
+<tr><td><code>ones_like</code>, <code>zeros_like</code></td><td><code>zeros_like(x)</code></td><td>A vector or matrix of the same shape as <code>x</code> (a <code>Vec</code> or <code>Mat</code>), filled with one or zero respectively — the shape is read directly from <code>x</code>, so it cannot fall out of step with it. Returns the same type and shape as <code>x</code>.</td></tr>
+<tr><td><code>row_mean</code>, <code>row_sum</code></td><td><code>row_mean(M)</code></td><td>Collapses each row of <code>M</code> (an <code>r×c</code> <code>Mat</code>, or anything coercible to one) to one number, returning an <code>r×1</code> column <code>Mat</code> (not a plain <code>Vec</code>). <code>mean(M, axis = 0)</code> collapses columns instead and returns a plain <code>Vec</code> — the axes are 0 and 1, not 1 and 2, and note the different return container (<code>Mat</code> here vs. <code>Vec</code> for the <code>axis=</code> form). Returns an <code>r×1</code> column <code>Mat</code>, one entry per row of <code>M</code>.</td></tr>
+<tr><td><code>mm</code>, <code>cm</code>, <code>inch</code>, <code>pt</code></td><td><code>figure_size(mm(180), mm(120))</code></td><td>Length units as functions, converting a scalar <code>v</code> (millimetres/centimetres/inches/points as named) to the figure's own coordinate space — a tenth of a millimetre, so <code>mm(1)</code> is <code>10</code>, <code>cm(1)</code> is <code>100</code>, <code>inch(1)</code> is <code>254</code>, and <code>pt(1)</code> is <code>≈3.528</code> (<code>25.4/72</code> mm per point). Returns a scalar <code>Num</code>. There is no <code>180mm</code> literal — a bare number is always taken as figure units directly.</td></tr>
+<tr><td><code>is_empty</code>, <code>is_full</code></td><td><code>is_empty(q)</code></td><td>Whether the fixed-capacity ring buffer <code>q</code> (a <code>Fifo</code> handle created by <code>fifo(capacity)</code>) currently holds nothing, or has no room left for another <code>push</code> without evicting the oldest element. <code>q</code> must be a <code>Fifo</code>. Returns a <code>Bool</code>.</td></tr>
+</table></div>
+<p>The example below runs the small-matrix toolkit that doesn't fit neatly into the decomposition table above: <code>diag</code>/<code>trace</code>/<code>cond</code> read three different summary numbers off the same 2×2 matrix, and <code>nnls</code> fits a non-negative least-squares solution to a tiny system, showing both the fitted <code>x</code> (each entry constrained <code>&gt;= 0</code>) and the leftover <code>residual</code>.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">3.0</span>]
+<span class="f">print</span>(<span class="s">"diag={diag(A)}  trace={trace(A)}  cond={cond(A)}"</span>)
+
+b = [<span class="n">1.0</span>, <span class="n">2.0</span>]
+r = <span class="f">nnls</span>(A, b)
+<span class="f">print</span>(<span class="s">"nnls x={r.x}  residual={r.residual}"</span>)
+</code></pre>
+</div>
+<p>This next example covers three unrelated but frequently-needed shape utilities together: <code>meshgrid</code> builds the pair of coordinate matrices a contour or surface plot needs from two plain axis vectors, <code>ones_like</code>/ <code>zeros_like</code> stamp out a filler array that automatically matches another array's shape, and <code>row_mean</code>/<code>row_sum</code> collapse a matrix down to one number per row.</p>
+<div class="example"><pre class="hl"><code>g = <span class="f">meshgrid</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">1</span>, <span class="n">2</span>])
+<span class="f">print</span>(g.x)   <span class="c"># x-coordinate at every grid point</span>
+<span class="f">print</span>(g.y)   <span class="c"># y-coordinate at every grid point</span>
+
+M = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">ones_like</span>(M))
+<span class="f">print</span>(<span class="f">zeros_like</span>(M))
+<span class="f">print</span>(<span class="s">"row_mean={row_mean(M)}  row_sum={row_sum(M)}"</span>)
+</code></pre>
+</div>
+<p>Finally, the length-unit helpers and the <code>fifo</code> occupancy checks — two unrelated conveniences that happen to round out this chapter's "more functions" table. <code>mm</code>/<code>cm</code>/<code>inch</code>/<code>pt</code> convert a physical length into the figure's internal coordinate units (used anywhere a plotting call wants an exact size, like <code>legend(fontsize = pt(7))</code>); <code>is_empty</code>/ <code>is_full</code> let a script check a <code>fifo</code> ring buffer's occupancy before deciding whether to <code>push</code> into it.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
+
+f = <span class="f">fifo</span>(<span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"is_empty={is_empty(f)}"</span>)
+<span class="f">push</span>(f, <span class="n">1</span>)
+<span class="f">push</span>(f, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"is_full={is_full(f)}"</span>)   <span class="c"># at capacity -- the next push would evict the oldest</span>
+</code></pre>
+</div>
+<h4>Overloads: <code>diag</code></h4>
+<h4>Case: matrix</h4>
+<p><code>M</code> an <code>r×c</code> <code>Mat</code>. Reads the main diagonal off <code>M</code> and returns it as a length-<code>min(r,c)</code> <code>Vec</code> — extraction.</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">diag</span>(M))   <span class="c"># [1, 4]</span>
+</code></pre>
+</div>
+<h4>Case: vector</h4>
+<p><code>v</code> a length-<code>n</code> <code>Vec</code> (or scalar/other coercible value). Builds a new <code>n×n</code> <code>Mat</code> with <code>v</code>'s entries on the diagonal and zeros elsewhere — construction, the opposite direction from the matrix case.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">diag</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [1, 0, 0; 0, 2, 0; 0, 0, 3]</span>
+</code></pre>
+</div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

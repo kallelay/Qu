@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fit_scaler — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fit_scaler</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>fit_scaler(X, [method=])</code></pre>
+<p class="fnnote">Input: X, method &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Fits and stores scaling parameters from an <code>N</code>-row, <code>D</code>-column matrix (or vector, or table) <code>X</code>, for reuse on new data — the fit-once path, as opposed to the four one-shot verbs above. <code>method</code> is a string, one of <code>"standard"</code>, <code>"minmax"</code>, <code>"robust"</code>, <code>"quantile"</code> (default <code>"standard"</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fit_scaler(X, [method=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix or vector</span><span class="iodesc">Fits and stores scaling parameters from an <code>N</code>-row, <code>D</code>-column matrix (or vector, or table) <code>X</code>, for reuse on new data — the fit-once path, as opposed to the four one-shot verbs above.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional</span><span class="iodesc"><code>method</code> is a string, one of <code>"standard"</code>, <code>"minmax"</code>, <code>"robust"</code>, <code>"quantile"</code> (default <code>"standard"</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a fitted scaler Record carrying the per-column parameters (e.g. <code>mean</code>/<code>std</code> for <code>"standard"</code>) plus <code>.transform</code>/<code>.inverse_transform</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
+scaler = <span class="f">fit_scaler</span>(split.X_train, <span class="a">method</span> = <span class="s">"standard"</span>)
+<span class="f">print</span>(<span class="s">"training column means: {round(scaler.mean, 3)}"</span>)
+
+Xtr = scaler.<span class="f">transform</span>(split.X_train)
+Xte = scaler.<span class="f">transform</span>(split.X_test)
+<span class="f">print</span>(<span class="s">"train columns after scaling: {round(mean(Xtr, axis = 0), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"test columns after scaling:  {round(mean(Xte, axis = 0), 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>fit_scaler(X, method="standard"|"minmax"|"robust"|"quantile")</code> — computes and stores whatever parameters that method needs as named fields on a <code>kind="scaler"</code> <code>Value::Model</code>, for reuse via <code>.transform(newX)</code>/<code>.inverse_transform(newX)</code> on data that may be different from <code>X</code> (e.g. a held-out test set fit on the training set's own distribution) — that reuse is the entire point, <code>newX</code> is never re-fit. Field names mirror what each method's <code>scaler::ColumnParams</code> variant stores (<code>mean</code>/<code>std</code> for <code>"standard"</code>, <code>min</code>/<code>max</code> for <code>"minmax"</code>, <code>median</code>/<code>iqr</code> for <code>"robust"</code>, <code>reference</code> — the sorted fitted values, one column per feature — for <code>"quantile"</code>), plus <code>method</code> itself so <code>.transform</code>/<code>.inverse_transform</code> know which formula to replay.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

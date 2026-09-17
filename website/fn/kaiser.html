@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kaiser — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>kaiser</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>kaiser(n, beta)</code></pre>
+<p class="fnnote">Input: n, beta &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>n</code>: a number (integer window length); <code>beta</code>: a number, required second positional argument (no default — it fundamentally changes the main-lobe-width/side-lobe-level tradeoff).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = kaiser(n, beta)</code></td><td><div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: a number (integer window length).</span></div>
+<div class="ioitem"><code>beta</code> <span class="iotype">number</span><span class="iodesc"><code>beta</code>: a number, required second positional argument (no default — it fundamentally changes the main-lobe-width/side-lobe-level tradeoff).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>n</code> real vector, <code>w[i] = I0(beta*sqrt(1-((2i/(n-1))-1)^2)) / I0(beta)</code>. Center sample is always <code>1.0</code> for any <code>beta</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>amp = <span class="f">db2mag</span>(-<span class="n">6</span>)     <span class="c"># amplitude ratio for -6 dB</span>
+pow = <span class="f">db2pow</span>(-<span class="n">3</span>)     <span class="c"># power ratio for -3 dB</span>
+<span class="f">print</span>(<span class="s">"db2mag(-6) = {amp}, db2pow(-3) = {pow}"</span>)
+
+w_hamming = <span class="f">hamming</span>(<span class="n">8</span>)
+w_blackman = <span class="f">blackman</span>(<span class="n">8</span>)
+w_kaiser = <span class="f">kaiser</span>(<span class="n">9</span>, <span class="n">5</span>)             <span class="c"># beta=5, odd length so there's an exact center sample</span>
+<span class="f">print</span>(<span class="s">"hamming[0] = {w_hamming[0]}, blackman[0] = {w_blackman[0]}, kaiser center = {w_kaiser[4]}"</span>)
+
+f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">4</span>)               <span class="c"># 1, 10, 100, 1000 -- a log-spaced frequency axis</span>
+<span class="f">print</span>(<span class="s">"logspace(0,3,4) = {f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>kaiser(n, beta)</code> — <code>w[i] = I0(beta*sqrt(1-((2i/(n-1))-1)^2)) I0(beta)</code>, <code>beta</code> a required second positional argument (not an optional style knob: it fundamentally changes the main-lobe-width/side-lobe-level tradeoff, there's no sane silent default the way <code>duty</code>/<code>carrier</code> are optional elsewhere in this file). Same symmetric (<code>n-1</code>) convention. <code>beta=0</code> makes <code>I0(0)/I0(0) = 1</code> at every sample (a flat all-ones window); the center sample of an odd-length window always has <code>(2i/(n-1))-1 == 0</code>, so its numerator is exactly <code>I0(beta)</code>, giving <code>w[center] == 1.0</code> for any <code>beta</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

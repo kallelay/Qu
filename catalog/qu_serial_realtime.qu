@@ -1,0 +1,122 @@
+# qu_serial_realtime.qu -- a genuine real-time serial capture + processing
+# demo: open a real UART/RS-232/USB-serial port, read incoming lines AS THEY
+# ARRIVE (a blocking read bounded by a timeout, not a fixed-length buffer),
+# convert each one to a number, and print running statistics (a moving
+# average, running min/max) after every new reading -- the "process it as it
+# arrives" loop the feature was actually asked for.
+#
+# Honest scope note on live PLOTTING specifically: Qu's plotting model
+# (`plot`/`savefig`, see book/src/stdlib/plotting.md) builds up one static
+# Figure/Panel state that gets exported (SVG/HTML/TikZ) at the end of a
+# `qu run` -- there is no live-updating GUI window a script can push new
+# points into while a CLI script is still running. A real-time CONSOLE
+# demo (this script) is the honest, actually-achievable version of "process
+# and display data as it arrives" for `qu run` today; see this catalog
+# entry's own read_line loop below for the actual live processing.
+#
+# Hardware reality: this reads from whatever `serial_ports()` reports as
+# the FIRST currently-available serial device on the machine it runs on.
+# On a machine with no serial hardware at all, that list is empty and this
+# script falls back to a placeholder port name purely to demonstrate
+# `serial_open`'s error path -- it fails with a clear "no such port" error
+# and the script prints that error and stops cleanly, rather than crashing
+# or hanging. It does NOT fabricate readings if no device is actually
+# transmitting data.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   serial_ports()                          -- list currently-available serial devices
+#   serial_open(port, baud, timeout_ms=...) -- open a real serial port, bounded-timeout reads
+#   read_line(conn) / conn.read_line()      -- one line, or `none` if nothing arrived in time
+#   ?? (null-coalescing)                    -- substitutes a sentinel for a `none` timeout result
+#   close(conn)                             -- release the OS handle
+#   append(vec, x), mean/min/max, try/catch -- processing + graceful error handling
+
+backend auto
+
+#%% Discover what's actually plugged in -- an empty list here is a correct,
+# honest result on a machine with no serial hardware, not an error.
+ports = serial_ports()
+print("serial_ports() found {length(ports)} port(s): {ports}")
+
+if length(ports) > 0
+    port = ports[0]
+else
+    # No serial hardware detected -- this name almost certainly does not
+    # exist either, so `serial_open` below demonstrates its real error path
+    # (a clear message naming the port, not a crash) instead of pretending
+    # data is flowing.
+    port = "COM3"
+end if
+
+baud = 9600
+timeout_ms = 500
+window = 5          # moving-average window, in samples
+max_attempts = 30    # bounded read-loop length -- never spins forever
+max_consecutive_timeouts = 5
+
+# `read_line` returns `none` on a timeout with nothing collected (see
+# book/src/stdlib/concurrency.md's "Serial Port I/O" section). Qu's `==`
+# on a `Str`/`none` pair is a genuine, documented pre-existing gap (see
+# book/src/stdlib/file-io.md's "Worked examples" section) -- it errors via
+# numeric coercion instead of returning `false`, so `line == none` can't be
+# used directly here. `?? TIMEOUT_MARK` (the null-coalescing operator) sidesteps
+# that cleanly: it substitutes this sentinel exactly when the left side is
+# `none`, turning the check into an ordinary Str/Str comparison.
+TIMEOUT_MARK = "__QU_SERIAL_TIMEOUT__"
+
+#%% Everything below is wrapped in one try/catch: an open failure (no such
+# port, port already in use, permission denied, ...) and any read/write
+# error during the loop all land here with a clear message instead of
+# crashing the script.
+try
+    conn = serial_open(port, baud, timeout_ms=timeout_ms)
+    print("opened {port} at {baud} baud (timeout {timeout_ms} ms) -- listening for up to {max_attempts} lines")
+
+    readings = zeros(0)
+    consecutive_timeouts = 0
+
+    for attempt = 1 to max_attempts
+        line = read_line(conn) ?? TIMEOUT_MARK   # blocks up to timeout_ms
+        if line == TIMEOUT_MARK
+            consecutive_timeouts = consecutive_timeouts + 1
+            print("  [timeout {consecutive_timeouts}/{max_consecutive_timeouts}] no data within {timeout_ms} ms")
+            if consecutive_timeouts >= max_consecutive_timeouts
+                print("no data arrived for {max_consecutive_timeouts} consecutive timeouts -- stopping (either nothing is connected/transmitting on {port}, or it isn't sending plain-text numeric lines)")
+                break
+            end if
+        else
+            consecutive_timeouts = 0
+            parsed_ok = true
+            value = 0
+            try
+                value = to_float(line)
+            catch parse_err
+                parsed_ok = false
+            end
+            if parsed_ok
+                readings = append(readings, value)
+                n = length(readings)
+                if n > window
+                    lo = n - window
+                else
+                    lo = 0
+                end if
+                avg = mean(readings[lo:end])
+                print("  reading #{n}: {value:.3f}  moving avg (last {window}) = {avg:.3f}  min={min(readings):.3f}  max={max(readings):.3f}")
+            else
+                print("  received a non-numeric line, skipping: \"{line}\"")
+            end if
+        end if
+    end for
+
+    close(conn)
+
+    if length(readings) > 0
+        print("done -- {length(readings)} numeric reading(s) processed, overall mean = {mean(readings):.3f}")
+    else
+        print("done -- the port opened, but no numeric readings were received in this run")
+    end if
+catch err
+    print("serial demo could not run: {err.message}")
+    print("this is the expected, honest result on a machine with no matching serial device attached")
+end

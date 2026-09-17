@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GUI controls — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Language &amp; UI</p>
+<h1>GUI controls</h1>
+<p class="lede">a GUI declared by the script itself.</p>
+<p class="srcpath">catalog/qu_gui_controls.qu</p>
+<p>Qu's GUI model is IMMEDIATE MODE: there is no widget tree to build and no callbacks to register. A script calls `ui_slider(...)` / `ui_select(...)` etc. as it runs, and each call hands back that control's CURRENT value. The host (QuStudio) re-runs the whole script whenever a control changes.</p>
+<p>The consequence worth noticing: this file is still an ordinary script. Run it from a plain terminal with no GUI anywhere in sight and every control simply returns its own declared default, so it prints real results rather than erroring. Run it inside a host and the same lines become live controls. One script, both ways, no branching.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>ui_slider(label, min, max, [default], [step=], [fill=], [size=], [id=])</li>
+<li>ui_number(label, [default])          ui_checkbox(label, [default])</li>
+<li>ui_select(label, options, [default])  ui_text(label, [default])</li>
+<li>ui_button(label)                      -- true only on the run it's pressed</li>
+</ul>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Damped oscillation: sine at 3 Hz, amplitude 1, decay 0.4
+peak = 0.9674, rms = 0.5865</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="492.57" x2="866.00" y2="492.57" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="492.57" x2="86.00" y2="492.57" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="497.05" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.8</text>
+<line x1="86.00" y1="444.80" x2="866.00" y2="444.80" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="444.80" x2="86.00" y2="444.80" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="449.28" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.6</text>
+<line x1="86.00" y1="397.02" x2="866.00" y2="397.02" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="397.02" x2="86.00" y2="397.02" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="401.50" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.4</text>
+<line x1="86.00" y1="349.24" x2="866.00" y2="349.24" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="349.24" x2="86.00" y2="349.24" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="353.72" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.2</text>
+<line x1="86.00" y1="301.47" x2="866.00" y2="301.47" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="301.47" x2="86.00" y2="301.47" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="305.95" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="253.69" x2="866.00" y2="253.69" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="253.69" x2="86.00" y2="253.69" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="258.17" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.2</text>
+<line x1="86.00" y1="205.91" x2="866.00" y2="205.91" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="205.91" x2="86.00" y2="205.91" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="210.39" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="158.14" x2="866.00" y2="158.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="158.14" x2="86.00" y2="158.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="162.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.6</text>
+<line x1="86.00" y1="110.36" x2="866.00" y2="110.36" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="110.36" x2="86.00" y2="110.36" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="114.84" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="86.00" y1="62.58" x2="866.00" y2="62.58" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="62.58" x2="86.00" y2="62.58" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="67.06" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="160.43" y1="48.00" x2="160.43" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="160.43" y1="540.00" x2="160.43" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="160.43" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.1</text>
+<line x1="234.87" y1="48.00" x2="234.87" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="234.87" y1="540.00" x2="234.87" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="234.87" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.2</text>
+<line x1="309.30" y1="48.00" x2="309.30" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="309.30" y1="540.00" x2="309.30" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="309.30" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.3</text>
+<line x1="383.74" y1="48.00" x2="383.74" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="383.74" y1="540.00" x2="383.74" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="383.74" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.4</text>
+<line x1="458.17" y1="48.00" x2="458.17" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="458.17" y1="540.00" x2="458.17" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="458.17" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.5</text>
+<line x1="532.61" y1="48.00" x2="532.61" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="532.61" y1="540.00" x2="532.61" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="532.61" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.6</text>
+<line x1="607.04" y1="48.00" x2="607.04" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="607.04" y1="540.00" x2="607.04" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="607.04" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.7</text>
+<line x1="681.48" y1="48.00" x2="681.48" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="681.48" y1="540.00" x2="681.48" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="681.48" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.8</text>
+<line x1="755.91" y1="48.00" x2="755.91" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="755.91" y1="540.00" x2="755.91" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="755.91" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.9</text>
+<line x1="830.35" y1="48.00" x2="830.35" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="830.35" y1="540.00" x2="830.35" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="830.35" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,301.47 87.49,292.47 88.98,283.50 90.47,274.57 91.95,265.69 93.44,256.88 94.93,248.15 96.42,239.50 97.91,230.96 99.40,222.53 100.89,214.23 102.38,206.06 103.86,198.04 105.35,190.19 106.84,182.50 108.33,174.99 109.82,167.68 111.31,160.57 112.80,153.66 114.29,146.98 115.77,140.53 117.26,134.32 118.75,128.36 120.24,122.65 121.73,117.21 123.22,112.03 124.71,107.13 126.19,102.52 127.68,98.20 129.17,94.17 130.66,90.44 132.15,87.02 133.64,83.91 135.13,81.11 136.62,78.64 138.10,76.48 139.59,74.64 141.08,73.13 142.57,71.95 144.06,71.09 145.55,70.56 147.04,70.36 148.53,70.49 150.01,70.95 151.50,71.74 152.99,72.85 154.48,74.28 155.97,76.03 157.46,78.10 158.95,80.49 160.43,83.18 161.92,86.18 163.41,89.48 164.90,93.08 166.39,96.97 167.88,101.14 169.37,105.59 170.86,110.31 172.34,115.30 173.83,120.54 175.32,126.03 176.81,131.76 178.30,137.72 179.79,143.91 181.28,150.31 182.76,156.91 184.25,163.71 185.74,170.69 187.23,177.85 188.72,185.17 190.21,192.65 191.70,200.27 193.19,208.02 194.67,215.89 196.16,223.87 197.65,231.95 199.14,240.11 200.63,248.35 202.12,256.64 203.61,264.99 205.10,273.38 206.58,281.80 208.07,290.23 209.56,298.66 211.05,307.08 212.54,315.48 214.03,323.85 215.52,332.17 217.00,340.43 218.49,348.63 219.98,356.75 221.47,364.77 222.96,372.69 224.45,380.50 225.94,388.19 227.43,395.73 228.91,403.14 230.40,410.38 231.89,417.46 233.38,424.37 234.87,431.08 236.36,437.61 237.85,443.93 239.34,450.03 240.82,455.92 242.31,461.57 243.80,467.00 245.29,472.17 246.78,477.10 248.27,481.77 249.76,486.17 251.24,490.31 252.73,494.17 254.22,497.75 255.71,501.04 257.20,504.05 258.69,506.77 260.18,509.19 261.67,511.31 263.15,513.12 264.64,514.64 266.13,515.85 267.62,516.75 269.11,517.35 270.60,517.64 272.09,517.62 273.58,517.29 275.06,516.66 276.55,515.72 278.04,514.48 279.53,512.94 281.02,511.10 282.51,508.97 284.00,506.54 285.48,503.83 286.97,500.84 288.46,497.56 289.95,494.02 291.44,490.20 292.93,486.12 294.42,481.79 295.91,477.21 297.39,472.39 298.88,467.33 300.37,462.04 301.86,456.53 303.35,450.81 304.84,444.89 306.33,438.78 307.82,432.48 309.30,426.00 310.79,419.36 312.28,412.56 313.77,405.61 315.26,398.53 316.75,391.32 318.24,383.99 319.72,376.56 321.21,369.03 322.70,361.42 324.19,353.74 325.68,345.99 327.17,338.19 328.66,330.36 330.15,322.49 331.63,314.61 333.12,306.72 334.61,298.84 336.10,290.97 337.59,283.13 339.08,275.33 340.57,267.58 342.05,259.89 343.54,252.27 345.03,244.74 346.52,237.29 348.01,229.95 349.50,222.72 350.99,215.62 352.48,208.65 353.96,201.82 355.45,195.14 356.94,188.63 358.43,182.28 359.92,176.12 361.41,170.14 362.90,164.36 364.39,158.79 365.87,153.42 367.36,148.28 368.85,143.36 370.34,138.67 371.83,134.22 373.32,130.02 374.81,126.07 376.29,122.37 377.78,118.93 379.27,115.76 380.76,112.85 382.25,110.22 383.74,107.87 385.23,105.79 386.72,103.99 388.20,102.48 389.69,101.25 391.18,100.31 392.67,99.66 394.16,99.30 395.65,99.22 397.14,99.43 398.63,99.92 400.11,100.71 401.60,101.77 403.09,103.12 404.58,104.75 406.07,106.65 407.56,108.83 409.05,111.28 410.53,113.99 412.02,116.97 413.51,120.20 415.00,123.69 416.49,127.42 417.98,131.39 419.47,135.60 420.96,140.04 422.44,144.70 423.93,149.58 425.42,154.66 426.91,159.95 428.40,165.42 429.89,171.08 431.38,176.92 432.87,182.93 434.35,189.09 435.84,195.40 437.33,201.86 438.82,208.44 440.31,215.15 441.80,221.97 443.29,228.89 444.77,235.90 446.26,243.00 447.75,250.16 449.24,257.39 450.73,264.67 452.22,271.99 453.71,279.34 455.20,286.71 456.68,294.09 458.17,301.47 459.66,308.83 461.15,316.18 462.64,323.49 464.13,330.75 465.62,337.97 467.11,345.12 468.59,352.20 470.08,359.19 471.57,366.09 473.06,372.89 474.55,379.58 476.04,386.14 477.53,392.57 479.01,398.87 480.50,405.01 481.99,411.00 483.48,416.83 484.97,422.48 486.46,427.94 487.95,433.23 489.44,438.31 490.92,443.19 492.41,447.87 493.90,452.33 495.39,456.56 496.88,460.57 498.37,464.35 499.86,467.89 501.34,471.19 502.83,474.24 504.32,477.04 505.81,479.58 507.30,481.87 508.79,483.90 510.28,485.67 511.77,487.18 513.25,488.41 514.74,489.38 516.23,490.08 517.72,490.51 519.21,490.68 520.70,490.57 522.19,490.20 523.68,489.55 525.16,488.64 526.65,487.47 528.14,486.04 529.63,484.34 531.12,482.39 532.61,480.18 534.10,477.72 535.58,475.02 537.07,472.08 538.56,468.89 540.05,465.48 541.54,461.83 543.03,457.97 544.52,453.89 546.01,449.60 547.49,445.10 548.98,440.41 550.47,435.53 551.96,430.46 553.45,425.22 554.94,419.82 556.43,414.25 557.92,408.53 559.40,402.67 560.89,396.68 562.38,390.56 563.87,384.32 565.36,377.97 566.85,371.53 568.34,365.00 569.82,358.38 571.31,351.70 572.80,344.96 574.29,338.16 575.78,331.33 577.27,324.46 578.76,317.57 580.25,310.67 581.73,303.77 583.22,296.87 584.71,289.99 586.20,283.14 587.69,276.33 589.18,269.56 590.67,262.85 592.16,256.21 593.64,249.64 595.13,243.15 596.62,236.76 598.11,230.47 599.60,224.29 601.09,218.23 602.58,212.29 604.06,206.50 605.55,200.84 607.04,195.34 608.53,190.00 610.02,184.83 611.51,179.83 613.00,175.01 614.49,170.38 615.97,165.94 617.46,161.70 618.95,157.67 620.44,153.85 621.93,150.24 623.42,146.86 624.91,143.70 626.40,140.76 627.88,138.06 629.37,135.60 630.86,133.38 632.35,131.40 633.84,129.66 635.33,128.17 636.82,126.93 638.30,125.94 639.79,125.20 641.28,124.72 642.77,124.48 644.26,124.50 645.75,124.76 647.24,125.28 648.73,126.05 650.21,127.06 651.70,128.33 653.19,129.83 654.68,131.58 656.17,133.56 657.66,135.78 659.15,138.24 660.63,140.92 662.12,143.82 663.61,146.94 665.10,150.28 666.59,153.83 668.08,157.58 669.57,161.53 671.06,165.67 672.54,170.00 674.03,174.51 675.52,179.19 677.01,184.04 678.50,189.04 679.99,194.20 681.48,199.51 682.97,204.94 684.45,210.51 685.94,216.20 687.43,222.00 688.92,227.90 690.41,233.90 691.90,239.99 693.39,246.15 694.87,252.38 696.36,258.67 697.85,265.01 699.34,271.40 700.83,277.81 702.32,284.25 703.81,290.70 705.30,297.16 706.78,303.62 708.27,310.06 709.76,316.48 711.25,322.86 712.74,329.21 714.23,335.50 715.72,341.74 717.21,347.91 718.69,354.01 720.18,360.02 721.67,365.94 723.16,371.75 724.65,377.46 726.14,383.05 727.63,388.52 729.11,393.85 730.60,399.04 732.09,404.09 733.58,408.98 735.07,413.72 736.56,418.28 738.05,422.67 739.54,426.89 741.02,430.91 742.51,434.75 744.00,438.39 745.49,441.84 746.98,445.07 748.47,448.10 749.96,450.91 751.45,453.51 752.93,455.89 754.42,458.04 755.91,459.97 757.40,461.67 758.89,463.14 760.38,464.38 761.87,465.39 763.35,466.16 764.84,466.69 766.33,466.99 767.82,467.05 769.31,466.88 770.80,466.48 772.29,465.84 773.78,464.96 775.26,463.86 776.75,462.53 778.24,460.97 779.73,459.18 781.22,457.18 782.71,454.96 784.20,452.52 785.69,449.87 787.17,447.02 788.66,443.96 790.15,440.71 791.64,437.26 793.13,433.63 794.62,429.81 796.11,425.82 797.59,421.66 799.08,417.33 800.57,412.85 802.06,408.21 803.55,403.44 805.04,398.52 806.53,393.47 808.02,388.30 809.50,383.02 810.99,377.63 812.48,372.14 813.97,366.55 815.46,360.89 816.95,355.15 818.44,349.34 819.92,343.47 821.41,337.55 822.90,331.59 824.39,325.60 825.88,319.58 827.37,313.55 828.86,307.51" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Damped oscillation</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Time (s)</text>
+<text x="42.08" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 42.08 294.00)">Amplitude</text>
+<rect x="750.00" y="56.00" width="108.00" height="32.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="757.00" y1="72.00" x2="777.00" y2="72.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="783.00" y="75.50" font-size="12" text-anchor="start" fill="#222">sine @ 3 Hz</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_gui_controls.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_gui_controls.qu -- a GUI declared by the script itself.</span>
+<span class="c">#</span>
+<span class="c"># Qu's GUI model is IMMEDIATE MODE: there is no widget tree to build and</span>
+<span class="c"># no callbacks to register. A script calls `ui_slider(...)` / `ui_select(...)`</span>
+<span class="c"># etc. as it runs, and each call hands back that control's CURRENT value.</span>
+<span class="c"># The host (QuStudio) re-runs the whole script whenever a control changes.</span>
+<span class="c">#</span>
+<span class="c"># The consequence worth noticing: this file is still an ordinary script.</span>
+<span class="c"># Run it from a plain terminal with no GUI anywhere in sight and every</span>
+<span class="c"># control simply returns its own declared default, so it prints real</span>
+<span class="c"># results rather than erroring. Run it inside a host and the same lines</span>
+<span class="c"># become live controls. One script, both ways, no branching.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised:</span>
+<span class="c">#   ui_slider(label, min, max, [default], [step=], [fill=], [size=], [id=])</span>
+<span class="c">#   ui_number(label, [default])          ui_checkbox(label, [default])</span>
+<span class="c">#   ui_select(label, options, [default])  ui_text(label, [default])</span>
+<span class="c">#   ui_button(label)                      -- true only on the run it's pressed</span>
+
+<span class="c"># ---- Controls -------------------------------------------------------</span>
+<span class="c"># `fill` is true by default (the dock/fill convention: a control adapts to</span>
+<span class="c"># the width it's given). Turn it off and `size` gives a RELATIVE weight, so</span>
+<span class="c"># two controls at size 1 and 2 keep their 1:2 split at any window size.</span>
+title = <span class="f">ui_text</span>(<span class="s">"Title"</span>, <span class="s">"Damped oscillation"</span>)
+freq  = <span class="f">ui_slider</span>(<span class="s">"Frequency (Hz)"</span>, <span class="n">0.5</span>, <span class="n">20</span>, <span class="n">3</span>, <span class="k">step</span> = <span class="n">0.5</span>)
+decay = <span class="f">ui_slider</span>(<span class="s">"Decay"</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0.4</span>, <span class="k">step</span> = <span class="n">0.05</span>)
+amp   = <span class="f">ui_number</span>(<span class="s">"Amplitude"</span>, <span class="n">1.0</span>, <span class="a">fill</span> = <span class="k">false</span>, <span class="a">size</span> = <span class="n">1</span>)
+wave  = <span class="f">ui_select</span>(<span class="s">"Waveform"</span>, (<span class="s">"sine"</span>, <span class="s">"square"</span>, <span class="s">"sawtooth"</span>), <span class="s">"sine"</span>)
+grid_on = <span class="f">ui_checkbox</span>(<span class="s">"Grid"</span>, <span class="k">true</span>, <span class="a">fill</span> = <span class="k">false</span>, <span class="a">size</span> = <span class="n">1</span>)
+
+<span class="c"># ---- Signal ---------------------------------------------------------</span>
+Fs = <span class="n">500</span>
+N  = <span class="n">500</span>
+t  = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+
+<span class="k">if</span> wave == <span class="s">"square"</span>
+    base = signals.<span class="f">square</span>(freq, Fs, N)
+<span class="k">elseif</span> wave == <span class="s">"sawtooth"</span>
+    base = signals.<span class="f">sawtooth</span>(freq, Fs, N)
+<span class="k">else</span>
+    base = <span class="f">sin</span>(<span class="n">2</span> * pi * freq * t)
+<span class="k">end</span>
+
+y = amp * base * <span class="f">exp</span>(-decay * t)
+
+<span class="c"># ---- Report + plot --------------------------------------------------</span>
+<span class="f">print</span>(<span class="s">"{title}: {wave} at {freq} Hz, amplitude {amp}, decay {decay}"</span>)
+<span class="f">print</span>(<span class="s">"peak = {max(y):.4f}, rms = {rms(y):.4f}"</span>)
+
+<span class="c"># `ui_button` is true only on the run where it was actually pressed, so</span>
+<span class="c"># this reads naturally instead of latching on for every later re-run.</span>
+<span class="k">if</span> <span class="f">ui_button</span>(<span class="s">"Print samples"</span>)
+    <span class="f">print</span>(<span class="s">"first 5 samples: {y[0:4]}"</span>)
+<span class="k">end</span>
+
+<span class="f">plot</span>(t, y, <span class="a">label</span> = <span class="s">"{wave} @ {freq} Hz"</span>, <span class="a">color</span> = <span class="s">"blue"</span>)
+<span class="k">if</span> grid_on
+    grid on
+<span class="k">end</span>
+<span class="f">title</span>(<span class="s">"{title}"</span>)
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Amplitude"</span>)
+<span class="f">legend</span>()
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+# qu_layers_schematic.qu — describe a symbol once, place it forty times.
+#
+# A measurement rig drawn as a schematic: sensors along a beam, an
+# amplifier per channel, and the wiring between them. Every symbol is a
+# LAYER -- captured once from a function that draws it at the origin, then
+# stamped wherever it belongs, at whatever size and angle.
+#
+# WHY THAT MATTERS. Without layers this script is the same eight drawing
+# calls copied fourteen times with different numbers in them, and changing
+# the sensor symbol means finding all fourteen. With them the symbol has one
+# definition and the placement is a loop, which is the difference between a
+# figure you can edit and one you redraw.
+#
+# A LAYER IS A VALUE, not a mode with a begin and an end. It can be passed
+# to a function, returned from one, kept in a list, and duplicated by
+# ordinary assignment -- which is what lets `symbols` below be a list of
+# them, indexed by which channel is being drawn.
+#
+# Exercises:
+#   capture(fn, [args...])         — run a function, keep what it drew
+#   stamp(layer, x, y, scale=, rotate=)
+#   circle / rect / polygon / arc  — the symbols themselves
+#   hsv / palette                  — colour picked by role, not by taste
+#   axis off                       — the panel as a coordinate system
+
+backend auto
+
+INK  = "#26303f"
+LIVE = "#0072bd"
+WARM = "#b5651d"
+
+#%% The symbols
+#
+# Each is drawn at the origin, pointing right, at unit size. Everything
+# about WHERE it goes belongs to the stamp, not to the symbol -- that
+# separation is the whole point.
+
+function sensor()
+    circle(0, 0, 0.30, fill = LIVE, alpha = 0.85)
+    circle(0, 0, 0.46, color = LIVE, width = 1.4)
+    # The lead, pointing down toward the beam.
+    plot([0, 0], [-0.46, -1.0], color = LIVE, width = 1.4)
+end function
+
+function amplifier()
+    # The triangle every schematic uses, pointing right.
+    polygon((-0.45, 0.55, -0.45), (-0.5, 0.0, 0.5), fill = "#ffffff", alpha = 1.0)
+    polygon((-0.45, 0.55, -0.45), (-0.5, 0.0, 0.5), color = INK, width = 1.3)
+    plot([-0.85, -0.45], [0, 0], color = INK, width = 1.2)
+    plot([0.55, 0.95], [0, 0], color = INK, width = 1.2)
+end function
+
+function adc()
+    rect(-0.5, -0.4, 0.5, 0.4, color = INK)
+    plot([-0.9, -0.5], [0, 0], color = INK, width = 1.2)
+    plot([0.5, 0.9], [0, 0], color = INK, width = 1.2)
+    # The staircase that says "sampled".
+    plot([-0.30, -0.15, -0.15, 0.00, 0.00, 0.15, 0.15, 0.30],
+         [-0.18, -0.18, -0.02, -0.02, 0.10, 0.10, 0.22, 0.22],
+         color = WARM, width = 1.2)
+end function
+
+function fault()
+    # A warning marker, for the channel that is misbehaving. Drawn at unit
+    # size like everything else, so `scale=` alone sizes it.
+    polygon((0, 0.5, -0.5), (0.55, -0.35, -0.35), fill = "#f6d6c0", alpha = 1.0)
+    polygon((0, 0.5, -0.5), (0.55, -0.35, -0.35), color = WARM, width = 1.3)
+    plot([0, 0], [-0.08, 0.28], color = WARM, width = 1.6)
+    circle(0, -0.20, 0.045, fill = WARM, alpha = 1.0)
+end function
+
+#%% Capture each one, once
+SENSOR = capture("sensor")
+AMP    = capture("amplifier")
+ADC    = capture("adc")
+FAULT  = capture("fault")
+print("captured: {SENSOR}, {AMP}, {ADC}, {FAULT}")
+
+#%% The rig
+N = 7
+BEAM_Y = 1.6
+
+figure_size(1100, 560)
+xlim(-0.5, 15.5)
+ylim(0, 9.2)
+
+# The beam the sensors sit on.
+rect(0.2, BEAM_Y - 0.30, 14.8, BEAM_Y + 0.30, color = "#c8ccd4")
+text(0.35, BEAM_Y - 0.75, "test beam", size = 11, color = "#59616f")
+
+# One channel per sensor: sensor, wire, amplifier, wire, converter.
+for k in 0 to N - 1
+    x = 1.4 + k * 2.0
+    stamp(SENSOR, x, BEAM_Y + 1.6)
+
+    # The wire from the sensor up to its amplifier.
+    plot([x, x], [BEAM_Y + 2.6, 4.7], color = "#9aa3b0", width = 1.0)
+
+    stamp(AMP, x, 5.3, scale = 0.78)
+    plot([x, x], [5.9, 6.6], color = "#9aa3b0", width = 1.0)
+    stamp(ADC, x, 7.2, scale = 0.78)
+
+    text(x, 8.1, "ch {k}", size = 11, color = "#59616f")
+end for
+
+# Channel 4 has a problem. One extra stamp says so -- no new symbol, no
+# copied code, just the same layer placed somewhere with a reason.
+stamp(FAULT, 1.4 + 4 * 2.0 + 0.78, 5.9, scale = 0.62)
+text(1.4 + 4 * 2.0 + 1.5, 5.9, "clipping", size = 11, color = WARM)
+
+# The bus every converter feeds.
+plot([1.4 - 0.7, 1.4 + (N - 1) * 2.0 + 0.7], [8.7, 8.7], color = INK, width = 1.4)
+for k in 0 to N - 1
+    x = 1.4 + k * 2.0
+    plot([x, x], [7.6, 8.7], color = "#9aa3b0", width = 1.0)
+end for
+text(1.4 + (N - 1) * 2.0 + 0.9, 8.7, "to host", size = 11, color = INK)
+
+title("Seven channels, four symbols, one definition each")
+axis off
+savefig("layers_schematic.svg")
+
+#%% What it cost
+#
+# Four symbol definitions and one loop. Placed by hand this figure is
+# roughly 7 x 8 drawing calls with different numbers in each -- and moving
+# the beam would mean editing every one of them.
+print("{N} channels drawn from 4 captured symbols")
+print("stamps placed: {N * 3 + 1}")

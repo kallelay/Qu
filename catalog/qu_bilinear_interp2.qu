@@ -1,0 +1,57 @@
+# qu_bilinear_interp2.qu -- 2D grid interpolation with `interp2`.
+#
+# `interp2(x, y, Z, xq, yq, [method="bilinear"|"nearest"])` (commit
+# 5bc6c19) is the 2D sibling of `interp1`: `x` (length ncols) are the
+# grid's COLUMN coordinates, `y` (length nrows) its ROW coordinates, and
+# `Z` is an (nrows, ncols) matrix with `Z[i, j]` the value at
+# `(y[i], x[j])` -- `Matrix::get(row, col)`'s ordinary indexing, matching
+# every other grid-shaped builtin in this codebase (`heatmap`,
+# `matrix_row`, ...), not a transposed axis order. This demo builds a
+# coarse grid of the bilinear function `f(x, y) = x * y` (chosen because
+# bilinear interpolation reproduces it EXACTLY inside any cell -- so the
+# "off-grid" check below can be hand-verified to machine precision, not
+# just "plausible looking"), queries it at an exact grid point (must match
+# Z exactly, zero interpolation error), then at an off-grid point, and
+# finally compares "bilinear" against "nearest" at that SAME off-grid point
+# to show the two methods genuinely disagree.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   interp2(x, y, Z, xq, yq, [method]) -- bilinear (default) or nearest-neighbor
+#   Matrix literal [..;..] construction / rows()/cols()
+
+backend auto
+
+#%% A coarse 4x3 grid of f(x, y) = x * y
+x = [0, 1, 2, 3]      # 4 column coordinates
+y = [0, 1, 2]         # 3 row coordinates
+
+# Z[i, j] = x[j] * y[i]  (row i <-> y[i], col j <-> x[j])
+Z = [0, 0, 0, 0; 0, 1, 2, 3; 0, 2, 4, 6]
+print("grid: x={x}, y={y}, Z is {rows(Z)}x{cols(Z)}")
+
+#%% 1) Exact grid point: (xq, yq) = (2, 1) must reproduce Z exactly
+exact_val = interp2(x, y, Z, 2, 1)
+print("interp2 at exact grid point (x=2, y=1) = {exact_val}  (Z[row=1,col=2] = {Z[1, 2]}, expect identical, 0 error)")
+print("error vs Z = {abs(exact_val - Z[1, 2]):.2e}")
+
+#%% 2) Off-grid point: (xq, yq) = (1.5, 0.5), bracketed by cell
+#      x in [1, 2] (tx=0.5), y in [0, 1] (ty=0.5).
+# Hand-computed bilinear average of the 4 surrounding corners:
+#   z00 = Z(y=0,x=1) = 0*1 = 0      z01 = Z(y=0,x=2) = 0*2 = 0
+#   z10 = Z(y=1,x=1) = 1*1 = 1      z11 = Z(y=1,x=2) = 1*2 = 2
+#   top    = z00 + tx*(z01 - z00) = 0 + 0.5*(0 - 0)  = 0
+#   bottom = z10 + tx*(z11 - z10) = 1 + 0.5*(2 - 1)  = 1.5
+#   result = top + ty*(bottom - top) = 0 + 0.5*(1.5 - 0) = 0.75
+# (matches f(1.5, 0.5) = 1.5*0.5 = 0.75 exactly, as expected for a bilinear f)
+bilinear_val = interp2(x, y, Z, 1.5, 0.5)
+hand_computed = 0.75
+print("interp2 (bilinear) at off-grid (1.5, 0.5) = {bilinear_val}  (hand-computed = {hand_computed})")
+print("error vs hand-computed = {abs(bilinear_val - hand_computed):.2e}")
+
+#%% 3) Same off-grid point, "nearest" method -- genuinely different answer.
+# Nearest x to 1.5 is a tie (1 and 2 both 0.5 away) -> first candidate x=1
+# wins; nearest y to 0.5 is likewise a tie -> y=0 wins. So nearest picks
+# corner (y=0, x=1) = Z[0,1] = 0, NOT the bilinear average of 0.75.
+nearest_val = interp2(x, y, Z, 1.5, 0.5, "nearest")
+print("interp2 (nearest)  at off-grid (1.5, 0.5) = {nearest_val}  (bilinear gave {bilinear_val} -- different answers)")
+print("bilinear != nearest: {bilinear_val != nearest_val}")

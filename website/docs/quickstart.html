@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickstart — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html" class="here">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Quickstart</h1>
+<nav class="onthispage"><a href="#s0">1. Install and run</a><a href="#s36">2. Core syntax in one script</a><a href="#s83">3. Vectors and matrices</a><a href="#s125">4. Plotting</a><a href="#s156">5. Signal processing: filtering a noisy signal</a><a href="#s222">6. Working with data</a><a href="#s262">7. Machine learning: train, predict, check accuracy</a><a href="#s333">8. Concurrency: spawn and join</a><a href="#s383">Where to go from here</a></nav>
+<p>This chapter is the on-ramp: install Qu, run your first script, then one short, runnable example per domain — syntax, matrices, plotting, signal processing, data, machine learning, concurrency. Every snippet below has been run against the reference interpreter and its printed output is the actual output, not a mockup. For real depth on any one of these topics, this chapter hands off to <strong><a href="fundamentals.html">Book 1</a></strong>, <strong><a href="numerics-dsp.html">Book 2</a></strong>, and <strong><a href="specialized.html">Book 3</a></strong>, plus the <a href="stdlib-overview.html">Standard Library Reference</a> and the <a href="spec.html">language specification</a> — this walkthrough deliberately stays shallow so it stays fast.</p>
+<h2 id="s0">1. Install and run</h2>
+<p>Qu ships today as <strong>source you build yourself</strong> — there is no packaged binary or installer yet. You need a working Rust toolchain (<a href="https://rustup.rs">rustup.rs</a>) and a clone of this repository:</p>
+<pre><code>git clone &lt;this repository&gt;
+cd Qu
+cargo build --manifest-path engine/Cargo.toml -p qu-cli
+</code></pre>
+<p>That builds a <code>qu</code> binary (<code>engine/target/debug/qu</code>, or use <code>cargo run</code> as shown below to build-and-run in one step). Two ways to use it:</p>
+<p><strong>Run a script.</strong> Save this as <code>hello.qu</code>:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"Hello, Qu!"</span>)
+</code></pre>
+</div>
+<pre><code>cargo run --manifest-path engine/Cargo.toml -p qu-cli -- run hello.qu
+</code></pre>
+<pre><code>Hello, Qu!
+</code></pre>
+<p><strong>Or start the REPL</strong> for interactive, line-at-a-time exploration:</p>
+<pre><code>cargo run --manifest-path engine/Cargo.toml -p qu-cli -- repl
+</code></pre>
+<pre><code>qu&gt; print(1 + 1)
+2
+qu&gt;
+</code></pre>
+<p>A line that doesn't end in <code>;</code> echoes its result automatically (<code>ans = ...</code> for a bare expression). <code>:vars</code> lists everything currently bound, <code>:clear</code> resets the session, <code>:quit</code>/<code>:exit</code> (or Ctrl+D) leaves — type <code>:help</code> inside the REPL for the full list. The rest of this chapter uses <code>qu run &lt;file&gt;</code> for every example; every one of them works pasted into the REPL too.</p>
+<h3><code>qu run</code> flags for running untrusted or unattended scripts</h3>
+<p><code>qu run &lt;file.qu&gt;</code> takes a few flags for running a script you don't fully trust or don't want to babysit — useful for a script from someone else, a CI job, or anything you want a hard ceiling on:</p>
+<ul>
+<li><strong></strong><code>--max-time &lt;seconds&gt;</code><strong> and </strong><code>--max-memory &lt;MB&gt;</code><strong> — hard resource caps. Exceeding either one kills the process outright (not a graceful stop — the script's own output up to that point is discarded, same as any other hard timeout/OOM kill) with a message naming which limit was hit and the actual measured value:</strong></li>
+</ul>
+<pre><code><span class="e">  qu: killed: exceeded --max-time 30s (ran 30.4s)</span>
+<span class="e">  qu: killed: exceeded --max-memory 512MB (used ~520MB)</span>
+</code></pre>
+<p>Enforcement is a background thread polling wall-clock time and process memory every 25ms, not a hard allocator-level ceiling or a cooperative check inside the interpreter's own loop — chosen specifically because it also catches a single slow *native* operation (a huge matrix op, say), not just a runaway Qu-level loop. That polling interval is the real precision bound: a run can overshoot either limit by up to ~25ms (and, for memory, by however much one single large allocation adds between two polls) before getting killed.</p>
+<ul>
+<li><strong></strong><code>--sandbox</code><strong> — denies a fixed list of capability-bearing builtins at call time instead of running them: </strong><code>http_get</code>, the <code>tcp_*</code> family, <code>listen_pool</code>, <code>python_exec</code>, and file-*write* operations specifically (<code>write_csv</code>, <code>touch</code>, <code>fopen</code>/<code>StreamFile</code> opened in a write mode). File *reads* stay allowed — a sandboxed script can still load input data with <code>read_csv</code>/<code>fopen(path, "r")</code>/etc., it just can't reach the network, spawn external processes, or write to disk. A denied call fails with a clear error (<code>qu: ... sandbox: 'http_get' is disabled in sandboxed execution</code>) rather than silently doing nothing. <strong>This is a capability restriction, not a full security sandbox</strong> — it does nothing about CPU/memory exhaustion on its own. Pair it with <code>--max-time</code>/<code>--max-memory</code> for that: <code>--sandbox --max-time 10 --max-memory 256</code> together is the realistic "run this untrusted script" recipe; neither flag alone is a complete answer.</li>
+<li><strong></strong><code>--profile</code><strong> (optionally with </strong><code>--profile-output &lt;path&gt;</code>) — reports, to stderr by default or to the given file, per-function call count/total wall time/time% (aggregated across every call to that function name, sorted hottest-first) plus the run's peak resident memory:</li>
+</ul>
+<pre><code>  qu profile
+    wall-clock time : 0.842s
+    peak RSS        : 61 MB
+
+    function                       calls   total time   time %
+    train_epoch                       50      0.701s     83.3%
+    forward                          500      0.098s     11.6%
+    load_batch                        50      0.015s      1.8%
+</code></pre>
+<h3>Sandbox/profiling as part of the program, not just CLI flags</h3>
+<p><code>--sandbox</code>/<code>--profile</code> above apply to the whole process, set once before the script starts. <code>sandbox_mode(on)</code>, <code>profiling_mode(on)</code>, and <code>profile_stats()</code> are the same two underlying controls exposed as builtins, so a script can turn either on for just the section it cares about instead of all-or-nothing for the whole run:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">load_and_process</span>(path)
+    <span class="f">profiling_mode</span>(<span class="k">true</span>)
+    data = <span class="f">read_csv</span>(path, <span class="a">headers</span>=<span class="k">true</span>)
+    result = data.<span class="f">sort_by</span>(<span class="s">"value"</span>)
+    <span class="f">profiling_mode</span>(<span class="k">false</span>)
+    <span class="f">print</span>(<span class="f">profile_stats</span>())     <span class="c"># a real Table: function / calls / seconds</span>
+
+    <span class="f">sandbox_mode</span>(<span class="k">true</span>)
+    <span class="k">try</span>
+        <span class="f">touch</span>(<span class="s">"audit.log"</span>)     <span class="c"># denied -- sandboxed for this section only</span>
+    <span class="k">catch</span> err
+        <span class="f">print</span>(<span class="s">"blocked: {err.message}"</span>)
+    <span class="k">end</span>
+    <span class="f">sandbox_mode</span>(<span class="k">false</span>)
+
+    <span class="k">return</span> result
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</div>
+<p><code>profile_stats()</code> returns a <code>Table</code> the script decides what to do with — print it, filter it, save it — rather than the CLI's external report string. <code>--max-time</code>/<code>--max-memory</code> have no in-script equivalent yet: they're enforced by an external OS-level watchdog thread in <code>qu-cli</code> started before the interpreter runs at all, so an in-script <code>max_time(...)</code>/<code>max_memory(...)</code> would need the watchdog to poll a value the interpreter can update mid-run rather than a fixed constant set at startup — a real design question, not yet built (see <code>BACKLOG.md</code>).</p>
+<h2 id="s36">2. Core syntax in one script</h2>
+<div class="example"><pre class="hl"><code>x = <span class="n">5</span>
+y = <span class="n">2.5</span>
+<span class="f">print</span>(<span class="s">"x + y = {x + y}"</span>)
+
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>
+    <span class="f">print</span>(<span class="s">"k = {k}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+
+n = <span class="n">0</span>
+total = <span class="n">0</span>
+<span class="k">while</span> n &lt; <span class="n">5</span>
+    total = total + n
+    n = n + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">print</span>(<span class="s">"total = {total}"</span>)
+
+<span class="k">if</span> total &gt; <span class="n">5</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"total is big"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"total is small"</span>)
+<span class="k">end</span> <span class="k">if</span>
+
+<span class="f">square</span>(v) := v ^ <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"square(6) = {square(6)}"</span>)
+
+<span class="k">function</span> <span class="f">greet</span>(who)
+    <span class="k">return</span> <span class="s">"hello, "</span> + who
+<span class="k">end</span> <span class="k">function</span>
+<span class="f">print</span>(<span class="f">greet</span>(<span class="s">"Qu"</span>))
+
+r = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"r = {r}"</span>)
+</code></pre>
+</div>
+<pre><code>x + y = 7.5
+k = 1
+k = 2
+k = 3
+k = 4
+k = 5
+total = 10
+total is big
+square(6) = 36
+hello, Qu
+r = [0, 2, 4, 6, 8, 10]
+</code></pre>
+<p>Notes on what just happened:</p>
+<ul>
+<li>Variables are implicitly typed — no declarations. <code>for</code>/<code>while</code>/<code>if</code> all close with an explicit <code>end</code> (or <code>end for</code>/<code>end while</code>/<code>end if</code>).</li>
+<li><code>:=</code> defines a one-line, non-recursive, *elemental* function (call it on a vector and it maps automatically); <code>function ... end function</code> is the multi-statement form with explicit <code>return</code>.</li>
+<li><code>start to stop [step delta]</code> is a range, <strong>inclusive at both ends</strong> — unlike Python's <code>range</code>.</li>
+<li><code>"{expr}"</code> interpolates directly in a double-quoted string, with an optional <code>:spec</code> (<code>.4f</code>, <code>.2e</code>, <code>d</code>, ...) for formatting.</li>
+</ul>
+<p>Book 1 goes much deeper here: <code>type explicit</code> mode, unit literals (<code>5 kHz</code>), complex numbers, logical/mask indexing, and <code>save</code>/<code>load</code>.</p>
+<h2 id="s83">3. Vectors and matrices</h2>
+<div class="example"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+b = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
+<span class="f">print</span>(<span class="s">"a + b = {a + b}"</span>)
+<span class="f">print</span>(<span class="s">"a .* b = {a .* b}"</span>)
+
+<span class="c"># zero-based indexing -- a MATLAB user's #1 surprise</span>
+<span class="f">print</span>(<span class="s">"a[0] = {a[0]}"</span>)
+
+M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="s">"M = {M}"</span>)
+<span class="f">print</span>(<span class="s">"M[0,1] = {M[0,1]}"</span>)
+<span class="f">print</span>(<span class="s">"M*M = {M*M}"</span>)
+
+<span class="c"># solve A*x = b for x, using left division</span>
+A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
+rhs = [<span class="n">1</span>; <span class="n">1</span>]
+x = A \ rhs
+<span class="f">print</span>(<span class="s">"x = {x}"</span>)
+<span class="f">print</span>(<span class="s">"A*x = {A * x}"</span>)
+</code></pre>
+</div>
+<pre><code>a + b = [11, 22, 33]
+a .* b = [10, 40, 90]
+a[0] = 1
+M = [1, 2; 3, 4]
+M[0,1] = 2
+M*M = [7, 10; 15, 22]
+x = [-0.1; 0.2]
+A*x = [1; 1]
+</code></pre>
+<p><strong>The one fact worth memorizing before anything else</strong>: <code>A[0,1]</code> reads row 0, column 1 — zero-based, like Python/NumPy, <strong>not</strong> one-based like MATLAB. The other MATLAB-familiar convention that *does* carry over: bare <code>*</code> is matrix multiplication at a 2-D boundary (not elementwise — use <code>.*</code> for that), and <code>A \ b</code> solves <code>A*x = b</code> exactly like MATLAB's own backslash. Book 1 §6–7 covers orientation, transpose spellings, and logical indexing; Book 2 §2 covers the rest of the linear-algebra floor (<code>inv</code>, <code>det</code>, <code>svd</code>, <code>qr</code>, <code>lu</code>, <code>eig</code>, <code>chol</code>).</p>
+<h2 id="s125">4. Plotting</h2>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+y = <span class="f">sin</span>(x)
+<span class="f">plot</span>(x, y)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"sin(x)"</span>)
+<span class="f">title</span>(<span class="s">"First plot"</span>)
+grid on
+<span class="f">savefig</span>(<span class="s">"quickstart_plot.svg"</span>)
+<span class="f">print</span>(<span class="s">"saved quickstart_plot.svg"</span>)
+</code></pre>
+</div>
+<pre><code>saved quickstart_plot.svg
+</code></pre>
+<p><code>savefig</code> picks the output format from the file extension. <code>.svg</code> and <code>.pdf</code> are both real, implemented vector backends today (<code>.html</code> embeds the same SVG in a minimal page, <code>.tikz</code>/<code>.tex</code> emits LaTeX source) — they share one draw-command list, so they never visually disagree with each other. Full-figure <code>.png</code> is the one format <strong>not</strong> implemented yet (it needs a real rasterizer); raster <code>.png</code> export for actual image data (<code>save_image</code>) is a separate, already-working feature. See <a href="plotting.html">Plotting</a> for the full chart-type list (<code>stem</code>/<code>scatter</code>/<code>bar</code>/<code>hist</code>/<code>heatmap</code>/<code>spectrogram</code>/... ) and subplot layout.</p>
+<h2 id="s156">5. Signal processing: filtering a noisy signal</h2>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+n = <span class="n">0</span> <span class="k">to</span> <span class="n">999</span>
+t = n / fs
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+noisy = clean + <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">120</span> * t)
+
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">30</span>, fs)
+filtered = <span class="f">filtfilt</span>(lp, noisy)
+
+err_noisy = <span class="f">rms</span>(noisy - clean)
+err_filtered = <span class="f">rms</span>(filtered - clean)
+<span class="f">print</span>(<span class="s">"rms error before filtering = {err_noisy:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"rms error after filtering  = {err_filtered:.4f}"</span>)
+</code></pre>
+</div>
+<pre><code>rms error before filtering = 0.7071
+rms error after filtering  = 0.0266
+</code></pre>
+<p><code>butter(order, kind, cutoff, fs)</code> designs a digital Butterworth filter as a cascade of second-order sections; <code>filtfilt</code> runs it forward then backward for zero phase distortion (the right choice for offline analysis). <code>sosfilt</code> is the single-pass, causal alternative, and <code>filter_init</code>/ <code>filter_next</code> thread filter state one sample at a time for streaming use. See Book 2 §1 for FFT, spectrograms, EMD/VMD, and the rest of the DSP toolbox.</p>
+<h2 id="s222">6. Working with data</h2>
+<p>Save this as <code>sensors.csv</code>:</p>
+<pre><code>temp,humidity,pressure,label
+21.5,45.2,1012.1,ok
+22.1,46.0,1011.8,ok
+35.0,20.1,1009.5,warn
+21.8,45.5,1012.0,ok
+36.2,19.5,1008.9,warn
+22.0,45.8,1012.3,ok
+34.5,21.0,1009.8,warn
+21.6,45.1,1012.2,ok
+35.8,20.4,1009.1,warn
+22.3,46.2,1011.9,ok
+</code></pre>
+<p>The block below writes that same file before reading it, so the page you are looking at really did run this. Without it the example opens a file the build does not have, fails, and is dropped from the page — leaving a quickstart whose output a newcomer cannot see.</p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
+    <span class="a">temp</span>     = [<span class="n">21.5</span>, <span class="n">22.1</span>, <span class="n">35.0</span>, <span class="n">21.8</span>, <span class="n">36.2</span>, <span class="n">22.0</span>, <span class="n">34.5</span>, <span class="n">21.6</span>, <span class="n">35.8</span>, <span class="n">22.3</span>],
+    <span class="a">humidity</span> = [<span class="n">45.2</span>, <span class="n">46.0</span>, <span class="n">20.1</span>, <span class="n">45.5</span>, <span class="n">19.5</span>, <span class="n">45.8</span>, <span class="n">21.0</span>, <span class="n">45.1</span>, <span class="n">20.4</span>, <span class="n">46.2</span>],
+    <span class="a">pressure</span> = [<span class="n">1012.1</span>, <span class="n">1011.8</span>, <span class="n">1009.5</span>, <span class="n">1012.0</span>, <span class="n">1008.9</span>, <span class="n">1012.3</span>, <span class="n">1009.8</span>, <span class="n">1012.2</span>, <span class="n">1009.1</span>, <span class="n">1011.9</span>],
+    <span class="a">label</span>    = [<span class="s">"ok"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>, <span class="s">"warn"</span>, <span class="s">"ok"</span>]
+), <span class="s">"sensors.csv"</span>)
+
+df = <span class="f">read_csv</span>(<span class="s">"sensors.csv"</span>)
+<span class="f">print</span>(<span class="s">"rows = {nrow(df)}, cols = {ncol(df)}"</span>)
+<span class="f">print</span>(<span class="f">head</span>(df, <span class="n">3</span>))
+
+numeric = <span class="f">drop</span>(df, <span class="s">"label"</span>)
+c = <span class="f">corrmat</span>(numeric)
+<span class="f">print</span>(c.matrix)
+c.<span class="f">plot</span>()
+<span class="f">savefig</span>(<span class="s">"quickstart_corrmat.svg"</span>)
+
+scaled_temp = <span class="f">standardize</span>(df.temp)
+<span class="f">print</span>(<span class="s">"standardized temp[0] = {scaled_temp[0]:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"mean(standardized) = {mean(scaled_temp):.4f}, std(standardized) = {std(scaled_temp):.4f}"</span>)
+</code></pre>
+</div>
+<pre><code>rows = 10, cols = 4
+table(3 rows x 4 cols: temp, humidity, pressure, label)
+[1, -0.997357, -0.991317; -0.997357, 1, 0.983511; -0.991317, 0.983511, 1]
+standardized temp[0] = -0.8275
+mean(standardized) = -0.0000, std(standardized) = 1.0000
+</code></pre>
+<p>A <code>Table</code> prints as a compact one-line summary rather than a full grid — use <code>print(select(df, "temp", "humidity"))</code> for a subset, or <code>print(describe(df))</code> for pandas-style summary statistics, when you want to actually see values. <code>drop(df, "col", ...)</code> returns a new table with those columns removed (Qu tables are immutable, like everything else); <code>corrmat(df)</code> returns a <code>model(...)</code> with a <code>.matrix</code> field, and doubles as a plottable heatmap via <code>.plot()</code>. <code>standardize</code>/<code>normalize</code>/ <code>robust_scale</code>/<code>quantile_normalize</code> are one-shot scalers; <code>fit_scaler(X, method=...)</code> plus <code>.transform</code>/<code>.inverse_transform</code> is the fit-once/ reuse-on-new-data version for a real train/test split. See <a href="collections-strings.html">Collections, Strings &amp; Data Frames</a> and <a href="file-io.html">File I/O</a> for the rest of the <code>Table</code> API.</p>
+<h2 id="s262">7. Machine learning: train, predict, check accuracy</h2>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
+c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
+c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
+c1y = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">4</span>)
+
+Xc0 = <span class="f">hstack</span>(<span class="f">reshape</span>(c0x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c0y, n_per_class, <span class="n">1</span>))
+Xc1 = <span class="f">hstack</span>(<span class="f">reshape</span>(c1x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c1y, n_per_class, <span class="n">1</span>))
+Xc = <span class="f">vstack</span>(Xc0, Xc1)             <span class="c"># (120, 2)</span>
+
+n = <span class="n">2</span> * n_per_class
+idx = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+y = <span class="f">floor</span>(idx / n_per_class)      <span class="c"># 0 for the first 60 rows, 1 for the last 60</span>
+
+<span class="k">function</span> <span class="f">one_hot</span>(labels, rows, k)
+    m = <span class="f">zeros</span>(rows, k)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        m[i, labels[i]] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> m
+<span class="k">end</span> <span class="k">function</span>
+
+Y = <span class="f">one_hot</span>(y, n, <span class="n">2</span>)
+
+net = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<span class="n">200</span>, <span class="a">lr</span>=<span class="n">0.1</span>, <span class="a">loss</span>=<span class="s">"cross_entropy"</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model, X, Ytrue, rows)
+    logits = model.<span class="f">predict</span>(X)
+    correct = <span class="n">0</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        <span class="k">if</span> <span class="f">argmax</span>(logits[i, :]) == <span class="f">argmax</span>(Ytrue[i, :]) <span class="k">then</span>
+            correct = correct + <span class="n">1</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> correct / rows
+<span class="k">end</span> <span class="k">function</span>
+
+acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
+<span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
+</code></pre>
+</div>
+<pre><code>training accuracy = 1.0000
+</code></pre>
+<p><code>mlp_classifier(in_dim, hidden_dims, n_classes, <a href="statistics-ml.html">seed=])</code> builds a dense+ReLU stack ending in raw ("softmax-ready") logits; <code>.fit(X, Y, epochs=, lr=, loss="cross_entropy")</code> trains it with one-hot <code>Y</code>, and <code>.predict(X)</code> runs inference (dropout off, untracked). Two classes drawn from well-separated Gaussian blobs is an easy problem — 100% training accuracy just confirms the whole pipeline actually works end to end, not that the model is magic. For classical (non-neural) ML with the same <code>fit</code>/<code>predict</code>/<code>score</code> protocol, see <code>kmeans_model</code>, <code>ols_model</code>, <code>tree_model</code>, <code>knn_model</code>, and the rest of [Statistics &amp; Machine Learning</a>; Book 3 §2 covers the model-zoo and pipeline story in more depth.</p>
+<h2 id="s333">8. Concurrency: spawn and join</h2>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
+result = <span class="f">join</span>(w)
+<span class="f">print</span>(<span class="s">"result = {result}"</span>)
+</code></pre>
+</div>
+<pre><code>result = 49
+</code></pre>
+<p><code>spawn("fn_name", args...)</code> runs a user-defined function on its own OS thread (only a function you defined can be spawned, never a builtin); <code>join(w)</code> blocks for its result. <code>parallel for</code> and <code>pmap</code> are the shared-nothing loop/pipeline-stage equivalents for "apply this to every element"; <code>mutex</code>/<code>semaphore</code> opt in to real shared state when you need it. See Book 3 §4 and §5 for timers (<code>every</code>/<code>after</code>), <code>parallel for</code>, and real serial-port I/O.</p>
+<h2 id="s383">Where to go from here</h2>
+<ul>
+<li><strong><a href="fundamentals.html">Book 1 — Fundamentals</a></strong>, <strong><a href="numerics-dsp.html">Book 2 — Numerics, DSP &amp; Linear Algebra</a></strong>, and <strong><a href="specialized.html">Book 3 — Specialized Domains</a></strong> go deep on everything this chapter only sampled, in that order.</li>
+<li>The <strong><a href="stdlib-overview.html">Standard Library Reference</a></strong> is the function-by-function index, organized by domain, generated straight from the interpreter's own builtin dispatch table.</li>
+<li><strong><a href="spec.html">The Specification</a></strong> is the source of truth for anything this book and the spec ever disagree on.</li>
+</ul>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

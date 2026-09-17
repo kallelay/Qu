@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>simple_rnn_classifier — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>simple_rnn_classifier</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>simple_rnn_classifier(input_size, hidden_size, n_classes, [seed=])</code></pre>
+<p class="fnnote">Input: input_size, hidden_size, n_classes, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Builds an untrained GRU-backed sequence classifier: <code>input_size</code>/<code>hidden_size</code>/<code>n_classes</code> positive integers (features per timestep, hidden width, and number of classes), plus an optional integer <code>seed=</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = simple_rnn_classifier(input_size, hidden_size, n_classes, [seed=])</code></td><td><div class="ioitem"><code>input_size</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>hidden_size</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_classes</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">number, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model or vector</span></div>
+</td><td>Returns a <code>kind="simple_rnn_classifier"</code> Model with <code>.fit(sequences, labels, [epochs=], [lr=])</code>, where <code>sequences</code> is a tuple of <code>(input_size, seq_len)</code> matrices and <code>labels</code> a length-<code>M</code> integer vector; <code>.predict(sequences)</code> returns a length-<code>M</code> vector of predicted classes.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+img1 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img1[<span class="n">2</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img2[<span class="n">1</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">1</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+net = net.<span class="f">fit</span>((img1, img2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_cnn predict rows: {rows(net.predict((img1, img2)))}"</span>)
+
+rnn = <span class="f">simple_rnn_classifier</span>(<span class="n">1</span>, <span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+seq1 = [<span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.5</span>, <span class="n">0.7</span>, <span class="n">0.9</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+seq2 = [<span class="n">0.9</span>, <span class="n">0.7</span>, <span class="n">0.5</span>, <span class="n">0.3</span>, <span class="n">0.1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+rnn = rnn.<span class="f">fit</span>((seq1, seq2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_rnn_classifier predict rows: {rows(rnn.predict((seq1, seq2)))}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>simple_rnn_classifier(input_size, hidden_size, n_classes, [seed=])</code> — <code>gru_init</code>'s own weights plus a softmax-ready dense readout on the LAST hidden state (<code>gru_forward(...)</code>'s final list entry). <code>out_w</code> is <code>(hidden_size, n_classes)</code> — the standard <code>dense(x, w, b)</code> orientation — applied to the transposed (row-shaped) last hidden state via <code>tt</code>, since <code>gru_forward</code>'s own hidden state is column-shaped (see <code>gru_cell_compute</code>'s doc comment): <code>dense(tt(h_last), out_w, out_b)</code>. Reuses <code>gru_init</code> directly (reseeding <code>self.rng</code> once up front so <code>seed=</code> covers both the GRU weights and the readout layer, not just the former).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+x = linspace(0, 10, 100)
+plot(x, sin(x), label="Nyquist-limited baseline reference measurement")
+plot(x, sin(x)+1, label="Electrochemically active surface area estimate")
+plot(x, sin(x)+2, label="Charge transfer resistance from rLKK fit")
+plot(x, sin(x)+3, label="Warburg diffusion coefficient (normalized)")
+plot(x, sin(x)+4, label="Double layer capacitance, corrected")
+plot(x, sin(x)+5, label="Solution resistance extrapolated to infinity")
+xlabel("x")
+ylabel("y")
+title("Six long legend entries")
+grid on
+legend()
+savefig("09_legend_six_long.svg")

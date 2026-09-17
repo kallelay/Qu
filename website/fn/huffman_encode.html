@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>huffman_encode — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>huffman_encode</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>huffman_encode(data)</code></pre>
+<p class="fnnote">Input: data &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Canonical Huffman coding of <code>data</code> (a <code>Str</code>, or a <code>Vec</code> of 0-255 byte values). Stores the code as one byte of code length per symbol, so the decoder rebuilds the tree rather than carrying it.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = huffman_encode(data)</code></td><td><div class="ioitem"><code>data</code> <span class="iotype">Str or Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>lengths</code> <span class="iotype">Vec</span><span class="iodesc">a length-256 <code>Vec</code>, the code length of each byte value, <code>0</code> for a value that never occurs</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">Vec</span><span class="iodesc">a <code>Vec</code> of 0-255 packed code bytes</span></div>
+<div class="ioitem"><code>bit_len</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, how many of those bits are real</span></div>
+<div class="ioitem"><code>symbol_count</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, the input length</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>lengths</code> (a length-256 <code>Vec</code>, the code length of each byte value, <code>0</code> for a value that never occurs), <code>bits</code> (a <code>Vec</code> of 0-255 packed code bytes), <code>bit_len</code> (a <code>Num</code>, how many of those bits are real) and <code>symbol_count</code> (a <code>Num</code>, the input length). Empty input gives <code>none</code> rather than a record: there is no data to encode, and none to decode back.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>── general-purpose compression (2026-09-09) ───────────────── Three real, from-scratch entropy coders, each in its own module (<code>huffman</code>/<code>range_coder</code>/<code>rans</code> — see their own doc comments for the algorithms and why each one is shaped the way it is). All three share the same input convention via <code>bytes_arg</code> (a <code>Str</code>'s UTF-8 bytes or a <code>Vec</code> of 0-255 byte values) and the same output convention via <code>bytes_to_value</code> (a byte <code>Vec</code> by default, or a <code>Str</code> with <code>as_str=true</code>). <code>huffman_encode</code>/<code>range_encode</code> return <code>none</code> for empty input (nothing to encode, nothing meaningful to decode back) rather than an empty-but-valid record — an empty record would still need every field present with sensible defaults, which is more surface area than the genuinely-degenerate "there was no data" case deserves.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

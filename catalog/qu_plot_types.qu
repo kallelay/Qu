@@ -1,0 +1,116 @@
+# Every kind of plot Qu draws, one panel each.
+#
+# The third sheet in the reference set, after `qu_markers.qu` (every glyph)
+# and `qu_line_styles.qu` (every line style). This one answers a different
+# question: not "what can a series look like" but "what SHAPE of picture
+# can I ask for", which is the thing you want to see all at once when
+# choosing how to show a result.
+#
+# Each panel is the smallest honest example of its type -- real data, real
+# axes, no decoration beyond what the type itself needs.
+#
+# Run:  qu run catalog/qu_plot_types.qu
+
+theme("publication")
+figure_size(7.16, 9.0, unit = "in")
+
+x  = linspace(0, 10, 200)
+xs = linspace(0, 10, 12)
+
+split plot 5 3
+
+# ---- lines -------------------------------------------------------------
+next plot 1
+plot(x, sin(x))
+title("plot")
+grid on
+
+next plot 2
+scatter(xs, sin(xs))
+title("scatter")
+grid on
+
+next plot 3
+stem(xs, sin(xs))
+title("stem")
+grid on
+
+next plot 4
+stair(xs, sin(xs))
+title("stair / step")
+grid on
+
+next plot 5
+area(x, sin(x) + 1.5)
+title("area")
+grid on
+
+next plot 6
+fill_between(x, sin(x) - 0.3, sin(x) + 0.3)
+plot(x, sin(x))
+title("fill_between")
+grid on
+
+# ---- categorical --------------------------------------------------------
+next plot 7
+bar((4, 7, 3, 6))
+xticklabels("A", "B", "C", "D")
+title("bar")
+grid on
+
+# Stacking and grouping are done by CALLING AGAIN, not by passing several
+# vectors to one call: each call adds a series to the panel, and the panel
+# is what stacks or groups them. `stackbar(a, b)` reads `a` as x and `b` as
+# y, exactly like `plot` -- so the one-call form silently draws a single
+# series and looks like a plain `bar`.
+next plot 8
+bin = (1, 2, 3, 4)
+stackbar(bin, (4, 7, 3, 6))
+stackbar(bin, (2, 1, 4, 2))
+xticklabels("A", "B", "C", "D")
+title("stackbar")
+grid on
+
+next plot 9
+groupbar(bin, (4, 7, 3, 6))
+groupbar(bin, (2, 1, 4, 2))
+xticklabels("A", "B", "C", "D")
+title("groupbar")
+grid on
+
+# ---- distributions ------------------------------------------------------
+next plot 10
+hist(randn(2000), bins = 30)
+title("hist")
+grid on
+
+next plot 11
+boxplot(randn(200), randn(200) + 1.5, randn(200) - 1)
+title("boxplot")
+grid on
+
+next plot 12
+errorbar(xs, sin(xs), 0.15 + 0*xs)
+title("errorbar")
+grid on
+
+# ---- scales and fields ---------------------------------------------------
+next plot 13
+f = logspace(0, 4, 200)
+semilogx(f, 20*log10(1 ./ sqrt(1 + (f/100).^2)))
+title("semilogx")
+grid on
+
+next plot 14
+loglog(f, 1 ./ f)
+title("loglog")
+grid on
+
+next plot 15
+bubble(xs, sin(xs), 4 + 8*abs(sin(xs)))
+title("bubble")
+grid on
+
+savefig("qu_plot_types.svg")
+savefig("qu_plot_types.pdf")
+print("wrote qu_plot_types.svg and .pdf")

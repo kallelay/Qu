@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impedance (rLKK) — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Measurement &amp; instrumentation</p>
+<h1>Impedance (rLKK)</h1>
+<p class="lede">regularized linear Kramers-Kronig (rLKK) validation and reconstruction of an impedance spectrum.</p>
+<p class="srcpath">catalog/qu_impedance_rlkk.qu</p>
+<p>rLKK checks whether a measured impedance spectrum is itself physically consistent (linear, causal, time-invariant) by fitting a distribution of relaxation times (DRT) and comparing the reconstructed spectrum back against the raw data -- independent of any assumed equivalent circuit. This demo builds a synthetic Randles-circuit spectrum (Rs + Rct parallel Cdl), validates the clean data, corrupts a single point, and shows rLKK flagging exactly that corruption.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>logspace                                     -- log-spaced frequency sweep</li>
+<li>complex arithmetic (0 + 1i, ./ , .*)          -- the Randles impedance model</li>
+<li>rlkk_reconstruct(Z, freqs, lambda=)           -- Model with .z / .gamma</li>
+<li>rlkk_validate(Z, freqs, lambda=, threshold=)  -- Model with .valid/.residuals/.max_residual</li>
+<li>nyquist(Z)                                    -- the standard EIS plot</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Synthesize a Randles-circuit impedance spectrum</h3>
+<pre class="hl"><code>j = <span class="n">0</span> + <span class="n">1i</span>
+Rs = <span class="n">0.2</span>
+Rct = <span class="n">0.01</span>
+Cdl = <span class="n">100e-6</span>
+
+<span class="f">randles</span>(freqs, Rs, Rct, Cdl) := Rs + Rct ./ (<span class="n">1</span> + j .* (<span class="n">2</span>*pi*freqs) .* Rct .* Cdl)
+
+freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">40</span>)
+Z = <span class="f">randles</span>(freqs, Rs, Rct, Cdl)
+</code></pre>
+</section>
+<section class="step">
+<h3>Reconstruct via rLKK and check the fit quality</h3>
+<pre class="hl"><code>fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-6</span>)
+recon_err = <span class="f">max</span>(<span class="f">abs</span>(fit.z - Z))
+<span class="f">print</span>(<span class="s">"rLKK reconstruction of clean data: max |error| = {recon_err:.2e}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Validate the clean spectrum, then corrupt one point and validate again</h3>
+<pre class="hl"><code>clean_check = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="f">print</span>(<span class="s">"clean spectrum: valid={clean_check.valid}, max residual={clean_check.max_residual:.3f}%"</span>)
+
+mask = <span class="f">ones</span>(<span class="f">length</span>(freqs))
+mask[<span class="n">20</span>] = <span class="n">1.5</span>
+Z_corrupted = Z .* mask
+corrupted_check = <span class="f">rlkk_validate</span>(Z_corrupted, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="f">print</span>(<span class="s">"corrupted spectrum (point 20 off by 50%): valid={corrupted_check.valid}, max residual={corrupted_check.max_residual:.3f}%"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Nyquist plot: clean vs corrupted</h3>
+<pre class="hl"><code><span class="f">nyquist</span>(Z)
+<span class="f">nyquist</span>(Z_corrupted)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"Randles impedance: clean vs corrupted"</span>)
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>rLKK reconstruction of clean data: max |error| = 3.17e-9
+clean spectrum: valid=true, max residual=0.000%
+corrupted spectrum (point 20 off by 50%): valid=false, max residual=29.729%
+  note: legend() had nothing to show -- label the series first, e.g. `plot(x, y, label="model")`, or pass the labels directly: `legend("model", "data")`</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="508.31" x2="866.00" y2="508.31" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="508.31" x2="86.00" y2="508.31" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="512.79" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.05</text>
+<line x1="86.00" y1="465.72" x2="866.00" y2="465.72" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="465.72" x2="86.00" y2="465.72" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="470.20" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.04</text>
+<line x1="86.00" y1="423.14" x2="866.00" y2="423.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="423.14" x2="86.00" y2="423.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="427.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.03</text>
+<line x1="86.00" y1="380.56" x2="866.00" y2="380.56" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="380.56" x2="86.00" y2="380.56" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="385.04" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.02</text>
+<line x1="86.00" y1="337.98" x2="866.00" y2="337.98" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="337.98" x2="86.00" y2="337.98" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="342.46" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.01</text>
+<line x1="86.00" y1="295.40" x2="866.00" y2="295.40" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="295.40" x2="86.00" y2="295.40" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="299.88" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="252.82" x2="866.00" y2="252.82" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="252.82" x2="86.00" y2="252.82" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="257.30" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.01</text>
+<line x1="86.00" y1="210.24" x2="866.00" y2="210.24" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="210.24" x2="86.00" y2="210.24" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="214.72" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.02</text>
+<line x1="86.00" y1="167.65" x2="866.00" y2="167.65" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="167.65" x2="86.00" y2="167.65" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="172.13" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.03</text>
+<line x1="86.00" y1="125.07" x2="866.00" y2="125.07" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="125.07" x2="86.00" y2="125.07" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="129.55" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.04</text>
+<line x1="86.00" y1="82.49" x2="866.00" y2="82.49" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="82.49" x2="86.00" y2="82.49" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="86.97" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.05</text>
+<line x1="121.72" y1="48.00" x2="121.72" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="121.72" y1="540.00" x2="121.72" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="121.72" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.210</text>
+<line x1="189.23" y1="48.00" x2="189.23" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="189.23" y1="540.00" x2="189.23" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="189.23" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.220</text>
+<line x1="256.73" y1="48.00" x2="256.73" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="256.73" y1="540.00" x2="256.73" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="256.73" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.230</text>
+<line x1="324.24" y1="48.00" x2="324.24" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="324.24" y1="540.00" x2="324.24" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="324.24" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.240</text>
+<line x1="391.75" y1="48.00" x2="391.75" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="391.75" y1="540.00" x2="391.75" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="391.75" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.250</text>
+<line x1="459.26" y1="48.00" x2="459.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="459.26" y1="540.00" x2="459.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="459.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.260</text>
+<line x1="526.76" y1="48.00" x2="526.76" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="526.76" y1="540.00" x2="526.76" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="526.76" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.270</text>
+<line x1="594.27" y1="48.00" x2="594.27" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="594.27" y1="540.00" x2="594.27" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="594.27" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.280</text>
+<line x1="661.78" y1="48.00" x2="661.78" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="661.78" y1="540.00" x2="661.78" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="661.78" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.290</text>
+<line x1="729.28" y1="48.00" x2="729.28" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="729.28" y1="540.00" x2="729.28" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="729.28" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.300</text>
+<line x1="796.79" y1="48.00" x2="796.79" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="796.79" y1="540.00" x2="796.79" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="796.79" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.310</text>
+<line x1="864.30" y1="48.00" x2="864.30" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="864.30" y1="540.00" x2="864.30" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="864.30" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.320</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$6.3\times10^{-8}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$8\times10^{-8}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.6\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.6\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$3.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$4.2\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$5.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$6.7\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$8.4\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.1\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.4\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.7\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.2\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.7\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$3.5\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$4.4\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$5.6\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.37" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$7.1\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.36" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$9\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.35" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.1\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.34" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.4\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.32" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.8\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.30" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.3\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.27" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.9\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.24" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$3.7\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.20" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$4.7\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.15" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$5.9\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.08" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$7.5\times10^{-5}$</title></circle>
+<circle cx="121.71" cy="294.99" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$9.5\times10^{-5}$</title></circle>
+<circle cx="121.71" cy="294.89" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.2\times10^{-4}$</title></circle>
+<circle cx="121.70" cy="294.75" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.5\times10^{-4}$</title></circle>
+<circle cx="121.69" cy="294.58" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$1.9\times10^{-4}$</title></circle>
+<circle cx="121.68" cy="294.36" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$2.4\times10^{-4}$</title></circle>
+<circle cx="121.66" cy="294.08" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$3.1\times10^{-4}$</title></circle>
+<circle cx="121.62" cy="293.73" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$3.9\times10^{-4}$</title></circle>
+<circle cx="121.55" cy="293.29" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$4.9\times10^{-4}$</title></circle>
+<circle cx="121.45" cy="292.73" r="3.2" fill="none" stroke="#5B7CFA"><title>x=0.21, y=$6.3\times10^{-4}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$6.3\times10^{-8}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$8\times10^{-8}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.6\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.6\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$3.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$4.2\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$5.3\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$6.7\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.40" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$8.4\times10^{-7}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.1\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.4\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.7\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.2\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.39" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.7\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$3.5\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$4.4\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.38" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$5.6\times10^{-6}$</title></circle>
+<circle cx="830.55" cy="295.35" r="3.2" fill="none" stroke="#228833"><title>x=0.315, y=$1.1\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.36" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$9\times10^{-6}$</title></circle>
+<circle cx="121.72" cy="295.35" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.1\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.34" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.4\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.32" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.8\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.30" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.3\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.27" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.9\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.24" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$3.7\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.20" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$4.7\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.15" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$5.9\times10^{-5}$</title></circle>
+<circle cx="121.72" cy="295.08" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$7.5\times10^{-5}$</title></circle>
+<circle cx="121.71" cy="294.99" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$9.5\times10^{-5}$</title></circle>
+<circle cx="121.71" cy="294.89" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.2\times10^{-4}$</title></circle>
+<circle cx="121.70" cy="294.75" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.5\times10^{-4}$</title></circle>
+<circle cx="121.69" cy="294.58" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$1.9\times10^{-4}$</title></circle>
+<circle cx="121.68" cy="294.36" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$2.4\times10^{-4}$</title></circle>
+<circle cx="121.66" cy="294.08" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$3.1\times10^{-4}$</title></circle>
+<circle cx="121.62" cy="293.73" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$3.9\times10^{-4}$</title></circle>
+<circle cx="121.55" cy="293.29" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$4.9\times10^{-4}$</title></circle>
+<circle cx="121.45" cy="292.73" r="3.2" fill="none" stroke="#228833"><title>x=0.21, y=$6.3\times10^{-4}$</title></circle>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Randles impedance: clean vs corrupted</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_impedance_rlkk.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_impedance_rlkk.qu -- regularized linear Kramers-Kronig (rLKK)</span>
+<span class="c"># validation and reconstruction of an impedance spectrum.</span>
+<span class="c">#</span>
+<span class="c"># rLKK checks whether a measured impedance spectrum is itself physically</span>
+<span class="c"># consistent (linear, causal, time-invariant) by fitting a distribution of</span>
+<span class="c"># relaxation times (DRT) and comparing the reconstructed spectrum back</span>
+<span class="c"># against the raw data -- independent of any assumed equivalent circuit.</span>
+<span class="c"># This demo builds a synthetic Randles-circuit spectrum (Rs + Rct parallel</span>
+<span class="c"># Cdl), validates the clean data, corrupts a single point, and shows rLKK</span>
+<span class="c"># flagging exactly that corruption.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   logspace                                     -- log-spaced frequency sweep</span>
+<span class="c">#   complex arithmetic (0 + 1i, ./ , .*)          -- the Randles impedance model</span>
+<span class="c">#   rlkk_reconstruct(Z, freqs, lambda=)           -- Model with .z / .gamma</span>
+<span class="c">#   rlkk_validate(Z, freqs, lambda=, threshold=)  -- Model with .valid/.residuals/.max_residual</span>
+<span class="c">#   nyquist(Z)                                    -- the standard EIS plot</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Synthesize a Randles-circuit impedance spectrum</span>
+j = <span class="n">0</span> + <span class="n">1i</span>
+Rs = <span class="n">0.2</span>
+Rct = <span class="n">0.01</span>
+Cdl = <span class="n">100e-6</span>
+
+<span class="f">randles</span>(freqs, Rs, Rct, Cdl) := Rs + Rct ./ (<span class="n">1</span> + j .* (<span class="n">2</span>*pi*freqs) .* Rct .* Cdl)
+
+freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">40</span>)
+Z = <span class="f">randles</span>(freqs, Rs, Rct, Cdl)
+
+<span class="c">#%% Reconstruct via rLKK and check the fit quality</span>
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-6</span>)
+recon_err = <span class="f">max</span>(<span class="f">abs</span>(fit.z - Z))
+<span class="f">print</span>(<span class="s">"rLKK reconstruction of clean data: max |error| = {recon_err:.2e}"</span>)
+
+<span class="c">#%% Validate the clean spectrum, then corrupt one point and validate again</span>
+clean_check = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="f">print</span>(<span class="s">"clean spectrum: valid={clean_check.valid}, max residual={clean_check.max_residual:.3f}%"</span>)
+
+mask = <span class="f">ones</span>(<span class="f">length</span>(freqs))
+mask[<span class="n">20</span>] = <span class="n">1.5</span>
+Z_corrupted = Z .* mask
+corrupted_check = <span class="f">rlkk_validate</span>(Z_corrupted, freqs, <span class="a">lambda</span>=<span class="n">1e-4</span>, <span class="a">threshold</span>=<span class="n">2.0</span>)
+<span class="f">print</span>(<span class="s">"corrupted spectrum (point 20 off by 50%): valid={corrupted_check.valid}, max residual={corrupted_check.max_residual:.3f}%"</span>)
+
+<span class="c">#%% Nyquist plot: clean vs corrupted</span>
+<span class="f">nyquist</span>(Z)
+<span class="f">nyquist</span>(Z_corrupted)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"Randles impedance: clean vs corrupted"</span>)
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

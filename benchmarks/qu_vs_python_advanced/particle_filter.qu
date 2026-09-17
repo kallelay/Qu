@@ -1,0 +1,28 @@
+seed(3)
+N = 500
+dt = 0.05
+true_v = 1.5
+t = (0 to N - 1) * dt
+true_pos = true_v * t
+measured = true_pos + 0.4 * randn(N)
+
+n_particles = 50000
+
+tic()
+pf = particle_filter(n_particles, [0, 0], process_noise=0.08, obs_noise=0.4, spread=2.0, seed=3)
+est_pos = zeros(1, N)
+est_vel = zeros(1, N)
+for k = 0 to N - 1
+    pf = pf.move(dt)
+    pf = pf.update([measured[k]])
+    est = pf.estimate()
+    est_pos[k] = est[0]
+    est_vel[k] = est[1]
+end for
+elapsed_ms = toc() * 1000
+
+raw_err = rms(measured - true_pos)
+filt_err = rms(est_pos - true_pos)
+print("[Qu] Position RMS error: raw sensor={raw_err:.3f}, particle filter estimate={filt_err:.3f}")
+print("[Qu] True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}")
+print("[Qu] elapsed={elapsed_ms:.1f} ms for {n_particles} particles x {N} steps")

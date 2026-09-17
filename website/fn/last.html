@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>last — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>last</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>first(xs)</code></pre>
+<p class="fnnote">Input: xs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>xs</code> is a <code>Vec</code>/<code>List</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = first(xs)</code></td><td><div class="ioitem"><code>xs</code> <span class="iotype">Vec or List</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the first (<code>first</code>) or last (<code>last</code>) element (same element type as <code>xs</code> holds), or <code>none</code> when <code>xs</code> is empty. Check for <code>none</code> if an empty input is possible; nothing further down will do it for you.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(x)
+    <span class="k">return</span> x <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">add2</span>(a, b)
+    <span class="k">return</span> a + b
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">double</span>(x)
+    <span class="k">return</span> x * <span class="n">2</span>
+<span class="k">end</span> <span class="k">function</span>
+
+xs = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="f">all</span>(xs, is_even))           <span class="c"># false</span>
+<span class="f">print</span>(<span class="f">any</span>(xs, is_even))           <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">first</span>(xs))                 <span class="c"># 1</span>
+<span class="f">print</span>(<span class="f">last</span>(xs))                  <span class="c"># 5</span>
+<span class="f">print</span>(<span class="f">take</span>(xs, <span class="n">3</span>))                <span class="c"># (1, 2, 3)</span>
+<span class="f">print</span>(<span class="f">distinct</span>([<span class="n">1</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">3</span>])) <span class="c"># (1, 2, 3) -- first-seen order</span>
+<span class="f">print</span>(<span class="f">flatten</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))  <span class="c"># (1, 2, 3, 4)</span>
+<span class="f">print</span>(<span class="f">fold</span>(xs, add2, <span class="n">0</span>))          <span class="c"># 15 -- with an initial value</span>
+<span class="f">print</span>(<span class="f">reduce</span>(xs, add2))           <span class="c"># 15 -- without one</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, double))            <span class="c"># (2, 4, 6, 8, 10) -- collection first</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, (x) := x * <span class="n">10</span>))     <span class="c"># (10, 20, 30, 40, 50) -- or write it inline</span>
+<span class="f">print</span>(<span class="f">map</span>(xs, <span class="s">"double"</span>))          <span class="c"># (2, 4, 6, 8, 10) -- the name as a string still works</span>
+<span class="f">print</span>(xs.<span class="f">map</span>(double))             <span class="c"># (2, 4, 6, 8, 10) -- and so the method form works</span>
+<span class="f">print</span>(<span class="f">zip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>]))  <span class="c"># ((1, "a"), (2, "b"), (3, "c"))</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>end</code>/<code>last</code>: the last valid 0-based index.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="first.html"><code>first</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

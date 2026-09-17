@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>svm_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>svm_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>svm_model(X, y, [kernel=], [C=1.0], [gamma=], [degree=3], [coef0=1])</code></pre>
+<p class="fnnote">Input: X, y, kernel, C, gamma, degree, coef0 &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper). <code>kernel</code> is a string, one of <code>"linear"</code>, <code>"rbf"</code>, <code>"poly"</code>; <code>C</code> (number, default 1.0) is the regularization strength; <code>gamma</code> (number) scales the <code>"rbf"</code>/<code>"poly"</code> kernels; <code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-svm_model-0" checked>
+<input type="radio" name="typetab" id="tt-svm_model-1">
+<input type="radio" name="typetab" id="tt-svm_model-2">
+<div class="tabbar">
+<label for="tt-svm_model-0">linear</label>
+<label for="tt-svm_model-1">rbf</label>
+<label for="tt-svm_model-2">poly</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svm_model(X, y, [kernel=], [C=1.0], [gamma=], [degree=3], [coef0=1])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>kernel</code> <span class="iotype">string, optional</span><span class="iodesc"><code>kernel = "linear"</code> fits a straight decision boundary -- fast, but blind to a relationship that isn't linearly separable.</span></div>
+<div class="ioitem"><code>C</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>C</code> (number, default 1.0) is the regularization strength.</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">number, optional</span><span class="iodesc"><code>gamma</code> (number) scales the <code>"rbf"</code>/<code>"poly"</code> kernels.</span></div>
+<div class="ioitem"><code>degree</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iodesc"><code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>.</span></div>
+<div class="ioitem"><code>coef0</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svl = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"linear"</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"linear kernel accuracy on XOR: {round(svl.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svm_model(X, y, [kernel=], [C=1.0], [gamma=], [degree=3], [coef0=1])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>kernel</code> <span class="iotype">string, optional</span><span class="iodesc"><code>kernel = "rbf"</code> maps into an implicit, much higher-dimensional space through a Gaussian kernel scaled by <code>gamma</code>, so it can separate a boundary no straight line can.</span></div>
+<div class="ioitem"><code>C</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>C</code> (number, default 1.0) is the regularization strength.</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">number, optional</span><span class="iodesc"><code>kernel = "rbf"</code> maps into an implicit, much higher-dimensional space through a Gaussian kernel scaled by <code>gamma</code>, so it can separate a boundary no straight line can.</span></div>
+<div class="ioitem"><code>degree</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iodesc"><code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>.</span></div>
+<div class="ioitem"><code>coef0</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svr = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"rbf"</span>, <span class="a">gamma</span> = <span class="n">2.0</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"rbf kernel accuracy on XOR:    {round(svr.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svm_model(X, y, [kernel=], [C=1.0], [gamma=], [degree=3], [coef0=1])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector</span><span class="iodesc">Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper).</span></div>
+<div class="ioitem"><code>kernel</code> <span class="iotype">string, optional</span><span class="iodesc"><code>kernel = "poly"</code> raises the dot product to <code>degree</code> (shifted by <code>coef0</code>) -- a middle ground between <code>"linear"</code> and <code>"rbf"</code>.</span></div>
+<div class="ioitem"><code>C</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>C</code> (number, default 1.0) is the regularization strength.</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">number, optional</span><span class="iodesc"><code>gamma</code> (number) scales the <code>"rbf"</code>/<code>"poly"</code> kernels.</span></div>
+<div class="ioitem"><code>degree</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iodesc"><code>kernel = "poly"</code> raises the dot product to <code>degree</code> (shifted by <code>coef0</code>) -- a middle ground between <code>"linear"</code> and <code>"rbf"</code>.</span></div>
+<div class="ioitem"><code>coef0</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>kernel = "poly"</code> raises the dot product to <code>degree</code> (shifted by <code>coef0</code>) -- a middle ground between <code>"linear"</code> and <code>"rbf"</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svp = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"poly"</span>, <span class="a">degree</span> = <span class="n">3</span>, <span class="a">coef0</span> = <span class="n">1.0</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"poly kernel accuracy on XOR:   {round(svp.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>svm_model(X, y, kernel=, C=, gamma=)</code> — binary-classification support vector machine, fit via <code>svm_smo_fit</code>'s simplified SMO (Andrew Ng's CS229 "Simplified SMO" notes — a textbook dual-coordinate-ascent solver, chosen over full Platt SMO's heuristic working-set selection because it's straightforward to verify against a written reference and needs no general QP dependency). <code>kernel="linear"</code> (default) or <code>"rbf"</code> (<code>gamma=</code> controls width, default <code>1/n_features</code> — the standard heuristic scikit-learn's own default used before "scale"); <code>"poly"</code> (<code>degree=</code>/<code>coef0=</code>, defaults 3/1) is a stretch-goal third kernel, exercised far less than the required linear/rbf pair. <code>y</code> must have exactly two distinct values (mapped to -1/+1 internally, smaller value -&gt; -1); multi-class (one-vs-rest) wasn't built this pass — see <code>svm_fit_model</code>'s own doc comment. The training kernel (Gram) matrix's <code>X @ X^T</code> cross term is computed via <code>svm_cross_term</code>, GPU-accelerated through the same <code>gpu_matmul</code>/<code>qu_gpu::GpuContext</code> path when this crate is built with <code>--features gpu</code> (plain CPU matmul otherwise) — see that function's own doc comment.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

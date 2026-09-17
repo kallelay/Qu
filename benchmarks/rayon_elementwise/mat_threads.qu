@@ -1,0 +1,31 @@
+# Matrix path only, interleaved, so RAYON_NUM_THREADS is the sole variable.
+# Container held fixed at Mat: this separates rayon's contribution from
+# Matrix::broadcast's per-element index arithmetic, which interleaved.qu
+# cannot do because it varies the container.
+n = 4000000
+reps = 15
+m = reshape(randn(n, 1), 2000, 2000)
+bs = 1.0e9
+ba = 1.0e9
+bm = 1.0e9
+for r = 0 to reps
+    tic()
+    x1 = sin(m)
+    t = toc()
+    if t < bs and r > 0
+        bs = t
+    end if
+    tic()
+    x2 = abs(m)
+    t = toc()
+    if t < ba and r > 0
+        ba = t
+    end if
+    tic()
+    x3 = m .* m
+    t = toc()
+    if t < bm and r > 0
+        bm = t
+    end if
+end for
+print("{bs:.5f} {ba:.5f} {bm:.5f}")

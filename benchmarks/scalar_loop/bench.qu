@@ -1,0 +1,57 @@
+# Sustained scalar iteration -- the workload the suite cannot measure.
+#
+# The fair suite's `loop_performance` kernel is 100,000 trivial additions and
+# contributes 0.5 ms of a 30.8 ms Qu-vs-MATLAB gap: 1.6%. That makes
+# interpreter overhead look irrelevant. But the kernel is tiny and does
+# almost nothing per iteration, so it measures loop ENTRY more than loop
+# BODY, and real code does not look like it.
+#
+# This is the question that gates M4 (Typed IR -> Cranelift, scoped in
+# IMPL.md and never started): in code where interpreter DISPATCH dominates,
+# how far behind is Qu really? Either answer is worth having -- if Qu is
+# badly behind, the JIT case is made on evidence; if it holds up, M4 stays
+# parked and that is a months-of-work decision taken on measurement.
+#
+# Workload: a direct-form-II biquad, applied sample by sample. Chosen
+# because it is genuinely sequential -- y[n] depends on y[n-1] and y[n-2],
+# so it CANNOT be vectorized away, which is exactly the shape that forces an
+# interpreter to show its per-iteration cost. It is also real: this is what
+# a filter looks like when a user writes it out rather than calling
+# `filter()`.
+#
+# Same coefficients, same input, same order as bench.py and bench.m beside
+# this file. The checksum is printed so the three languages can be shown to
+# have computed the same thing.
+
+n = 1000000
+
+# Butterworth-ish lowpass biquad, coefficients fixed so all three agree.
+b0 = 0.0675
+b1 = 0.1349
+b2 = 0.0675
+a1 = -1.1430
+a2 = 0.4128
+
+# Input built outside the clock: a chirp-like deterministic signal, no RNG,
+# so the three languages process identical samples.
+x = zeros(n)
+for i = 0 to n - 1
+    x[i] = sin(i * 0.0001) + 0.5 * sin(i * 0.0013)
+end for
+
+tic()
+y = zeros(n)
+w1 = 0.0
+w2 = 0.0
+for i = 0 to n - 1
+    w0 = x[i] - a1 * w1 - a2 * w2
+    y[i] = b0 * w0 + b1 * w1 + b2 * w2
+    w2 = w1
+    w1 = w0
+end for
+t_iir = toc()
+
+checksum = sum(y)
+print("biquad, {n} samples, scalar loop : {t_iir:.4f} s")
+print("checksum                          : {checksum:.6f}")
+print("per-iteration                     : {t_iir / n * 1.0e9:.1f} ns")

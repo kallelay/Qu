@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LSTM forecast — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>LSTM forecast</h1>
+<p class="lede">an LSTM cell/sequence unroll over a short, real noisy sine wave, checking that the resulting hidden-state sequence is well-behaved (finite, non-exploding) rather than just "it runs".</p>
+<p class="srcpath">catalog/qu_lstm_forecast.qu</p>
+<p>`lstm_cell`/`lstm_forward` mirror `gru_cell`/`gru_forward`'s calling convention exactly (see book/src/stdlib/statistics-ml.md's "Recurrent Neural Network Cells: LSTM" section), with two threaded states (h, c) instead of GRU's one. By construction h_t = o_t .* tanh(c_t) with o_t = sigmoid(...) in (0,1) and tanh(c_t) in (-1,1), so EVERY element of EVERY hidden state the LSTM ever produces is strictly bounded in (-1, 1) -- true for any input, any weights, any sequence length. That's a real, hand-derivable invariant this demo checks directly (and it would also catch NaN, since a NaN comparison against 1.0 is false).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>lstm_init(input_size, hidden_size, [seed=]) -- Xavier/Glorot weights</li>
+<li>lstm_forward(x_sequence, h0, c0, weights)   -- unrolls lstm_cell</li>
+<li>lstm_cell(x_t, h_prev, c_prev, weights)     -- single timestep, direct</li>
+<li>comparison against</li>
+<li>lstm_forward's own last</li>
+<li>step</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A short, real sequence: one noisy cycle of a sine wave, input_size=1.</h3>
+<pre class="hl"><code><span class="f">seed</span>(<span class="n">7</span>)
+seq_len = <span class="n">16</span>
+input_size = <span class="n">1</span>
+hidden_size = <span class="n">4</span>
+t = <span class="n">0</span> <span class="k">to</span> seq_len - <span class="n">1</span>
+seq = <span class="f">sin</span>(t * (<span class="n">2</span> * pi / seq_len)) + <span class="n">0.05</span> * <span class="f">randn</span>(seq_len)
+X = seq <span class="k">as</span> <span class="f">matrix</span>(input_size, seq_len)   <span class="c"># (input_size, seq_len), one column per step</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Initialize LSTM weights and run the full sequence forward.</h3>
+<pre class="hl"><code>w = <span class="f">lstm_init</span>(input_size, hidden_size, <span class="a">seed</span>=<span class="n">3</span>)
+h0 = <span class="f">zeros</span>(hidden_size)
+c0 = <span class="f">zeros</span>(hidden_size)
+hs = <span class="f">lstm_forward</span>(X, h0, c0, w)
+
+<span class="f">print</span>(<span class="s">"Input sequence (noisy sine, {seq_len} steps): {seq}"</span>)
+<span class="f">print</span>(<span class="s">"Number of hidden states returned: {length(hs)} (expected {seq_len})"</span>)
+
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"Final hidden state h_T: {h_last}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Invariant check: every hidden state, every element, must lie in (-1, 1).</h3>
+<pre class="hl"><code>max_abs = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(hs) - <span class="n">1</span>
+    h_i = hs[i]
+    m = <span class="f">max</span>(<span class="f">abs</span>(h_i))
+    <span class="k">if</span> m &gt; max_abs <span class="k">then</span>
+        max_abs = m
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"Max |h_t| over the whole sequence: {max_abs:.6f} (must be &lt; 1.0)"</span>)
+<span class="k">if</span> max_abs &lt; <span class="n">1.0</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"All hidden states are finite and bounded in (-1, 1), as the LSTM gating guarantees."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: a hidden state escaped the (-1, 1) bound -- something is wrong!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Cross-check: lstm_forward's last step matches a direct lstm_cell call</h3>
+<p>fed the second-to-last hidden/cell state -- confirms lstm_forward isn't doing anything other than looping lstm_cell.</p>
+<pre class="hl"><code>h_second_last = hs[<span class="f">length</span>(hs) - <span class="n">2</span>]
+<span class="c"># Recompute c at that point by re-running the unroll manually up to T-1.</span>
+h = h0
+c = c0
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> seq_len - <span class="n">2</span>
+    x_t = X[:, i]
+    hc = <span class="f">lstm_cell</span>(x_t, h, c, w)
+    h = hc.h
+    c = hc.c
+<span class="k">end</span> <span class="k">for</span>
+x_last = X[:, seq_len - <span class="n">1</span>]
+hc_last = <span class="f">lstm_cell</span>(x_last, h, c, w)
+diff = <span class="f">max</span>(<span class="f">abs</span>(hc_last.h - h_last))
+<span class="f">print</span>(<span class="s">"Max diff between manual lstm_cell replay and lstm_forward's last state: {diff:.10f}"</span>)
+<span class="k">if</span> diff &lt; <span class="n">1e-9</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"lstm_forward agrees exactly with a manual lstm_cell unroll."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: lstm_forward disagrees with a manual lstm_cell replay!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Input sequence (noisy sine, 16 steps): [0.116051, 0.333039, 0.625466, 0.973507, 1.052897, 0.936332, 0.724338, 0.422551, ... (16 elements)]
+Number of hidden states returned: 16 (expected 16)
+Final hidden state h_T: [-0.110229; 0.190799; 0.044758; -0.286332]
+Max |h_t| over the whole sequence: 0.322559 (must be &lt; 1.0)
+All hidden states are finite and bounded in (-1, 1), as the LSTM gating guarantees.
+Max diff between manual lstm_cell replay and lstm_forward's last state: 0.0000000000
+lstm_forward agrees exactly with a manual lstm_cell unroll.</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_lstm_forecast.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_lstm_forecast.qu -- an LSTM cell/sequence unroll over a short, real</span>
+<span class="c"># noisy sine wave, checking that the resulting hidden-state sequence is</span>
+<span class="c"># well-behaved (finite, non-exploding) rather than just "it runs".</span>
+<span class="c">#</span>
+<span class="c"># `lstm_cell`/`lstm_forward` mirror `gru_cell`/`gru_forward`'s calling</span>
+<span class="c"># convention exactly (see book/src/stdlib/statistics-ml.md's "Recurrent</span>
+<span class="c"># Neural Network Cells: LSTM" section), with two threaded states (h, c)</span>
+<span class="c"># instead of GRU's one. By construction h_t = o_t .* tanh(c_t) with</span>
+<span class="c"># o_t = sigmoid(...) in (0,1) and tanh(c_t) in (-1,1), so EVERY element of</span>
+<span class="c"># EVERY hidden state the LSTM ever produces is strictly bounded in (-1, 1)</span>
+<span class="c"># -- true for any input, any weights, any sequence length. That's a real,</span>
+<span class="c"># hand-derivable invariant this demo checks directly (and it would also</span>
+<span class="c"># catch NaN, since a NaN comparison against 1.0 is false).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   lstm_init(input_size, hidden_size, [seed=]) -- Xavier/Glorot weights</span>
+<span class="c">#   lstm_forward(x_sequence, h0, c0, weights)   -- unrolls lstm_cell</span>
+<span class="c">#   lstm_cell(x_t, h_prev, c_prev, weights)     -- single timestep, direct</span>
+<span class="c">#                                                   comparison against</span>
+<span class="c">#                                                   lstm_forward's own last</span>
+<span class="c">#                                                   step</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A short, real sequence: one noisy cycle of a sine wave, input_size=1.</span>
+<span class="f">seed</span>(<span class="n">7</span>)
+seq_len = <span class="n">16</span>
+input_size = <span class="n">1</span>
+hidden_size = <span class="n">4</span>
+t = <span class="n">0</span> <span class="k">to</span> seq_len - <span class="n">1</span>
+seq = <span class="f">sin</span>(t * (<span class="n">2</span> * pi / seq_len)) + <span class="n">0.05</span> * <span class="f">randn</span>(seq_len)
+X = seq <span class="k">as</span> <span class="f">matrix</span>(input_size, seq_len)   <span class="c"># (input_size, seq_len), one column per step</span>
+
+<span class="c">#%% Initialize LSTM weights and run the full sequence forward.</span>
+w = <span class="f">lstm_init</span>(input_size, hidden_size, <span class="a">seed</span>=<span class="n">3</span>)
+h0 = <span class="f">zeros</span>(hidden_size)
+c0 = <span class="f">zeros</span>(hidden_size)
+hs = <span class="f">lstm_forward</span>(X, h0, c0, w)
+
+<span class="f">print</span>(<span class="s">"Input sequence (noisy sine, {seq_len} steps): {seq}"</span>)
+<span class="f">print</span>(<span class="s">"Number of hidden states returned: {length(hs)} (expected {seq_len})"</span>)
+
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"Final hidden state h_T: {h_last}"</span>)
+
+<span class="c">#%% Invariant check: every hidden state, every element, must lie in (-1, 1).</span>
+max_abs = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(hs) - <span class="n">1</span>
+    h_i = hs[i]
+    m = <span class="f">max</span>(<span class="f">abs</span>(h_i))
+    <span class="k">if</span> m &gt; max_abs <span class="k">then</span>
+        max_abs = m
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"Max |h_t| over the whole sequence: {max_abs:.6f} (must be &lt; 1.0)"</span>)
+<span class="k">if</span> max_abs &lt; <span class="n">1.0</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"All hidden states are finite and bounded in (-1, 1), as the LSTM gating guarantees."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: a hidden state escaped the (-1, 1) bound -- something is wrong!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+
+<span class="c">#%% Cross-check: lstm_forward's last step matches a direct lstm_cell call</span>
+<span class="c"># fed the second-to-last hidden/cell state -- confirms lstm_forward isn't</span>
+<span class="c"># doing anything other than looping lstm_cell.</span>
+h_second_last = hs[<span class="f">length</span>(hs) - <span class="n">2</span>]
+<span class="c"># Recompute c at that point by re-running the unroll manually up to T-1.</span>
+h = h0
+c = c0
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> seq_len - <span class="n">2</span>
+    x_t = X[:, i]
+    hc = <span class="f">lstm_cell</span>(x_t, h, c, w)
+    h = hc.h
+    c = hc.c
+<span class="k">end</span> <span class="k">for</span>
+x_last = X[:, seq_len - <span class="n">1</span>]
+hc_last = <span class="f">lstm_cell</span>(x_last, h, c, w)
+diff = <span class="f">max</span>(<span class="f">abs</span>(hc_last.h - h_last))
+<span class="f">print</span>(<span class="s">"Max diff between manual lstm_cell replay and lstm_forward's last state: {diff:.10f}"</span>)
+<span class="k">if</span> diff &lt; <span class="n">1e-9</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"lstm_forward agrees exactly with a manual lstm_cell unroll."</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"MISMATCH: lstm_forward disagrees with a manual lstm_cell replay!"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

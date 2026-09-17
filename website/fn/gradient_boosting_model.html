@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gradient_boosting_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gradient_boosting_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>gradient_boosting_model(X, y, n_trees, [learning_rate=0.1], [max_depth=3])</code></pre>
+<p class="fnnote">Input: X, y, n_trees, learning_rate, max_depth &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Regression-only boosted ensemble on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>: <code>n_trees</code> (positive integer) shallow trees fitted in sequence, each to the running residual, scaled by <code>learning_rate</code> (a number, default 0.1) and capped at <code>max_depth</code> (default 3, shallower than <code>tree_model</code>'s 20 because a boosting weak learner is supposed to be weak).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = gradient_boosting_model(X, y, n_trees, [learning_rate=0.1], [max_depth=3])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>n_trees</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>learning_rate</code> <span class="iotype">number, optional (default <code>0.1</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>max_depth</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a fitted model Record with <code>.predict</code>/<code>.score</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+kd = <span class="f">kmedoids_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+gm = <span class="f">gmm_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"kmedians label for row 0: {km.predict(G)[0]}"</span>)
+<span class="f">print</span>(<span class="s">"kmedoids label for row 0: {kd.predict(G)[0]}"</span>)
+<span class="f">print</span>(<span class="s">"gmm log-likelihood: {round(gm.log_likelihood, 1)}"</span>)
+
+gb = <span class="f">gradient_boosting_model</span>(X, y, <span class="n">20</span>, <span class="a">learning_rate</span> = <span class="n">0.1</span>, <span class="a">max_depth</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"gradient boosting r2: {round(gb.score(X, y), 3)}"</span>)
+
+sv = <span class="f">svm_model</span>(Xc, yc, <span class="a">kernel</span> = <span class="s">"linear"</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+lg = <span class="f">logistic_model</span>(Xc, yc)
+<span class="f">print</span>(<span class="s">"svm accuracy:      {round(sv.score(Xc, yc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"logistic accuracy: {round(lg.score(Xc, yc), 3)}"</span>)
+
+svr = <span class="f">svr_model</span>(X, y)
+<span class="f">print</span>(<span class="s">"svr r2: {round(svr.score(X, y), 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>gradient_boosting_model(X, y, n_trees, [learning_rate=], [max_depth=], [kind=])</code> — sequential boosting, <code>kind= "regression"</code> (default) or <code>kind="classification"</code> (binary, added 2026-08-25 — the "stretch goal" earlier passes deferred). Regression: starts from the constant baseline <code>mean(y)</code>, then repeatedly fits a shallow regression tree (default <code>max_depth=3</code>, deliberately shallower than <code>tree_model</code>'s own default — a boosting "weak learner" is supposed to be weak) to the *current* residual and adds <code>learning_rate * tree.predict(X)</code> to the running prediction, which becomes the next round's residual target. Classification: the same algorithm in log-odds space (the standard Friedman gradient-boosting-for-logistic-deviance construction) — <code>y</code> mapped to canonical 0/1 (<code>svm_fit_model</code>'s own smaller-value-&gt; lower-canonical-label convention), running score starts at the log-odds of the base rate (<code>ln(p/(1-p))</code>), each tree is fit to the *negative gradient of log-loss* (<code>y01 - sigmoid(running)</code> — algebraically identical in shape to the regression residual, just in probability space instead of the target's own units), and <code>.predict</code> thresholds <code>sigmoid(running)</code> at 0.5 the same way <code>logistic_model</code> does. Both kinds are fully deterministic (every tree sees the whole training set — no bootstrap, no feature subsampling), so there's no <code>seed=</code> parameter to thread through, unlike <code>random_forest_model</code> above.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

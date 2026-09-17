@@ -1,0 +1,217 @@
+# Does a documented shape actually come out the right shape?
+#
+# A sibling of check_links.qu: it asks a question about the RENDERED
+# artefact rather than about the source. That distinction is the whole
+# reason it exists.
+#
+# The defect it was written for: the plotting chapter said "if you want a
+# round circle, make the axes equal", and the example directly beneath it
+# drew a circle 58% out of round. Both halves were individually valid --
+# the sentence is sound advice, the example runs and produces a figure --
+# so every check we had passed. The page still taught a distorted picture
+# of what `circle` does.
+#
+# It is not detectable from the prose. That sentence does not contain the
+# API name (`axis equal`), so no token match relates it to the example; and
+# in general "the text states a requirement the example omits" needs the
+# text understood, which is not something a checker does. So this does not
+# read the prose at all. It measures the picture.
+#
+# A circle is round or it is not, and the rendered SVG says which: take the
+# shape's polyline, compute its bounding box, compare width to height.
+# Whatever the chapter claims, whatever call the example makes, a circle
+# that comes out 1.585 wide-to-tall is wrong.
+#
+# Run:  qu run tools/check_shape_examples.qu <work-dir>
+# Exit: non-zero if any shape example renders out of round.
+
+RUN = getenv("QU_DOC_OUTPUTS") ?? ".doc-run"
+
+# Why 5% and not something tighter.
+#
+# A perfectly round circle does not measure exactly 1.000 here, and the
+# reason is not the shape. The plot box is inset by a left margin sized for
+# y tick labels and a bottom margin sized for x tick labels, and those two
+# are not equal, so a square canvas yields a plot box slightly off square.
+# The corrected shapes example measures 0.972 -- 2.8% -- and that residual
+# is margins, not distortion. 5% clears it with room while still failing
+# the 1.585 the broken example produced by a wide margin.
+#
+# If you are looking at a number near 5%, it is NOT nearly-broken: anything
+# past ~3% means something other than label margins is at work, and it is
+# worth finding out what before widening this.
+#
+# TIGHTEN THIS TO 0.01 WHEN `claude/theme-fidelity` @ 1b32860e MERGES.
+#
+# All of the above describes the square-canvas workaround, where roundness
+# is a by-product of the canvas happening to be square and the margin
+# asymmetry leaks into the measurement -- hence 0.972 rather than 1.000.
+# That engine change makes `axis equal` equalise units-per-pixel against
+# the plot box AS LAID OUT, margins included, and the figure lane measured
+# the result at 1.0000 exactly on a default panel:
+#
+#     plain        w/h = 1.5850
+#     axis equal   w/h = 1.0000
+#
+# Against that engine, 5% would sit green through a 4% regression, and 4%
+# out of round is visible to the eye. So: 1%. And if it ever reads 0.972 on
+# a default panel AFTER the merge, that is a finding rather than the
+# expected residual -- it would mean the flag is not being honoured and the
+# roundness is coming from the canvas again.
+#
+# Do not switch early. Until the merge lands, 1% fails against the current
+# engine for the right reason at the wrong time. Coordinate with the
+# git-admin lane's merge rather than guessing at the timing.
+TOLERANCE = 0.05
+
+# WHAT THIS DOES AND DOES NOT JUDGE.
+#
+# Only `circle`. A circle is the one shape whose correct rendering is
+# unambiguous without re-deriving its geometry: equal radii on both axes,
+# so a correctly scaled panel draws a square bounding box, full stop.
+#
+# Deliberately NOT judged:
+#   `ellipse(cx, cy, rx, ry)` is supposed to be out of round, by rx/ry.
+#   `arc(cx, cy, r, from, to)` sweeps part of a turn, and the box of a
+#   0->120 arc is 1.5 wide by 1 tall even when the scales are perfectly
+#   equal -- the first version of this check called exactly that a 137.8%
+#   failure, which would have been a false alarm on correct code.
+#   Judging those needs the expected ratio computed from each call's own
+#   arguments and each path attributed to the call that drew it. Worth
+#   doing; not done here, because a checker that cries wolf gets switched
+#   off and then catches nothing at all.
+#
+# So an example is examined only when it draws a circle and nothing else
+# whose shape is legitimately unequal, and every closed path in it must
+# then be round.
+ROUND_CALLS = ("circle(",)
+AMBIGUOUS_CALLS = ("ellipse(", "arc(", "polygon(", "rect(", "rectangle(", "plot(")
+
+function fail_out(msg)
+    print(msg)
+end function
+
+# The bounding box of the last polyline in an SVG -- the shape drawn most
+# recently, which is the one the block is about.
+function last_path_box(svg)
+    marker = "points=" + chr(34)
+    at = -1
+    i = 0
+    while true
+        found = index_of(substr(svg, i, len(svg) - i), marker) ?? -1
+        if found < 0
+            break
+        end if
+        at = i + found
+        i = at + len(marker)
+    end while
+    if at < 0
+        return {ok = false, w = 0, h = 0}
+    end if
+    start = at + len(marker)
+    stop = index_of(substr(svg, start, len(svg) - start), chr(34)) ?? -1
+    if stop < 0
+        return {ok = false, w = 0, h = 0}
+    end if
+    body = substr(svg, start, stop)
+    minx = 1e18
+    maxx = -1e18
+    miny = 1e18
+    maxy = -1e18
+    n = 0
+    for pair in split(replace(replace(body, chr(10), " "), chr(13), " "), " ")
+        xy = split(trim(pair), ",")
+        if len(xy) != 2
+            continue
+        end if
+        x = to_float(xy[0]) ?? 0
+        y = to_float(xy[1]) ?? 0
+        if x < minx
+            minx = x
+        end if
+        if x > maxx
+            maxx = x
+        end if
+        if y < miny
+            miny = y
+        end if
+        if y > maxy
+            maxy = y
+        end if
+        n = n + 1
+    end for
+    if n < 8
+        return {ok = false, w = 0, h = 0}
+    end if
+    return {ok = true, w = maxx - minx, h = maxy - miny}
+end function
+
+manifest = RUN + "/manifest.txt"
+if not file_exists(manifest)
+    error("check_shape_examples: no manifest at " + manifest + " -- run tools/build_docs_site.sh first")
+end if
+
+checked = 0
+bad = 0
+skipped = 0
+
+for name in lines(read_all_text(manifest))
+    stem = trim(name)
+    if len(stem) == 0
+        continue
+    end if
+    body_file = RUN + "/" + stem + ".body"
+    svg_file = RUN + "/" + stem + ".svg"
+    if not file_exists(body_file) or not file_exists(svg_file)
+        continue
+    end if
+    code = read_all_text(body_file)
+    draws = false
+    for call in ROUND_CALLS
+        if contains(code, call)
+            draws = true
+        end if
+    end for
+    if not draws
+        continue
+    end if
+    # A shape that is meant to be unequal shares the figure: this example
+    # cannot be judged path-by-path without attributing each path to the
+    # call that drew it.
+    mixed = false
+    for call in AMBIGUOUS_CALLS
+        if contains(code, call)
+            mixed = true
+        end if
+    end for
+    if mixed
+        skipped = skipped + 1
+        continue
+    end if
+    box = last_path_box(read_all_text(svg_file))
+    if not box.ok or box.h <= 0
+        continue
+    end if
+    checked = checked + 1
+    ratio = box.w / box.h
+    off = ratio - 1.0
+    if off < 0
+        off = -off
+    end if
+    if off > TOLERANCE
+        bad = bad + 1
+        fail_out("  " + stem + ": width/height = {ratio:.3f} ({off * 100:.1f}% out of round)")
+    end if
+end for
+
+print("{checked} circle examples measured, {bad} out of round (tolerance {TOLERANCE * 100:.0f}%); {skipped} skipped as mixed-shape")
+if bad > 0
+    print("")
+    print("A circle that renders as an ellipse teaches the wrong thing about")
+    print("the function, whatever the surrounding prose says. Equal ranges are")
+    print("not equal scales: `axis equal` widens the narrower RANGE and does")
+    print("not reshape the panel, so on a panel wider than it is tall the")
+    print("circle stays an ellipse. A square canvas -- figure_size(n, n) -- is")
+    print("what makes it round.")
+    error("check_shape_examples: {bad} example(s) render a circle out of round")
+end if

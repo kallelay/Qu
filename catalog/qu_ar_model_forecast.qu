@@ -1,0 +1,69 @@
+# qu_ar_model_forecast.qu -- classical AR(2) autoregressive fitting via the
+# Yule-Walker equations, recovering KNOWN generating coefficients from a
+# synthetic series, then forecasting beyond the observed data.
+#
+# The synthetic series uses the exact generating formula from the engine's
+# own regression test (`ar_model_recovers_known_ar2_coefficients_from_a_
+# synthetic_series` in engine/crates/qu-interp/src/lib.rs):
+#   x[t] = c1*x[t-1] + c2*x[t-2] + 0.1*randn(),  c1=0.6, c2=-0.3
+# a stationary AR(2) pair (characteristic roots outside the unit circle).
+# That test measured (while writing it) that n=20000 recovers c1 within
+# ~0.015 of the true 0.6 -- ordinary Yule-Walker finite-sample noise, not a
+# fitting bug -- so this demo uses the same n and the same tolerance logic.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   seed(n)               -- fixes the interpreter's persistent RNG stream
+#   ar_model(x, order)     -- Yule-Walker AR(p) fit; fields coef/order/mean/
+#                              history/fitted/residuals
+#   model.predict(n_ahead) -- recursive multi-step-ahead forecast
+
+backend auto
+
+#%% Generate a synthetic AR(2) series with KNOWN coefficients.
+seed(12345)
+n = 20000
+c1 = 0.6
+c2 = -0.3
+x = zeros(n)
+x[0] = randn()
+x[1] = randn()
+for t = 2 to n - 1
+    x[t] = c1 * x[t - 1] + c2 * x[t - 2] + 0.1 * randn()
+end for
+
+#%% Fit an AR(2) model and compare recovered coefficients to the truth.
+m = ar_model(x, 2)
+c1_hat = m.coef[0]
+c2_hat = m.coef[1]
+print("True coefficients:      c1={c1:.3f}, c2={c2:.3f}")
+print("Yule-Walker recovered:  c1={c1_hat:.4f}, c2={c2_hat:.4f}")
+print("Fitted mean: {m.mean:.4f} (series mean, series is zero-mean by construction)")
+
+if abs(c1_hat - c1) < 0.05 then
+    print("c1 recovered within the test suite's own 0.05 tolerance.")
+else
+    print("MISMATCH: c1_hat is further than 0.05 from the true c1!")
+end if
+if abs(c2_hat - c2) < 0.05 then
+    print("c2 recovered within the test suite's own 0.05 tolerance.")
+else
+    print("MISMATCH: c2_hat is further than 0.05 from the true c2!")
+end if
+
+#%% Forecast 20 steps beyond the observed series.
+horizon = 20
+future = m.predict(horizon)
+print("Last 5 observed values:   {x[n-5:end]}")
+print("Next {horizon} forecast values: {future}")
+
+#%% Plot the tail of the observed series plus the forecast.
+tail = 100
+history_x = (n - tail) to (n - 1)
+future_x = n to (n + horizon - 1)
+plot(history_x, x[n-tail:end], label="observed", color="blue")
+plot(future_x, future, label="AR(2) forecast", color="red")
+xlabel("t")
+ylabel("x")
+title("AR(2) Yule-Walker fit: history and forecast")
+legend()
+show plot

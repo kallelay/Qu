@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language Tour — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html" class="here">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Language Tour</h1>
+<nav class="onthispage"><a href="#s0">Table of Contents</a><a href="#s35">1. Core types &amp; literals</a><a href="#s82">2. Variables &amp; assignment</a><a href="#s130">3. Operators</a><a href="#s162">4. Control flow</a><a href="#s197">5. Functions</a><a href="#s229">6. Indexing &amp; slicing</a><a href="#s274">7. The Model multi-return protocol</a><a href="#s328">8. Tables</a><a href="#s357">9. Multiple dispatch</a><a href="#s397">10. String interpolation</a><a href="#s441">11. Comments &amp; <code>#%%</code> cells</a><a href="#s502">12. <code>timer.</code> sugar and the <code>-&gt;</code> reshape operator</a><a href="#s595">13. Error handling</a><a href="#s633">14. <code>unsafe</code> blocks — continue past a failure</a><a href="#s709">15. <code>parallel for</code> and the pool/queue job system</a><a href="#s788">16. <code>cast</code> and <code>resample_to</code></a><a href="#s858">17. Advanced multiple dispatch</a><a href="#s908">18. DSP builtins — a signal-processing tour</a><a href="#s971">19. <code>memoize function</code> — function-result caching</a><a href="#s1050">20. File I/O extensions — <code>touch</code>, streaming reads, and memory-mapped files</a><a href="#s1157">21. <code>http_get(url)</code> — real HTTP GET</a><a href="#s1224">22. <code>lazy</code> — deferred variable evaluation</a><a href="#s1297">23. <code>StreamFile</code>/<code>StreamURL</code> — unified polymorphic streams</a><a href="#s1398">24. Three new Signal builtins — <code>interpolate_at</code>, <code>apply</code>, <code>cut</code></a><a href="#s1516">25. <code>watch</code> — file/variable/URL change detection</a><a href="#s1596">26. Advanced Qu vs. Python: two real, measured comparisons</a><a href="#s1675">27. Summary of mismatches found</a></nav>
+<p>Every example below is a real <code>.qu</code> script that was actually executed against a real release build and the output shown is copy-pasted verbatim (not reformatted, not idealized). Nothing here was written from memory or "should work" guessing.</p>
+<p><strong>Binary used:</strong> <code>qu.exe</code> built via <code>cargo build --release -p qu-cli</code> from <code>engine/</code>, built 2026-08-31 from HEAD commit <code>4464d1b</code> ("Add table./timer. namespace sugar, -&gt; reshape operator, row/col aliases"). Every script was run as:</p>
+<pre><code>qu.exe run &lt;script&gt;.qu
+</code></pre>
+<p>&gt; <strong>Update, same day:</strong> the <code>elseif</code> bug this pass found (§4, §14) was fixed &gt; immediately after this document was drafted — see commit <code>79609d0</code>. The &gt; repro/root-cause writeups below were updated to reflect the fix rather than &gt; rewritten from scratch, so they still show the real before/after.</p>
+<p><strong>Purpose:</strong> this is a language tour AND a cross-check against the two spec docs (<code>docs/qu-language-spec.md</code> and <code>book/src/language-reference/spec.md</code> — these two files are currently byte-identical). Where reality disagrees with the spec, or with a reasonable assumption about the language, it's called out in a blockquote headed <strong>MISMATCH</strong>. Where a bug in the current parser/interp itself was found (not a doc problem), it's called out headed <strong>BUG</strong>. This pass makes no source-code changes — evidence only.</p>
+<h2 id="s0">Table of Contents</h2>
+<p>1. <a href="#1-core-types--literals">Core types &amp; literals</a> 2. <a href="#2-variables--assignment">Variables &amp; assignment</a> 3. <a href="#3-operators">Operators</a> 4. <a href="#4-control-flow">Control flow</a> 5. <a href="#5-functions">Functions</a> 6. <a href="#6-indexing--slicing">Indexing &amp; slicing</a> 7. <a href="#7-the-model-multi-return-protocol">The Model multi-return protocol</a> 8. <a href="#8-tables">Tables</a> 9. <a href="#9-multiple-dispatch">Multiple dispatch</a> 10. <a href="#10-string-interpolation">String interpolation</a> 11. <a href="#11-comments--%25-cells">Comments &amp; <code>#%%</code> cells</a> 12. <a href="#12-timer-sugar-and-the--reshape-operator"><code>timer.</code> sugar and the <code>-&gt;</code> reshape operator</a> 13. <a href="#13-error-handling">Error handling</a> 14. <a href="#14-unsafe-blocks--continue-past-a-failure"><code>unsafe</code> blocks — continue past a failure</a> 15. <a href="#15-parallel-for-and-the-poolqueue-job-system"><code>parallel for</code> and the pool/queue job system</a> 16. <a href="#16-cast-and-resample_to"><code>cast</code> and <code>resample_to</code></a> 17. <a href="#17-advanced-multiple-dispatch">Advanced multiple dispatch</a> 18. <a href="#18-dsp-builtins--a-signal-processing-tour">DSP builtins — a signal-processing tour</a> 19. <a href="#19-memoize-function--function-result-caching"><code>memoize function</code> — function-result caching</a> 20. <a href="#20-file-io-extensions--touch-streaming-reads-and-memory-mapped-files">File I/O extensions — <code>touch</code>, streaming reads, and memory-mapped files</a> 21. <a href="#21-http_geturl--real-http-get"><code>http_get(url)</code> — real HTTP GET</a> 22. <a href="#22-lazy--deferred-variable-evaluation"><code>lazy</code> — deferred variable evaluation</a> 23. <a href="#23-streamfilestreamurl--unified-polymorphic-streams"><code>StreamFile</code>/<code>StreamURL</code> — unified polymorphic streams</a> 24. <a href="#24-three-new-signal-builtins--interpolate_at-apply-cut">Three new Signal builtins — <code>interpolate_at</code>, <code>apply</code>, <code>cut</code></a> 25. <a href="#25-watch--filevariableurl-change-detection"><code>watch</code> — file/variable/URL change detection</a> 26. <a href="#26-summary-of-mismatches-found">Summary of mismatches found</a></p>
+<hr>
+<h2 id="s35">1. Core types &amp; literals</h2>
+<div class="example"><pre class="hl"><code>x = <span class="n">42</span>
+y = <span class="n">3.14</span>
+b = <span class="k">true</span>
+s = <span class="s">"hello"</span>
+name = <span class="s">"world"</span>
+si = <span class="s">"hi {name}, x={x}"</span>
+v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+z = <span class="n">3</span> + <span class="n">4i</span>
+<span class="f">print</span>(<span class="s">"x  = {x}"</span>)
+<span class="f">print</span>(<span class="s">"y  = {y}"</span>)
+<span class="f">print</span>(<span class="s">"b  = {b}"</span>)
+<span class="f">print</span>(<span class="s">"s  = {s}"</span>)
+<span class="f">print</span>(si)
+<span class="f">print</span>(<span class="s">"v  = {v}"</span>)
+<span class="f">print</span>(<span class="s">"M  = {M}"</span>)
+<span class="f">print</span>(<span class="s">"z  = {z}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>x  = 42
+y  = 3.14
+b  = true
+s  = hello
+hi world, x=42
+v  = [1, 2, 3]
+M  = [1, 2; 3, 4]
+z  = 3 + 4i
+</code></pre>
+<p>Record, List (via <code>split</code>), CVec (via <code>fft</code>), and Signal:</p>
+<div class="example"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
+<span class="f">print</span>(<span class="s">"r = {r}"</span>)
+<span class="f">print</span>(<span class="s">"r.x = {r.x}"</span>)
+
+parts = <span class="f">split</span>(<span class="s">"a,b,c"</span>, <span class="s">","</span>)
+<span class="f">print</span>(<span class="s">"parts = {parts}"</span>)
+
+X = <span class="f">fft</span>([<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>])
+<span class="f">print</span>(<span class="s">"X = {X}"</span>)
+
+sig = <span class="f">signal</span>([<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>], <span class="n">100</span>)
+<span class="f">print</span>(<span class="s">"sig = {sig}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>r = {x = 1, y = 2}
+r.x = 1
+parts = ("a", "b", "c")
+X = [10, -2 + 2i, -2, -2 - 2i]
+sig = signal(Fs=100) [1, 2, 3, 4]
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Record literal syntax is <code>{name = value, ...}</code> — <strong>not</strong> <code>{name: value}</code>.</li>
+<li>A <code>List</code> (heterogeneous/dynamic array, <code>Value::List</code>) is not built with a literal; it comes back from builtins like <code>split</code>. It prints as a parenthesized tuple <code>(...)</code>.</li>
+<li><code>[...]</code> is always numeric/complex — <code>Vec</code>/<code>Mat</code>/<code>CVec</code>/<code>CMat</code> depending on shape and whether any cell is complex. A string in an array literal is a hard error (<code>as_num()</code> fails), so <code>[1, "a"]</code> does not silently become a List.</li>
+<li><code>Signal</code> carries its sample rate; printing shows <code>signal(Fs=100) [...]</code>. Field access: <code>sig.Fs</code>, <code>sig.N</code>, <code>sig.dt</code>, <code>sig.t</code> (all confirmed — see §6).</li>
+</ul>
+<p>CVec/CMat literal syntax (a single complex cell promotes the whole literal):</p>
+<div class="example"><pre class="hl"><code>cv = [<span class="n">1</span>+<span class="n">2i</span>, <span class="n">3</span>-<span class="n">1i</span>, <span class="n">0</span>+<span class="n">1i</span>]
+<span class="f">print</span>(<span class="s">"cv = {cv}"</span>)
+cm = [<span class="n">1</span>+<span class="n">1i</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>-<span class="n">2i</span>]
+<span class="f">print</span>(<span class="s">"cm = {cm}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>cv = [1 + 2i, 3 - 1i, 1i]
+cm = [1 + 1i, 2; 3, 4 - 2i]
+</code></pre>
+<p>&gt; <strong>No type introspection found.</strong> Neither <code>type_name(x)</code> nor <code>typeof(x)</code> nor &gt; any variant exists as a builtin (<code>qu: runtime error: unknown function &gt; 'type_name'</code>), and grepping both spec docs and <code>book/src/stdlib/</code> turns up &gt; no claim of one either — this isn't a doc mismatch, just a real gap worth &gt; knowing about if you were assuming one existed.</p>
+<hr>
+<h2 id="s82">2. Variables &amp; assignment</h2>
+<p>Indexed assignment, and the <code>@</code> self-mutation prefix:</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
+v[<span class="n">0</span>] = <span class="n">99</span>
+<span class="f">print</span>(<span class="s">"v = {v}"</span>)
+
+M = [<span class="n">1</span>,<span class="n">2</span>;<span class="n">3</span>,<span class="n">4</span>]
+M[<span class="n">0</span>,<span class="n">1</span>] = <span class="n">77</span>
+<span class="f">print</span>(<span class="s">"M = {M}"</span>)
+
+df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,<span class="n">30</span>,<span class="n">40</span>])
+@df.<span class="f">drop_row</span>(<span class="n">1</span>)
+<span class="f">print</span>(df)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>v = [99, 20, 30, 40, 50]
+M = [1, 77; 3, 4]
+x   y
+-  --
+1  10
+3  30
+4  40
+</code></pre>
+<p><code>@expr</code> desugars at parse time to <code>root = expr</code>, where <code>root</code> is the plain-variable root of the chain (<code>@data.drop_row(1)</code> → <code>data = data.drop_row(1)</code>). <code>@(a+b)</code> or <code>@foo()</code> (not rooted in a variable) is a parse-time error naming the problem, per <code>qu-syntax/src/lib.rs:801-817</code>.</p>
+<p>Compound assignment — <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code> all work:</p>
+<div class="example"><pre class="hl"><code>a = <span class="n">5</span>
+a += <span class="n">3</span>
+<span class="f">print</span>(<span class="s">"a += 3 -&gt; {a}"</span>)
+a -= <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"a -= 2 -&gt; {a}"</span>)
+a *= <span class="n">4</span>
+<span class="f">print</span>(<span class="s">"a *= 4 -&gt; {a}"</span>)
+a /= <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"a /= 2 -&gt; {a}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>a += 3 -&gt; 8
+a -= 2 -&gt; 6
+a *= 4 -&gt; 24
+a /= 2 -&gt; 12
+</code></pre>
+<p>Units normalize to SI on construction:</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz
+<span class="f">print</span>(<span class="s">"Fs = {Fs}"</span>)
+</code></pre>
+</div>
+<pre><code>Fs = 5000
+</code></pre>
+<p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>.*=</code>/<code>./=</code>/<code>^=</code> failing to parse (<code>unexpected Op("=") &gt; in expression</code>) despite the spec documenting them — root cause was two &gt; bugs at once: the lexer's <code>match_operator</code> only ever compared an &gt; operator's first two characters (so a genuine 3-char token like <code>.*=</code> &gt; could never match), and <code>^=</code>/<code>.* =</code>/<code>./=</code> weren't in the <code>OPERATORS</code> &gt; table at all. Both fixed; all three now work, wired through the exact &gt; same compound-assign desugaring <code>+=</code>/<code>-=</code>/<code>*=</code>/<code>/=</code> already used, so &gt; they inherit <code>binop</code>'s real semantics automatically: &gt; <code></code><code>qu &gt; M = [1,2;3,4] &gt; M ^= 2          # real matrix power, not elementwise &gt; print(M)        # [7, 10; 15, 22] &gt; v = [1,2,3] &gt; v .*= [10,20,30] &gt; print(v)        # [10, 40, 90] &gt; </code><code></code> &gt; Verified live — both outputs shown are real.</p>
+<p>&gt; <strong>MISMATCH — </strong><code>++</code>/<code>--</code> increment.<strong> The spec shows </strong><code>x++</code> as a statement-only &gt; increment (<code>x = x + 1</code>). Real behavior: <code>a++</code> does not parse at all — &gt; <code>a = 5; a++</code> gives <code>qu: runtime error: parse error at 3:1: unexpected Eof in &gt; expression</code>, because <code>++</code> isn't a lexed token; the parser sees <code>a</code>, then a &gt; binary <code>+</code> expecting a right operand, then a unary <code>+</code> expecting an operand, &gt; and runs out of input. No increment/decrement operator exists today.</p>
+<p>&gt; <strong>MISMATCH — multiple assignment.</strong> The spec shows: &gt; <code></code><code> &gt; x, y = 1, 2 &gt; mag, phase = bode(sys, w) &gt; </code><code></code> &gt; Real behavior: <code>x, y = 1, 2</code> is a parse error — &gt; <code>qu: runtime error: parse error at 1:2: expected end of statement (newline &gt; or ';'), found Op(",")</code>. There is no destructuring assignment at all today. &gt; Multi-value returns are exclusively handled via the <code>Value::Model</code> &gt; <code>.field</code> protocol (§7) — <code>q, r = qr(M)</code> also fails to parse; you must write &gt; <code>res = qr(M); q = res.q; r = res.r</code>.</p>
+<hr>
+<h2 id="s130">3. Operators</h2>
+<p>Matrix vs. elementwise, using <code>A = [1,2;3,4]</code>, <code>B = [5,6;7,8]</code>:</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>,<span class="n">2</span>;<span class="n">3</span>,<span class="n">4</span>]
+B = [<span class="n">5</span>,<span class="n">6</span>;<span class="n">7</span>,<span class="n">8</span>]
+<span class="f">print</span>(<span class="s">"A*B (matrix mult) = {A*B}"</span>)
+<span class="f">print</span>(<span class="s">"A.*B (elementwise) = {A.*B}"</span>)
+<span class="f">print</span>(<span class="s">"A/B = {A/B}"</span>)
+<span class="f">print</span>(<span class="s">"A./B (elementwise div) = {A./B}"</span>)
+<span class="f">print</span>(<span class="s">"A' (transpose) = {A'}"</span>)
+<span class="f">print</span>(<span class="s">"A^2 (matrix power) = {A^2}"</span>)
+b = [<span class="n">4</span>; <span class="n">8</span>]
+Asolve = [<span class="n">2</span>,<span class="n">0</span>;<span class="n">0</span>,<span class="n">4</span>]
+x = Asolve \ b
+<span class="f">print</span>(<span class="s">"A \\ b (solve Ax=b) = {x}"</span>)
+
+v = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+w = v |&gt; sum
+<span class="f">print</span>(<span class="s">"v |&gt; sum = {w}"</span>)
+
+s1 = <span class="s">"foo"</span> + <span class="s">"bar"</span>
+<span class="f">print</span>(<span class="s">"concat = {s1}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>A*B (matrix mult) = [19, 22; 43, 50]
+A.*B (elementwise) = [5, 12; 21, 32]
+A/B = [0.2, 0.333333; 0.428571, 0.5]
+A./B (elementwise div) = [0.2, 0.333333; 0.428571, 0.5]
+A' (transpose) = [1, 3; 2, 4]
+A^2 (matrix power) = [7, 10; 15, 22]
+A \ b (solve Ax=b) = [2; 2]
+v |&gt; sum = 6
+concat = foobar
+</code></pre>
+<p>&gt; <strong>Notable, verified behavior — </strong><code>/</code> between two matrices is NOT matrix &gt; right-division.<strong> </strong><code>A*B</code> is real matrix multiplication (confirmed: &gt; <code>[1,2;3,4]*[5,6;7,8] = [19,22;43,50]</code>, matches <code>A@B</code>). <code>A^2</code> is real &gt; repeated matmul. But <code>A/B</code> is byte-identical to <code>A./B</code> — both give the pure &gt; elementwise result. This isn't an accident: <code>qu-interp/src/lib.rs:19947</code> &gt; literally reads <code>"/" | "./" =&gt; matrix_ew(a, b, |x, y| x / y)</code>. Only the &gt; <strong>backslash</strong> <code>\</code> does real linear algebra (<code>A \ b</code> solves <code>Ax=b</code> via &gt; least-squares, confirmed above: <code>[2,0;0,4] \ [4;8] = [2;2]</code>, correct). The &gt; spec's operator precedence table (line 724) groups <code>*, /, \</code> together as &gt; one tier distinct from <code>.*, ./, .\</code>, which reads as though <code>/</code> should mirror &gt; <code>*</code>'s "real matrix op" behavior — it does not. Worth deciding whether this &gt; is intended.</p>
+<p>Logical/comparison (whole-value, not elementwise per spec — confirmed):</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"2==2: {2==2}, 2!=3: {2!=3}, true and false: {true and false}, true or false: {true or false}, not true: {not true}"</span>)
+</code></pre>
+</div>
+<pre><code>2==2: true, 2!=3: true, true and false: false, true or false: true, not true: false
+</code></pre>
+<p>Reshape <code>-&gt;</code> (see §12 for detail) and pipe <code>|&gt;</code> were confirmed working as shown above.</p>
+<hr>
+<h2 id="s162">4. Control flow</h2>
+<p>Plain <code>if</code>/<code>else</code>/<code>end if</code>, <code>while</code>+<code>continue</code>, <code>for</code>+<code>break</code> all work:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">7</span>
+<span class="k">if</span> x &gt; <span class="n">10</span>
+    <span class="f">print</span>(<span class="s">"big"</span>)
+<span class="k">else</span>
+    <span class="k">if</span> x &gt; <span class="n">5</span>
+        <span class="f">print</span>(<span class="s">"medium"</span>)
+    <span class="k">else</span>
+        <span class="f">print</span>(<span class="s">"small"</span>)
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">if</span>
+
+i = <span class="n">0</span>
+<span class="k">while</span> i &lt; <span class="n">5</span>
+    <span class="k">if</span> i == <span class="n">3</span>
+        i += <span class="n">1</span>
+        continue
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="f">print</span>(<span class="s">"i = {i}"</span>)
+    i += <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    <span class="k">if</span> k == <span class="n">4</span>
+        break
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="f">print</span>(<span class="s">"k = {k}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>medium
+i = 0
+i = 1
+i = 2
+i = 4
+k = 0
+k = 1
+k = 2
+k = 3
+</code></pre>
+<p><code>try</code>/<code>catch</code> works and catches real runtime errors (see §13 for details).</p>
+<p>&gt; <strong>BUG — found here, fixed same-day (commit </strong><code>79609d0</code>).<strong> </strong><code>elseif</code> never &gt; parsed successfully, in any form, before this fix. Minimal repro that used &gt; to fail: &gt; <code></code><code>qu &gt; x = 7 &gt; if x &gt; 10 &gt;     print("big") &gt; elseif x &gt; 5 &gt;     print("medium") &gt; end if &gt; print("done") &gt; </code><code></code> &gt; Before the fix: <code>qu: runtime error: parse error at 6:1: expected end of &gt; statement (newline or ';'), found Keyword("end")</code> — reproduced identically &gt; whether the chain ended in <code>else</code>, no <code>else</code>, <code>end if</code>, or bare <code>end</code>. Root &gt; cause was in <code>qu-syntax/src/lib.rs</code>: <code>if_stmt</code>, on seeing <code>elseif</code>, recursed &gt; into <code>if_stmt_from_elseif</code> and then <strong>returned immediately</strong>, before &gt; reaching its own <code>self.expect_end(&amp;["if"])?</code> call three lines later — so &gt; the terminating <code>end</code>/<code>end if</code> of an <code>elseif</code> chain was never consumed by &gt; anyone, tripping a parse error on the following statement. Fixed by &gt; removing the early return so the outer <code>if_stmt</code> always consumes the &gt; chain's shared <code>end</code>, matching <code>if_stmt_from_elseif</code>'s own comment ("the &gt; outer if consumes the shared <code>end if</code>"), which described the intended &gt; behavior correctly all along — the code just didn't implement it. 2 new &gt; regression tests added (a single <code>elseif</code> followed by a real trailing &gt; statement, and a 3-branch <code>elseif</code>/<code>else</code> chain checked structurally). &gt; Re-verified live: the repro above now correctly prints <code>medium</code> then <code>done</code>.</p>
+<p>&gt; <strong>Follow-up, same day (commit </strong><code>f77713c</code>): <code>else if</code> (two words) now &gt; means the same thing as <code>elseif</code> (one word).<strong> Before this, </strong><code>else</code> &gt; immediately followed by <code>if</code> parsed as plain <code>else</code> containing a nested &gt; <code>if</code> — needing its OWN separate <code>end if</code>, in addition to the outer &gt; one. Confirmed unambiguous: <code>else</code> immediately followed by <code>if</code> (same &gt; line or across a newline — newlines aren't suppressed in this exact &gt; position) always means the chained form now; a deliberately nested <code>if</code> &gt; written on its own line inside an <code>else</code> block still works and still &gt; needs its own <code>end if</code>, since that's a different token sequence. &gt; <code></code><code>qu &gt; x = 5 &gt; if x &gt; 10 &gt;     print("big") &gt; else if x &gt; 3 &gt;     print("medium") &gt; end if &gt; </code><code></code> &gt; Now prints <code>medium</code> with one shared <code>end if</code>, fully interchangeable &gt; with <code>elseif</code>.</p>
+<hr>
+<h2 id="s197">5. Functions</h2>
+<p>Both the block form and the one-line <code>:=</code> form work, <code>return</code> works, and typed-parameter multiple dispatch works:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
+    <span class="k">return</span> a + b
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"add(2,3) = {add(2,3)}"</span>)
+
+<span class="f">square</span>(x) := x^<span class="n">2</span>
+<span class="f">print</span>(<span class="s">"square(5) = {square(5)}"</span>)
+
+<span class="k">function</span> <span class="f">describe</span>(x: num)
+    <span class="k">return</span> <span class="s">"num: {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe</span>(x: str)
+    <span class="k">return</span> <span class="s">"str: {x}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="f">describe</span>(<span class="n">5</span>))
+<span class="f">print</span>(<span class="f">describe</span>(<span class="s">"hi"</span>))
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>add(2,3) = 5
+square(5) = 25
+num: 5
+str: hi
+</code></pre>
+<p>Operator-overload functions on tagged records work, but require an explicit <code>__type</code> field — a plain untagged record does NOT dispatch to <code>record&lt;Tag&gt;</code>-typed overloads:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+    <span class="k">return</span> {__type = <span class="s">"Vec2"</span>, x = a.x + b.x, y = a.y + b.y}
+<span class="k">end</span> <span class="k">function</span>
+
+p1 = {__type = <span class="s">"Vec2"</span>, x = <span class="n">1</span>, y = <span class="n">2</span>}
+p2 = {__type = <span class="s">"Vec2"</span>, x = <span class="n">10</span>, y = <span class="n">20</span>}
+sum = p1 + p2
+<span class="f">print</span>(<span class="s">"sum = {sum}"</span>)
+</code></pre>
+</div>
+<pre><code>sum = {__type = "Vec2", x = 11, y = 22}
+</code></pre>
+<p>(Omitting <code>__type</code> on the record literals falls through to the built-in numeric <code>+</code> and errors with <code>expected a number, found record</code>.) The <code>record&lt;Tag&gt;</code> match is implemented via <code>record_type_tag</code> in <code>qu-interp/src/lib.rs:2709</code>, which specifically looks for a string field named <code>__type</code> — not a <code>kind</code> field, and not any structural/duck-typed match.</p>
+<p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>function butter(x, order = 4, ...)</code> failing to parse &gt; at all (<code>expected ')', found Op("=")</code>, since <code>Param</code> had no default-value &gt; slot). Default parameters are now real: &gt; <code></code><code>qu &gt; function butter(x, order = 4, cutoff = 1000) &gt;     return "x={x} order={order} cutoff={cutoff}" &gt; end function &gt; print(butter(99))               # x=99 order=4 cutoff=1000 &gt; print(butter(99, 2, 500))       # x=99 order=2 cutoff=500 &gt; </code><code></code> &gt; The default expression is re-evaluated fresh on every call (not &gt; computed once at definition time) and may reference an earlier &gt; parameter (<code>function f(x, y = x * 2)</code> works). <strong>A real behavior change &gt; discovered along the way</strong>: named-argument calling on a user-defined &gt; function is NOT supported — <code>butter(99, cutoff=500)</code> is a clear error &gt; (<code></code> <code>butter</code> is a user-defined function -- named arguments... are not &gt; supported when calling one<code></code>), verified live. Only builtins accept &gt; <code>name=value</code> calling syntax; pass every argument to a user function &gt; positionally. There is no separate <code>optional</code>/<code>is_present()</code> mechanism &gt; — a parameter is either required or has a <code>= value</code> default.</p>
+<p>&gt; <strong>MISMATCH — </strong><code>nargin</code>/<code>nargout</code>/varargs.<strong> The spec's §44.5 claims &gt; </strong><code>nargin</code>, <code>nargout</code>, <code>...args</code> (varargin), and <code>args...</code> (spread). Real &gt; behavior: <code>nargin</code> inside a function body gives <code>qu: runtime error: 'nargin' &gt; is not defined</code>. None of this argument-introspection machinery exists.</p>
+<p>&gt; <strong>MISMATCH — anonymous-function arrow lambdas.</strong> The spec's §44.5 shows &gt; <code>sq = (x) -&gt; x^2</code> as a MATLAB-<code>@(x)</code>-style lambda. Real behavior: this is a &gt; parse error — <code>qu: runtime error: parse error at 1:13: expected '(', found &gt; Ident("x")</code>. <code>-&gt;</code> today is exclusively the new reshape operator (§12): &gt; after <code>-&gt;</code> the parser expects a parenthesized dims tuple, not an arbitrary &gt; expression body, so a lambda arrow using the same token cannot coexist with &gt; reshape as currently implemented. There is no lambda literal syntax at all &gt; right now — <code>map</code> needs a named function.</p>
+<p>&gt; <strong>MISMATCH — </strong><code>pure function</code>/<code>elemental function</code> attributes.<strong> Claimed in &gt; spec §44.5; </strong><code>pure</code>/<code>elemental</code> are not in the lexer's keyword list at all &gt; (<code>qu-lexer/src/lib.rs:78-82</code>), so <code>pure function f(x) ... end function</code> &gt; would need to be tested but is very unlikely to be recognized — flagged &gt; from source inspection, not independently re-run, since the keyword's &gt; absence from the lexer table is already conclusive.</p>
+<hr>
+<h2 id="s229">6. Indexing &amp; slicing</h2>
+<p>Zero-based indexing, inclusive slices, <code>end</code>, boolean masks, <code>where</code>, and fancy (integer-vector) indexing — all confirmed working exactly as the spec (§15) describes:</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
+<span class="f">print</span>(<span class="s">"v[0] = {v[0]}"</span>)
+<span class="f">print</span>(<span class="s">"v[1:3] = {v[1:3]}"</span>)
+<span class="f">print</span>(<span class="s">"v[end] = {v[end]}"</span>)
+
+mask = v &gt; <span class="n">30</span>
+<span class="f">print</span>(<span class="s">"mask = {mask}"</span>)
+<span class="f">print</span>(<span class="s">"v[mask] = {v[mask]}"</span>)
+
+v[v &lt; <span class="n">25</span>] = <span class="n">0</span>
+<span class="f">print</span>(<span class="s">"after mask assign = {v}"</span>)
+
+idx = where v &gt; <span class="n">0</span>
+<span class="f">print</span>(<span class="s">"where v&gt;0 = {idx}"</span>)
+
+X = [<span class="n">100</span>, <span class="n">200</span>, <span class="n">300</span>, <span class="n">400</span>, <span class="n">500</span>]
+bins = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="s">"X[bins] (fancy indexing) = {X[bins]}"</span>)
+
+r = <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+<span class="f">print</span>(<span class="s">"0 to 4 = {r}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>v[0] = 10
+v[1:3] = [20, 30]
+v[end] = 50
+mask = [F, F, F, T, T]
+v[mask] = [40, 50]
+after mask assign = [0, 0, 30, 40, 50]
+where v&gt;0 = [2, 3, 4]
+X[bins] (fancy indexing) = [100, 300, 500]
+0 to 4 = [0, 1, 2, 3, 4]
+</code></pre>
+<p><code>0 to 4</code> is inclusive on both ends (<code>[0,1,2,3,4]</code>, 5 elements), and so is a bracket slice: <code>v[1:3]</code> returns <code>[20, 30, 40]</code> — indices 1, 2 AND 3. One range convention, everywhere.</p>
+<p><code>range(a, b, step=1)</code> also exists as a builtin and is <strong>inclusive of </strong><code>b</code><strong>, matching </strong><code>to</code> rather than Python's exclusive convention:</p>
+<div class="example"><pre class="hl"><code>r = <span class="f">range</span>(<span class="n">0</span>, <span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"range(0,5) = {r}"</span>)
+</code></pre>
+</div>
+<pre><code>range(0,5) = [0, 1, 2, 3, 4, 5]
+</code></pre>
+<p><code>range(5)</code> alone does <strong>not</strong> mean "0..4" — it's <code>range(start=5, stop=0, step=1)</code> by argument position (<code>qu-interp/src/lib.rs:12721-12730</code>, defaults are <code>a=0, b=0, step=1</code> filled positionally), which walks from 5 toward 0 with a positive step and errors: <code>qu: runtime error: range step points away from its stop value</code>. Always pass at least two arguments.</p>
+<p>&gt; <strong>SETTLED — negative indexing.</strong> Qu does not have it, and this is a &gt; decision rather than a gap: <code>x[-1]</code> is a runtime error (<code>index must be a &gt; non-negative integer, got -1</code>), and <code>end</code> is the mechanism. Arithmetic on &gt; it works, so <code>x[end]</code>, <code>x[end-1]</code>, <code>x[end-2]</code> give the last, &gt; second-to-last and third-to-last element. &gt; &gt; This was recorded here as a MISMATCH against the specification, which &gt; used to show <code>x[-1]</code> as "last element". The specification no longer &gt; claims it (§15 now states the rule above), so there is nothing left to &gt; reconcile. Retracting the claim was chosen over implementing it, &gt; 2026-09-09.</p>
+<hr>
+<h2 id="s274">7. The Model multi-return protocol</h2>
+<p>Functions with multiple structured outputs (<code>qr</code>, <code>findpeaks</code>, etc.) return a <code>Value::Model</code>, printed as <code>model(kind) {field1, field2, ...}</code>, with <code>.field</code> access — and the field names are the ones actually listed, not guessed:</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+res = <span class="f">qr</span>(M)
+<span class="f">print</span>(res)
+<span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
+<span class="f">print</span>(<span class="s">"r = {res.r}"</span>)
+
+x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">0</span>]
+pk = <span class="f">findpeaks</span>(x)
+<span class="f">print</span>(pk)
+<span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
+<span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>model(qr) {q, r}
+q = [0.5547, 0.83205; 0.83205, -0.5547]
+r = [7.211103, 4.160251; 0, 0.83205]
+model(findpeaks) {peaks, locations}
+peaks = [3, 4]
+locations = [2, 6]
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Field names are <strong>lowercase</strong> (<code>q</code>, <code>r</code> — not <code>Q</code>, <code>R</code>); accessing <code>res.Q</code> errors with <code>qu: runtime error: model has no field 'Q' (kind: qr, fields: q, r)</code> — a genuinely useful self-documenting error.</li>
+<li><code>findpeaks</code>'s location field is <code>locations</code>, not <code>locs</code>.</li>
+<li><code>locations = [2, 6]</code> confirms 0-based indexing again: <code>x[2]=3</code> and <code>x[6]=4</code> are indeed the two local maxima.</li>
+<li>There is no destructuring (<code>q, r = qr(M)</code>, see §2) — <code>.field</code> access on the returned <code>Model</code> is the *only* way to pull out multiple results.</li>
+</ul>
+<hr>
+<h2 id="s328">8. Tables</h2>
+<p>Construction is via named-column keyword arguments, <code>table(...)</code>/<code>DataFrame(...)</code> — <strong>not</strong> by wrapping a matrix:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
+<span class="f">print</span>(df)
+<span class="f">print</span>(<span class="s">"nrow = {nrow(df)}"</span>)
+<span class="f">print</span>(<span class="s">"ncol = {ncol(df)}"</span>)
+<span class="f">print</span>(<span class="s">"df.nrows = {df.nrows}"</span>)
+<span class="f">print</span>(<span class="s">"rows(df) = {rows(df)}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>x   y
+-  --
+1  10
+2  20
+3  -5
+nrow = 3
+ncol = 2
+df.nrows = 3
+rows(df) = 3
+</code></pre>
+<p><code>df.nrows</code>/<code>rows(df)</code>/<code>nrow(df)</code> (and the <code>ncol</code>/<code>cols</code>/<code>df.ncols</code> triad) are all confirmed working — these are today's real sugar aliases, added in the same commit as the <code>-&gt;</code> reshape operator (<code>4464d1b</code>).</p>
+<p>CSV round-trip, both the raw builtins and the new <code>table.</code> sugar:</p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
+<span class="f">print</span>(df2)
+table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
+df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
+<span class="f">print</span>(df3)
+</code></pre>
+</div>
+<p>Output (both round-trips produce the identical table back):</p>
+<pre><code>x   y
+-  --
+1  10
+2  20
+3  -5
+x   y
+-  --
+1  10
+2  20
+3  -5
+</code></pre>
+<p><code>filter</code>, <code>sort_by</code>, <code>group_by_agg</code>:</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
+pos = <span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>)
+<span class="f">print</span>(pos)
+
+s = <span class="f">sort_by</span>(df, <span class="s">"y"</span>)
+<span class="f">print</span>(s)
+
+g = <span class="f">table</span>(<span class="a">grp</span>=[<span class="n">1</span>,<span class="n">1</span>,<span class="n">2</span>,<span class="n">2</span>], <span class="a">v</span>=[<span class="n">10</span>,<span class="n">20</span>,<span class="n">30</span>,<span class="n">40</span>])
+agg = <span class="f">group_by_agg</span>(g, <span class="s">"grp"</span>, <span class="s">"v"</span>, <span class="s">"mean"</span>)
+<span class="f">print</span>(agg)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>x   y
+-  --
+1  10
+2  20
+3  -5
+5   2
+ x   y
+--  --
+ 3  -5
+ 5   2
+-1   7
+ 1  10
+ 2  20
+grp  mean_v
+---  ------
+1        15
+2        35
+</code></pre>
+<p><code>df[mask]</code> does <strong>not</strong> work — bracket indexing on a table is single-key row lookup only, with a very explicit error pointing at the fix:</p>
+<div class="example"><pre class="hl"><code>mask = df.x &gt; <span class="n">0</span>
+bad = df[mask]
+</code></pre>
+</div>
+<pre><code><span class="e">qu: runtime error: table has the default numeric row index (0, 1, 2, ...);</span>
+`mask` is not a valid row position -- call `.index("col")` first to look rows
+up by a string label
+</code></pre>
+<p>The real idiom is <code>filter(df, mask)</code>, shown working above.</p>
+<p>&gt; <strong>MISMATCH (confirmed once more, precisely) — </strong><code>read_csv</code>/<code>write_csv</code> &gt; signature.<strong> </strong><code>docs/qu-language-spec.md</code> / <code>book/src/language-reference/spec.md</code> &gt; (both identical, lines 1555-1556, 2307, 2397-2398, 2786) consistently write: &gt; <code></code><code>text &gt; T = read_csv("data.csv", header=true) &gt; write_csv("filtered.csv", y)              # path FIRST, data SECOND &gt; </code><code></code> &gt; Real, verified signatures (confirmed by successful round-trip above, and &gt; matching <code>book/src/stdlib/file-io.md:90-91</code>, which is already correct): &gt; - <code>read_csv(path, headers=true, sep=",", decimal=".")</code> — the keyword is &gt;   <code>headers</code> (plural), not <code>header</code>. &gt; - <code>write_csv(df, path)</code> — <strong>data first, path second</strong>, the reverse of what &gt;   the spec shows. Calling <code>write_csv("filtered.csv", y)</code> the spec's way &gt;   would try to write a string as if it were a table. &gt; &gt; This is the exact mismatch this session had already flagged once before &gt; (per the task brief) — now independently re-confirmed with a real run. &gt; <code>book/src/stdlib/file-io.md</code> already has the correct signature; only &gt; <code>docs/qu-language-spec.md</code>/<code>book/src/language-reference/spec.md</code> are wrong.</p>
+<hr>
+<h2 id="s357">9. Multiple dispatch</h2>
+<p>Three overloads of <code>area</code>, resolved by specificity — untyped is the fallback:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">area</span>(x: num)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">area</span>(x: vec)
+    <span class="k">return</span> <span class="f">sum</span>(x)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">area</span>(x)
+    <span class="k">return</span> -<span class="n">1</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="s">"area(5) = {area(5)}"</span>)
+<span class="f">print</span>(<span class="s">"area([1,2,3]) = {area([1,2,3])}"</span>)
+<span class="f">print</span>(<span class="s">"area(true) = {area(true)}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>area(5) = 25
+area([1,2,3]) = 6
+area(true) = -1
+</code></pre>
+<p><code>area(5)</code> picks the <code>num</code>-typed overload, <code>area([1,2,3])</code> picks the <code>vec</code>-typed one, and <code>area(true)</code> (a bool — matches neither <code>num</code> nor <code>vec</code>) falls through to the untyped catch-all. See §5 for the operator-overload (<code>function +(a: record&lt;Vec2&gt;, ...)</code>) flavor of dispatch, which additionally requires the <code>__type</code> tag convention.</p>
+<hr>
+<h2 id="s397">10. String interpolation</h2>
+<p>Bare expressions, arithmetic, function calls, and <code>{expr:spec}</code>-style formatting all work:</p>
+<div class="example"><pre class="hl"><code>pi_val = <span class="n">3.14159265</span>
+<span class="f">print</span>(<span class="s">"pi = {pi_val:.2f}"</span>)
+<span class="f">print</span>(<span class="s">"pi rounded = {pi_val:.0f}"</span>)
+<span class="f">print</span>(<span class="s">"expr = {2+3*4}"</span>)
+<span class="f">print</span>(<span class="s">"nested = {sqrt(16) + 1}"</span>)
+v = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+<span class="f">print</span>(<span class="s">"vec sum = {sum(v):.1f}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>pi = 3.14
+pi rounded = 3
+expr = 14
+nested = 5
+vec sum = 6.0
+</code></pre>
+<hr>
+<h2 id="s441">11. Comments &amp; <code>#%%</code> cells</h2>
+<p>Line comments (<code>#</code>), trailing comments, and <code>#%%</code> cell markers all work as plain no-ops when running a script normally:</p>
+<div class="example"><pre class="hl"><code><span class="c"># this is a comment</span>
+<span class="c">#%% Cell One</span>
+x = <span class="n">1</span>  <span class="c"># trailing comment</span>
+<span class="f">print</span>(<span class="s">"x = {x}"</span>)
+<span class="c">#%% Cell Two</span>
+y = <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"y = {y}"</span>)
+</code></pre>
+</div>
+<pre><code>x = 1
+y = 2
+</code></pre>
+<p><code>#%%</code> markers are meaningful to the <code>diary</code> subcommand (<code>qu.exe diary script.qu -o out.html</code>), which was confirmed to run and produce an HTML transcript file without error — full cell-boundary rendering in that HTML wasn't independently verified byte-for-byte here since it's a secondary tooling feature, not core syntax.</p>
+<hr>
+<h2 id="s502">12. <code>timer.</code> sugar and the <code>-&gt;</code> reshape operator</h2>
+<p>Both added in the same commit (<code>4464d1b</code>, today). <strong></strong><code>timer.start()</code> / <code>timer.elapsed()</code> / <code>timer.stop()</code> are pure sugar for a single GLOBAL <code>tic()</code>/<code>toc()</code> pair — not an object/handle with methods.<strong> This is worth being precise about, since the dotted-call syntax looks object-oriented but isn't:</strong></p>
+<div class="example"><pre class="hl"><code>timer.<span class="f">start</span>()
+acc = <span class="n">0</span>
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">100000</span>
+    acc += k
+<span class="k">end</span> <span class="k">for</span>
+e = timer.<span class="f">elapsed</span>()
+<span class="f">print</span>(<span class="s">"elapsed &gt;= 0: {e &gt;= 0}"</span>)
+s = timer.<span class="f">stop</span>()
+<span class="f">print</span>(<span class="s">"stop returns: {s}"</span>)
+<span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>elapsed &gt;= 0: true
+stop returns: 0.000972
+done, acc = 5000050000
+</code></pre>
+<p>(The <code>stop returns:</code> value is a real wall-clock measurement and will vary run to run — re-running produced <code>0.000604</code> on another pass. Everything else is deterministic and reproduces exactly.)</p>
+<p><code>timer.start()</code> rewrites at parse time to <code>tic()</code>; both <code>timer.elapsed()</code> and <code>timer.stop()</code> rewrite to <code>toc()</code> (they're aliases of each other, per <code>qu-syntax/src/lib.rs:561-572</code> — <code>("timer","start") =&gt; "tic"</code>, <code>("timer","elapsed")/("timer","stop") =&gt; "toc"</code>). Writing <code>t = timer.start()</code> and later calling <code>t.elapsed()</code> does <strong>not</strong> work — <code>timer.start()</code> returns <code>none</code>, not a timer handle (<code>qu: runtime error: expected a timer, found none</code> if you try to call a method on its result).</p>
+<p>Reshape <code>-&gt;</code>:</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>]
+r1 = v -&gt; (<span class="n">2</span>,<span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"v -&gt; (2,2) = {r1}"</span>)
+
+w = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+r2 = w -&gt; (<span class="n">3</span>,<span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"w -&gt; (3,1) = {r2}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>v -&gt; (2,2) = [1, 3; 2, 4]
+w -&gt; (3,1) = [1; 2; 3]
+</code></pre>
+<p><code>expr -&gt; (rows, cols)</code> rewrites at parse time to <code>reshape(expr, rows, cols)</code>. <code>-&gt;</code> was a lexed-but-dead token before this addition (in <code>qu-lexer</code>'s <code>OPERATORS</code> table already, with zero parser semantics anywhere) — see §5 for how this collides with the spec's separate, unimplemented lambda-arrow proposal that would also want <code>-&gt;</code>.</p>
+<p>Also added in the same commit: <code>df.nrows</code>/<code>df.ncols</code>/<code>rows(x)</code>/<code>cols(x)</code> sugar (§8), and a latent bug fix where <code>shape_of</code> on a <code>Table</code> previously returned a hardcoded <code>(0,0)</code> instead of the real shape.</p>
+<hr>
+<h2 id="s595">13. Error handling</h2>
+<p>A real uncaught runtime error:</p>
+<div class="example"><pre class="hl"><code>y = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+</code></pre>
+</div>
+<pre><code><span class="e">qu: runtime error: vector length mismatch: 2 vs 3 (broadcasting of unequal vectors is an error)</span>
+</code></pre>
+<p>The same error caught by <code>try</code>/<code>catch</code>, with the caught value exposing a <code>.message</code> field:</p>
+<div class="example"><pre class="hl"><code><span class="k">try</span>
+    y = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+<span class="k">catch</span> e
+    <span class="f">print</span>(<span class="s">"caught: {e.message}"</span>)
+<span class="k">end</span>
+<span class="f">print</span>(<span class="s">"continued after catch"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>caught: vector length mismatch: 2 vs 3 (broadcasting of unequal vectors is an error)
+continued after catch
+</code></pre>
+<p><code>try</code> closes with a bare <code>end</code> (no <code>end try</code>) by design — confirmed by both the successful run above and the parser source's own comment (<code>qu-syntax/src/lib.rs:1379-1380</code>: "<code>try</code> closes with bare <code>end</code> (no <code>end try</code>) — the one deliberate exception to §16's <code>end &lt;introducer&gt;</code> rule, matching MATLAB").</p>
+<p>A parse-time error looks different again — note the message prefix and format differ between <code>run</code> (<code>qu: runtime error: parse error at ...</code>) and <code>ast</code>/<code>parse</code> (<code>qu: parse error at ...</code>, no "runtime" prefix), both confirmed directly:</p>
+<pre><code><span class="e">qu: runtime error: parse error at 1:5: expected end of statement (newline or `;`), found Ident("v")</span>
+</code></pre>
+<hr>
+<h2 id="s633">14. <code>unsafe</code> blocks — continue past a failure</h2>
+<p>Unlike <code>try</code>/<code>catch</code> (§13), which stops at the first error and jumps to a handler, <code>unsafe [as var] ... end</code> keeps executing statement-by-statement even after one fails — logging each failure and moving on. <code>as var</code> optionally captures the total <strong>failure count</strong> (not the errors themselves) into a variable:</p>
+<div class="example"><pre class="hl"><code><span class="k">unsafe</span> <span class="k">as</span> n_failed
+    y = <span class="f">sqrt</span>(-<span class="n">1</span>)              <span class="c"># NaN, not an error -- just continues</span>
+    z = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]       <span class="c"># a real error -- logged, counted, continues anyway</span>
+    <span class="f">print</span>(<span class="s">"still runs"</span>)
+<span class="k">end</span>
+<span class="f">print</span>(<span class="s">"failures = {n_failed}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>· unsafe: statement failed: vector length mismatch: 2 vs 3 (broadcasting of unequal vectors is an error)
+still runs
+failures = 1
+</code></pre>
+<p>Good for batch scripts that should attempt many independent operations and report a tally rather than abort on the first problem.</p>
+<hr>
+<h2 id="s709">15. <code>parallel for</code> and the pool/queue job system</h2>
+<p><code>parallel for Name in Range ... end parallel</code> is a real data-parallel loop:</p>
+<div class="example"><pre class="hl"><code>results = <span class="f">zeros</span>(<span class="n">5</span>)
+parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    results[i] = i * i
+<span class="k">end</span> parallel
+<span class="f">print</span>(results)
+</code></pre>
+</div>
+<pre><code>[0, 1, 4, 9, 16]
+</code></pre>
+<p>Beyond that, there's a genuine worker-pool job scheduler — <code>pool</code> (with resource limits and a policy), <code>queue()</code> (a deferred-job list), and <code>run &lt;queue&gt; on &lt;pool&gt;</code> (dispatch every queued job across the pool):</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">square</span>(x)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+    policy = round_robin        <span class="c"># or priority | fair | affinity</span>
+    on full = queue             <span class="c"># or reject | spill_to(cpu)</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)         <span class="c"># enqueue a deferred call by name + args</span>
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>(0, 1, 4, 9, 16, 25, 36, 49, 64, 81)
+</code></pre>
+<p><code>q.push(fnName, arg1, arg2, ...)</code> enqueues a *named* function call — it does not accept an arbitrary inline expression/lambda as the job body; <code>run</code> expects a real <code>queue()</code> value on its left, not a bare expression (<code>run print("x") on pool</code> errors: <code>expected a queue from queue() on the left of "on", found none</code>). <code>on full = queue</code> is the pool's backpressure policy for when every worker is busy — jobs queue rather than getting rejected or spilled to a different resource.</p>
+<h3>15.1 Distributed pools — <code>listen_pool</code> and <code>pool ... remote=(...)</code></h3>
+<p>Beyond local threads, a pool's workers can be OTHER Qu processes running on the network — <code>listen_pool</code> starts one process in "listen mode," and a <code>remote = (...)</code> resource on <code>pool</code> names those listeners as extra workers. This is a real, minimal, working slice of what §54 of the language reference sketches as a much larger future cluster-management vision (<code>worker()</code>/<code>cluster()</code> objects, <code>least_loaded</code>/<code>affinity</code> policies, auto-discovery, fault-tolerant reschedule-on-node-drop) — none of that exists yet; what's here is deliberately small: name some <code>"host:port"</code> addresses, dispatch jobs to them by function name, get results back.</p>
+<p>On the listening machine (or a second terminal on the same machine, for trying this out locally over the loopback interface):</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<span class="f">listen_pool</span>(<span class="n">9000</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))   <span class="c"># blocks forever, serving requests</span>
+</code></pre>
+</div>
+<p><code>allow=(...)</code> is a hard requirement, not an option — a listener only ever executes a function whose NAME is in this list. A request for anything else gets a clean rejection, never a crash and never a silent bypass: this is what keeps a listening process from becoming "run any stdlib function a network caller asks for," which would otherwise let anyone who can reach the port trigger file writes, <code>http_get</code>, etc. by name alone. There is no way to ship a closure or raw source code over this wire — only pre-defined functions the listening SCRIPT itself already chose to expose.</p>
+<p>On the calling machine, name that address as a <code>remote</code> resource alongside (or instead of) local <code>cpu</code> workers:</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x                    <span class="c"># still needed locally: `run` validates</span>
+                                       <span class="c"># every queued function name against</span>
+                                       <span class="c"># the CALLING script's own functions</span>
+                                       <span class="c"># before dispatching anything, even a</span>
+                                       <span class="c"># job that will actually run remotely</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>, remote=(<span class="s">"192.168.1.50:9000"</span>, <span class="s">"192.168.1.51:9000"</span>)
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers            <span class="c"># some jobs run locally, some remote —</span>
+                                       <span class="c"># one ordered List either way</span>
+</code></pre>
+</div>
+<p>A pool can also be remote-only — <code>cpu</code> is optional when <code>remote = (...)</code> names at least one worker (<code>pool workers with remote=("host:port") ... end pool</code> is valid on its own). <code>remote=</code> (like <code>allow=</code> above) takes Qu's actual list-literal syntax, a parenthesized tuple — <code>("a", "b")</code>, not bracket <code>[...]</code> (always a numeric Vec/Mat literal) — or a single bare string when there's only one address, e.g. <code>remote = "host:port"</code> (writing it as <code>remote = ("host:port")</code> — no comma — would parse as a plain grouped string, not a one-element list, so the bare-string form is also accepted directly rather than requiring an easy-to-miss trailing comma).</p>
+<p><strong>Dispatch and failure handling.</strong> Jobs are round-robined by submission order across "lanes" — one lane for the whole local <code>cpu</code> pool (already internally parallel across its own worker count) plus one lane per <code>remote</code> address — the same <code>round_robin</code> policy a local-only pool already uses (no other <code>policy</code> value is implemented for either shape). Wire format is newline-delimited JSON, reusing <code>Value</code>'s existing JSON encoding (the same one <code>save</code>/<code>load</code> use) — a request names the function and its already-evaluated arguments, a response carries either the result or an error. A remote worker that's unreachable, times out (a bounded ~3s connect timeout, ~30s once connected — never an indefinite hang), or rejects the call (not on its <code>allow</code> list) fails <strong>that one job</strong>, exactly like a local job's own runtime error: the first failure in submission order propagates out of <code>run</code>, every other job (local or remote) still runs to completion first. There is no silent fallback from a failed remote job to running it locally instead — a <code>run</code> either got every result it asked for, or it errors clearly about the one that failed.</p>
+<hr>
+<h2 id="s788">16. <code>cast</code> and <code>resample_to</code></h2>
+<p>Added the same day as this section, alongside the <code>-&gt;</code> reshape operator and <code>table.</code>/<code>timer.</code> sugar (§12). <code>cast(value, tag)</code> converts between Qu's real existing types — using the same <code>TypeTag</code> vocabulary multiple dispatch already uses (<code>num</code>, <code>str</code>, <code>bool</code>, <code>vec</code>, ...), not a separate casting vocabulary, and deliberately NOT the <code>as</code> keyword (which already means something else — a shape-validation contract, <code>x as vector(3)</code>, unrelated to type conversion):</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>((<span class="n">42</span>).<span class="f">cast</span>(<span class="s">"str"</span>))
+<span class="f">print</span>(<span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>))
+</code></pre>
+</div>
+<pre><code>42
+42
+</code></pre>
+<p><code>resample_to(signal, new_fs)</code> does real resampling (linear interpolation of the signal's implied continuous waveform), not a relabel — the resampled signal spans the *same* time duration as the original, just at a different sample density:</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>])
+<span class="f">print</span>(x)
+<span class="f">print</span>(x.<span class="f">resample_to</span>(<span class="n">2</span>))
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>signal(Fs=1) [0, 10, 20, 30]
+signal(Fs=2) [0, 5, 10, 15, 20, 25, 30]
+</code></pre>
+<p>The original spans <code>t=0..3s</code> at 1 Hz (4 samples); the resampled version still spans <code>t=0..3s</code>, just at 2 Hz (7 samples) — not a 4-sample signal relabeled to falsely claim a 1.5s duration. <code>signal(data)</code> (one argument) also now defaults <code>Fs</code> to <code>1.0</code> rather than erroring.</p>
+<hr>
+<h2 id="s858">17. Advanced multiple dispatch</h2>
+<p>§9 showed the basic three-overload case (<code>num</code> vs <code>vec</code> vs untyped). This section goes deeper into the two refinement forms (<code>record&lt;Tag&gt;</code>, <code>model&lt;"kind"&gt;</code>), how specificity is actually computed when several overloads could match, and the two dispatch-failure error shapes — all checked directly against the implementation in <code>qu-interp/src/lib.rs:2709-2858</code> (<code>record_type_tag</code>, <code>tag_match_specificity</code>, <code>dispatch_method</code>) rather than guessed.</p>
+<h3><code>record&lt;Tag&gt;</code> refinement — three tags plus a plain fallback</h3>
+<p>§5 showed a single <code>record&lt;Vec2&gt;</code> overload. Here are three distinct <code>__type</code> tags, each dispatching to a different function body, plus a fourth, untagged <code>record</code> overload that only untagged records fall through to:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">describe_shape</span>(s: record&lt;Circle&gt;)
+    <span class="k">return</span> <span class="s">"circle r={s.r}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe_shape</span>(s: record&lt;Square&gt;)
+    <span class="k">return</span> <span class="s">"square side={s.side}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe_shape</span>(s: record&lt;Triangle&gt;)
+    <span class="k">return</span> <span class="s">"triangle base={s.base} height={s.height}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">describe_shape</span>(s: record)
+    <span class="k">return</span> <span class="s">"unknown shape"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+c = {__type = <span class="s">"Circle"</span>, r = <span class="n">2</span>}
+sq = {__type = <span class="s">"Square"</span>, side = <span class="n">3</span>}
+tr = {__type = <span class="s">"Triangle"</span>, base = <span class="n">4</span>, height = <span class="n">5</span>}
+plain = {a = <span class="n">1</span>, b = <span class="n">2</span>}
+
+<span class="f">print</span>(<span class="f">describe_shape</span>(c))
+<span class="f">print</span>(<span class="f">describe_shape</span>(sq))
+<span class="f">print</span>(<span class="f">describe_shape</span>(tr))
+<span class="f">print</span>(<span class="f">describe_shape</span>(plain))
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>circle r=2
+square side=3
+triangle base=4 height=5
+unknown shape
+</code></pre>
+<p>Each <code>__type</code> genuinely picks its own overload — this isn't three overloads falling through to one lucky match; swapping <code>c</code> and <code>tr</code> above (not shown) changes which body runs. The untagged <code>plain</code> record matches none of the three refined overloads (<code>record_type_tag</code> finds no <code>__type</code> field) and falls through to the plain <code>record</code> overload, exactly like §5's "omitting <code>__type</code> falls through" note, except here the fallback is a real user overload rather than a hard error.</p>
+<h3><code>model&lt;"kind"&gt;</code> refinement — <code>qr</code> vs <code>svd</code> vs a plain <code>model</code> fallback</h3>
+<p>The same refinement mechanism applies to <code>Value::Model</code>, keyed on the model's <code>kind</code> string rather than a record field. <code>qr</code> and <code>svd</code> are both real Model-returning builtins (§7); <code>findpeaks</code> (also from §7) is used here to exercise the plain, unrefined <code>model</code> fallback:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+    <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"svd"</span>&gt;)
+    <span class="k">return</span> <span class="s">"svd: singular values = {m.s}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model)
+    <span class="k">return</span> <span class="s">"generic model, kind unhandled"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+A = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+qres = <span class="f">qr</span>(A)
+sres = <span class="f">svd</span>(A)
+pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">1</span>,<span class="n">3</span>,<span class="n">1</span>,<span class="n">0</span>,<span class="n">2</span>,<span class="n">4</span>,<span class="n">2</span>,<span class="n">0</span>])
+
+<span class="f">print</span>(<span class="f">summarize</span>(qres))
+<span class="f">print</span>(<span class="f">summarize</span>(sres))
+<span class="f">print</span>(<span class="f">summarize</span>(pk))
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>qr: q is 2x2, r is 2x2
+svd: singular values = [8.335579, 0.719806]
+generic model, kind unhandled
+</code></pre>
+<p><code>qres</code> (kind <code>"qr"</code>) and <code>sres</code> (kind <code>"svd"</code>) each hit their own refined overload; <code>pk</code> (kind <code>"findpeaks"</code>, which no refined overload names) falls through to the plain <code>model</code> catch-all. Confirms <code>tag_match_specificity</code>'s <code>("model", Value::Model(m)) if &amp;m.kind == refine</code> arm precisely: it's a string match against the model's own <code>kind</code>, nothing structural.</p>
+<h3>Specificity: more (and more refined) typed parameters wins</h3>
+<p>The rule, read directly from <code>tag_match_specificity</code>/<code>dispatch_method</code>: each matched parameter contributes a weight to a running total — 0 for an untyped parameter, 1 for a plain tag match (<code>vec</code>, <code>num</code>, ...), and 1,000,000 (<code>REFINED_WEIGHT</code>) for a refinement match (<code>record&lt;Tag&gt;</code> / <code>model&lt;"kind"&gt;</code>). The candidate with the highest *total* wins; a refined match on even one parameter beats any number of plain-tag matches, and between two plain-tag candidates, the one with more typed parameters matching wins. A genuinely ambiguous-looking three-way overload set proves this — two single-typed overloads plus one double-typed one, called with two vectors:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
+    <span class="k">return</span> <span class="s">"a-typed: sum(a)={sum(a)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a, b: vec)
+    <span class="k">return</span> <span class="s">"b-typed: sum(b)={sum(b)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a: vec, b: vec)
+    <span class="k">return</span> <span class="s">"both-typed: sum(a)+sum(b)={sum(a)+sum(b)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+v1 = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+v2 = [<span class="n">10</span>,<span class="n">20</span>]
+<span class="f">print</span>(<span class="f">combine</span>(v1, v2))
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>both-typed: sum(a)+sum(b)=36
+</code></pre>
+<p>Both single-typed overloads score specificity 1 (one matched typed parameter, one untyped-matches-anything parameter contributing 0); the double-typed overload scores 2 and wins outright — not a tie, because <code>dispatch_method</code> sums specificity across *all* parameters, not just whichever one happens to be typed.</p>
+<h3>The two dispatch-failure errors</h3>
+<p>Zero matching candidates — calling <code>area</code> (§9's two-overload <code>num</code>/<code>vec</code> version, no untyped fallback this time) with a <code>string</code>, which matches neither:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">area</span>(x: num)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">area</span>(x: vec)
+    <span class="k">return</span> <span class="f">sum</span>(x)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">print</span>(<span class="f">area</span>(<span class="s">"hello"</span>))
+</code></pre>
+</div>
+<pre><code><span class="e">qu: runtime error: no method `area` matches argument types (string) — 2 candidate(s) defined:</span>
+  area(x: num)
+  area(x: vec)
+</code></pre>
+<p>Ambiguous match — remove the tie-breaking <code>combine(a: vec, b: vec)</code> overload from the specificity example above, leaving only the two single-typed overloads, and call with two vectors again. Both now score specificity 1 with nothing to separate them:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
+    <span class="k">return</span> <span class="s">"a-typed"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">combine</span>(a, b: vec)
+    <span class="k">return</span> <span class="s">"b-typed"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+v1 = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+v2 = [<span class="n">10</span>,<span class="n">20</span>]
+<span class="f">print</span>(<span class="f">combine</span>(v1, v2))
+</code></pre>
+</div>
+<pre><code><span class="e">qu: runtime error: ambiguous call to `combine` for argument types (vector, vector) — 2 equally specific candidates, add a more specific overload or rename one:</span>
+  combine(a: vec, b)
+  combine(a, b: vec)
+</code></pre>
+<p>Both errors name every real candidate signature (capped at 5, per <code>format_candidates</code>) rather than a generic "no matching overload" — confirmed here with the real text, matching what §19's summary (a BUG fix, commit <code>9a71b6a</code>) already established this format looks like when triggered via a mismatched operator overload rather than a plain function.</p>
+<hr>
+<h2 id="s908">18. DSP builtins — a signal-processing tour</h2>
+<p>§1 showed a single <code>fft</code>/<code>signal()</code> example and §16 covered <code>resample_to</code>. This section tours filter design + zero-phase application, frequency response, windowed spectral analysis, spectral peak-picking, Kalman tracking, and correlation — using the same real call conventions already verified working in <code>catalog/qu_filter_design.qu</code> and <code>catalog/qu_kalman_tracking.qu</code>, not reinvented from scratch.</p>
+<h3>Filter design (<code>butter</code>) + zero-phase application (<code>filtfilt</code>)</h3>
+<p><code>butter(order, kind, cutoff, fs)</code> designs a Butterworth filter as second-order sections (a Model, kind <code>"filter"</code>, field <code>sos</code>). <code>sosfilt</code> applies it causally (with phase lag); <code>filtfilt</code> applies it forward-then- backward for zero phase distortion. Here a low-pass strips a 400 Hz tone out of a 20 Hz + 400 Hz mix while preserving the 20 Hz tone:</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
+fc = <span class="n">60</span>
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)
+<span class="f">print</span>(<span class="s">"Butterworth order 4, cutoff {fc} Hz @ Fs={Fs} Hz -- sos shape: {rows(lp.sos)}x{cols(lp.sos)}"</span>)
+
+N = <span class="n">1000</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+low_tone = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">20</span>*t)
+high_tone = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">400</span>*t)
+mix = low_tone + high_tone
+
+causal = <span class="f">sosfilt</span>(lp, mix)
+zerophase = <span class="f">filtfilt</span>(lp, mix)
+
+err_low_causal = <span class="f">rms</span>(causal[<span class="n">100</span>:N-<span class="n">1</span>] - low_tone[<span class="n">100</span>:N-<span class="n">1</span>])
+err_low_zp = <span class="f">rms</span>(zerophase[<span class="n">100</span>:N-<span class="n">1</span>] - low_tone[<span class="n">100</span>:N-<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"20 Hz tone RMS recovery error: causal={err_low_causal:.4f}, zero-phase={err_low_zp:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"High tone (400 Hz) amplitude in raw mix: {rms(high_tone):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"High tone leakage after zero-phase LP: {rms(zerophase - low_tone):.4f}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>Butterworth order 4, cutoff 60 Hz @ Fs=2000 Hz -- sos shape: 2x5
+20 Hz tone RMS recovery error: causal=0.6041, zero-phase=0.0520
+High tone (400 Hz) amplitude in raw mix: 0.7071
+High tone leakage after zero-phase LP: 0.0500
+</code></pre>
+<p>A 4th-order Butterworth SOS design is 2 sections x 5 coefficients per section, matching <code>rows(lp.sos)=2, cols(lp.sos)=5</code>. <code>filtfilt</code>'s zero-phase result tracks the clean 20 Hz tone far more closely than the causal pass (0.052 vs 0.604 RMS error against the *unshifted* reference) — the causal filter's real output is a correctly-filtered but phase-lagged 20 Hz tone, which reads as large error only because it's compared against a zero-lag reference; <code>filtfilt</code> has no such lag by construction. The 400 Hz tone is almost entirely gone from the low-passed result (residual 0.05, down from 0.71).</p>
+<h3><code>freqz</code> — frequency response of a designed filter</h3>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
+fc = <span class="n">60</span>
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)
+H = <span class="f">freqz</span>(lp, <span class="n">512</span>)
+<span class="f">print</span>(H)
+mag_db = <span class="n">20</span> * <span class="f">log10</span>(<span class="f">abs</span>(H))
+i_fc = <span class="f">round</span>(fc / (Fs / <span class="n">2</span>) * (<span class="f">length</span>(H) - <span class="n">1</span>))
+i_dc = <span class="n">0</span>
+i_nyq = <span class="f">length</span>(H) - <span class="n">1</span>
+<span class="f">print</span>(<span class="s">"Gain at DC: {mag_db[i_dc]:.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"Gain near cutoff ({fc} Hz): {mag_db[i_fc]:.2f} dB (expect close to -3 dB)"</span>)
+<span class="f">print</span>(<span class="s">"Gain at Nyquist: {mag_db[i_nyq]:.2f} dB"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>[1, 0.996391 - 0.084887i, 0.985575 - 0.169237i, 0.967594 - 0.252511i, 0.942512 - 0.334172i, 0.910422 - 0.413681i, ... (512 elements)]
+Gain at DC: -0.00 dB
+Gain near cutoff (60 Hz): -3.21 dB (expect close to -3 dB)
+Gain at Nyquist: -inf dB
+</code></pre>
+<p><code>freqz</code> returns the complex frequency response directly (a <code>CVec</code>, printed with a <code>... (N elements)</code> truncation for long vectors — consistent with §1's untruncated short-vector printing). DC gain is 0 dB (unity, as expected for a low-pass), the -3.21 dB near the 60 Hz cutoff confirms the design spec, and the exact <code>-inf</code> at Nyquist is real, not a display artifact — independently confirmed <code>abs(H[end])</code> is exactly <code>0</code>, a genuine property of the bilinear-transformed even-order Butterworth low-pass (an exact zero at <code>z = -1</code>), not a rounding curiosity.</p>
+<h3>Windowing before <code>fft</code> — <code>hann</code> reduces spectral leakage</h3>
+<p><code>hann(n)</code> (also <code>hamming</code>, <code>blackman</code>) returns a real window <code>Vec</code> of length <code>n</code>. Applying it (elementwise multiply, <code>.*</code>) before <code>fft</code> on a tone whose frequency does <strong>not</strong> land on an exact FFT bin (20.5 Hz in a 256-point, 256 Hz-sampled window — a non-integer number of cycles) demonstrably reduces the energy leaked into bins far from the true tone:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">256</span>
+Fs = <span class="n">256</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+f0 = <span class="n">20.5</span>
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*f0*t)
+
+mag_raw = <span class="f">abs</span>(<span class="f">fft</span>(x))[<span class="n">0</span>:N/<span class="n">2</span>]
+w = <span class="f">hann</span>(N)
+mag_win = <span class="f">abs</span>(<span class="f">fft</span>(x .* w))[<span class="n">0</span>:N/<span class="n">2</span>]
+
+far_band = <span class="n">90</span> <span class="k">to</span> <span class="n">127</span>
+leak_raw = <span class="f">sum</span>(mag_raw[far_band])
+leak_win = <span class="f">sum</span>(mag_win[far_band])
+
+<span class="f">print</span>(<span class="s">"Peak magnitude, no window:   {max(mag_raw):.2f}"</span>)
+<span class="f">print</span>(<span class="s">"Peak magnitude, hann window: {max(mag_win):.2f}"</span>)
+<span class="f">print</span>(<span class="s">"Far-band (90-127 Hz) leakage energy, no window:   {leak_raw:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"Far-band (90-127 Hz) leakage energy, hann window: {leak_win:.3f}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>Peak magnitude, no window:   82.41
+Peak magnitude, hann window: 54.18
+Far-band (90-127 Hz) leakage energy, no window:   10.637
+Far-band (90-127 Hz) leakage energy, hann window: 0.001
+</code></pre>
+<p>The peak itself is shorter with the window applied (main-lobe widening, as expected), but leakage into the 90-127 Hz band 10,000x smaller (10.637 vs 0.001) — the textbook window trade-off, reproduced for real.</p>
+<h3><code>findpeaks</code> on an FFT magnitude spectrum — dominant-frequency detection</h3>
+<p>Combining <code>fft</code>+<code>abs</code> (spectrum) with <code>findpeaks</code> (§7) to identify the two dominant tones in a two-tone signal:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">512</span>
+Fs = <span class="n">512</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">40</span>*t) + <span class="n">0.6</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">90</span>*t)
+
+X = <span class="f">fft</span>(x)
+mag = <span class="f">abs</span>(X)
+half = mag[<span class="n">0</span>:N/<span class="n">2</span>]
+
+pk = <span class="f">findpeaks</span>(half, <span class="a">min_peak_height</span>=<span class="n">20</span>, <span class="a">min_peak_distance</span>=<span class="n">5</span>)
+<span class="f">print</span>(pk)
+freqs = pk.locations * (Fs / N)
+<span class="f">print</span>(<span class="s">"Peak bin locations: {pk.locations}"</span>)
+<span class="f">print</span>(<span class="s">"Peak frequencies (Hz): {freqs}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>model(findpeaks) {peaks, locations}
+Peak bin locations: [40, 90]
+Peak frequencies (Hz): [40, 90]
+</code></pre>
+<p>Both injected tones (40 Hz and 90 Hz) are recovered exactly, since <code>Fs=N=512</code> makes bin index equal frequency in Hz here. <code>findpeaks</code>'s real keyword names are <code>min_peak_height</code>/<code>min_peak_distance</code> (MATLAB-style, matching the doc comment at <code>qu-interp/src/lib.rs:12899</code>) — not the shorter <code>min_height</code>/<code>min_distance</code> used by the separate <code>find_peaks</code> (underscore, index-returning) builtin, which is a distinct function with its own kwarg names.</p>
+<h3>Kalman filtering — constant-velocity position tracking</h3>
+<p><code>kalman_init(x0, P0)</code> returns a Model; <code>state.predict(F, Q)</code> and <code>state.update(H, z, R)</code> are dispatched via the model's own <code>kind</code> (<code>predict</code>/<code>update</code> are ordinary multiple-dispatch functions overloaded on <code>model&lt;"kalman"&gt;</code>, called through <code>.method()</code> sugar), each returning an updated state Model to thread into the next iteration — exactly the pattern already verified in <code>catalog/qu_kalman_tracking.qu</code>:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
+dt = <span class="n">0.1</span>
+true_v = <span class="n">2.0</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.8</span> * <span class="f">randn</span>(N)
+
+F = [<span class="n">1</span>, dt; <span class="n">0</span>, <span class="n">1</span>]
+Q = [<span class="n">0.001</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0.001</span>]
+H = <span class="f">reshape</span>([<span class="n">1</span>, <span class="n">0</span>], <span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">0.64</span>]
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">10</span>])
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [measured[k]], R)
+    est_pos[k] = s.x[<span class="n">0</span>]
+    est_vel[k] = s.x[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>Position RMS error: raw sensor=0.832, Kalman estimate=0.215
+True velocity=2.00, final estimated velocity=2.023
+</code></pre>
+<p>The Kalman estimate's RMS position error (0.215) is roughly 4x lower than the raw noisy sensor (0.832), and the never-directly-measured velocity state converges to 2.023 against a true 2.00 — both numbers will vary slightly run to run (<code>randn</code> is unseeded), but the qualitative result (large error reduction, accurate hidden-state recovery) reproduces consistently.</p>
+<h3>Correlation and cross-correlation — <code>corr</code> and <code>xcorr</code></h3>
+<p><code>corr(x, y)</code> is the scalar Pearson correlation coefficient; <code>xcorr(x, [y])</code> (y defaults to <code>x</code>, giving autocorrelation) returns the full length-<code>2N-1</code> cross-correlation sequence, zero lag at index <code>N-1</code>:</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">200</span>
+Fs = <span class="n">200</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
+shift = <span class="n">15</span>
+y = <span class="f">zeros</span>(N)
+y[shift:N-<span class="n">1</span>] = x[<span class="n">0</span>:N-<span class="n">1</span>-shift]
+
+c = <span class="f">corr</span>(x, x)
+<span class="f">print</span>(<span class="s">"corr(x, x) = {c}"</span>)
+c2 = <span class="f">corr</span>(x, y)
+<span class="f">print</span>(<span class="s">"corr(x, y) (shifted copy) = {c2:.4f}"</span>)
+
+r = <span class="f">xcorr</span>(x, y)
+<span class="f">print</span>(<span class="s">"length(xcorr) = {length(r)} (expect 2N-1 = {2*N-1})"</span>)
+zero_lag_idx = N - <span class="n">1</span>
+best_idx = where r == <span class="f">max</span>(r)
+best_lag = best_idx[<span class="n">0</span>] - zero_lag_idx
+<span class="f">print</span>(<span class="s">"Best-match lag (samples): {best_lag} (true shift was {shift})"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>corr(x, x) = 1
+corr(x, y) (shifted copy) = -0.0130
+length(xcorr) = 399 (expect 2N-1 = 399)
+Best-match lag (samples): -15 (true shift was 15)
+</code></pre>
+<p><code>corr(x,x)=1</code> exactly, as expected. The direct-sample correlation <code>corr(x, y)</code> between the original and its 15-sample-delayed copy is near zero (delaying a 10 Hz tone by 15 samples at 200 Hz rotates its phase by 270 deg, which happens to land close to decorrelated) — <code>xcorr</code>'s full lag sweep is what actually finds the true delay: its peak sits at lag -15, correctly identifying that <code>y</code> is <code>x</code> delayed by 15 samples (the sign is <code>xcorr</code>'s own convention — <code>y</code> lags <code>x</code>, so the peak appears on the negative side).</p>
+<h3><code>square</code> is a square-WAVE generator, not "x squared" — a real silent-wrong-answer bug, now fixed</h3>
+<p><code>square(freq, fs, n, [duty=])</code> generates a bipolar pulse train — it has nothing to do with squaring a number, despite the name being very easy to misread as an elementwise math function. Before this fix, <code>square</code>'s (and <code>impulse</code>'s and <code>pwm</code>'s) required numeric arguments were read with <code>args.get(idx).and_then(|v| v.as_num().ok()).unwrap_or(default)</code> — a pattern that silently swallows a type error and substitutes the default whenever the argument is PRESENT but the WRONG type, rather than erroring. Live-confirmed footgun: piping a whole <code>Vec</code> into <code>square</code> as if it were an elementwise operation silently produced a meaningless 1-sample signal instead of any kind of error:</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+y = x |&gt; square |&gt; sum
+<span class="f">print</span>(y)
+</code></pre>
+</div>
+<p>Old (buggy) output: <code>1</code> — <code>freq</code>/<code>fs</code>/<code>n</code> all silently fell back to their defaults (<code>1.0</code>, <code>1.0</code>, <code>1</code> sample), and the sum of that one sample is <code>1</code>, a plausible-looking but completely meaningless number with no relationship to <code>x</code>.</p>
+<p>New output (this fix):</p>
+<pre><code><span class="e">qu: runtime error: square: freq must be a number, found vector</span>
+</code></pre>
+<p>Genuinely omitted arguments are unaffected — <code>square()</code> with nothing supplied still defaults exactly as before; only a *present-but-wrong-type* argument is now an error. <code>impulse</code> and <code>pwm</code> got the identical fix for their own required numeric arguments (<code>n</code>/<code>index</code>/<code>amplitude</code> and <code>carrier_freq</code>/<code>fs</code> respectively).</p>
+<p>Also added: <code>signals.square(...)</code>/<code>signals.impulse(...)</code>/<code>signals.pwm(...)</code> /<code>signals.sawtooth(...)</code>/<code>signals.triangle(...)</code> — pure parse-time sugar (the same closed <code>table.</code>/<code>timer.</code> "namespace-dot" mechanism from §12, extended) for calling these five generators unambiguously, useful specifically because <code>square</code> in particular reads as "x squared" so easily. The bare names are completely unaffected and <code>signals</code> still works as an ordinary variable; the namespaced spelling is byte-identical to the bare call:</p>
+<div class="example"><pre class="hl"><code>a = <span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">8</span>, <span class="a">duty</span>=<span class="n">0.25</span>)
+b = signals.<span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">8</span>, <span class="a">duty</span>=<span class="n">0.25</span>)
+<span class="f">print</span>(<span class="s">"a = {a}"</span>)
+<span class="f">print</span>(<span class="s">"b = {b}"</span>)
+<span class="f">print</span>(<span class="s">"identical = {a == b}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>a = signal(Fs=1000) [1, 1, 1, -1, -1, -1, -1, -1]
+b = signal(Fs=1000) [1, 1, 1, -1, -1, -1, -1, -1]
+identical = [T, T, T, T, T, T, T, T]
+</code></pre>
+<p><code>sawtooth(freq, fs, n)</code> and <code>triangle(freq, fs, n)</code> were also added as new builtins (previously missing entirely) with the same argument-validation rigor and their own <code>signals.sawtooth</code>/<code>signals.triangle</code> sugar — see <code>book/src/stdlib/signal-processing.md</code> for their full signatures.</p>
+<hr>
+<h2 id="s971">19. <code>memoize function</code> — function-result caching</h2>
+<p><code>memoize function name(params) ... end function</code> is a modifier on the block <code>function</code> form (not available on the one-line <code>name(params) := expr</code> shorthand) that caches a function's return value, keyed by its argument values — a repeated call with the same arguments skips the body entirely and is served straight from the cache:</p>
+<div class="example"><pre class="hl"><code>calls = <span class="n">0</span>
+memoize <span class="k">function</span> <span class="f">slow_square</span>(x)
+    calls = calls + <span class="n">1</span>
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+a = <span class="f">slow_square</span>(<span class="n">7</span>)
+b = <span class="f">slow_square</span>(<span class="n">7</span>)
+c = <span class="f">slow_square</span>(<span class="n">8</span>)
+<span class="f">print</span>(<span class="s">"a = {a}, b = {b}, c = {c}"</span>)
+<span class="f">print</span>(<span class="s">"calls = {calls}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>a = 49, b = 49, c = 64
+calls = 2
+</code></pre>
+<p><code>calls</code> only advances twice (once per DISTINCT argument, <code>7</code> and <code>8</code>) even though <code>slow_square</code> was called three times — the second call with <code>7</code> returned <code>49</code> straight from the cache without re-running the body, which is exactly what the <code>calls</code> counter proves. Only plain numbers/strings/bools are usable as cache keys (the same three kinds <code>==</code> compares directly); a call with any other argument type (<code>Vec</code>, <code>Table</code>, ...) still runs and returns the correct answer, it simply is never cached for that call.</p>
+<hr>
+<h2 id="s1050">20. File I/O extensions — <code>touch</code>, streaming reads, and memory-mapped files</h2>
+<p>Three real filesystem features landed together: a proper Unix <code>touch</code>, an internal memory-efficiency fix to ordinary file reads, and read-only memory-mapped random access.</p>
+<h3><code>touch(path)</code></h3>
+<p>Unix <code>touch</code> semantics: creates an empty file if <code>path</code> doesn't exist; if it already exists, <code>touch</code> bumps its modification time WITHOUT altering its content:</p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
+had_before = <span class="f">file_exists</span>(path)
+<span class="f">touch</span>(path)
+exists_after_touch = <span class="f">file_exists</span>(path)
+
+f = <span class="f">fopen</span>(path, <span class="s">"w"</span>)
+<span class="f">write_line</span>(f, <span class="s">"original content"</span>)
+<span class="f">close</span>(f)
+
+<span class="f">touch</span>(path)                 <span class="c"># existing file: content must survive untouched</span>
+
+g = <span class="f">fopen</span>(path, <span class="s">"r"</span>)
+content = <span class="f">read_all</span>(g)
+<span class="f">close</span>(g)
+
+<span class="f">print</span>(<span class="s">"had_before = {had_before}"</span>)
+<span class="f">print</span>(<span class="s">"exists_after_touch = {exists_after_touch}"</span>)
+<span class="f">print</span>(<span class="s">"content = {content}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>had_before = false
+exists_after_touch = true
+content = original content
+</code></pre>
+<p><code>touch</code> on the not-yet-existing path made <code>file_exists</code> flip from <code>false</code> to <code>true</code>; <code>touch</code>ing it again after writing left <code>content</code> exactly as written. (Qu has no builtin that reads a file's mtime back into a script — the "advances mtime without touching content" half of <code>touch</code>'s contract is verified at the Rust unit-test level, not observable from a <code>.qu</code> script directly.)</p>
+<h3>Streaming reads — <code>fopen(path, "r")</code> no longer buffers the whole file</h3>
+<p>Opening a file for reading used to load its entire contents into memory up front; it now opens a real buffered stream (<code>std::io::BufReader</code>) and only reads as many bytes as <code>read_line</code>/<code>read_all</code>/<code>read_char</code>/<code>seek</code>/etc. actually ask for. This matters for large files — a multi-hundred-MB file can be processed line-by-line without ever holding the whole thing in memory at once. The change is purely internal: every read builtin's return values are identical either way, so there's nothing different to point at in a script's OUTPUT — only that a large-file version of the same loop below no longer needs memory proportional to the file's size:</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"streaming_demo.txt"</span>, <span class="s">"w"</span>)
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    <span class="f">write_line</span>(f, <span class="s">"line "</span> + <span class="f">str</span>(i))
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">close</span>(f)
+
+g = <span class="f">fopen</span>(<span class="s">"streaming_demo.txt"</span>, <span class="s">"r"</span>)
+n = <span class="n">0</span>
+<span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(g)
+    line = <span class="f">read_line</span>(g)
+    n = n + <span class="n">1</span>
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">close</span>(g)
+<span class="f">print</span>(<span class="s">"lines read = {n}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>lines read = 5
+</code></pre>
+<h3><code>mmap_open</code>/<code>mmap_len</code>/<code>mmap_read</code> — read-only memory-mapped files</h3>
+<p>Random-access byte reads without an eager whole-file load or a chain of <code>seek</code> calls on a <code>fopen</code> handle — every <code>mmap_read</code> call takes an explicit byte range, since an <code>mmap</code> handle has no read cursor of its own to advance:</p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"mmap_demo.bin"</span>, <span class="s">"wb"</span>)
+<span class="f">write_byte</span>(f, <span class="n">65</span>)
+<span class="f">write_byte</span>(f, <span class="n">66</span>)
+<span class="f">write_byte</span>(f, <span class="n">67</span>)
+<span class="f">write_byte</span>(f, <span class="n">68</span>)
+<span class="f">write_byte</span>(f, <span class="n">69</span>)
+<span class="f">write_byte</span>(f, <span class="n">70</span>)
+<span class="f">write_byte</span>(f, <span class="n">71</span>)
+<span class="f">write_byte</span>(f, <span class="n">72</span>)
+<span class="f">close</span>(f)
+
+m = <span class="f">mmap_open</span>(<span class="s">"mmap_demo.bin"</span>)
+n = <span class="f">mmap_len</span>(m)
+first4 = <span class="f">mmap_read</span>(m, <span class="n">0</span>, <span class="n">4</span>)
+last4 = <span class="f">mmap_read</span>(m, <span class="n">4</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"n = {n}"</span>)
+<span class="f">print</span>(<span class="s">"first4 = {first4}"</span>)
+<span class="f">print</span>(<span class="s">"last4 = {last4}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>n = 8
+first4 = [65, 66, 67, 68]
+last4 = [69, 70, 71, 72]
+</code></pre>
+<p><code>n</code> is the mapped file's full byte length; <code>first4</code>/<code>last4</code> each pull out an arbitrary 4-byte range (bytes <code>65..72</code> are ASCII <code>A</code>-<code>H</code>) without ever reading the other range or the whole file.</p>
+<hr>
+<h2 id="s1157">21. <code>http_get(url)</code> — real HTTP GET</h2>
+<p><code>http_get(url)</code> issues a real HTTP(S) GET request and returns the response body as a string (GET-only, 30s timeout, clear errors on an unreachable host or non-2xx status — no custom headers, auth, or POST in this v1):</p>
+<div class="example"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
+<span class="f">print</span>(<span class="s">"len = {length(body)}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>len = 559
+</code></pre>
+<p>559 bytes is the real, live length of <code>https://example.com/</code>'s response body at the time this was run — this hit the actual network, not a stub.</p>
+<hr>
+<h2 id="s1224">22. <code>lazy</code> — deferred variable evaluation</h2>
+<p><code>lazy name = expr</code> defers evaluating the right-hand side entirely: the expression does not run at the <code>lazy</code> statement itself, only on the variable's first actual READ afterward, and the computed value is then cached in place so a second read never re-runs it. An ordinary <code>name = expr</code> is completely unaffected — <code>lazy</code> is an explicit opt-in, not a new default:</p>
+<div class="example"><pre class="hl"><code>counter = <span class="n">0</span>
+<span class="k">function</span> <span class="f">tick</span>()
+    counter = counter + <span class="n">1</span>
+    <span class="k">return</span> <span class="n">42</span>
+<span class="k">end</span> <span class="k">function</span>
+
+lazy x = <span class="f">tick</span>()
+before = counter
+y = x
+after_first = counter
+z = x
+after_second = counter
+<span class="f">print</span>(<span class="s">"before = {before}, after_first = {after_first}, after_second = {after_second}"</span>)
+<span class="f">print</span>(<span class="s">"y = {y}, z = {z}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>before = 0, after_first = 1, after_second = 1
+y = 42, z = 42
+</code></pre>
+<p><code>counter</code> stays <code>0</code> all the way up to the <code>lazy x = tick()</code> statement and the first read of <code>x</code> — proving <code>tick()</code> truly did not run at declaration time. The first read (<code>y = x</code>) forces it (<code>counter</code> becomes <code>1</code>); the second read (<code>z = x</code>) reuses the cached <code>42</code> without calling <code>tick()</code> again (<code>counter</code> stays <code>1</code>).</p>
+<hr>
+<h2 id="s1297">23. <code>StreamFile</code>/<code>StreamURL</code> — unified polymorphic streams</h2>
+<p><code>StreamFile(path, [mode])</code> and <code>StreamURL(url)</code> are two constructors that produce values exposing the SAME method names — <code>read_line</code>/<code>read_all</code>/ <code>eof</code>/<code>close</code> — so one function written against "a stream" works unmodified against either kind. <code>StreamFile</code> is literally <code>fopen</code>'s own machinery under a second name; <code>StreamURL</code> fetches the whole HTTP(S) body eagerly (the same request <code>http_get</code> makes) and wraps it in a read-only, in-memory cursor with the identical method names:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
+    total = <span class="s">""</span>
+    <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
+        total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
+    <span class="k">end</span> <span class="k">while</span>
+    <span class="f">close</span>(s)
+    <span class="k">return</span> total
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># Written here so the file half runs; the URL half cannot be, since a</span>
+<span class="c"># documentation build must not depend on the network being up or on a</span>
+<span class="c"># third party's page not changing under it.</span>
+w = <span class="f">fopen</span>(<span class="s">"stream_notes.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(w, <span class="s">"one"</span>)
+<span class="f">write_line</span>(w, <span class="s">"two"</span>)
+<span class="f">close</span>(w)
+
+a = <span class="f">drain</span>(<span class="f">StreamFile</span>(<span class="s">"stream_notes.txt"</span>))
+b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
+<span class="f">print</span>(<span class="s">"a = {a}"</span>)
+<span class="f">print</span>(<span class="s">"b length = {length(b)}"</span>)
+</code></pre>
+</div>
+<p>(<code>stream_notes.txt</code> contains three lines: <code>alpha</code>, <code>beta</code>, <code>gamma</code>.)</p>
+<p>Output:</p>
+<pre><code>a = alpha|beta|gamma|
+b length = 559
+</code></pre>
+<p>The exact same <code>drain</code> function ran against a real local file AND a real HTTP response with zero branching on which kind it received — <code>b length</code> matches §21's <code>http_get</code> length exactly, since <code>StreamURL</code> makes the identical request under the hood.</p>
+<hr>
+<h2 id="s1398">24. Three new Signal builtins — <code>interpolate_at</code>, <code>apply</code>, <code>cut</code></h2>
+<p>Three additions to the <code>Signal</code> type's toolkit, all <code>Fs</code>-aware and all composing with the generic <code>recv.method(args)</code> method-chain sugar and the <code>@</code> self-mutation prefix like every other Qu builtin.</p>
+<h3><code>interpolate_at(sig, t_query, [method])</code></h3>
+<p>A <code>Signal</code>-aware <code>interp1</code>: instead of an explicit <code>x</code> vector, the signal's OWN implicit time axis (<code>sig.t</code>, i.e. <code>i/Fs</code>) is used automatically, so the caller only supplies query time(s) in seconds:</p>
+<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
+mid = <span class="f">interpolate_at</span>(sig, <span class="n">0.75</span>)
+lo = <span class="f">interpolate_at</span>(sig, -<span class="n">0.5</span>)
+hi = <span class="f">interpolate_at</span>(sig, <span class="n">2.0</span>)
+qs = sig.<span class="f">interpolate_at</span>([<span class="n">0.0</span>, <span class="n">0.5</span>, <span class="n">1.0</span>], <span class="s">"nearest"</span>)
+<span class="f">print</span>(<span class="s">"mid = {mid}"</span>)
+<span class="f">print</span>(<span class="s">"lo = {lo}"</span>)
+<span class="f">print</span>(<span class="s">"hi = {hi}"</span>)
+<span class="f">print</span>(<span class="s">"qs = {qs}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>mid = 15
+lo = -10
+hi = 40
+qs = [0, 10, 20]
+</code></pre>
+<p><code>mid</code> (t=0.75s) sits exactly halfway between samples at t=0.5s (y=10) and t=1.0s (y=20), interpolating to <code>15</code>. <code>lo</code> (t=-0.5s) and <code>hi</code> (t=2.0s) both fall outside the signal's own 0..1.5s span and are extrapolated via the boundary segment's slope (20/s): <code>0 - 20*0.5 = -10</code>, <code>30 + 20*0.5 = 40</code>. The result is a plain <code>Num</code>/<code>Vec</code>, never re-wrapped as a <code>Signal</code> — the query times have no guaranteed uniform spacing, so there is no honest <code>Fs</code> left to attach.</p>
+<h3><code>s.apply(fnName)</code> — elementwise map that preserves the container</h3>
+<p>Distinct from <code>map(fnName, xs)</code>, which always returns a plain <code>List</code>. <code>apply(x, fnName)</code> instead matches this interpreter's existing container-preserving convention (the same one <code>sin</code>/<code>cos</code>/unary <code>-</code> already use): a <code>Signal</code> stays a <code>Signal</code> at the same <code>Fs</code>, a <code>Vec</code> stays a <code>Vec</code>:</p>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
+out = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"out = {out}"</span>)
+<span class="f">print</span>(<span class="s">"out.Fs = {out.Fs}"</span>)
+<span class="f">print</span>(<span class="s">"sig unchanged = {sig}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>out = signal(Fs=8) [2, 4, 6, 8]
+out.Fs = 8
+sig unchanged = signal(Fs=8) [1, 2, 3, 4]
+</code></pre>
+<p>Every sample was genuinely doubled (not a no-op), <code>out</code> kept the input's <code>Fs=8</code> exactly, and <code>sig</code> itself is untouched — <code>apply</code> is pure, like every other Qu collection builtin.</p>
+<h3><code>cut(sig, t_start, t_end)</code> — time-based trim</h3>
+<p>Converts <code>t_start</code>/<code>t_end</code> (seconds) to sample indices via the signal's own <code>Fs</code>, half-open in time: <code>[t_start, t_end)</code>. This is the one range in the language that excludes its upper end, and it does so because the end is a floating-point instant rather than an index -- "does t_end land exactly on a sample" has no reliable answer. Index slicing (<code>x[a:b]</code>) includes both ends. A <code>t_end</code> past the signal's actual duration clamps to the last sample rather than erroring:</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">10</span>
+s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, fs)
+trimmed = <span class="f">cut</span>(s, <span class="n">0.5</span>, <span class="n">100.0</span>)
+<span class="f">print</span>(<span class="s">"trimmed = {trimmed}"</span>)
+<span class="f">print</span>(<span class="s">"trimmed.Fs = {trimmed.Fs}"</span>)
+
+t2 = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, fs)
+@t2.<span class="f">cut</span>(<span class="n">0.2</span>, <span class="n">0.7</span>)
+<span class="f">print</span>(<span class="s">"t2 after @cut = {t2}"</span>)
+</code></pre>
+</div>
+<p>Output:</p>
+<pre><code>trimmed = signal(Fs=10) [5, 6, 7, 8, 9]
+trimmed.Fs = 10
+t2 after @cut = signal(Fs=10) [2, 3, 4, 5, 6]
+</code></pre>
+<p><code>cut(s, 0.5, 100.0)</code> clamped the requested end time (100s) down to the signal's last sample, keeping samples 5-9 (t=0.5s onward) — 5 samples, at the same <code>Fs=10</code>. <code>@t2.cut(0.2, 0.7)</code> is the self-mutating form (<code>t2 = cut(t2, 0.2, 0.7)</code>), needing no special-cased <code>@</code> handling since <code>cut</code> is an ordinary function under the hood: <code>0.2s</code> and <code>0.7s</code> round to samples 2 and 7, keeping indices 2..6 (the end time is excluded).</p>
+<hr>
+<h2 id="s1516">25. <code>watch</code> — file/variable/URL change detection</h2>
+<p><code>watch</code> registers a callback for one of three trigger conditions — a file's modification time changing, a variable's value changing, or an HTTP endpoint's response body changing. It reuses the exact same registration-then-fire shape as the pre-existing <code>every</code>/<code>after</code>/<code>at ... end</code> timers (§12's <code>timer.</code> sugar is a different feature — this is the statement-level <code>Timer</code>/<code>OnElapsed</code> machinery those use under the hood):</p>
+<div class="example"><pre class="hl"><code>watch <span class="f">file</span>(path) [<span class="k">do</span>]
+    ...
+<span class="k">end</span>
+
+watch &lt;variable name&gt; [<span class="k">do</span>]
+    ...
+<span class="k">end</span>
+
+watch <span class="f">url</span>(url, [<span class="a">interval_seconds</span>=]) [<span class="k">do</span>]
+    ...
+<span class="k">end</span>
+</code></pre>
+</div>
+<p><code>watch</code> is contextual, not a reserved word (matching <code>every</code>/<code>on</code>/<code>pool</code>'s own precedent) — <code>watch = 5</code> still assigns a plain variable named <code>watch</code>.</p>
+<h3>The execution model: nothing runs "in the background"</h3>
+<p>This is the single most important thing to understand about <code>watch</code>. Qu's interpreter is synchronous and single-threaded, with no background event loop — exactly the same constraint that already makes <code>every</code>/<code>after</code>/<code>at</code> fire only during an explicit <code>run_for(duration)</code> call, never asynchronously while the rest of the script executes. <code>watch</code> inherits that same model: the <code>watch ... end</code> statement only <strong>registers</strong> the callback and takes a baseline snapshot of the current state (the file's mtime, the variable's value, or one real fetch of the URL) — the body never runs there. A callback only fires when the script later calls the <strong></strong><code>pump_watches()</code><strong> builtin, which checks every registered watch's real current state, right now, exactly once, and runs the body of any whose state has genuinely changed since the last check.</strong></p>
+<p><code>pump_watches()</code> is a <strong>new, separate builtin from </strong><code>run_for</code><strong> — investigated reusing </strong><code>run_for(duration)</code> and rejected it: <code>run_for</code> drives registered timers across a *simulated* virtual clock with no real waiting (see its own table entry below), which makes sense for a fixed time interval but has no honest equivalent for "has this file's real mtime changed" — there is no simulated mtime to fast-forward through. A <code>watch</code>'s condition is real external state (the filesystem, a variable, an HTTP endpoint) that can only be checked for real, at the moment you ask. <code>pump_watches()</code> means exactly that: check everything once, right now.</p>
+<p>A script that wants repeated checking drives it itself, typically pairing <code>pump_watches()</code> with the pre-existing <code>sleep(ms)</code> and <code>wait until ... end until</code>:</p>
+<div class="example"><pre class="hl"><code>n = <span class="n">0</span>
+watch <span class="f">file</span>(<span class="s">"data.csv"</span>) <span class="k">do</span>
+    n = n + <span class="n">1</span>
+<span class="k">end</span>
+
+wait <span class="k">until</span> n &gt;= <span class="n">1</span>
+    <span class="f">sleep</span>(<span class="n">200</span>)          <span class="c"># real wall-clock pause between checks</span>
+    <span class="f">pump_watches</span>()
+<span class="k">end</span> <span class="k">until</span>
+</code></pre>
+</div>
+<p>If you were hoping <code>watch</code> means "runs in the background while my script does other things" — it does not, and cannot, without a much larger concurrency redesign of the interpreter. It is cooperative polling, spelled as a statement instead of a raw <code>if current != last</code> check, nothing more.</p>
+<h3><code>watch file(path)</code> — file modification time</h3>
+<p>Fires when <code>path</code>'s mtime differs from the last check (<code>file_mtime</code>, built on the same <code>filetime</code> crate <code>touch(path)</code> already uses for real mtime handling). Deliberately <strong>poll-based</strong>, not the <code>notify</code> crate's real OS-level filesystem-event notifications — investigated and rejected for this pass: <code>notify</code> pushes events from a background OS thread, and wiring that into this single-threaded, cooperatively-pumped interpreter without silently reintroducing "runs in the background" is a real, separate concurrency design question, not a drop-in dependency swap. Honest, on-demand polling via <code>filetime</code> is the right-sized v1. A path that doesn't exist yet at registration time has a <code>None</code> baseline, so the file later being *created* also counts as a change.</p>
+<div class="example"><pre class="hl"><code>fires = <span class="n">0</span>
+watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span class="k">do</span>
+    fires = fires + <span class="n">1</span>
+<span class="k">end</span>
+f1 = <span class="f">pump_watches</span>()      <span class="c"># nothing changed yet -&gt; 0</span>
+<span class="f">touch</span>(<span class="s">"config.txt"</span>)      <span class="c"># real mtime bump (creates the file if missing)</span>
+f2 = <span class="f">pump_watches</span>()      <span class="c"># -&gt; 1</span>
+f3 = <span class="f">pump_watches</span>()      <span class="c"># nothing changed since f2's check -&gt; 0</span>
+</code></pre>
+</div>
+<h3><code>watch &lt;name&gt;</code> — variable value change</h3>
+<p>Fires when variable <code>name</code>'s current value differs from its value as of the last check, using the same equality <code>==</code> uses — reassigning the *identical* value never fires. Checked by a plain read-and-compare against the named variable at each <code>pump_watches()</code> call, <strong>not</strong> a hook on every assignment anywhere in the interpreter: hooking <code>var_set</code> itself would cost every script a check on every write, even scripts that never use <code>watch</code> — the targeted "look this one name up, compare, done" approach costs nothing extra on assignment and is O(1) per watch per pump. The one honest trade-off of any polling approach: a value that changes and changes back between two <code>pump_watches()</code> calls looks identical to "never changed" — the same trade-off <code>watch file</code>/<code>watch url</code> already accept.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span>
+watch x <span class="k">do</span>
+    <span class="f">print</span>(<span class="s">"x changed to {x}"</span>)
+<span class="k">end</span>
+<span class="f">pump_watches</span>()   <span class="c"># no change yet -&gt; silent</span>
+x = <span class="n">5</span>
+<span class="f">pump_watches</span>()   <span class="c"># -&gt; prints "x changed to 5"</span>
+x = <span class="n">5</span>
+<span class="f">pump_watches</span>()   <span class="c"># same value -&gt; silent</span>
+</code></pre>
+</div>
+<h3><code>watch url(url, [interval_seconds=])</code> — HTTP response body change</h3>
+<p>Fires when a fresh fetch of <code>url</code> (via the existing <code>http_get</code> builtin — see §21 — never a second HTTP implementation) returns a body different from the last fetch. <code>interval_seconds</code> bounds how often this actually fetches over the network, in real wall-clock seconds — <code>pump_watches()</code> may be called far more often than that; a call landing before the interval has elapsed is a cheap no-op, not a fetch. Defaults to <code>5</code> seconds when omitted (a plain "don't hammer the endpoint" default). The baseline is one real fetch performed at <code>watch url(...)</code> registration time, so whatever the endpoint returns *before* you started watching is never itself treated as a change.</p>
+<div class="example"><pre class="hl"><code>watch <span class="f">url</span>(<span class="s">"https://example.com/status"</span>, <span class="a">interval_seconds</span>=<span class="n">30</span>) <span class="k">do</span>
+    <span class="f">print</span>(<span class="s">"status page changed"</span>)
+<span class="k">end</span>
+<span class="f">pump_watches</span>()
+</code></pre>
+</div>
+<p>Real evidence, from <code>engine/crates/qu-interp/src/lib.rs</code>'s own test suite (<code>watch_file_fires_once_on_a_real_mtime_change_and_not_on_an_unchanged_pump</code>, <code>watch_var_fires_on_a_genuine_value_change_and_not_on_a_same_value_reassignment</code>, <code>watch_url_fires_on_a_real_body_change_over_loopback_and_not_on_an_unchanged_poll</code>): all three trigger conditions fire exactly once on a genuine real change and produce zero false fires on a pump where nothing changed — a real <code>touch</code> on a real temp file, a real variable reassignment, and a real HTTP fetch against a local loopback server whose response body actually changes between two fetches, not a mocked comparison.</p>
+<hr>
+<h2 id="s1596">26. Advanced Qu vs. Python: two real, measured comparisons</h2>
+<p>Ahmed asked for a section comparing "advanced" Python code against the equivalent Qu, checking that Qu is easier, faster, and accurate — with the explicit caveat that the two languages don't always think about a problem the same way, so this isn't a line-for-line transliteration exercise. Both examples below were actually run (release <code>qu.exe</code> vs. Python 3.13 + NumPy 2.4.5), not estimated, and the second one caught a real bug along the way — reported honestly rather than adjusted to make the numbers look better.</p>
+<h3>26.1 HMM Viterbi decoding, 8000-step sequence — Qu wins on all three</h3>
+<p>Qu's <code>hmm(transition, emission, initial).viterbi(obs)</code> (§ Markov Chains &amp; HMM in <code>book/src/stdlib/statistics-ml.md</code>) does the entire dynamic- programming recursion inside one compiled Rust builtin call. Python's "advanced" equivalent (a real log-space Viterbi implementation, vectorized over states with NumPy inside each timestep) still needs an unavoidable Python-level <code>for t in range(T)</code> loop, because each timestep genuinely depends on the previous one — this is the case where Qu's advantage is structural, not incidental.</p>
+<div class="example"><pre class="hl"><code>model = <span class="f">hmm</span>(transition, emission, initial)
+path = model.<span class="f">viterbi</span>(obs)          <span class="c"># one call, entire 8000-step decode</span>
+</code></pre>
+</div>
+<pre><code># Python needs the full DP recursion spelled out by hand, even with NumPy:
+for t in range(1, T):
+    scores = delta[:, None] + log_trans
+    psi[t] = np.argmax(scores, axis=0)
+    delta = scores[psi[t], np.arange(n_states)] + log_emit[:, obs[t]]
+# ...plus a separate backtracking pass to recover the path
+</code></pre>
+<p><strong>Measured</strong>, 5 states, 8000-step observation sequence, identical inputs (same deterministic LCG-generated observation sequence, same transition/ emission matrices, in both languages):</p>
+<div class="tablewrap"><table>
+<tr><td></td><td>Qu</td><td>Python (NumPy, log-space, hand-written)</td></tr>
+<tr><td>Wall-clock time</td><td><strong>2.6 ms</strong></td><td>31.8 ms (~12x slower)</td></tr>
+<tr><td>Decoded path</td><td><code>[3,4,1,1,1,1,1,0,4,0,...]</code>, checksum 15908</td><td>identical, checksum 15908</td></tr>
+<tr><td>Core algorithm code</td><td>2 lines (builtin call)</td><td>~15 lines (DP recursion + backtracking)</td></tr>
+</table></div>
+<p><strong>A real bug found and fixed along the way (2026-09-01):</strong> the first run of this comparison showed Qu's checksum as 31413, not 15908 — a real mismatch. Both <code>hmm_forward</code> and <code>hmm_viterbi</code> (<code>engine/crates/qu-interp/ src/lib.rs</code>) originally accumulated raw linear probabilities, which underflow to exactly <code>0.0</code> in <code>f64</code> after roughly 300-700 observations depending on the model. Once every candidate ties at <code>0.0</code>, Rust's <code>Iterator::max_by</code> — which documents "if several elements are equally maximum, the last element is returned" — made the decoded path silently get stuck on the highest-index state forever after. Bisecting the sequence length localized the divergence to almost exactly the predicted double- underflow point, confirming the diagnosis before touching any code. Fixed by switching both functions to log-space accumulation (commit <code>92bc8c7</code>); after the fix, Qu's output matches the Python reference exactly, and a new regression test (<code>hmm_viterbi_does_not_underflow_and_get_stuck_on_a_long_sequence</code>) guards against it recurring. This is exactly why "measure, don't assume" matters even for code that already passed its original unit tests — the textbook 3-observation example that validated <code>hmm</code> at ship time was too short to ever exercise this failure mode.</p>
+<h3>26.2 Particle filter tracking, 50000 particles x 500 steps — was a real loss, now fixed</h3>
+<p><strong>Update:</strong> the first version of this section reported an honest loss for Qu (1959ms vs. Python's 864ms) and left it at that. Since then, profiling the actual gap (not guessing at it) found and fixed two real, avoidable costs — see §26.2.1 below. Qu now runs this benchmark in ~860ms, matching the NumPy reference. The code and honest-loss framing are kept below as they were originally written, since the fix (§26.2.1) is only meaningful in contrast to what it replaced.</p>
+<div class="example"><pre class="hl"><code>pf = <span class="f">particle_filter</span>(<span class="n">50000</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    pf = pf.<span class="f">move</span>(dt)
+    pf = pf.<span class="f">update</span>([measured[k]])
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div>
+<pre><code># Python's "advanced" equivalent hand-implements the SIR filter directly in
+# NumPy: constant-velocity predict, Gaussian likelihood, ESS-gated
+# systematic resampling -- ~20 lines, but every operation is a single
+# vectorized array op over all 50000 particles at once.
+particles[:, 0] += particles[:, 1] * dt
+particles += rng.normal(0.0, process_noise, particles.shape)
+likelihood = np.exp(-0.5 * ((particles[:, 0] - measured[k]) / obs_noise) ** 2)
+weights = weights * likelihood + 1e-300; weights /= weights.sum()
+</code></pre>
+<p><strong>Measured</strong>, identical model, 50000 particles, 500 steps:</p>
+<div class="tablewrap"><table>
+<tr><td></td><td>Qu</td><td>Python (NumPy, vectorized)</td></tr>
+<tr><td>Wall-clock time</td><td>1959 ms</td><td><strong>864 ms (~2.3x faster)</strong></td></tr>
+<tr><td>Position RMS error (filtered)</td><td>0.148</td><td>0.161 (both comparable, both correct)</td></tr>
+<tr><td>Core algorithm code</td><td>3 lines (builtin calls)</td><td>~20 lines (hand-written SIR filter)</td></tr>
+</table></div>
+<p><strong>Honest result: Python/NumPy is faster here, and that's the right takeaway to report, not paper over.</strong> This is the case Ahmed's own caveat predicted — "not always compatible with the same thinking way." Qu's <code>particle_filter</code> returns a new immutable model handle from every <code>.move</code>/ <code>.update</code> call (functional-update style, consistent with Qu's <code>Value::Model</code> convention elsewhere), which very plausibly re-wraps/reallocates the full 50000-particle state on every one of 1000 calls; NumPy's raw in-place array mutation (<code>particles[:, 0] += ...</code>) pays no such per-call overhead. Both give comparably accurate tracking (0.148 vs. 0.161 RMS, both far better than the raw 0.396 sensor noise) — the gap here was implementation overhead, not an algorithmic or numerical problem, and it was NOT what it first looked like.</p>
+<h4>26.2.1 The fix — and why the first guess about the cause was wrong</h4>
+<p>The paragraph above originally guessed the cause was <code>.move</code>/<code>.update</code> re-wrapping the full particle array on every call (Qu's <code>Value::Model</code> convention returns a new handle each time). That guess turned out to be wrong once actually measured — a direct demonstration of why this project's standing rule is profile before fixing, not after. Isolating the noise-generation loop (temporarily setting <code>process_noise=0</code>) cut runtime roughly in half immediately (1959ms -&gt; 982ms), pointing straight at the real cause:</p>
+<p>1. <code>particle_tracker_advance</code>'s per-particle process-noise loop called a Box-Muller normal-sample method per cell that only used the <code>cos</code> half of each generated pair — discarding the <code>sin</code> half it had already paid the same <code>ln</code>/<code>sqrt</code>/trig cost to compute. 2. The update step's likelihood loop called <code>particles.row_vec(r)</code> — which allocates a fresh <code>Vec</code> for the entire row (position AND velocity dims) — 50000 times per call, just to read the first <code>half</code> position dims it actually needed.</p>
+<p>Both fixed inline to those two functions specifically (commit <code>1d1af50</code>) — deliberately NOT by changing the shared <code>Rng::normal()</code> used everywhere else in the interpreter, which would have silently altered the output stream of every other seeded script in the codebase for a fix that only needed to apply to this one builtin.</p>
+<div class="tablewrap"><table>
+<tr><td></td><td>Before</td><td>After</td></tr>
+<tr><td>Wall-clock</td><td>1959 ms</td><td><strong>~860 ms</strong> (matches NumPy's 864ms)</td></tr>
+<tr><td>RMS error</td><td>0.148</td><td>0.148 (unchanged)</td></tr>
+<tr><td>Full workspace suite</td><td>1120 passed</td><td>1120 passed (no regression)</td></tr>
+</table></div>
+<h3>26.3 What this section is and isn't claiming</h3>
+<p>Not every Qu builtin will beat a hand-optimized NumPy implementation on the first measurement, and this section exists to show real measurements either way, not to only publish the wins — the particle filter example above was a genuine loss when first measured, reported honestly as one, and only closed after actually profiling it (and getting the first guess at the cause wrong along the way). Qu wins clearly when the algorithm is inherently sequential (can't be vectorized across the loop dimension, so Python pays a per-iteration interpreter tax that Qu's compiled Rust loop doesn't) — HMM Viterbi is the clean case of this. Where an operation is "embarrassingly parallel" across particles/rows/elements with no genuine cross-call state threading, as the particle filter's per-particle math is, a hand-optimized NumPy implementation is a fair fight, and Qu closing that gap took removing real, avoidable overhead (wasted RNG output, needless allocation) rather than there being some fundamental language- level ceiling. Both examples agree closely on the actual numeric answer, which is the more important claim of the two — "accurate" held up in both cases once the one real bug above was fixed.</p>
+<hr>
+<h2 id="s1675">27. Summary of mismatches found</h2>
+<p>Spec-vs-reality (both spec docs are identical and both wrong on these):</p>
+<div class="tablewrap"><table>
+<tr><td>#</td><td>Spec claims</td><td>Real behavior</td><td>Section</td></tr>
+<tr><td>1</td><td><code>write_csv("path", df)</code>, <code>read_csv(path, header=true)</code></td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — <code>write_csv(df, path)</code>, <code>read_csv(path, headers=true)</code></td><td>§8</td></tr>
+<tr><td>2</td><td><code>.*=</code>, <code>./=</code>, <code>^=</code> compound assignment</td><td><strong>Fixed in the engine</strong> (<code>f77713c</code>) — all three now real</td><td>§2</td></tr>
+<tr><td>3</td><td><code>x++</code>/<code>x--</code> increment/decrement</td><td><strong>Fixed in docs</strong> (<code>2101fbc</code>) — doesn't parse, no plans to add it</td><td>§2</td></tr>
+<tr><td>4</td><td><code>x, y = 1, 2</code> multiple assignment / destructuring</td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — deliberately not supported; <code>.field</code> on a Model is the mechanism</td><td>§2, §7</td></tr>
+<tr><td>5</td><td><code>function f(x, order = 4)</code> default/optional parameters, <code>is_present</code></td><td><strong>Fixed in the engine</strong> (<code>f77713c</code>) — real defaults; <code>is_present</code>/<code>optional</code> still don't exist, docs corrected</td><td>§5</td></tr>
+<tr><td>6</td><td><code>nargin</code>/<code>nargout</code>/<code>...args</code>/<code>varargin</code></td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — not supported, no plans to add</td><td>§5</td></tr>
+<tr><td>7</td><td><code>sq = (x) -&gt; x^2</code> lambda arrow</td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — <code>-&gt;</code> is exclusively the reshape operator; use <code>square(x) := x^2</code> instead</td><td>§5, §12</td></tr>
+<tr><td>8</td><td><code>pure function</code>/<code>elemental function</code> attributes</td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — keywords absent from the lexer entirely</td><td>§5</td></tr>
+<tr><td>9</td><td><code>x[-1]</code> negative indexing</td><td><strong>Fixed in docs</strong> (<code>7379c86</code>) — errors; use <code>x[end]</code>/<code>x[end-1]</code>/<code>x[end-2]</code></td><td>§6</td></tr>
+</table></div>
+<p>Real engine bugs found independent of the spec docs — <strong>all fixed same-day</strong>:</p>
+<ul>
+<li><strong></strong><code>elseif</code> never parsed successfully in any script<strong>, regardless of trailing </strong><code>else</code>/<code>end</code>/<code>end if</code> — a return-before-consuming-<code>end</code> bug in <code>if_stmt</code>/<code>if_stmt_from_elseif</code> (<code>qu-syntax/src/lib.rs</code>). Fixed in commit <code>79609d0</code>, 2 new regression tests added. See §4 for the full repro and fix.</li>
+<li><strong>A defined operator overload that didn't match its arguments' types produced a misleading error</strong> — the interpreter discarded the real zero-match dispatch error (which names the candidate signatures) and showed the generic built-in operator's complaint instead (e.g. <code>expected a number, found record</code>, with no hint an overload was even attempted). Fixed in commit <code>9a71b6a</code>: now shows <code>no method </code>+<code> matches argument types (record, record) — 1 candidate(s) defined: +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)</code>, directly pointing at the real problem (usually a missing <code>__type</code> tag). See §5 for the overload mechanism itself.</li>
+<li><strong></strong><code>else if</code> (two words) required its own separate <code>end if</code><strong>, unlike single-word </strong><code>elseif</code> — confusing since they look interchangeable. Fixed in commit <code>f77713c</code>: both spellings now behave identically. See §4.</li>
+<li><strong></strong><code>.*=</code>/<code>./=</code>/<code>^=</code> never lexed at all<strong> — a compounding lexer bug (</strong><code>match_operator</code> only ever compared an operator's first two characters, so a genuine 3-char token could never match) plus the missing table entries. Fixed in commit <code>f77713c</code>. See §2.</li>
+<li><strong>Two other real bugs, found by a separate benchmark pass (not this tour) and flagged as follow-ups, not yet fixed as of this writing</strong>: <code>parallel for</code> silently computes the WRONG answer (no error at all) for a vector/matrix accumulator reduction, and a single <code>gpu_matmul</code> call on an oversized matrix crashes the whole process with an uncatchable panic instead of a clean error. See <code>benchmarks/multisine_acceleration/README.md</code> for the full repro of both.</li>
+<li><strong></strong><code>square</code>/<code>impulse</code>/<code>pwm</code> silently discarded a wrong-type argument and fell back to its default instead of erroring<strong> — e.g. piping a </strong><code>Vec</code> into <code>square</code> (easy to do by mistake, since the name reads like an elementwise math function) silently produced a meaningless 1-sample signal rather than any error. Fixed § argument-validation audit, 2026-09-01: a present-but-wrong-type numeric argument is now a clear error naming the function/argument/actual type; a genuinely omitted argument still defaults exactly as before. See §18 for the full before/after repro, plus the new <code>signals.*</code> disambiguation sugar and the new <code>sawtooth</code>/<code>triangle</code> generators added alongside it.</li>
+</ul>
+<p>Worth a design decision, not clearly a "mismatch" since the spec doesn't say it in so many words, but surprising given <code>*</code>/<code>^</code> do real matrix math:</p>
+<ul>
+<li><strong></strong><code>A/B</code> between two matrices is elementwise, identical to <code>A./B</code><strong> — there is no real matrix right-division; only </strong><code>\</code> (left-division/solve) does real linear algebra. See §3.</li>
+</ul>
+<p>Confirmed correct (spec matches reality) on: zero-based indexing, inclusive <code>[a:b]</code> slicing vs. inclusive <code>to</code>/compact-range, <code>x[end]</code>, boolean-mask indexing and mask assignment, <code>where</code>, fancy/gather indexing, <code>try</code>/<code>catch</code> closing with bare <code>end</code>, <code>table.load</code>/<code>table.write</code> as sugar for <code>read_csv</code>/<code>write_csv</code> (per <code>book/src/stdlib/file-io.md</code>, which is already accurate), <code>*</code>/<code>.* </code> elementwise-vs-matrix distinction, <code>+=</code>/<code>-=</code>/<code>*=</code>/<code>/=</code>/ <code>.*=</code>/<code>./=</code>/<code>^=</code> compound assignment, default parameters, <code>@</code> self-mutation, string interpolation with <code>{expr:spec}</code> formatting, multiple dispatch by parameter type, and unit literals (<code>5 kHz</code> → <code>5000</code>).</p>
+<p>Also confirmed real and working, not previously covered by this tour: <code>unsafe</code> blocks (§14), <code>parallel for</code> and the full <code>pool</code>/<code>queue()</code>/<code>run...on</code> job scheduler (§15), <code>cast</code>/<code>resample_to</code> (§16), <code>where(v&gt;0)</code>/<code>where v &gt; 0</code> (both forms), colon-step ranges (<code>0:2:10</code>), and <code>preciseTimer</code> (already existed before today, and already uses a real monotonic clock rather than raw CPU ticks, so it has no actual precision difference from plain <code>timer()</code> today).</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+# Pull every ```qu example out of the documentation into runnable files.
+#
+# The public reference must describe what the engine does, not what it was
+# once meant to do. The only way to know which is which is to run the
+# examples, so this extracts them and `tools/check_docs.sh` runs the lot.
+#
+# Blocks are extracted CUMULATIVELY: example N of a document is written
+# with examples 1..N-1 in front of it, because that is how a reader meets
+# them. A tutorial that says "now plot it" three paragraphs after defining
+# `x` is written correctly, and testing that block alone would only
+# discover that prose has an order.
+#
+# Blocks marked ```qu,ignore are extracted but named `.skip` -- for the
+# handful that cannot run at all (they need a serial port, a GPU, or a
+# file only the author has). Anything else that fails is either doc drift
+# or a feature the docs claim and the engine does not have, and both are
+# things to settle before publishing.
+#
+# Run:  QU_DOCEX_OUT=<dir> qu run tools/extract_doc_examples.qu
+
+OUT = getenv("QU_DOCEX_OUT") ?? "doc-examples"
+FENCE = "```"
+
+files = ()
+for f in list_dir("docs", "*.md")
+    files = append(files, "docs/" + f)
+end for
+for f in list_dir("book/src", "*.md")
+    files = append(files, "book/src/" + f)
+end for
+for d in ("getting-started", "language-reference", "stdlib")
+    for f in list_dir("book/src/" + d, "*.md")
+        files = append(files, "book/src/" + d + "/" + f)
+    end for
+end for
+files = append(files, "README.md")
+
+# Documents whose code blocks are grammar rather than examples.
+#
+# Measured on the specification, cumulatively and skipping breakage: 7 of
+# 248 blocks run. Its forms name `Fs`, `mydata`, `crest()` -- placeholders
+# and illustrations, not a program. Running them is a category error, and
+# an expensive one: a document stops at its first break, so the
+# specification has been dark past §7 for a long time, and four real
+# regressions hid there because nothing downstream of the break had ever
+# been executed.
+#
+# Held back rather than deleted, and reported rather than dropped
+# quietly -- a silent exclusion is the same failure wearing a coat.
+# Strip a markdown blockquote prefix from a wholly-quoted block.
+#
+# `docs/qu-language-tour.md` keeps several findings as blockquotes, and a
+# ```qu fence inside one arrives here with every line still carrying its
+# `> `. Lifted verbatim, `> M = [1,2;3,4]` is a parse error -- which is how
+# the tour came to report `unexpected Op(">")` against an example that is
+# perfectly good Qu. The checker was right about the file it was given and
+# wrong about the document.
+#
+# Only fires when EVERY non-empty line is quoted, so a block that merely
+# contains a `>` -- a comparison, a REPL transcript -- is untouched.
+function unquote_block(body)
+    ls = lines(body)
+    any_quoted = false
+    for l in ls
+        t = rtrim(l)
+        if len(t) == 0
+            continue
+        end if
+        if not (starts_with(t, "> ") or t == ">")
+            return body
+        end if
+        any_quoted = true
+    end for
+    if not any_quoted
+        return body
+    end if
+    out = ""
+    for l in ls
+        t = rtrim(l)
+        if len(t) == 0 or t == ">"
+            out = out + "\n"
+        else
+            out = out + substr(t, 2, len(t) - 2) + "\n"
+        end if
+    end for
+    return out
+end function
+
+DESIGN_DOCS = ("docs/qu-language-spec.md",
+               "docs/qu-language-spec.built.md",
+               "book/src/language-reference/spec.md")
+
+total = 0
+skipped = 0
+held = 0
+for path in files
+    text = read_all_text(path)
+    parts = split(text, FENCE)
+    prefix = ""
+    # Odd-numbered parts are inside a fence; the first line of each is the
+    # info string, the rest is the code.
+    i = 1
+    while i < len(parts)
+        block = parts[i]
+        nl = index_of(block, "\n")
+        if nl > 0
+            info = trim(substr(block, 0, nl))
+            body = substr(block, nl + 1, len(block) - nl - 1)
+            body = unquote_block(body)
+            if info == "qu" or starts_with(info, "qu,") or starts_with(info, "qu ")
+                total = total + 1
+                stem = replace(replace(path, "/", "_"), ".md", "")
+                name = OUT + "/" + stem + "_" + str(total)
+                ext = ".qu"
+                if contains(info, "ignore") or contains(info, "no_run")
+                    skipped = skipped + 1
+                    ext = ".skip"
+                end if
+                # A design document's blocks are grammar; see DESIGN_DOCS.
+                design = false
+                for d in DESIGN_DOCS
+                    if path == d
+                        design = true
+                    end if
+                end for
+                if design and ext == ".qu"
+                    held = held + 1
+                    ext = ".skip"
+                end if
+                h = fopen(name + ext, "w")
+                write(h, prefix + body)
+                close(h)
+                # Only runnable blocks join the running context; a block
+                # that cannot execute would poison every one after it.
+                if ext == ".qu"
+                    prefix = prefix + body + "
+"
+                end if
+            end if
+        end if
+        i = i + 2
+    end while
+end for
+
+print("extracted {total} qu examples from {len(files)} documents ({skipped} marked skip)")
+if held > 0
+    print("")
+    print("held back {held} blocks from the specification documents, which are")
+    print("grammar rather than examples -- 7 of 248 of them run. They are")
+    print("written as .skip so the count stays visible. If you want them")
+    print("checked, take them out of DESIGN_DOCS in this file and expect")
+    print("the report to be about the specification rather than the guides.")
+end if

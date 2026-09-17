@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>standardize — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>standardize</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>standardize(X)</code></pre>
+<p class="fnnote">Input: X &middot; Output: result</p>
+<h2>What it is</h2>
+<p>z-score scaling of <code>X</code> (vector, matrix column-wise, or table per numeric column): <code>(x - mean) / std</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>X</code> can be Vec, Mat, or matrix.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-standardize-0" checked>
+<input type="radio" name="typetab" id="tt-standardize-1">
+<input type="radio" name="typetab" id="tt-standardize-2">
+<div class="tabbar">
+<label for="tt-standardize-0">vector</label>
+<label for="tt-standardize-1">matrix</label>
+<label for="tt-standardize-2">table</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = standardize(X)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">Vec</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>A plain <code>Vec</code> is standardized as a whole -- one mean, one std, across every element.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>sv = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
+<span class="f">print</span>(<span class="s">"standardize on a vector: {round(standardize(sv), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = standardize(X)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">Mat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>An <code>N</code>-row, <code>D</code>-column <code>Mat</code> is standardized column by column -- each column gets its own mean and std, independent of the others.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>sm = [<span class="n">1.0</span>, <span class="n">100.0</span>; <span class="n">2.0</span>, <span class="n">200.0</span>; <span class="n">3.0</span>, <span class="n">300.0</span>]
+<span class="f">print</span>(<span class="s">"standardize on a matrix, per column: {round(standardize(sm), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = standardize(X)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>A table is standardized per numeric column, exactly like a matrix -- a non-numeric column (a label, say) passes through untouched instead of erroring.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
+<span class="f">print</span>(<span class="s">"standardize on a table, per numeric column (label untouched):"</span>)
+<span class="f">print</span>(<span class="f">standardize</span>(st))
+</code></pre>
+</div>
+<p><code>normalize</code>, <code>robust_scale</code> and <code>quantile_normalize</code> all branch the same three ways.</p>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>standardize(X)</code> — z-score: <code>(x - mean) / std</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>medfilt2 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>medfilt2</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>medfilt2(x, [window=3])</code></pre>
+<p class="fnnote">Input: x, window &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Synonyms for <code>medfilt</code> at the Qu level: <code>x</code> is a length-N number vector or an <code>Image</code>, <code>window</code> an optional positional/named odd integer, default <code>3</code>. On a plain vector the result is identical to <code>medfilt(x, window)</code> (a 1-D median); the two-dimensional median — over a <code>window</code>×<code>window</code> square, channel by channel, not separable, so the median of medians is never substituted for the real thing — only happens when <code>x</code> is an <code>Image</code>, since the image itself carries its own width and height.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = medfilt2(x, [window=3])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number, vector, or Image</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">number, vector, or Image, optional (default <code>3</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a value the same shape as <code>x</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
+img = <span class="f">image_from_matrix</span>(m)
+
+a = <span class="f">medfilt2</span>(img, <span class="n">3</span>)
+b = <span class="f">median_filter</span>(img, <span class="n">3</span>)      <span class="c"># same filter, other name</span>
+<span class="f">print</span>(<span class="s">"{a.width}x{a.height} cleaned, {b.width}x{b.height} cleaned"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<h2>How it works</h2>
+<p><code>medfilt(x, n)</code> on a vector, <code>medfilt(img, n)</code> on an image. The answer to salt-and-pepper, and the reason is worth knowing: an average is pulled by an outlier in proportion to how far out it is, while a median ignores it entirely as long as fewer than half the window is corrupt. Which is also why it keeps an edge that an average smears -- a step is not an outlier to a median.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="median_filter.html"><code>median_filter</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

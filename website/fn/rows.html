@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rows — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rows</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>rows(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Row / column count of <code>A</code>. On a <code>Vec</code> (shape <code>(n, 1)</code>), a <code>Mat</code>/<code>Signal</code> (shape <code>(r, c)</code>), or a bare scalar (shape <code>(1, 1)</code>), returns the corresponding dimension as a scalar <code>Num</code>. On a <code>Table</code>, returns the same values as <code>nrow(df)</code>/<code>ncol(df)</code> — row count is the record count, column count the field count.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rows(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Vec, Mat, Signal, scalar, Num, or Table</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
+</td><td>Returns a scalar <code>Num</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
+<span class="f">print</span>(df)
+<span class="f">print</span>(<span class="s">"nrow = {nrow(df)}"</span>)
+<span class="f">print</span>(<span class="s">"ncol = {ncol(df)}"</span>)
+<span class="f">print</span>(<span class="s">"df.nrows = {df.nrows}"</span>)
+<span class="f">print</span>(<span class="s">"rows(df) = {rows(df)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+    <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"svd"</span>&gt;)
+    <span class="k">return</span> <span class="s">"svd: singular values = {m.s}"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">summarize</span>(m: model)
+    <span class="k">return</span> <span class="s">"generic model, kind unhandled"</span>
+<span class="k">end</span> <span class="k">function</span>
+
+A = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+qres = <span class="f">qr</span>(A)
+sres = <span class="f">svd</span>(A)
+pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">1</span>,<span class="n">3</span>,<span class="n">1</span>,<span class="n">0</span>,<span class="n">2</span>,<span class="n">4</span>,<span class="n">2</span>,<span class="n">0</span>])
+
+<span class="f">print</span>(<span class="f">summarize</span>(qres))
+<span class="f">print</span>(<span class="f">summarize</span>(sres))
+<span class="f">print</span>(<span class="f">summarize</span>(pk))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+img1 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img1[<span class="n">2</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img2[<span class="n">1</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">1</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+net = net.<span class="f">fit</span>((img1, img2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_cnn predict rows: {rows(net.predict((img1, img2)))}"</span>)
+
+rnn = <span class="f">simple_rnn_classifier</span>(<span class="n">1</span>, <span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+seq1 = [<span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.5</span>, <span class="n">0.7</span>, <span class="n">0.9</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+seq2 = [<span class="n">0.9</span>, <span class="n">0.7</span>, <span class="n">0.5</span>, <span class="n">0.3</span>, <span class="n">0.1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+rnn = rnn.<span class="f">fit</span>((seq1, seq2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_rnn_classifier predict rows: {rows(rnn.predict((seq1, seq2)))}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>seq = <span class="f">sequential_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.2</span>)
+<span class="f">print</span>(<span class="s">"sequential_split train rows: {rows(seq.X_train)}"</span>)
+
+strat = <span class="f">stratified_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"stratified_split train rows: {rows(strat.X_train)}"</span>)
+
+tvt = <span class="f">train_val_test_split</span>(Xc, yc, <span class="a">val_size</span> = <span class="n">0.2</span>, <span class="a">test_size</span> = <span class="n">0.2</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"train/val/test rows: {rows(tvt.X_train)}, {rows(tvt.X_val)}, {rows(tvt.X_test)}"</span>)
+
+m = <span class="f">knn_model</span>(strat.X_train, strat.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+<span class="f">confusion_matrix</span>(strat.y_test, m.<span class="f">predict</span>(strat.X_test), <span class="n">2</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p>shape introspection</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="cols.html"><code>cols</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

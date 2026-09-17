@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>title — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>title</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig"><code>title(text, [align=])</code></pre>
+<p class="fnnote">Input: text, align &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Sets the current panel's title to <code>text</code> (string). <code>align=</code> (string, <code>"left"</code>/<code>"center"</code>/<code>"right"</code>, default <code>"center"</code>) sets its horizontal alignment.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>title(text, [align=])</code></td><td><div class="ioitem"><code>text</code> <span class="iotype">string</span><span class="iodesc">Sets the current panel's title to <code>text</code> (string).</span></div>
+<div class="ioitem"><code>align</code> <span class="iotype">string, optional</span><span class="iodesc"><code>align=</code> (string, <code>"left"</code>/<code>"center"</code>/<code>"right"</code>, default <code>"center"</code>) sets its horizontal alignment.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">80</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+<span class="f">spectrogram</span>(x, <span class="n">128</span>, <span class="n">32</span>, Fs)
+<span class="f">title</span>(<span class="s">"Two stationary tones"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">1000</span>
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
+t = n / Fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">80</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+<span class="f">spectrogram</span>(x, <span class="n">128</span>, <span class="n">32</span>, Fs)
+<span class="f">title</span>(<span class="s">"Two stationary tones"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>m = <span class="f">randn</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="a">seed</span> = <span class="n">4</span>)
+<span class="f">heatmap</span>(m, <span class="a">colormap</span>=<span class="s">"viridis"</span>)
+colorbar
+<span class="f">title</span>(<span class="s">"Random field"</span>)
+<span class="f">print</span>(<span class="s">"value range: ["</span> + <span class="f">str</span>(<span class="f">min</span>(m)) + <span class="s">", "</span> + <span class="f">str</span>(<span class="f">max</span>(m)) + <span class="s">"]"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+y = <span class="f">sin</span>(x)
+<span class="f">plot</span>(x, y)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"sin(x)"</span>)
+<span class="f">title</span>(<span class="s">"First plot"</span>)
+grid on
+<span class="f">savefig</span>(<span class="s">"quickstart_plot.svg"</span>)
+<span class="f">print</span>(<span class="s">"saved quickstart_plot.svg"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qu — Overview</title>
+<meta name="description" content="Qu — a scientific scripting language for signals, data, ML, and animated visualization.">
+<link rel="stylesheet" href="assets/qu.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+<a class="brand" href="index.html"><b>Qu</b></a>
+<span class="tag">draft 0.9</span>
+<nav class="topnav" id="topnav"></nav>
+<span class="spacer"></span>
+<button class="btn" id="pauseAll" title="Pause or resume all animations">⏸ Pause all</button>
+<button class="btn" id="themeBtn" title="Toggle light / dark">◐ Theme</button>
+</div></div>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="kicker">Scientific scripting language · specification</span>
+      <h1><span class="q">Qu</span> — write the math,<br>watch it move.</h1>
+      <p class="lead">A draft language where signal processing, data science, machine learning, and
+        animated visualization share one readable syntax — and one clean path to fast CPU and GPU backends.
+        Every demo below is a live drawing of what the code beside it produces.</p>
+      <div class="badges">
+        <span class="badge">DSP-native</span>
+        <span class="badge">DataFrames</span>
+        <span class="badge">Autodiff &amp; tensors</span>
+        <span class="badge">Animation subsystem</span>
+        <span class="badge">GPU-aware</span>
+        <span class="badge">Report-ready</span>
+      </div>
+    </div>
+    <div class="heroCanvasWrap">
+      <div class="cap"><span class="dot" style="background:var(--s1)"></span>
+        <span class="dot" style="background:var(--s2)"></span>
+        <span class="dot" style="background:var(--s3)"></span>
+        &nbsp;multisine — traveling wave</div>
+      <canvas data-demo="hero" style="height:250px;width:100%;display:block"></canvas>
+    </div>
+  </div>
+</header>
+<div class="wrap shell">
+<aside class="toc" id="toc"><h4>On this page</h4><div class="grp"></div></aside>
+<main>
+<section id="overview">
+      <h2>What Qu is</h2>
+      <p>Qu (pronounced “queue”) is a specification-first language for people whose work is
+        <em>numbers over time</em>: acquiring a signal, cleaning it into a table, fitting a model,
+        and turning the result into a figure — often an animated one. It blends the readability of
+        BASIC and MATLAB, the array discipline of FORTRAN, the ecosystem thinking of Python and R,
+        the declarative scene-graph idea from POV-Ray, and the query syntax of LINQ. Above all it aims
+        to read like <em>mathematics and science</em>, not like a program (§10).</p>
+      <div class="grid3">
+        <div class="tile"><strong>For scientists</strong><span>Code that looks like the math. Small scripts run with no declarations, and errors explain shape, unit, and backend problems in plain language.</span></div>
+        <div class="tile"><strong>For data &amp; ML</strong><span>Frames, statistics, a uniform fit/predict/score model protocol, tensors, and reverse-mode autodiff — all sharing the array core.</span></div>
+        <div class="tile"><strong>For backend engineers</strong><span>Backend-neutral source lowers to CPU, MKL, CUDA, OpenCL, or SYCL with visible fusion, memory movement, and precision policy.</span></div>
+      </div>
+      <p class="note"><b>Specification first, engine later.</b> Qu 0.2 is a written language definition
+        with a reference example set. This page is the human-readable companion to
+        <code>docs/qu-language-spec.md</code>; the four new chapters (data, statistics, ML, animation)
+        widen the DSP core of 0.1 without changing it.</p>
+    </section>
+<section id="tour">
+      <h2>A two-minute tour</h2>
+      <p>Statements are newline-oriented. Comments start with <code>#</code>. Strings interpolate with
+        <code>{expr}</code>. <code>=</code> assigns; <code>:=</code> is a deferred dataflow binding the
+        planner may fuse and schedule; <code>as</code> adds a type or shape contract.</p>
+      <pre><code class="qu" data-src="tour"></code></pre>
+      <div class="grid3">
+        <div class="tile"><strong><code>=</code> vs <code>:=</code></strong><span><code>x = expr</code> evaluates now. <code>M := expr</code> records a fusible expression that becomes concrete when plotted, printed, or exported.</span></div>
+        <div class="tile"><strong>Shape contracts</strong><span><code>f as vector(K, 1)</code> asserts orientation. Broadcasting is NumPy-style, but ambiguous orientation is a compile error, not a guess.</span></div>
+        <div class="tile"><strong>Command syntax</strong><span>Plot verbs read like BASIC: <code>plot(t, x)</code>, <code>grid on</code>, <code>show plot</code>. Friendly to type, precise to lower.</span></div>
+      </div>
+    </section>
+<section id="arrays">
+      <h2>Arrays, ranges, broadcasting</h2>
+      <p>Every numeric value is a scalar or an N-D homogeneous array; scalars are rank-0 arrays.
+        Matrices are column-major by default (FORTRAN/BLAS/LAPACK friendly). Indexing is zero-based
+        and slices are half-open, with a MATLAB one-based compatibility mode available per module.</p>
+      <pre><code class="qu" data-src="arrays"></code></pre>
+      <p>The comma-ellipsis form <code>1, 2, ..., 50</code> and the VB-style <code>1 to 20 step pi/4</code>
+        both build ranges; a <code>skip eps</code> guard drops values near a singularity.</p>
+    </section>
+<footer>Qu draft 0.9 — specification first, engine later. Full text: <code>docs/qu-language-spec.md</code>. &nbsp;<a href="index.html">Home</a></footer>
+</main></div>
+<script src="assets/qu.js"></script>
+</body>
+</html>

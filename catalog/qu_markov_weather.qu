@@ -1,0 +1,46 @@
+# qu_markov_weather.qu -- a two-state Markov chain modeling Sunny/Rainy
+# weather, simulated forward in time and compared against its analytically
+# hand-solved stationary (long-run) distribution.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   markov_chain(P, initial_state)     -- validates P is row-stochastic
+#   chain.simulate(n_steps, seed=)     -- a reproducible random walk over states
+#   chain.stationary()                 -- power-iteration fixed point v = v*P
+#   chain.transition ^ n               -- n-step transition probabilities,
+#                                          reusing the existing matrix-power
+#                                          operator (no dedicated builtin)
+
+backend auto
+
+#%% A simple two-state weather chain: Sunny=0, Rainy=1.
+# Sunny stays sunny 90% of the time; Rainy is a 50/50 coin flip.
+P = [0.9, 0.1; 0.5, 0.5]
+chain = markov_chain(P, 0)   # start on a sunny day
+
+#%% Simulate a year of daily weather and tally the fraction of rainy days.
+n_days = 365
+path = chain.simulate(n_days, seed=42)
+rainy_fraction = mean(path)   # states are 0/1, so the mean IS the rainy fraction
+print("Simulated rainy-day fraction over {n_days} days: {rainy_fraction:.3f}")
+
+#%% The exact long-run (stationary) distribution, via power iteration --
+# hand-solvable too: v0*0.9 + v1*0.5 = v0  =>  v1 = 0.2*v0, v0+v1=1
+# => v0 = 5/6 (Sunny), v1 = 1/6 (Rainy).
+dist = chain.stationary()
+print("Stationary distribution: Sunny={dist[0]:.4f}, Rainy={dist[1]:.4f}")
+print("Hand-solved expectation: Sunny={5.0/6.0:.4f}, Rainy={1.0/6.0:.4f}")
+
+#%% n-step transition probabilities: chain.transition^n converges to rows
+# that both equal the stationary distribution as n grows.
+p20 = chain.transition ^ 20
+print("P^20 row 0 (started Sunny): [{p20[0,0]:.4f}, {p20[0,1]:.4f}]")
+print("P^20 row 1 (started Rainy): [{p20[1,0]:.4f}, {p20[1,1]:.4f}]")
+
+#%% Plot the simulated daily weather state over the full year.
+days = 0 to n_days
+plot(days, path, label="weather state (0=Sunny, 1=Rainy)", color="blue")
+xlabel("Day")
+ylabel("State")
+title("Markov chain weather simulation")
+legend()
+show plot

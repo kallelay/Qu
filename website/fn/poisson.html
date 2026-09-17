@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poisson — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>poisson</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>poisson(lambda, [rows], [cols], [seed=])</code></pre>
+<p class="fnnote">Input: lambda, rows, cols, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Exact Poisson draws. <code>lambda</code> (a positive number) is the rate, which is also the mean and the variance of the result; <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable. Slow, not wrong, for very large <code>lambda</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = poisson(lambda, [rows], [cols], [seed=])</code></td><td><div class="ioitem"><code>lambda</code> <span class="iotype">number</span><span class="iodesc"><code>lambda</code> (a positive number) is the rate, which is also the mean and the variance of the result.</span></div>
+<div class="ioitem"><code>rows</code> <span class="iotype">number, vector, or matrix, optional</span><span class="iodesc"><code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix.</span></div>
+<div class="ioitem"><code>cols</code> <span class="iotype">number, vector, or matrix, optional</span><span class="iodesc"><code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">number, optional</span><span class="iodesc"><code>seed=</code> (number, optional) makes the draw repeatable.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number, vector, or matrix</span></div>
+</td><td>Returns a number, vector, or <code>(rows, cols)</code> matrix of non-negative integers.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>u = <span class="f">uniform</span>(<span class="n">10</span>, <span class="n">20</span>, <span class="n">5</span>)          <span class="c"># 5 draws, continuous uniform on [10, 20)</span>
+g = <span class="f">normal</span>(<span class="n">5</span>, <span class="n">2</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)  <span class="c"># 1000 draws, mean 5, std 2 — randn is mu=0/sigma=1</span>
+d = <span class="f">randi</span>(<span class="n">1</span>, <span class="n">6</span>, <span class="n">10</span>)             <span class="c"># 10 dice rolls, inclusive both ends</span>
+k = <span class="f">poisson</span>(<span class="n">4</span>, <span class="n">500</span>)             <span class="c"># 500 draws from Poisson(lambda=4)</span>
+t = <span class="f">exponential</span>(<span class="n">2</span>, <span class="n">500</span>)         <span class="c"># 500 draws, rate=2 (mean = 1/rate = 0.5)</span>
+b = <span class="f">binomial</span>(<span class="n">20</span>, <span class="n">0.3</span>, <span class="n">500</span>)      <span class="c"># 500 draws, 20 trials at p=0.3 each</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<h2>How it works</h2>
+<p><code>poisson(lambda, ...)</code> — see <code>Rng::poisson</code>'s doc comment for the exact-vs-large-<code>lambda</code> tradeoff.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

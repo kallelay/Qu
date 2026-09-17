@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>glob — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>glob</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>list_files([dir], [pattern], [filter=], [contains=], [size=], [recursive=])</code></pre>
+<p class="fnnote">Input: dir, pattern, filter, contains, size, recursive &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Every <strong>file</strong> matching a whole-path wildcard, as full paths, sorted — never a directory, which is what makes the content and size filters mean something on every entry. <code>dir</code> is a directory to search and <code>pattern</code> a wildcard to match (<code>*</code> and <code>?</code> stay inside one path segment, <code>**</code> crosses them); a single argument is read as a pattern when it holds a wildcard and as a directory when it does not. <code>filter=</code> is the keyword spelling of the pattern; <code>contains=</code> keeps only files whose bytes hold that text; <code>size=</code> compares against the byte size (<code>"&gt;2MB"</code>, <code>"&lt;=100KB"</code>, <code>"=0"</code>, with 1024-based units); <code>recursive=</code> searches subdirectories without writing <code>**</code> yourself. <code>glob</code> is the same search with no filters, under the name most other languages give it.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = list_files([dir], [pattern], [filter=], [contains=], [size=], [recursive=])</code></td><td><div class="ioitem"><code>dir</code> <span class="iotype">optional</span><span class="iodesc"><code>dir</code> is a directory to search and <code>pattern</code> a wildcard to match (<code>*</code> and <code>?</code> stay inside one path segment, <code>**</code> crosses them).</span></div>
+<div class="ioitem"><code>pattern</code> <span class="iotype">optional</span><span class="iodesc">a single argument is read as a pattern when it holds a wildcard and as a directory when it does not.</span></div>
+<div class="ioitem"><code>filter</code> <span class="iotype">optional</span><span class="iodesc"><code>filter=</code> is the keyword spelling of the pattern.</span></div>
+<div class="ioitem"><code>contains</code> <span class="iotype">optional</span><span class="iodesc"><code>contains=</code> keeps only files whose bytes hold that text.</span></div>
+<div class="ioitem"><code>size</code> <span class="iotype">optional</span><span class="iodesc"><code>size=</code> compares against the byte size (<code>"&gt;2MB"</code>, <code>"&lt;=100KB"</code>, <code>"=0"</code>, with 1024-based units).</span></div>
+<div class="ioitem"><code>recursive</code> <span class="iotype">optional</span><span class="iodesc"><code>recursive=</code> searches subdirectories without writing <code>**</code> yourself.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">List or Str</span></div>
+</td><td>Returns a <code>List</code> of <code>Str</code>, empty when nothing matched.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<h2>See also</h2>
+<p><a href="list_files.html"><code>list_files</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

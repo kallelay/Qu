@@ -1,0 +1,73 @@
+# scenario2_cnn_qu_torch.qu -- Scenario 2 (Image/CNN), Qu side, engine="torch".
+#
+# IDENTICAL to scenario2_cnn_qu.qu (same data, architecture, epochs, lr,
+# seed) except `simple_cnn(..., engine="torch")` -- trains through
+# `TorchBackend` (real libtorch autograd, see `tensor_backend.rs`'s
+# `train_cnn_classifier`) instead of this crate's own native tape. Requires
+# a `qu.exe` built with `--features backend-torch` (see IMPL.md's
+# `backend-torch` entries for the exact env vars this machine needs:
+# `LIBTORCH_USE_PYTORCH=1 LIBTORCH_BYPASS_VERSION_CHECK=1`).
+#
+# Run: engine/target/release/qu.exe run benchmarks/multi_scenario/scenario2_cnn_qu_torch.qu
+
+backend auto
+
+DATA = "benchmarks/multi_scenario/"
+H = 16
+W = 16
+N_CLASSES = 3
+EPOCHS = 250
+LR = 0.3
+
+function load_images(path, h, w)
+    df = read_csv(path, headers=false)
+    rows_total = nrow(df)
+    n = rows_total / h
+    Xall = hstack(reshape(df.col1, rows_total, 1), reshape(df.col2, rows_total, 1), reshape(df.col3, rows_total, 1), reshape(df.col4, rows_total, 1), reshape(df.col5, rows_total, 1), reshape(df.col6, rows_total, 1), reshape(df.col7, rows_total, 1), reshape(df.col8, rows_total, 1), reshape(df.col9, rows_total, 1), reshape(df.col10, rows_total, 1), reshape(df.col11, rows_total, 1), reshape(df.col12, rows_total, 1), reshape(df.col13, rows_total, 1), reshape(df.col14, rows_total, 1), reshape(df.col15, rows_total, 1), reshape(df.col16, rows_total, 1))
+    images = (Xall[0 : h - 1, :],)
+    for i = 1 to n - 1
+        img = Xall[i * h : i * h + h - 1, :]
+        images = append(images, img)
+    end for
+    return images
+end function
+
+images_tr = load_images(DATA + "cnn_train_images.csv", H, W)
+images_te = load_images(DATA + "cnn_test_images.csv", H, W)
+lab_tr = read_csv(DATA + "cnn_train_labels.csv")
+lab_te = read_csv(DATA + "cnn_test_labels.csv")
+ytr = lab_tr.y
+yte = lab_te.y
+n = length(images_tr)
+nte = length(images_te)
+print("train {n} images {H}x{W}, test {nte} images")
+
+# =============================================================================
+# THE ENTIRE MODEL: simple_cnn(..., engine="torch") + net.fit(...).
+# =============================================================================
+net = simple_cnn([H, W], N_CLASSES, seed=11, engine="torch")
+
+tic()
+trained = net.fit(images_tr, ytr, epochs=EPOCHS, lr=LR)
+train_time = toc()
+# =============================================================================
+
+losses = trained.loss_history
+print("first_loss={losses[0]:.6f}  last_loss={losses[EPOCHS - 1]:.6f}")
+print("train_time_s={train_time:.4f}  per_epoch_ms={1000 * train_time / EPOCHS:.4f}")
+
+function accuracy(net, images, y, rows)
+    logits = net.predict(images)
+    correct = 0
+    for i = 0 to rows - 1
+        row = logits[i, :]
+        if argmax(row) == y[i] then
+            correct = correct + 1
+        end if
+    end for
+    return correct / rows
+end function
+
+train_acc = accuracy(trained, images_tr, ytr, n)
+test_acc = accuracy(trained, images_te, yte, nte)
+print("train_accuracy={train_acc:.4f}  test_accuracy={test_acc:.4f}")

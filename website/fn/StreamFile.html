@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamFile — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>StreamFile</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>StreamFile(path, [mode])</code></pre>
+<p class="fnnote">Input: path, mode &middot; Output: result</p>
+<h2>What it is</h2>
+<p>A second name for exactly <code>fopen</code>'s own machinery. <code>path</code> (string, filesystem path) is the file to open. <code>mode</code> (string, optional, default <code>"r"</code>) accepts the same mode strings <code>fopen</code> does.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = StreamFile(path, [mode])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc"><code>path</code> (string, filesystem path) is the file to open.</span></div>
+<div class="ioitem"><code>mode</code> <span class="iotype">string, optional</span><span class="iodesc"><code>mode</code> (string, optional, default <code>"r"</code>) accepts the same mode strings <code>fopen</code> does.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a <code>Value::File</code> handle — the same concrete type <code>fopen</code> returns — so every existing real-streaming <code>fopen</code> builtin (<code>read_line</code>, <code>read_all</code>, <code>seek</code>, <code>eof</code>, <code>read_bin</code>, ...) already works on it, not just the four listed here.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line one"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line two"</span>)
+<span class="f">close</span>(n)
+
+<span class="k">function</span> <span class="f">drain</span>(s)
+    total = <span class="s">""</span>
+    <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
+        total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
+    <span class="k">end</span> <span class="k">while</span>
+    <span class="f">close</span>(s)
+    <span class="k">return</span> total
+<span class="k">end</span> <span class="k">function</span>
+
+a = <span class="f">drain</span>(<span class="f">StreamFile</span>(<span class="s">"notes.txt"</span>))
+<span class="f">print</span>(a)                                    <span class="c"># line one|line two|</span>
+
+b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
+<span class="f">print</span>(<span class="f">length</span>(b) &gt; <span class="n">0</span>)                        <span class="c"># true -- some HTML came back</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
+    total = <span class="s">""</span>
+    <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
+        total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
+    <span class="k">end</span> <span class="k">while</span>
+    <span class="f">close</span>(s)
+    <span class="k">return</span> total
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># Written here so the file half runs; the URL half cannot be, since a</span>
+<span class="c"># documentation build must not depend on the network being up or on a</span>
+<span class="c"># third party's page not changing under it.</span>
+w = <span class="f">fopen</span>(<span class="s">"stream_notes.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(w, <span class="s">"one"</span>)
+<span class="f">write_line</span>(w, <span class="s">"two"</span>)
+<span class="f">close</span>(w)
+
+a = <span class="f">drain</span>(<span class="f">StreamFile</span>(<span class="s">"stream_notes.txt"</span>))
+b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
+<span class="f">print</span>(<span class="s">"a = {a}"</span>)
+<span class="f">print</span>(<span class="s">"b length = {length(b)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>StreamFile(path, [mode])</code> (§ StreamFile/StreamURL polymorphic streams, 2026-08-31) — a second name for exactly <code>fopen</code>'s own machinery (<code>open_file_handle</code>, shared verbatim, not reimplemented), so a <code>StreamFile</code> handle IS a <code>Value::File</code> and already has every one of <code>fopen</code>'s real streaming <code>read_line</code>/<code>read_all</code>/<code>seek</code>/<code>eof</code>/<code>close</code> builtins for free. Exists as a distinct constructor name (rather than telling scripts to just call <code>fopen</code>) so "I asked for a stream" reads clearly at the call site and pairs visibly with <code>StreamURL</code> below — genuine polymorphism between the two comes from both producing values that respond to the same method names, not from a shared concrete type.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

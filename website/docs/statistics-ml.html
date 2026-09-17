@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statistics & ML — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html" class="here">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Statistics & ML</h1>
+<nav class="onthispage"><a href="#s0">Example data</a><a href="#s30">Descriptive statistics</a><a href="#s71">Regression</a><a href="#s100">Time series: autoregressive models</a><a href="#s154">Clustering and dimensionality reduction</a><a href="#s213">The fitted-model protocol</a><a href="#s258">Recurrent cells: LSTM</a><a href="#s299">Recurrent cells: GRU</a><a href="#s339">Local LLM inference (experimental)</a><a href="#s393">Feedforward layers and activations</a><a href="#s447">Convolution and pooling</a><a href="#s490">Layer normalization and attention</a><a href="#s543">Training loops and optimizers</a><a href="#s592">Ready-made architectures</a><a href="#s636">Reinforcement learning: gridworld</a><a href="#s689">Estimation: Kalman, EKF, UKF, particle filters</a><a href="#s755">Markov chains and hidden Markov models</a><a href="#s813">Computational geometry</a><a href="#s855">Feature scaling</a><a href="#s890">Splitting and evaluation</a><a href="#s934">Random distributions</a><a href="#s974">Putting it together</a><a href="#s1013">More functions</a></nav>
+<p>Every statistics, machine-learning and estimation builtin that runs today. The list is read off the interpreter's own dispatch table, so nothing here is aspirational. Plain descriptive statistics — <code>mean</code>, <code>std</code>, <code>var</code>, <code>median</code> — are in <a href="core-math.html">Core Maths</a>; this chapter starts at correlation and goes up.</p>
+<h2 id="s0">Example data</h2>
+<p>A regression problem and a held-out set. Every example below runs against these.</p>
+<div class="example"><pre class="hl"><code>X    = <span class="f">randn</span>(<span class="n">120</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">3</span>)   <span class="c"># 120 samples, 3 features</span>
+beta = [<span class="n">2.0</span>, -<span class="n">1.0</span>, <span class="n">0.5</span>]
+y    = X * beta + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">120</span>, <span class="a">seed</span> = <span class="n">4</span>)
+Xnew = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+ynew = Xnew * beta
+</code></pre>
+</div>
+<h2 id="s30">Descriptive statistics</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>corr</code></td><td><code>corr(x, y)</code></td><td>Pearson correlation between two length-<code>N</code> numeric vectors <code>x</code> and <code>y</code>. Returns one number in <code>[-1, 1]</code>. <code>xcorr</code> is the lag-by-lag version.</td></tr>
+<tr><td><code>cov</code></td><td><code>cov(x, y)</code></td><td>Sample covariance between two length-<code>N</code> numeric vectors <code>x</code> and <code>y</code>, <code>N-1</code> denominator — the same convention <code>var</code> and <code>std</code> use. Returns a single number.</td></tr>
+<tr><td><code>mode</code></td><td><code>mode(x)</code></td><td>The most frequent value in a numeric or categorical vector <code>x</code> of length <code>N</code>. Returns one scalar; ties go to the smallest, matching MATLAB.</td></tr>
+<tr><td><code>skewness</code></td><td><code>skewness(x)</code></td><td>Third standardized moment, population form, of a length-<code>N</code> numeric vector <code>x</code>. Returns a single number: zero if symmetric, positive for a long upper tail.</td></tr>
+<tr><td><code>kurtosis</code></td><td><code>kurtosis(x)</code></td><td>Fourth standardized moment, population form, of a length-<code>N</code> numeric vector <code>x</code>. Returns a single number — <strong>not</strong> excess kurtosis, so a normal distribution scores 3.</td></tr>
+</table></div>
+<p>Two conventions worth knowing before you compare a number against another tool: <code>kurtosis</code> follows MATLAB (normal = 3), not SciPy's default (<code>fisher=True</code>, normal = 0); and <code>corr(x, y)</code> is exactly <code>cov(x, y) / (std(x) * std(y))</code>, because all three share the <code>N-1</code> denominator.</p>
+<p><code>corr</code> and <code>cov</code> both answer "how do these two vectors move together", just on different scales: <code>cov</code> keeps the original units (so it changes if you rescale <code>a</code> or <code>b</code>), while <code>corr</code> divides that out and always lands in <code>[-1, 1]</code>, which is why <code>corr</code> is the one worth reporting and <code>cov</code> is the one worth using inside a formula. The example below builds <code>b</code> as a known mix of <code>a</code> and independent noise, prints both numbers, then plots the scatter so the number and the shape it describes sit side by side.</p>
+<div class="example"><pre class="hl"><code>a = <span class="f">randn</span>(<span class="n">200</span>, <span class="a">seed</span> = <span class="n">11</span>)
+b = <span class="n">0.8</span> * a + <span class="n">0.6</span> * <span class="f">randn</span>(<span class="n">200</span>, <span class="a">seed</span> = <span class="n">12</span>)
+<span class="f">print</span>(<span class="s">"corr(a, b): {round(corr(a, b), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"cov(a, b):  {round(cov(a, b), 3)}"</span>)
+<span class="f">scatter</span>(a, b, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">alpha</span> = <span class="n">0.6</span>)
+<span class="f">title</span>(<span class="s">"corr = {round(corr(a, b), 3)}, cov = {round(cov(a, b), 3)}"</span>)
+<span class="f">xlabel</span>(<span class="s">"a"</span>)
+<span class="f">ylabel</span>(<span class="s">"b"</span>)
+</code></pre>
+</div>
+<p><code>mode</code>, <code>skewness</code> and <code>kurtosis</code> describe the shape of one sample rather than a relationship between two. <code>mode</code> just answers "which value showed up most", useful on counts or categories where a mean would land between categories that do not average into anything meaningful. <code>skewness</code> and <code>kurtosis</code> are about the tails: a skewed sample has one tail longer than the other, and a sample with heavy or light tails relative to a normal distribution shows up as a <code>kurtosis</code> above or below 3. The example below takes nine scores with one obvious outlier and reports all three in one go:</p>
+<div class="example"><pre class="hl"><code>scores = [<span class="n">3</span>, <span class="n">5</span>, <span class="n">5</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">7</span>, <span class="n">9</span>, <span class="n">20</span>]
+<span class="f">print</span>(<span class="s">"mode: {mode(scores)}"</span>)
+<span class="f">print</span>(<span class="s">"skewness: {round(skewness(scores), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"kurtosis: {round(kurtosis(scores), 3)}"</span>)
+</code></pre>
+</div>
+<p>The one outlier at 20 pulls the tail out to the right, which is exactly what a positive <code>skewness</code> means, and pushes <code>kurtosis</code> well past the normal distribution's 3.</p>
+<h2 id="s71">Regression</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>polyfit</code></td><td><code>polyfit(x, y, degree)</code></td><td>Fits a least-squares polynomial of the given integer <code>degree</code> to a length-<code>N</code> vector <code>x</code> and a length-<code>N</code> vector <code>y</code>. Returns a length-<code>degree + 1</code> coefficient vector, highest-degree term first, ready for <code>polyval</code>.</td></tr>
+<tr><td><code>polyval</code></td><td><code>polyval(coeffs, x)</code></td><td>Evaluates a coefficient vector <code>coeffs</code> (as returned by <code>polyfit</code>, highest-degree first) at <code>x</code>, either a single number or a length-<code>N</code> vector, by Horner's method. Returns a number or a length-<code>N</code> vector matching the shape of <code>x</code>.</td></tr>
+<tr><td><code>ridge</code></td><td><code>ridge(X, y, alpha)</code></td><td>Tikhonov-regularized (L2) least squares on an <code>N</code>-row, <code>D</code>-column feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code>, with regularization strength <code>alpha</code> (a non-negative number; plain OLS at <code>alpha = 0</code>). Returns only the length-<code>D</code> coefficient vector, with <strong>no intercept term</strong>.</td></tr>
+</table></div>
+<p><code>ridge</code> adds <strong>no intercept</strong> — append a column of ones yourself if you want one. <code>ridge_model</code> does add one, which is the difference between the two names.</p>
+<p><code>polyfit</code> and <code>polyval</code> are a matched pair: fit once, then evaluate the same coefficients anywhere you like, whether that is the original <code>x</code> values (to check the fit) or a finer grid (to draw a smooth curve). The example below fits a noisy cubic, prints the recovered coefficients, and overlays the fitted curve on the noisy points so you can see how well a degree-3 polynomial tracks a signal that really is degree 3:</p>
+<div class="example"><pre class="hl"><code>xs = -<span class="n">3</span> <span class="k">to</span> <span class="n">3</span> <span class="k">step</span> <span class="n">0.25</span>
+truth = <span class="n">0.5</span> * xs .^ <span class="n">3</span> - <span class="n">2</span> * xs
+noisy = truth + <span class="n">1.5</span> * <span class="f">randn</span>(<span class="f">len</span>(xs), <span class="a">seed</span> = <span class="n">7</span>)
+c = <span class="f">polyfit</span>(xs, noisy, <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"polyfit coefficients (highest degree first): {round(c, 3)}"</span>)
+<span class="f">scatter</span>(xs, noisy, <span class="a">color</span> = <span class="s">"#94a3b8"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(xs, <span class="f">polyval</span>(c, xs), <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"cubic fit"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"polyfit degree 3"</span>)
+</code></pre>
+</div>
+<p><code>ridge</code> is for when a plain OLS fit would be unstable — collinear columns, or more columns than rows — and a small amount of shrinkage toward zero buys back stability at the cost of a little bias. Because <code>ridge</code> never learns an intercept, the example below sets up a design matrix <code>X</code> with zero mean by construction (<code>randn</code>), so the "true" coefficients really are recoverable without one:</p>
+<div class="example"><pre class="hl"><code>X    = <span class="f">randn</span>(<span class="n">120</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">3</span>)
+beta = [<span class="n">2.0</span>, -<span class="n">1.0</span>, <span class="n">0.5</span>]
+y    = X * beta + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">120</span>, <span class="a">seed</span> = <span class="n">4</span>)
+c = <span class="f">ridge</span>(X, y, <span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"ridge coef: {round(c, 3)}"</span>)   <span class="c"># close to [2.0, -1.0, 0.5]</span>
+</code></pre>
+</div>
+<h2 id="s100">Time series: autoregressive models</h2>
+<p>An AR(<code>p</code>) model forecasts its own future from its own fitted history, so <code>predict</code> takes a horizon rather than new data — the one place in this chapter where <code>predict</code> does not mean "apply to new rows".</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>ar_model</code></td><td><code>ar_model(x, order)</code></td><td>Fits an autoregressive AR(<code>p</code>) model by Yule-Walker to a length-<code>N</code> numeric vector <code>x</code>, using the integer lag order <code>order</code> (this is <code>p</code>). Returns a fitted model Record with fields <code>coef</code> (a length-<code>p</code> vector of AR coefficients), <code>order</code> (<code>p</code> back), <code>mean</code> (the scalar series mean subtracted before fitting), <code>history</code> (the last <code>p</code> values of <code>x</code>, used to seed forecasting), <code>fitted</code> (a length-<code>N</code> vector of in-sample fitted values), and <code>residuals</code> (a length-<code>N</code> vector, <code>x</code> minus <code>fitted</code>).</td></tr>
+<tr><td><code>predict</code> (AR)</td><td><code>ar.predict(n_ahead)</code></td><td>Forecasts <code>n_ahead</code> (a positive integer) values beyond the end of the series the model was fitted on, by recursively applying the AR coefficients. Returns a length-<code>n_ahead</code> vector.</td></tr>
+</table></div>
+<p>Past the first <code>p</code> steps the recursion is conditioning on its own earlier forecasts, because an out-of-sample future is not available to condition on. That is not a shortcut — it is what a multi-step AR forecast is — but it does mean the uncertainty grows with the horizon in a way the returned numbers do not show.</p>
+<div class="example"><pre class="hl"><code>x = <span class="f">zeros</span>(<span class="n">500</span>)
+x[<span class="n">0</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">21</span>)
+x[<span class="n">1</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">22</span>)
+<span class="k">for</span> t = <span class="n">2</span> <span class="k">to</span> <span class="n">499</span>
+    x[t] = <span class="n">0.6</span> * x[t - <span class="n">1</span>] - <span class="n">0.3</span> * x[t - <span class="n">2</span>] + <span class="n">0.1</span> * <span class="f">randn</span>()
+<span class="k">end</span> <span class="k">for</span>
+m = <span class="f">ar_model</span>(x, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"generating: [0.6, -0.3]"</span>)
+<span class="f">print</span>(<span class="s">"recovered:  {round(m.coef, 3)}"</span>)
+
+future = m.<span class="f">predict</span>(<span class="n">30</span>)
+<span class="f">plot</span>(<span class="n">460</span> <span class="k">to</span> <span class="n">499</span>, x[<span class="n">460</span>:<span class="n">499</span>], <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(<span class="n">500</span> <span class="k">to</span> <span class="n">529</span>, future, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"forecast"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"AR(2), 30 steps ahead"</span>)
+</code></pre>
+</div>
+<p>How close the recovery gets depends on how much record you give it. At 500 samples it lands within a few hundredths; at 100 it does not, and the forecast inherits that error compounded once per step.</p>
+<h2 id="s154">Clustering and dimensionality reduction</h2>
+<p>These describe the dataset they were given and have no <code>.predict</code>. Where a reusable model makes sense there is a <code>_model</code> sibling — see <a href="#the-fitted-model-protocol">the fitted-model protocol</a>.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>kmeans</code></td><td><code>kmeans(X, k, [seed=])</code></td><td>Lloyd's algorithm on an <code>N</code>-row, <code>D</code>-column data matrix <code>X</code>, partitioning it into the integer number of clusters <code>k</code>, starting from randomly chosen initial centroids (an optional integer <code>seed=</code> fixes the draw). Returns a length-<code>N</code> vector of integer cluster labels in <code>0..k-1</code>, one per row of <code>X</code>.</td></tr>
+<tr><td><code>kmeans_centers</code></td><td><code>kmeans_centers(X, k, [seed=])</code></td><td>The same Lloyd's-algorithm run as <code>kmeans</code> on <code>X</code>/<code>k</code>/<code>seed=</code>, returning the <code>(k, D)</code> centroid matrix instead of the labels. Passing the same <code>seed=</code> as a <code>kmeans</code> call on the same <code>X</code>/<code>k</code> reproduces the matching run. Returns a <code>(k, D)</code> <code>Mat</code>, one centroid per row.</td></tr>
+<tr><td><code>dbscan</code></td><td><code>dbscan(X, eps, min_samples)</code></td><td>Density-based clustering on an <code>N</code>-row, <code>D</code>-column data matrix <code>X</code>: a number <code>eps</code> (the neighbourhood radius, in <code>X</code>'s own units) and an integer <code>min_samples</code> (the minimum neighbourhood size to count as a dense core point). Returns a length-<code>N</code> vector of integer cluster labels; points that fall in no dense cluster get label <code>-1</code>.</td></tr>
+<tr><td><code>pca</code></td><td><code>pca(X, k)</code></td><td>Projects an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> onto its top <code>k</code> principal components (columns mean-centered first). Returns the <code>(N, k)</code> projected coordinate matrix.</td></tr>
+<tr><td><code>pca_components</code></td><td><code>pca_components(X, k)</code></td><td>Fits the same PCA as <code>pca</code> on <code>X</code> and <code>k</code>, returning the <code>(k, D)</code> loading matrix instead — each row is a unit-length direction in the original <code>D</code>-dimensional feature space. Returns a <code>(k, D)</code> <code>Mat</code>.</td></tr>
+<tr><td><code>pca_explained_variance</code></td><td><code>pca_explained_variance(X, k)</code></td><td>Fits the same PCA as <code>pca</code> on <code>X</code> and <code>k</code>, returning a length-<code>k</code> vector giving the fraction of the total variance in <code>X</code> that each kept component carries, in decreasing order. Returns a length-<code>k</code> <code>Vec</code>.</td></tr>
+<tr><td><code>tsne</code></td><td><code>tsne(X, [n_components=2], [perplexity=], [seed=], [max_iter=300])</code></td><td>t-SNE embedding of an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> into <code>n_components</code> dimensions (an integer, default 2), controlled by <code>perplexity</code> (a number balancing local vs. global structure; unset uses the implementation's default), an optional integer <code>seed=</code>, and <code>max_iter</code> (an integer iteration budget, default 300). Returns the <code>(N, n_components)</code> embedded coordinate matrix — for looking at structure rather than measuring it.</td></tr>
+</table></div>
+<p>Qu has no multiple return, so getting both labels and centroids means calling <code>kmeans</code> and <code>kmeans_centers</code> with the same seed. <code>dbscan</code> has no <code>_model</code> sibling on purpose: a point's cluster depends on the whole dataset's local density, so there is no honest <code>.predict(Xnew)</code> to write. <code>eps</code> is in <code>X</code>'s own units and nothing is auto-scaled, which is the usual reason a first DBSCAN run returns one cluster or all noise.</p>
+<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+labels = <span class="f">kmeans</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+centers = <span class="f">kmeans_centers</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+xs = G[:, <span class="n">0</span>]
+ys = G[:, <span class="n">1</span>]
+<span class="k">for</span> k <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">2</span>
+    inside = labels == k
+    <span class="f">print</span>(<span class="s">"cluster {k}: {len(xs[inside])} points"</span>)
+    <span class="f">scatter</span>(xs[inside], ys[inside], <span class="a">label</span> = <span class="s">"cluster {k}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">scatter</span>(centers[:, <span class="n">0</span>], centers[:, <span class="n">1</span>], <span class="a">marker</span> = <span class="s">"x"</span>, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">size</span> = <span class="n">12</span>, <span class="a">label</span> = <span class="s">"centroids"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"kmeans, k = 3"</span>)
+</code></pre>
+</div>
+<p>The three blobs really do have 40 points each; k-means recovers 40, 39 and 41, and the one it misplaces sits between two clusters. A mask indexes a vector directly -- <code>xs[labels == k]</code> -- which is how you draw one cluster at a time, since <code>color =</code> takes one colour for the whole series rather than one per point.</p>
+<p><code>dbscan</code> needs an <code>eps</code> sized to the data rather than a cluster count; <code>pca</code>/<code>pca_components</code>/<code>pca_explained_variance</code> describe the same fit three different ways; <code>tsne</code> is for a quick look at a handful of points, not a metric to report:</p>
+<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+d = <span class="f">dbscan</span>(G, <span class="n">1.5</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"dbscan labels: {distinct(d)}"</span>)
+
+proj  = <span class="f">pca</span>(G, <span class="n">2</span>)                    <span class="c"># the (n, 2) projected coordinates</span>
+comps = <span class="f">pca_components</span>(G, <span class="n">2</span>)         <span class="c"># the (2, 2) loading matrix</span>
+ev    = <span class="f">pca_explained_variance</span>(G, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"pca projected shape: {rows(proj)} x {cols(proj)}"</span>)
+<span class="f">print</span>(<span class="s">"pca components:\n{round(comps, 3)}"</span>)
+<span class="f">print</span>(<span class="s">"explained variance: {round(ev, 3)}"</span>)
+
+small = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">41</span>) + <span class="n">3</span>, <span class="f">randn</span>(<span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>) - <span class="n">3</span>)
+low = <span class="f">tsne</span>(small, <span class="a">n_components</span> = <span class="n">2</span>, <span class="a">perplexity</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>, <span class="a">max_iter</span> = <span class="n">100</span>)
+<span class="f">print</span>(<span class="s">"tsne output rows: {rows(low)}"</span>)
+</code></pre>
+</div>
+<p><code>G</code> already carries three well-separated blobs, so <code>eps = 1.5</code> finds them without also finding noise; a smaller <code>eps</code> on the same data returns mostly <code>-1</code>. <code>pca</code> on a two-column input is not reducing anything -- it is here to show the three functions agree with each other -- the real use is <code>k &lt; d</code>.</p>
+<h2 id="s213">The fitted-model protocol</h2>
+<p>Every estimator fits with a constructor call and returns a handle: named read-only fields, plus <code>predict</code>/<code>score</code> (and <code>update</code>/<code>estimate</code> for the filters) reached through ordinary method sugar.</p>
+<div class="example"><pre class="hl"><code>m = <span class="f">ols_model</span>(X, y)
+<span class="f">print</span>(<span class="f">round</span>(m.coef, <span class="n">3</span>))            <span class="c"># a field, not a method call</span>
+yhat = m.<span class="f">predict</span>(Xnew)
+<span class="f">print</span>(<span class="f">round</span>(m.<span class="f">score</span>(Xnew, ynew), <span class="n">4</span>))
+</code></pre>
+</div>
+<p><code>predict</code>, <code>update</code>, <code>estimate</code>, <code>score</code>, <code>fit</code> and <code>pipeline</code> are each one builtin that switches on the model's own <code>.kind</code>, not a separate builtin per model type. That is why the same <code>predict</code> means "apply to new rows" for a regression and "time update" for a Kalman filter.</p>
+<h3>Constructors</h3>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>ols_model</code></td><td><code>ols_model(X, y)</code></td><td>Fits ordinary least squares with an automatic intercept on an <code>N</code>-row, <code>D</code>-column feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code>. Returns a fitted model Record with fields <code>coef</code> (length-<code>D</code> slope vector), <code>intercept</code> (a number), <code>fitted</code> (length-<code>N</code> in-sample predictions), <code>residuals</code> (length-<code>N</code>), and <code>r2</code> (a number, the in-sample R²).</td></tr>
+<tr><td><code>ridge_model</code></td><td><code>ridge_model(X, y, alpha)</code></td><td>The same fit as <code>ols_model</code> on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> <code>y</code>, but with L2 regularization strength <code>alpha</code> (a non-negative number) shrinking the coefficients toward zero; <code>ols_model</code> is this at <code>alpha = 0</code>. Returns a fitted model Record with the same fields as <code>ols_model</code>.</td></tr>
+<tr><td><code>kmeans_model</code></td><td><code>kmeans_model(X, k, [seed=])</code></td><td>k-means as a reusable handle: fits on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> into <code>k</code> clusters (optional integer <code>seed=</code>), so <code>.predict(Xnew)</code> later assigns new rows to the nearest centroid rather than only labelling the fitting data. Returns a fitted model Record whose <code>.predict</code> gives a length-<code>M</code> integer label vector for an <code>M</code>-row <code>Xnew</code>.</td></tr>
+<tr><td><code>kmedians_model</code></td><td><code>kmedians_model(X, k, [seed=])</code></td><td>The outlier-resistant sibling of <code>kmeans_model</code>, same <code>X</code>/<code>k</code>/<code>seed=</code> shape: clusters by L1 distance around coordinate-wise median centres instead of means. Returns a fitted model Record with a <code>.predict</code> of the same shape as <code>kmeans_model</code>.</td></tr>
+<tr><td><code>kmedoids_model</code></td><td><code>kmedoids_model(X, k, [seed=])</code></td><td>PAM clustering on the same <code>X</code>/<code>k</code>/<code>seed=</code> shape as <code>kmeans_model</code> — every one of the <code>k</code> centres is an actual row of <code>X</code>, never an average. Returns a fitted model Record whose <code>.predict</code> gives a length-<code>M</code> integer label vector for an <code>M</code>-row input.</td></tr>
+<tr><td><code>gmm_model</code></td><td><code>gmm_model(X, k, [seed=], [max_iter=100])</code></td><td>Gaussian mixture model with <code>k</code> components fitted by EM on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code>, warm-started from a k-means run (optional integer <code>seed=</code>, and <code>max_iter</code> capping the EM iterations, default 100). Returns a fitted model Record with fields <code>means</code> (<code>(k, D)</code>), <code>covariances</code> (one <code>(D, D)</code> matrix per component), <code>weights</code> (length-<code>k</code> mixing proportions), and <code>log_likelihood</code> (a number, the total training log-likelihood).</td></tr>
+<tr><td><code>pca_model</code></td><td><code>pca_model(X, k)</code></td><td>PCA as a reusable handle: fits the top <code>k</code> principal components on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code>, so <code>.predict(Xnew)</code> projects new rows onto the same fitted components instead of refitting. Returns a fitted model Record whose <code>.predict</code> gives an <code>(M, k)</code> matrix for an <code>M</code>-row <code>Xnew</code>.</td></tr>
+<tr><td><code>tree_model</code></td><td><code>tree_model(X, y, [max_depth=20], [min_samples_split=2], [kind=])</code></td><td>One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters). Splits by variance reduction for regression, Gini impurity for classification. Returns a fitted model Record with a <code>.predict</code>/<code>.score</code>.</td></tr>
+<tr><td><code>random_forest_model</code></td><td><code>random_forest_model(X, y, n_trees, [max_depth=20], [seed=], [kind=])</code></td><td>Bagged ensemble of <code>n_trees</code> (a positive integer) CART trees on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>, each tree grown on its own bootstrap resample of the rows and a <code>ceil(sqrt(D))</code>-column feature subsample at each split, <code>max_depth</code> per tree (default 20), an optional integer <code>seed=</code> that reproducibly seeds every tree's own draw, and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred). Returns a fitted model Record with <code>.predict</code>/<code>.score</code>.</td></tr>
+<tr><td><code>gradient_boosting_model</code></td><td><code>gradient_boosting_model(X, y, n_trees, [learning_rate=0.1], [max_depth=3])</code></td><td>Regression-only boosted ensemble on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>: <code>n_trees</code> (positive integer) shallow trees fitted in sequence, each to the running residual, scaled by <code>learning_rate</code> (a number, default 0.1) and capped at <code>max_depth</code> (default 3, shallower than <code>tree_model</code>'s 20 because a boosting weak learner is supposed to be weak). Returns a fitted model Record with <code>.predict</code>/<code>.score</code>.</td></tr>
+<tr><td><code>svm_model</code></td><td><code>svm_model(X, y, [kernel=], [C=1.0], [gamma=], [degree=3], [coef0=1])</code></td><td>Binary-classification support-vector machine by simplified SMO on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code> that must take exactly two distinct values (no one-vs-rest wrapper). <code>kernel</code> is a string, one of <code>"linear"</code>, <code>"rbf"</code>, <code>"poly"</code>; <code>C</code> (number, default 1.0) is the regularization strength; <code>gamma</code> (number) scales the <code>"rbf"</code>/<code>"poly"</code> kernels; <code>degree</code> (integer, default 3) and <code>coef0</code> (number, default 1) apply to <code>"poly"</code>. Returns a fitted model Record with <code>.predict</code>/<code>.score</code>.</td></tr>
+<tr><td><code>knn_model</code></td><td><code>knn_model(X, y, k, [metric=], [kind=])</code></td><td>k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred). Fitting only stores <code>X</code>/<code>y</code>; all the work happens inside <code>.predict</code>, which returns a length-<code>M</code> vector for an <code>M</code>-row query matrix. Returns a fitted <code>Model</code> of kind <code>"knn"</code> — the handle <code>.predict</code>/<code>.score</code> are called on.</td></tr>
+<tr><td><code>naive_bayes_model</code></td><td><code>naive_bayes_model(X, y)</code></td><td>Gaussian naive Bayes classifier on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> categorical/integer target <code>y</code>, scored in log space so a product of small per-feature densities cannot underflow. Returns a fitted model Record whose <code>.predict(Xnew)</code> gives a length-<code>M</code> label vector; it defines <code>predict</code> but not <code>score</code>.</td></tr>
+<tr><td><code>logistic_model</code></td><td><code>logistic_model(X, y)</code></td><td>Binary logistic regression on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> 0/1 target <code>y</code>. Returns a fitted model Record with <code>.predict</code>/<code>.score</code>, <code>.score</code> giving classification accuracy.</td></tr>
+<tr><td><code>svr_model</code></td><td><code>svr_model(X, y)</code></td><td>Support-vector regression on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> numeric target <code>y</code>. Returns a fitted model Record with <code>.predict</code>/<code>.score</code>, <code>.score</code> giving R².</td></tr>
+</table></div>
+<p>Four things about this table are easy to get wrong:</p>
+<ul>
+<li><strong></strong><code>kind=</code> is never inferred.<strong> A 0/1 target and a small-integer count target look identical to the type system, so </strong><code>tree_model</code> and friends make you say <code>kind = "classification"</code> when that is what you mean.</li>
+<li><strong></strong><code>gradient_boosting_model</code> defaults to <code>max_depth = 3</code><strong>, shallower than </strong><code>tree_model</code>'s 20. A boosting weak learner is supposed to be weak.</li>
+<li><strong></strong><code>svm_model</code> is binary only.<strong> </strong><code>y</code> must have exactly two distinct values; there is no one-vs-rest wrapper.</li>
+<li><strong>One </strong><code>seed=</code> reproduces a whole forest.<strong> It seeds a master stream that each tree draws its own seed from, so the forest is deterministic and no two trees share a stream.</strong></li>
+</ul>
+<div class="example"><pre class="hl"><code>Xc = <span class="f">randn</span>(<span class="n">200</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">41</span>)
+yc = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    <span class="k">if</span> Xc[i, <span class="n">0</span>] + Xc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        yc[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+s = <span class="f">train_test_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model)
+    yhat = model.<span class="f">predict</span>(s.X_test)
+    hit = yhat == s.y_test
+    <span class="k">return</span> <span class="f">len</span>(yhat[hit]) / <span class="f">len</span>(yhat)
+<span class="k">end</span> <span class="k">function</span>
+
+names = (<span class="s">"knn"</span>, <span class="s">"tree"</span>, <span class="s">"forest"</span>, <span class="s">"bayes"</span>)
+scores = (
+    <span class="f">accuracy</span>(<span class="f">knn_model</span>(s.X_train, s.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">tree_model</span>(s.X_train, s.y_train, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">random_forest_model</span>(s.X_train, s.y_train, <span class="n">40</span>, <span class="a">seed</span> = <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)),
+    <span class="f">accuracy</span>(<span class="f">naive_bayes_model</span>(s.X_train, s.y_train))
+)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">3</span>
+    <span class="f">print</span>(<span class="s">"{names[i]}: {round(scores[i], 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">bar</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>, scores, <span class="a">color</span> = <span class="s">"#4169e1"</span>, <span class="a">values</span> = <span class="k">true</span>)
+<span class="f">xticks</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">3</span>)
+<span class="f">xticklabels</span>(names)
+<span class="f">ylim</span>(<span class="n">0</span>, <span class="n">1</span>)
+<span class="f">ylabel</span>(<span class="s">"test accuracy"</span>)
+<span class="f">title</span>(<span class="s">"held-out accuracy, same split"</span>)
+</code></pre>
+</div>
+<p>Accuracy is computed here rather than taken from <code>.score</code> because <code>naive_bayes</code> defines <code>predict</code> and not <code>score</code>, and a comparison where one model is measured differently from the others is not a comparison. The boundary is a straight line, which is why the two that can draw one do best and the forest's extra capacity buys nothing.</p>
+<p>The remaining constructors round out the table: two more clustering handles, a mixture model, a boosted regressor and two more binary classifiers.</p>
+<div class="example"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+kd = <span class="f">kmedoids_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+gm = <span class="f">gmm_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"kmedians label for row 0: {km.predict(G)[0]}"</span>)
+<span class="f">print</span>(<span class="s">"kmedoids label for row 0: {kd.predict(G)[0]}"</span>)
+<span class="f">print</span>(<span class="s">"gmm log-likelihood: {round(gm.log_likelihood, 1)}"</span>)
+
+gb = <span class="f">gradient_boosting_model</span>(X, y, <span class="n">20</span>, <span class="a">learning_rate</span> = <span class="n">0.1</span>, <span class="a">max_depth</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"gradient boosting r2: {round(gb.score(X, y), 3)}"</span>)
+
+sv = <span class="f">svm_model</span>(Xc, yc, <span class="a">kernel</span> = <span class="s">"linear"</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+lg = <span class="f">logistic_model</span>(Xc, yc)
+<span class="f">print</span>(<span class="s">"svm accuracy:      {round(sv.score(Xc, yc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"logistic accuracy: {round(lg.score(Xc, yc), 3)}"</span>)
+
+svr = <span class="f">svr_model</span>(X, y)
+<span class="f">print</span>(<span class="s">"svr r2: {round(svr.score(X, y), 3)}"</span>)
+</code></pre>
+</div>
+<p><code>kmedoids_model</code> picks its centres from among the rows it was given, so <code>kd.predict</code> can only ever return a label matching an actual data point's neighbourhood -- never an averaged one the way <code>kmeans_model</code> would.</p>
+<h4>Overloads: <code>tree_model</code></h4>
+<h4>Case: regression</h4>
+<p><code>kind = "regression"</code> splits each node by variance reduction and predicts the mean of a leaf's training targets -- a continuous number.</p>
+<div class="example"><pre class="hl"><code>Xtr = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">53</span>)
+ytr = Xtr[:, <span class="n">0</span>] * <span class="n">3</span> + Xtr[:, <span class="n">1</span>] * -<span class="n">2</span> + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">80</span>, <span class="a">seed</span> = <span class="n">55</span>)
+Xte = <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">54</span>)
+yte = Xte[:, <span class="n">0</span>] * <span class="n">3</span> + Xte[:, <span class="n">1</span>] * -<span class="n">2</span>
+trm = <span class="f">tree_model</span>(Xtr, ytr, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
+<span class="f">print</span>(<span class="s">"tree_model regression R2 on new data: {round(trm.score(Xte, yte), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: classification</h4>
+<p><code>kind = "classification"</code> splits each node by Gini impurity instead and predicts the majority class among a leaf's training labels.</p>
+<div class="example"><pre class="hl"><code>Xtrc = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">56</span>)
+ytrc = <span class="f">zeros</span>(<span class="n">80</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">79</span>
+    <span class="k">if</span> Xtrc[i, <span class="n">0</span>] + Xtrc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        ytrc[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+Xtec = <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">57</span>)
+ytec = <span class="f">zeros</span>(<span class="n">20</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">19</span>
+    <span class="k">if</span> Xtec[i, <span class="n">0</span>] + Xtec[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        ytec[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+tcm = <span class="f">tree_model</span>(Xtrc, ytrc, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+<span class="f">print</span>(<span class="s">"tree_model classification accuracy on new data: {round(tcm.score(Xtec, ytec), 3)}"</span>)
+</code></pre>
+</div>
+<p><code>random_forest_model</code> takes the same <code>kind=</code> and branches the same way, tree by tree.</p>
+<h4>Overloads: <code>svm_model</code></h4>
+<h4>Case: linear</h4>
+<p><code>kernel = "linear"</code> fits a straight decision boundary -- fast, but blind to a relationship that isn't linearly separable.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svl = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"linear"</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"linear kernel accuracy on XOR: {round(svl.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: rbf</h4>
+<p><code>kernel = "rbf"</code> maps into an implicit, much higher-dimensional space through a Gaussian kernel scaled by <code>gamma</code>, so it can separate a boundary no straight line can.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svr = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"rbf"</span>, <span class="a">gamma</span> = <span class="n">2.0</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"rbf kernel accuracy on XOR:    {round(svr.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: poly</h4>
+<p><code>kernel = "poly"</code> raises the dot product to <code>degree</code> (shifted by <code>coef0</code>) -- a middle ground between <code>"linear"</code> and <code>"rbf"</code>.</p>
+<div class="example"><pre class="hl"><code>Xx = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>; <span class="n">0.1</span>, <span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.9</span>; <span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.9</span>, <span class="n">0.9</span>]
+Yx = [<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>]
+svp = <span class="f">svm_model</span>(Xx, Yx, <span class="a">kernel</span> = <span class="s">"poly"</span>, <span class="a">degree</span> = <span class="n">3</span>, <span class="a">coef0</span> = <span class="n">1.0</span>, <span class="a">C</span> = <span class="n">1.0</span>)
+<span class="f">print</span>(<span class="s">"poly kernel accuracy on XOR:   {round(svp.score(Xx, Yx), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>knn_model</code></h4>
+<h4>Case: regression</h4>
+<p><code>kind = "regression"</code> predicts the mean of the <code>k</code> nearest neighbours' target values -- a number that can fall between any two training targets.</p>
+<div class="example"><pre class="hl"><code>Xk = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+yk = [<span class="n">10.0</span>, <span class="n">12.0</span>, <span class="n">30.0</span>, <span class="n">32.0</span>]
+knr = <span class="f">knn_model</span>(Xk, yk, <span class="n">2</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
+q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"knn_model regression predict(1.5): {knr.predict(q)}"</span>)   <span class="c"># mean of the 2 nearest y's</span>
+</code></pre>
+</div>
+<h4>Case: classification</h4>
+<p><code>kind = "classification"</code> predicts the majority label among the <code>k</code> nearest neighbours instead -- always one of the training labels, never an average.</p>
+<div class="example"><pre class="hl"><code>Xkc = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+ykc = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
+knc = <span class="f">knn_model</span>(Xkc, ykc, <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"knn_model classification predict(1.5): {knc.predict(q)}"</span>)   <span class="c"># majority vote among 3 nearest labels</span>
+</code></pre>
+</div>
+<h3>The shared verbs</h3>
+<div class="tablewrap"><table>
+<tr><td>Verb</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>predict</code></td><td><code>model.predict(Xnew)</code></td><td>Applies a fitted model Record <code>model</code> to a new <code>M</code>-row (same <code>D</code> columns as it was fitted on) matrix or vector <code>Xnew</code>. Returns a length-<code>M</code> prediction vector for a supervised or clustering model. For a Kalman or particle filter, called instead as <code>state.predict(...)</code> with filter-specific arguments, this is the time-update step, returning a new filter state Record rather than a prediction vector.</td></tr>
+<tr><td><code>score</code></td><td><code>model.score(X, [y])</code></td><td>Scores a fitted model Record <code>model</code> against an <code>N</code>-row feature matrix <code>X</code> and, for a supervised kind, the matching length-<code>N</code> target vector <code>y</code>. Returns a single number: R² for a regression, accuracy for a classifier, negative inertia (within-cluster sum of squared distances) for k-means, an explained-variance sum for PCA, or total log-likelihood for a GMM; <code>y</code> is required for a supervised kind and refused for a clustering one.</td></tr>
+<tr><td><code>estimate</code></td><td><code>state.estimate()</code></td><td>Estimation-family only: reads a point estimate off a filter state Record <code>state</code> with no arguments. Returns the particle filter's weighted-mean particle vector, or a Kalman/EKF/UKF filter's <code>state.x</code> vector directly.</td></tr>
+<tr><td><code>update</code></td><td><code>state.update(...)</code></td><td>Estimation-family only: the measurement-update half of a filter, called on a state Record <code>state</code> with filter-specific arguments (an observation matrix/function, a measurement vector, and a noise covariance, see the Estimation section below). Returns a new filter state Record; nothing is mutated in place.</td></tr>
+<tr><td><code>pipeline</code></td><td><code>pipeline(stage1, ..., finalStage)</code></td><td>Composes one or more stage names (strings naming functions already defined in the program) into a single unfitted pipeline spec — every stage but the last must be a function <code>(X) -&gt; X</code>; the last must be <code>(X, y) -&gt; Model</code>. Returns an unfitted pipeline Record ready for <code>.fit</code>.</td></tr>
+<tr><td><code>fit</code></td><td><code>pipe.fit(X, y)</code></td><td>Runs a pipeline Record <code>pipe</code> (from <code>pipeline(...)</code>) on an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code>: applies every transform stage in order, then calls the final estimator stage. Returns a fitted pipeline Record whose <code>.predict</code>/<code>.score</code> replay the same transform stages before delegating to the fitted model inside.</td></tr>
+</table></div>
+<p><code>score</code> needs <code>y</code> for a supervised kind and refuses it for a clustering one; the GMM returns a total log-likelihood, not scikit-learn's mean-per-sample. Stages are named by string, the same convention <code>pmap</code> and <code>spawn</code> use.</p>
+<h4>Overloads: <code>predict</code></h4>
+<h4>Case: supervised or clustering model</h4>
+<p><code>model.predict(Xnew)</code> returns a length-<code>M</code> vector -- one prediction per row of <code>Xnew</code>.</p>
+<div class="example"><pre class="hl"><code>Xp = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">71</span>)
+yp = Xp * [<span class="n">1.0</span>, -<span class="n">1.0</span>] + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">72</span>)
+mp = <span class="f">ols_model</span>(Xp, yp)
+<span class="f">print</span>(<span class="s">"model .predict returns a prediction vector: {round(mp.predict(Xp[0:1, :]), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: estimation filter state</h4>
+<p><code>state.predict(...)</code> on a Kalman/EKF/UKF/particle state instead returns a whole new state Record -- the time-update step, not a prediction vector. The Estimation section below covers the filter-specific argument shapes.</p>
+<div class="example"><pre class="hl"><code>s0 = <span class="f">kalman_init</span>([<span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">1.0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1.0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+s1 = s0.<span class="f">predict</span>(F, Q)
+<span class="f">print</span>(<span class="s">"filter .predict returns a new state Record; its x field: {round(s1.x, 3)}"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>score</code></h4>
+<h4>Case: regression</h4>
+<p>On a regression model (<code>ols_model</code>, <code>ridge_model</code>, <code>svr_model</code>, ...), <code>.score(X, y)</code> returns R².</p>
+<div class="example"><pre class="hl"><code>Xr = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">61</span>)
+beta = [<span class="n">1.5</span>, -<span class="n">0.7</span>]
+yr = Xr * beta + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">62</span>)
+om = <span class="f">ols_model</span>(Xr, yr)
+<span class="f">print</span>(<span class="s">"regression score is R2: {round(om.score(Xr, yr), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: classification</h4>
+<p>On a classifier (<code>logistic_model</code>, <code>tree_model(kind="classification")</code>, ...), <code>.score(X, y)</code> returns accuracy instead.</p>
+<div class="example"><pre class="hl"><code>Xc2 = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">63</span>)
+yc2 = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    <span class="k">if</span> Xc2[i, <span class="n">0</span>] + Xc2[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        yc2[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+lgm = <span class="f">logistic_model</span>(Xc2, yc2)
+<span class="f">print</span>(<span class="s">"classification score is accuracy: {round(lgm.score(Xc2, yc2), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: k-means</h4>
+<p>On a <code>kmeans_model</code>, <code>.score(X)</code> takes no <code>y</code> and returns negative inertia (the negated within-cluster sum of squared distances -- negative so that "higher is better" still holds).</p>
+<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+km = <span class="f">kmeans_model</span>(Gs, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"kmeans score is negative inertia: {round(km.score(Gs), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: PCA</h4>
+<p>On a <code>pca_model</code>, <code>.score(X)</code> returns the summed explained-variance fraction of the fitted components.</p>
+<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+pm = <span class="f">pca_model</span>(Gs, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"pca score is summed explained variance: {round(pm.score(Gs), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: GMM</h4>
+<p>On a <code>gmm_model</code>, <code>.score(X)</code> returns the total log-likelihood of <code>X</code> under the fitted mixture.</p>
+<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+gm = <span class="f">gmm_model</span>(Gs, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+<span class="f">print</span>(<span class="s">"gmm score is total log-likelihood: {round(gm.score(Gs), 2)}"</span>)
+</code></pre>
+</div>
+<h2 id="s258">Recurrent cells: LSTM</h2>
+<p>Part of the tracked-tensor family with <code>dense</code>, <code>relu</code>, <code>conv2d</code> and <code>gru_cell</code>: a weight passed through <code>param(...)</code> gets a real gradient from <code>grad(loss, wrt=...)</code>, backpropagated through time by the ordinary tape. No separate recurrent machinery.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>lstm_init</code></td><td><code>lstm_init(input_size, hidden_size, [seed=])</code></td><td>Builds fresh LSTM weights for an input of size <code>input_size</code> (integer, number of features per timestep) and a hidden state of size <code>hidden_size</code> (integer): Xavier-scaled weight matrices and zero biases for all four gates (forget, input, output, candidate), plus an optional integer <code>seed=</code>. Returns a plain, untracked Record with fields <code>wf</code>, <code>uf</code>, <code>bf</code>, <code>wi</code>, <code>ui</code>, <code>bi</code>, <code>wo</code>, <code>uo</code>, <code>bo</code>, <code>wg</code>, <code>ug</code>, <code>bg</code> — wrap the ones you want trained in <code>param(...)</code> before use.</td></tr>
+<tr><td><code>lstm_cell</code></td><td><code>lstm_cell(x_t, h_prev, c_prev, weights)</code></td><td>One LSTM timestep: <code>x_t</code> (length-<code>input_size</code> input vector), <code>h_prev</code>/<code>c_prev</code> (length-<code>hidden_size</code> previous hidden/cell state vectors), and <code>weights</code> (a Record with the twelve gate fields <code>lstm_init</code> produces, <code>param</code>-wrapped where you want gradients). Returns a Record <code>{h, c}</code> — two length-<code>hidden_size</code> states thread through an LSTM, unlike GRU's single <code>h</code>.</td></tr>
+<tr><td><code>lstm_forward</code></td><td><code>lstm_forward(x_sequence, h0, c0, weights)</code></td><td>Unrolls <code>lstm_cell</code> over a whole sequence: <code>x_sequence</code> an <code>(input_size, seq_len)</code> matrix (one column per timestep), <code>h0</code>/<code>c0</code> length-<code>hidden_size</code> initial states, <code>weights</code> the same gate-weights Record as <code>lstm_cell</code>. Returns a length-<code>seq_len</code> list of length-<code>hidden_size</code> hidden-state vectors, one per timestep; the cell state threads through internally and is not returned.</td></tr>
+</table></div>
+<p><code>lstm_forward</code> is what you reach for when you have a whole sequence up front and just want the hidden states out the other end; it is also how gradients flow back through time here — because every step reuses the *same* tracked weight Tensors, <code>grad</code> sees the whole unrolled computation as one graph and backpropagates through every timestep in one call. The example below runs a 3-step sequence through a freshly initialized LSTM, computes a toy loss on the last hidden state, and takes the gradient with respect to one of the twelve weight matrices:</p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
+     wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
+     wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
+     wg=<span class="f">param</span>(raw.wg), ug=<span class="f">param</span>(raw.ug), bg=<span class="f">param</span>(raw.bg)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">lstm_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)                <span class="c"># through time, on the same tape</span>
+<span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
+</code></pre>
+</div>
+<p><code>lstm_cell</code> is the single timestep <code>lstm_forward</code> unrolls — useful on its own when you are stepping a sequence by hand, e.g. inside a control loop that needs to look at <code>h</code>/<code>c</code> between steps:</p>
+<div class="example"><pre class="hl"><code>w1 = {wf=<span class="n">0.5</span>, uf=<span class="n">0.5</span>, bf=<span class="n">0.0</span>, wi=<span class="n">0.3</span>, ui=<span class="n">0.2</span>, bi=<span class="n">0.0</span>,
+      wo=<span class="n">0.4</span>, uo=<span class="n">0.1</span>, bo=<span class="n">0.0</span>, wg=<span class="n">0.6</span>, ug=<span class="n">0.3</span>, bg=<span class="n">0.0</span>}
+hc = <span class="f">lstm_cell</span>(<span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>, w1)
+<span class="f">print</span>(<span class="s">"h = {round(hc.h, 4)}, c = {round(hc.c, 4)}"</span>)
+</code></pre>
+</div>
+<h2 id="s299">Recurrent cells: GRU</h2>
+<p>The gated recurrent unit: fewer gates than an LSTM (one hidden state, not two), so <code>gru_cell</code> returns <code>h</code> directly rather than a <code>{h, c}</code> record.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>gru_init</code></td><td><code>gru_init(input_size, hidden_size, [seed=])</code></td><td>Builds fresh GRU weights for an input of size <code>input_size</code> (integer) and a hidden state of size <code>hidden_size</code> (integer): Xavier-scaled weight matrices and zero biases for the update, reset and candidate gates, plus an optional integer <code>seed=</code>. Returns a plain, untracked Record with fields <code>wz</code>, <code>uz</code>, <code>bz</code>, <code>wr</code>, <code>ur</code>, <code>br</code>, <code>wh</code>, <code>uh</code>, <code>bh</code> — wrap the ones you want trained in <code>param(...)</code>.</td></tr>
+<tr><td><code>gru_cell</code></td><td><code>gru_cell(x_t, h_prev, weights)</code></td><td>One GRU timestep: <code>x_t</code> (length-<code>input_size</code> input vector), <code>h_prev</code> (length-<code>hidden_size</code> previous hidden state), <code>weights</code> (a Record with the nine gate fields <code>gru_init</code> produces). Returns the length-<code>hidden_size</code> new hidden state vector <code>h</code> directly, not a record — a GRU has no separate cell state to carry alongside it.</td></tr>
+<tr><td><code>gru_forward</code></td><td><code>gru_forward(x_sequence, h0, weights)</code></td><td>Unrolls <code>gru_cell</code> over a whole sequence: <code>x_sequence</code> an <code>(input_size, seq_len)</code> matrix, <code>h0</code> a length-<code>hidden_size</code> initial hidden state, <code>weights</code> the same Record <code>gru_cell</code> takes. Returns a length-<code>seq_len</code> list of length-<code>hidden_size</code> hidden-state vectors, one per timestep.</td></tr>
+</table></div>
+<p>The example below mirrors the LSTM one: unroll a GRU over a short sequence with <code>gru_forward</code>, take a gradient of a toy loss on the last hidden state back through every timestep, then reset the tape and show <code>gru_cell</code> stepping a single timestep by hand:</p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
+     wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
+     wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">gru_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+<span class="f">print</span>(<span class="s">"gru_forward last hidden state: {round(h_last, 4)}"</span>)
+
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
+<span class="f">print</span>(<span class="s">"dL/dwz: {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()
+
+h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
+<span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
+</code></pre>
+</div>
+<h2 id="s339">Local LLM inference (experimental)</h2>
+<p>Only in builds with <code>--features llm</code>. Runs on-device, CPU only, no API key. This build of the engine was compiled without that feature, so the two functions below are documented but not exercised by a runnable example here — calling either one on a plain build fails with a message naming the missing feature flag, the same pattern <code>save_model</code>/<code>load_model</code> use for <code>--features h5-models</code> further down this chapter.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>llm_load</code></td><td><code>llm_load(name)</code></td><td>Loads a chat model, identified by <code>name</code>: a string, either a bundled name like <code>"tinyllama"</code> or a local filesystem path to a <code>.gguf</code> weights file with a <code>tokenizer.json</code> beside it. Returns a model handle Record with a <code>.generate</code> method; loading is eager, so the call blocks until the whole model is read into memory.</td></tr>
+<tr><td><code>generate</code></td><td><code>model.generate(prompt, [max_tokens=64])</code></td><td>Runs greedy (argmax, no sampling knobs, no temperature) text completion on a model handle <code>model</code> from <code>llm_load</code>, given a string <code>prompt</code> and an integer cap <code>max_tokens</code> (default 64) on how many tokens to generate. Returns the completion as a plain string. There is no streaming and no hidden conversation state — each call is independent, so a multi-turn chat has to concatenate prior turns into <code>prompt</code> itself.</td></tr>
+</table></div>
+<h2 id="s393">Feedforward layers and activations</h2>
+<p>The plain building blocks every network above is made from. All of them are tracked-tensor aware: pass a <code>param(...)</code>-wrapped weight and <code>grad</code> sees through them.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>param</code>, <code>track</code></td><td><code>param(v)</code> / <code>track(v)</code></td><td>Wraps a plain number, vector, or matrix <code>v</code> as a fresh, differentiable Tensor — a new leaf node on the autodiff tape with no inputs of its own, so <code>grad</code> treats it as something to differentiate *with respect to* rather than something computed. <code>param</code> and <code>track</code> do exactly the same thing; the two names exist so a program can say which values are trainable weights (<code>param</code>) versus intermediate values you also want a gradient through (<code>track</code>) — a note to the reader, not a mechanical difference. Returns a Tensor of the same shape as <code>v</code> (a bare vector is promoted to a column matrix, matching <code>to_matrix</code>'s convention).</td></tr>
+<tr><td><code>dense</code></td><td><code>dense(x, w, b)</code></td><td>One fully-connected layer on an <code>N</code>-row, <code>D</code>-column input matrix <code>x</code>, a <code>(D, H)</code> weight matrix <code>w</code>, and a length-<code>H</code> bias vector <code>b</code>: computes <code>x * w + b</code>, broadcasting <code>b</code> over every row. Returns an <code>(N, H)</code> matrix.</td></tr>
+<tr><td><code>relu</code>, <code>sigmoid</code></td><td><code>relu(x)</code></td><td>Elementwise activation applied to a number, vector, or matrix <code>x</code> of any shape — <code>relu</code> clips negative values to zero, <code>sigmoid</code> squashes to <code>(0, 1)</code>. Returns a value of the same shape as <code>x</code>, differentiable through the tape.</td></tr>
+<tr><td><code>softmax_rows</code></td><td><code>softmax_rows(M)</code></td><td>Softmax along each row of an <code>N</code>-row, <code>D</code>-column matrix <code>M</code> of scores, shifted by the row maximum first so a large score cannot overflow the exponential. Returns an <code>(N, D)</code> matrix where each row sums to 1.</td></tr>
+<tr><td><code>dropout</code></td><td><code>dropout(x, rate)</code></td><td>Zeroes a random share of the entries of <code>x</code> (a vector or matrix of any shape) at probability <code>rate</code> (a number in <code>[0, 1)</code>), and scales the surviving entries up by <code>1 / (1 - rate)</code>, so the expected value of the output equals <code>x</code>. Returns a value the same shape as <code>x</code>, freshly randomized on every call.</td></tr>
+<tr><td><code>tape_reset</code></td><td><code>tape_reset()</code></td><td>Discards every entry recorded so far on the autodiff tape, freeing the memory a chain of <code>param</code>/<code>grad</code> calls has built up. Takes no arguments; call it between independent computations, since a program that never calls it keeps every tracked operation alive for as long as it runs. Returns <code>Nothing</code>.</td></tr>
+</table></div>
+<p>The next example threads a small computation through every piece here at once: a <code>dense</code> layer feeds <code>relu</code> then <code>sigmoid</code>, <code>grad</code> differentiates a toy loss with respect to the weight matrix, <code>tape_reset</code> clears that computation before an unrelated <code>softmax_rows</code> call, and a final block shows <code>dropout</code> zeroing roughly half of eight ones and rescaling the rest.</p>
+<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
+x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
+z = <span class="f">dense</span>(x, w, b)
+a = <span class="f">relu</span>(z)
+p = <span class="f">sigmoid</span>(a)
+loss = <span class="f">sum</span>(p .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w)
+<span class="f">print</span>(<span class="s">"relu:    {round(a, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"sigmoid: {round(p, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dw:   {round(g, 4)}"</span>)
+<span class="f">tape_reset</span>()                    <span class="c"># clear the tape before the next computation</span>
+
+scores = [<span class="n">2.0</span>, <span class="n">1.0</span>, <span class="n">0.1</span>; <span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">0.5</span>]
+probs = <span class="f">softmax_rows</span>(scores)
+<span class="f">print</span>(<span class="s">"softmax row 0: {round(probs[0, :], 4)}"</span>)
+
+<span class="f">seed</span>(<span class="n">3</span>)
+kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n">1</span>, <span class="n">8</span>), <span class="n">0.5</span>)
+<span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
+<span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
+</code></pre>
+</div>
+<h2 id="s447">Convolution and pooling</h2>
+<p><code>conv1d</code> slides one learnable kernel over a signal; <code>conv2d</code> does the same over an image. <code>maxpool2d</code>/<code>avgpool2d</code> downsample by window.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>conv1d</code></td><td><code>conv1d(x, kernel, [stride=], [padding=])</code></td><td>Slides a length-<code>K</code> learnable <code>kernel</code> vector over a length-<code>N</code> signal <code>x</code>, moving <code>stride</code> positions at a time (integer, default 1) with <code>padding</code> (<code>"valid"</code> — no padding, output shrinks — or <code>"same"</code> — zero-padded to keep the output length equal to <code>N</code>; default <code>"valid"</code>). Returns the length-<code>M</code> convolved output vector, <code>M</code> depending on <code>N</code>, <code>K</code>, <code>stride</code>, and <code>padding</code>.</td></tr>
+<tr><td><code>conv2d</code></td><td><code>conv2d(x, kernel, [stride], [padding])</code></td><td>Slides a <code>(Kh, Kw)</code> learnable <code>kernel</code> matrix over an <code>(H, W)</code> image matrix <code>x</code>, moving <code>stride</code> positions at a time (integer, default 1) with <code>padding</code> — <code>"valid"</code> (no padding) or <code>"same"</code> (output keeps <code>x</code>'s <code>(H, W)</code> shape); default <code>"valid"</code>. Returns an <code>(H', W')</code> convolved output matrix.</td></tr>
+<tr><td><code>maxpool2d</code></td><td><code>maxpool2d(x, size, [stride=])</code></td><td>Downsamples an <code>(H, W)</code> matrix <code>x</code> by taking the largest value in each <code>size</code> x <code>size</code> window (integer <code>size</code>), moving <code>stride</code> positions at a time (integer, defaults to <code>size</code> — non-overlapping windows). Returns a smaller <code>(H', W')</code> matrix.</td></tr>
+<tr><td><code>avgpool2d</code></td><td><code>avgpool2d(x, size, [stride=])</code></td><td>Downsamples an <code>(H, W)</code> matrix <code>x</code> the same way as <code>maxpool2d</code> — <code>size</code> x <code>size</code> windows, <code>stride</code> defaulting to <code>size</code> — but takes the mean of each window instead of the max. Returns a smaller <code>(H', W')</code> matrix.</td></tr>
+</table></div>
+<p>The four functions below cover both dimensionalities you meet in practice: <code>conv1d</code> for a signal, <code>conv2d</code> for an image, and the two pooling functions for shrinking a feature map afterward. The example convolves a short signal with an edge-detecting kernel, convolves a small image with a diagonal-edge kernel, and then shows <code>maxpool2d</code>/<code>avgpool2d</code> shrinking the same image by taking the largest and the average value in each 2x2 block.</p>
+<div class="example"><pre class="hl"><code>x1d = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>, <span class="n">5.0</span>]
+edge_kernel = [<span class="n">1.0</span>, <span class="n">0.0</span>, -<span class="n">1.0</span>]
+y1d = <span class="f">conv1d</span>(x1d, edge_kernel)
+<span class="f">print</span>(<span class="s">"conv1d edge response: {y1d}"</span>)
+
+img = [<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">9</span>, <span class="n">1</span>; <span class="n">7</span>, <span class="n">2</span>, <span class="n">6</span>, <span class="n">0</span>; <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>]
+k2d = [<span class="n">1</span>, <span class="n">0</span>; <span class="n">0</span>, -<span class="n">1</span>]
+y2d = <span class="f">conv2d</span>(img, k2d, <span class="n">1</span>, <span class="s">"valid"</span>)
+<span class="f">print</span>(<span class="s">"conv2d output:\n{y2d}"</span>)
+
+<span class="f">print</span>(<span class="s">"maxpool2d: {maxpool2d(img, 2)}"</span>)
+<span class="f">print</span>(<span class="s">"avgpool2d: {avgpool2d(img, 2)}"</span>)
+</code></pre>
+</div>
+<h2 id="s490">Layer normalization and attention</h2>
+<p>The transformer building blocks: <code>layer_norm</code> normalizes each row of its input independently (unlike batch norm, it needs no other rows in the batch to work); <code>scaled_dot_product_attention</code> is the core attention computation; <code>multi_head_attention</code> runs several of those in parallel over learned projections; <code>transformer_block</code> wraps attention and a feed-forward layer, each behind a residual connection and a layer norm.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>layer_norm</code></td><td><code>layer_norm(x, gamma, beta, [eps=])</code></td><td>Normalizes each row of an <code>N</code>-row, <code>D</code>-column matrix <code>x</code> independently to zero mean and unit variance, then applies a learned length-<code>D</code> per-feature scale <code>gamma</code> and shift <code>beta</code>, with <code>eps</code> (a small positive number, default a tiny constant) added inside the variance's square root for numerical stability. Returns an <code>(N, D)</code> matrix, the same shape as <code>x</code>.</td></tr>
+<tr><td><code>scaled_dot_product_attention</code></td><td><code>scaled_dot_product_attention(q, k, v, [mask=])</code></td><td>Core attention computation: an <code>(Nq, D)</code> query matrix <code>q</code>, an <code>(Nk, D)</code> key matrix <code>k</code>, and an <code>(Nk, Dv)</code> value matrix <code>v</code> (<code>k</code> and <code>v</code> share the same row count <code>Nk</code>). Scores are <code>q * kᵀ</code> scaled by <code>1/sqrt(D)</code> before the softmax, so the softmax does not saturate as <code>D</code> grows; an optional <code>mask</code> matrix (same shape as the score matrix, <code>(Nq, Nk)</code>) adds large negative values to positions that should not be attended to before the softmax. Returns an <code>(Nq, Dv)</code> matrix.</td></tr>
+<tr><td><code>multi_head_attention</code></td><td><code>multi_head_attention(x, heads, n_heads)</code></td><td>Runs several attention heads over the same <code>(N, D)</code> input <code>x</code> in parallel: <code>heads</code> is a tuple of <code>n_heads</code> (integer) Records, each with fields <code>wq</code>, <code>wk</code>, <code>wv</code> (per-head projection matrices) and <code>wo</code> (the head's output projection), and self-attention (<code>q = k = v = x</code> projected through each head's own weights) is computed per head, then the results are combined through each head's <code>wo</code> and summed. Returns an <code>(N, D)</code> matrix.</td></tr>
+<tr><td><code>transformer_block</code></td><td><code>transformer_block(x, weights)</code></td><td>One transformer block on an <code>(N, D)</code> input <code>x</code>: multi-head self-attention plus a two-layer feed-forward network, each wrapped in a residual connection and a <code>layer_norm</code>. <code>weights</code> is a Record with fields <code>heads</code> (the tuple <code>multi_head_attention</code> expects), <code>ln1_gamma</code>/<code>ln1_beta</code> and <code>ln2_gamma</code>/<code>ln2_beta</code> (length-<code>D</code> layer-norm parameters for the two sublayers), and <code>w1</code>/<code>b1</code>/<code>w2</code>/<code>b2</code> (the feed-forward layer's weights and biases). Returns an <code>(N, D)</code> matrix, the same shape as <code>x</code>.</td></tr>
+</table></div>
+<p>The example below builds up from the smallest piece to the whole block: <code>layer_norm</code> on a two-row matrix with very different scales per row shows that each row is normalized independently of the other; a hand-built <code>q</code>/<code>k</code>/<code>v</code> triple runs through <code>scaled_dot_product_attention</code> directly; wrapping the identity matrix as a single attention head shows that <code>multi_head_attention</code> with one identity head reduces to plain self-attention, which is a useful sanity check when you are debugging a custom set of head weights; and a full <code>transformer_block</code> runs the same <code>q</code> through attention, a feed-forward layer, and two layer norms in one call.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
+<span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
+
+q = [<span class="n">1.0</span>, <span class="n">0.5</span>; -<span class="n">0.5</span>, <span class="n">1.0</span>; <span class="n">0.2</span>, -<span class="n">0.3</span>]
+k = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+v = [<span class="n">1.0</span>, <span class="n">2.0</span>; <span class="n">3.0</span>, <span class="n">4.0</span>; <span class="n">5.0</span>, <span class="n">6.0</span>]
+attn = <span class="f">scaled_dot_product_attention</span>(q, k, v)
+<span class="f">print</span>(<span class="s">"attention output: {round(attn, 3)}"</span>)
+
+eye2 = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>]
+head = {wq = eye2, wk = eye2, wv = eye2, wo = eye2}
+mh = <span class="f">multi_head_attention</span>(q, (head,), <span class="n">1</span>)
+plain = <span class="f">scaled_dot_product_attention</span>(q, q, q)
+<span class="f">print</span>(<span class="s">"multi_head_attention with 1 identity head matches plain self-attention: {sum(abs(mh - plain)) &lt; 1e-9}"</span>)
+
+weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln1_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w1 = [<span class="n">0.2</span>, -<span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>], b1 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w2 = [<span class="n">0.1</span>, -<span class="n">0.2</span>; <span class="n">0.3</span>, <span class="n">0.1</span>], b2 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           ln2_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln2_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>]}
+block_out = <span class="f">transformer_block</span>(q, weights)
+<span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
+</code></pre>
+</div>
+<h2 id="s543">Training loops and optimizers</h2>
+<p>Three ways to train, from least to most control. <code>quick_mlp</code> fits a whole network in one call. <code>compile</code>/<code>.fit</code> builds a <code>sequential</code> pipeline and trains it with a chosen optimizer. <code>train_loop</code>/<code>optimizer_step</code> run underneath both, and are also callable directly when you are writing the loop yourself.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>compile</code></td><td><code>compile(pipeline, [optimizer=], [loss=])</code></td><td>Attaches an optimizer Record (from <code>sgd</code>/<code>adam</code>/etc., default <code>adam()</code>) and a loss name string (<code>"mse"</code> or <code>"cross_entropy"</code>, default <code>"mse"</code>) to an <code>input(n) |&gt; dense(...) |&gt; ...</code> pipeline Record (built by piping through <code>input</code>/<code>dense</code>, see the layer-spec subsection below). Returns a fitted-model-ready <code>kind="sequential"</code> Model whose weights are already initialized (but not yet trained) — the same Model <code>sequential(...)</code> itself returns. Returns a <code>Model</code> of kind <code>"sequential"</code>.</td></tr>
+<tr><td><code>train_loop</code></td><td><code>train_loop(loss_fn_name, params, epochs, optimizer=)</code></td><td>Runs the fit loop inside the engine rather than stepping it from Qu: <code>loss_fn_name</code> a string naming an in-scope function <code>(params) -&gt; number</code>, <code>params</code> the Tensor (from <code>param(...)</code>) or Record of Tensors to optimize, <code>epochs</code> an integer number of iterations, and <code>optimizer=</code> an optimizer Record (from <code>sgd</code>/<code>adam</code>/etc., referenced here by the string name of the variable holding it). Returns a length-<code>epochs</code> vector of the loss value after each epoch.</td></tr>
+<tr><td><code>optimizer_step</code></td><td><code>optimizer_step(opt, grads)</code></td><td>One optimizer update, for when you are writing the training loop yourself instead of calling <code>train_loop</code>: <code>opt</code> an optimizer Record (from <code>sgd</code>/<code>adam</code>/etc.), <code>grads</code> the gradient value (same shape as the parameter being optimized) from <code>grad(...)</code>. Returns a new optimizer Record with the updated parameter value in its <code>._params</code> field and any internal state (momentum, running averages) advanced by one step.</td></tr>
+<tr><td><code>sgd</code>, <code>nesterov_sgd</code></td><td><code>sgd(params, [lr=0.01])</code></td><td>Plain stochastic gradient descent (<code>sgd</code>) and its look-ahead variant (<code>nesterov_sgd</code>, which evaluates the gradient after applying the momentum step rather than before it), given <code>params</code> (a Tensor to optimize) and a learning rate <code>lr</code> (a number, default 0.01; <code>nesterov_sgd</code> also takes a <code>momentum=</code> number). Returns an optimizer Record ready for <code>optimizer_step</code> or <code>optimizer=</code>. Called with no positional argument at all (e.g. <code>adam(lr=0.01)</code>) any of these instead returns a spec-only "recipe" Record for passing as <code>optimizer=</code> to <code>compile</code>/<code>train_loop</code>, without binding to a specific parameter yet.</td></tr>
+<tr><td><code>adam</code>, <code>adamw</code>, <code>nadam</code>, <code>adamax</code></td><td><code>adam(params, [lr=0.001])</code></td><td>The Adam family of per-parameter adaptive-learning-rate optimizers, given <code>params</code> (a Tensor to optimize) and a learning rate <code>lr</code> (a number, default 0.001). <code>adamw</code> decouples weight decay from the gradient update; <code>nadam</code> folds in Nesterov-style look-ahead momentum; <code>adamax</code> swaps Adam's second-moment estimate for an infinity norm. Returns an optimizer Record, or (with no <code>params</code>) a recipe Record for <code>optimizer=</code>.</td></tr>
+<tr><td><code>rmsprop</code>, <code>adagrad</code>, <code>adadelta</code></td><td><code>rmsprop(params, [lr=0.001])</code></td><td>Per-parameter learning rates derived from the running gradient history, given <code>params</code> (a Tensor to optimize) and <code>lr</code> (a number, default 0.001). <code>adagrad</code> accumulates the full gradient history and so its effective rate only shrinks over time; <code>rmsprop</code> and <code>adadelta</code> use a decaying average instead, so they keep adapting late in training. Returns an optimizer Record, or a recipe Record when called with no <code>params</code>.</td></tr>
+<tr><td><code>lr_adaptive</code>, <code>lr_plateau</code></td><td><code>lr_plateau([lr=], [patience=], [factor=], [base=])</code></td><td>Learning-rate controllers that wrap a base optimizer rather than replacing it: <code>lr=</code> the starting learning rate (number), <code>patience</code> an integer number of epochs to wait for improvement before shrinking the rate, <code>factor</code> the multiplicative shrink (a number in <code>(0, 1)</code>), and <code>base</code> a string naming the wrapped optimizer (e.g. <code>"adam"</code>). Passed as <code>optimizer=</code> wherever a plain optimizer recipe would go. Returns an optimizer-recipe Record.</td></tr>
+<tr><td><code>quick_mlp</code></td><td><code>quick_mlp(X, y, [seed=], [epochs=])</code></td><td>Fits a single-hidden-layer multilayer perceptron in one call on an <code>N</code>-row, <code>D</code>-column feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> (or an <code>(N, n_classes)</code> one-hot matrix for multi-class <code>y</code>), with an optional integer <code>seed=</code>, <code>epochs</code> (integer, default 200), and an implied hidden width of <code>clamp(2*D, 8, 64)</code>. Returns an already-fitted <code>kind="sequential"</code> Model with a <code>loss_history</code> field (a length-<code>epochs</code> vector) plus <code>.predict</code>.</td></tr>
+</table></div>
+<p><code>sgd(w, 0.01)</code>/<code>adam(w, lr=0.01)</code> take the tensor to optimize as their first argument; called with no positional argument at all (<code>adam(lr=0.01)</code>) they instead return a spec-only "recipe" for <code>optimizer=</code>. Every other update rule below plugs into the exact same <code>optimizer_step(opt, grad)</code> call — only the constructor changes:</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
+y_true = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
+w = <span class="f">param</span>(<span class="n">0.0</span>)
+<span class="k">function</span> <span class="f">loss_fn</span>(w)
+    pred = w * x
+    diff = pred - y_true
+    <span class="k">return</span> <span class="f">mean</span>(diff .^ <span class="n">2</span>)
+<span class="k">end</span> <span class="k">function</span>
+opt = <span class="f">sgd</span>(w, <span class="n">0.01</span>)
+losses = <span class="f">train_loop</span>(<span class="s">"loss_fn"</span>, w, <span class="n">100</span>, <span class="a">optimizer</span> = <span class="s">"opt"</span>)
+<span class="f">print</span>(<span class="s">"train_loop (sgd): loss {round(losses[0], 3)} -&gt; {round(losses[99], 5)}"</span>)
+<span class="f">tape_reset</span>()
+
+w2v = <span class="n">0.0</span>
+opt2 = <span class="f">adam</span>(<span class="f">param</span>(w2v), <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">19</span>
+    <span class="f">tape_reset</span>()
+    w2 = <span class="f">param</span>(w2v)
+    pred = w2 * x
+    loss2 = <span class="f">mean</span>((pred - y_true) .^ <span class="n">2</span>)
+    g = <span class="f">grad</span>(loss2, <span class="a">wrt</span> = w2)
+    opt2 = <span class="f">optimizer_step</span>(opt2, g)
+    w2v = opt2._params[<span class="n">0</span>]
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"optimizer_step (adam): w -&gt; {round(w2v, 4)} (target 2.0)"</span>)
+<span class="f">tape_reset</span>()
+
+<span class="c"># One step each from w=1.0, grad=3.0 -- same optimizer_step(opt, grad) call.</span>
+w3 = <span class="f">param</span>(<span class="n">1.0</span>)
+grad3 = [<span class="n">3.0</span>]
+r1 = <span class="f">optimizer_step</span>(<span class="f">nesterov_sgd</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>, <span class="a">momentum</span> = <span class="n">0.9</span>), grad3)
+r2 = <span class="f">optimizer_step</span>(<span class="f">adamw</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r3 = <span class="f">optimizer_step</span>(<span class="f">nadam</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r4 = <span class="f">optimizer_step</span>(<span class="f">adamax</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r5 = <span class="f">optimizer_step</span>(<span class="f">rmsprop</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r6 = <span class="f">optimizer_step</span>(<span class="f">adagrad</span>(w3, <span class="a">lr</span> = <span class="n">0.05</span>), grad3)
+r7 = <span class="f">optimizer_step</span>(<span class="f">adadelta</span>(w3), grad3)
+<span class="f">print</span>(<span class="s">"nesterov_sgd -&gt; {round(r1._params[0], 4)}, adamw -&gt; {round(r2._params[0], 4)}, nadam -&gt; {round(r3._params[0], 4)}"</span>)
+<span class="f">print</span>(<span class="s">"adamax -&gt; {round(r4._params[0], 4)}, rmsprop -&gt; {round(r5._params[0], 4)}, adagrad -&gt; {round(r6._params[0], 4)}, adadelta -&gt; {round(r7._params[0], 4)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = <span class="f">input</span>(<span class="n">2</span>) |&gt; <span class="f">dense</span>(<span class="n">4</span>, <span class="a">activation</span> = <span class="s">"relu"</span>) |&gt; <span class="f">dense</span>(<span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>) |&gt;
+      <span class="f">compile</span>(<span class="a">optimizer</span> = <span class="f">lr_plateau</span>(<span class="a">lr</span> = <span class="n">0.1</span>, <span class="a">patience</span> = <span class="n">5</span>, <span class="a">base</span> = <span class="s">"adam"</span>), <span class="a">loss</span> = <span class="s">"mse"</span>, <span class="a">seed</span> = <span class="n">7</span>)
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"compile + fit(lr_plateau): loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+net2 = <span class="f">input</span>(<span class="n">2</span>) |&gt; <span class="f">dense</span>(<span class="n">4</span>, <span class="a">activation</span> = <span class="s">"relu"</span>) |&gt; <span class="f">dense</span>(<span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>) |&gt;
+       <span class="f">compile</span>(<span class="a">optimizer</span> = <span class="f">lr_adaptive</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>, <span class="a">seed</span> = <span class="n">7</span>)
+net2 = net2.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>)
+n2 = <span class="f">length</span>(net2.loss_history)
+<span class="f">print</span>(<span class="s">"compile + fit(lr_adaptive): loss {round(net2.loss_history[0], 4)} -&gt; {round(net2.loss_history[n2 - 1], 4)}"</span>)
+
+quick = <span class="f">quick_mlp</span>(Xxor, Yxor, <span class="a">seed</span> = <span class="n">3</span>)
+nq = <span class="f">length</span>(quick.loss_history)
+<span class="f">print</span>(<span class="s">"quick_mlp: loss {round(quick.loss_history[0], 4)} -&gt; {round(quick.loss_history[nq - 1], 4)}"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>sgd</code></h4>
+<div class="tablewrap"><table>
+<tr><td>Call</td><td>What it returns</td></tr>
+<tr><td><code>sgd(params, [lr=])</code></td><td>An optimizer Record bound to <code>params</code>, with <code>_params</code> holding the tensor's current value -- ready for <code>optimizer_step</code>.</td></tr>
+<tr><td><code>sgd([lr=])</code> (no positional argument)</td><td>An unbound "recipe" Record with no <code>_params</code> -- for passing as <code>optimizer=</code> to <code>compile</code>/<code>train_loop</code>, to be bound to a parameter later.</td></tr>
+</table></div>
+<p><code>nesterov_sgd</code>, <code>adam</code>, <code>adamw</code>, <code>nadam</code>, <code>adamax</code>, <code>rmsprop</code>, <code>adagrad</code> and <code>adadelta</code> all share this same two-call-shape overload.</p>
+<div class="example"><pre class="hl"><code>wv = <span class="f">param</span>(<span class="n">1.0</span>)
+bound = <span class="f">sgd</span>(wv, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"bound optimizer's _params: {bound._params}"</span>)   <span class="c"># [1] -- ready for optimizer_step</span>
+
+recipe = <span class="f">sgd</span>(<span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(recipe)                                          <span class="c"># model(sgd) {lr} -- no _params yet</span>
+</code></pre>
+</div>
+<h3>Building the network: layer specs and <code>sequential</code></h3>
+<p>The <code>input(2) |&gt; dense(4, activation = "relu") |&gt; ... |&gt; compile(...)</code> pipeline used above is sugar over a smaller set of primitives: <code>dense_layer</code> and <code>dropout_layer</code> build plain, unfitted layer-spec Records (no weights yet), and <code>sequential</code> takes a list of them and returns an initialized — but not yet trained — <code>kind="sequential"</code> Model, exactly the same shape <code>compile</code> itself returns. <code>mlp_classifier</code> is a shortcut over the same two steps for the common "stack of dense+relu layers ending in raw class logits" case.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>input</code></td><td><code>input(n)</code></td><td>Starts the pipeline sugar: <code>n</code> (a positive integer) is the number of input features. Returns a <code>pipeline_input</code> Record tracking the running output width and an (initially empty) layer list, ready to be piped into <code>dense(...)</code> stages and finished with <code>compile(...)</code>.</td></tr>
+<tr><td><code>dense_layer</code></td><td><code>dense_layer(in_dim, out_dim, [activation=])</code></td><td>Builds one unfitted dense-layer spec: <code>in_dim</code>/<code>out_dim</code> (positive integers) the layer's input and output widths, <code>activation</code> a string, <code>"relu"</code> or <code>"none"</code> (default <code>"none"</code>, a bare affine layer). Returns a layer-spec Record with no weights yet — <code>sequential</code> does the actual initialization. Piping several calls together (<code>dense_layer(2, 8, activation = "relu") |&gt; dense_layer(8, 1)</code>) accumulates them into a single list, ready for <code>sequential</code>.</td></tr>
+<tr><td><code>dropout_layer</code></td><td><code>dropout_layer(rate)</code></td><td>Builds one unfitted dropout-layer spec for use inside a <code>sequential</code> stack: <code>rate</code> a number in <code>[0, 1)</code>, the fraction of activations to zero during training. Returns a layer-spec Record with no weights (dropout has none) — <code>sequential_forward</code> turns it into a <code>dropout(...)</code> call during training and a no-op passthrough during <code>.predict</code>.</td></tr>
+<tr><td><code>sequential</code></td><td><code>sequential(layers, [seed=])</code></td><td>Initializes a stack of layer specs (a list of <code>dense_layer</code>/<code>dropout_layer</code> Records, or a single one) into a trainable model: weights use He initialization (<code>sqrt(2/in_dim)</code>) on a layer whose activation is <code>"relu"</code>, Xavier-style (<code>sqrt(1/in_dim)</code>) otherwise, biases start at zero, and an optional integer <code>seed=</code> makes the draw reproducible. Returns an initialized, not-yet-fitted <code>kind="sequential"</code> Model with <code>.fit</code>/<code>.predict</code>.</td></tr>
+<tr><td><code>mlp_classifier</code></td><td><code>mlp_classifier(in_dim, hidden_dims, n_classes, [seed=])</code></td><td>Shortcut that builds a <code>dense_layer(..., activation="relu")</code> for every size in <code>hidden_dims</code> (a vector of positive integers, e.g. <code>[64, 32]</code>) followed by a final <code>dense_layer(..., activation="none")</code> down to <code>n_classes</code> (a positive integer) raw logits, then initializes them with <code>sequential</code> (optional integer <code>seed=</code>). Returns an initialized, not-yet-fitted <code>kind="sequential"</code> Model; pair <code>.fit(X, Y, loss = "cross_entropy")</code> (one-hot <code>Y</code>) with <code>softmax_rows</code>/<code>argmax</code> on <code>.predict</code>'s output yourself.</td></tr>
+</table></div>
+<p>The example below builds the *same kind* of network two different ways. First, directly from primitives: two <code>dense_layer</code> calls with a <code>dropout_layer</code> in between, assembled by <code>sequential</code>, then fitted like any other <code>kind="sequential"</code> model. Second, via <code>mlp_classifier</code>, which skips writing out the layer list by hand for the common classification shape — its output is raw per-class logits, so a real classifier would still run them through <code>softmax_rows</code> before reading off a class.</p>
+<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
+dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
+net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"layer count: {length(net.layers)}"</span>)
+
+Xxor = [<span class="n">0.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">1.0</span>, <span class="n">1.0</span>]
+Yxor = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>]
+net = net.<span class="f">fit</span>(Xxor, Yxor, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">optimizer</span> = <span class="f">adam</span>(<span class="a">lr</span> = <span class="n">0.05</span>), <span class="a">loss</span> = <span class="s">"mse"</span>)
+n = <span class="f">length</span>(net.loss_history)
+<span class="f">print</span>(<span class="s">"sequential + dropout_layer: loss {round(net.loss_history[0], 4)} -&gt; {round(net.loss_history[n - 1], 4)}"</span>)
+
+mc = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+Yc = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>]
+mc = mc.<span class="f">fit</span>(Xxor, Yc, <span class="a">epochs</span> = <span class="n">60</span>, <span class="a">loss</span> = <span class="s">"cross_entropy"</span>)
+nc = <span class="f">length</span>(mc.loss_history)
+<span class="f">print</span>(<span class="s">"mlp_classifier: loss {round(mc.loss_history[0], 4)} -&gt; {round(mc.loss_history[nc - 1], 4)}"</span>)
+preds = mc.<span class="f">predict</span>(Xxor)
+<span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
+</code></pre>
+</div>
+<h2 id="s592">Ready-made architectures</h2>
+<p>One call each fits a whole network, for when the question is about your data rather than about the network.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>simple_cnn</code></td><td><code>simple_cnn([height, width], n_classes, [seed=])</code></td><td>Builds an untrained conv → relu → maxpool → dense image classifier: <code>[height, width]</code> a 2-element vector giving the image size, <code>n_classes</code> a positive integer, and an optional integer <code>seed=</code>. Returns a <code>kind="simple_cnn"</code> Model with <code>.fit(images, labels, [epochs=], [lr=])</code>, where <code>images</code> is a tuple of <code>height</code> x <code>width</code> matrices (one per sample) and <code>labels</code> a length-<code>M</code> integer vector, <code>epochs</code> an integer and <code>lr</code> a number (learning rate); <code>.fit</code> returns the trained Model, and <code>.predict(images)</code> on it returns a length-<code>M</code> vector of predicted classes.</td></tr>
+<tr><td><code>simple_rnn_classifier</code></td><td><code>simple_rnn_classifier(input_size, hidden_size, n_classes, [seed=])</code></td><td>Builds an untrained GRU-backed sequence classifier: <code>input_size</code>/<code>hidden_size</code>/<code>n_classes</code> positive integers (features per timestep, hidden width, and number of classes), plus an optional integer <code>seed=</code>. Returns a <code>kind="simple_rnn_classifier"</code> Model with <code>.fit(sequences, labels, [epochs=], [lr=])</code>, where <code>sequences</code> is a tuple of <code>(input_size, seq_len)</code> matrices and <code>labels</code> a length-<code>M</code> integer vector; <code>.predict(sequences)</code> returns a length-<code>M</code> vector of predicted classes.</td></tr>
+</table></div>
+<p>The two examples below build the smallest possible dataset for each architecture — two hand-drawn 6x6 images with different dot patterns for <code>simple_cnn</code>, and two short rising/falling sequences for <code>simple_rnn_classifier</code> — fit for a handful of epochs, and check that <code>.predict</code> comes back with one row per input sample:</p>
+<div class="example"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+img1 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img1[<span class="n">2</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img1[<span class="n">3</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
+img2[<span class="n">1</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">1</span>] = <span class="n">1.0</span>
+img2[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
+img2[<span class="n">3</span>, <span class="n">2</span>] = <span class="n">1.0</span>
+net = net.<span class="f">fit</span>((img1, img2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_cnn predict rows: {rows(net.predict((img1, img2)))}"</span>)
+
+rnn = <span class="f">simple_rnn_classifier</span>(<span class="n">1</span>, <span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
+seq1 = [<span class="n">0.1</span>, <span class="n">0.3</span>, <span class="n">0.5</span>, <span class="n">0.7</span>, <span class="n">0.9</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+seq2 = [<span class="n">0.9</span>, <span class="n">0.7</span>, <span class="n">0.5</span>, <span class="n">0.3</span>, <span class="n">0.1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">5</span>)
+rnn = rnn.<span class="f">fit</span>((seq1, seq2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
+<span class="f">print</span>(<span class="s">"simple_rnn_classifier predict rows: {rows(rnn.predict((seq1, seq2)))}"</span>)
+</code></pre>
+</div>
+<h2 id="s636">Reinforcement learning: gridworld</h2>
+<p>A square grid, four actions, tabular temporal-difference learning.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>gridworld_env</code></td><td><code>gridworld_env(n, [start=], [goal=], [step_reward=-1], [goal_reward=10])</code></td><td>Builds an <code>n x n</code> grid environment (integer <code>n</code>), with <code>start</code>/<code>goal</code> (optional integer state indices, defaulting to opposite corners), <code>step_reward</code> (number, default -1, given on every non-terminal move) and <code>goal_reward</code> (number, default 10, given on reaching the goal). Actions are the integers 0 to 3: up, right, down, left; walking into an edge leaves the agent where it was. Returns a <code>kind="gridworld_env"</code> Model (an environment handle, not a fitted model) with <code>.reset()</code>/<code>.step(state, action)</code>.</td></tr>
+<tr><td><code>reset</code></td><td><code>reset(env)</code> or <code>env.reset()</code></td><td>Returns the environment <code>env</code>'s starting state — a plain integer state index. The environment holds no live position of its own to reset; the returned index is the one to thread through your own loop.</td></tr>
+<tr><td><code>step</code></td><td><code>env.step(state, action)</code></td><td>Applies one <code>action</code> (an integer 0-3) from the current integer <code>state</code> index in environment <code>env</code>. Returns a Record with <code>next_state</code> (integer), <code>reward</code> (a number, <code>step_reward</code> or <code>goal_reward</code>), and <code>done</code> (a boolean, true once the goal is reached).</td></tr>
+<tr><td><code>q_learning</code>, <code>sarsa</code></td><td><code>q_learning(env, episodes, [alpha=0.1], [gamma=0.9], [epsilon=0.1], [seed=])</code></td><td>Tabular temporal-difference learning on a <code>gridworld_env</code> <code>env</code> for an integer number of <code>episodes</code>, with learning rate <code>alpha</code>, discount factor <code>gamma</code>, and epsilon-greedy exploration rate <code>epsilon</code> (all numbers), plus an optional integer <code>seed=</code>. <code>q_learning</code> is off-policy (bootstraps off the greedy next action); <code>sarsa</code> is on-policy (bootstraps off the action actually taken next). Both return a fitted model Record with <code>.q_table</code> (an <code>(n_states, n_actions)</code> matrix) and <code>.rewards</code> (a length-<code>episodes</code> vector, one total reward per episode — it should trend upward as training progresses), plus <code>.predict(state)</code> giving the greedy action (an integer) for a given state index. Returns that fitted <code>Model</code>.</td></tr>
+</table></div>
+<p>The example below trains both algorithms on the same 4x4 grid for 300 episodes, compares their reward trend from the first 20 episodes to the last 20 (the real check that either one learned anything, since a constant reward with no crash proves nothing), then runs the greedy policy <code>q_learning</code> produced from the start state to the goal and counts the steps it takes:</p>
+<div class="example"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
+start = env.<span class="f">reset</span>()
+<span class="f">print</span>(<span class="s">"start state: {start}"</span>)
+
+q = <span class="f">q_learning</span>(env, <span class="n">300</span>, <span class="a">alpha</span> = <span class="n">0.3</span>, <span class="a">gamma</span> = <span class="n">0.9</span>, <span class="a">epsilon</span> = <span class="n">0.1</span>, <span class="a">seed</span> = <span class="n">7</span>)
+s = <span class="f">sarsa</span>(env, <span class="n">300</span>, <span class="a">alpha</span> = <span class="n">0.3</span>, <span class="a">gamma</span> = <span class="n">0.9</span>, <span class="a">epsilon</span> = <span class="n">0.1</span>, <span class="a">seed</span> = <span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"q_learning reward: early {round(mean(q.rewards[0:19]), 2)} -&gt; late {round(mean(q.rewards[280:299]), 2)}"</span>)
+<span class="f">print</span>(<span class="s">"sarsa reward:      early {round(mean(s.rewards[0:19]), 2)} -&gt; late {round(mean(s.rewards[280:299]), 2)}"</span>)
+
+state = env.<span class="f">reset</span>()
+steps = <span class="n">0</span>
+done = <span class="k">false</span>
+<span class="k">while</span> done == <span class="k">false</span> <span class="k">and</span> steps &lt; <span class="n">20</span>
+    action = q.<span class="f">predict</span>(state)
+    result = env.<span class="k">step</span>(state, action)
+    state = result.next_state
+    steps = steps + <span class="n">1</span>
+    done = result.done
+<span class="k">end</span> <span class="k">while</span>
+<span class="f">print</span>(<span class="s">"greedy policy reached the goal in {steps} steps"</span>)
+</code></pre>
+</div>
+<h2 id="s689">Estimation: Kalman, EKF, UKF, particle filters</h2>
+<p>The whole family goes through three verbs — <code>predict</code>, <code>update</code>, <code>estimate</code> — dispatching on the state's <code>.kind</code> and, within <code>"kalman"</code>, on whether the second argument is a matrix (linear) or a function name (nonlinear, <code>method="ekf"</code> by default or <code>"ukf"</code>). Each call returns a <strong>new</strong> state; nothing is mutated.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>kalman_init</code></td><td><code>kalman_init(x0, P0)</code></td><td>Initial linear-Kalman state: <code>x0</code> a length-<code>D</code> initial state estimate vector, <code>P0</code> a <code>(D, D)</code> initial covariance matrix. Returns a <code>kind="kalman"</code> state Record with fields <code>x</code> (length-<code>D</code>) and <code>P</code> (<code>(D, D)</code>). No control input.</td></tr>
+<tr><td><code>particle_filter_init</code></td><td><code>particle_filter_init(x0, n, [spread=1.0], [seed=])</code></td><td>Generic particle filter state: <code>x0</code> a length-<code>D</code> centre vector, <code>n</code> (integer) the particle count scattered around it with spread <code>spread</code> (a number, default 1.0), and an optional integer <code>seed=</code>. Returns a <code>kind="particle_filter"</code> state Record with <code>(n, D)</code> <code>particles</code> and a length-<code>n</code> uniform <code>weights</code> vector; you supply the transition and likelihood functions by name on <code>predict</code>/<code>update</code>.</td></tr>
+<tr><td><code>particle_filter</code></td><td><code>particle_filter(n_particles, initial_state, [process_noise=0.05], [obs_noise=1.0], [spread=1.0], [seed=])</code></td><td>The specialized constant-velocity tracker: <code>n_particles</code> (integer), <code>initial_state</code> (a length-<code>D</code> position/velocity vector), <code>process_noise</code>/<code>obs_noise</code> (numbers, the built-in noise levels — no <code>Q</code>/<code>R</code> argument needed at <code>predict</code>/<code>update</code> time), <code>spread</code> (number, initial scatter), and an optional integer <code>seed=</code>. Returns a <code>kind="particle_tracker"</code> state Record whose predict step is a single matmul across all particles, so it can go to the GPU.</td></tr>
+<tr><td><code>predict</code> (linear)</td><td><code>state.predict(F, Q)</code></td><td>On a <code>kind="kalman"</code> state, <code>F</code> a <code>(D, D)</code> transition matrix and <code>Q</code> a <code>(D, D)</code> process-noise covariance. Computes <code>x' = F·x</code>, <code>P' = F·P·Fᵀ + Q</code>. Returns a new state Record.</td></tr>
+<tr><td><code>predict</code> (EKF/UKF)</td><td><code>state.predict("process_fn", Q, [jac=], [method=])</code></td><td>On a <code>kind="kalman"</code> state, <code>"process_fn"</code> a string naming an in-scope function <code>(x) -&gt; x'</code>, <code>Q</code> a <code>(D, D)</code> process-noise covariance, <code>jac=</code> an optional string naming the process function's Jacobian <code>(x) -&gt; (D, D)</code> matrix (EKF only), and <code>method=</code> <code>"ekf"</code> (default) or <code>"ukf"</code>. The function itself is evaluated exactly; only the covariance propagation linearizes for EKF. <code>"ukf"</code> pushes sigma points through instead and rejects <code>jac=</code> outright, since a UKF has no Jacobian to take. Returns a new state Record.</td></tr>
+<tr><td><code>predict</code> (particle)</td><td><code>state.predict("process_fn")</code></td><td>On a <code>kind="particle_filter"</code> state, <code>"process_fn"</code> a string naming an in-scope function <code>(particle) -&gt; particle'</code> applied to every one of the <code>n</code> particles; the function is expected to inject its own noise — there is no <code>Q</code> argument here. Returns a new state Record with updated <code>particles</code>.</td></tr>
+<tr><td><code>predict</code>/<code>move</code> (tracker)</td><td><code>state.predict(dt)</code> / <code>state.move(dt)</code></td><td>On a <code>kind="particle_tracker"</code> state, <code>dt</code> a number (the timestep). Advances every particle by one constant-velocity step (one matmul across all of them) then adds process noise scaled by <code>dt</code>. <code>move</code> is an alias for the same call — it exists because for this state a "predict" really is a concrete motion update. Returns a new state Record.</td></tr>
+<tr><td><code>move</code></td><td><code>state.move(dt)</code></td><td>Exactly <code>predict(dt)</code> on a <code>kind="particle_tracker"</code> state — the row above — under a verb that says what the step is: for this filter the predict step really is a concrete constant-velocity motion update, not the estimation family's generic <code>predict(transition, Q)</code>. <code>dt</code> is a number, the timestep. Calling it on any other kind of state errors rather than silently falling back to <code>predict</code>. Returns a new <code>kind="particle_tracker"</code> state Record; the original <code>state</code> is left untouched.</td></tr>
+<tr><td><code>update</code> (linear)</td><td><code>state.update(H, z, R)</code></td><td>On a <code>kind="kalman"</code> state, <code>H</code> a <code>(M, D)</code> observation matrix, <code>z</code> a length-<code>M</code> measurement vector, <code>R</code> an <code>(M, M)</code> measurement-noise covariance. Applies the standard Kalman gain, state, and covariance correction. Returns a new state Record.</td></tr>
+<tr><td><code>update</code> (EKF/UKF)</td><td><code>state.update("obs_fn", z, R, [jac=], [method=])</code></td><td>On a <code>kind="kalman"</code> state, <code>"obs_fn"</code> a string naming an in-scope observation function <code>(x) -&gt; z</code>, <code>z</code> a length-<code>M</code> measurement vector, <code>R</code> an <code>(M, M)</code> measurement-noise covariance, <code>jac=</code>/<code>method=</code> the same EKF/UKF choice <code>predict</code> takes, applied here to the observation model instead. Returns a new state Record.</td></tr>
+<tr><td><code>update</code> (particle)</td><td><code>state.update("likelihood_fn", z, [resample_threshold=0.5], [seed=])</code></td><td>On a <code>kind="particle_filter"</code> state, <code>"likelihood_fn"</code> a string naming an in-scope function <code>(particle, z) -&gt; weight</code>, <code>z</code> the measurement (shape matching what <code>likelihood_fn</code> expects), <code>resample_threshold</code> a number in <code>(0, 1]</code> (fraction of <code>n</code> below which resampling triggers, default 0.5), and an optional integer <code>seed=</code>. Reweights every particle, renormalizes, and resamples once the effective sample size falls below the threshold. Returns a new state Record with <code>neff</code> (a number) and <code>resampled</code> (a boolean) added.</td></tr>
+<tr><td><code>update</code> (tracker)</td><td><code>state.update(observation, [resample_threshold=0.5], [seed=])</code></td><td>On a <code>kind="particle_tracker"</code> state, <code>observation</code> a position-only measurement (velocity is unobserved), using the <code>obs_noise</code> stored on the state rather than a fresh <code>R</code> argument; <code>resample_threshold</code>/<code>seed=</code> as above. Returns a new state Record.</td></tr>
+<tr><td><code>estimate</code></td><td><code>state.estimate()</code></td><td>Reads a point estimate off any estimation-family state with no arguments. Returns the particle weighted-mean vector (length-<code>D</code>) for a particle filter/tracker, or a Kalman/EKF/UKF state's <code>x</code> vector directly.</td></tr>
+</table></div>
+<p>Two things that cost time if you meet them the hard way. <strong></strong><code>as matrix(r, c)</code> fills column by column<strong>, so </strong><code>[1, 0, 1, 1] as matrix(2, 2)</code> is the matrix whose first row is <code>1 1</code> — write the transition down and then read it back before trusting it. And <code>jac=</code> with <code>method="ukf"</code> is a rejected error rather than a silently ignored argument, because a UKF has no Jacobian to take.</p>
+<p>The example below is the linear case — the one every other variant in the table above specializes: a constant-velocity <code>[position, velocity]</code> state tracked from noisy position-only measurements. Each loop iteration calls <code>predict</code> then <code>update</code> and keeps the new state, exactly the "returns a new state, nothing is mutated" contract every estimation function in this section follows; <code>rmse</code> at the end compares the raw noisy measurements against the filtered estimate, so you can see the filter is actually doing something rather than just running:</p>
+<div class="example"><pre class="hl"><code>truth = <span class="f">zeros</span>(<span class="n">60</span>)
+meas = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    truth[t] = <span class="n">0.5</span> * t
+    meas[t] = truth[t] + <span class="f">randn</span>() * <span class="n">2</span>
+<span class="k">end</span> <span class="k">for</span>
+
+F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)     <span class="c"># column-major: rows are [1, 1] and [0, 1]</span>
+Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+H = [<span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">10</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+est = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [meas[t]], R)
+    est[t] = s.<span class="f">estimate</span>()[<span class="n">0</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">"measurement error: {round(rmse(truth, meas), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"filtered error:    {round(rmse(truth, est), 3)}"</span>)
+<span class="f">scatter</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, meas, <span class="a">color</span> = <span class="s">"#94a3b8"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, truth, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">label</span> = <span class="s">"truth"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, est, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"Kalman"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"constant-velocity Kalman filter"</span>)
+</code></pre>
+</div>
+<h2 id="s755">Markov chains and hidden Markov models</h2>
+<p>Their own verbs — <code>simulate</code>/<code>stationary</code>, <code>forward</code>/<code>viterbi</code> — because neither model has an <code>X</code> to predict from.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>markov_chain</code></td><td><code>markov_chain(P, [initial_state=0])</code></td><td>Builds a discrete Markov chain from an <code>(S, S)</code> row-stochastic transition matrix <code>P</code> (every row must sum to 1 — rows that don't are rejected outright, never quietly renormalized) and an integer <code>initial_state</code> (default 0, a state index in <code>0..S-1</code>). Returns a <code>kind="markov_chain"</code> Record with field <code>transition</code> (the <code>(S, S)</code> matrix <code>P</code> itself) and methods <code>.simulate</code>/<code>.stationary</code>.</td></tr>
+<tr><td><code>simulate</code></td><td><code>chain.simulate(n_steps, [seed=])</code></td><td>Draws one random trajectory from a <code>markov_chain</code> <code>chain</code>, starting at its <code>initial_state</code>, for an integer <code>n_steps</code> transitions (with an optional integer <code>seed=</code>). Returns a length-<code>n_steps + 1</code> vector of integer state indices.</td></tr>
+<tr><td><code>stationary</code></td><td><code>chain.stationary()</code></td><td>Computes the long-run state distribution of a <code>markov_chain</code> <code>chain</code> by power iteration; converges for any irreducible, aperiodic chain. Returns a length-<code>S</code> probability vector.</td></tr>
+<tr><td>*(n-step)*</td><td><code>chain.transition ^ n</code></td><td>The <code>n</code>-step transition matrix needs no dedicated builtin — <code>^</code> is already matrix power, so raising <code>chain.transition</code> (an <code>(S, S)</code> matrix) to an integer <code>n</code> gives the <code>(S, S)</code> matrix of <code>n</code>-step transition probabilities directly.</td></tr>
+<tr><td><code>hmm</code></td><td><code>hmm(transition, emission, initial)</code></td><td>Builds a discrete hidden Markov model from an <code>(S, S)</code> row-stochastic hidden-state transition matrix <code>transition</code>, an <code>(S, O)</code> row-stochastic emission matrix <code>emission</code> (<code>O</code> the number of observable symbols), and a length-<code>S</code> initial-state distribution <code>initial</code>. Returns a <code>kind="hmm"</code> Record with methods <code>.forward</code>/<code>.viterbi</code>. Parameter fitting (Baum-Welch) is <strong>not</strong> implemented — the transition/emission matrices must already be known.</td></tr>
+<tr><td><code>forward</code></td><td><code>hmm.forward(obs)</code></td><td>Runs the forward algorithm on an <code>hmm</code> model <code>hmm</code> for a length-<code>T</code> integer observation-symbol sequence <code>obs</code> (each entry a 0-based column index into <code>emission</code>). Returns a single number: the total probability of that observation sequence, summed over every possible hidden-state path.</td></tr>
+<tr><td><code>viterbi</code></td><td><code>hmm.viterbi(obs)</code></td><td>Runs the Viterbi algorithm on an <code>hmm</code> model <code>hmm</code> for a length-<code>T</code> integer observation sequence <code>obs</code> (same encoding as <code>forward</code>). Returns a length-<code>T</code> vector of integer hidden-state indices: the single most likely path, not a distribution over paths.</td></tr>
+</table></div>
+<p>The example below covers both models. First, a two-state weather chain: <code>stationary</code> gives the long-run fraction of time in each state, and <code>chain.transition ^ 3</code> shows the 3-step transition probabilities computed with plain matrix power, no dedicated builtin needed. Second, a classic two-state HMM (healthy/sick, observing normal/cold/dizzy symptoms): <code>forward</code> totals the probability of one specific three-day observation sequence over every possible hidden-health-state path, and <code>viterbi</code> picks out the single most likely path instead.</p>
+<div class="example"><pre class="hl"><code>P = [<span class="n">0.9</span>, <span class="n">0.5</span>, <span class="n">0.1</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)   <span class="c"># column-major: rows [0.9 0.1], [0.5 0.5]</span>
+chain = <span class="f">markov_chain</span>(P, <span class="n">0</span>)
+<span class="f">print</span>(<span class="s">"stationary: {round(chain.stationary(), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"3-step:     {round(chain.transition ^ 3, 4)}"</span>)
+
+trans = [<span class="n">0.7</span>, <span class="n">0.4</span>, <span class="n">0.3</span>, <span class="n">0.6</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+emit  = [<span class="n">0.5</span>, <span class="n">0.1</span>, <span class="n">0.4</span>, <span class="n">0.3</span>, <span class="n">0.1</span>, <span class="n">0.6</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">3</span>)
+h = <span class="f">hmm</span>(trans, emit, [<span class="n">0.6</span>, <span class="n">0.4</span>])
+<span class="f">print</span>(<span class="s">"P(normal, cold, dizzy) = {round(h.forward([0, 1, 2]), 5)}"</span>)
+<span class="f">print</span>(<span class="s">"most likely path       = {h.viterbi([0, 1, 2])}"</span>)
+</code></pre>
+</div>
+<h2 id="s813">Computational geometry</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>voronoi</code></td><td><code>voronoi(points)</code></td><td>Computes the Voronoi diagram of an <code>(N, 2)</code> point matrix <code>points</code>, built on a real Delaunay triangulation. Returns a Record with fields <code>points</code> (the input <code>(N, 2)</code> matrix, unchanged), <code>cells</code> (a length-<code>N</code> list, one entry per input point, each a list of <code>(x, y)</code> vertex coordinates outlining that point's Voronoi cell), and <code>bounded</code> (a length-<code>N</code> vector of 0/1 flags, one per point).</td></tr>
+</table></div>
+<p>A cell that reaches infinity has no finite vertex list to give you, so <code>cells</code> is empty or partial there and <code>bounded</code> is <code>0</code>. On a small point set that is most of them. The example below computes the Voronoi diagram of a perfect square's four corners — every corner cell is unbounded, because with only four points there is nothing to close any of them off — and prints the one interior vertex that does show up: the square's centre, shared by all four unbounded cells.</p>
+<div class="example"><pre class="hl"><code>pts = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">2</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)   <span class="c"># the corners of a square</span>
+v = <span class="f">voronoi</span>(pts)
+<span class="f">print</span>(<span class="s">"bounded: {v.bounded}"</span>)      <span class="c"># every corner cell is unbounded</span>
+<span class="f">print</span>(<span class="s">"cell 0:  {v.cells[0]}"</span>)     <span class="c"># the one finite vertex: the centre</span>
+</code></pre>
+</div>
+<h2 id="s855">Feature scaling</h2>
+<p><code>fit_scaler</code> with <code>.transform</code>/<code>.inverse_transform</code> is the fit-once path — fit on training data, apply unchanged to a test set. The four one-shot verbs fit and apply in the same call, with nothing kept. All of them work column-wise on a matrix, whole on a vector, and per numeric column on a table.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>normalize</code></td><td><code>normalize(X)</code></td><td>Min-max scaling of <code>X</code> (a vector, an <code>N</code>-row/<code>D</code>-column matrix scaled column-wise, or a table scaled per numeric column) to <code>[0, 1]</code>: <code>(x - min) / (max - min)</code>. Returns a value the same shape as <code>X</code>.</td></tr>
+<tr><td><code>standardize</code></td><td><code>standardize(X)</code></td><td>z-score scaling of <code>X</code> (vector, matrix column-wise, or table per numeric column): <code>(x - mean) / std</code>. Returns a value the same shape as <code>X</code>, mean 0 and unit variance per column/vector.</td></tr>
+<tr><td><code>robust_scale</code></td><td><code>robust_scale(X)</code></td><td>Outlier-resistant scaling of <code>X</code> (vector, matrix column-wise, or table per numeric column): <code>(x - median) / IQR</code>. Neither the median nor the interquartile range moves much when one extreme value arrives, unlike <code>standardize</code>'s mean/std. Returns a value the same shape as <code>X</code>.</td></tr>
+<tr><td><code>quantile_normalize</code></td><td><code>quantile_normalize(X)</code></td><td>Rank-based scaling of <code>X</code> (vector, matrix column-wise, or table per numeric column): each value is replaced by its rank against its own column, rescaled uniform onto <code>[0, 1]</code>. Returns a value the same shape as <code>X</code>; tied input values land on the same output rank.</td></tr>
+<tr><td><code>fit_scaler</code></td><td><code>fit_scaler(X, [method=])</code></td><td>Fits and stores scaling parameters from an <code>N</code>-row, <code>D</code>-column matrix (or vector, or table) <code>X</code>, for reuse on new data — the fit-once path, as opposed to the four one-shot verbs above. <code>method</code> is a string, one of <code>"standard"</code>, <code>"minmax"</code>, <code>"robust"</code>, <code>"quantile"</code> (default <code>"standard"</code>). Returns a fitted scaler Record carrying the per-column parameters (e.g. <code>mean</code>/<code>std</code> for <code>"standard"</code>) plus <code>.transform</code>/<code>.inverse_transform</code>.</td></tr>
+<tr><td><code>transform</code></td><td><code>scaler.transform(newX)</code></td><td>Applies a fitted scaler Record <code>scaler</code>'s stored parameters to a new matrix/vector/table <code>newX</code> with the same columns it was fitted on. Never refits, even if <code>newX</code>'s own statistics differ. Returns a value the same shape as <code>newX</code>.</td></tr>
+<tr><td><code>inverse_transform</code></td><td><code>scaler.inverse_transform(newX)</code></td><td>Undoes a fitted scaler Record <code>scaler</code>'s transform on an already-scaled matrix/vector/table <code>newX</code>, returning it to the original units. Returns a value the same shape as <code>newX</code>; lossy for a <code>"quantile"</code>-method scaler when the originally-fitted data had ties.</td></tr>
+</table></div>
+<p>One outlier is enough to show why the choice matters. <code>normalize</code> and <code>standardize</code> are the two everyday defaults — min-max to a fixed range, or z-score to mean 0 and unit variance — but both let a single extreme value dominate the whole scale, which is exactly what the example below shows by comparing <code>standardize</code> against the outlier-resistant <code>robust_scale</code> on the same eight numbers:</p>
+<div class="example"><pre class="hl"><code>raw = [<span class="n">2</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">5</span>, <span class="n">7</span>, <span class="n">900</span>]
+<span class="f">print</span>(<span class="s">"standardize:  {round(standardize(raw), 2)}"</span>)
+<span class="f">print</span>(<span class="s">"robust_scale: {round(robust_scale(raw), 2)}"</span>)
+</code></pre>
+</div>
+<p><code>standardize</code> squeezes every real value into a band a hundredth of a unit wide, because the outlier owns the standard deviation. <code>robust_scale</code> leaves them spread out and lets the outlier be the outlier.</p>
+<p><code>quantile_normalize</code> throws away the values entirely and keeps only the rank, so the outlier stops mattering at all:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"quantile_normalize: {round(quantile_normalize(raw), 3)}"</span>)
+</code></pre>
+</div>
+<p>The four tied <code>4</code>s and <code>5</code>s land on the same rank, which is why the result has runs of equal values rather than eight evenly spaced ones.</p>
+<h4>Overloads: <code>standardize</code></h4>
+<h4>Case: vector</h4>
+<p>A plain <code>Vec</code> is standardized as a whole -- one mean, one std, across every element.</p>
+<div class="example"><pre class="hl"><code>sv = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
+<span class="f">print</span>(<span class="s">"standardize on a vector: {round(standardize(sv), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: matrix</h4>
+<p>An <code>N</code>-row, <code>D</code>-column <code>Mat</code> is standardized column by column -- each column gets its own mean and std, independent of the others.</p>
+<div class="example"><pre class="hl"><code>sm = [<span class="n">1.0</span>, <span class="n">100.0</span>; <span class="n">2.0</span>, <span class="n">200.0</span>; <span class="n">3.0</span>, <span class="n">300.0</span>]
+<span class="f">print</span>(<span class="s">"standardize on a matrix, per column: {round(standardize(sm), 3)}"</span>)
+</code></pre>
+</div>
+<h4>Case: table</h4>
+<p>A table is standardized per numeric column, exactly like a matrix -- a non-numeric column (a label, say) passes through untouched instead of erroring.</p>
+<div class="example"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
+<span class="f">print</span>(<span class="s">"standardize on a table, per numeric column (label untouched):"</span>)
+<span class="f">print</span>(<span class="f">standardize</span>(st))
+</code></pre>
+</div>
+<p><code>normalize</code>, <code>robust_scale</code> and <code>quantile_normalize</code> all branch the same three ways.</p>
+<h2 id="s890">Splitting and evaluation</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>train_test_split</code></td><td><code>train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code></td><td>Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into training and test sets, <code>X</code> and <code>y</code> permuted together by the same random order (unless <code>shuffle=false</code>). <code>test_size</code> is a number in <code>(0, 1)</code> giving the test fraction (default 0.2), and <code>seed=</code> an optional integer. Returns a Record with <code>X_train</code>, <code>X_test</code> (matrices), <code>y_train</code>, <code>y_test</code> (vectors).</td></tr>
+<tr><td><code>sequential_split</code></td><td><code>sequential_split(X, y, [test_size=0.2])</code></td><td>The same shape as <code>train_test_split</code> on <code>X</code>/<code>y</code>/<code>test_size</code>, but never shuffles: the first rows become the training set, the last rows the test set, in their original order. Returns a Record with <code>X_train</code>, <code>X_test</code>, <code>y_train</code>, <code>y_test</code>.</td></tr>
+<tr><td><code>stratified_split</code></td><td><code>stratified_split(X, y, [test_size=0.2], [seed=])</code></td><td>The same shape as <code>train_test_split</code> on <code>X</code>/<code>y</code>/<code>test_size</code>/<code>seed=</code>, but splits each class of <code>y</code> separately before combining, so a rare class keeps its proportion in both sets every time rather than only on average. Returns a Record with <code>X_train</code>, <code>X_test</code>, <code>y_train</code>, <code>y_test</code>.</td></tr>
+<tr><td><code>train_val_test_split</code></td><td><code>train_val_test_split(X, y, [val_size=0.2], [test_size=0.2], [seed=], [shuffle=true])</code></td><td>Three-way split of <code>X</code>/<code>y</code> into training, validation, and test sets: <code>val_size</code>/<code>test_size</code> are numbers in <code>(0, 1)</code> (both default 0.2); <code>val_size</code> is rescaled against the remainder left after removing the test set, so the final validation share really is what you asked for rather than a share of a share. Returns a Record with <code>X_train</code>/<code>X_val</code>/<code>X_test</code> (matrices) and <code>y_train</code>/<code>y_val</code>/<code>y_test</code> (vectors).</td></tr>
+<tr><td><code>confusion_matrix</code></td><td><code>confusion_matrix(actual, predicted, [n_classes])</code></td><td>Draws a confusion-matrix heatmap comparing a length-<code>N</code> vector of true labels <code>actual</code> against a length-<code>N</code> vector of predicted labels <code>predicted</code>, over an optional integer <code>n_classes</code> (inferred from the data if omitted). This is a plotting side effect, not a computed matrix handed back to the caller. Returns <code>Nothing</code>.</td></tr>
+</table></div>
+<p><code>sequential_split</code> exists under its own name rather than as <code>train_test_split(..., shuffle = false)</code> because shuffling time-ordered rows before splitting leaks the future into training, and that bug is invisible in the results — the model just looks good. The example below runs all three split strategies plus the three-way split, printing the row counts each one produces, then trains a quick classifier on the stratified split and hands its predictions to <code>confusion_matrix</code> to draw:</p>
+<div class="example"><pre class="hl"><code>seq = <span class="f">sequential_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.2</span>)
+<span class="f">print</span>(<span class="s">"sequential_split train rows: {rows(seq.X_train)}"</span>)
+
+strat = <span class="f">stratified_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"stratified_split train rows: {rows(strat.X_train)}"</span>)
+
+tvt = <span class="f">train_val_test_split</span>(Xc, yc, <span class="a">val_size</span> = <span class="n">0.2</span>, <span class="a">test_size</span> = <span class="n">0.2</span>, <span class="a">seed</span> = <span class="n">9</span>)
+<span class="f">print</span>(<span class="s">"train/val/test rows: {rows(tvt.X_train)}, {rows(tvt.X_val)}, {rows(tvt.X_test)}"</span>)
+
+m = <span class="f">knn_model</span>(strat.X_train, strat.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+<span class="f">confusion_matrix</span>(strat.y_test, m.<span class="f">predict</span>(strat.X_test), <span class="n">2</span>)
+</code></pre>
+</div>
+<p><code>confusion_matrix</code> draws its heatmap and returns nothing, which is why it sits alone on its own line rather than feeding a <code>print</code>.</p>
+<h2 id="s934">Random distributions</h2>
+<p>The parameters come first and the size (<code>rows</code>, <code>cols</code>, both defaulting to 1) after. An explicit <code>seed=</code> gives a fresh reproducible stream; without one, the shared stream advances.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>rand</code></td><td><code>rand([rows], [cols], [seed=])</code></td><td>Draws from the uniform distribution on <code>[0, 1)</code>. <code>rows</code>/<code>cols</code> are integers, both defaulting to 1, giving the output shape (a number if both are 1, otherwise a vector or <code>(rows, cols)</code> matrix); an optional integer <code>seed=</code> starts a fresh reproducible stream, otherwise the shared stream advances. Returns a scalar <code>Num</code> when <code>rows</code> and <code>cols</code> are both 1, a <code>Vec</code> when one of them is, and a <code>(rows, cols)</code> <code>Mat</code> otherwise.</td></tr>
+<tr><td><code>randn</code></td><td><code>randn([rows], [cols], [seed=])</code></td><td>Draws from the standard normal distribution (mean 0, std 1), same <code>rows</code>/<code>cols</code>/<code>seed=</code> shape as <code>rand</code>. Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>seed</code></td><td><code>seed(n)</code></td><td>Reseeds the shared random stream with integer <code>n</code>, so subsequent calls to <code>rand</code>/<code>randn</code>/etc. without their own <code>seed=</code> become reproducible from this point on. Returns nothing.</td></tr>
+<tr><td><code>uniform</code></td><td><code>uniform(a, b, [rows], [cols], [seed=])</code></td><td>Draws from the uniform distribution on <code>[a, b)</code>, two numbers <code>a &lt; b</code>, with the same <code>rows</code>/<code>cols</code>/<code>seed=</code> shape as <code>rand</code>. Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>normal</code></td><td><code>normal(mu, sigma, [rows], [cols], [seed=])</code></td><td>Draws from a Gaussian. <code>mu</code> (number) is the mean; <code>sigma</code> (number) is the standard deviation; <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable. Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>randi</code></td><td><code>randi(lo, hi, [rows], [cols], [seed=])</code></td><td>Draws random integers. <code>lo</code> (number) is the smallest value that can come out; <code>hi</code> (number) is the largest, <strong>inclusive at both ends</strong> (MATLAB's convention, not NumPy's half-open one, so <code>randi(1, 6)</code> really can return <code>6</code>); <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable. Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>poisson</code></td><td><code>poisson(lambda, [rows], [cols], [seed=])</code></td><td>Exact Poisson draws. <code>lambda</code> (a positive number) is the rate, which is also the mean and the variance of the result; <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable. Slow, not wrong, for very large <code>lambda</code>. Returns a number, vector, or <code>(rows, cols)</code> matrix of non-negative integers.</td></tr>
+<tr><td><code>exponential</code></td><td><code>exponential(rate, [rows], [cols], [seed=])</code></td><td>Exponential draws. <code>rate</code> (a positive number) is the <strong>rate</strong>, not the scale: the mean is <code>1/rate</code>, and NumPy instead takes <code>scale = 1/rate</code> directly, so a value copied from NumPy needs inverting; <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable.  Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>binomial</code></td><td><code>binomial(n_trials, p, [rows], [cols], [seed=])</code></td><td>Exact binomial draws. <code>n_trials</code> (a positive integer) is how many trials each draw counts successes over; <code>p</code> (a number in <code>[0, 1]</code>) is the success probability of one trial; <code>rows</code> and <code>cols</code> (numbers, optional) give the shape of the draw, one number for a vector and two for a matrix; <code>seed=</code> (number, optional) makes the draw repeatable. Returns a number, vector, or <code>(rows, cols)</code> matrix of non-negative integers.</td></tr>
+<tr><td><code>chisquare</code></td><td><code>chisquare(k, [rows], [cols], [seed=])</code></td><td>Draws from the chi-square distribution with <code>k</code> degrees of freedom (a positive integer), same <code>rows</code>/<code>cols</code>/<code>seed=</code> shape as <code>rand</code>. Returns a number, vector, or <code>(rows, cols)</code> matrix.</td></tr>
+<tr><td><code>chi2pdf</code></td><td><code>chi2pdf(x, k)</code></td><td>Chi-square probability density at <code>x</code> (a number or vector, elementwise) with <code>k</code> degrees of freedom (a positive number), computed in log space so it survives modest <code>k</code> without overflowing. Returns a number or vector the same shape as <code>x</code>.</td></tr>
+<tr><td><code>chi2cdf</code></td><td><code>chi2cdf(x, k)</code></td><td>Chi-square cumulative distribution <code>P(X &lt;= x)</code> at <code>x</code> (a number or vector, elementwise) with <code>k</code> degrees of freedom. Returns a number or vector in <code>[0, 1]</code>, the same shape as <code>x</code>.</td></tr>
+<tr><td><code>normpdf</code></td><td><code>normpdf(x, [mu=0], [sigma=1])</code></td><td>Gaussian probability density at <code>x</code> (a number or vector, elementwise) with mean <code>mu</code> (default 0) and standard deviation <code>sigma</code> (default 1). Returns a number or vector the same shape as <code>x</code>.</td></tr>
+<tr><td><code>mvnpdf</code></td><td><code>mvnpdf(x, mu, Sigma)</code></td><td>Multivariate Gaussian density at a length-<code>D</code> point <code>x</code>, with a length-<code>D</code> mean vector <code>mu</code> and a <code>(D, D)</code> covariance matrix <code>Sigma</code>, evaluated through <code>Sigma</code>'s Cholesky factor rather than an explicit matrix inverse (faster, and numerically stabler for a near-singular covariance). Returns a single number.</td></tr>
+<tr><td><code>random_walk</code></td><td><code>random_walk(n_steps, [drift=0], [volatility=1], [seed=])</code></td><td>Generates a discretized Wiener-process path: <code>n_steps</code> (a positive integer) increments, each drawn <code>~ Normal(drift, volatility)</code>, cumulatively summed, with an optional integer <code>seed=</code>. Returns a length-<code>n_steps + 1</code> vector starting at 0, where <code>Var(x[n]) = n * volatility^2</code>.</td></tr>
+</table></div>
+<p>The first example draws 4000 samples from a Gaussian with a known mean and standard deviation, confirms the sample statistics land close to the parameters that generated them, and plots the resulting histogram:</p>
+<div class="example"><pre class="hl"><code>draws = <span class="f">normal</span>(<span class="n">10</span>, <span class="n">2</span>, <span class="n">4000</span>, <span class="a">seed</span> = <span class="n">77</span>)
+<span class="f">print</span>(<span class="s">"mean {round(mean(draws), 3)}, std {round(std(draws), 3)}"</span>)
+<span class="f">hist</span>(draws, <span class="a">bins</span> = <span class="n">40</span>, <span class="a">color</span> = <span class="s">"#4169e1"</span>)
+<span class="f">title</span>(<span class="s">"normal(mu = 10, sigma = 2), 4000 draws"</span>)
+<span class="f">xlabel</span>(<span class="s">"value"</span>)
+</code></pre>
+</div>
+<p><code>rand</code> and <code>seed</code> are the plain uniform stream and its reset — reseeding with <code>seed(42)</code> fixes what every later unseeded call draws, while an explicit <code>seed=</code> on a single call always wins over whatever the shared stream is doing. <code>chi2pdf</code> and <code>normpdf</code> are densities rather than draws: they take a point and return how likely it is, with no randomness involved at all. <code>random_walk</code> is a cumulative path, not an independent sample each step, so its last value is the sum of every increment before it:</p>
+<div class="example"><pre class="hl"><code><span class="f">seed</span>(<span class="n">42</span>)                             <span class="c"># reseed the shared stream</span>
+u = <span class="f">rand</span>(<span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)                <span class="c"># an explicit seed still wins</span>
+<span class="f">print</span>(<span class="s">"rand draws: {round(u, 3)}"</span>)
+<span class="f">print</span>(<span class="s">"chi2pdf(2, 3):  {round(chi2pdf(2, 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"normpdf(0):     {round(normpdf(0), 4)}"</span>)
+
+walk = <span class="f">random_walk</span>(<span class="n">20</span>, <span class="a">drift</span> = <span class="n">0.1</span>, <span class="a">volatility</span> = <span class="n">1.0</span>, <span class="a">seed</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"random walk, last value: {round(walk[19], 3)}"</span>)
+</code></pre>
+</div>
+<h2 id="s974">Putting it together</h2>
+<p>Everything above shows one call at a time. Two things only make sense as a sequence: reusing a scaler that was fitted somewhere else, and composing a transform with an estimator.</p>
+<p><strong>Fit the scaling on the training set, apply it unchanged to the test set.</strong> This is the whole reason <code>fit_scaler</code> exists as a separate step — scaling the test set on its own statistics leaks it into the model.</p>
+<div class="example"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
+scaler = <span class="f">fit_scaler</span>(split.X_train, <span class="a">method</span> = <span class="s">"standard"</span>)
+<span class="f">print</span>(<span class="s">"training column means: {round(scaler.mean, 3)}"</span>)
+
+Xtr = scaler.<span class="f">transform</span>(split.X_train)
+Xte = scaler.<span class="f">transform</span>(split.X_test)
+<span class="f">print</span>(<span class="s">"train columns after scaling: {round(mean(Xtr, axis = 0), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"test columns after scaling:  {round(mean(Xte, axis = 0), 3)}"</span>)
+</code></pre>
+</div>
+<p>The training columns come out at zero because that is what they were centred on. The test columns do not, and that is correct: they were scaled by numbers the model was allowed to know.</p>
+<p><strong>A pipeline does the same thing without you carrying the transform around.</strong> Every stage but the last is <code>(X) -&gt; X</code>; the last is <code>(X, y) -&gt; Model</code>. Stages are named by string, the same convention <code>pmap</code> uses.</p>
+<div class="example"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
+<span class="f">final</span>(A, b) := <span class="f">ridge_model</span>(A, b, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"standardize_cols"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
+<span class="f">print</span>(<span class="s">"held-out R2: {round(fitted.score(split.X_test, split.y_test), 4)}"</span>)
+</code></pre>
+</div>
+<p><code>.predict</code> and <code>.score</code> on the fitted pipeline replay <code>standardize_cols</code> before delegating, so the test set goes through exactly the transform the training set did.</p>
+<h2 id="s1013">More functions</h2>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>corrcoef</code></td><td><code>corrcoef(M)</code></td><td>Called on an <code>N</code>-row, <code>D</code>-column matrix or table <code>M</code>, returns the full <code>(D, D)</code> matrix of pairwise Pearson correlations between its columns. For two length-<code>N</code> vectors <code>x</code>/<code>y</code>, use <code>corr(x, y)</code> instead, which returns their correlation as a single number. <code>corr_heatmap</code> draws the same <code>corrcoef</code> numbers as a plot. Returns a <code>(D, D)</code> <code>Mat</code>, symmetric with ones down the diagonal.</td></tr>
+<tr><td><code>mae</code>, <code>mse</code>, <code>rmse</code></td><td><code>rmse(actual, predicted)</code></td><td>The regression-error trio, each taking a length-<code>N</code> vector of true values <code>actual</code> and a length-<code>N</code> vector of predictions <code>predicted</code>, and returning a single number: <code>mae</code> the mean absolute error, <code>mse</code> the mean squared error, <code>rmse</code> its square root. <code>.score(X, y)</code> on a model already gives R-squared; these three give the plain error numbers instead, in the target's own units for <code>mae</code> and <code>rmse</code> (<code>mse</code> is in squared units). Returns a scalar <code>Num</code>.</td></tr>
+<tr><td><code>precision</code>, <code>recall</code>, <code>f1</code></td><td><code>f1(actual, predicted)</code></td><td>Classification metrics on a length-<code>N</code> vector of true labels <code>actual</code> and a length-<code>N</code> vector of predicted labels <code>predicted</code>, each returning a single number macro-averaged over every class present (the per-class score averaged with equal weight, regardless of how many examples that class has), so the same call works on binary and multi-class labels alike. Returns a scalar <code>Num</code> in <code>[0, 1]</code>.</td></tr>
+<tr><td><code>k_fold</code></td><td><code>k_fold(X, y, folds)</code></td><td>Splits an <code>N</code>-row feature matrix <code>X</code> and a length-<code>N</code> target vector <code>y</code> into an integer number of <code>folds</code> cross-validation folds. Returns a length-<code>folds</code> list, each entry a Record with <code>X_train</code>/<code>X_test</code>/<code>y_train</code>/<code>y_test</code> for that fold; the loop over them (fitting a model per fold and averaging the score) is yours to write.</td></tr>
+<tr><td><code>cv_stability</code></td><td><code>cv_stability(X, y, [n_repeats=10], [cv_folds=5])</code></td><td>Repeats cross-validation <code>n_repeats</code> times (integer, default 10) with <code>cv_folds</code> folds each (integer, default 5) on an <code>N</code>-row <code>X</code> and length-<code>N</code> <code>y</code>, reshuffling between repeats. Returns a length-<code>n_repeats</code> vector of the raw per-repeat scores (not just their average): <code>mean</code> and <code>std</code> of the result give the usual score-plus-variability summary, and a wide spread means the single number you were about to quote was luck.</td></tr>
+<tr><td><code>ablation_study</code></td><td><code>ablation_study(X, y, [cv_folds=3])</code></td><td>Computes one importance score per feature column of an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>, using <code>cv_folds</code> folds (integer, default 3): the full model's cross-validated score minus the score of the same model refit without that column. Returns a length-<code>D</code> vector of importance scores — a report on each feature's contribution, not a selection of which to keep.</td></tr>
+<tr><td><code>rfe</code></td><td><code>rfe(X, y, n_features)</code></td><td>Recursive feature elimination on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>, down to an integer target <code>n_features</code>: repeatedly drops the weakest-scoring remaining column and refits. Returns a vector of the kept column indices, zero-based, length <code>n_features</code>.</td></tr>
+<tr><td><code>mutual_info_classif</code></td><td><code>mutual_info_classif(X, y, [k=3])</code></td><td>k-nearest-neighbour mutual information between each column of an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> discrete label vector <code>y</code>, using <code>k</code> neighbours (integer, default 3). Returns a length-<code>D</code> vector of non-negative scores, one per feature; catches a relationship that is real but not linear, which <code>corr</code>/<code>corrcoef</code> misses.</td></tr>
+<tr><td><code>astar_mrmr</code></td><td><code>astar_mrmr(X, y, n_features, ...)</code></td><td>A guided (A*) search on an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code> for a feature subset of size <code>n_features</code> (integer) that is relevant to the target and not redundant with itself (minimum-redundancy-maximum-relevance). Returns a vector of the selected column indices, zero-based, length <code>n_features</code>, the same convention as <code>rfe</code>.</td></tr>
+<tr><td><code>permutation_importance</code></td><td><code>permutation_importance(model, X, y, [n_repeats=])</code></td><td>Shuffles one column of an <code>N</code>-row, <code>D</code>-column <code>X</code> at a time and re-scores an already-fitted model Record <code>model</code> against the matching length-<code>N</code> target <code>y</code>, over <code>n_repeats</code> shuffles per column (integer). Returns a length-<code>D</code> vector of importance scores (drop in score caused by shuffling that column); works on any fitted model because it perturbs the input rather than reaching inside the model itself.</td></tr>
+</table></div>
+<p>The error and classification metrics, plus the model-selection helpers above them, all line up against the regression and classification data from earlier in this chapter:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+
+m = <span class="f">ols_model</span>(X, y)
+yhat = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"mae: {round(mae(y, yhat), 4)}, mse: {round(mse(y, yhat), 4)}"</span>)
+
+cm = <span class="f">knn_model</span>(Xc, yc, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+predc = cm.<span class="f">predict</span>(Xc)
+<span class="f">print</span>(<span class="s">"precision: {round(precision(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"recall:    {round(recall(yc, predc), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"f1:        {round(f1(yc, predc), 3)}"</span>)
+
+folds = <span class="f">k_fold</span>(X, y, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"k_fold: {len(folds)} folds, first fold trains on {rows(folds[0].X_train)} rows"</span>)
+
+stab = <span class="f">cv_stability</span>(Xc, yc, <span class="a">n_repeats</span> = <span class="n">5</span>, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"cv_stability: {round(mean(stab), 3)} +/- {round(std(stab), 3)}"</span>)
+
+ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"ablation_study scores: {round(ab, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"rfe keeps:             {rfe(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"mutual_info_classif:   {round(mutual_info_classif(Xc, yc, k = 3), 4)}"</span>)
+<span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
+<span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
+</code></pre>
+</div>
+<p><code>ablation_study</code>, <code>cv_stability</code> and <code>rfe</code> default to <code>kind = "classification"</code>, which is why this block scores them against <code>Xc</code>/<code>yc</code> rather than the regression <code>X</code>/<code>y</code> -- feeding a continuous target through a classifier's cross-validation silently scores nonsense.</p>
+<h4>Overloads: <code>ablation_study</code></h4>
+<h4>Case: classification (the default)</h4>
+<p>With no <code>kind=</code> given, <code>ablation_study</code> cross-validates a classifier and scores by accuracy -- correct only when <code>y</code> really is a set of discrete labels.</p>
+<div class="example"><pre class="hl"><code>Xac = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">91</span>)
+yac = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    <span class="k">if</span> Xac[i, <span class="n">0</span>] + Xac[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        yac[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"ablation_study, default kind (classification): {round(ablation_study(Xac, yac, cv_folds = 3), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: regression</h4>
+<p><code>kind = "regression"</code> switches the internal model and score to R². Skip this on a continuous <code>y</code> and you hit the exact silent-nonsense trap the default invites:</p>
+<div class="example"><pre class="hl"><code>Xar = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">94</span>)
+betar = [<span class="n">2.0</span>, -<span class="n">1.0</span>, <span class="n">0.5</span>]
+yar = Xar * betar + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">95</span>)
+rk = <span class="s">"regression"</span>
+<span class="f">print</span>(<span class="s">"default kind on a continuous target: {round(ablation_study(Xar, yar, cv_folds = 3), 4)}"</span>)   <span class="c"># wrong! all zero</span>
+<span class="f">print</span>(<span class="s">"kind=regression on the same target:  {round(ablation_study(Xar, yar, cv_folds = 3, kind = rk), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Overloads: <code>cv_stability</code></h4>
+<h4>Case: classification (the default)</h4>
+<p>Same default as <code>ablation_study</code>: with no <code>kind=</code>, <code>cv_stability</code> repeats classifier cross-validation and reports accuracy scores.</p>
+<div class="example"><pre class="hl"><code>Xcs = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">91</span>)
+ycs = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    <span class="k">if</span> Xcs[i, <span class="n">0</span>] + Xcs[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        ycs[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"cv_stability, default kind (classification): {round(cv_stability(Xcs, ycs, n_repeats = 3, cv_folds = 3), 4)}"</span>)
+</code></pre>
+</div>
+<h4>Case: regression</h4>
+<p>On a continuous <code>y</code>, the same default silently returns all zeros; <code>kind = "regression"</code> recovers real R² scores instead:</p>
+<div class="example"><pre class="hl"><code>Xrs = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">94</span>)
+betas = [<span class="n">2.0</span>, -<span class="n">1.0</span>, <span class="n">0.5</span>]
+yrs = Xrs * betas + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">95</span>)
+rk2 = <span class="s">"regression"</span>
+<span class="f">print</span>(<span class="s">"default kind on a continuous target: {round(cv_stability(Xrs, yrs, n_repeats = 3, cv_folds = 3), 4)}"</span>)   <span class="c"># wrong! all zero</span>
+<span class="f">print</span>(<span class="s">"kind=regression on the same target:  {round(cv_stability(Xrs, yrs, n_repeats = 3, cv_folds = 3, kind = rk2), 4)}"</span>)
+</code></pre>
+</div>
+<h3>Saving a fitted model</h3>
+<p><code>save_model</code>/<code>load_model</code> need the engine built with <code>--features h5-models</code> (off by default, see the dependency note in <code>qu-interp</code>'s <code>Cargo.toml</code>) and are not demonstrated by a runnable example in this chapter for that reason — this build was compiled without the feature, and calling either one on such a build fails with a message naming the missing flag, the same pattern <code>llm_load</code>/<code>generate</code> use for <code>--features llm</code> above. They are documented here so the signatures and behaviour are accurate even without a runnable example.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>save_model</code></td><td><code>save_model(m, path)</code></td><td>Writes a fitted <code>kind="sequential"</code> model Record <code>m</code> (from <code>sequential</code>/<code>compile</code>/<code>quick_mlp</code>/<code>mlp_classifier</code>/etc.) to an HDF5 file at the string <code>path</code>, weights and all, in a Keras-compatible layout. Returns nothing. Only sequential models are supported — calling it on an <code>ols_model</code>/<code>kmeans_model</code>/etc. is rejected with a clear error.</td></tr>
+<tr><td><code>load_model</code></td><td><code>load_model(path)</code></td><td>Reads a model previously written by <code>save_model</code> back from the HDF5 file at the string <code>path</code>. Returns a fitted <code>kind="sequential"</code> model Record with <code>.predict</code> ready to use immediately, so a fit does not have to be repeated.</td></tr>
+</table></div>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

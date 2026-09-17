@@ -1,0 +1,72 @@
+# image_stress.qu -- ground-truth-based blob detection accuracy stress test:
+# grayscale -> Otsu threshold -> morphological opening -> connected-component
+# labeling -> per-blob stats, on a synthetic image with a KNOWN blob count
+# and KNOWN centroid/size ground truth (`ground_truth.csv`, written by
+# `generate_image.py` alongside the same `test_image.bmp` this script loads).
+#
+# Goes beyond `catalog/qu_image_blobs.qu` (a small hand-built example with no
+# recorded ground truth) and `../../image_processing/bench.qu` (a realistic
+# 6-stage pipeline on a generic scene, also with no ground truth to check
+# centroid/size accuracy against) -- this script's whole point is dumping
+# enough per-blob detail (`qu_blob_stats.csv`) for `image_stress.py` to
+# nearest-centroid-match every detected blob against BOTH cv2's own labeling
+# of the exact same image AND the independent ground truth, not just compare
+# summary counts.
+#
+# Constructs exercised (all real, verified-working builtins, same as
+# `catalog/qu_image_blobs.qu`):
+#   load_image, grayscale, otsu_threshold, threshold, imopen,
+#   label_blobs (alias bwlabel), blob_stats (alias regionprops), tic()/toc()
+#
+# Run: qu run benchmarks/advanced_validation/image_stress/image_stress.qu
+# (or: engine/target/release/qu run benchmarks/advanced_validation/image_stress/image_stress.qu)
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/image_stress/"
+IMG_PATH = DATA + "test_image.bmp"
+
+# --- load (untimed: this is "data acquisition", not the benchmark) ---------
+img = load_image(IMG_PATH)
+print("loaded             : {img.width}x{img.height}")
+
+# --- timed block: grayscale -> otsu -> threshold -> imopen -> label+stats --
+tic()
+gray = grayscale(img)
+level = otsu_threshold(gray)
+binary = threshold(gray, level)
+opened = imopen(binary, 1)
+labeled = label_blobs(opened)
+stats = blob_stats(labeled)
+t_total = toc()
+
+print("otsu_threshold     : level={level:.6f}")
+print("blobs found        : {labeled.count}")
+print("pipeline time      : {t_total*1000:.4f} ms")
+
+# --- dump every blob's stats for image_stress.py to nearest-centroid-match
+# against cv2's own labeling AND the independent ground_truth.csv --
+n = length(stats)
+label_arr = zeros(1, n)
+area_arr = zeros(1, n)
+cx_arr = zeros(1, n)
+cy_arr = zeros(1, n)
+bx_arr = zeros(1, n)
+by_arr = zeros(1, n)
+w_arr = zeros(1, n)
+h_arr = zeros(1, n)
+for i = 0 to n - 1
+    b = stats[i]
+    label_arr[i] = b.label
+    area_arr[i] = b.area
+    cx_arr[i] = b.centroid_x
+    cy_arr[i] = b.centroid_y
+    bx_arr[i] = b.bbox_x
+    by_arr[i] = b.bbox_y
+    w_arr[i] = b.bbox_width
+    h_arr[i] = b.bbox_height
+    print("blob {b.label}: area={b.area} centroid=({b.centroid_x:.2f}, {b.centroid_y:.2f}) bbox={b.bbox_width}x{b.bbox_height}")
+end for
+
+write_csv(table(label=label_arr, area=area_arr, cx=cx_arr, cy=cy_arr, bbox_x=bx_arr, bbox_y=by_arr, w=w_arr, h=h_arr), DATA + "qu_blob_stats.csv")
+print("wrote qu_blob_stats.csv ({n} blobs)")

@@ -1,0 +1,40 @@
+# Is the one-shot timing in bench.qu measuring steady state, or first-call
+# warm-up? MATLAB's fft is 34x faster on its second call, which makes a
+# single cold trial per kernel a comparison of start-up costs rather than of
+# the kernels. Same question asked of Qu, so the answer is not one-sided.
+
+x = randn(100000, 1)
+tic()
+X = fft(x)
+xr = ifft(X)
+f1 = toc()
+tic()
+X = fft(x)
+xr = ifft(X)
+f2 = toc()
+tic()
+X = fft(x)
+xr = ifft(X)
+f3 = toc()
+print("fft    call1 {f1:.4f}  call2 {f2:.4f}  call3 {f3:.4f}")
+
+A = randn(1000, 1000)
+B = randn(1000, 1000)
+tic()
+C = A * B
+m1 = toc()
+tic()
+C = A * B
+m2 = toc()
+tic()
+C = A * B
+m3 = toc()
+print("matmul call1 {m1:.4f}  call2 {m2:.4f}  call3 {m3:.4f}")
+
+# Is the matmul real work, or elided because C is unused? Force the result
+# to be consumed and see whether the time changes.
+tic()
+C2 = A * B
+s = sum(sum(C2))
+m4 = toc()
+print("matmul consumed  {m4:.4f}  (checksum {s:.3e})")

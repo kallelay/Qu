@@ -1,0 +1,6 @@
+# @name: Kalman filter predict/update step
+# @desc: Thread a Kalman filter state through one predict+update cycle.
+s = kalman_init([0, 0], [10, 0; 0, 10])
+s = s.predict(F, Q)
+s = s.update(H, [z], R)
+position = s.x[0]

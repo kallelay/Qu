@@ -1,0 +1,88 @@
+# filter_stress.qu -- Butterworth band-stop filter design + zero-phase
+# filtering + frequency-response diagnostics on a real noisy multi-tone
+# signal, stress-scale (N=8000, well beyond catalog/qu_filter_design.qu's
+# N=1000 low-pass toy) and cross-checked against scipy.signal on the SAME
+# input (noisy_signal.csv, generated once by make_data.py).
+#
+# Scenario: a 5/50/120 Hz three-tone signal buried in noise. The task is to
+# REMOVE the 50 Hz tone (a stand-in for mains-like interference) with a
+# 4th-order Butterworth band-stop filter over [45, 55] Hz while KEEPING the
+# 5 Hz and 120 Hz tones -- a real filtering task, not a toy low-pass.
+#
+# Constructs exercised (all real, verified-working builtins, per
+# catalog/qu_filter_design.qu):
+#   butter(order, "stop", [f_lo, f_hi], fs) -- SOS Butterworth band-stop design
+#   freqz(filt, n)                          -- frequency response (see NOTE below)
+#   filtfilt(filt, x)                       -- zero-phase filtering (see NOTE below)
+#   fft(x, N), abs(), angle()               -- FFT sanity check of tone suppression
+#   tic()/toc(), read_csv, write_csv/table
+#
+# NOTE 1 -- freqz's frequency grid: freqz(filt, n) samples n points at
+# omega = pi*k/(n-1) for k=0..n-1, i.e. INCLUSIVE of both DC and Nyquist
+# (qu-core/src/filter.rs, fn freqz). filter_stress.py evaluates scipy's
+# sosfreqz at the EXACT SAME omega array (np.linspace(0, pi, n) passed as
+# worN) rather than an integer worN, which would land on a different grid
+# by default and produce a false "mismatch".
+#
+# NOTE 2 -- filtfilt has NO edge padding: Qu's filtfilt is a plain forward-
+# then-backward sosfilt with zero initial conditions (qu-core/src/filter.rs,
+# fn filtfilt's doc comment: "no edge padding is applied before the
+# forward/backward passes"). filter_stress.py calls
+# scipy.signal.sosfiltfilt(sos, x, padtype=None) to match this convention
+# for an apples-to-apples elementwise diff -- scipy's default padtype="odd"
+# would produce a real (expected, not a bug) difference near the edges.
+#
+# Run: qu run benchmarks/advanced_validation/filter_stress/filter_stress.qu
+
+backend auto
+
+DATA = "benchmarks/advanced_validation/filter_stress/"
+
+Fs = 2000
+N_GRID = 4001  # freqz grid size -- matched exactly on the Python side
+
+df = read_csv(DATA + "noisy_signal.csv")
+x = df.x
+N = length(x)
+
+# --- Design: 4th-order Butterworth band-stop, remove the 50 Hz tone -------
+tic()
+filt = butter(4, "stop", [45, 55], Fs)
+t_butter = toc()
+print("butter(4, \"stop\", [45,55], {Fs}) -- sos shape: {rows(filt.sos)}x{cols(filt.sos)}  time={t_butter*1000:.4f} ms")
+
+# --- Frequency response, matched grid (see NOTE 1 above) -------------------
+tic()
+H = freqz(filt, N_GRID)
+t_freqz = toc()
+mag_db = 20 * log10(abs(H))
+mag_lin = abs(H)
+phase_deg = angle(H) * 180 / pi
+print("freqz: n={N_GRID} points, DC..Nyquist inclusive  time={t_freqz*1000:.4f} ms")
+i50 = round(50 / (Fs / 2) * (N_GRID - 1))
+print("  gain at 50 Hz (stopband center) = {mag_db[i50]:.2f} dB (expect deep notch)")
+
+# --- Zero-phase filtering (see NOTE 2 above) --------------------------------
+tic()
+zerophase = filtfilt(filt, x)
+t_filtfilt = toc()
+print("filtfilt: N={N}  time={t_filtfilt*1000:.4f} ms")
+
+t_total = t_butter + t_freqz + t_filtfilt
+print("total (butter+freqz+filtfilt) time = {t_total*1000:.4f} ms")
+
+# --- FFT sanity check: is the 50 Hz tone actually gone, and are 5/120 Hz
+# still there? (so this isn't just "the numbers matched each other's bug")
+Xin = abs(fft(x, N)) * 2 / N
+Xout = abs(fft(zerophase, N)) * 2 / N
+d = Fs / N  # 0.25 Hz/bin -- tones land on exact bins by construction
+i5 = round(5 / d)
+i50b = round(50 / d)
+i120 = round(120 / d)
+print("FFT amplitude at 5 Hz:   input={Xin[i5]:.4f}  filtered={Xout[i5]:.4f}  (keep)")
+print("FFT amplitude at 50 Hz:  input={Xin[i50b]:.4f}  filtered={Xout[i50b]:.4f}  (remove)")
+print("FFT amplitude at 120 Hz: input={Xin[i120]:.4f}  filtered={Xout[i120]:.4f}  (keep)")
+
+# --- Dump for elementwise Python comparison --------------------------------
+write_csv(table(y=zerophase), DATA + "qu_filtfilt.csv")
+write_csv(table(mag_db=mag_db, mag_lin=mag_lin, phase_deg=phase_deg), DATA + "qu_freqz.csv")

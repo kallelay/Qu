@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>is_stable — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>is_stable</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>is_stable(filt)</code></pre>
+<p class="fnnote">Input: filt &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = is_stable(filt)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">boolean</span></div>
+</td><td>Returns a boolean, <code>true</code> iff every pole lies strictly inside the unit circle — the standard causal-LTI stability criterion. An FIR filter (poles at the origin) is always stable.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs     = <span class="n">1000</span>
+t      = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
+signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">220</span> * t) + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">2</span>)
+lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)             <span class="c"># 4th-order lowpass, 100 Hz cutoff</span>
+notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"notch"</span>, [<span class="n">45</span>, <span class="n">55</span>], fs)   <span class="c"># removes 45-55 Hz mains hum</span>
+
+filtered = <span class="f">sosfilt</span>(lp, signal)             <span class="c"># causal, one pass</span>
+zero_phase = <span class="f">filtfilt</span>(lp, signal)          <span class="c"># zero-phase, double effective order</span>
+<span class="f">print</span>(<span class="s">"lp is stable: {is_stable(lp)}, notch is stable: {is_stable(notch)}"</span>)
+
+H = <span class="f">freqz</span>(lp, <span class="n">512</span>)
+<span class="f">plot</span>(<span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="n">2</span>, <span class="n">512</span>), <span class="f">mag2db</span>(<span class="f">abs</span>(H)))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+ep = <span class="f">ellip</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="n">40</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+c1 = <span class="f">cheby1</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+c2 = <span class="f">cheby2</span>(<span class="n">4</span>, <span class="n">40</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+<span class="f">print</span>(<span class="s">"ellip stable: {is_stable(ep)}, cheby1 stable: {is_stable(c1)}, cheby2 stable: {is_stable(c2)}"</span>)
+
+fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">window</span>=<span class="s">"hamming"</span>, <span class="a">fs</span>=fs)
+b = fir.b
+a = [<span class="n">1</span>]
+n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">255</span>
+t = n / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">40</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
+y  = <span class="f">filter_ba</span>(b, a, x)
+y2 = <span class="f">lfilter</span>(b, a, x)               <span class="c"># lfilter is the same builtin under another name</span>
+<span class="f">print</span>(<span class="s">"filter_ba/lfilter agree: {max(abs(y - y2)) &lt; 1e-12}"</span>)
+
+lsq = <span class="f">firls</span>(<span class="n">20</span>, [<span class="n">0</span>, <span class="n">0.2</span>, <span class="n">0.3</span>, <span class="n">1.0</span>], [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>])   <span class="c"># low-pass band edges/response</span>
+<span class="f">print</span>(<span class="s">"firls taps: {length(lsq.b)}"</span>)
+
+gd = <span class="f">group_delay</span>(fir, <span class="n">256</span>)
+<span class="f">print</span>(<span class="s">"FIR group delay (should be ~order/2=3): {gd[10]}"</span>)
+<span class="f">print</span>(<span class="s">"ellip filter has {length(poles(ep))} poles"</span>)
+
+ep.<span class="f">fvtool</span>()   <span class="c"># 2x2 magnitude/phase/group-delay/impulse-response figure</span>
+<span class="f">pzplot</span>(ep)    <span class="c"># pole-zero plot with the unit circle and stability verdict</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>is_stable(filt)</code> — <code>true</code> iff every pole lies strictly inside the unit circle, the standard causal-LTI stability criterion. An FIR filter (all poles at the origin) is always stable, which falls out of this one general definition automatically rather than needing a special case.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

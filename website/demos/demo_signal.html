@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal basics — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Signal basics</h1>
+<p class="lede">a script that runs end-to-end on the M2 interpreter.</p>
+<p class="srcpath">catalog/demo_signal.qu</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>string interpolation, and a for-loop.</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Setup</h3>
+<pre class="hl"><code>Fs = <span class="n">5</span> kHz               <span class="c"># 5000 (units normalize to SI)</span>
+N  = <span class="n">16</span>
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>          <span class="c"># a length-16 index vector</span>
+
+<span class="c"># a decaying cosine, built with elementwise ops</span>
+x = <span class="f">cos</span>(<span class="n">2</span> * pi * n / N) * <span class="f">exp</span>(-n / N)
+
+x -= <span class="f">mean</span>(x)             <span class="c"># detrend in place (compound assign + broadcast)</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Compute</h3>
+<pre class="hl"><code><span class="f">crest</span>(v) := <span class="f">max</span>(<span class="f">abs</span>(v)) / <span class="f">rms</span>(v)
+
+<span class="f">print</span>(<span class="s">"N      = {N}"</span>)
+<span class="f">print</span>(<span class="s">"mean x = {mean(x):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"rms  x = {rms(x):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"crest  = {crest(x):.3f}"</span>)
+
+acc = <span class="n">0</span>
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> N
+    acc += k
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"sum 1..N = {acc}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot</h3>
+<pre class="hl"><code><span class="f">plot</span>(n, x)
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>N      = 16
+mean x = 0.0000
+rms  x = 0.4978
+crest  = 1.937
+sum 1..N = 136</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="505.91" x2="866.00" y2="505.91" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="505.91" x2="86.00" y2="505.91" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="510.39" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.6</text>
+<line x1="86.00" y1="450.23" x2="866.00" y2="450.23" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="450.23" x2="86.00" y2="450.23" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="454.71" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.4</text>
+<line x1="86.00" y1="394.55" x2="866.00" y2="394.55" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="394.55" x2="86.00" y2="394.55" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="399.03" font-size="12.8" text-anchor="end" fill="#5a5a5a">-0.2</text>
+<line x1="86.00" y1="338.87" x2="866.00" y2="338.87" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="338.87" x2="86.00" y2="338.87" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="343.35" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="283.19" x2="866.00" y2="283.19" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="283.19" x2="86.00" y2="283.19" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="287.67" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.2</text>
+<line x1="86.00" y1="227.50" x2="866.00" y2="227.50" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="227.50" x2="86.00" y2="227.50" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="231.98" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="171.82" x2="866.00" y2="171.82" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="171.82" x2="86.00" y2="171.82" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="176.30" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.6</text>
+<line x1="86.00" y1="116.14" x2="866.00" y2="116.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="116.14" x2="86.00" y2="116.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="120.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="86.00" y1="60.46" x2="866.00" y2="60.46" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="60.46" x2="86.00" y2="60.46" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="64.94" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="185.05" y1="48.00" x2="185.05" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="185.05" y1="540.00" x2="185.05" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="185.05" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2</text>
+<line x1="284.10" y1="48.00" x2="284.10" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="284.10" y1="540.00" x2="284.10" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="284.10" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4</text>
+<line x1="383.14" y1="48.00" x2="383.14" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="383.14" y1="540.00" x2="383.14" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="383.14" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">6</text>
+<line x1="482.19" y1="48.00" x2="482.19" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="482.19" y1="540.00" x2="482.19" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="482.19" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">8</text>
+<line x1="581.24" y1="48.00" x2="581.24" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="581.24" y1="540.00" x2="581.24" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="581.24" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">10</text>
+<line x1="680.29" y1="48.00" x2="680.29" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="680.29" y1="540.00" x2="680.29" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="680.29" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">12</text>
+<line x1="779.33" y1="48.00" x2="779.33" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="779.33" y1="540.00" x2="779.33" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="779.33" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">14</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,70.36 135.52,107.14 185.05,175.04 234.57,260.45 284.10,348.77 333.62,426.72 383.14,484.08 432.67,514.84 482.19,517.64 531.71,495.33 581.24,454.15 630.76,402.35 680.29,348.77 729.81,301.49 779.33,266.71 828.86,248.05" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/demo_signal.qu</code></p>
+<pre class="hl"><code><span class="c"># demo_signal.qu — a script that runs end-to-end on the M2 interpreter.</span>
+<span class="c"># Exercises: units, ranges, vectors, broadcasting, builtins, := functions,</span>
+<span class="c"># string interpolation, and a for-loop.</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Setup</span>
+Fs = <span class="n">5</span> kHz               <span class="c"># 5000 (units normalize to SI)</span>
+N  = <span class="n">16</span>
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>          <span class="c"># a length-16 index vector</span>
+
+<span class="c"># a decaying cosine, built with elementwise ops</span>
+x = <span class="f">cos</span>(<span class="n">2</span> * pi * n / N) * <span class="f">exp</span>(-n / N)
+
+x -= <span class="f">mean</span>(x)             <span class="c"># detrend in place (compound assign + broadcast)</span>
+
+<span class="c">#%% Compute</span>
+<span class="f">crest</span>(v) := <span class="f">max</span>(<span class="f">abs</span>(v)) / <span class="f">rms</span>(v)
+
+<span class="f">print</span>(<span class="s">"N      = {N}"</span>)
+<span class="f">print</span>(<span class="s">"mean x = {mean(x):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"rms  x = {rms(x):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"crest  = {crest(x):.3f}"</span>)
+
+acc = <span class="n">0</span>
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> N
+    acc += k
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"sum 1..N = {acc}"</span>)
+
+<span class="c">#%% Plot</span>
+<span class="f">plot</span>(n, x)
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

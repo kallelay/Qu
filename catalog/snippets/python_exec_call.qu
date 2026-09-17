@@ -1,0 +1,5 @@
+# @name: Run embedded Python
+# @desc: Pass Qu variables into a Python snippet and read back its result.
+code = "result = x ** 2 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"
+out = python_exec(code, vars={x = 6})
+print("python computed: {out.result}")

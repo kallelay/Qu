@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundamentals — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html" class="here">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Fundamentals</h1>
+<nav class="onthispage"><a href="#s0">1. Hello, Qu</a><a href="#s30">2. Variables are implicitly typed by default</a><a href="#s93">3. Numbers: plain, with units, and complex</a><a href="#s154">4. Vectors and ranges</a><a href="#s195">5. Elementwise arithmetic</a><a href="#s240">6. Matrices: literals, indexing, orientation</a><a href="#s304">7. Logical indexing (no <code>find</code>/boolean-mask ceremony needed)</a><a href="#s395">8. Control flow</a><a href="#s430">9. Functions: three forms, declaration always optional</a><a href="#s504">10. Strings and interpolation</a><a href="#s553">11. Reductions and a first taste of DSP</a><a href="#s612">12. Save and load your workspace</a><a href="#s664">13. Plotting</a><a href="#s696">14. Splitting a program across files</a><a href="#s752">15. Cheat sheet: coming from MATLAB</a><a href="#s807">16. Cheat sheet: coming from NumPy/Python</a><a href="#s868">17. What's different, and why it might surprise you</a><a href="#s939">What's next</a></nav>
+<p>For people who already know MATLAB, NumPy, or both. Every snippet below is runnable on the reference interpreter today, and its printed output is the actual output — not a mockup.</p>
+<h2 id="s0">1. Hello, Qu</h2>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"Hello, Qu!"</span>)
+</code></pre>
+</div>
+<pre><code>Hello, Qu!
+</code></pre>
+<p>Save that as <code>hello.qu</code> and run it:</p>
+<pre><code>cargo run --manifest-path engine/Cargo.toml -p qu-cli -- run hello.qu
+</code></pre>
+<p>No <code>main</code> function, no imports, no semicolons required. A Qu script is a sequence of statements, executed top to bottom.</p>
+<h2 id="s30">2. Variables are implicitly typed by default</h2>
+<p>You never declare a type. Assign a value, and the runner infers what it is:</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">5</span>           <span class="c"># a number</span>
+y = <span class="n">2.5</span>         <span class="c"># also a number (Qu doesn't distinguish int/float at this level)</span>
+z = x + y
+<span class="f">print</span>(<span class="s">"z = {z}"</span>)
+</code></pre>
+</div>
+<pre><code>z = 7.5
+</code></pre>
+<p>This is <strong></strong><code>type implicit</code><strong> mode, and it is the default — nothing to opt into. If you want the discipline of declaring a name's shape before using it (useful in larger scripts, or if you're porting from a strongly-typed background), turn on </strong><code>type explicit</code><strong> mode at the top of a script:</strong></p>
+<div class="example"><pre class="hl"><code>type explicit
+x <span class="k">as</span> <span class="f">vector</span>(<span class="n">3</span>)      <span class="c"># declare: x is a 3-element vector</span>
+x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]        <span class="c"># now assignment is allowed</span>
+<span class="f">print</span>(<span class="s">"x = {x}"</span>)
+<span class="c"># y = 5              # would ERROR: `y` is not declared</span>
+</code></pre>
+</div>
+<p>Switch back with <code>type implicit</code> (or just don't write <code>type explicit</code> at all — every example in the rest of this book uses the default implicit mode).</p>
+<h2 id="s93">3. Numbers: plain, with units, and complex</h2>
+<p>Plain numbers work exactly as you'd expect. Qu also has first-class <strong>unit literals</strong> — a number followed directly by a unit name normalizes to SI base units automatically:</p>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz        <span class="c"># normalizes to 5000</span>
+dt = <span class="n">50m</span>          <span class="c"># bare SI-magnitude prefix: 50 * 1e-3 = 0.05 (no base unit)</span>
+<span class="f">print</span>(<span class="s">"Fs = {Fs}, dt = {dt}"</span>)
+</code></pre>
+</div>
+<pre><code>Fs = 5000, dt = 0.05
+</code></pre>
+<p>Recognized magnitude prefixes with no base unit: <code>k</code> (1e3), <code>M</code> (1e6), <code>G</code> (1e9), <code>m</code> (1e-3), <code>u</code> (1e-6), <code>p</code> (1e-12), <code>a</code> (1e-18). Recognized physical units include <code>Hz kHz MHz GHz</code>, <code>s ms us ns</code>, <code>V mV kV</code>, <code>A mA uA</code>, <code>Ohm mOhm kOhm MOhm</code>, <code>F uF nF pF</code>, <code>H mH uH</code>, <code>W mW kW</code>, <code>dB dBm</code>, <code>degC</code>, <code>rad deg</code>.</p>
+<p>Complex numbers use an imaginary-literal suffix — <code>i</code> (math convention) or <code>j</code> (engineering/Python convention) both work and mean the same thing:</p>
+<div class="example"><pre class="hl"><code>z = <span class="n">3</span> + <span class="n">4j</span>
+<span class="f">print</span>(<span class="s">"|z| = {abs(z)}"</span>)
+<span class="f">print</span>(<span class="s">"angle = {angle(z):.4f}"</span>)
+</code></pre>
+</div>
+<pre><code>|z| = 5
+angle = 0.9273
+</code></pre>
+<p><code>abs</code>, <code>angle</code>/<code>arg</code>/<code>phase</code>, <code>real</code>, <code>imag</code>, and <code>conj</code> are all complex-aware; called on a real number they just do the obvious thing (<code>abs</code> is absolute value, <code>angle</code> is 0 or π, <code>real</code> is identity, <code>imag</code> is 0).</p>
+<p><strong>A deliberate divergence from Python:</strong> a complex result stays complex even when its imaginary part is exactly zero (<code>z * conj(z)</code> is <code>Complex</code>, not demoted to a plain number) — use <code>real(...)</code> to pull out the number. This matches how NumPy's complex dtype behaves, not how Python's <code>complex</code> silently compares equal to <code>int</code>.</p>
+<h2 id="s154">4. Vectors and ranges</h2>
+<p>A <strong>range</strong> is <code>start to stop [step delta]</code>, inclusive at both ends (unlike Python's <code>range</code>, which excludes the stop):</p>
+<div class="example"><pre class="hl"><code>v = <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>
+<span class="f">print</span>(<span class="s">"v = {v}"</span>)
+w = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"w = {w}"</span>)
+</code></pre>
+</div>
+<pre><code>v = [1, 2, 3, 4, 5]
+w = [0, 2, 4, 6, 8, 10]
+</code></pre>
+<p>If you'd rather spell out the first two elements and the endpoint (MATLAB- adjacent, but with an explicit ellipsis so it's never ambiguous), Qu supports the comma-ellipsis form too — the step is inferred from the gap between the first two elements:</p>
+<div class="example"><pre class="hl"><code>c = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">10</span>
+<span class="f">print</span>(<span class="s">"c = {c}"</span>)
+</code></pre>
+</div>
+<pre><code>c = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+</code></pre>
+<p>A vector literal is just square brackets with commas:</p>
+<div class="example"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+b = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
+</code></pre>
+</div>
+<p><strong>Indexing is zero-based</strong>, like Python and unlike MATLAB:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(a[<span class="n">0</span>])   <span class="c"># 1, not a[1]</span>
+</code></pre>
+</div>
+<h2 id="s195">5. Elementwise arithmetic</h2>
+<p>Ordinary <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> on two 1-D vectors of the same length are elementwise (this is the *orientation-free* vector shape — see §6 for when <code>*</code> switches to matrix multiplication):</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"a+b = {a+b}"</span>)
+<span class="f">print</span>(<span class="s">"a.*b = {a .* b}"</span>)
+<span class="f">print</span>(<span class="s">"a.^2 = {a .^ 2}"</span>)
+</code></pre>
+</div>
+<pre><code>a+b = [11, 22, 33]
+a.*b = [10, 40, 90]
+a.^2 = [1, 4, 9]
+</code></pre>
+<p><code>.*</code>, <code>./</code>, <code>.^</code> are the *explicitly* elementwise spellings — always elementwise, never matrix multiplication, matmul-solve, or matrix power, even on a genuine 2-D matrix. Bare <code>*</code> and <code>^</code> change meaning once you're working with an oriented 2-D matrix (next section) — this is the single most important thing to internalize coming from NumPy, where <code>*</code> is always elementwise and <code>@</code> is matmul.</p>
+<h2 id="s240">6. Matrices: literals, indexing, orientation</h2>
+<p>A matrix literal uses <code>;</code> to separate rows:</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="s">"M = {M}"</span>)
+<span class="f">print</span>(<span class="s">"M[0,1] = {M[0,1]}"</span>)   <span class="c"># 2 — zero-based, row then column</span>
+<span class="f">print</span>(<span class="s">"M[1,:] = {M[1,:]}"</span>)   <span class="c"># a whole row: [3, 4]</span>
+</code></pre>
+</div>
+<pre><code>M = [1, 2; 3, 4]
+M[0,1] = 2
+M[1,:] = [3, 4]
+</code></pre>
+<p><code>:</code> alone selects a whole dimension, exactly like MATLAB and NumPy. Slices include <strong>both</strong> ends, like every other range in the language: <code>M[0:1, :]</code> is rows 0 and 1, and <code>v[0:4]</code> is five elements. If you come from Python, this is the one place to unlearn a habit — <code>v[0:n]</code> gives <code>n + 1</code> elements here, and the first <code>n</code> are <code>v[0:n - 1]</code>.</p>
+<p><strong>At a matrix boundary, </strong><code>*</code> is matrix multiplication<strong> (MATLAB's convention, not NumPy's):</strong></p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"M*M = {M*M}"</span>)
+</code></pre>
+</div>
+<pre><code>M*M = [7, 10; 15, 22]
+</code></pre>
+<p><strong>Transpose</strong> has three equivalent spellings in each of two families — the conjugating (Hermitian) ones and the plain ones. For real values they behave identically; for complex values they differ exactly as in MATLAB:</p>
+<div class="tablewrap"><table>
+<tr><td>Spelling</td><td>Conjugates?</td></tr>
+<tr><td><code>A'</code></td><td>yes</td></tr>
+<tr><td><code>A.H</code></td><td>yes</td></tr>
+<tr><td><code>ctranspose(A)</code></td><td>yes</td></tr>
+<tr><td><code>A.'</code></td><td>no</td></tr>
+<tr><td><code>A.T</code></td><td>no</td></tr>
+<tr><td><code>transpose(A)</code></td><td>no</td></tr>
+</table></div>
+<p>A 1-D vector gains an explicit orientation the moment you transpose it:</p>
+<div class="example"><pre class="hl"><code>col = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>].T     <span class="c"># a genuine (3,1) column matrix now, not a bare vector</span>
+</code></pre>
+</div>
+<p>There is deliberately <strong>no</strong> <code>A^T</code>/<code>A^H</code> spelling, even though you'll see it in MATLAB. The reason is a real footgun: <code>^</code> is the power operator, so <code>x^T</code> is ambiguous between "transpose <code>x</code>" and "raise <code>x</code> to the power of a variable named <code>T</code>" — and a first implementation of this sugar silently picked the transpose reading, discarding the variable with no warning:</p>
+<div class="example"><pre class="hl"><code>T = <span class="n">3</span>
+x = <span class="n">2</span>
+y = x^T
+<span class="f">print</span>(<span class="s">"y = {y}"</span>)   <span class="c"># 8, not 2 — `T` is an ordinary variable here</span>
+</code></pre>
+</div>
+<pre><code>y = 8
+</code></pre>
+<p><code>.T</code>/<code>.H</code> avoid the collision entirely (<code>.</code> never means "raise to a power"), so they're the only field-style spellings Qu supports.</p>
+<p><strong>Matrix power and inverse</strong> live at the same <code>^</code> boundary:</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"M^-1 = {M^-1}"</span>)
+</code></pre>
+</div>
+<pre><code>M^-1 = [-2, 1; 1.5, -0.5]
+</code></pre>
+<p><code>M^-1</code> is the inverse (square + full-rank checked — a clear error otherwise, never a silent <code>Inf</code>/<code>NaN</code>), <code>M^n</code> for a positive integer <code>n</code> is repeated <code>matmul</code>, <code>M^0</code> is the identity. There's also a plain <code>inv(M)</code> function and, for non-square or rank-deficient matrices, <code>pinv(M)</code> (the Moore-Penrose pseudoinverse).</p>
+<p><strong>Flipping, mirroring, rotating</strong>:</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="s">"flip(v) = {flip(v)}"</span>)            <span class="c"># [4, 3, 2, 1]</span>
+
+A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="s">"fliplr(A) = {fliplr(A)}"</span>)        <span class="c"># reverses column order: [2, 1; 4, 3]</span>
+<span class="f">print</span>(<span class="s">"flipud(A) = {flipud(A)}"</span>)        <span class="c"># reverses row order:    [3, 4; 1, 2]</span>
+<span class="f">print</span>(<span class="s">"rot90(A) = {rot90(A)}"</span>)          <span class="c"># 90 deg counterclockwise: [2, 4; 1, 3]</span>
+<span class="f">print</span>(<span class="s">"rot90(A, -1) = {rot90(A, -1)}"</span>)  <span class="c"># negative k rotates clockwise instead</span>
+</code></pre>
+</div>
+<p><code>mirror(x)</code> is an alias for <code>fliplr(x)</code> (the more common colloquial name for the same operation). <code>flip(A, dim)</code> picks between the two on a matrix — <code>dim=1</code> (the default) is <code>flipud</code>, <code>dim=2</code> is <code>fliplr</code>; on a plain vector <code>dim</code> has no effect since there's only one axis to reverse either way. <code>rot90(A, k)</code> takes <code>k</code> mod 4, so <code>k=2</code> is a 180-degree flip and <code>k=4</code> is the identity.</p>
+<h3>Orientation-free vectors vs. explicit shape</h3>
+<p>A bare <code>Vec</code> like <code>a = [1, 2, 3]</code> has <strong>no</strong> orientation — it's neither a row nor a column, and elementwise ops don't care. It only gains an orientation when it meets a matrix boundary, and the rule there is: <strong>default to a column</strong>. This is why <code>M * a</code> treats <code>a</code> as a <code>(3,1)</code> column automatically, but two orientation-free vectors multiplied together at a <code>*</code> boundary can give a shape-mismatch error if that default guess doesn't fit your intent — fix it with an explicit contract:</p>
+<div class="example"><pre class="hl"><code>u = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+v = [<span class="n">10</span>, <span class="n">20</span>]
+u <span class="k">as</span> <span class="f">vector</span>(<span class="n">3</span>, <span class="n">1</span>)     <span class="c"># column</span>
+v <span class="k">as</span> <span class="f">vector</span>(<span class="n">1</span>, <span class="n">2</span>)     <span class="c"># row</span>
+outer = u * v          <span class="c"># (3,1) * (1,2) -&gt; (3,2) outer product</span>
+</code></pre>
+</div>
+<p>This orientation contract can also declare <strong>and</strong> initialize in one line:</p>
+<div class="example"><pre class="hl"><code>y <span class="k">as</span> <span class="f">vector</span>(<span class="n">2</span>, <span class="n">2</span>) = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]   <span class="c"># reshaped column-major into a 2x2</span>
+</code></pre>
+</div>
+<h2 id="s304">7. Logical indexing (no <code>find</code>/boolean-mask ceremony needed)</h2>
+<p>Comparisons on a vector produce a <strong>mask</strong>, and masks index directly — this is NumPy's boolean-indexing idiom, built into the language rather than bolted on as a library feature:</p>
+<div class="example"><pre class="hl"><code>x = -<span class="n">3</span> <span class="k">to</span> <span class="n">3</span>
+x[x &lt; <span class="n">0</span>] = <span class="n">0</span>
+<span class="f">print</span>(<span class="s">"relu = {x}"</span>)
+
+idx := where x &gt; <span class="n">1</span>
+<span class="f">print</span>(<span class="s">"idx = {idx}"</span>)
+</code></pre>
+</div>
+<pre><code>relu = [0, 0, 0, 0, 1, 2, 3]
+idx = [5, 6]
+</code></pre>
+<p><code>where(mask)</code> returns the integer positions where the mask is true — equivalent to NumPy's <code>np.where(cond)[0]</code> or MATLAB's <code>find(cond)</code>.</p>
+<h2 id="s395">8. Control flow</h2>
+<p><code>for</code>/<code>while</code>/<code>if</code> all close with an explicit <code>end</code> — no significant whitespace (unlike Python), no curly braces (unlike C-family languages):</p>
+<div class="example"><pre class="hl"><code>acc = <span class="n">0</span>
+<span class="k">for</span> k = <span class="n">1</span> <span class="k">to</span> <span class="n">10</span>
+    acc += k
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"sum 1..10 = {acc}"</span>)
+
+n = <span class="n">5</span>
+<span class="k">if</span> n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span> <span class="k">then</span>
+    <span class="f">print</span>(<span class="s">"even"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"odd"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div>
+<pre><code>sum 1..10 = 55
+odd
+</code></pre>
+<p><code>mod</code> is the keyword for remainder (not <code>%</code>). <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code> all work as compound assignment, including on indexed/masked targets (<code>x[mask] += 1</code>).</p>
+<h2 id="s430">9. Functions: three forms, declaration always optional</h2>
+<p><strong>One-line functions</strong> use <code>:=</code> — "is defined as." They take a single expression body, are non-recursive, and are *elemental*: call one on a vector and it maps over every element automatically (FORTRAN's <code>ELEMENTAL</code>, minus the ceremony):</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x^<span class="n">2</span>
+<span class="f">print</span>(<span class="s">"square(5) = {square(5)}"</span>)
+<span class="f">print</span>(<span class="s">"square(v) = {square(v)}"</span>)
+</code></pre>
+</div>
+<pre><code>square(5) = 25
+square(v) = [1, 4, 9, 16, 25]
+</code></pre>
+<p><strong>Multi-statement functions</strong> (control flow, recursion, early <code>return</code>) use <code>function … end function</code>:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">fact</span>(n)
+    <span class="k">if</span> n &lt; <span class="n">2</span> <span class="k">then</span>
+        <span class="k">return</span> <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="k">return</span> n * <span class="f">fact</span>(n - <span class="n">1</span>)
+<span class="k">end</span> <span class="k">function</span>
+<span class="f">print</span>(<span class="s">"fact(5) = {fact(5)}"</span>)
+</code></pre>
+</div>
+<pre><code>fact(5) = 120
+</code></pre>
+<p>There is no <code>def</code>/<code>function</code> *keyword requirement* to introduce a name before using it, and no forward-declaration step — a function is simply a statement that can appear anywhere a statement can, and it's visible from that point on, same as an ordinary variable assignment.</p>
+<h2 id="s504">10. Strings and interpolation</h2>
+<p>Double-quoted strings interpolate <code>{expr}</code> directly, with an optional <code>:spec</code> — <code>.Nf</code> fixed-point, <code>.Ne</code> scientific, <code>d</code> integer:</p>
+<div class="example"><pre class="hl"><code>name = <span class="s">"Qu"</span>
+<span class="f">print</span>(<span class="s">"Hello, {name}!"</span>)
+<span class="f">print</span>(<span class="s">"pi = {pi:.4f}"</span>)
+</code></pre>
+</div>
+<pre><code>Hello, Qu!
+pi = 3.1416
+</code></pre>
+<p><code>pi</code>, <code>tau</code> (2π), <code>e</code>, <code>inf</code>, and <code>nan</code> are built-in constants — no <code>import math</code> required.</p>
+<h2 id="s553">11. Reductions and a first taste of DSP</h2>
+<p><code>sum</code>, <code>mean</code>, <code>std</code>, <code>rms</code>, <code>max</code>, <code>min</code>, <code>prod</code> all work on vectors, and accept an <code>axis=</code> keyword on matrices (<code>axis=0</code> collapses rows, <code>axis=1</code> collapses columns — same convention as NumPy):</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
+G = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="s">"colsum = {sum(G, axis=0)}"</span>)
+<span class="f">print</span>(<span class="s">"rowsum = {sum(G, axis=1)}"</span>)
+</code></pre>
+</div>
+<pre><code>mean = 3, std = 1.5811, rms = 3.3166
+colsum = [5, 7, 9]
+rowsum = [6, 15]
+</code></pre>
+<p><code>min</code>/<code>max</code> with <strong>two</strong> arguments are elementwise (the clip idiom), not a reduction:</p>
+<div class="example"><pre class="hl"><code>clipped = <span class="f">min</span>(<span class="f">max</span>(x, -<span class="n">1</span>), <span class="n">1</span>)   <span class="c"># same as clip(x, -1, 1)</span>
+</code></pre>
+</div>
+<p><code>argmin</code>/<code>argmax</code> give you the <strong>index</strong> of the extremum instead of its value — the index-returning sibling of <code>min</code>/<code>max</code>, matching <code>where</code>'s own existing "return indices" convention:</p>
+<div class="example"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
+<span class="f">print</span>(<span class="s">"argmin(y) = {argmin(y)}, argmax(y) = {argmax(y)}"</span>)   <span class="c"># 3, 2 (first tie wins)</span>
+</code></pre>
+</div>
+<p><code>median</code>/<code>quantile</code> round out the order statistics <code>sum</code>/<code>mean</code>/<code>std</code> don't cover; <code>argmedian</code>/<code>argquantile</code> are their index-returning versions (needed because, unlike <code>min</code>/<code>max</code>, a "value" like the median or a quantile doesn't always land on any single array element — see each function's own note on how the tied/interpolated case is resolved):</p>
+<div class="example"><pre class="hl"><code>q1 = <span class="f">quantile</span>(y, <span class="n">0.25</span>)
+q3 = <span class="f">quantile</span>(y, <span class="n">0.75</span>)
+<span class="f">print</span>(<span class="s">"median = {median(y)}, IQR = {q3 - q1}"</span>)
+</code></pre>
+</div>
+<p>There's no <code>argmean</code> in NumPy or MATLAB — the mean generally isn't any actual data point — but Qu's own <code>argmean(x)</code> is still a well-defined, useful question: *which* sample sits closest to the mean.</p>
+<p><code>sort(x, [descending])</code> and its index-returning sibling <code>argsort(x, [descending])</code> both default to ascending, matching <code>sort_by(table, col, [descending])</code>'s own positional-boolean convention rather than a <code>desc=</code>/<code>order=</code> keyword:</p>
+<div class="example"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
+<span class="f">print</span>(<span class="s">"sort ascending  = {sort(y)}"</span>)
+<span class="f">print</span>(<span class="s">"sort descending = {sort(y, true)}"</span>)
+<span class="f">print</span>(<span class="s">"argsort(y) = {argsort(y)}"</span>)   <span class="c"># the permutation that would sort y</span>
+</code></pre>
+</div>
+<pre><code>sort ascending  = [1, 1, 2, 5, 9, 9]
+sort descending = [9, 9, 5, 2, 1, 1]
+argsort(y) = [3, 4, 1, 0, 2, 5]
+</code></pre>
+<h2 id="s612">12. Save and load your workspace</h2>
+<p><code>save</code>/<code>save_all</code>/<code>load</code> persist workspace variables to a plain JSON file — human-readable, diffable, and portable across platforms (no pickle-style binary format tied to a specific Qu build):</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>
+A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+m = <span class="f">ols_model</span>([<span class="n">1</span>;<span class="n">2</span>;<span class="n">3</span>;<span class="n">4</span>], [<span class="n">2</span>;<span class="n">4</span>;<span class="n">6</span>;<span class="n">8</span>])   <span class="c"># a fitted model round-trips too</span>
+<span class="f">save_all</span>(<span class="s">"session.json"</span>)              <span class="c"># every variable currently in scope</span>
+
+<span class="c"># ...later, in a fresh session...</span>
+<span class="f">load</span>(<span class="s">"session.json"</span>)                  <span class="c"># restores x, A, m into the workspace</span>
+p = <span class="f">predict</span>(m, [<span class="n">5</span>])                   <span class="c"># -&gt; [10]</span>
+</code></pre>
+</div>
+<p>Use <code>save(path, "name1", "name2", ...)</code> instead of <code>save_all</code> to persist only specific variables:</p>
+<div class="example"><pre class="hl"><code><span class="f">save</span>(<span class="s">"results.json"</span>, <span class="s">"x"</span>, <span class="s">"A"</span>)
+</code></pre>
+</div>
+<p>Every <code>Value</code> Qu can hold round-trips — numbers, vectors, matrices, complex numbers and matrices, signals (their sample rate <code>Fs</code> survives too), tables, and fitted models. <code>NaN</code>/<code>Infinity</code>/<code>-Infinity</code> round-trip as real IEEE floats, not <code>null</code> — a plain <code>nan != nan</code> check after a <code>load</code> still comes back <code>true</code>, exactly as it would for a value that was never saved at all.</p>
+<p><code>Worker</code>/<code>Mutex</code>/<code>Semaphore</code> handles are live OS resources, not data, so <code>save</code>/<code>save_all</code> refuse to serialize them with a clear error rather than silently producing a file that can never be loaded back into a working state.</p>
+<h2 id="s664">13. Plotting</h2>
+<div class="example"><pre class="hl"><code><span class="f">plot</span>(v, v .^ <span class="n">2</span>)
+<span class="f">xlabel</span>(<span class="s">"x"</span>)
+<span class="f">ylabel</span>(<span class="s">"x^2"</span>)
+grid on
+<span class="f">savefig</span>(<span class="s">"squares.pdf"</span>)
+</code></pre>
+</div>
+<p><code>savefig</code> writes PDF with the fonts embedded, SVG, or TikZ for LaTeX, chosen by the extension. A script that never calls it still runs — the figure is built and reported, which is what you want in a test or on a machine with no display — so the same script works in CI and on your desk.</p>
+<p>The <a href="plotting.html">plotting reference</a> has the whole surface. <code>show plot</code> renders in the REPL and in Qu Studio.</p>
+<p><code>polarplot(theta, r)</code> converts to Cartesian (<code>x = r*cos(theta)</code>, <code>y = r*sin(theta)</code>) and draws a correctly shaped polar curve — but on ordinary axes, with no circular gridlines or angular tick labels:</p>
+<div class="example"><pre class="hl"><code>idx = <span class="n">0</span> <span class="k">to</span> <span class="n">100</span>
+theta = idx ./ <span class="n">100</span> .* (<span class="n">2</span>*pi)
+r = <span class="f">ones</span>(<span class="n">101</span>)
+<span class="f">polarplot</span>(theta, r)   <span class="c"># a unit circle, drawn as an (x, y) curve</span>
+</code></pre>
+</div>
+<p><code>axis origin</code> moves the axis spines themselves to cross through data <code>(0, 0)</code> — clamped to the nearest edge if <code>0</code> falls outside the visible range — instead of framing the panel in the default box (<code>axis edge</code>):</p>
+<div class="example"><pre class="hl"><code>xs = -<span class="n">5</span> <span class="k">to</span> <span class="n">5</span>
+<span class="f">plot</span>(xs, xs.^<span class="n">2</span> - <span class="n">10</span>)
+axis origin   <span class="c"># spines cross at (0,0) instead of boxing the panel</span>
+</code></pre>
+</div>
+<h2 id="s696">14. Splitting a program across files</h2>
+<p>Once a program is more than one screen, or once two programs want the same helper, put the helper in its own file and <code>import</code> it.</p>
+<div class="example"><pre class="hl"><code><span class="c"># geometry.qu</span>
+PI_ISH = <span class="n">3.14159</span>
+
+<span class="k">function</span> <span class="f">area</span>(r)
+    <span class="k">return</span> PI_ISH * r * r
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</div>
+<div class="example norun"><pre class="hl"><code><span class="c"># main.qu</span>
+<span class="k">import</span> <span class="s">"geometry.qu"</span>
+<span class="f">print</span>(<span class="f">area</span>(<span class="n">2</span>))            <span class="c"># 12.56636</span>
+</code></pre>
+</div>
+<p>The path is relative <strong>to the file doing the importing</strong>, not to wherever you happened to run the program from. A module in <code>tools/lib/</code> can name its neighbour as <code>"text.qu"</code>, and a tool in <code>tools/</code> can say <code>import "lib/text.qu"</code> and still work when you run it from somewhere else. Data paths are the opposite and deliberately so: <code>read_csv("data.csv")</code> names a file relative to where *you* are standing, because that is a file you chose at the moment you ran the thing. An import is a fixed relationship between two source files.</p>
+<p>A file runs <strong>once per path</strong>, however many times it is imported. That is what makes two files that import each other terminate rather than spin, and it is why a module's top level should *define* things rather than *do* them — the second import will not re-run it.</p>
+<h3><code>as</code> names the namespace</h3>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> <span class="s">"geometry.qu"</span> <span class="k">as</span> g
+<span class="f">print</span>(g.<span class="f">area</span>(<span class="n">2</span>))          <span class="c"># 12.56636</span>
+<span class="f">print</span>(<span class="f">area</span>(<span class="n">2</span>))            <span class="c"># 12.56636 -- the bare name too</span>
+<span class="f">print</span>(PI_ISH)             <span class="c"># 3.14159</span>
+</code></pre>
+</div>
+<p>An import <strong>opens the file's names and binds a namespace</strong>, the way <code>Imports System.Text</code> in VB gives you <code>StringBuilder</code> bare and <code>System.Text.StringBuilder</code> qualified. Both spellings work; the qualified one is there for when the bare one is not clear enough, not as a replacement for it.</p>
+<p>For a file, <code>as</code> is what supplies the namespace — without it there is no name to qualify with, because a path has no obvious one (<code>"lib/text.qu"</code> could be <code>text</code>, or <code>lib</code>, or neither). A native module already has a name, so it binds one whether you alias it or not.</p>
+<h3>Two mechanisms, one keyword</h3>
+<p>A quoted path imports a <strong>Qu file</strong>. A bare word imports a <strong>native module</strong> compiled into the engine:</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+info = <span class="f">flac_info</span>(bytes)          <span class="c"># opened by the import</span>
+info = codec.<span class="f">flac_info</span>(bytes)    <span class="c"># or qualified</span>
+</code></pre>
+</div>
+<p>They follow the same rule now and differ in three details:</p>
+<div class="tablewrap"><table>
+<tr><td></td><td><code>import "file.qu"</code></td><td><code>import name</code></td></tr>
+<tr><td>What it is</td><td>another Qu source file</td><td>a module built into the engine</td></tr>
+<tr><td>Namespace</td><td>only if you write <code>as</code></td><td>always, under its own name</td></tr>
+<tr><td>Name collision</td><td>shadows, like any definition</td><td><strong>refused as ambiguous</strong></td></tr>
+<tr><td>Availability</td><td>any file you can read</td><td>only if the build included it</td></tr>
+</table></div>
+<h3>When a name is claimed twice</h3>
+<p><code>import xlsx</code> opens <code>read</code> and <code>write</code>, and both are already builtins. Qu refuses rather than choosing:</p>
+<pre><code>`read` is ambiguous: it is a builtin, and `import xlsx` opened a `read`
+too. Qualify the one you mean -- `xlsx.read(...)` for the module's, or
+drop the import to get the builtin back
+</code></pre>
+<p>The alternative is a program whose meaning changes because of a line at the top of the file, silently. Qualifying always works, so there is always an answer.</p>
+<p>A <strong>file</strong> import behaves differently here, and deliberately: a file that defines <code>sqrt</code> shadows the builtin, because running the file is what an import does and defining a function named <code>sqrt</code> shadows it whether an import brought it or not. A native module defines nothing — it opens a namespace — so a collision there has two equally good readings and nothing to choose between them.</p>
+<p>A native module the build does not have says so plainly, rather than failing later at the first call:</p>
+<pre><code>import xlsx: this build does not include the `xlsx` module
+             -- rebuild with `--features xlsx`
+</code></pre>
+<p>and a bare word that is not a module at all points you at the other form:</p>
+<pre><code>import nope: no such module. This build knows: xlsx, codec.
+             To import a Qu file instead, quote the path: `import "nope.qu"`
+</code></pre>
+<h3>What this is for</h3>
+<p>The site generators under <code>tools/</code> are the honest example. Nine of them had grown five copies of an HTML-escaping function, three of a backtick stripper, and two of a syntax highlighter — and the copies had begun to drift. One generator ends up reading finished HTML back off disk purely because it could not call the highlighter that produced it.</p>
+<p><code>tools/lib/text.qu</code> is now the shared copy, and <code>tools/gen_builtin_index.qu</code> imports it. That is a small thing, but it is the difference between a language you can build a library in and one where every program starts from the builtins.</p>
+<h2 id="s752">15. Cheat sheet: coming from MATLAB</h2>
+<div class="tablewrap"><table>
+<tr><td>MATLAB</td><td>Qu</td><td>Note</td></tr>
+<tr><td><code>A(1,2)</code></td><td><code>A[0,1]</code></td><td>zero-based</td></tr>
+<tr><td><code>A(2,:)</code></td><td><code>A[1,:]</code></td><td></td></tr>
+<tr><td><code>A'</code></td><td><code>A'</code></td><td>same — conjugate transpose</td></tr>
+<tr><td><code>A.'</code></td><td><code>A.'</code></td><td>same — plain transpose</td></tr>
+<tr><td><code>A*B</code></td><td><code>A*B</code></td><td>same — matrix multiply</td></tr>
+<tr><td><code>A.*B</code></td><td><code>A.*B</code></td><td>same — elementwise</td></tr>
+<tr><td><code>A^-1</code></td><td><code>A^-1</code></td><td>same</td></tr>
+<tr><td><code>inv(A)</code></td><td><code>inv(A)</code></td><td>same</td></tr>
+<tr><td><code>1:5</code></td><td><code>1 to 5</code></td><td>inclusive both ends, like MATLAB</td></tr>
+<tr><td><code>for k = 1:10 ... end</code></td><td><code>for k = 1 to 10 ... end for</code></td><td></td></tr>
+<tr><td><code>function y = f(x) ... end</code></td><td><code>function f(x) ... return y ... end function</code></td><td>return is explicit</td></tr>
+<tr><td><code>x = 5;</code> (semicolon suppresses echo)</td><td><code>x = 5</code> (no echo by default)</td><td>no semicolon needed</td></tr>
+<tr><td><code>%</code> comment</td><td><code>#</code> comment</td><td></td></tr>
+</table></div>
+<h2 id="s807">16. Cheat sheet: coming from NumPy/Python</h2>
+<div class="tablewrap"><table>
+<tr><td>NumPy/Python</td><td>Qu</td><td>Note</td></tr>
+<tr><td><code>a[0]</code></td><td><code>a[0]</code></td><td>same — zero-based</td></tr>
+<tr><td><code>a * b</code> (elementwise)</td><td><code>a .* b</code> at a matrix boundary; plain <code>*</code> for 1-D vectors</td><td><strong></strong><code>*</code> is matmul once 2-D<strong>, unlike NumPy</strong></td></tr>
+<tr><td><code>a @ b</code> (matmul)</td><td><code>a * b</code> (once oriented)</td><td></td></tr>
+<tr><td><code>np.arange(0, 10, 2)</code></td><td><code>0 to 10 step 2</code></td><td>inclusive of the stop, unlike <code>arange</code></td></tr>
+<tr><td><code>a[a &lt; 0] = 0</code></td><td><code>a[a &lt; 0] = 0</code></td><td>identical idiom</td></tr>
+<tr><td><code>np.where(cond)[0]</code></td><td><code>where cond</code> or <code>where(cond)</code></td><td></td></tr>
+<tr><td><code>def f(x): return x**2</code></td><td><code>f(x) := x^2</code></td><td>one-liner; use <code>function</code> for a body</td></tr>
+<tr><td><code>f"{x:.2f}"</code></td><td><code>"{x:.2f}"</code></td><td>same format-spec mini-language</td></tr>
+<tr><td><code>3+4j</code></td><td><code>3+4j</code> (or <code>3+4i</code>)</td><td>both suffixes accepted</td></tr>
+<tr><td><code>a.T</code></td><td><code>a.T</code> (or <code>a'</code>, <code>a.'</code>)</td><td>not <code>a^T</code> — see §6's footgun note</td></tr>
+<tr><td>assignment aliases (<code>b = a</code> shares the array)</td><td>assignment copies</td><td>Qu vectors/matrices have <strong>value semantics</strong> — no accidental aliasing bugs from <code>b = a; a[:] = ...</code></td></tr>
+</table></div>
+<h2 id="s868">17. What's different, and why it might surprise you</h2>
+<ul>
+<li><strong></strong><code>*</code> is matrix multiplication at a 2-D boundary<strong>, not elementwise. This is MATLAB's convention, chosen deliberately (§13 of the spec) because Qu treats linear algebra as load-bearing, not an afterthought. Use </strong><code>.*</code> when you mean elementwise.</li>
+<li><strong>Indexing is zero-based</strong>, not one-based — MATLAB users, take note.</li>
+<li><strong>Assignment has value semantics.</strong> <code>b = a</code> does not alias <code>a</code>; mutating one never mutates the other. This is closer to how you'd *want* NumPy to behave than how it actually behaves (NumPy slices are views by default).</li>
+<li><strong>A bare 1-D vector has no orientation</strong> until it meets a matrix boundary, where it defaults to a column. If your outer product or matmul isn't doing what you expect, add an explicit <code>as vector(r, c)</code> contract.</li>
+<li><strong>Complex values don't silently demote to real</strong> even when their imaginary part is exactly zero — call <code>real(...)</code> explicitly.</li>
+</ul>
+<h2 id="s939">What's next</h2>
+<p>Move on to <strong><a href="numerics-dsp.html">Book 2 — Numerics, DSP, and Linear Algebra</a></strong> for FFT, spectra, matrix decompositions, and the crest-factor / smooth-max tools this language was built around.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

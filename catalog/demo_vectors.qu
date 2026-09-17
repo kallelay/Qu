@@ -1,0 +1,22 @@
+# demo_vectors.qu — basic vector and matrix arithmetic.
+#
+# A first look at Qu's arrays: a vector, a matrix, and the difference
+# between `*` (matrix multiply) and `.*` (elementwise).
+#
+# Exercises:
+#   vector literals, dot(), matrix literals, * vs .*, transpose
+
+backend auto
+
+#%% Vectors
+u = [1, 2, 3]
+v = [4, 5, 6]
+print("u . v = {dot(u, v)}")
+print("u + v = {u + v}")
+
+#%% Matrices
+A = [1, 2; 3, 4]
+B = [5, 6; 7, 8]
+print("A * B  = {A * B}")
+print("A .* B = {A .* B}")
+print("A'     = {A'}")

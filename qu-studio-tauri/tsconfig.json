@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@qu/ui-components": ["../qu-ui-components/src"]
+    }
+  },
+  // `../qu-ui-components/src/types` carries the ambient module declarations
+  // that package's own sources rely on (Vite's `?worker` suffix,
+  // `react-plotly.js`). They are `.d.ts` files, so nothing IMPORTS them --
+  // without naming them here they are simply absent from this program, and
+  // every module they describe becomes an unresolved-module error.
+  "include": ["src", "../qu-ui-components/src/types"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

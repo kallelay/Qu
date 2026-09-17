@@ -1,0 +1,52 @@
+# qu_impedance_rlkk.qu -- regularized linear Kramers-Kronig (rLKK)
+# validation and reconstruction of an impedance spectrum.
+#
+# rLKK checks whether a measured impedance spectrum is itself physically
+# consistent (linear, causal, time-invariant) by fitting a distribution of
+# relaxation times (DRT) and comparing the reconstructed spectrum back
+# against the raw data -- independent of any assumed equivalent circuit.
+# This demo builds a synthetic Randles-circuit spectrum (Rs + Rct parallel
+# Cdl), validates the clean data, corrupts a single point, and shows rLKK
+# flagging exactly that corruption.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   logspace                                     -- log-spaced frequency sweep
+#   complex arithmetic (0 + 1i, ./ , .*)          -- the Randles impedance model
+#   rlkk_reconstruct(Z, freqs, lambda=)           -- Model with .z / .gamma
+#   rlkk_validate(Z, freqs, lambda=, threshold=)  -- Model with .valid/.residuals/.max_residual
+#   nyquist(Z)                                    -- the standard EIS plot
+
+backend auto
+
+#%% Synthesize a Randles-circuit impedance spectrum
+j = 0 + 1i
+Rs = 0.2
+Rct = 0.01
+Cdl = 100e-6
+
+randles(freqs, Rs, Rct, Cdl) := Rs + Rct ./ (1 + j .* (2*pi*freqs) .* Rct .* Cdl)
+
+freqs = logspace(0, 4, 40)
+Z = randles(freqs, Rs, Rct, Cdl)
+
+#%% Reconstruct via rLKK and check the fit quality
+fit = rlkk_reconstruct(Z, freqs, lambda=1e-6)
+recon_err = max(abs(fit.z - Z))
+print("rLKK reconstruction of clean data: max |error| = {recon_err:.2e}")
+
+#%% Validate the clean spectrum, then corrupt one point and validate again
+clean_check = rlkk_validate(Z, freqs, lambda=1e-4, threshold=2.0)
+print("clean spectrum: valid={clean_check.valid}, max residual={clean_check.max_residual:.3f}%")
+
+mask = ones(length(freqs))
+mask[20] = 1.5
+Z_corrupted = Z .* mask
+corrupted_check = rlkk_validate(Z_corrupted, freqs, lambda=1e-4, threshold=2.0)
+print("corrupted spectrum (point 20 off by 50%): valid={corrupted_check.valid}, max residual={corrupted_check.max_residual:.3f}%")
+
+#%% Nyquist plot: clean vs corrupted
+nyquist(Z)
+nyquist(Z_corrupted)
+legend()
+title("Randles impedance: clean vs corrupted")
+show plot

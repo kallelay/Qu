@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noise, in and out — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Noise, in and out</h1>
+<p class="lede">putting noise in, and taking it out again.</p>
+<p class="srcpath">catalog/qu_noise_and_removal.qu</p>
+<p>The point of a noise module is not to make a signal look untidy. It is to let you state exactly how hard a problem is, hand the same problem to several methods, and see which one wins and where.</p>
+<p>NOISE IS SPECIFIED IN DECIBELS. "Add noise of amplitude 0.1" is not a statement about a measurement -- it depends entirely on how big the signal is. "Add noise at 3 dB SNR" is, and it is what a datasheet, a standard and a reviewer all speak. Every kind here honours that number, including the four that are not linear in their own parameter and get there by solving for it.</p>
+<p>NOISE IS NOT ONE THING. Using white noise for all of it is how a method comes to look robust in simulation and fail on the bench:</p>
+<p>gaussian    thermal, and the sum of many small independent causes pink 1/f    flicker in semiconductors, sensor drift; worse the slower you measure, which is why a long integration is not free brown 1/f^2 a random walk -- baseline wander shot        Poisson arrival of quanta; its variance is its mean, so it grows WITH the signal, unlike everything above quantize    what the ADC does; correlated with the signal, which is why it sounds worse than its power suggests salt-pepper dead pixels, bit errors. Not additive: it REPLACES samples, which is exactly why a linear filter cannot remove it</p>
+<p>INTERFERENCE IS NOT NOISE. Hum and EMI are deterministic -- they have structure, and that structure is what lets you remove them.</p>
+<p>DISTORTION IS NEITHER. It is a function of the signal, so averaging does nothing at all and the only cure is not to distort.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>add_noise(x, kind, snr=)      — every kind, one parameter</li>
+<li>hum / emf                     — mains and switching pickup</li>
+<li>distort                       — clip, soft, crossover, harmonic</li>
+<li>medfilt / smooth / savgol / hampel / detrend</li>
+<li>measure_snr(clean, noisy)     — the loop-closer</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Ask for a number, get that number</h3>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"Gaussian noise, asked for and measured:"</span>)
+<span class="k">for</span> target <span class="k">in</span> (<span class="n">20</span>, <span class="n">10</span>, <span class="n">3</span>, <span class="n">0</span>, -<span class="n">6</span>)
+    y = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = target, <span class="a">seed</span> = <span class="n">7</span>)
+    <span class="f">print</span>(<span class="s">"  asked {pad_left(str(target), 3)} dB   measured {measure_snr(clean, y):.2f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="f">print</span>(<span class="s">"Every kind at 6 dB -- one parameter, one meaning:"</span>)
+<span class="k">for</span> kind <span class="k">in</span> (<span class="s">"gaussian"</span>, <span class="s">"uniform"</span>, <span class="s">"pink"</span>, <span class="s">"brown"</span>, <span class="s">"blue"</span>, <span class="s">"shot"</span>, <span class="s">"quantize"</span>, <span class="s">"salt_pepper"</span>, <span class="s">"impulse"</span>)
+    y = <span class="f">add_noise</span>(clean, kind, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">3</span>)
+    <span class="f">print</span>(<span class="s">"  {pad_right(kind, 12)} {measure_snr(clean, y):.2f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>The pairing that matters: salt-and-pepper against a median</h3>
+<p>An average is pulled by an outlier in proportion to how far out it is. A median ignores it entirely, as long as fewer than half the window is corrupt. The gap below is twenty decibels.</p>
+<pre class="hl"><code>sp = <span class="f">add_noise</span>(clean, <span class="s">"salt_pepper"</span>, <span class="a">amplitude</span> = <span class="n">0.08</span>, <span class="a">seed</span> = <span class="n">5</span>)
+sp_med = <span class="f">medfilt</span>(sp, <span class="n">5</span>)
+sp_avg = <span class="f">smooth</span>(sp, <span class="n">5</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+<span class="f">print</span>(<span class="s">"Salt-and-pepper at 8% of samples:"</span>)
+<span class="f">print</span>(<span class="s">"  as measured        {measure_snr(clean, sp):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  median filter (5)  {measure_snr(clean, sp_med):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  moving average (5) {measure_snr(clean, sp_avg):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>And the opposite case, so neither is mistaken for a universal answer</h3>
+<p>On plain Gaussian noise a moving average wins outright -- it is the optimal linear estimator for it. The median is for OUTLIERS, not for noise, and using one for the other costs you.</p>
+<pre class="hl"><code>g = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">11</span>)
+g_avg = <span class="f">smooth</span>(g, <span class="n">11</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+g_med = <span class="f">medfilt</span>(g, <span class="n">11</span>)
+<span class="f">print</span>(<span class="s">"Gaussian at 6 dB:"</span>)
+<span class="f">print</span>(<span class="s">"  moving average (11) {measure_snr(clean, g_avg):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  median filter (11)  {measure_snr(clean, g_med):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Where Savitzky-Golay earns its place: when the SHAPE matters</h3>
+<p>A moving average is a low-pass filter and a peak is high-frequency, so it flattens the peak while it removes the noise. Savitzky-Golay fits a local polynomial instead, and keeps the height and width.</p>
+<pre class="hl"><code>peak = <span class="f">zeros</span>(N)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    u = (i - <span class="n">1024</span>) / <span class="n">60.0</span>
+    peak[i] = <span class="f">exp</span>(-u * u)
+<span class="k">end</span> <span class="k">for</span>
+noisy_peak = <span class="f">add_noise</span>(peak, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">10</span>, <span class="a">seed</span> = <span class="n">2</span>)
+sg = <span class="f">savgol</span>(noisy_peak, <span class="n">61</span>, <span class="n">3</span>)
+ma = <span class="f">smooth</span>(noisy_peak, <span class="n">61</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+<span class="f">print</span>(<span class="s">"A Gaussian peak under 10 dB of noise, both smoothed with a 61-point window:"</span>)
+<span class="f">print</span>(<span class="s">"  true height          1.000"</span>)
+<span class="f">print</span>(<span class="s">"  Savitzky-Golay       {max(sg):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"  moving average       {max(ma):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"  (the average removes more noise and destroys the measurement)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Interference, and why the harmonics matter</h3>
+<p>Mains pickup arrives through a symmetric nonlinearity -- a rectifier, a saturating core -- and a symmetric nonlinearity generates ODD harmonics. `harmonics = 3` therefore means 50, 150 and 250 Hz, and a notch at 50 alone leaves two thirds of the problem behind.</p>
+<pre class="hl"><code>h = <span class="f">hum</span>(clean, FS, <span class="a">freq</span> = <span class="n">50</span>, <span class="a">harmonics</span> = <span class="n">3</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"50 Hz mains hum with three odd harmonics: {measure_snr(clean, h):.2f} dB"</span>)
+e = <span class="f">emf</span>(clean, FS, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"EMI: a modulated carrier plus switching-edge bursts: {measure_snr(clean, e):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Outliers are a different problem again</h3>
+<p>`hampel` replaces a sample by the local median ONLY when it is more than n_sigma robust deviations away. Everything it does not flag it leaves bit for bit -- which is the difference from a median filter, and the reason to reach for it when the data are good apart from a few spikes.</p>
+<pre class="hl"><code>spiky = clean * <span class="n">1.0</span>
+spiky[<span class="n">400</span>] = <span class="n">6.0</span>
+spiky[<span class="n">900</span>] = -<span class="n">7.0</span>
+spiky[<span class="n">1500</span>] = <span class="n">5.5</span>
+r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"Three spikes in {N} samples:"</span>)
+<span class="f">print</span>(<span class="s">"  hampel replaced {r.replaced} samples"</span>)
+<span class="f">print</span>(<span class="s">"  error after      {measure_snr(clean, r.x):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Baseline wander</h3>
+<pre class="hl"><code>drifting = clean + <span class="n">2.0</span> + <span class="n">0.0015</span> * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>)
+flat = <span class="f">detrend</span>(drifting, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"With a DC offset and a ramp: detrend recovers {measure_snr(clean, flat):.1f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Distortion is not noise</h3>
+<p>Averaging a hundred records removes noise and does absolutely nothing to distortion, because distortion is the same every time. A SINGLE tone, because THD counts every non-fundamental component as a harmonic -- and the two-tone signal above would have its second tone counted as distortion that is not there.</p>
+<pre class="hl"><code>pure = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">31</span> * t)
+<span class="f">print</span>(<span class="s">"Total harmonic distortion, in dB below the fundamental:"</span>)
+<span class="f">print</span>(<span class="s">"  clean tone          {thd(pure):.1f} dB"</span>)
+<span class="k">for</span> kind <span class="k">in</span> (<span class="s">"soft"</span>, <span class="s">"crossover"</span>, <span class="s">"harmonic"</span>, <span class="s">"clip"</span>)
+    <span class="f">print</span>(<span class="s">"  {pad_right(kind, 12)} 0.4   {thd(distort(pure, kind, 0.4)):.1f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"  (averaging a hundred records changes none of these:"</span>)
+<span class="f">print</span>(<span class="s">"   distortion is a function of the signal, so it is identical"</span>)
+<span class="f">print</span>(<span class="s">"   in every record and averaging is powerless against it)"</span>)
+d = <span class="f">distort</span>(clean, <span class="s">"clip"</span>, <span class="n">0.4</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>The figure</h3>
+<pre class="hl"><code><span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"salt-and-pepper"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp_med[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.4</span>, <span class="a">label</span> = <span class="s">"median (5)"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp_avg[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.2</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"average (5)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A median removes what an average only spreads"</span>)
+<span class="f">legend</span>()
+
+<span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>)
+idx = <span class="n">700</span> <span class="k">to</span> <span class="n">1350</span>
+<span class="f">plot</span>(t[idx], noisy_peak[idx], <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"10 dB noise"</span>)
+<span class="f">plot</span>(t[idx], sg[idx], <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"Savitzky-Golay"</span>)
+<span class="f">plot</span>(t[idx], ma[idx], <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.3</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"moving average"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"...and a local polynomial keeps a peak the average flattens"</span>)
+<span class="f">legend</span>()
+
+<span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">3</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], h[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#b5651d"</span>, <span class="a">width</span> = <span class="n">1.0</span>, <span class="a">label</span> = <span class="s">"50 Hz hum + odd harmonics"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], clean[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#26303f"</span>, <span class="a">width</span> = <span class="n">1.2</span>, <span class="a">label</span> = <span class="s">"clean"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Interference has structure, which is what lets you remove it"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Gaussian noise, asked for and measured:
+  asked  20 dB   measured 20.00 dB
+  asked  10 dB   measured 10.00 dB
+  asked   3 dB   measured 3.00 dB
+  asked   0 dB   measured 0.00 dB
+  asked  -6 dB   measured -6.00 dB
+
+Every kind at 6 dB -- one parameter, one meaning:
+  gaussian     5.95 dB
+  uniform      5.94 dB
+  pink         6.00 dB
+  brown        6.00 dB
+  blue         6.00 dB
+  shot         5.90 dB
+  quantize     6.00 dB
+  salt_pepper  6.01 dB
+  impulse      6.00 dB
+
+Salt-and-pepper at 8% of samples:
+  as measured        3.97 dB
+  median filter (5)  28.52 dB
+  moving average (5) 10.65 dB
+
+Gaussian at 6 dB:
+  moving average (11) 15.74 dB
+  median filter (11)  14.13 dB
+
+A Gaussian peak under 10 dB of noise, both smoothed with a 61-point window:
+  true height          1.000
+  Savitzky-Golay       1.000
+    ... 21 more lines</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="133.77" x2="717.33" y2="133.77" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="133.77" x2="86.00" y2="133.77" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="138.25" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1</text>
+<line x1="86.00" y1="100.00" x2="717.33" y2="100.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="100.00" x2="86.00" y2="100.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="104.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="66.23" x2="717.33" y2="66.23" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="66.23" x2="86.00" y2="66.23" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="70.71" font-size="12.8" text-anchor="end" fill="#5a5a5a">1</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="152.00" x2="86.00" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="161.16" y1="48.00" x2="161.16" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="161.16" y1="152.00" x2="161.16" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="161.16" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.05</text>
+<line x1="236.32" y1="48.00" x2="236.32" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="236.32" y1="152.00" x2="236.32" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="236.32" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.10</text>
+<line x1="311.47" y1="48.00" x2="311.47" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="311.47" y1="152.00" x2="311.47" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="311.47" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.15</text>
+<line x1="386.63" y1="48.00" x2="386.63" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="386.63" y1="152.00" x2="386.63" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="386.63" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.20</text>
+<line x1="461.79" y1="48.00" x2="461.79" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="461.79" y1="152.00" x2="461.79" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="461.79" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.25</text>
+<line x1="536.95" y1="48.00" x2="536.95" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="536.95" y1="152.00" x2="536.95" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="536.95" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.30</text>
+<line x1="612.11" y1="48.00" x2="612.11" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="612.11" y1="152.00" x2="612.11" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="612.11" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.35</text>
+<line x1="687.26" y1="48.00" x2="687.26" y2="152.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="687.26" y1="152.00" x2="687.26" y2="156.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="687.26" y="170.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.40</text>
+<line x1="86.00" y1="152.00" x2="717.33" y2="152.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="152.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="717.33" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="717.33" y1="48.00" x2="717.33" y2="152.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-63133-10400"><rect x="86.00" y="48.00" width="631.33" height="104.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-63133-10400)">
+<polyline points="86.00,100.00 87.50,96.57 89.01,93.18 90.51,89.88 92.01,86.71 93.52,83.70 95.02,52.73 96.52,78.32 98.03,76.00 99.53,73.96 101.03,72.22 102.53,70.79 104.04,69.67 105.54,68.86 107.04,68.35 108.55,68.13 110.05,68.19 111.55,68.50 113.06,69.03 114.56,69.75 116.06,70.62 117.57,71.62 119.07,72.70 120.57,73.82 122.08,52.73 123.58,76.05 125.08,77.07 126.59,77.99 128.09,78.78 129.59,79.41 131.09,79.85 132.60,80.10 134.10,80.14 135.60,79.96 137.11,79.56 138.61,78.96 140.11,78.15 141.62,147.27 143.12,76.01 144.62,74.73 146.13,73.34 147.63,71.88 149.13,70.38 150.64,68.89 152.14,67.43 153.64,66.06 155.15,64.82 156.65,63.73 158.15,62.83 159.65,62.17 161.16,61.76 162.66,61.63 164.16,61.80 165.67,62.28 167.17,52.73 168.67,64.22 170.18,65.68 171.68,67.45 173.18,69.53 174.69,71.88 176.19,74.49 177.69,77.32 179.20,80.34 180.70,83.51 182.20,86.80 183.71,52.73 185.21,52.73 186.71,96.91 188.22,100.21 189.72,103.42 191.22,106.49 192.72,109.38 194.23,112.07 195.73,114.52 197.23,116.71 198.74,118.62 200.24,120.25 201.74,121.58 203.25,122.62 204.75,123.37 206.25,123.83 207.76,124.04 209.26,124.01 210.76,123.76 212.27,52.73 213.77,122.75 215.27,122.05 216.78,121.27 218.28,52.73 219.78,119.64 221.28,118.86 222.79,118.16 224.29,117.55 225.79,117.09 227.30,52.73 228.80,116.67 230.30,116.75 231.81,117.05 233.31,117.57 234.81,118.31 236.32,119.27 237.82,120.43 239.32,121.78 240.83,123.30 242.33,124.97 243.83,126.74 245.34,128.59 246.84,130.49 248.34,132.39 249.84,134.25 251.35,136.03 252.85,137.70 254.35,139.21 255.86,140.52 257.36,141.61 258.86,142.44 260.37,142.99 261.87,143.23 263.37,52.73 264.88,142.74 266.38,141.99 267.88,140.90 269.39,139.49 270.89,137.76 272.39,135.73 273.90,133.43 275.40,52.73 276.90,128.12 278.40,125.18 279.91,122.11 281.41,52.73 282.91,52.73 284.42,147.27 285.92,109.29 287.42,106.17 288.93,103.16 290.43,100.30 291.93,97.63 293.44,95.16 294.94,92.94 296.44,90.96 297.95,89.26 299.45,87.83 300.95,86.68 302.46,52.73 303.96,85.20 305.46,84.83 306.96,84.70 308.47,84.77 309.97,85.01 311.47,147.27 312.98,147.27 314.48,86.45 315.98,87.04 317.49,87.63 318.99,88.18 320.49,88.64 322.00,89.00 323.50,89.21 325.00,89.26 326.51,89.11 328.01,52.73 329.51,88.17 331.02,87.35 332.52,86.31 334.02,85.04 335.52,83.56 337.03,81.87 338.53,80.01 340.03,77.99 341.54,75.84 343.04,73.61 344.54,147.27 346.05,69.02 347.55,66.74 349.05,64.54 350.56,62.44 352.06,60.49 353.56,58.72 355.07,57.18 356.57,55.89 358.07,54.89 359.58,54.19 361.08,53.81 362.58,53.77 364.09,54.07 365.59,54.72 367.09,55.71 368.59,57.02 370.10,58.65 371.60,60.56 373.10,62.74 374.61,65.15 376.11,67.76 377.61,70.52 379.12,73.40 380.62,76.36 382.12,79.35 383.63,82.32 385.13,85.25 386.63,88.09 388.14,147.27 389.64,93.35 391.14,95.71 392.65,97.86 394.15,99.77 395.65,101.43 397.15,102.84 398.66,103.98 400.16,104.87 401.66,105.51 403.17,105.91 404.67,106.10 406.17,106.10 407.68,105.93 409.18,105.64 410.68,105.24 412.19,104.78 413.69,104.31 415.19,103.84 416.70,103.43 418.20,103.10 419.70,102.89 421.21,102.84 422.71,102.97 424.21,103.30 425.71,103.85 427.22,104.63 428.72,105.66 430.22,106.93 431.73,108.44 433.23,110.18 434.73,112.14 436.24,114.30 437.74,116.62 439.24,119.09 440.75,121.66 442.25,124.30 443.75,147.27 445.26,129.64 446.76,147.27 448.26,134.76 449.77,137.14 451.27,139.34 452.77,141.34 454.27,143.08 455.78,144.56 457.28,145.73 458.78,146.58 460.29,147.10 461.79,147.27 463.29,147.10 464.80,146.58 466.30,147.27 467.80,144.56 469.31,143.08 470.81,147.27 472.31,139.34 473.82,52.73 475.32,134.76 476.82,132.25 478.33,129.64 479.83,147.27 481.33,124.30 482.83,121.66 484.34,119.09 485.84,116.62 487.34,114.30 488.85,112.14 490.35,110.18 491.85,108.44 493.36,106.93 494.86,105.66 496.36,104.63 497.87,103.85 499.37,103.30 500.87,52.73 502.38,102.84 503.88,102.89 505.38,103.10 506.89,103.43 508.39,103.84 509.89,104.31 511.39,104.78 512.90,105.24 514.40,105.64 515.90,105.93 517.41,106.10 518.91,106.10 520.41,105.91 521.92,105.51 523.42,104.87 524.92,103.98 526.43,102.84 527.93,101.43 529.43,99.77 530.94,97.86 532.44,95.71 533.94,93.35 535.45,90.80 536.95,88.09 538.45,85.25 539.95,82.32 541.46,79.35 542.96,76.36 544.46,73.40 545.97,70.52 547.47,67.76 548.97,65.15 550.48,62.74 551.98,60.56 553.48,58.65 554.99,57.02 556.49,55.71 557.99,54.72 559.50,54.07 561.00,53.77 562.50,53.81 564.01,54.19 565.51,54.89 567.01,52.73 568.52,57.18 570.02,58.72 571.52,60.49 573.02,62.44 574.53,147.27 576.03,66.74 577.53,69.02 579.04,71.32 580.54,73.61 582.04,75.84 583.55,77.99 585.05,52.73 586.55,81.87 588.06,83.56 589.56,85.04 591.06,86.31 592.57,87.35 594.07,88.17 595.57,88.75 597.08,89.11 598.58,52.73 600.08,89.21 601.58,89.00 603.09,88.64 604.59,88.18 606.09,87.63 607.60,87.04 609.10,86.45 610.60,85.88 612.11,85.39 613.61,85.01 615.11,84.77 616.62,84.70 618.12,84.83 619.62,85.20 621.13,85.81 622.63,86.68 624.13,87.83 625.64,89.26 627.14,90.96 628.64,92.94 630.14,147.27 631.65,97.63 633.15,100.30 634.65,103.16 636.16,106.17 637.66,109.29 639.16,112.49 640.67,147.27 642.17,52.73 643.67,122.11 645.18,125.18 646.68,128.12 648.18,130.88 649.69,133.43 651.19,135.73 652.69,137.76 654.20,139.49 655.70,140.90 657.20,141.99 658.70,142.74 660.21,52.73 661.71,143.23 663.21,142.99 664.72,142.44 666.22,141.61 667.72,140.52 669.23,139.21 670.73,137.70 672.23,136.03 673.74,147.27 675.24,132.39 676.74,130.49 678.25,128.59 679.75,126.74 681.25,124.97 682.76,123.30 684.26,121.78 685.76,120.43 687.26,119.27" fill="none" stroke="#c8ccd4" stroke-width="1.5"/>
+<polyline points="86.00,96.57 87.50,96.57 89.01,93.18 90.51,89.88 92.01,86.71 93.52,83.70 95.02,78.32 96.52,76.00 98.03,73.96 99.53,73.96 101.03,72.22 102.53,70.79 104.04,69.67 105.54,68.86 107.04,68.35 108.55,68.35 110.05,68.35 111.55,68.50 113.06,69.03 114.56,69.75 116.06,70.62 117.57,71.62 119.07,71.62 120.57,72.70 122.08,73.82 123.58,76.05 125.08,77.07 126.59,77.99 128.09,78.78 129.59,79.41 131.09,79.85 132.60,79.96 134.10,79.96 135.60,79.96 137.11,79.56 138.61,79.56 140.11,78.96 141.62,78.15 143.12,76.01 144.62,74.73 146.13,73.34 147.63,71.88 149.13,70.38 150.64,68.89 152.14,67.43 153.64,66.06 155.15,64.82 156.65,63.73 158.15,62.83 159.65,62.17 161.16,61.80 162.66,61.80 164.16,61.76 165.67,61.80 167.17,62.28 168.67,64.22 170.18,65.68 171.68,67.45 173.18,69.53 174.69,71.88 176.19,74.49 177.69,77.32 179.20,80.34 180.70,80.34 182.20,80.34 183.71,83.51 185.21,86.80 186.71,96.91 188.22,100.21 189.72,103.42 191.22,106.49 192.72,109.38 194.23,112.07 195.73,114.52 197.23,116.71 198.74,118.62 200.24,120.25 201.74,121.58 203.25,122.62 204.75,123.37 206.25,123.83 207.76,123.83 209.26,123.83 210.76,123.76 212.27,122.75 213.77,122.05 215.27,121.27 216.78,121.27 218.28,119.64 219.78,118.86 221.28,118.16 222.79,118.16 224.29,117.55 225.79,117.09 227.30,116.75 228.80,116.75 230.30,116.75 231.81,117.05 233.31,117.57 234.81,118.31 236.32,119.27 237.82,120.43 239.32,121.78 240.83,123.30 242.33,124.97 243.83,126.74 245.34,128.59 246.84,130.49 248.34,132.39 249.84,134.25 251.35,136.03 252.85,137.70 254.35,139.21 255.86,140.52 257.36,141.61 258.86,142.44 260.37,142.44 261.87,142.74 263.37,142.74 264.88,141.99 266.38,140.90 267.88,140.90 269.39,139.49 270.89,137.76 272.39,135.73 273.90,133.43 275.40,128.12 276.90,125.18 278.40,122.11 279.91,122.11 281.41,122.11 282.91,109.29 284.42,106.17 285.92,106.17 287.42,106.17 288.93,103.16 290.43,100.30 291.93,97.63 293.44,95.16 294.94,92.94 296.44,90.96 297.95,89.26 299.45,87.83 300.95,86.68 302.46,85.20 303.96,84.83 305.46,84.77 306.96,84.83 308.47,84.83 309.97,85.01 311.47,86.45 312.98,87.04 314.48,87.63 315.98,87.63 317.49,87.63 318.99,88.18 320.49,88.64 322.00,89.00 323.50,89.11 325.00,89.11 326.51,89.11 328.01,88.17 329.51,87.35 331.02,86.31 332.52,86.31 334.02,85.04 335.52,83.56 337.03,81.87 338.53,80.01 340.03,77.99 341.54,77.99 343.04,75.84 344.54,73.61 346.05,69.02 347.55,66.74 349.05,64.54 350.56,62.44 352.06,60.49 353.56,58.72 355.07,57.18 356.57,55.89 358.07,54.89 359.58,54.19 361.08,54.07 362.58,54.07 364.09,54.07 365.59,54.72 367.09,55.71 368.59,57.02 370.10,58.65 371.60,60.56 373.10,62.74 374.61,65.15 376.11,67.76 377.61,70.52 379.12,73.40 380.62,76.36 382.12,79.35 383.63,82.32 385.13,85.25 386.63,88.09 388.14,93.35 389.64,95.71 391.14,97.86 392.65,97.86 394.15,99.77 395.65,101.43 397.15,102.84 398.66,103.98 400.16,104.87 401.66,105.51 403.17,105.91 404.67,105.93 406.17,105.93 407.68,105.93 409.18,105.64 410.68,105.24 412.19,104.78 413.69,104.31 415.19,103.84 416.70,103.43 418.20,103.10 419.70,102.97 421.21,102.97 422.71,102.97 424.21,103.30 425.71,103.85 427.22,104.63 428.72,105.66 430.22,106.93 431.73,108.44 433.23,110.18 434.73,112.14 436.24,114.30 437.74,116.62 439.24,119.09 440.75,121.66 442.25,124.30 443.75,129.64 445.26,134.76 446.76,137.14 448.26,137.14 449.77,139.34 451.27,139.34 452.77,141.34 454.27,143.08 455.78,144.56 457.28,145.73 458.78,146.58 460.29,147.10 461.79,147.10 463.29,147.10 464.80,147.10 466.30,146.58 467.80,146.58 469.31,144.56 470.81,143.08 472.31,139.34 473.82,134.76 475.32,132.25 476.82,132.25 478.33,132.25 479.83,129.64 481.33,124.30 482.83,121.66 484.34,119.09 485.84,116.62 487.34,114.30 488.85,112.14 490.35,110.18 491.85,108.44 493.36,106.93 494.86,105.66 496.36,104.63 497.87,103.85 499.37,103.30 500.87,102.89 502.38,102.89 503.88,102.89 505.38,103.10 506.89,103.43 508.39,103.84 509.89,104.31 511.39,104.78 512.90,105.24 514.40,105.64 515.90,105.93 517.41,105.93 518.91,105.93 520.41,105.91 521.92,105.51 523.42,104.87 524.92,103.98 526.43,102.84 527.93,101.43 529.43,99.77 530.94,97.86 532.44,95.71 533.94,93.35 535.45,90.80 536.95,88.09 538.45,85.25 539.95,82.32 541.46,79.35 542.96,76.36 544.46,73.40 545.97,70.52 547.47,67.76 548.97,65.15 550.48,62.74 551.98,60.56 553.48,58.65 554.99,57.02 556.49,55.71 557.99,54.72 559.50,54.07 561.00,54.07 562.50,54.07 564.01,53.81 565.51,54.19 567.01,54.89 568.52,57.18 570.02,58.72 571.52,60.49 573.02,62.44 574.53,66.74 576.03,69.02 577.53,71.32 579.04,71.32 580.54,73.61 582.04,73.61 583.55,75.84 585.05,77.99 586.55,81.87 588.06,83.56 589.56,85.04 591.06,86.31 592.57,87.35 594.07,88.17 595.57,88.17 597.08,88.75 598.58,89.00 600.08,89.00 601.58,88.64 603.09,88.64 604.59,88.18 606.09,87.63 607.60,87.04 609.10,86.45 610.60,85.88 612.11,85.39 613.61,85.01 615.11,84.83 616.62,84.83 618.12,84.83 619.62,85.20 621.13,85.81 622.63,86.68 624.13,87.83 625.64,89.26 627.14,90.96 628.64,92.94 630.14,97.63 631.65,100.30 633.15,103.16 634.65,103.16 636.16,106.17 637.66,109.29 639.16,109.29 640.67,112.49 642.17,122.11 643.67,125.18 645.18,125.18 646.68,128.12 648.18,130.88 649.69,133.43 651.19,135.73 652.69,137.76 654.20,139.49 655.70,140.90 657.20,140.90 658.70,141.99 660.21,142.74 661.71,142.74 663.21,142.44 664.72,142.44 666.22,141.61 667.72,140.52 669.23,139.21 670.73,139.21 672.23,137.70 673.74,136.03 675.24,132.39 676.74,130.49 678.25,128.59 679.75,126.74 681.25,124.97 682.76,123.30 684.26,121.78 685.76,120.43 687.26,119.27" fill="none" stroke="#4169e1" stroke-width="1.5"/>
+<polyline points="86.00,97.95 87.50,95.93 89.01,93.27 90.51,90.01 92.01,81.24 93.52,78.27 95.02,75.49 96.52,72.94 98.03,70.65 99.53,74.26 101.03,72.53 102.53,71.10 104.04,69.98 105.54,69.16 107.04,68.64 108.55,68.41 110.05,68.44 111.55,68.72 113.06,69.22 114.56,69.90 116.06,70.74 117.57,71.70 119.07,68.30 120.57,69.38 122.08,70.47 123.58,71.53 125.08,72.52 126.59,77.86 128.09,78.62 129.59,79.23 131.09,79.66 132.60,79.89 134.10,79.92 135.60,79.74 137.11,79.35 138.61,92.78 140.11,91.99 141.62,91.03 143.12,89.90 144.62,88.65 146.13,73.27 147.63,71.84 149.13,70.38 150.64,68.93 152.14,67.52 153.64,66.19 155.15,64.98 156.65,63.92 158.15,63.06 159.65,62.42 161.16,62.04 162.66,61.92 164.16,60.04 165.67,60.53 167.17,61.34 168.67,62.47 170.18,63.92 171.68,67.75 173.18,69.81 174.69,72.13 176.19,74.71 177.69,77.51 179.20,80.49 180.70,76.14 182.20,71.22 183.71,74.53 185.21,77.87 186.71,81.20 188.22,91.95 189.72,103.28 191.22,106.31 192.72,109.18 194.23,111.83 195.73,114.26 197.23,116.43 198.74,118.34 200.24,119.96 201.74,121.29 203.25,122.33 204.75,123.09 206.25,123.57 207.76,123.80 209.26,109.67 210.76,109.46 212.27,109.06 213.77,108.51 215.27,94.31 216.78,107.69 218.28,106.91 219.78,106.13 221.28,105.39 222.79,118.26 224.29,104.88 225.79,104.44 227.30,104.16 228.80,104.06 230.30,104.15 231.81,117.27 233.31,117.79 234.81,118.53 236.32,119.47 237.82,120.62 239.32,121.95 240.83,123.44 242.33,125.08 243.83,126.82 245.34,128.64 246.84,130.49 248.34,132.35 249.84,134.17 251.35,135.91 252.85,137.54 254.35,139.01 255.86,140.30 257.36,141.35 258.86,142.16 260.37,124.60 261.87,124.83 263.37,124.74 264.88,124.32 266.38,123.57 267.88,140.58 269.39,139.17 270.89,137.46 272.39,119.83 273.90,117.55 275.40,115.04 276.90,112.31 278.40,96.17 279.91,96.17 281.41,100.00 282.91,96.83 284.42,93.64 285.92,103.72 287.42,113.24 288.93,103.31 290.43,100.48 291.93,97.84 293.44,95.40 294.94,93.19 296.44,91.23 297.95,89.54 299.45,81.49 300.95,80.34 302.46,79.46 303.96,78.83 305.46,78.44 306.96,84.90 308.47,97.32 309.97,109.80 311.47,110.15 312.98,110.61 314.48,111.13 315.98,99.31 317.49,87.59 318.99,88.10 320.49,88.53 322.00,88.86 323.50,89.04 325.00,81.86 326.51,81.69 328.01,81.32 329.51,80.73 331.02,79.92 332.52,86.09 334.02,84.83 335.52,83.36 337.03,81.69 338.53,79.85 340.03,77.86 341.54,90.94 343.04,88.75 344.54,86.50 346.05,84.24 347.55,82.00 349.05,64.64 350.56,62.59 352.06,60.67 353.56,58.94 355.07,57.43 356.57,56.17 358.07,55.19 359.58,54.51 361.08,54.15 362.58,54.11 364.09,54.42 365.59,55.06 367.09,56.04 368.59,57.33 370.10,58.94 371.60,60.83 373.10,62.97 374.61,65.35 376.11,67.91 377.61,70.64 379.12,73.48 380.62,76.39 382.12,79.34 383.63,82.27 385.13,96.46 386.63,99.26 388.14,101.94 389.64,104.46 391.14,106.79 392.65,97.63 394.15,99.52 395.65,101.18 397.15,102.58 398.66,103.73 400.16,104.62 401.66,105.28 403.17,105.70 404.67,105.91 406.17,105.94 407.68,105.80 409.18,105.54 410.68,105.18 412.19,104.76 413.69,104.32 415.19,103.89 416.70,103.51 418.20,103.22 419.70,103.04 421.21,103.02 422.71,103.17 424.21,103.52 425.71,104.08 427.22,104.87 428.72,105.90 430.22,107.17 431.73,108.67 433.23,110.40 434.73,112.34 436.24,114.47 437.74,116.76 439.24,119.19 440.75,125.79 442.25,128.39 443.75,134.03 445.26,136.65 446.76,139.22 448.26,137.63 449.77,139.97 451.27,139.13 452.77,141.09 454.27,142.81 455.78,144.26 457.28,145.41 458.78,146.25 460.29,146.76 461.79,146.93 463.29,147.07 464.80,146.56 466.30,145.72 467.80,145.75 469.31,144.31 470.81,125.40 472.31,123.44 473.82,121.27 475.32,117.74 476.82,119.33 478.33,133.64 479.83,131.02 481.33,128.39 482.83,125.79 484.34,119.19 485.84,116.76 487.34,114.47 488.85,112.34 490.35,110.40 491.85,108.67 493.36,107.17 494.86,105.90 496.36,104.87 497.87,94.03 499.37,93.47 500.87,93.12 502.38,92.97 503.88,93.00 505.38,103.22 506.89,103.51 508.39,103.89 509.89,104.32 511.39,104.76 512.90,105.18 514.40,105.54 515.90,105.80 517.41,105.94 518.91,105.91 520.41,105.70 521.92,105.28 523.42,104.62 524.92,103.73 526.43,102.58 527.93,101.18 529.43,99.52 530.94,97.63 532.44,95.50 533.94,93.16 535.45,90.64 536.95,87.97 538.45,85.16 539.95,82.27 541.46,79.34 542.96,76.39 544.46,73.48 545.97,70.64 547.47,67.91 548.97,65.35 550.48,62.97 551.98,60.83 553.48,58.94 554.99,57.33 556.49,56.04 557.99,55.06 559.50,54.42 561.00,54.11 562.50,54.15 564.01,53.88 565.51,54.56 567.01,55.54 568.52,56.80 570.02,58.31 571.52,77.22 573.02,79.13 574.53,81.19 576.03,83.36 577.53,85.59 579.04,71.31 580.54,73.56 582.04,70.30 583.55,72.41 585.05,74.40 586.55,76.24 588.06,77.90 589.56,84.83 591.06,86.09 592.57,87.12 594.07,87.94 595.57,81.22 597.08,81.59 598.58,81.76 600.08,81.74 601.58,81.55 603.09,88.53 604.59,88.10 606.09,87.59 607.60,87.03 609.10,86.48 610.60,85.95 612.11,85.50 613.61,85.15 615.11,84.94 616.62,84.90 618.12,85.06 619.62,85.44 621.13,86.07 622.63,86.96 624.13,88.11 625.64,89.54 627.14,101.65 628.64,103.61 630.14,105.82 631.65,108.26 633.15,110.91 634.65,103.31 636.16,106.28 637.66,115.68 639.16,105.59 640.67,108.78 642.17,111.96 643.67,115.08 645.18,111.80 646.68,127.94 648.18,130.67 649.69,133.18 651.19,135.46 652.69,137.46 654.20,139.17 655.70,140.58 657.20,123.57 658.70,124.32 660.21,124.74 661.71,124.83 663.21,124.60 664.72,142.16 666.22,141.35 667.72,140.30 669.23,139.01 670.73,140.15 672.23,138.52 673.74,136.78 675.24,134.95 676.74,133.10 678.25,128.64 679.75,126.82 681.25,125.08 682.76,123.44 684.26,121.95 685.76,120.62 687.26,119.47" fill="none" stroke="#dc143c" stroke-width="1.2" stroke-dasharray="20.00,10.00"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">A median removes what an average only spreads</text>
+<text x="56.91" y="100.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 56.91 100.00)">amplitude</text>
+<rect x="725.33" y="66.00" width="132.67" height="68.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="732.33" y1="82.00" x2="752.33" y2="82.00" stroke="#c8ccd4" stroke-width="2.2"/>
+<text x="758.33" y="85.50" font-size="12" text-anchor="start" fill="#222">salt-and-pepper</text>
+<line x1="732.33" y1="100.00" x2="752.33" y2="100.00" stroke="#4169e1" stroke-width="2.2"/>
+<text x="758.33" y="103.50" font-size="12" text-anchor="start" fill="#222">median (5)</text>
+<line x1="732.33" y1="118.00" x2="752.33" y2="118.00" stroke="#dc143c" stroke-width="1.2" stroke-dasharray="6.67,3.33"/>
+<text x="758.33" y="121.50" font-size="12" text-anchor="start" fill="#222">average (5)</text>
+<line x1="86.00" y1="328.21" x2="718.73" y2="328.21" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="328.21" x2="86.00" y2="328.21" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="332.69" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="297.54" x2="718.73" y2="297.54" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="297.54" x2="86.00" y2="297.54" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="302.02" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="266.87" x2="718.73" y2="266.87" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="266.87" x2="86.00" y2="266.87" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="271.35" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="114.76" y1="242.00" x2="114.76" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="114.76" y1="346.00" x2="114.76" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="114.76" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.70</text>
+<line x1="203.25" y1="242.00" x2="203.25" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="203.25" y1="346.00" x2="203.25" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="203.25" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.80</text>
+<line x1="291.75" y1="242.00" x2="291.75" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="291.75" y1="346.00" x2="291.75" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="291.75" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.90</text>
+<line x1="380.24" y1="242.00" x2="380.24" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="380.24" y1="346.00" x2="380.24" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="380.24" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.00</text>
+<line x1="468.73" y1="242.00" x2="468.73" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="468.73" y1="346.00" x2="468.73" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="468.73" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.10</text>
+<line x1="557.23" y1="242.00" x2="557.23" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="557.23" y1="346.00" x2="557.23" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="557.23" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.20</text>
+<line x1="645.72" y1="242.00" x2="645.72" y2="346.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="645.72" y1="346.00" x2="645.72" y2="350.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="645.72" y="364.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.30</text>
+<line x1="86.00" y1="346.00" x2="718.73" y2="346.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="242.00" x2="86.00" y2="346.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="242.00" x2="718.73" y2="242.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="718.73" y1="242.00" x2="718.73" y2="346.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-24200-63273-10400"><rect x="86.00" y="242.00" width="632.73" height="104.00"/></clipPath><g clip-path="url(#qu-clip-8600-24200-63273-10400)">
+<polyline points="114.76,328.76 115.65,326.94 116.53,327.31 117.42,329.28 118.30,324.60 119.19,322.37 120.07,334.36 120.95,339.19 121.84,328.34 122.72,331.37 123.61,334.69 124.49,328.80 125.38,328.00 126.26,326.98 127.15,334.22 128.03,330.97 128.92,341.27 129.80,330.15 130.69,339.80 131.57,326.97 132.46,327.55 133.34,330.12 134.23,325.53 135.11,329.45 136.00,331.71 136.88,331.69 137.77,337.27 138.65,324.56 139.54,339.13 140.42,324.03 141.31,322.87 142.19,330.79 143.08,334.24 143.96,326.45 144.85,325.46 145.73,328.31 146.62,326.55 147.50,324.63 148.39,326.83 149.27,322.24 150.16,327.60 151.04,326.61 151.93,327.78 152.81,324.69 153.70,327.92 154.58,336.37 155.47,326.04 156.35,329.03 157.24,331.60 158.12,322.41 159.01,320.52 159.89,326.20 160.78,324.67 161.66,331.09 162.55,331.75 163.43,322.24 164.32,321.44 165.20,320.85 166.09,331.58 166.97,330.50 167.86,320.74 168.74,334.27 169.63,323.38 170.51,320.81 171.40,326.78 172.28,328.59 173.17,335.24 174.05,323.94 174.94,323.41 175.82,325.80 176.71,334.15 177.59,325.74 178.48,328.62 179.36,326.64 180.25,330.00 181.13,335.50 182.02,314.00 182.90,329.16 183.79,328.47 184.67,327.04 185.56,318.29 186.44,334.59 187.33,325.72 188.21,323.14 189.09,325.60 189.98,326.81 190.86,326.09 191.75,324.14 192.63,320.15 193.52,326.60 194.40,328.92 195.29,323.82 196.17,326.58 197.06,332.94 197.94,331.79 198.83,326.56 199.71,325.18 200.60,324.98 201.48,329.50 202.37,325.25 203.25,322.23 204.14,329.75 205.02,322.16 205.91,331.80 206.79,321.37 207.68,330.21 208.56,324.09 209.45,323.18 210.33,331.51 211.22,324.07 212.10,325.19 212.99,327.53 213.87,327.44 214.76,329.66 215.64,333.85 216.53,334.65 217.41,332.86 218.30,329.32 219.18,322.12 220.07,332.79 220.95,322.85 221.84,327.59 222.72,320.93 223.61,326.25 224.49,329.51 225.38,326.42 226.26,328.72 227.15,321.63 228.03,331.65 228.92,323.72 229.80,337.08 230.69,320.03 231.57,333.98 232.46,324.68 233.34,325.21 234.23,325.46 235.11,327.36 236.00,327.60 236.88,333.96 237.77,334.24 238.65,331.22 239.54,322.65 240.42,334.00 241.31,327.32 242.19,322.92 243.08,328.30 243.96,326.01 244.85,328.05 245.73,318.34 246.62,322.68 247.50,328.34 248.39,327.83 249.27,321.66 250.16,318.14 251.04,332.75 251.93,330.16 252.81,321.92 253.70,323.13 254.58,327.31 255.47,330.43 256.35,328.78 257.23,329.11 258.12,326.54 259.00,321.97 259.89,328.52 260.77,330.33 261.66,328.54 262.54,324.63 263.43,324.03 264.31,323.50 265.20,331.51 266.08,323.82 266.97,323.27 267.85,326.82 268.74,323.35 269.62,319.34 270.51,329.30 271.39,329.14 272.28,324.26 273.16,328.81 274.05,328.85 274.93,331.77 275.82,324.60 276.70,332.21 277.59,323.48 278.47,330.06 279.36,331.77 280.24,323.27 281.13,337.58 282.01,327.05 282.90,325.45 283.78,329.20 284.67,327.59 285.55,328.66 286.44,334.77 287.32,328.12 288.21,320.18 289.09,329.70 289.98,327.07 290.86,332.04 291.75,326.28 292.63,327.88 293.52,338.87 294.40,322.78 295.29,328.45 296.17,325.13 297.06,335.54 297.94,327.12 298.83,329.95 299.71,326.68 300.60,322.64 301.48,324.47 302.37,324.10 303.25,331.35 304.14,328.32 305.02,324.19 305.91,329.34 306.79,333.42 307.68,326.86 308.56,329.47 309.45,317.98 310.33,324.28 311.22,327.04 312.10,323.23 312.99,334.49 313.87,317.48 314.76,324.41 315.64,324.17 316.53,321.93 317.41,316.09 318.30,324.04 319.18,322.90 320.07,326.29 320.95,312.28 321.84,329.02 322.72,319.43 323.61,317.81 324.49,324.06 325.37,317.94 326.26,323.56 327.14,316.74 328.03,310.47 328.91,320.66 329.80,305.16 330.68,319.65 331.57,320.68 332.45,309.08 333.34,316.78 334.22,310.11 335.11,311.13 335.99,316.27 336.88,306.85 337.76,309.95 338.65,306.79 339.53,310.30 340.42,314.09 341.30,313.74 342.19,299.52 343.07,306.80 343.96,307.16 344.84,298.65 345.73,296.94 346.61,295.29 347.50,298.73 348.38,299.87 349.27,299.12 350.15,297.84 351.04,302.21 351.92,300.34 352.81,295.16 353.69,291.10 354.58,292.08 355.46,296.12 356.35,282.84 357.23,292.18 358.12,285.82 359.00,286.26 359.89,284.81 360.77,285.48 361.66,280.39 362.54,287.89 363.43,279.72 364.31,287.84 365.20,276.85 366.08,270.38 366.97,274.45 367.85,273.22 368.74,278.83 369.62,274.49 370.51,276.42 371.39,272.54 372.28,279.57 373.16,276.45 374.05,267.46 374.93,274.39 375.82,260.16 376.70,269.59 377.59,265.41 378.47,264.11 379.36,270.78 380.24,265.12 381.13,252.22 382.01,264.20 382.90,267.54 383.78,251.69 384.67,262.24 385.55,261.90 386.44,261.71 387.32,260.76 388.21,266.21 389.09,247.65 389.98,255.77 390.86,250.00 391.75,247.23 392.63,250.03 393.51,254.80 394.40,250.23 395.28,252.52 396.17,247.54 397.05,254.65 397.94,255.20 398.82,246.88 399.71,246.73 400.59,248.79 401.48,255.57 402.36,251.18 403.25,251.16 404.13,255.44 405.02,248.49 405.90,261.93 406.79,257.15 407.67,252.69 408.56,256.39 409.44,252.71 410.33,253.69 411.21,265.11 412.10,255.56 412.98,251.53 413.87,251.95 414.75,254.86 415.64,259.96 416.52,257.95 417.41,262.53 418.29,259.79 419.18,258.99 420.06,262.23 420.95,274.70 421.83,268.16 422.72,261.82 423.60,269.76 424.49,274.24 425.37,268.39 426.26,266.38 427.14,267.88 428.03,277.59 428.91,259.49 429.80,271.93 430.68,274.11 431.57,271.22 432.45,276.68 433.34,274.36 434.22,280.79 435.11,275.55 435.99,271.12 436.88,275.77 437.76,276.79 438.65,274.19 439.53,285.97 440.42,291.59 441.30,282.92 442.19,279.63 443.07,283.90 443.96,283.22 444.84,288.06 445.73,285.51 446.61,289.18 447.50,289.33 448.38,294.13 449.27,296.06 450.15,298.88 451.04,300.44 451.92,300.95 452.81,295.49 453.69,308.52 454.58,304.29 455.46,300.16 456.35,308.64 457.23,306.96 458.12,295.69 459.00,309.56 459.89,300.36 460.77,299.03 461.65,303.85 462.54,310.58 463.42,305.00 464.31,304.95 465.19,306.27 466.08,306.94 466.96,306.10 467.85,311.58 468.73,320.78 469.62,310.18 470.50,312.82 471.39,320.60 472.27,315.22 473.16,327.35 474.04,320.42 474.93,322.31 475.81,316.30 476.70,322.04 477.58,322.99 478.47,310.78 479.35,321.75 480.24,318.64 481.12,327.00 482.01,320.85 482.89,323.08 483.78,317.79 484.66,331.51 485.55,318.71 486.43,322.63 487.32,324.54 488.20,317.84 489.09,320.93 489.97,325.40 490.86,327.29 491.74,326.35 492.63,321.27 493.51,325.00 494.40,319.14 495.28,325.57 496.17,334.68 497.05,328.97 497.94,326.50 498.82,337.11 499.71,322.40 500.59,326.89 501.48,328.16 502.36,317.17 503.25,330.25 504.13,324.06 505.02,326.70 505.90,324.44 506.79,334.78 507.67,332.74 508.56,319.04 509.44,333.41 510.33,332.10 511.21,326.59 512.10,320.77 512.98,325.39 513.87,327.97 514.75,328.01 515.64,332.90 516.52,324.64 517.41,331.53 518.29,330.34 519.18,326.21 520.06,330.69 520.95,330.16 521.83,330.21 522.72,325.45 523.60,321.41 524.49,327.07 525.37,327.25 526.26,323.84 527.14,316.75 528.03,326.73 528.91,321.31 529.79,329.63 530.68,326.00 531.56,319.21 532.45,330.71 533.33,332.44 534.22,333.28 535.10,325.12 535.99,323.90 536.87,325.89 537.76,328.50 538.64,334.29 539.53,328.13 540.41,329.11 541.30,329.65 542.18,331.50 543.07,333.80 543.95,326.25 544.84,323.17 545.72,333.68 546.61,325.58 547.49,326.66 548.38,327.43 549.26,322.99 550.15,329.02 551.03,323.75 551.92,332.65 552.80,329.05 553.69,326.59 554.57,331.40 555.46,323.78 556.34,317.31 557.23,336.22 558.11,325.29 559.00,327.43 559.88,328.19 560.77,332.97 561.65,325.07 562.54,332.22 563.42,332.14 564.31,329.92 565.19,333.88 566.08,327.76 566.96,328.89 567.85,326.78 568.73,324.53 569.62,330.01 570.50,329.35 571.39,320.88 572.27,324.56 573.16,324.53 574.04,332.96 574.93,328.75 575.81,320.78 576.70,332.50 577.58,322.52 578.47,326.82 579.35,328.37 580.24,324.85 581.12,315.18 582.01,323.54 582.89,323.00 583.78,325.36 584.66,328.00 585.55,327.26 586.43,330.37 587.32,331.44 588.20,334.99 589.09,330.54 589.97,327.09 590.86,324.94 591.74,333.54 592.63,337.10 593.51,329.10 594.40,320.02 595.28,328.98 596.17,329.37 597.05,329.01 597.93,330.60 598.82,321.48 599.70,322.61 600.59,326.82 601.47,331.50 602.36,334.16 603.24,324.08 604.13,324.58 605.01,328.21 605.90,323.45 606.78,317.18 607.67,322.90 608.55,321.48 609.44,324.97 610.32,324.25 611.21,324.63 612.09,339.08 612.98,324.09 613.86,325.11 614.75,323.76 615.63,328.79 616.52,331.98 617.40,325.38 618.29,329.53 619.17,323.40 620.06,319.19 620.94,326.50 621.83,327.50 622.71,332.57 623.60,326.68 624.48,325.23 625.37,331.28 626.25,334.69 627.14,329.49 628.02,326.68 628.91,336.37 629.79,324.10 630.68,325.79 631.56,327.42 632.45,328.14 633.33,324.87 634.22,328.34 635.10,325.76 635.99,324.12 636.87,322.26 637.76,332.60 638.64,328.86 639.53,324.20 640.41,333.00 641.30,327.79 642.18,322.74 643.07,338.56 643.95,327.26 644.84,324.36 645.72,323.25 646.61,327.85 647.49,337.70 648.38,332.03 649.26,333.02 650.15,329.21 651.03,335.96 651.92,328.25 652.80,322.44 653.69,334.36 654.57,331.31 655.46,317.70 656.34,334.94 657.23,326.03 658.11,332.48 659.00,315.64 659.88,321.02 660.77,329.79 661.65,332.99 662.54,323.43 663.42,329.90 664.31,322.39 665.19,331.08 666.07,332.57 666.96,326.02 667.84,324.78 668.73,327.80 669.61,318.58 670.50,324.37 671.38,326.22 672.27,320.81 673.15,325.31 674.04,324.37 674.92,327.05 675.81,328.38 676.69,323.12 677.58,326.83 678.46,329.40 679.35,331.40 680.23,319.83 681.12,322.96 682.00,329.96 682.89,330.04 683.77,331.55 684.66,337.78 685.54,329.32 686.43,332.92 687.31,326.80 688.20,334.86 689.08,326.95 689.97,332.30" fill="none" stroke="#c8ccd4" stroke-width="1.5"/>
+<polyline points="114.76,328.56 115.65,328.56 116.53,328.36 117.42,328.48 118.30,328.63 119.19,328.93 120.07,329.10 120.95,329.32 121.84,329.25 122.72,329.62 123.61,329.85 124.49,330.13 125.38,330.29 126.26,330.38 127.15,330.27 128.03,329.99 128.92,330.20 129.80,330.23 130.69,330.23 131.57,330.39 132.46,330.65 133.34,330.70 134.23,330.86 135.11,330.92 136.00,330.52 136.88,330.33 137.77,330.27 138.65,330.17 139.54,329.71 140.42,329.42 141.31,329.50 142.19,329.14 143.08,329.01 143.96,328.92 144.85,328.71 145.73,328.34 146.62,327.73 147.50,327.70 148.39,327.82 149.27,327.61 150.16,327.29 151.04,327.29 151.93,327.07 152.81,326.89 153.70,326.59 154.58,326.37 155.47,326.59 156.35,326.71 157.24,326.61 158.12,326.80 159.01,326.90 159.89,326.61 160.78,326.62 161.66,326.57 162.55,326.54 163.43,326.54 164.32,326.58 165.20,326.82 166.09,326.85 166.97,327.08 167.86,326.91 168.74,326.82 169.63,326.85 170.51,326.84 171.40,326.71 172.28,326.69 173.17,326.77 174.05,326.81 174.94,326.69 175.82,326.72 176.71,326.69 177.59,326.60 178.48,326.68 179.36,326.54 180.25,326.59 181.13,326.48 182.02,326.77 182.90,326.82 183.79,326.76 184.67,326.96 185.56,326.90 186.44,326.71 187.33,326.66 188.21,326.52 189.09,326.46 189.98,326.44 190.86,326.27 191.75,326.15 192.63,326.17 193.52,326.19 194.40,326.45 195.29,326.33 196.17,326.71 197.06,326.68 197.94,326.49 198.83,326.51 199.71,326.52 200.60,326.89 201.48,326.74 202.37,326.76 203.25,326.51 204.14,326.91 205.02,326.77 205.91,326.94 206.79,327.04 207.68,327.22 208.56,327.51 209.45,327.25 210.33,327.21 211.22,327.17 212.10,327.20 212.99,327.21 213.87,327.34 214.76,327.44 215.64,327.56 216.53,327.60 217.41,327.71 218.30,327.75 219.18,327.96 220.07,327.91 220.95,327.86 221.84,327.88 222.72,327.91 223.61,328.06 224.49,328.01 225.38,328.04 226.26,328.14 227.15,328.15 228.03,328.05 228.92,327.98 229.80,327.86 230.69,327.65 231.57,327.69 232.46,327.64 233.34,327.65 234.23,327.37 235.11,327.35 236.00,327.28 236.88,327.17 237.77,327.26 238.65,326.98 239.54,326.91 240.42,326.89 241.31,326.77 242.19,326.79 243.08,327.00 243.96,327.01 244.85,327.02 245.73,327.08 246.62,326.85 247.50,326.88 248.39,326.63 249.27,326.66 250.16,326.34 251.04,326.35 251.93,326.29 252.81,326.13 253.70,326.24 254.58,325.83 255.47,325.94 256.35,325.90 257.23,326.11 258.12,325.95 259.00,326.11 259.89,325.92 260.77,325.91 261.66,326.09 262.54,326.06 263.43,326.12 264.31,326.23 265.20,326.52 266.08,326.73 266.97,326.48 267.85,326.92 268.74,327.07 269.62,327.18 270.51,327.18 271.39,327.34 272.28,327.49 273.16,327.47 274.05,327.61 274.93,327.83 275.82,328.03 276.70,327.90 277.59,327.73 278.47,328.01 279.36,328.11 280.24,327.92 281.13,327.91 282.01,327.92 282.90,328.29 283.78,328.45 284.67,328.54 285.55,328.66 286.44,328.37 287.32,328.66 288.21,328.80 289.09,328.90 289.98,328.93 290.86,329.06 291.75,328.93 292.63,329.01 293.52,328.82 294.40,328.91 295.29,328.64 296.17,328.51 297.06,328.27 297.94,328.08 298.83,328.03 299.71,327.69 300.60,327.62 301.48,327.65 302.37,327.49 303.25,327.48 304.14,327.27 305.02,326.80 305.91,326.75 306.79,326.53 307.68,326.23 308.56,326.22 309.45,325.82 310.33,325.58 311.22,325.30 312.10,325.03 312.99,324.66 313.87,324.34 314.76,323.87 315.64,323.50 316.53,323.13 317.41,322.65 318.30,322.47 319.18,322.13 320.07,321.81 320.95,321.63 321.84,321.01 322.72,320.50 323.61,319.89 324.49,319.42 325.37,318.78 326.26,318.31 327.14,317.82 328.03,317.14 328.91,316.37 329.80,315.85 330.68,315.24 331.57,314.68 332.45,313.95 333.34,313.35 334.22,312.81 335.11,312.20 335.99,311.44 336.88,310.57 337.76,309.60 338.65,308.95 339.53,308.30 340.42,307.79 341.30,306.85 342.19,305.89 343.07,305.02 343.96,304.02 344.84,302.92 345.73,301.83 346.61,300.79 347.50,300.04 348.38,298.75 349.27,298.19 350.15,297.15 351.04,296.14 351.92,295.30 352.81,294.14 353.69,293.28 354.58,292.53 355.46,291.29 356.35,290.23 357.23,289.14 358.12,288.12 359.00,287.15 359.89,285.92 360.77,284.90 361.66,283.61 362.54,282.80 363.43,281.91 364.31,280.93 365.20,280.06 366.08,279.04 366.97,277.98 367.85,277.17 368.74,276.33 369.62,275.27 370.51,274.23 371.39,273.23 372.28,272.25 373.16,271.23 374.05,270.11 374.93,268.93 375.82,267.93 376.70,266.95 377.59,265.89 378.47,265.17 379.36,264.15 380.24,263.22 381.13,262.36 382.01,261.48 382.90,260.87 383.78,259.97 384.67,259.08 385.55,258.37 386.44,257.81 387.32,257.26 388.21,256.71 389.09,255.98 389.98,255.57 390.86,254.93 391.75,254.66 392.63,254.22 393.51,253.61 394.40,252.87 395.28,252.37 396.17,252.25 397.05,251.93 397.94,251.66 398.82,251.55 399.71,251.77 400.59,251.98 401.48,251.84 402.36,252.41 403.25,252.38 404.13,252.62 405.02,252.91 405.90,253.12 406.79,253.64 407.67,253.98 408.56,254.21 409.44,254.88 410.33,255.60 411.21,255.97 412.10,256.71 412.98,257.23 413.87,257.72 414.75,258.50 415.64,259.59 416.52,260.16 417.41,261.00 418.29,261.62 419.18,262.27 420.06,262.92 420.95,263.73 421.83,264.36 422.72,265.06 423.60,265.62 424.49,266.37 425.37,267.20 426.26,267.99 427.14,268.50 428.03,269.21 428.91,270.23 429.80,270.97 430.68,271.81 431.57,273.05 432.45,273.78 433.34,275.11 434.22,276.37 435.11,277.41 435.99,278.39 436.88,279.43 437.76,280.48 438.65,281.79 439.53,282.87 440.42,283.84 441.30,284.66 442.19,285.33 443.07,286.39 443.96,287.33 444.84,288.20 445.73,289.14 446.61,289.77 447.50,290.67 448.38,291.85 449.27,293.05 450.15,293.95 451.04,295.02 451.92,296.49 452.81,297.54 453.69,298.60 454.58,299.47 455.46,300.74 456.35,301.47 457.23,302.59 458.12,303.41 459.00,304.45 459.89,305.49 460.77,306.40 461.65,307.59 462.54,308.54 463.42,309.20 464.31,309.89 465.19,310.58 466.08,311.27 466.96,312.09 467.85,313.17 468.73,313.84 469.62,314.17 470.50,314.71 471.39,315.24 472.27,315.59 473.16,316.21 474.04,316.73 474.93,317.18 475.81,317.95 476.70,318.40 477.58,319.04 478.47,319.61 479.35,320.23 480.24,320.42 481.12,320.98 482.01,321.76 482.89,322.05 483.78,322.56 484.66,323.17 485.55,323.58 486.43,324.15 487.32,324.40 488.20,324.55 489.09,324.66 489.97,325.10 490.86,325.20 491.74,325.28 492.63,325.46 493.51,325.48 494.40,325.46 495.28,325.53 496.17,325.93 497.05,326.12 497.94,326.18 498.82,326.40 499.71,326.55 500.59,327.13 501.48,327.28 502.36,327.58 503.25,327.51 504.13,327.65 505.02,327.96 505.90,327.65 506.79,327.55 507.67,327.36 508.56,327.57 509.44,327.65 510.33,327.71 511.21,327.55 512.10,327.60 512.98,327.50 513.87,327.46 514.75,327.45 515.64,327.22 516.52,327.00 517.41,327.07 518.29,327.25 519.18,327.15 520.06,327.12 520.95,327.13 521.83,326.96 522.72,327.02 523.60,327.16 524.49,327.30 525.37,327.17 526.26,327.42 527.14,327.38 528.03,327.33 528.91,327.49 529.79,327.50 530.68,327.35 531.56,327.32 532.45,327.29 533.33,327.19 534.22,327.23 535.10,327.46 535.99,327.17 536.87,327.24 537.76,327.38 538.64,327.30 539.53,327.23 540.41,327.23 541.30,327.33 542.18,327.49 543.07,327.64 543.95,327.61 544.84,327.95 545.72,328.16 546.61,328.26 547.49,328.28 548.38,328.41 549.26,328.73 550.15,328.65 551.03,328.70 551.92,328.75 552.80,328.78 553.69,328.79 554.57,328.80 555.46,328.80 556.34,328.65 557.23,328.62 558.11,328.43 559.00,328.08 559.88,327.93 560.77,327.82 561.65,327.69 562.54,327.49 563.42,327.35 564.31,327.28 565.19,327.07 566.08,326.96 566.96,326.93 567.85,327.14 568.73,327.13 569.62,327.18 570.50,327.31 571.39,327.24 572.27,327.30 573.16,327.58 574.04,327.54 574.93,327.42 575.81,327.27 576.70,327.25 577.58,327.35 578.47,327.22 579.35,327.43 580.24,327.68 581.12,327.70 582.01,327.86 582.89,327.73 583.78,327.43 584.66,327.56 585.55,327.11 586.43,327.09 587.32,327.05 588.20,327.17 589.09,326.98 589.97,326.90 590.86,327.01 591.74,326.98 592.63,327.21 593.51,327.40 594.40,327.42 595.28,327.37 596.17,327.15 597.05,327.22 597.93,327.32 598.82,327.06 599.70,326.82 600.59,326.72 601.47,326.90 602.36,326.77 603.24,326.76 604.13,326.98 605.01,326.91 605.90,326.92 606.78,327.05 607.67,327.01 608.55,326.76 609.44,326.72 610.32,326.67 611.21,326.42 612.09,326.33 612.98,326.34 613.86,326.21 614.75,326.27 615.63,326.55 616.52,326.37 617.40,326.41 618.29,326.46 619.17,326.74 620.06,327.03 620.94,326.92 621.83,326.74 622.71,326.78 623.60,326.94 624.48,326.95 625.37,327.21 626.25,327.39 627.14,327.27 628.02,327.35 628.91,327.87 629.79,328.04 630.68,328.21 631.56,328.22 632.45,328.71 633.33,328.92 634.22,328.71 635.10,328.55 635.99,328.57 636.87,328.49 637.76,328.56 638.64,328.40 639.53,328.60 640.41,328.61 641.30,328.65 642.18,328.56 643.07,328.79 643.95,328.95 644.84,328.89 645.72,329.05 646.61,328.92 647.49,328.68 648.38,328.52 649.26,328.35 650.15,328.44 651.03,328.29 651.92,328.03 652.80,327.89 653.69,328.13 654.57,328.16 655.46,327.95 656.34,328.00 657.23,327.74 658.11,327.39 659.00,327.30 659.88,327.16 660.77,327.10 661.65,326.92 662.54,326.89 663.42,326.69 664.31,326.73 665.19,326.76 666.07,326.67 666.96,326.54 667.84,326.51 668.73,326.39 669.61,326.26 670.50,326.57 671.38,326.57 672.27,326.44 673.15,326.23 674.04,326.23 674.92,326.63 675.81,326.73 676.69,326.92 677.58,327.19 678.46,327.59 679.35,327.89 680.23,327.66 681.12,328.02 682.00,328.38 682.89,328.39 683.77,328.79 684.66,328.85 685.54,329.11 686.43,329.05 687.31,328.88 688.20,328.87 689.08,329.13 689.97,329.22" fill="none" stroke="#4169e1" stroke-width="1.5"/>
+<polyline points="114.76,329.22 115.65,329.28 116.53,329.47 117.42,329.43 118.30,329.37 119.19,329.21 120.07,329.14 120.95,329.04 121.84,329.11 122.72,328.88 123.61,328.75 124.49,328.60 125.38,328.55 126.26,328.53 127.15,328.62 128.03,328.83 128.92,328.71 129.80,328.71 130.69,328.74 131.57,328.67 132.46,328.50 133.34,328.47 134.23,328.35 135.11,328.32 136.00,328.58 136.88,328.67 137.77,328.63 138.65,328.58 139.54,328.75 140.42,328.81 141.31,328.61 142.19,328.70 143.08,328.65 143.96,328.54 144.85,328.50 145.73,328.56 146.62,328.77 147.50,328.60 148.39,328.34 149.27,328.30 150.16,328.35 151.04,328.20 151.93,328.20 152.81,328.18 153.70,328.23 154.58,328.25 155.47,327.97 156.35,327.77 157.24,327.74 158.12,327.53 159.01,327.39 159.89,327.51 160.78,327.43 161.66,327.40 162.55,327.33 163.43,327.25 164.32,327.16 165.20,326.94 166.09,326.87 166.97,326.67 167.86,326.75 168.74,326.76 169.63,326.69 170.51,326.67 171.40,326.76 172.28,326.78 173.17,326.73 174.05,326.70 174.94,326.78 175.82,326.75 176.71,326.75 177.59,326.79 178.48,326.72 179.36,326.78 180.25,326.73 181.13,326.77 182.02,326.56 182.90,326.52 183.79,326.56 184.67,326.44 185.56,326.48 186.44,326.60 187.33,326.62 188.21,326.70 189.09,326.74 189.98,326.79 190.86,326.96 191.75,327.09 192.63,327.11 193.52,327.13 194.40,327.01 195.29,327.12 196.17,326.90 197.06,326.95 197.94,327.09 198.83,327.09 199.71,327.09 200.60,326.87 201.48,326.99 202.37,327.00 203.25,327.18 204.14,326.95 205.02,327.09 205.91,327.02 206.79,327.00 207.68,326.92 208.56,326.79 209.45,327.01 210.33,327.09 211.22,327.19 212.10,327.25 212.99,327.33 213.87,327.32 214.76,327.34 215.64,327.34 216.53,327.38 217.41,327.37 218.30,327.40 219.18,327.31 220.07,327.35 220.95,327.38 221.84,327.36 222.72,327.32 223.61,327.18 224.49,327.18 225.38,327.16 226.26,327.08 227.15,327.05 228.03,327.08 228.92,327.10 229.80,327.16 230.69,327.27 231.57,327.22 232.46,327.21 233.34,327.16 234.23,327.31 235.11,327.28 236.00,327.29 236.88,327.30 237.77,327.17 238.65,327.29 239.54,327.27 240.42,327.20 241.31,327.19 242.19,327.09 243.08,326.85 243.96,326.76 244.85,326.70 245.73,326.62 246.62,326.73 247.50,326.66 248.39,326.81 249.27,326.76 250.16,326.95 251.04,326.90 251.93,326.91 252.81,327.00 253.70,326.91 254.58,327.17 255.47,327.09 256.35,327.12 257.23,326.99 258.12,327.12 259.00,327.03 259.89,327.19 260.77,327.24 261.66,327.16 262.54,327.19 263.43,327.19 264.31,327.15 265.20,327.02 266.08,326.97 266.97,327.23 267.85,327.05 268.74,327.07 269.62,327.11 270.51,327.22 271.39,327.24 272.28,327.27 273.16,327.41 274.05,327.41 274.93,327.35 275.82,327.29 276.70,327.44 277.59,327.61 278.47,327.47 279.36,327.46 280.24,327.65 281.13,327.71 282.01,327.74 282.90,327.54 283.78,327.46 284.67,327.43 285.55,327.38 286.44,327.58 287.32,327.40 288.21,327.30 289.09,327.23 289.98,327.19 290.86,327.06 291.75,327.07 292.63,326.92 293.52,326.97 294.40,326.78 295.29,326.82 296.17,326.76 297.06,326.73 297.94,326.65 298.83,326.46 299.71,326.45 300.60,326.25 301.48,325.95 302.37,325.77 303.25,325.45 304.14,325.24 305.02,325.20 305.91,324.85 306.79,324.61 307.68,324.39 308.56,323.96 309.45,323.78 310.33,323.48 311.22,323.16 312.10,322.82 312.99,322.52 313.87,322.18 314.76,321.95 315.64,321.61 316.53,321.23 317.41,320.91 318.30,320.36 319.18,319.88 320.07,319.34 320.95,318.68 321.84,318.31 322.72,317.83 323.61,317.38 324.49,316.83 325.37,316.40 326.26,315.83 327.14,315.24 328.03,314.74 328.91,314.28 329.80,313.60 330.68,312.96 331.57,312.26 332.45,311.64 333.34,310.91 334.22,310.12 335.11,309.36 335.99,308.68 336.88,308.05 337.76,307.46 338.65,306.63 339.53,305.77 340.42,304.78 341.30,304.06 342.19,303.31 343.07,302.49 343.96,301.75 344.84,301.03 345.73,300.31 346.61,299.54 347.50,298.58 348.38,297.96 349.27,296.83 350.15,296.01 351.04,295.15 351.92,294.17 352.81,293.40 353.69,292.44 354.58,291.38 355.46,290.62 356.35,289.75 357.23,288.88 358.12,287.94 359.00,286.97 359.89,286.20 360.77,285.28 361.66,284.56 362.54,283.52 363.43,282.52 364.31,281.59 365.20,280.56 366.08,279.63 366.97,278.72 367.85,277.68 368.74,276.67 369.62,275.82 370.51,274.97 371.39,274.11 372.28,273.27 373.16,272.44 374.05,271.68 374.93,270.97 375.82,270.17 376.70,269.39 377.59,268.69 378.47,267.81 379.36,267.18 380.24,266.56 381.13,265.93 382.01,265.35 382.90,264.63 383.78,264.16 384.67,263.71 385.55,263.22 386.44,262.65 387.32,262.11 388.21,261.61 389.09,261.27 389.98,260.78 390.86,260.50 391.75,260.04 392.63,259.75 393.51,259.61 394.40,259.62 395.28,259.53 396.17,259.25 397.05,259.18 397.94,259.14 398.82,259.07 399.71,258.86 400.59,258.72 401.48,258.88 402.36,258.64 403.25,258.83 404.13,258.90 405.02,259.00 405.90,259.21 406.79,259.26 407.67,259.52 408.56,259.90 409.44,260.02 410.33,260.15 411.21,260.56 412.10,260.76 412.98,261.15 413.87,261.64 414.75,262.01 415.64,262.23 416.52,262.82 417.41,263.27 418.29,263.90 419.18,264.52 420.06,265.17 420.95,265.73 421.83,266.45 422.72,267.16 423.60,268.01 424.49,268.76 425.37,269.51 426.26,270.30 427.14,271.32 428.03,272.23 428.91,272.96 429.80,273.90 430.68,274.81 431.57,275.47 432.45,276.48 433.34,277.11 434.22,277.79 435.11,278.63 435.99,279.52 436.88,280.38 437.76,281.22 438.65,281.89 439.53,282.73 440.42,283.63 441.30,284.61 442.19,285.69 443.07,286.51 443.96,287.41 444.84,288.36 445.73,289.27 446.61,290.39 447.50,291.34 448.38,292.12 449.27,292.91 450.15,293.90 451.04,294.77 451.92,295.37 452.81,296.25 453.69,297.10 454.58,298.07 455.46,298.78 456.35,299.83 457.23,300.58 458.12,301.52 459.00,302.30 459.89,303.05 460.77,303.87 461.65,304.48 462.54,305.22 463.42,306.11 464.31,306.96 465.19,307.77 466.08,308.54 466.96,309.18 467.85,309.63 468.73,310.33 469.62,311.24 470.50,311.98 471.39,312.68 472.27,313.49 473.16,314.09 474.04,314.71 474.93,315.35 475.81,315.73 476.70,316.29 477.58,316.70 478.47,317.13 479.35,317.51 480.24,318.16 481.12,318.56 482.01,318.80 482.89,319.34 483.78,319.73 484.66,320.05 485.55,320.46 486.43,320.72 487.32,321.17 488.20,321.65 489.09,322.12 489.97,322.35 490.86,322.79 491.74,323.21 492.63,323.53 493.51,323.92 494.40,324.32 495.28,324.62 496.17,324.70 497.05,324.88 497.94,325.12 498.82,325.22 499.71,325.37 500.59,325.19 501.48,325.30 502.36,325.28 503.25,325.50 504.13,325.56 505.02,325.50 505.90,325.83 506.79,326.00 507.67,326.24 508.56,326.21 509.44,326.26 510.33,326.31 511.21,326.48 512.10,326.53 512.98,326.68 513.87,326.79 514.75,326.87 515.64,327.10 516.52,327.31 517.41,327.32 518.29,327.25 519.18,327.37 520.06,327.45 520.95,327.47 521.83,327.61 522.72,327.57 523.60,327.47 524.49,327.39 525.37,327.49 526.26,327.36 527.14,327.42 528.03,327.50 528.91,327.43 529.79,327.43 530.68,327.53 531.56,327.55 532.45,327.56 533.33,327.62 534.22,327.59 535.10,327.47 535.99,327.68 536.87,327.66 537.76,327.63 538.64,327.74 539.53,327.86 540.41,327.92 541.30,327.90 542.18,327.84 543.07,327.79 543.95,327.87 544.84,327.70 545.72,327.60 546.61,327.57 547.49,327.61 548.38,327.59 549.26,327.43 550.15,327.55 551.03,327.57 551.92,327.56 552.80,327.58 553.69,327.60 554.57,327.57 555.46,327.52 556.34,327.55 557.23,327.48 558.11,327.51 559.00,327.64 559.88,327.64 560.77,327.62 561.65,327.65 562.54,327.74 563.42,327.79 564.31,327.77 565.19,327.86 566.08,327.90 566.96,327.92 567.85,327.77 568.73,327.76 569.62,327.72 570.50,327.64 571.39,327.72 572.27,327.69 573.16,327.51 574.04,327.53 574.93,327.61 575.81,327.72 576.70,327.73 577.58,327.66 578.47,327.74 579.35,327.58 580.24,327.39 581.12,327.33 582.01,327.17 582.89,327.19 583.78,327.30 584.66,327.11 585.55,327.34 586.43,327.28 587.32,327.23 588.20,327.08 589.09,327.14 589.97,327.14 590.86,327.03 591.74,327.02 592.63,326.85 593.51,326.71 594.40,326.67 595.28,326.68 596.17,326.81 597.05,326.76 597.93,326.69 598.82,326.86 599.70,327.03 600.59,327.11 601.47,327.00 602.36,327.13 603.24,327.18 604.13,327.07 605.01,327.15 605.90,327.18 606.78,327.12 607.67,327.18 608.55,327.35 609.44,327.36 610.32,327.35 611.21,327.47 612.09,327.48 612.98,327.43 613.86,327.47 614.75,327.41 615.63,327.21 616.52,327.34 617.40,327.35 618.29,327.34 619.17,327.17 620.06,327.02 620.94,327.16 621.83,327.35 622.71,327.42 623.60,327.42 624.48,327.53 625.37,327.49 626.25,327.51 627.14,327.70 628.02,327.77 628.91,327.55 629.79,327.56 630.68,327.59 631.56,327.72 632.45,327.52 633.33,327.48 634.22,327.68 635.10,327.85 635.99,327.88 636.87,327.96 637.76,327.93 638.64,328.04 639.53,327.93 640.41,327.96 641.30,327.96 642.18,328.02 643.07,327.86 643.95,327.73 644.84,327.74 645.72,327.60 646.61,327.63 647.49,327.72 648.38,327.73 649.26,327.74 650.15,327.59 651.03,327.59 651.92,327.66 652.80,327.66 653.69,327.42 654.57,327.31 655.46,327.36 656.34,327.26 657.23,327.38 658.11,327.58 659.00,327.61 659.88,327.69 660.77,327.72 661.65,327.82 662.54,327.84 663.42,327.98 664.31,327.93 665.19,327.87 666.07,327.91 666.96,327.98 667.84,327.99 668.73,328.08 669.61,328.18 670.50,327.99 671.38,328.02 672.27,328.14 673.15,328.32 674.04,328.35 674.92,328.13 675.81,328.13 676.69,328.08 677.58,327.99 678.46,327.81 679.35,327.69 680.23,327.93 681.12,327.79 682.00,327.65 682.89,327.72 683.77,327.51 684.66,327.53 685.54,327.42 686.43,327.50 687.31,327.62 688.20,327.63 689.08,327.47 689.97,327.41" fill="none" stroke="#dc143c" stroke-width="1.3" stroke-dasharray="20.00,10.00"/>
+</g>
+<text x="86.00" y="224.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">...and a local polynomial keeps a peak the average flattens</text>
+<text x="47.97" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 47.97 294.00)">amplitude</text>
+<rect x="726.73" y="260.00" width="131.27" height="68.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="733.73" y1="276.00" x2="753.73" y2="276.00" stroke="#c8ccd4" stroke-width="2.2"/>
+<text x="759.73" y="279.50" font-size="12" text-anchor="start" fill="#222">10 dB noise</text>
+<line x1="733.73" y1="294.00" x2="753.73" y2="294.00" stroke="#4169e1" stroke-width="2.2"/>
+<text x="759.73" y="297.50" font-size="12" text-anchor="start" fill="#222">Savitzky-Golay</text>
+<line x1="733.73" y1="312.00" x2="753.73" y2="312.00" stroke="#dc143c" stroke-width="1.3" stroke-dasharray="6.67,3.33"/>
+<text x="759.73" y="315.50" font-size="12" text-anchor="start" fill="#222">moving average</text>
+<line x1="86.00" y1="534.96" x2="649.11" y2="534.96" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="534.96" x2="86.00" y2="534.96" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="539.44" font-size="12.8" text-anchor="end" fill="#5a5a5a">-2</text>
+<line x1="86.00" y1="511.75" x2="649.11" y2="511.75" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="511.75" x2="86.00" y2="511.75" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="516.23" font-size="12.8" text-anchor="end" fill="#5a5a5a">-1</text>
+<line x1="86.00" y1="488.55" x2="649.11" y2="488.55" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="488.55" x2="86.00" y2="488.55" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="493.03" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="465.35" x2="649.11" y2="465.35" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="465.35" x2="86.00" y2="465.35" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="469.83" font-size="12.8" text-anchor="end" fill="#5a5a5a">1</text>
+<line x1="86.00" y1="442.14" x2="649.11" y2="442.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="442.14" x2="86.00" y2="442.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="446.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">2</text>
+<line x1="86.00" y1="436.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="153.04" y1="436.00" x2="153.04" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="153.04" y1="540.00" x2="153.04" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="153.04" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.05</text>
+<line x1="220.07" y1="436.00" x2="220.07" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="220.07" y1="540.00" x2="220.07" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="220.07" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.10</text>
+<line x1="287.11" y1="436.00" x2="287.11" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="287.11" y1="540.00" x2="287.11" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="287.11" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.15</text>
+<line x1="354.15" y1="436.00" x2="354.15" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="354.15" y1="540.00" x2="354.15" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="354.15" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.20</text>
+<line x1="421.19" y1="436.00" x2="421.19" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="421.19" y1="540.00" x2="421.19" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="421.19" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.25</text>
+<line x1="488.22" y1="436.00" x2="488.22" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="488.22" y1="540.00" x2="488.22" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="488.22" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.30</text>
+<line x1="555.26" y1="436.00" x2="555.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="555.26" y1="540.00" x2="555.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="555.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.35</text>
+<line x1="622.30" y1="436.00" x2="622.30" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="622.30" y1="540.00" x2="622.30" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="622.30" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.40</text>
+<line x1="86.00" y1="540.00" x2="649.11" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="436.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="436.00" x2="649.11" y2="436.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="649.11" y1="436.00" x2="649.11" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-43600-56311-10400"><rect x="86.00" y="436.00" width="563.11" height="104.00"/></clipPath><g clip-path="url(#qu-clip-8600-43600-56311-10400)">
+<polyline points="86.00,491.79 87.34,489.07 88.68,483.60 90.02,472.50 91.36,463.36 92.70,463.13 94.04,466.73 95.39,466.48 96.73,464.30 98.07,464.99 99.41,466.27 100.75,465.65 102.09,468.02 103.43,476.29 104.77,482.90 106.11,480.92 107.45,475.43 108.79,474.12 110.13,475.07 111.47,473.48 112.81,471.60 114.16,471.92 115.50,469.53 116.84,461.46 118.18,455.28 119.52,457.87 120.86,464.10 122.20,466.25 123.54,466.21 124.88,468.73 126.22,471.52 127.56,472.05 128.90,475.21 130.24,483.92 131.59,490.61 132.93,488.35 134.27,482.27 135.61,480.08 136.95,479.87 138.29,476.90 139.63,473.47 140.97,472.10 142.31,467.93 143.65,458.07 144.99,450.12 146.33,451.01 147.67,455.68 149.02,456.45 150.36,455.25 151.70,456.88 153.04,459.08 154.38,459.35 155.72,462.61 157.06,471.78 158.40,479.29 159.74,478.23 161.08,473.70 162.42,473.41 163.76,475.42 165.10,474.95 166.44,474.25 167.79,475.84 169.13,474.77 170.47,468.12 171.81,463.42 173.15,467.57 174.49,475.42 175.83,479.25 177.17,480.94 178.51,485.23 179.85,489.82 181.19,492.17 182.53,497.16 183.87,507.67 185.22,516.13 186.56,515.61 187.90,511.20 189.24,510.60 190.58,511.90 191.92,510.33 193.26,508.17 194.60,507.95 195.94,504.78 197.28,495.78 198.62,488.53 199.96,489.97 201.30,495.01 202.64,496.00 203.99,494.85 205.33,496.38 206.67,498.32 208.01,498.20 209.35,500.93 210.69,509.44 212.03,516.19 213.37,514.27 214.71,508.80 216.05,507.49 217.39,508.43 218.73,506.85 220.07,505.03 221.42,505.47 222.76,503.25 224.10,495.47 225.44,489.65 226.78,492.71 228.12,499.51 229.46,502.33 230.80,503.05 232.14,506.41 233.48,510.12 234.82,511.63 236.16,515.81 237.50,525.54 238.85,533.25 240.19,531.98 241.53,526.83 242.87,525.48 244.21,526.01 245.55,523.64 246.89,520.64 248.23,519.54 249.57,515.42 250.91,505.40 252.25,497.05 253.59,497.31 254.93,501.08 256.27,500.70 257.62,498.10 258.96,498.07 260.30,498.38 261.64,496.53 262.98,497.45 264.32,504.08 265.66,508.89 267.00,504.99 268.34,497.49 269.68,494.14 271.02,493.03 272.36,489.42 273.70,485.58 275.05,484.05 276.39,479.92 277.73,470.30 279.07,462.74 280.41,464.16 281.75,469.44 283.09,470.86 284.43,470.32 285.77,472.57 287.11,475.32 288.45,476.02 289.79,479.55 291.13,488.79 292.47,496.15 293.82,494.69 295.16,489.48 296.50,488.21 297.84,488.94 299.18,486.89 300.52,484.30 301.86,483.69 303.20,480.15 304.54,470.76 305.88,463.09 307.22,464.06 308.56,468.56 309.90,468.92 311.25,467.05 312.59,467.75 313.93,468.76 315.27,467.59 316.61,469.16 317.95,476.41 319.29,481.80 320.63,478.44 321.97,471.47 323.31,468.62 324.65,467.99 325.99,464.85 327.33,461.48 328.68,460.42 330.02,456.80 331.36,447.71 332.70,440.73 334.04,442.77 335.38,448.75 336.72,450.94 338.06,451.26 339.40,454.46 340.74,458.26 342.08,460.12 343.42,464.92 344.76,475.54 346.10,484.39 347.45,484.54 348.79,481.04 350.13,481.58 351.47,484.21 352.81,484.14 354.15,483.60 355.49,485.11 356.83,483.72 358.17,476.51 359.51,471.03 360.85,474.18 362.19,480.85 363.53,483.33 364.88,483.53 366.22,486.22 367.56,489.15 368.90,489.79 370.24,493.06 371.58,501.89 372.92,508.73 374.26,506.69 375.60,500.89 376.94,499.06 378.28,499.31 379.62,496.91 380.96,494.14 382.30,493.56 383.65,490.27 384.99,481.40 386.33,474.53 387.67,476.60 389.01,482.50 390.35,484.56 391.69,484.68 393.03,487.64 394.37,491.16 395.71,492.72 397.05,497.21 398.39,507.52 399.73,516.08 401.08,515.93 402.42,512.17 403.76,512.47 405.10,514.89 406.44,514.64 407.78,513.95 409.12,515.31 410.46,513.81 411.80,506.49 413.14,500.90 414.48,503.94 415.82,510.48 417.16,512.80 418.50,512.80 419.85,515.24 421.19,517.85 422.53,518.09 423.87,520.88 425.21,529.12 426.55,535.27 427.89,532.42 429.23,525.69 430.57,522.81 431.91,521.88 433.25,518.16 434.59,513.95 435.93,511.79 437.28,506.82 438.62,496.15 439.96,487.38 441.30,487.45 442.64,491.29 443.98,491.20 445.32,489.14 446.66,489.88 448.00,491.16 449.34,490.48 450.68,492.75 452.02,500.88 453.36,507.30 454.71,505.08 456.05,499.33 457.39,497.72 458.73,498.34 460.07,496.40 461.41,494.14 462.75,494.06 464.09,491.24 465.43,482.74 466.77,476.10 468.11,478.21 469.45,483.94 470.79,485.57 472.13,484.99 473.48,486.94 474.82,489.15 476.16,489.07 477.50,491.60 478.84,499.65 480.18,505.64 481.52,502.66 482.86,495.82 484.20,492.83 485.54,491.79 486.88,487.95 488.22,483.60 489.56,481.29 490.91,476.14 492.25,465.26 493.59,456.25 494.93,456.05 496.27,459.60 497.61,459.22 498.95,456.84 500.29,457.27 501.63,458.26 502.97,457.31 504.31,459.33 505.65,467.26 506.99,473.54 508.33,471.25 509.68,465.52 511.02,464.03 512.36,464.87 513.70,463.27 515.04,461.48 516.38,462.00 517.72,459.92 519.06,452.30 520.40,446.68 521.74,449.96 523.08,457.01 524.42,460.09 525.76,461.08 527.11,464.74 528.45,468.76 529.79,470.59 531.13,475.12 532.47,485.24 533.81,493.35 535.15,492.54 536.49,487.88 537.83,487.08 539.17,488.22 540.51,486.54 541.85,484.30 543.19,484.04 544.54,480.87 545.88,471.89 547.22,464.69 548.56,466.21 549.90,471.36 551.24,472.47 552.58,471.48 553.92,473.18 555.26,475.32 556.60,475.42 557.94,478.39 559.28,487.18 560.62,494.23 561.96,492.64 563.31,487.54 564.65,486.62 565.99,488.00 567.33,486.89 568.67,485.58 570.01,486.57 571.35,484.96 572.69,477.82 574.03,472.70 575.37,476.51 576.71,484.10 578.05,487.76 579.39,489.38 580.74,493.68 582.08,498.38 583.42,500.92 584.76,506.17 586.10,517.02 587.44,525.87 588.78,525.79 590.12,521.84 591.46,521.72 592.80,523.49 594.14,522.38 595.48,520.64 596.82,520.80 598.16,517.94 599.51,509.16 600.85,502.04 602.19,503.50 603.53,508.46 604.87,509.22 606.21,507.74 607.55,508.78 608.89,510.12 610.23,509.26 611.57,511.12 612.91,518.65 614.25,524.30 615.59,521.19 616.94,514.44 618.28,511.79 619.62,511.33 620.96,508.31 622.30,505.03" fill="none" stroke="#b5651d" stroke-width="1.5"/>
+<polyline points="86.00,488.55 87.34,486.19 88.68,483.87 90.02,481.60 91.36,479.42 92.70,477.35 94.04,475.42 95.39,473.65 96.73,472.06 98.07,470.66 99.41,469.46 100.75,468.48 102.09,467.71 103.43,467.15 104.77,466.80 106.11,466.65 107.45,466.69 108.79,466.90 110.13,467.26 111.47,467.76 112.81,468.36 114.16,469.05 115.50,469.79 116.84,470.56 118.18,471.34 119.52,472.09 120.86,472.79 122.20,473.43 123.54,473.97 124.88,474.40 126.22,474.70 127.56,474.87 128.90,474.90 130.24,474.78 131.59,474.51 132.93,474.09 134.27,473.54 135.61,472.86 136.95,472.07 138.29,471.18 139.63,470.23 140.97,469.22 142.31,468.19 143.65,467.17 144.99,466.17 146.33,465.23 147.67,464.37 149.02,463.62 150.36,463.01 151.70,462.55 153.04,462.27 154.38,462.18 155.72,462.30 157.06,462.63 158.40,463.18 159.74,463.96 161.08,464.97 162.42,466.18 163.76,467.61 165.10,469.23 166.44,471.02 167.79,472.96 169.13,475.04 170.47,477.22 171.81,479.48 173.15,481.78 174.49,484.11 175.83,486.42 177.17,488.70 178.51,490.90 179.85,493.01 181.19,495.00 182.53,496.84 183.87,498.53 185.22,500.03 186.56,501.35 187.90,502.47 189.24,503.38 190.58,504.09 191.92,504.61 193.26,504.93 194.60,505.07 195.94,505.05 197.28,504.88 198.62,504.58 199.96,504.18 201.30,503.70 202.64,503.17 203.99,502.61 205.33,502.05 206.67,501.51 208.01,501.03 209.35,500.61 210.69,500.29 212.03,500.09 213.37,500.00 214.71,500.06 216.05,500.27 217.39,500.62 218.73,501.13 220.07,501.79 221.42,502.59 222.76,503.52 224.10,504.56 225.44,505.71 226.78,506.93 228.12,508.20 229.46,509.50 230.80,510.81 232.14,512.09 233.48,513.31 234.82,514.46 236.16,515.49 237.50,516.40 238.85,517.15 240.19,517.72 241.53,518.09 242.87,518.26 244.21,518.20 245.55,517.92 246.89,517.41 248.23,516.66 249.57,515.69 250.91,514.50 252.25,513.10 253.59,511.52 254.93,509.77 256.27,507.87 257.62,505.86 258.96,503.74 260.30,501.57 261.64,499.35 262.98,497.13 264.32,494.94 265.66,492.79 267.00,490.72 268.34,488.76 269.68,486.92 271.02,485.23 272.36,483.70 273.70,482.34 275.05,481.17 276.39,480.19 277.73,479.40 279.07,478.80 280.41,478.38 281.75,478.13 283.09,478.03 284.43,478.08 285.77,478.25 287.11,478.51 288.45,478.85 289.79,479.24 291.13,479.64 292.47,480.05 293.82,480.42 295.16,480.75 296.50,480.99 297.84,481.14 299.18,481.17 300.52,481.06 301.86,480.82 303.20,480.42 304.54,479.86 305.88,479.14 307.22,478.27 308.56,477.25 309.90,476.09 311.25,474.81 312.59,473.42 313.93,471.95 315.27,470.41 316.61,468.84 317.95,467.26 319.29,465.70 320.63,464.18 321.97,462.74 323.31,461.40 324.65,460.18 325.99,459.12 327.33,458.24 328.68,457.55 330.02,457.07 331.36,456.81 332.70,456.78 334.04,456.99 335.38,457.43 336.72,458.11 338.06,459.02 339.40,460.13 340.74,461.45 342.08,462.95 343.42,464.60 344.76,466.39 346.10,468.29 347.45,470.27 348.79,472.30 350.13,474.36 351.47,476.40 352.81,478.42 354.15,480.37 355.49,482.23 356.83,483.98 358.17,485.60 359.51,487.08 360.85,488.39 362.19,489.54 363.53,490.50 364.88,491.29 366.22,491.90 367.56,492.34 368.90,492.61 370.24,492.74 371.58,492.74 372.92,492.63 374.26,492.42 375.60,492.15 376.94,491.84 378.28,491.51 379.62,491.19 380.96,490.90 382.30,490.68 383.65,490.54 384.99,490.50 386.33,490.59 387.67,490.81 389.01,491.19 390.35,491.73 391.69,492.44 393.03,493.31 394.37,494.35 395.71,495.55 397.05,496.90 398.39,498.38 399.73,499.97 401.08,501.67 402.42,503.44 403.76,505.25 405.10,507.09 406.44,508.92 407.78,510.71 409.12,512.44 410.46,514.07 411.80,515.59 413.14,516.96 414.48,518.16 415.82,519.17 417.16,519.98 418.50,520.56 419.85,520.92 421.19,521.04 422.53,520.92 423.87,520.56 425.21,519.98 426.55,519.17 427.89,518.16 429.23,516.96 430.57,515.59 431.91,514.07 433.25,512.44 434.59,510.71 435.93,508.92 437.28,507.09 438.62,505.25 439.96,503.44 441.30,501.67 442.64,499.97 443.98,498.38 445.32,496.90 446.66,495.55 448.00,494.35 449.34,493.31 450.68,492.44 452.02,491.73 453.36,491.19 454.71,490.81 456.05,490.59 457.39,490.50 458.73,490.54 460.07,490.68 461.41,490.90 462.75,491.19 464.09,491.51 465.43,491.84 466.77,492.15 468.11,492.42 469.45,492.63 470.79,492.74 472.13,492.74 473.48,492.61 474.82,492.34 476.16,491.90 477.50,491.29 478.84,490.50 480.18,489.54 481.52,488.39 482.86,487.08 484.20,485.60 485.54,483.98 486.88,482.23 488.22,480.37 489.56,478.42 490.91,476.40 492.25,474.36 493.59,472.30 494.93,470.27 496.27,468.29 497.61,466.39 498.95,464.60 500.29,462.95 501.63,461.45 502.97,460.13 504.31,459.02 505.65,458.11 506.99,457.43 508.33,456.99 509.68,456.78 511.02,456.81 512.36,457.07 513.70,457.55 515.04,458.24 516.38,459.12 517.72,460.18 519.06,461.40 520.40,462.74 521.74,464.18 523.08,465.70 524.42,467.26 525.76,468.84 527.11,470.41 528.45,471.95 529.79,473.42 531.13,474.81 532.47,476.09 533.81,477.25 535.15,478.27 536.49,479.14 537.83,479.86 539.17,480.42 540.51,480.82 541.85,481.06 543.19,481.17 544.54,481.14 545.88,480.99 547.22,480.75 548.56,480.42 549.90,480.05 551.24,479.64 552.58,479.24 553.92,478.85 555.26,478.51 556.60,478.25 557.94,478.08 559.28,478.03 560.62,478.13 561.96,478.38 563.31,478.80 564.65,479.40 565.99,480.19 567.33,481.17 568.67,482.34 570.01,483.70 571.35,485.23 572.69,486.92 574.03,488.76 575.37,490.72 576.71,492.79 578.05,494.94 579.39,497.13 580.74,499.35 582.08,501.57 583.42,503.74 584.76,505.86 586.10,507.87 587.44,509.77 588.78,511.52 590.12,513.10 591.46,514.50 592.80,515.69 594.14,516.66 595.48,517.41 596.82,517.92 598.16,518.20 599.51,518.26 600.85,518.09 602.19,517.72 603.53,517.15 604.87,516.40 606.21,515.49 607.55,514.46 608.89,513.31 610.23,512.09 611.57,510.81 612.91,509.50 614.25,508.20 615.59,506.93 616.94,505.71 618.28,504.56 619.62,503.52 620.96,502.59 622.30,501.79" fill="none" stroke="#26303f" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="418.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Interference has structure, which is what lets you remove it</text>
+<text x="367.56" y="578.00" font-size="16" text-anchor="middle" fill="#444">time [s]</text>
+<text x="54.31" y="488.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 54.31 488.00)">amplitude</text>
+<rect x="657.11" y="463.00" width="200.89" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="664.11" y1="479.00" x2="684.11" y2="479.00" stroke="#b5651d" stroke-width="2.2"/>
+<text x="690.11" y="482.50" font-size="12" text-anchor="start" fill="#222">50 Hz hum + odd harmonics</text>
+<line x1="664.11" y1="497.00" x2="684.11" y2="497.00" stroke="#26303f" stroke-width="2.2"/>
+<text x="690.11" y="500.50" font-size="12" text-anchor="start" fill="#222">clean</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_noise_and_removal.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_noise_and_removal.qu — putting noise in, and taking it out again.</span>
+<span class="c">#</span>
+<span class="c"># The point of a noise module is not to make a signal look untidy. It is to</span>
+<span class="c"># let you state exactly how hard a problem is, hand the same problem to</span>
+<span class="c"># several methods, and see which one wins and where.</span>
+<span class="c">#</span>
+<span class="c"># NOISE IS SPECIFIED IN DECIBELS. "Add noise of amplitude 0.1" is not a</span>
+<span class="c"># statement about a measurement -- it depends entirely on how big the signal</span>
+<span class="c"># is. "Add noise at 3 dB SNR" is, and it is what a datasheet, a standard and</span>
+<span class="c"># a reviewer all speak. Every kind here honours that number, including the</span>
+<span class="c"># four that are not linear in their own parameter and get there by solving</span>
+<span class="c"># for it.</span>
+<span class="c">#</span>
+<span class="c"># NOISE IS NOT ONE THING. Using white noise for all of it is how a method</span>
+<span class="c"># comes to look robust in simulation and fail on the bench:</span>
+<span class="c">#</span>
+<span class="c">#   gaussian    thermal, and the sum of many small independent causes</span>
+<span class="c">#   pink 1/f    flicker in semiconductors, sensor drift; worse the slower</span>
+<span class="c">#               you measure, which is why a long integration is not free</span>
+<span class="c">#   brown 1/f^2 a random walk -- baseline wander</span>
+<span class="c">#   shot        Poisson arrival of quanta; its variance is its mean, so it</span>
+<span class="c">#               grows WITH the signal, unlike everything above</span>
+<span class="c">#   quantize    what the ADC does; correlated with the signal, which is why</span>
+<span class="c">#               it sounds worse than its power suggests</span>
+<span class="c">#   salt-pepper dead pixels, bit errors. Not additive: it REPLACES samples,</span>
+<span class="c">#               which is exactly why a linear filter cannot remove it</span>
+<span class="c">#</span>
+<span class="c"># INTERFERENCE IS NOT NOISE. Hum and EMI are deterministic -- they have</span>
+<span class="c"># structure, and that structure is what lets you remove them.</span>
+<span class="c">#</span>
+<span class="c"># DISTORTION IS NEITHER. It is a function of the signal, so averaging does</span>
+<span class="c"># nothing at all and the only cure is not to distort.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   add_noise(x, kind, snr=)      — every kind, one parameter</span>
+<span class="c">#   hum / emf                     — mains and switching pickup</span>
+<span class="c">#   distort                       — clip, soft, crossover, harmonic</span>
+<span class="c">#   medfilt / smooth / savgol / hampel / detrend</span>
+<span class="c">#   measure_snr(clean, noisy)     — the loop-closer</span>
+
+<span class="k">backend</span> auto
+
+FS = <span class="n">1000.0</span>
+N = <span class="n">2048</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / FS
+clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t) + <span class="n">0.4</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">23</span> * t)
+
+<span class="c">#%% Ask for a number, get that number</span>
+<span class="f">print</span>(<span class="s">"Gaussian noise, asked for and measured:"</span>)
+<span class="k">for</span> target <span class="k">in</span> (<span class="n">20</span>, <span class="n">10</span>, <span class="n">3</span>, <span class="n">0</span>, -<span class="n">6</span>)
+    y = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = target, <span class="a">seed</span> = <span class="n">7</span>)
+    <span class="f">print</span>(<span class="s">"  asked {pad_left(str(target), 3)} dB   measured {measure_snr(clean, y):.2f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="f">print</span>(<span class="s">"Every kind at 6 dB -- one parameter, one meaning:"</span>)
+<span class="k">for</span> kind <span class="k">in</span> (<span class="s">"gaussian"</span>, <span class="s">"uniform"</span>, <span class="s">"pink"</span>, <span class="s">"brown"</span>, <span class="s">"blue"</span>, <span class="s">"shot"</span>, <span class="s">"quantize"</span>, <span class="s">"salt_pepper"</span>, <span class="s">"impulse"</span>)
+    y = <span class="f">add_noise</span>(clean, kind, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">3</span>)
+    <span class="f">print</span>(<span class="s">"  {pad_right(kind, 12)} {measure_snr(clean, y):.2f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% The pairing that matters: salt-and-pepper against a median</span>
+<span class="c">#</span>
+<span class="c"># An average is pulled by an outlier in proportion to how far out it is. A</span>
+<span class="c"># median ignores it entirely, as long as fewer than half the window is</span>
+<span class="c"># corrupt. The gap below is twenty decibels.</span>
+sp = <span class="f">add_noise</span>(clean, <span class="s">"salt_pepper"</span>, <span class="a">amplitude</span> = <span class="n">0.08</span>, <span class="a">seed</span> = <span class="n">5</span>)
+sp_med = <span class="f">medfilt</span>(sp, <span class="n">5</span>)
+sp_avg = <span class="f">smooth</span>(sp, <span class="n">5</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+<span class="f">print</span>(<span class="s">"Salt-and-pepper at 8% of samples:"</span>)
+<span class="f">print</span>(<span class="s">"  as measured        {measure_snr(clean, sp):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  median filter (5)  {measure_snr(clean, sp_med):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  moving average (5) {measure_snr(clean, sp_avg):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% And the opposite case, so neither is mistaken for a universal answer</span>
+<span class="c">#</span>
+<span class="c"># On plain Gaussian noise a moving average wins outright -- it is the</span>
+<span class="c"># optimal linear estimator for it. The median is for OUTLIERS, not for</span>
+<span class="c"># noise, and using one for the other costs you.</span>
+g = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">11</span>)
+g_avg = <span class="f">smooth</span>(g, <span class="n">11</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+g_med = <span class="f">medfilt</span>(g, <span class="n">11</span>)
+<span class="f">print</span>(<span class="s">"Gaussian at 6 dB:"</span>)
+<span class="f">print</span>(<span class="s">"  moving average (11) {measure_snr(clean, g_avg):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">"  median filter (11)  {measure_snr(clean, g_med):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Where Savitzky-Golay earns its place: when the SHAPE matters</span>
+<span class="c">#</span>
+<span class="c"># A moving average is a low-pass filter and a peak is high-frequency, so it</span>
+<span class="c"># flattens the peak while it removes the noise. Savitzky-Golay fits a local</span>
+<span class="c"># polynomial instead, and keeps the height and width.</span>
+peak = <span class="f">zeros</span>(N)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    u = (i - <span class="n">1024</span>) / <span class="n">60.0</span>
+    peak[i] = <span class="f">exp</span>(-u * u)
+<span class="k">end</span> <span class="k">for</span>
+noisy_peak = <span class="f">add_noise</span>(peak, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">10</span>, <span class="a">seed</span> = <span class="n">2</span>)
+sg = <span class="f">savgol</span>(noisy_peak, <span class="n">61</span>, <span class="n">3</span>)
+ma = <span class="f">smooth</span>(noisy_peak, <span class="n">61</span>, <span class="a">method</span> = <span class="s">"moving"</span>)
+<span class="f">print</span>(<span class="s">"A Gaussian peak under 10 dB of noise, both smoothed with a 61-point window:"</span>)
+<span class="f">print</span>(<span class="s">"  true height          1.000"</span>)
+<span class="f">print</span>(<span class="s">"  Savitzky-Golay       {max(sg):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"  moving average       {max(ma):.3f}"</span>)
+<span class="f">print</span>(<span class="s">"  (the average removes more noise and destroys the measurement)"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Interference, and why the harmonics matter</span>
+<span class="c">#</span>
+<span class="c"># Mains pickup arrives through a symmetric nonlinearity -- a rectifier, a</span>
+<span class="c"># saturating core -- and a symmetric nonlinearity generates ODD harmonics.</span>
+<span class="c"># `harmonics = 3` therefore means 50, 150 and 250 Hz, and a notch at 50</span>
+<span class="c"># alone leaves two thirds of the problem behind.</span>
+h = <span class="f">hum</span>(clean, FS, <span class="a">freq</span> = <span class="n">50</span>, <span class="a">harmonics</span> = <span class="n">3</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"50 Hz mains hum with three odd harmonics: {measure_snr(clean, h):.2f} dB"</span>)
+e = <span class="f">emf</span>(clean, FS, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
+<span class="f">print</span>(<span class="s">"EMI: a modulated carrier plus switching-edge bursts: {measure_snr(clean, e):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Outliers are a different problem again</span>
+<span class="c">#</span>
+<span class="c"># `hampel` replaces a sample by the local median ONLY when it is more than</span>
+<span class="c"># n_sigma robust deviations away. Everything it does not flag it leaves bit</span>
+<span class="c"># for bit -- which is the difference from a median filter, and the reason</span>
+<span class="c"># to reach for it when the data are good apart from a few spikes.</span>
+spiky = clean * <span class="n">1.0</span>
+spiky[<span class="n">400</span>] = <span class="n">6.0</span>
+spiky[<span class="n">900</span>] = -<span class="n">7.0</span>
+spiky[<span class="n">1500</span>] = <span class="n">5.5</span>
+r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"Three spikes in {N} samples:"</span>)
+<span class="f">print</span>(<span class="s">"  hampel replaced {r.replaced} samples"</span>)
+<span class="f">print</span>(<span class="s">"  error after      {measure_snr(clean, r.x):.2f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Baseline wander</span>
+drifting = clean + <span class="n">2.0</span> + <span class="n">0.0015</span> * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>)
+flat = <span class="f">detrend</span>(drifting, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"With a DC offset and a ramp: detrend recovers {measure_snr(clean, flat):.1f} dB"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c">#%% Distortion is not noise</span>
+<span class="c">#</span>
+<span class="c"># Averaging a hundred records removes noise and does absolutely nothing to</span>
+<span class="c"># distortion, because distortion is the same every time.</span>
+<span class="c"># A SINGLE tone, because THD counts every non-fundamental component as a</span>
+<span class="c"># harmonic -- and the two-tone signal above would have its second tone</span>
+<span class="c"># counted as distortion that is not there.</span>
+pure = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">31</span> * t)
+<span class="f">print</span>(<span class="s">"Total harmonic distortion, in dB below the fundamental:"</span>)
+<span class="f">print</span>(<span class="s">"  clean tone          {thd(pure):.1f} dB"</span>)
+<span class="k">for</span> kind <span class="k">in</span> (<span class="s">"soft"</span>, <span class="s">"crossover"</span>, <span class="s">"harmonic"</span>, <span class="s">"clip"</span>)
+    <span class="f">print</span>(<span class="s">"  {pad_right(kind, 12)} 0.4   {thd(distort(pure, kind, 0.4)):.1f} dB"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"  (averaging a hundred records changes none of these:"</span>)
+<span class="f">print</span>(<span class="s">"   distortion is a function of the signal, so it is identical"</span>)
+<span class="f">print</span>(<span class="s">"   in every record and averaging is powerless against it)"</span>)
+d = <span class="f">distort</span>(clean, <span class="s">"clip"</span>, <span class="n">0.4</span>)
+
+<span class="c">#%% The figure</span>
+<span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"salt-and-pepper"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp_med[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.4</span>, <span class="a">label</span> = <span class="s">"median (5)"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], sp_avg[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.2</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"average (5)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A median removes what an average only spreads"</span>)
+<span class="f">legend</span>()
+
+<span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>)
+idx = <span class="n">700</span> <span class="k">to</span> <span class="n">1350</span>
+<span class="f">plot</span>(t[idx], noisy_peak[idx], <span class="a">color</span> = <span class="s">"#c8ccd4"</span>, <span class="a">width</span> = <span class="n">0.9</span>, <span class="a">label</span> = <span class="s">"10 dB noise"</span>)
+<span class="f">plot</span>(t[idx], sg[idx], <span class="a">color</span> = <span class="s">"royalblue"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"Savitzky-Golay"</span>)
+<span class="f">plot</span>(t[idx], ma[idx], <span class="a">color</span> = <span class="s">"crimson"</span>, <span class="a">width</span> = <span class="n">1.3</span>, <span class="a">dash</span> = <span class="k">true</span>, <span class="a">label</span> = <span class="s">"moving average"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"...and a local polynomial keeps a peak the average flattens"</span>)
+<span class="f">legend</span>()
+
+<span class="f">panel</span>(<span class="n">3</span>, <span class="n">1</span>, <span class="n">3</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], h[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#b5651d"</span>, <span class="a">width</span> = <span class="n">1.0</span>, <span class="a">label</span> = <span class="s">"50 Hz hum + odd harmonics"</span>)
+<span class="f">plot</span>(t[<span class="n">0</span>:<span class="n">400</span>], clean[<span class="n">0</span>:<span class="n">400</span>], <span class="a">color</span> = <span class="s">"#26303f"</span>, <span class="a">width</span> = <span class="n">1.2</span>, <span class="a">label</span> = <span class="s">"clean"</span>)
+<span class="f">xlabel</span>(<span class="s">"time [s]"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Interference has structure, which is what lets you remove it"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>layer_norm — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>layer_norm</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>layer_norm(x, gamma, beta, [eps=])</code></pre>
+<p class="fnnote">Input: x, gamma, beta, eps &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Normalizes each row of an <code>N</code>-row, <code>D</code>-column matrix <code>x</code> independently to zero mean and unit variance, then applies a learned length-<code>D</code> per-feature scale <code>gamma</code> and shift <code>beta</code>, with <code>eps</code> (a small positive number, default a tiny constant) added inside the variance's square root for numerical stability.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = layer_norm(x, gamma, beta, [eps=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">matrix or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>gamma</code> <span class="iotype">matrix or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>beta</code> <span class="iotype">matrix or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>eps</code> <span class="iotype">matrix or number, optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">matrix</span></div>
+</td><td>Returns an <code>(N, D)</code> matrix, the same shape as <code>x</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
+<span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
+
+q = [<span class="n">1.0</span>, <span class="n">0.5</span>; -<span class="n">0.5</span>, <span class="n">1.0</span>; <span class="n">0.2</span>, -<span class="n">0.3</span>]
+k = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+v = [<span class="n">1.0</span>, <span class="n">2.0</span>; <span class="n">3.0</span>, <span class="n">4.0</span>; <span class="n">5.0</span>, <span class="n">6.0</span>]
+attn = <span class="f">scaled_dot_product_attention</span>(q, k, v)
+<span class="f">print</span>(<span class="s">"attention output: {round(attn, 3)}"</span>)
+
+eye2 = [<span class="n">1.0</span>, <span class="n">0.0</span>; <span class="n">0.0</span>, <span class="n">1.0</span>]
+head = {wq = eye2, wk = eye2, wv = eye2, wo = eye2}
+mh = <span class="f">multi_head_attention</span>(q, (head,), <span class="n">1</span>)
+plain = <span class="f">scaled_dot_product_attention</span>(q, q, q)
+<span class="f">print</span>(<span class="s">"multi_head_attention with 1 identity head matches plain self-attention: {sum(abs(mh - plain)) &lt; 1e-9}"</span>)
+
+weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln1_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w1 = [<span class="n">0.2</span>, -<span class="n">0.1</span>; <span class="n">0.1</span>, <span class="n">0.3</span>], b1 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           w2 = [<span class="n">0.1</span>, -<span class="n">0.2</span>; <span class="n">0.3</span>, <span class="n">0.1</span>], b2 = [<span class="n">0.0</span>, <span class="n">0.0</span>],
+           ln2_gamma = [<span class="n">1.0</span>, <span class="n">1.0</span>], ln2_beta = [<span class="n">0.0</span>, <span class="n">0.0</span>]}
+block_out = <span class="f">transformer_block</span>(q, weights)
+<span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>layer_norm(x, gamma, beta, [eps=1e-5])</code> — normalizes each ROW of <code>x</code> (one row = one token/sample's feature vector, <code>(n, d)</code> overall) to zero mean / unit variance, then rescales with a learned per-feature <code>gamma</code> and shifts by <code>beta</code> (both length-<code>d</code>, broadcasting as a <code>(1, d)</code> row against <code>x</code> exactly the way <code>dense</code>'s own <code>X*W + b</code> bias already broadcasts). Composed ENTIRELY from already-tracked primitives (<code>tb</code>'s <code>"-"</code>/".*"<code>/</code>"+"<code>/".*"</code>, <code>trr</code>'s new <code>"row_mean"</code>, <code>tm1</code>'s <code>"sqrt"</code>) — no bespoke <code>tensor_vjp</code> rule for <code>layer_norm</code> itself, only for the two small row-reduction primitives it (and softmax) both build on. Layer norm's mean/variance backward terms are a well-known place autodiff implementations get subtly wrong, so this was gradient- checked against finite differences before shipping (see the acceptance tests) rather than just visually reasoned through.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

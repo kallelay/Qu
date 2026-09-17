@@ -1,0 +1,63 @@
+# qu_gui_controls.qu -- a GUI declared by the script itself.
+#
+# Qu's GUI model is IMMEDIATE MODE: there is no widget tree to build and
+# no callbacks to register. A script calls `ui_slider(...)` / `ui_select(...)`
+# etc. as it runs, and each call hands back that control's CURRENT value.
+# The host (QuStudio) re-runs the whole script whenever a control changes.
+#
+# The consequence worth noticing: this file is still an ordinary script.
+# Run it from a plain terminal with no GUI anywhere in sight and every
+# control simply returns its own declared default, so it prints real
+# results rather than erroring. Run it inside a host and the same lines
+# become live controls. One script, both ways, no branching.
+#
+# Constructs exercised:
+#   ui_slider(label, min, max, [default], [step=], [fill=], [size=], [id=])
+#   ui_number(label, [default])          ui_checkbox(label, [default])
+#   ui_select(label, options, [default])  ui_text(label, [default])
+#   ui_button(label)                      -- true only on the run it's pressed
+
+# ---- Controls -------------------------------------------------------
+# `fill` is true by default (the dock/fill convention: a control adapts to
+# the width it's given). Turn it off and `size` gives a RELATIVE weight, so
+# two controls at size 1 and 2 keep their 1:2 split at any window size.
+title = ui_text("Title", "Damped oscillation")
+freq  = ui_slider("Frequency (Hz)", 0.5, 20, 3, step = 0.5)
+decay = ui_slider("Decay", 0, 2, 0.4, step = 0.05)
+amp   = ui_number("Amplitude", 1.0, fill = false, size = 1)
+wave  = ui_select("Waveform", ("sine", "square", "sawtooth"), "sine")
+grid_on = ui_checkbox("Grid", true, fill = false, size = 1)
+
+# ---- Signal ---------------------------------------------------------
+Fs = 500
+N  = 500
+t  = (0 to N - 1) / Fs
+
+if wave == "square"
+    base = signals.square(freq, Fs, N)
+elseif wave == "sawtooth"
+    base = signals.sawtooth(freq, Fs, N)
+else
+    base = sin(2 * pi * freq * t)
+end
+
+y = amp * base * exp(-decay * t)
+
+# ---- Report + plot --------------------------------------------------
+print("{title}: {wave} at {freq} Hz, amplitude {amp}, decay {decay}")
+print("peak = {max(y):.4f}, rms = {rms(y):.4f}")
+
+# `ui_button` is true only on the run where it was actually pressed, so
+# this reads naturally instead of latching on for every later re-run.
+if ui_button("Print samples")
+    print("first 5 samples: {y[0:4]}")
+end
+
+plot(t, y, label = "{wave} @ {freq} Hz", color = "blue")
+if grid_on
+    grid on
+end
+title("{title}")
+xlabel("Time (s)")
+ylabel("Amplitude")
+legend()

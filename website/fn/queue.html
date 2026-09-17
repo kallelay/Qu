@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>queue — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>queue</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>queue()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Takes no arguments. Creates an empty deferred-job list.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = queue()</code></td><td><span class="ionone">no input</span></td><td><div class="ioitem"><code>result</code> <span class="iotype">Queue</span></div>
+</td><td>Returns a <code>Queue</code> handle (<code>type(q) == "queue"</code>); cloning it shares the same underlying list of pending jobs, not a separate copy.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>
+<span class="k">end</span> pool
+q = <span class="f">queue</span>()
+q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
+<span class="f">print</span>(run q on workers)   <span class="c"># (9)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">square</span>(x)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+    policy = round_robin        <span class="c"># or priority | fair | affinity</span>
+    on full = queue             <span class="c"># or reject | spill_to(cpu)</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)         <span class="c"># enqueue a deferred call by name + args</span>
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x                    <span class="c"># still needed locally: `run` validates</span>
+                                       <span class="c"># every queued function name against</span>
+                                       <span class="c"># the CALLING script's own functions</span>
+                                       <span class="c"># before dispatching anything, even a</span>
+                                       <span class="c"># job that will actually run remotely</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>, remote=(<span class="s">"192.168.1.50:9000"</span>, <span class="s">"192.168.1.51:9000"</span>)
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers            <span class="c"># some jobs run locally, some remote —</span>
+                                       <span class="c"># one ordered List either way</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>How it works</h2>
+<p><code>queue()</code> (§47.3 job-queue/worker-pool, 2026-08-26) — a new, empty deferred-job queue; see <code>Value::Queue</code>'s own doc comment for why this is distinct from the generic FIFO *collection* type §47.4 also names <code>queue()</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

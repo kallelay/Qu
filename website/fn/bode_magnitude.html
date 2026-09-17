@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bode_magnitude — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>bode_magnitude</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>bode_magnitude(Z, freqs, [color=], [label=], [marker="line"])</code></pre>
+<p class="fnnote">Input: Z, freqs, color, label, marker &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>Z</code>: a length-N complex vector (<code>CVec</code>); <code>freqs</code>: the matching length-N real vector (Hz). <code>color</code>/<code>label</code>/<code>marker</code> (optional strings). Magnitude half of a Bode plot: <code>20*log10(|Z|)</code> vs. log-scaled frequency.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>bode_magnitude(Z, freqs, [color=], [label=], [marker="line"])</code></td><td><div class="ioitem"><code>Z</code> <span class="iotype">vector or CVec</span><span class="iodesc"><code>Z</code>: a length-N complex vector (<code>CVec</code>).</span></div>
+<div class="ioitem"><code>freqs</code> <span class="iotype">vector</span><span class="iodesc"><code>freqs</code>: the matching length-N real vector (Hz).</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings).</span></div>
+<div class="ioitem"><code>label</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings).</span></div>
+<div class="ioitem"><code>marker</code> <span class="iotype">string, optional (default <code>"line"</code>)</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings).</span></div>
+</td><td><span class="ionone">no output</span></td><td>log-scaled frequency.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">bode_magnitude</span>(Z, freqs)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
+<span class="f">bode_phase</span>(Z, freqs)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<h2>How it works</h2>
+<p><code>bode_magnitude(Z, freqs)</code> / <code>bode_phase(Z, freqs)</code> — the two halves of a Bode plot, kept as separate calls (rather than one builtin silently creating a 2-panel figure) so a script stays in control of its own subplot layout: panel(2, 1, 1); bode_magnitude(Z, freqs) panel(2, 1, 2); bode_phase(Z, freqs)</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

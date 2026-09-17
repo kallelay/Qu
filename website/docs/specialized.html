@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specialized Domains — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html" class="here">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Specialized Domains</h1>
+<nav class="onthispage"><a href="#s0">1. Machine learning</a><a href="#s37">2. Estimation: Kalman filtering</a><a href="#s87">3. Impedance spectroscopy: regularized linear Kramers-Kronig</a><a href="#s166">4. Timers, concurrency and shared state</a><a href="#s225">5. Serial ports</a><a href="#s260">6. Where to look next</a></nav>
+<p>Assumes Books 1 and 2. Everything here runs. Where a capability has a boundary, the boundary is stated where you would hit it, rather than a section describing something that does not exist yet.</p>
+<h2 id="s0">1. Machine learning</h2>
+<p>Every model in Qu is built by a <code>*_model</code> constructor and answers the same three questions: what did you fit, what do you predict, how well did you do.</p>
+<div class="example"><pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">8</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+y = [<span class="n">3.1</span>, <span class="n">5.2</span>, <span class="n">7.1</span>, <span class="n">9.3</span>]
+
+m = <span class="f">ols_model</span>(X, y)          <span class="c"># ordinary least squares, automatic intercept</span>
+<span class="f">print</span>(<span class="s">"coefficients {m.coef}"</span>)
+<span class="f">print</span>(<span class="s">"intercept    {m.intercept:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"R^2          {m.score(X, y):.4f}"</span>)
+</code></pre>
+</div>
+<p><code>.coef</code> and <code>.intercept</code> are read-only fields, not method calls. <code>.predict</code> and <code>.score</code> take new data. The same shape holds across the family:</p>
+<div class="example"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
+k = <span class="f">kmeans_model</span>(X, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>)    <span class="c"># .predict assigns to the nearest centroid</span>
+p = <span class="f">pca_model</span>(X, <span class="n">1</span>)                  <span class="c"># .predict projects onto the fitted components</span>
+<span class="f">print</span>(<span class="s">"cluster of row 0: {k.predict(X)[0]}"</span>)
+</code></pre>
+</div>
+<p>The plain <code>ridge</code>, <code>kmeans</code>, <code>pca</code> builtins are still there and are the simpler choice when you do not need <code>.predict</code> on new data later. The <code>_model</code> versions exist for when you do.</p>
+<h3>Pipelines</h3>
+<p>A pipeline composes named stages into one fit/predict/score object. Every stage but the last is a plain transform; the last is an estimator <code>(X, y) -&gt; model</code>. Stages are named by string, the same convention <code>pmap</code> and <code>spawn</code> use, because a stage has to be re-runnable inside the pipeline.</p>
+<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+<span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
+
+pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
+fitted = pipe.<span class="f">fit</span>(X, y)
+<span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
+</code></pre>
+</div>
+<h3>Neural networks</h3>
+<p>Layers are specs, a network is a list of them, and training returns a new fitted model rather than mutating the one you built — the same "return a new value" convention as everything else in the language.</p>
+<div class="example"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+Y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">1</span>)
+
+layers = (<span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>), <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>))
+net = <span class="f">sequential</span>(layers, <span class="a">seed</span> = <span class="n">42</span>)
+trained = net.<span class="f">fit</span>(X, Y, <span class="a">epochs</span> = <span class="n">2000</span>, <span class="a">lr</span> = <span class="n">0.5</span>, <span class="a">loss</span> = <span class="s">"mse"</span>)
+
+<span class="f">print</span>(<span class="s">"loss {trained.loss_history[0]:.4f} -&gt; {trained.loss_history[1999]:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"XOR predictions (want 0, 1, 1, 0): {trained.predict(X)}"</span>)
+</code></pre>
+</div>
+<p><code>mlp_classifier</code>, <code>simple_cnn</code> and <code>simple_rnn_classifier</code> build the common architectures in one call. <code>conv1d</code>/<code>conv2d</code>, <code>lstm_cell</code>, <code>gru_cell</code>, <code>multi_head_attention</code>, <code>transformer_block</code>, <code>layer_norm</code> and <code>dropout</code> are the pieces to assemble something else from. Activations (<code>relu</code>, <code>gelu</code>, <code>tanh</code>, <code>sigmoid</code>, <code>softmax</code>) are ordinary elementwise functions and work outside a network too.</p>
+<h2 id="s37">2. Estimation: Kalman filtering</h2>
+<p>The whole estimation family — linear Kalman, extended and unscented Kalman, particle filters — is reached through three shared verbs rather than a separate name per filter: <code>predict</code>, <code>update</code>, <code>estimate</code>. Each returns a new state rather than mutating one, so a script threads it through:</p>
+<div class="example"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
+state = state.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0</span>])     <span class="c"># time update: F, Q</span>
+state = state.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>]) <span class="c"># measurement update: H, z, R</span>
+<span class="f">print</span>(<span class="s">"estimate {state.x}, covariance {state.P}"</span>)
+</code></pre>
+</div>
+<p>The equations are the standard ones with no shortcuts: <code>x' = F*x</code>, <code>P' = F*P*F' + Q</code> for the time update; innovation <code>y = z - H*x</code>, gain <code>K = P*H'*(H*P*H'+R)^-1</code>, corrected <code>x' = x + K*y</code>, <code>P' = (I-K*H)*P</code> for the measurement update. A tracking loop reads as one:</p>
+<div class="example norun"><pre class="hl"><code><span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_steps - <span class="n">1</span>
+    state = state.<span class="f">predict</span>(F, Q)
+    state = state.<span class="f">update</span>(H, measurements[i], R)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+</div>
+<p><code>predict</code> and <code>update</code> dispatch on the state's own <code>.kind</code>, and within a Kalman state on whether the second argument is a matrix or a function name — so the same two verbs give you the extended filter (<code>state.predict("f", Q, jac = "J")</code>) and the unscented one (<code>method = "ukf"</code>). <code>particle_filter_init</code> starts a particle filter and <code>state.estimate()</code> reads the weighted mean back out.</p>
+<p><strong>Boundary:</strong> there is no control input (<code>B*u</code> in the time update), so every system here is driftless or purely measurement-driven.</p>
+<h2 id="s87">3. Impedance spectroscopy: regularized linear Kramers-Kronig</h2>
+<p>A port of Kallel &amp; Kanoun, *Regularized linear Kramers-Kronig transform for consistency check of noisy impedance spectra with logarithmic frequency distribution*, IWIS 2021.</p>
+<p>Boukamp's Lin-KK test checks whether a measured impedance spectrum <code>Z(f)</code> is causal, linear, stable and finite by fitting a Distribution-of-Relaxation- Times model and inspecting the residual. rLKK adds Tikhonov regularization on the DRT, so the fit tolerates noisy or truncated data without assuming any particular equivalent circuit.</p>
+<div class="example"><pre class="hl"><code>Z = [<span class="n">100</span> - <span class="n">20i</span>, <span class="n">80</span> - <span class="n">45i</span>, <span class="n">50</span> - <span class="n">55i</span>, <span class="n">30</span> - <span class="n">35i</span>, <span class="n">22</span> - <span class="n">12i</span>]   <span class="c"># measured impedance</span>
+freqs = [<span class="n">0.1</span>, <span class="n">1</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">1000</span>]                          <span class="c"># Hz</span>
+
+fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span> = <span class="n">1e-4</span>) <span class="c"># fit.z, fit.gamma</span>
+v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">threshold</span> = <span class="n">2.0</span>)
+<span class="k">if</span> v.valid
+    <span class="f">print</span>(<span class="s">"consistent within {v.max_residual:.2f}%"</span>)
+<span class="k">else</span>
+    <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
+<span class="k">end</span> <span class="k">if</span>
+</code></pre>
+</div>
+<p><code>rlkk_reconstruct(Z, freqs, [lambda=1e-4], [fx=])</code> returns the reconstructed spectrum in <code>.z</code> and the fitted DRT coefficients in <code>.gamma</code>. <code>fx</code> overrides the default DRT frequency grid (<code>logspace(-8, 8, 160)</code> Hz — deliberately far broader than any realistic measurement band). A larger <code>lambda</code> tolerates noisier data at the cost of fitting detail; there is no separate "aggressive" variant, because passing a larger <code>lambda</code>, or a per-point-derived one such as <code>lambda = 1e10 ./ abs(Z)</code>, is the same thing.</p>
+<p><code>rlkk_validate</code> is <code>valid</code> only when every point's percent residual <code>(|Z_recon| - |Z|) / |Z_recon| * 100</code> is under <code>threshold</code>. <code>.residuals</code> and <code>.max_residual</code> come back too, so "did it pass" and "which points are bad" are one call rather than two.</p>
+<p><code>rlkk_extrapolate(Z, freqs, target_freqs, [lambda=1e-4])</code> refits and re-evaluates at <code>target_freqs</code> — to extend a truncated measurement past its measured band, or to move onto a different grid.</p>
+<p><code>nyquist(Z)</code> draws the standard EIS view (<code>Re(Z)</code> against <code>-Im(Z)</code>, the sign convention the instruments themselves use). <code>bode_magnitude</code> and <code>bode_phase</code> are the two halves of a Bode plot, kept as separate calls so a script keeps control of its own layout:</p>
+<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">bode_magnitude</span>(Z, freqs)
+<span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
+<span class="f">bode_phase</span>(Z, freqs)
+</code></pre>
+</div>
+<p><strong>Boundary:</strong> no equivalent-circuit fitting (R/L/C/CPE/Warburg elements, global and local optimization, fixed parameters) and no model search across candidate circuits. rLKK validates and reconstructs without assuming a topology at all, which is a different tool from circuit fitting rather than a lesser one.</p>
+<h2 id="s166">4. Timers, concurrency and shared state</h2>
+<div class="example"><pre class="hl"><code>count = <span class="n">0</span>
+every <span class="n">1</span> s <span class="k">do</span>
+    count = count + <span class="n">1</span>
+<span class="k">end</span>
+<span class="f">run_for</span>(<span class="n">5</span> s)
+<span class="f">print</span>(<span class="s">"fired {count} times"</span>)
+</code></pre>
+</div>
+<p>Timers run on virtual time, so a five-second test takes no time at all.</p>
+<p>Real background work and share-nothing parallel loops:</p>
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+
+w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
+<span class="f">print</span>(<span class="s">"spawned result {join(w)}"</span>)
+
+results = <span class="f">zeros</span>(<span class="n">10</span>)
+parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    results[i] = <span class="f">heavy</span>(i)
+<span class="k">end</span> parallel
+<span class="f">print</span>(<span class="s">"parallel results {results}"</span>)
+</code></pre>
+</div>
+<p>Each iteration of a <code>parallel for</code> gets an isolated environment and a fresh RNG stream. There is no shared mutable state, so there are no races, by construction rather than by discipline.</p>
+<p><code>pmap</code> is the same isolation as an expression, for the common "apply this pure function to every sample" shape, and composes with <code>|&gt;</code>:</p>
+<div class="example"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
+out = (<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>) |&gt; <span class="f">pmap</span>(<span class="s">"extract"</span>)
+<span class="f">print</span>(out)
+</code></pre>
+</div>
+<p>Only a function *you* defined can be <code>pmap</code>'d or <code>spawn</code>'d, not a builtin — it has to run inside the worker's own environment.</p>
+<p>When you genuinely need shared state — a counter, a bounded resource — you opt in:</p>
+<div class="example"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">100</span>
+    <span class="f">mutex_add</span>(counter, <span class="n">1</span>)
+<span class="k">end</span> parallel
+<span class="f">print</span>(<span class="s">"total {mutex_get(counter)}"</span>)
+</code></pre>
+</div>
+<p><code>semaphore</code>/<code>semaphore_acquire</code>/<code>semaphore_release</code> bound a resource; <code>channel_send</code>/<code>channel_recv</code> pass values between workers; <code>queue</code>, <code>fifo</code> and <code>double_buffer</code> are the buffering structures.</p>
+<h2 id="s225">5. Serial ports</h2>
+<p>Real UART/RS-232/USB-serial I/O, through the OS.</p>
+<div class="example norun"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<span class="f">print</span>(<span class="s">"found {length(ports)} port(s): {ports}"</span>)
+
+conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">115200</span>, <span class="a">timeout_ms</span> = <span class="n">1000</span>)
+<span class="f">write</span>(conn, <span class="s">"MEAS?\n"</span>)
+line = <span class="f">read_line</span>(conn) ?? <span class="s">"(timed out)"</span>
+<span class="f">print</span>(line)
+<span class="f">close</span>(conn)
+</code></pre>
+</div>
+<p><code>serial_open(port, baud, [data_bits=8, stop_bits=1, parity="none", timeout_ms=1000])</code> opens the port and errors clearly, naming it, when it does not exist or the OS refuses it. Every blocking read is bounded by <code>timeout_ms</code>, and a read that times out with nothing collected returns <code>none</code> rather than blocking forever or claiming end-of-file — the two are different, and a device that is simply slow must not look like a device that has hung up. <code>?? default</code> is how you handle it in one line.</p>
+<p><code>read_line</code>, <code>read_until</code>, <code>read_byte</code>, <code>read_bytes</code>, <code>peek_line</code> and <code>peek_byte</code> are the read surface; <code>write</code>, <code>write_line</code>, <code>write_byte</code> the write side.</p>
+<h3>A hard platform boundary: the browser has no serial or filesystem</h3>
+<p><code>wasm32-unknown-unknown</code>, Qu's browser target, has no native serial port or filesystem access. That is a browser sandbox, not a Qu limitation:</p>
+<ul>
+<li><strong>Serial</strong> is reachable only through the Web Serial API — JavaScript only, Chromium only, HTTPS only, and gated behind a user gesture to pick the device.</li>
+<li><strong>Files</strong> have no filesystem in this target at all. Browser file access means the File System Access API (Chromium, permission-gated) or a one-shot <code>&lt;input type=file&gt;</code> read.</li>
+</ul>
+<p>So <code>serial_open</code> and the file builtins are native-CLI-first. A browser Studio needs an explicitly designed JavaScript bridge for each, not something that falls out of the shared Rust core the way FFT and matrix maths do.</p>
+<h2 id="s260">6. Where to look next</h2>
+<ul>
+<li><strong><a href="builtin-index.html">Builtin index</a></strong> — every name the engine answers to, generated from its own table. If a name is not there, the engine does not have it.</li>
+<li><strong></strong><code>catalog/</code><strong> — around a hundred complete programs. Read one near your own work and change it.</strong></li>
+<li><strong><a href="spec.html">The specification</a></strong> — normative, and ahead of the engine in places. It is the design document, so it describes things that are not built; the builtin index is the authority on what is.</li>
+</ul>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

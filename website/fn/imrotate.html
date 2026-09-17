@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imrotate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>imrotate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>imrotate(img, angle_degrees, [method="bilinear"], [bbox="loose"])</code></pre>
+<p class="fnnote">Input: img, angle_degrees, method, bbox &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Rotates an image about its own center. <code>img</code> is an <code>Image</code>; <code>angle_degrees</code> is a number, the rotation angle about the image center — positive = counterclockwise (MATLAB's convention). <code>method</code> is an optional named string, <code>"nearest"</code> or <code>"bilinear"</code> (default), controlling resampling. <code>bbox</code> is an optional named string: <code>"loose"</code> (default) expands the canvas to fit the rotated content; <code>"crop"</code> keeps the original width/height, clipping content that rotates outside the frame.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = imrotate(img, angle_degrees, [method="bilinear"], [bbox="loose"])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>angle_degrees</code> <span class="iotype">number</span><span class="iodesc"><code>angle_degrees</code> is a number, the rotation angle about the image center — positive = counterclockwise (MATLAB's convention).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"bilinear"</code>)</span><span class="iodesc"><code>method</code> is an optional named string, <code>"nearest"</code> or <code>"bilinear"</code> (default), controlling resampling.</span></div>
+<div class="ioitem"><code>bbox</code> <span class="iotype">string, optional (default <code>"loose"</code>)</span><span class="iodesc"><code>bbox</code> is an optional named string: <code>"loose"</code> (default) expands the canvas to fit the rotated content.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">load_image</span>(<span class="s">"sample.bmp"</span>)
+rotated = <span class="f">imrotate</span>(img, <span class="n">45</span>, <span class="a">method</span>=<span class="s">"bilinear"</span>, <span class="a">bbox</span>=<span class="s">"loose"</span>)
+<span class="f">imshow</span>(rotated)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<h2>How it works</h2>
+<p><code>imrotate(img, angle_degrees, [method="bilinear"], [bbox="loose"|"crop"])</code> — arbitrary-angle rotation about the image center. <code>angle_degrees</code> is positive = counterclockwise (MATLAB's own <code>imrotate</code> convention). <code>bbox="loose"</code> (the default, and MATLAB's own actual default) expands the output canvas to fit the full rotated content; <code>"crop"</code> keeps the input's own width/height, cropping whatever rotates outside the frame. See <code>image::Image::rotate</code>'s doc comment for the sign-convention derivation and the bilinear-blend reuse.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

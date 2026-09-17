@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCA projection — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>PCA projection</h1>
+<p class="lede">fitting PCA and projecting data onto its principal components.</p>
+<p class="srcpath">catalog/qu_pca_projection.qu</p>
+<p>`pca_model(X, k)` (see qu-interp/src/lib.rs's `pca_fit`) centers X by its column means, runs an SVD on the centered data, and returns a `Value::Model` (kind "pca") with three fields: `components` (the (k, d) matrix of unit-norm loading vectors, one per row -- scikit-learn's own `components_` convention), `explained_variance_ratio` (fraction of TOTAL variance, over ALL singular values, each retained component accounts for), and `mean` (the column means subtracted before the SVD). `model.predict(Xnew)` re-centers Xnew by that stored mean and projects it onto `components`, same generic `.predict` convention every other model kind in this codebase uses. `pca(X, k)` and `pca_components(X, k)` are thin wrappers that skip straight to the projected matrix / component matrix without a Model handle, when the model object itself isn't needed.</p>
+<p>Two datasets: 1. A noisy 2D cloud with an obvious dominant direction (near the y = x line) -- the realistic case: PCA finds that direction, but does NOT explain 100% of the variance (there is real orthogonal noise). 2. Perfectly collinear data (every row is t*(1,1), zero noise) -- mirrors this codebase's own `pca_on_perfectly_collinear_data_explains_all_variance_in_one_component` test: the single retained component must explain ~100% of variance.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>pca_model(X, k)                 -- fit, returns a Model (kind "pca")</li>
+<li>model.components / model.explained_variance_ratio / model.mean</li>
+<li>model.predict(Xnew)             -- project new/same data onto components</li>
+<li>pca_explained_variance(X, k)    -- standalone variance-ratio helper</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>1) Noisy 2D cloud with a dominant direction along y = x</h3>
+<pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">1.1</span>; <span class="n">2</span>, <span class="n">1.9</span>; <span class="n">3</span>, <span class="n">3.2</span>; <span class="n">4</span>, <span class="n">3.8</span>; <span class="n">5</span>, <span class="n">5.3</span>; <span class="n">6</span>, <span class="n">5.7</span>]
+m = <span class="f">pca_model</span>(X, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: components = {m.components} (should point roughly along (0.707, 0.707))"</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: explained_variance_ratio = {m.explained_variance_ratio} (expect &lt; 1.0 -- real orthogonal noise present)"</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: mean = {m.mean}"</span>)
+
+<span class="c"># unit-norm check on the component (PCA loading vectors are unit vectors)</span>
+c = m.components
+norm_sq = c[<span class="n">0</span>, <span class="n">0</span>] ^ <span class="n">2</span> + c[<span class="n">0</span>, <span class="n">1</span>] ^ <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"component is unit-norm: |c|^2 = {norm_sq:.6f} (expect 1.0)"</span>)
+
+projected = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"projected onto PC1 (6x1) = {projected}"</span>)
+<span class="f">print</span>(<span class="s">"projected shape = {rows(projected)}x{cols(projected)}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>2) Perfectly collinear data -- every row is t*(1,1), zero orthogonal noise</h3>
+<pre class="hl"><code>Xc = [<span class="n">0</span>, <span class="n">0</span>; <span class="n">2</span>, <span class="n">2</span>; <span class="n">4</span>, <span class="n">4</span>; <span class="n">6</span>, <span class="n">6</span>]
+ratio = <span class="f">pca_explained_variance</span>(Xc, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"collinear data: pca_explained_variance(Xc, 1) = {ratio} (expect [1.0] -- ALL variance in one component)"</span>)
+
+mc = <span class="f">pca_model</span>(Xc, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"collinear data: model.explained_variance_ratio = {mc.explained_variance_ratio}"</span>)
+<span class="f">print</span>(<span class="s">"collinear data: components = {mc.components} (still points along (0.707, 0.707), the only direction with any spread)"</span>)
+
+<span class="c"># Independent check: total squared norm of the centered data should equal</span>
+<span class="c"># the total squared norm of the 1D projection, since 100% of variance is</span>
+<span class="c"># captured (centered rows are [-3,-3; -1,-1; 1,1; 3,3], total sq norm = 40).</span>
+pc = <span class="f">pca</span>(Xc, <span class="n">1</span>)
+sum_sq_projected = pc[<span class="n">0</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">1</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">2</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">3</span>, <span class="n">0</span>] ^ <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"collinear data: sum of squared projections = {sum_sq_projected:.6f} (expect 40.0, the full centered variance)"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>noisy cloud: components = [0.716662, 0.697421] (should point roughly along (0.707, 0.707))
+noisy cloud: explained_variance_ratio = [0.996076] (expect &lt; 1.0 -- real orthogonal noise present)
+noisy cloud: mean = [3.5, 3.5]
+component is unit-norm: |c|^2 = 1.000000 (expect 1.0)
+projected onto PC1 (6x1) = [-3.465465; -2.190866; -0.567557; 0.567557; 2.33035; 3.32598]
+projected shape = 6x1
+collinear data: pca_explained_variance(Xc, 1) = [1] (expect [1.0] -- ALL variance in one component)
+collinear data: model.explained_variance_ratio = [1]
+collinear data: components = [0.707107, 0.707107] (still points along (0.707, 0.707), the only direction with any spread)
+collinear data: sum of squared projections = 40.000000 (expect 40.0, the full centered variance)</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_pca_projection.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_pca_projection.qu -- fitting PCA and projecting data onto its</span>
+<span class="c"># principal components.</span>
+<span class="c">#</span>
+<span class="c"># `pca_model(X, k)` (see qu-interp/src/lib.rs's `pca_fit`) centers X by its</span>
+<span class="c"># column means, runs an SVD on the centered data, and returns a</span>
+<span class="c"># `Value::Model` (kind "pca") with three fields: `components` (the (k, d)</span>
+<span class="c"># matrix of unit-norm loading vectors, one per row -- scikit-learn's own</span>
+<span class="c"># `components_` convention), `explained_variance_ratio` (fraction of TOTAL</span>
+<span class="c"># variance, over ALL singular values, each retained component accounts</span>
+<span class="c"># for), and `mean` (the column means subtracted before the SVD).</span>
+<span class="c"># `model.predict(Xnew)` re-centers Xnew by that stored mean and projects it</span>
+<span class="c"># onto `components`, same generic `.predict` convention every other model</span>
+<span class="c"># kind in this codebase uses. `pca(X, k)` and `pca_components(X, k)` are</span>
+<span class="c"># thin wrappers that skip straight to the projected matrix / component</span>
+<span class="c"># matrix without a Model handle, when the model object itself isn't needed.</span>
+<span class="c">#</span>
+<span class="c"># Two datasets:</span>
+<span class="c">#   1. A noisy 2D cloud with an obvious dominant direction (near the</span>
+<span class="c">#      y = x line) -- the realistic case: PCA finds that direction, but</span>
+<span class="c">#      does NOT explain 100% of the variance (there is real orthogonal</span>
+<span class="c">#      noise).</span>
+<span class="c">#   2. Perfectly collinear data (every row is t*(1,1), zero noise) --</span>
+<span class="c">#      mirrors this codebase's own</span>
+<span class="c">#      `pca_on_perfectly_collinear_data_explains_all_variance_in_one_component`</span>
+<span class="c">#      test: the single retained component must explain ~100% of variance.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   pca_model(X, k)                 -- fit, returns a Model (kind "pca")</span>
+<span class="c">#   model.components / model.explained_variance_ratio / model.mean</span>
+<span class="c">#   model.predict(Xnew)             -- project new/same data onto components</span>
+<span class="c">#   pca_explained_variance(X, k)    -- standalone variance-ratio helper</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% 1) Noisy 2D cloud with a dominant direction along y = x</span>
+X = [<span class="n">1</span>, <span class="n">1.1</span>; <span class="n">2</span>, <span class="n">1.9</span>; <span class="n">3</span>, <span class="n">3.2</span>; <span class="n">4</span>, <span class="n">3.8</span>; <span class="n">5</span>, <span class="n">5.3</span>; <span class="n">6</span>, <span class="n">5.7</span>]
+m = <span class="f">pca_model</span>(X, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: components = {m.components} (should point roughly along (0.707, 0.707))"</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: explained_variance_ratio = {m.explained_variance_ratio} (expect &lt; 1.0 -- real orthogonal noise present)"</span>)
+<span class="f">print</span>(<span class="s">"noisy cloud: mean = {m.mean}"</span>)
+
+<span class="c"># unit-norm check on the component (PCA loading vectors are unit vectors)</span>
+c = m.components
+norm_sq = c[<span class="n">0</span>, <span class="n">0</span>] ^ <span class="n">2</span> + c[<span class="n">0</span>, <span class="n">1</span>] ^ <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"component is unit-norm: |c|^2 = {norm_sq:.6f} (expect 1.0)"</span>)
+
+projected = m.<span class="f">predict</span>(X)
+<span class="f">print</span>(<span class="s">"projected onto PC1 (6x1) = {projected}"</span>)
+<span class="f">print</span>(<span class="s">"projected shape = {rows(projected)}x{cols(projected)}"</span>)
+
+<span class="c">#%% 2) Perfectly collinear data -- every row is t*(1,1), zero orthogonal noise</span>
+Xc = [<span class="n">0</span>, <span class="n">0</span>; <span class="n">2</span>, <span class="n">2</span>; <span class="n">4</span>, <span class="n">4</span>; <span class="n">6</span>, <span class="n">6</span>]
+ratio = <span class="f">pca_explained_variance</span>(Xc, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"collinear data: pca_explained_variance(Xc, 1) = {ratio} (expect [1.0] -- ALL variance in one component)"</span>)
+
+mc = <span class="f">pca_model</span>(Xc, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"collinear data: model.explained_variance_ratio = {mc.explained_variance_ratio}"</span>)
+<span class="f">print</span>(<span class="s">"collinear data: components = {mc.components} (still points along (0.707, 0.707), the only direction with any spread)"</span>)
+
+<span class="c"># Independent check: total squared norm of the centered data should equal</span>
+<span class="c"># the total squared norm of the 1D projection, since 100% of variance is</span>
+<span class="c"># captured (centered rows are [-3,-3; -1,-1; 1,1; 3,3], total sq norm = 40).</span>
+pc = <span class="f">pca</span>(Xc, <span class="n">1</span>)
+sum_sq_projected = pc[<span class="n">0</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">1</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">2</span>, <span class="n">0</span>] ^ <span class="n">2</span> + pc[<span class="n">3</span>, <span class="n">0</span>] ^ <span class="n">2</span>
+<span class="f">print</span>(<span class="s">"collinear data: sum of squared projections = {sum_sq_projected:.6f} (expect 40.0, the full centered variance)"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

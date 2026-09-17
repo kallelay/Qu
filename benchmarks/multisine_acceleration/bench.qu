@@ -1,0 +1,241 @@
+# benchmarks/multisine_acceleration/bench.qu
+#
+# Same workload, five acceleration methods, one process, one set of tone
+# parameters (generated once, reused byte-identically everywhere) so the
+# only thing that can differ between runs is HOW the sum is computed, never
+# WHAT is being summed.
+#
+# Workload: x(t) = sum_{k=1..51} A_k * sin(2*pi*f_k*t + phi_k)
+#   Fs = 5000 Hz, duration = 300 s -> N = 1,500,000 samples, K = 51 tones.
+#
+# Methods:
+#   [1] baseline    - for loop over the 51 tones, each iteration vectorized
+#                     over the N-length time axis (see catalog/
+#                     qu_multisine_acceleration.qu for the standalone,
+#                     well-commented version of just this method)
+#   [2] vectorized  - one broadcast/matmul expression, zero explicit loops
+#                     over tones OR time
+#   [3] parallel for- disjoint per-tone column writes into an (N,K) matrix,
+#                     summed afterward (see "why not a shared accumulator"
+#                     below)
+#   [4] pool/queue  - 51 tones split into chunks, each chunk computed by a
+#                     named function run as a queued job across a worker
+#                     pool, partial sums combined afterward
+#   [5] gpu_matmul  - method [2]'s own (N,K) basis matrix, collapsed via one
+#                     gpu_matmul(basis, amplitudes) call instead of a CPU
+#                     matmul; requires a `qu.exe` built with `--features
+#                     gpu` (qu-cli's Cargo.toml: `gpu = ["dep:qu-gpu"]`,
+#                     off by default) -- wrapped in try/catch so this
+#                     script still runs methods 1-4 and reports GPU as
+#                     unavailable on the default build, rather than
+#                     crashing.
+#
+# --- Why method 3 uses disjoint writes, not `x = x + ...` ---------------
+# `parallel for` does not support reductions. It REFUSES them:
+#
+#   x = zeros(5)
+#   parallel for k in 0 to 2
+#       x = x + [1,2,3][k]
+#   end parallel
+#   # runtime error: parallel for: iteration 0 reassigned `x` (a vector that
+#   # existed before the loop) as a whole value -- every element changed,
+#   # which looks like a reduction rather than a disjoint `x[i] = ...` write.
+#
+# Re-verified 2026-09-10 by running exactly that (see reduction_check.qu
+# beside this file), because the previous version of THIS COMMENT said the
+# case was silently wrong -- returning [3,3,3,3,3] where [6,6,6,6,6] was
+# meant, with no error. That was true when written and was fixed in
+# a116c451 (2026-08-31, confirmed ancestor of master), which extended the
+# scalar path's unsafe-reassignment check to `Value::Vec`/`Value::Mat`. The
+# stale comment outlived its fix by ten days and misled two readers before
+# anyone re-ran the three lines it described.
+#
+# So the constraint is real but its nature changed: this is a MISSING
+# FEATURE (no per-thread accumulator + merge, the way OpenMP's
+# `reduction(+:x)` or rayon's `fold`/`reduce` provide) rather than a bug to
+# fix. The SAFE pattern used below is unchanged: each iteration writes to
+# its OWN column of a shared (N,K) matrix (`Contrib[:, k] = ...`), which
+# never touches another iteration's elements, then one ordinary
+# `sum(..., axis=1)` runs after the parallel region closes.
+#
+# That workaround is also why method [3] measures so badly here. The (N,K)
+# matrix is 1,500,000 x 51 doubles -- 612 MB -- so the parallel method is
+# memory-bound while the serial one is not. `parallel for` itself is fine:
+# on the same machine, with disjoint scalar writes and no large shared
+# buffer, it runs 4.71x faster than serial with identical answers (see
+# parallel_isolation.qu). Method [3]'s 31x slowdown is the price of the
+# workaround, not of parallelism.
+
+backend auto
+
+#%% Workload setup (identical across all 5 methods)
+seed(2026)
+
+Fs = 5000
+duration = 300
+N = round(Fs * duration)     # 1,500,000
+K = 51
+
+dt = 1 / Fs
+t = linspace(0, (N - 1) * dt, N)   # N-length time vector (plain `to`/`step`
+                                    # ranges cap out at 1,000,000 elements --
+                                    # qu-core::DEFAULT_ELEMENT_LIMIT -- so
+                                    # `linspace`, which has no such cap, is
+                                    # used here instead)
+
+f   = logspace(log10(5), log10(2000), K)   # 51 tones, 5 Hz .. 2000 Hz
+A   = ones(K) / sqrt(K)                     # unit-ish RMS amplitude budget
+phi = rand(K) * 2 * pi                      # reproducible random phases (seeded)
+
+print("workload: N={N} samples, K={K} tones, Fs={Fs} Hz, duration={duration} s")
+print("")
+
+#%% [1] Baseline -- loop over tones, vectorized per tone over N
+tic()
+x1 = zeros(N)
+for k = 0 to K - 1
+    x1 = x1 + A[k] * sin(2 * pi * f[k] * t + phi[k])
+end for
+t1 = toc()
+print("[1] baseline loop            : {t1:.4f} s")
+
+#%% [2] Full vectorization -- one broadcast/matmul expression, no loops
+tic()
+T_col   = reshape(t, N, 1)
+F_row   = reshape(f, 1, K)
+Phi_row = reshape(phi, 1, K)
+A_col   = reshape(A, K, 1)
+
+Phase  = 2 * pi * (T_col * F_row)   # (N,1) x (1,K) -> (N,K) outer product
+Basis2 = sin(Phase + Phi_row)       # (N,K), phi broadcast across all N rows
+x2_col = Basis2 * A_col             # (N,K) x (K,1) -> (N,1); IS the tone sum
+x2     = x2_col[:, 0]               # flatten the (N,1) column to a plain N-vector
+t2 = toc()
+print("[2] full vectorization       : {t2:.4f} s")
+
+#%% [3] parallel for -- disjoint per-tone column writes (see header comment
+#       for why NOT a shared `x = x + ...` accumulator)
+tic()
+Contrib = zeros(N, K)
+parallel for k in 0 to K - 1
+    Contrib[:, k] = A[k] * sin(2 * pi * f[k] * t + phi[k])
+end parallel
+x3 = sum(Contrib, axis=1)
+t3 = toc()
+print("[3] parallel for             : {t3:.4f} s")
+
+#%% [4] pool + queue + workers -- split the 51 tones into chunks, each
+#       queued job computes one chunk's own partial N-length sum
+function multisine_chunk(k_start, k_end)
+    partial = zeros(N)
+    for k = k_start to k_end
+        partial = partial + A[k] * sin(2 * pi * f[k] * t + phi[k])
+    end for
+    return partial
+end function
+
+n_chunks = 8                        # matches this machine's core count band
+base_size = floor(K / n_chunks)     # 6
+remainder = K - base_size * n_chunks # 3 chunks get one extra tone
+
+tic()
+jobs = queue()
+k0 = 0
+for c = 0 to n_chunks - 1
+    size_c = base_size
+    if c < remainder
+        size_c = base_size + 1
+    end if
+    k1 = k0 + size_c - 1
+    jobs.push("multisine_chunk", k0, k1)
+    k0 = k1 + 1
+end for
+
+partials = run jobs on pool(n_chunks)
+
+x4 = zeros(N)
+for c = 0 to n_chunks - 1
+    x4 = x4 + partials[c]
+end for
+t4 = toc()
+print("[4] pool + queue + workers   : {t4:.4f} s")
+
+#%% [5] GPU -- gpu_matmul(basis, amplitudes), reusing method [2]'s own basis
+#
+# A literal single `gpu_matmul(Basis2, A_col)` call -- exactly what the
+# task first asked for -- was tried in isolation before writing this loop
+# and does NOT return a catchable error: this GPU/wgpu build's device
+# limits (measured directly, not guessed) are
+#   max buffer size            = 268,435,456 bytes (256 MiB)
+#   max_*_buffer_binding_size  = 134,217,728 bytes (128 MiB)  <- the tighter one
+# and `Basis2` at this problem's N=1,500,000, K=51 needs a
+# 1,500,000*51*4 = 306,000,000-byte f32 buffer (gpu_matmul's own documented
+# precision) -- over BOTH limits. wgpu reports the overage as a validation
+# error on an internal callback, which this backend build turns into a hard
+# Rust panic that takes down the whole process, not a `Value`-level
+# `EvalError` -- so Qu's own `try`/`catch` never even gets a chance to run;
+# confirmed by watching it happen (`wgpu error: ... exceeds
+# max_*_buffer_binding_size limit 134217728`). A real, worth-flagging gap:
+# `gpu_matmul` has no size precheck against the device's own limits before
+# dispatching. Not fixed here (qu-gpu/lib.rs are out of this benchmark's
+# scope) -- worked around the only way that doesn't crash: split the basis
+# matrix into row-chunks that each fit under the measured binding-size
+# limit, one `gpu_matmul` call per chunk (still the same builtin, same GPU,
+# same computation -- just N/chunks dispatches instead of 1).
+gpu_max_bind_bytes = 134217728          # measured max_*_buffer_binding_size
+row_bytes = K * 4                        # gpu_matmul's f32 precision
+max_rows_per_chunk = floor(gpu_max_bind_bytes / row_bytes)
+n_gpu_chunks = ceil(N / max_rows_per_chunk)
+chunk_rows = ceil(N / n_gpu_chunks)
+
+gpu_ok = false
+gpu_err = ""
+tic()
+try
+    x5 = zeros(N)
+    r0 = 0
+    for c = 0 to n_gpu_chunks - 1
+        r1 = r0 + chunk_rows - 1
+        if r1 > N - 1
+            r1 = N - 1
+        end if
+        chunk_out = gpu_matmul(Basis2[r0:r1 + 1, :], A_col)
+        x5[r0:r1] = chunk_out[:, 0]
+        r0 = r1 + 1
+    end for
+    gpu_ok = true
+catch e
+    gpu_err = e.message
+end
+t5 = toc()
+
+if gpu_ok
+    print("[5] gpu_matmul               : {t5:.4f} s  ({n_gpu_chunks} chunked dispatches)")
+else
+    print("[5] gpu_matmul               : UNAVAILABLE -- {gpu_err}")
+end if
+
+print("")
+
+#%% Correctness cross-check -- every method vs the baseline
+d12 = max(abs(x1 - x2))
+d13 = max(abs(x1 - x3))
+d14 = max(abs(x1 - x4))
+print("max|x1 - x2| = {d12:.3e}")
+print("max|x1 - x3| = {d13:.3e}")
+print("max|x1 - x4| = {d14:.3e}")
+
+if gpu_ok
+    d15 = max(abs(x1 - x5))
+    print("max|x1 - x5| = {d15:.3e}")
+end if
+
+print("")
+
+#%% Speedup summary (vs. method 1, the unaccelerated baseline)
+print("speedup [2] full vectorization vs [1] = {t1 / t2:.2f}x")
+print("speedup [3] parallel for      vs [1] = {t1 / t3:.2f}x")
+print("speedup [4] pool/queue        vs [1] = {t1 / t4:.2f}x")
+if gpu_ok
+    print("speedup [5] gpu_matmul        vs [1] = {t1 / t5:.2f}x")
+end if

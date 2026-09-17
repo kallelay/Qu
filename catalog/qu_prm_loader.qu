@@ -1,0 +1,109 @@
+# qu_prm_loader.qu -- reads a Re-Volt (RVGL) .PRM 3D mesh file, built
+# entirely on the existing packed-struct binary readers (`read_structs`)
+# and typed scalar reads (`read_int16`) -- no new engine code.
+#
+# Format (from the game's own loader, read locally, never committed --
+# third-party asset, kept out of this repo): a 4-byte header of two int16
+# counts, then that many fixed-size records back to back.
+#
+#   header   poly_count:i16, vert_count:i16          (order below)
+#   polygon  type:i16, tpage:i16,                    -- 60 bytes
+#            vi0..vi3:i16 (4 vertex indices),
+#            c0..c3:u32   (4 packed ARGB colors),
+#            u0,v0 .. u3,v3:f32  (4 UV pairs)
+#   vertex   px,py,pz:f32, nx,ny,nz:f32               -- 24 bytes
+#
+# The header's two counts are written in DIFFERENT orders across game
+# builds (poly-then-vert, or vert-then-poly) -- the loader has no version
+# field to tell them apart, so it tries both readings against the file's
+# actual remaining length and keeps whichever one accounts for every
+# byte. A wrong guess parses garbage records rather than failing loudly,
+# which is why this check exists at all.
+#
+# Deliberately NOT done here, because each would be a rendering decision
+# rather than a loading one: triangulating the quad polys (bit 0 of
+# `type`) into two triangles, sorting polygons into draw buckets by their
+# type flags (double-sided / env-mapped / semi-transparent), applying any
+# texture-page remap, or flipping the Y axis / triangle winding to match
+# a particular viewer's convention. This hands back the file's own
+# numbers, faithfully, as two Tables -- one row per polygon, one row per
+# vertex -- and stops there.
+function load_prm(path)
+    f = fopen(path, "rb")
+    a = read_int16(f)
+    b = read_int16(f)
+    body = file_size(path) - 4
+    if a * 60 + b * 24 == body then
+        poly_count = a
+        vert_count = b
+    elseif b * 60 + a * 24 == body then
+        poly_count = b
+        vert_count = a
+    else
+        poly_count = a
+        vert_count = b
+    end if
+
+    poly_fields = (("type", "i16"), ("tpage", "i16"),
+                   ("vi0", "i16"), ("vi1", "i16"), ("vi2", "i16"), ("vi3", "i16"),
+                   ("c0", "u32"), ("c1", "u32"), ("c2", "u32"), ("c3", "u32"),
+                   ("u0", "f32"), ("v0", "f32"), ("u1", "f32"), ("v1", "f32"),
+                   ("u2", "f32"), ("v2", "f32"), ("u3", "f32"), ("v3", "f32"))
+    polys = read_structs(f, poly_fields, poly_count)
+
+    vert_fields = (("px", "f32"), ("py", "f32"), ("pz", "f32"),
+                   ("nx", "f32"), ("ny", "f32"), ("nz", "f32"))
+    verts = read_structs(f, vert_fields, vert_count)
+    close(f)
+
+    return {poly_count = poly_count, vert_count = vert_count,
+            polys = polys, verts = verts}
+end function
+
+backend auto
+
+#%% A tiny synthesized mesh -- one quad polygon over 4 vertices -- written
+# by hand at the byte level so this demo needs no external asset. Values
+# chosen to be recognisable after the round trip: a unit square in the
+# XY plane, facing +Z, vertex 2's color carries a distinct alpha byte.
+#
+# `tmp_file()` rather than a plain name in the working directory -- Qu has
+# no file-delete builtin, so a name like `prm_loader_demo.prm.tmp` here
+# would have been left behind after every run, in whatever directory the
+# demo happened to be invoked from. The OS temp directory is where a
+# throwaway scratch file belongs; the real output of this demo is the
+# printed mesh, not the file.
+tmp_path = tmp_file()
+w = fopen(tmp_path, "wb")
+write_int16(w, 1)              # poly_count
+write_int16(w, 4)              # vert_count
+# the one polygon: type=1 (quad bit set), tpage=2, corners 0..3
+write_int16(w, 1)
+write_int16(w, 2)
+write_int16(w, 0)
+write_int16(w, 1)
+write_int16(w, 2)
+write_int16(w, 3)
+write_uint32(w, 0xFFFF0000)
+write_uint32(w, 0xFF00FF00)
+write_uint32(w, 0x800000FF)     # alpha 0x80 -- the one this demo checks
+write_uint32(w, 0xFFFFFFFF)
+write_float(w, 0.0); write_float(w, 0.0)
+write_float(w, 1.0); write_float(w, 0.0)
+write_float(w, 1.0); write_float(w, 1.0)
+write_float(w, 0.0); write_float(w, 1.0)
+# the four vertices, unit square, normal pointing +Z
+write_float(w, 0.0); write_float(w, 0.0); write_float(w, 0.0)
+write_float(w, 0.0); write_float(w, 0.0); write_float(w, 1.0)
+write_float(w, 1.0); write_float(w, 0.0); write_float(w, 0.0)
+write_float(w, 0.0); write_float(w, 0.0); write_float(w, 1.0)
+write_float(w, 1.0); write_float(w, 1.0); write_float(w, 0.0)
+write_float(w, 0.0); write_float(w, 0.0); write_float(w, 1.0)
+write_float(w, 0.0); write_float(w, 1.0); write_float(w, 0.0)
+write_float(w, 0.0); write_float(w, 0.0); write_float(w, 1.0)
+close(w)
+
+mesh = load_prm(tmp_path)
+print("polys={mesh.poly_count}, verts={mesh.vert_count}")
+print("poly 0: type={mesh.polys.type[0]}, tpage={mesh.polys.tpage[0]}, corners=({mesh.polys.vi0[0]},{mesh.polys.vi1[0]},{mesh.polys.vi2[0]},{mesh.polys.vi3[0]})")
+print("vertex 2: ({mesh.verts.px[2]}, {mesh.verts.py[2]}, {mesh.verts.pz[2]})")

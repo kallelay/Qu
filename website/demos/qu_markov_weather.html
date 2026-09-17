@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markov chain — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Statistics &amp; estimation</p>
+<h1>Markov chain</h1>
+<p class="lede">a two-state Markov chain modeling Sunny/Rainy weather, simulated forward in time and compared against its analytically hand-solved stationary (long-run) distribution.</p>
+<p class="srcpath">catalog/qu_markov_weather.qu</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>markov_chain(P, initial_state)     -- validates P is row-stochastic</li>
+<li>chain.simulate(n_steps, seed=)     -- a reproducible random walk over states</li>
+<li>chain.stationary()                 -- power-iteration fixed point v = v*P</li>
+<li>chain.transition ^ n               -- n-step transition probabilities,</li>
+<li>reusing the existing matrix-power</li>
+<li>operator (no dedicated builtin)</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>A simple two-state weather chain: Sunny=0, Rainy=1.</h3>
+<p>Sunny stays sunny 90% of the time; Rainy is a 50/50 coin flip.</p>
+<pre class="hl"><code>P = [<span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+chain = <span class="f">markov_chain</span>(P, <span class="n">0</span>)   <span class="c"># start on a sunny day</span>
+</code></pre>
+</section>
+<section class="step">
+<h3>Simulate a year of daily weather and tally the fraction of rainy days.</h3>
+<pre class="hl"><code>n_days = <span class="n">365</span>
+path = chain.<span class="f">simulate</span>(n_days, <span class="a">seed</span>=<span class="n">42</span>)
+rainy_fraction = <span class="f">mean</span>(path)   <span class="c"># states are 0/1, so the mean IS the rainy fraction</span>
+<span class="f">print</span>(<span class="s">"Simulated rainy-day fraction over {n_days} days: {rainy_fraction:.3f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>The exact long-run (stationary) distribution, via power iteration --</h3>
+<p>hand-solvable too: v0*0.9 + v1*0.5 = v0  =&gt;  v1 = 0.2*v0, v0+v1=1 =&gt; v0 = 5/6 (Sunny), v1 = 1/6 (Rainy).</p>
+<pre class="hl"><code>dist = chain.<span class="f">stationary</span>()
+<span class="f">print</span>(<span class="s">"Stationary distribution: Sunny={dist[0]:.4f}, Rainy={dist[1]:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"Hand-solved expectation: Sunny={5.0/6.0:.4f}, Rainy={1.0/6.0:.4f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>n-step transition probabilities: chain.transition^n converges to rows</h3>
+<p>that both equal the stationary distribution as n grows.</p>
+<pre class="hl"><code>p20 = chain.transition ^ <span class="n">20</span>
+<span class="f">print</span>(<span class="s">"P^20 row 0 (started Sunny): [{p20[0,0]:.4f}, {p20[0,1]:.4f}]"</span>)
+<span class="f">print</span>(<span class="s">"P^20 row 1 (started Rainy): [{p20[1,0]:.4f}, {p20[1,1]:.4f}]"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot the simulated daily weather state over the full year.</h3>
+<pre class="hl"><code>days = <span class="n">0</span> <span class="k">to</span> n_days
+<span class="f">plot</span>(days, path, <span class="a">label</span>=<span class="s">"weather state (0=Sunny, 1=Rainy)"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"Day"</span>)
+<span class="f">ylabel</span>(<span class="s">"State"</span>)
+<span class="f">title</span>(<span class="s">"Markov chain weather simulation"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Simulated rainy-day fraction over 365 days: 0.205
+Stationary distribution: Sunny=0.8333, Rainy=0.1667
+Hand-solved expectation: Sunny=0.8333, Rainy=0.1667
+P^20 row 0 (started Sunny): [0.8333, 0.1667]
+P^20 row 1 (started Rainy): [0.8333, 0.1667]</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="540.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="544.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="493.14" x2="866.00" y2="493.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="493.14" x2="86.00" y2="493.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="497.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.1</text>
+<line x1="86.00" y1="446.29" x2="866.00" y2="446.29" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="446.29" x2="86.00" y2="446.29" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="450.77" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.2</text>
+<line x1="86.00" y1="399.43" x2="866.00" y2="399.43" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="399.43" x2="86.00" y2="399.43" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="403.91" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.3</text>
+<line x1="86.00" y1="352.57" x2="866.00" y2="352.57" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="352.57" x2="86.00" y2="352.57" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="357.05" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.4</text>
+<line x1="86.00" y1="305.71" x2="866.00" y2="305.71" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="305.71" x2="86.00" y2="305.71" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="310.19" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.5</text>
+<line x1="86.00" y1="258.86" x2="866.00" y2="258.86" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="258.86" x2="86.00" y2="258.86" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="263.34" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.6</text>
+<line x1="86.00" y1="212.00" x2="866.00" y2="212.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="212.00" x2="86.00" y2="212.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="216.48" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.7</text>
+<line x1="86.00" y1="165.14" x2="866.00" y2="165.14" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="165.14" x2="86.00" y2="165.14" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="169.62" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.8</text>
+<line x1="86.00" y1="118.29" x2="866.00" y2="118.29" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="118.29" x2="86.00" y2="118.29" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="122.77" font-size="12.8" text-anchor="end" fill="#5a5a5a">0.9</text>
+<line x1="86.00" y1="71.43" x2="866.00" y2="71.43" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="71.43" x2="86.00" y2="71.43" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="75.91" font-size="12.8" text-anchor="end" fill="#5a5a5a">1.0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="187.76" y1="48.00" x2="187.76" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="187.76" y1="540.00" x2="187.76" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="187.76" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">50</text>
+<line x1="289.52" y1="48.00" x2="289.52" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="289.52" y1="540.00" x2="289.52" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="289.52" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">100</text>
+<line x1="391.28" y1="48.00" x2="391.28" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="391.28" y1="540.00" x2="391.28" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="391.28" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">150</text>
+<line x1="493.05" y1="48.00" x2="493.05" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="493.05" y1="540.00" x2="493.05" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="493.05" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">200</text>
+<line x1="594.81" y1="48.00" x2="594.81" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="594.81" y1="540.00" x2="594.81" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="594.81" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">250</text>
+<line x1="696.57" y1="48.00" x2="696.57" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="696.57" y1="540.00" x2="696.57" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="696.57" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">300</text>
+<line x1="798.33" y1="48.00" x2="798.33" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="798.33" y1="540.00" x2="798.33" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="798.33" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">350</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,540.00 88.04,540.00 90.07,540.00 92.11,540.00 94.14,540.00 96.18,540.00 98.21,540.00 100.25,540.00 102.28,540.00 104.32,540.00 106.35,540.00 108.39,540.00 110.42,540.00 112.46,540.00 114.49,540.00 116.53,540.00 118.56,540.00 120.60,540.00 122.63,540.00 124.67,540.00 126.70,71.43 128.74,540.00 130.77,540.00 132.81,540.00 134.85,540.00 136.88,540.00 138.92,540.00 140.95,540.00 142.99,71.43 145.02,71.43 147.06,71.43 149.09,71.43 151.13,71.43 153.16,71.43 155.20,71.43 157.23,540.00 159.27,540.00 161.30,540.00 163.34,540.00 165.37,540.00 167.41,540.00 169.44,540.00 171.48,540.00 173.51,540.00 175.55,540.00 177.59,540.00 179.62,540.00 181.66,540.00 183.69,540.00 185.73,71.43 187.76,540.00 189.80,540.00 191.83,540.00 193.87,540.00 195.90,540.00 197.94,540.00 199.97,540.00 202.01,540.00 204.04,540.00 206.08,540.00 208.11,540.00 210.15,71.43 212.18,71.43 214.22,540.00 216.25,540.00 218.29,540.00 220.32,71.43 222.36,540.00 224.40,540.00 226.43,71.43 228.47,71.43 230.50,71.43 232.54,540.00 234.57,540.00 236.61,540.00 238.64,540.00 240.68,540.00 242.71,540.00 244.75,540.00 246.78,540.00 248.82,540.00 250.85,540.00 252.89,540.00 254.92,540.00 256.96,540.00 258.99,540.00 261.03,540.00 263.06,540.00 265.10,540.00 267.14,540.00 269.17,540.00 271.21,540.00 273.24,540.00 275.28,540.00 277.31,540.00 279.35,540.00 281.38,540.00 283.42,540.00 285.45,540.00 287.49,540.00 289.52,540.00 291.56,540.00 293.59,540.00 295.63,540.00 297.66,540.00 299.70,540.00 301.73,540.00 303.77,540.00 305.80,540.00 307.84,540.00 309.87,540.00 311.91,540.00 313.95,540.00 315.98,71.43 318.02,540.00 320.05,540.00 322.09,540.00 324.12,540.00 326.16,540.00 328.19,71.43 330.23,71.43 332.26,71.43 334.30,540.00 336.33,540.00 338.37,540.00 340.40,540.00 342.44,540.00 344.47,540.00 346.51,540.00 348.54,540.00 350.58,540.00 352.61,540.00 354.65,71.43 356.68,540.00 358.72,71.43 360.76,71.43 362.79,71.43 364.83,71.43 366.86,540.00 368.90,540.00 370.93,540.00 372.97,540.00 375.00,71.43 377.04,71.43 379.07,540.00 381.11,540.00 383.14,540.00 385.18,540.00 387.21,540.00 389.25,540.00 391.28,540.00 393.32,540.00 395.35,540.00 397.39,540.00 399.42,540.00 401.46,540.00 403.50,71.43 405.53,71.43 407.57,540.00 409.60,540.00 411.64,540.00 413.67,540.00 415.71,71.43 417.74,71.43 419.78,71.43 421.81,71.43 423.85,71.43 425.88,540.00 427.92,540.00 429.95,540.00 431.99,540.00 434.02,540.00 436.06,540.00 438.09,540.00 440.13,540.00 442.16,540.00 444.20,71.43 446.23,540.00 448.27,71.43 450.31,540.00 452.34,540.00 454.38,540.00 456.41,540.00 458.45,71.43 460.48,540.00 462.52,540.00 464.55,540.00 466.59,540.00 468.62,540.00 470.66,540.00 472.69,540.00 474.73,540.00 476.76,540.00 478.80,540.00 480.83,540.00 482.87,540.00 484.90,540.00 486.94,540.00 488.97,540.00 491.01,540.00 493.05,540.00 495.08,71.43 497.12,71.43 499.15,71.43 501.19,71.43 503.22,71.43 505.26,540.00 507.29,540.00 509.33,540.00 511.36,540.00 513.40,540.00 515.43,540.00 517.47,540.00 519.50,540.00 521.54,540.00 523.57,540.00 525.61,540.00 527.64,540.00 529.68,540.00 531.71,540.00 533.75,540.00 535.78,540.00 537.82,71.43 539.86,540.00 541.89,540.00 543.93,540.00 545.96,540.00 548.00,540.00 550.03,71.43 552.07,71.43 554.10,540.00 556.14,540.00 558.17,540.00 560.21,540.00 562.24,540.00 564.28,540.00 566.31,540.00 568.35,540.00 570.38,71.43 572.42,540.00 574.45,540.00 576.49,540.00 578.52,71.43 580.56,71.43 582.59,71.43 584.63,71.43 586.67,71.43 588.70,71.43 590.74,71.43 592.77,71.43 594.81,540.00 596.84,540.00 598.88,540.00 600.91,71.43 602.95,71.43 604.98,540.00 607.02,540.00 609.05,540.00 611.09,540.00 613.12,540.00 615.16,540.00 617.19,540.00 619.23,540.00 621.26,540.00 623.30,540.00 625.33,540.00 627.37,540.00 629.41,540.00 631.44,540.00 633.48,71.43 635.51,540.00 637.55,71.43 639.58,71.43 641.62,71.43 643.65,71.43 645.69,71.43 647.72,71.43 649.76,540.00 651.79,540.00 653.83,71.43 655.86,540.00 657.90,540.00 659.93,540.00 661.97,71.43 664.00,540.00 666.04,540.00 668.07,540.00 670.11,71.43 672.14,71.43 674.18,540.00 676.22,540.00 678.25,540.00 680.29,540.00 682.32,540.00 684.36,540.00 686.39,540.00 688.43,540.00 690.46,540.00 692.50,540.00 694.53,540.00 696.57,540.00 698.60,540.00 700.64,540.00 702.67,540.00 704.71,540.00 706.74,540.00 708.78,540.00 710.81,540.00 712.85,540.00 714.88,540.00 716.92,540.00 718.95,540.00 720.99,540.00 723.03,540.00 725.06,540.00 727.10,540.00 729.13,540.00 731.17,540.00 733.20,540.00 735.24,71.43 737.27,540.00 739.31,540.00 741.34,540.00 743.38,540.00 745.41,540.00 747.45,71.43 749.48,540.00 751.52,540.00 753.55,540.00 755.59,540.00 757.62,540.00 759.66,540.00 761.69,540.00 763.73,540.00 765.77,540.00 767.80,540.00 769.84,540.00 771.87,71.43 773.91,71.43 775.94,540.00 777.98,540.00 780.01,71.43 782.05,71.43 784.08,71.43 786.12,71.43 788.15,71.43 790.19,540.00 792.22,540.00 794.26,540.00 796.29,540.00 798.33,540.00 800.36,540.00 802.40,540.00 804.43,540.00 806.47,540.00 808.50,540.00 810.54,540.00 812.58,540.00 814.61,540.00 816.65,540.00 818.68,540.00 820.72,540.00 822.75,540.00 824.79,540.00 826.82,540.00 828.86,540.00" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Markov chain weather simulation</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Day</text>
+<text x="47.97" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 47.97 294.00)">State</text>
+<rect x="626.40" y="500.00" width="231.60" height="32.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="633.40" y1="516.00" x2="653.40" y2="516.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="659.40" y="519.50" font-size="12" text-anchor="start" fill="#222">weather state (0=Sunny, 1=Rainy)</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_markov_weather.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_markov_weather.qu -- a two-state Markov chain modeling Sunny/Rainy</span>
+<span class="c"># weather, simulated forward in time and compared against its analytically</span>
+<span class="c"># hand-solved stationary (long-run) distribution.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   markov_chain(P, initial_state)     -- validates P is row-stochastic</span>
+<span class="c">#   chain.simulate(n_steps, seed=)     -- a reproducible random walk over states</span>
+<span class="c">#   chain.stationary()                 -- power-iteration fixed point v = v*P</span>
+<span class="c">#   chain.transition ^ n               -- n-step transition probabilities,</span>
+<span class="c">#                                          reusing the existing matrix-power</span>
+<span class="c">#                                          operator (no dedicated builtin)</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A simple two-state weather chain: Sunny=0, Rainy=1.</span>
+<span class="c"># Sunny stays sunny 90% of the time; Rainy is a 50/50 coin flip.</span>
+P = [<span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.5</span>, <span class="n">0.5</span>]
+chain = <span class="f">markov_chain</span>(P, <span class="n">0</span>)   <span class="c"># start on a sunny day</span>
+
+<span class="c">#%% Simulate a year of daily weather and tally the fraction of rainy days.</span>
+n_days = <span class="n">365</span>
+path = chain.<span class="f">simulate</span>(n_days, <span class="a">seed</span>=<span class="n">42</span>)
+rainy_fraction = <span class="f">mean</span>(path)   <span class="c"># states are 0/1, so the mean IS the rainy fraction</span>
+<span class="f">print</span>(<span class="s">"Simulated rainy-day fraction over {n_days} days: {rainy_fraction:.3f}"</span>)
+
+<span class="c">#%% The exact long-run (stationary) distribution, via power iteration --</span>
+<span class="c"># hand-solvable too: v0*0.9 + v1*0.5 = v0  =&gt;  v1 = 0.2*v0, v0+v1=1</span>
+<span class="c"># =&gt; v0 = 5/6 (Sunny), v1 = 1/6 (Rainy).</span>
+dist = chain.<span class="f">stationary</span>()
+<span class="f">print</span>(<span class="s">"Stationary distribution: Sunny={dist[0]:.4f}, Rainy={dist[1]:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"Hand-solved expectation: Sunny={5.0/6.0:.4f}, Rainy={1.0/6.0:.4f}"</span>)
+
+<span class="c">#%% n-step transition probabilities: chain.transition^n converges to rows</span>
+<span class="c"># that both equal the stationary distribution as n grows.</span>
+p20 = chain.transition ^ <span class="n">20</span>
+<span class="f">print</span>(<span class="s">"P^20 row 0 (started Sunny): [{p20[0,0]:.4f}, {p20[0,1]:.4f}]"</span>)
+<span class="f">print</span>(<span class="s">"P^20 row 1 (started Rainy): [{p20[1,0]:.4f}, {p20[1,1]:.4f}]"</span>)
+
+<span class="c">#%% Plot the simulated daily weather state over the full year.</span>
+days = <span class="n">0</span> <span class="k">to</span> n_days
+<span class="f">plot</span>(days, path, <span class="a">label</span>=<span class="s">"weather state (0=Sunny, 1=Rainy)"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">xlabel</span>(<span class="s">"Day"</span>)
+<span class="f">ylabel</span>(<span class="s">"State"</span>)
+<span class="f">title</span>(<span class="s">"Markov chain weather simulation"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

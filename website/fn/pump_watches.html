@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pump_watches — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pump_watches</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>pump_watches()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Takes no arguments. Checks every registered <code>watch ... end</code> (§ Watches, below) exactly ONCE, right now, against its real current external state, firing the body of any whose state has genuinely changed since the last check. Unlike <code>run_for</code>, this is real-time, not simulated — a file's mtime, a variable's value, and an HTTP response body have no "virtual" equivalent to fast-forward through. Requires at least one <code>watch</code> to already be registered, or it errors.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pump_watches()</code></td><td><span class="ionone">no input</span></td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td>Returns an integer: the number of watches that fired on this call.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>watch <span class="f">url</span>(<span class="s">"https://example.com/status"</span>, <span class="a">interval_seconds</span>=<span class="n">30</span>) <span class="k">do</span>
+    <span class="f">print</span>(<span class="s">"status page changed"</span>)
+<span class="k">end</span>
+<span class="f">pump_watches</span>()
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>x = <span class="n">1</span>
+watch x <span class="k">do</span>
+    <span class="f">print</span>(<span class="s">"x changed to {x}"</span>)
+<span class="k">end</span>
+<span class="f">pump_watches</span>()   <span class="c"># no change yet -&gt; silent</span>
+x = <span class="n">5</span>
+<span class="f">pump_watches</span>()   <span class="c"># -&gt; prints "x changed to 5"</span>
+x = <span class="n">5</span>
+<span class="f">pump_watches</span>()   <span class="c"># same value -&gt; silent</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>fires = <span class="n">0</span>
+watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span class="k">do</span>
+    fires = fires + <span class="n">1</span>
+<span class="k">end</span>
+f1 = <span class="f">pump_watches</span>()      <span class="c"># nothing changed yet -&gt; 0</span>
+<span class="f">touch</span>(<span class="s">"config.txt"</span>)      <span class="c"># real mtime bump (creates the file if missing)</span>
+f2 = <span class="f">pump_watches</span>()      <span class="c"># -&gt; 1</span>
+f3 = <span class="f">pump_watches</span>()      <span class="c"># nothing changed since f2's check -&gt; 0</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>fires = <span class="n">0</span>
+watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span class="k">do</span>
+    fires = fires + <span class="n">1</span>
+<span class="k">end</span>
+<span class="f">pump_watches</span>()          <span class="c"># nothing changed yet -&gt; 0 fired</span>
+<span class="f">print</span>(fires)             <span class="c"># 0</span>
+<span class="f">touch</span>(<span class="s">"config.txt"</span>)
+<span class="f">pump_watches</span>()          <span class="c"># real mtime change -&gt; 1 fired</span>
+<span class="f">print</span>(fires)             <span class="c"># 1</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<h2>How it works</h2>
+<p><code>pump_watches()</code> (§ watch, 2026-09-01) — checks every registered <code>watch ... end</code> ONE TIME, firing the body of any whose real external condition (a file's mtime, a variable's value, an HTTP response body) has genuinely changed since the last check (or since registration, for the first call). Deliberately a SEPARATE function from <code>run_for</code>, not a mode of it, after investigating reuse first: <code>run_for(duration)</code> drives registered timers across a SIMULATED virtual clock with no real waiting (see its own doc comment) — there is no equivalent "simulated" file mtime, variable value, or HTTP response to fast-forward through, since a watch's condition is real external state that can only be checked for real, right now. Folding watches into <code>run_for</code>'s <code>duration</code>-driven loop would either force every watch check to happen at some fabricated virtual timestamp that means nothing for a filesystem/HTTP check, or silently degrade into "check once at the start," neither of which is honest about what a poll-based watch actually does. <code>pump_watches()</code> instead means exactly what it says: check everything, right now, once — a script drives repeated checking itself (e.g. <code>wait until ... sleep(…) ; pump_watches() ... end until</code>), the same cooperative, explicitly-pumped model <code>run_for</code> already established, just without a duration parameter that would not mean anything here. Snapshots the registered-watch COUNT up front (<code>n = self.watches.len()</code>, matching <code>run_for</code>'s own <code>self.timers.clone()</code> snapshot) so a watch registered by another watch's own body mid-pump is not itself checked until the NEXT <code>pump_watches()</code> call. Returns the number of watches that fired.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

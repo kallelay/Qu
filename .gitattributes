@@ -1,0 +1,10 @@
+# Shell scripts must stay LF -- a stray CR breaks bash outright, not just
+# cosmetically. Found live: `tools/refuse_if_parked.sh` failed the
+# QuStudio Tauri build on this machine with `$'\r': command not found`
+# and `set: pipefail: invalid option name`, the exact symptoms of a CRLF
+# shebang line. The committed blobs are already plain LF (checked via
+# `git show HEAD:tools/refuse_if_parked.sh | file -`) -- the corruption
+# was happening at CHECKOUT time, on Windows, with no `.gitattributes` to
+# tell git these files must not be translated. 14 of 14 tools/*.sh
+# scripts were affected in this exact checkout before this file existed.
+*.sh text eol=lf

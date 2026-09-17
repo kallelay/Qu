@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTP requests — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Data &amp; I/O</p>
+<h1>HTTP requests</h1>
+<p class="lede">a genuine HTTP(S) GET over the real network, using Qu's `http_get(url)` builtin (§ HTTP fetch, see docs/qu-language-tour.md §21). `http_get` is GET-only, has a fixed 30-second connect+read timeout, and always returns the response body as</p>
+<p class="srcpath">catalog/qu_http_get.qu</p>
+<p>a plain string (lossily UTF-8 decoded) -- no headers, no status code, no POST, per its own documented v1 scope.</p>
+<p>`https://example.com/` is the same target the language tour's own worked example uses: a stable, well-known, IANA-reserved domain that always serves a small, static 200 OK HTML page and is exceedingly unlikely to ever be flagged as suspicious traffic. This whole call is wrapped in try/catch: on a machine with no outbound network access (or a transient DNS/TLS/connection failure), `http_get` raises a clear EvalError naming the URL, which is caught and reported as an honest "network unavailable" result instead of crashing the script or faking a response.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>http_get(url)            -- a real GET request, 30s timeout, returns a Str body</li>
+<li>length(str)               -- real byte/char count of the fetched body</li>
+<li>try/catch                 -- graceful handling of the real network dependency</li>
+</ul>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>GET https://example.com/ succeeded
+response body length = 559 chars
+body contains "Example Domain": true</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_http_get.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_http_get.qu -- a genuine HTTP(S) GET over the real network, using</span>
+<span class="c"># Qu's `http_get(url)` builtin (§ HTTP fetch, see</span>
+<span class="c"># docs/qu-language-tour.md §21). `http_get` is GET-only, has a fixed</span>
+<span class="c"># 30-second connect+read timeout, and always returns the response body as</span>
+<span class="c"># a plain string (lossily UTF-8 decoded) -- no headers, no status code,</span>
+<span class="c"># no POST, per its own documented v1 scope.</span>
+<span class="c">#</span>
+<span class="c"># `https://example.com/` is the same target the language tour's own worked</span>
+<span class="c"># example uses: a stable, well-known, IANA-reserved domain that always</span>
+<span class="c"># serves a small, static 200 OK HTML page and is exceedingly unlikely to</span>
+<span class="c"># ever be flagged as suspicious traffic. This whole call is wrapped in</span>
+<span class="c"># try/catch: on a machine with no outbound network access (or a transient</span>
+<span class="c"># DNS/TLS/connection failure), `http_get` raises a clear EvalError naming</span>
+<span class="c"># the URL, which is caught and reported as an honest "network unavailable"</span>
+<span class="c"># result instead of crashing the script or faking a response.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   http_get(url)            -- a real GET request, 30s timeout, returns a Str body</span>
+<span class="c">#   length(str)               -- real byte/char count of the fetched body</span>
+<span class="c">#   try/catch                 -- graceful handling of the real network dependency</span>
+
+<span class="k">backend</span> auto
+
+url = <span class="s">"https://example.com/"</span>
+
+<span class="k">try</span>
+    body = <span class="f">http_get</span>(url)
+    <span class="f">print</span>(<span class="s">"GET {url} succeeded"</span>)
+    <span class="f">print</span>(<span class="s">"response body length = {length(body)} chars"</span>)
+    <span class="c"># `example.com` always serves a small static page containing this</span>
+    <span class="c"># exact phrase -- a real content check, not just "it didn't throw".</span>
+    <span class="c"># Qu has no dedicated substring-search builtin (grepped for</span>
+    <span class="c"># `index_of`/`str_contains`/similar -- zero hits), so `split` on the</span>
+    <span class="c"># target phrase does the job: more than one piece means it was found.</span>
+    parts = <span class="f">split</span>(body, <span class="s">"Example Domain"</span>)
+    contains_expected_text = <span class="f">length</span>(parts) &gt; <span class="n">1</span>
+    <span class="f">print</span>(<span class="s">"body contains \"Example Domain\": {contains_expected_text}"</span>)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"http_get could not reach {url}: {err.message}"</span>)
+    <span class="f">print</span>(<span class="s">"this is the expected, honest result in an environment with no outbound network access"</span>)
+<span class="k">end</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

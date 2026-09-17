@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>push — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>push</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>push(q, x)</code> / <code>pop(q)</code> / <code>peek(q)</code></pre>
+<p class="fnnote">Input: q, x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>On a <code>fifo</code> handle <code>q</code>: <code>push(q, x)</code> adds <code>x</code> at the back (returns <code>Nothing</code>); <code>pop(q)</code> removes and returns the front element; <code>peek(q)</code> looks at it without removing. <code>pop</code> on an empty FIFO is an error. On a <code>queue()</code> — the job queue — <code>push(q, "fname")</code> enqueues a function you defined instead (a <code>Str</code> naming it, not a value).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = push(q, x) / pop(q) / peek(q)</code></td><td><div class="ioitem"><code>q</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>peek(q)</code> looks at it without removing.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">On a <code>fifo</code> handle <code>q</code>: <code>push(q, x)</code> adds <code>x</code> at the back (returns <code>Nothing</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the front element itself from <code>pop</code>/<code>peek</code>, whatever type was pushed; <code>push</code> hands back no value.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>
+<span class="k">end</span> pool
+q = <span class="f">queue</span>()
+q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
+<span class="f">print</span>(run q on workers)   <span class="c"># (9)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">square</span>(x)
+    <span class="k">return</span> x * x
+<span class="k">end</span> <span class="k">function</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">4</span>
+    policy = round_robin        <span class="c"># or priority | fair | affinity</span>
+    on full = queue             <span class="c"># or reject | spill_to(cpu)</span>
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)         <span class="c"># enqueue a deferred call by name + args</span>
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers
+<span class="f">print</span>(results)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x                    <span class="c"># still needed locally: `run` validates</span>
+                                       <span class="c"># every queued function name against</span>
+                                       <span class="c"># the CALLING script's own functions</span>
+                                       <span class="c"># before dispatching anything, even a</span>
+                                       <span class="c"># job that will actually run remotely</span>
+
+pool workers <span class="k">with</span> cpu=<span class="n">2</span>, remote=(<span class="s">"192.168.1.50:9000"</span>, <span class="s">"192.168.1.51:9000"</span>)
+<span class="k">end</span> pool
+
+q = <span class="f">queue</span>()
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+<span class="k">end</span> <span class="k">for</span>
+
+results = run q on workers            <span class="c"># some jobs run locally, some remote —</span>
+                                       <span class="c"># one ordered List either way</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<h2>See also</h2>
+<p><a href="pop.html"><code>pop</code></a>, <a href="peek.html"><code>peek</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

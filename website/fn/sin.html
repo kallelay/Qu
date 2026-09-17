@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sin — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sin</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>sin(x)</code></pre>
+<p class="fnnote">Input: x &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Standard trigonometric functions, computed elementwise. <code>x</code> is the input angle in radians — a scalar, a <code>Vec</code> of any length, or a <code>Mat</code>/<code>Signal</code> of any shape.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sin(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns exactly the same type and shape as <code>x</code>, one trig value per element.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>))
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x / <span class="n">2</span>), <span class="s">"o"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example"><pre class="hl"><code>n = <span class="n">0</span> <span class="k">to</span> <span class="n">255</span>
+x = <span class="f">sin</span>(n * <span class="n">0.1</span>) + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">256</span>)
+spectrum_mag = x |&gt; fft |&gt; abs
+smoothed = spectrum_mag |&gt; dct |&gt; idct
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
+v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
+
+c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
+<span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<h2>How it works</h2>
+<p><code>sin</code>/<code>cos</code>/<code>tan</code>/<code>asin</code>/<code>acos</code>/<code>atan</code>/<code>sinh</code>/<code>cosh</code> are complex-aware, on the same route as <code>tanh</code>/<code>exp</code>/<code>log</code>/<code>sqrt</code> (<code>map1_complex</code>): real input still takes the real function (a real value outside a real domain, e.g. <code>asin(2)</code>, stays NaN rather than silently promoting to complex -- same convention as <code>sqrt(-1)</code>), and an explicit <code>Value::Complex</code>/ <code>CVec</code>/<code>CMat</code> argument takes the complex branch. See <code>Complex64::{sin,cos,tan,asin,acos,atan,sinh,cosh}</code> in qu-core for the identities. <code>sin</code>/<code>cos</code>/<code>sinh</code>/<code>cosh</code> are entire (no poles anywhere in the plane); <code>tan</code>'s poles are exactly the real-axis ones real <code>tan</code> already has (see <code>Complex64::tan</code>'s doc comment for the proof); <code>asin</code>/<code>acos</code> have branch points at <code>z = +-1</code>. None of these error at a pole/branch point -- <code>Complex64::div</code> already yields non-finite components there, matching the float semantics the rest of the runtime uses (<code>sqrt(-1)</code> doesn't error either).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="cos.html"><code>cos</code></a>, <a href="tan.html"><code>tan</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

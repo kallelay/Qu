@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starry Night, animated — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Language &amp; UI</p>
+<h1>Starry Night, animated</h1>
+<p class="lede">an animated Starry Night, drawn entirely in Qu.</p>
+<p class="srcpath">catalog/qu_starry_night.qu</p>
+<p>Not a demonstration of a plotting library so much as of what falls out of one when the primitives are right. Everything here is `polygon`, `circle`, `ellipse` and `arc` on a panel with equal axes, coloured through `hsv` and `lab`, and animated by `animate`, which calls one function per frame and writes the sequence as a single SVG.</p>
+<h3>THE PARTS</h3>
+<ul>
+<li>The sky is a Perlin-like value-noise field, contoured. Van Gogh's sky</li>
+<p>is not random: it is a few large flows with smaller eddies inside them, which is exactly what summing octaves of noise produces.</p>
+<li>The swirls are logarithmic spirals, r = a*exp(b*theta), because that</li>
+<p>is the curve his brush actually follows and because it is one line of maths rather than a traced path.</p>
+<li>The stars are concentric circles with a halo, drawn in HSV so that</li>
+<p>"the same star, brighter" is one number.</p>
+<li>The cypress is a polygon whose silhouette is generated from noise,</li>
+<p>so it is different every time the seed changes rather than a shape someone typed in.</p>
+</ul>
+<p>WHY IT MOVES. The sky rotates the noise field's phase, the swirls advance along their own arc, and the stars pulse on independent periods. All three are functions of the frame number, so the animation is deterministic: frame 40 always looks the same.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>animate("frame", n, path, fps=)   — one figure per frame, one SVG out</li>
+<li>polygon / circle / ellipse / arc  — the whole drawing surface</li>
+<li>hsv / lab / palette               — colour picked in a space that suits</li>
+<li>randn(n, seed=)                   — reproducible texture</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Draw it</h3>
+<pre class="hl"><code><span class="f">print</span>(<span class="s">"rendering {FRAMES} frames..."</span>)
+<span class="f">animate</span>(<span class="s">"frame"</span>, FRAMES, <span class="s">"starry_night.svg"</span>, <span class="a">fps</span> = <span class="n">16</span>)
+<span class="f">print</span>(<span class="s">"open starry_night.svg in a browser -- it loops on its own, no script"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>rendering 48 frames...
+open starry_night.svg in a browser -- it loops on its own, no script</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_starry_night.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_starry_night.qu — an animated Starry Night, drawn entirely in Qu.</span>
+<span class="c">#</span>
+<span class="c"># Not a demonstration of a plotting library so much as of what falls out of</span>
+<span class="c"># one when the primitives are right. Everything here is `polygon`, `circle`,</span>
+<span class="c"># `ellipse` and `arc` on a panel with equal axes, coloured through `hsv` and</span>
+<span class="c"># `lab`, and animated by `animate`, which calls one function per frame and</span>
+<span class="c"># writes the sequence as a single SVG.</span>
+<span class="c">#</span>
+<span class="c"># THE PARTS</span>
+<span class="c">#</span>
+<span class="c">#   - The sky is a Perlin-like value-noise field, contoured. Van Gogh's sky</span>
+<span class="c">#     is not random: it is a few large flows with smaller eddies inside</span>
+<span class="c">#     them, which is exactly what summing octaves of noise produces.</span>
+<span class="c">#   - The swirls are logarithmic spirals, r = a*exp(b*theta), because that</span>
+<span class="c">#     is the curve his brush actually follows and because it is one line of</span>
+<span class="c">#     maths rather than a traced path.</span>
+<span class="c">#   - The stars are concentric circles with a halo, drawn in HSV so that</span>
+<span class="c">#     "the same star, brighter" is one number.</span>
+<span class="c">#   - The cypress is a polygon whose silhouette is generated from noise,</span>
+<span class="c">#     so it is different every time the seed changes rather than a shape</span>
+<span class="c">#     someone typed in.</span>
+<span class="c">#</span>
+<span class="c"># WHY IT MOVES. The sky rotates the noise field's phase, the swirls advance</span>
+<span class="c"># along their own arc, and the stars pulse on independent periods. All three</span>
+<span class="c"># are functions of the frame number, so the animation is deterministic:</span>
+<span class="c"># frame 40 always looks the same.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   animate("frame", n, path, fps=)   — one figure per frame, one SVG out</span>
+<span class="c">#   polygon / circle / ellipse / arc  — the whole drawing surface</span>
+<span class="c">#   hsv / lab / palette               — colour picked in a space that suits</span>
+<span class="c">#   randn(n, seed=)                   — reproducible texture</span>
+
+<span class="k">backend</span> auto
+
+SEED = <span class="n">11</span>
+FRAMES = <span class="n">48</span>
+W = <span class="n">16.0</span>
+H = <span class="n">10.0</span>
+
+<span class="c"># ── the noise field ─────────────────────────────────────────────────────</span>
+<span class="c">#</span>
+<span class="c"># Value noise: a coarse random lattice, smoothly interpolated. Summing a few</span>
+<span class="c"># octaves at halving amplitude gives the "large flows with eddies inside"</span>
+<span class="c"># structure a night sky has and pure randomness does not.</span>
+
+GRID = <span class="n">12</span>
+lattice = <span class="f">randn</span>(GRID * GRID, <span class="a">seed</span> = SEED)
+
+<span class="k">function</span> <span class="f">smooth</span>(t)
+    <span class="c"># The smoothstep polynomial. Linear interpolation between lattice</span>
+    <span class="c"># points leaves visible creases along the grid lines; this has zero</span>
+    <span class="c"># first derivative at both ends, so the field is continuous in slope.</span>
+    <span class="k">return</span> t * t * (<span class="n">3.0</span> - <span class="n">2.0</span> * t)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">noise_at</span>(x, y)
+    <span class="c"># Wrap so the field is seamless, which matters because the animation</span>
+    <span class="c"># loops.</span>
+    gx = x - GRID * <span class="f">floor</span>(x / GRID)
+    gy = y - GRID * <span class="f">floor</span>(y / GRID)
+    x0 = <span class="f">floor</span>(gx)
+    y0 = <span class="f">floor</span>(gy)
+    x1 = x0 + <span class="n">1</span> - GRID * <span class="f">floor</span>((x0 + <span class="n">1</span>) / GRID)
+    y1 = y0 + <span class="n">1</span> - GRID * <span class="f">floor</span>((y0 + <span class="n">1</span>) / GRID)
+    fx = <span class="f">smooth</span>(gx - x0)
+    fy = <span class="f">smooth</span>(gy - y0)
+    a = lattice[y0 * GRID + x0]
+    b = lattice[y0 * GRID + x1]
+    c = lattice[y1 * GRID + x0]
+    d = lattice[y1 * GRID + x1]
+    top = a + (b - a) * fx
+    bot = c + (d - c) * fx
+    <span class="k">return</span> top + (bot - top) * fy
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">turbulence</span>(x, y)
+    <span class="c"># Three octaves. Four is not visibly better at this figure size and</span>
+    <span class="c"># costs a third more work per frame.</span>
+    <span class="k">return</span> <span class="f">noise_at</span>(x, y) + <span class="n">0.5</span> * <span class="f">noise_at</span>(x * <span class="n">2</span>, y * <span class="n">2</span>) + <span class="n">0.25</span> * <span class="f">noise_at</span>(x * <span class="n">4</span>, y * <span class="n">4</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── the sky ─────────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">sky</span>(phase)
+    <span class="c"># Bands of colour following the noise field. Drawn as polygons rather</span>
+    <span class="c"># than a contour call because each band wants its own hue, and a</span>
+    <span class="c"># contour would give them all one colormap.</span>
+    steps = <span class="n">26</span>
+    <span class="k">for</span> k <span class="k">in</span> -<span class="n">1</span> <span class="k">to</span> steps + <span class="n">1</span>
+        u = k / steps
+        <span class="c"># Deep midnight at the top, teal toward the horizon. Walking hue</span>
+        <span class="c"># and value together in HSV keeps every band the same weight, which</span>
+        <span class="c"># is what stops a gradient looking striped.</span>
+        hue = <span class="n">228</span> - <span class="n">26</span> * u
+        sat = <span class="n">0.72</span> - <span class="n">0.12</span> * u
+        val = <span class="n">0.20</span> + <span class="n">0.34</span> * u
+        band = <span class="f">hsv</span>(hue, sat, val)
+
+        xs = ()
+        ys = ()
+        cols = <span class="n">40</span>
+        <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> cols
+            x = W * i / cols
+            n = <span class="f">turbulence</span>(x * <span class="n">0.75</span> + phase, u * <span class="n">6.0</span> + phase * <span class="n">0.4</span>)
+            xs = <span class="f">append</span>(xs, x)
+            ys = <span class="f">append</span>(ys, H * u + <span class="n">0.42</span> * n)
+        <span class="k">end</span> <span class="k">for</span>
+        <span class="c"># Close the band downward into the one below it.</span>
+        <span class="k">for</span> i <span class="k">in</span> cols <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+            x = W * i / cols
+            n = <span class="f">turbulence</span>(x * <span class="n">0.75</span> + phase, (u + <span class="n">1.0</span> / steps) * <span class="n">6.0</span> + phase * <span class="n">0.4</span>)
+            xs = <span class="f">append</span>(xs, x)
+            ys = <span class="f">append</span>(ys, H * (u + <span class="n">1.0</span> / steps) + <span class="n">0.42</span> * n)
+        <span class="k">end</span> <span class="k">for</span>
+        <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = band, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── the swirls ──────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">swirl</span>(cx, cy, scale, turns, phase, tint)
+    <span class="c"># A logarithmic spiral, r = a*exp(b*theta). Van Gogh's brush follows</span>
+    <span class="c"># this curve; a circle does not, and an Archimedean spiral opens too</span>
+    <span class="c"># evenly to read as motion.</span>
+    xs = ()
+    ys = ()
+    n = <span class="n">90</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        th = turns * <span class="n">2</span> * pi * i / n + phase
+        r = scale * <span class="f">exp</span>(<span class="n">0.14</span> * th)
+        xs = <span class="f">append</span>(xs, cx + r * <span class="f">cos</span>(th))
+        ys = <span class="f">append</span>(ys, cy + r * <span class="f">sin</span>(th))
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="c"># Two strokes: a wide dim one under a narrow bright one. That is how a</span>
+    <span class="c"># brush loaded with two tones actually lands, and it is what makes the</span>
+    <span class="c"># line read as paint rather than as a plot.</span>
+    <span class="f">plot</span>(xs, ys, <span class="a">color</span> = tint, <span class="a">width</span> = <span class="n">5.0</span>, <span class="a">alpha</span> = <span class="n">0.30</span>)
+    <span class="f">plot</span>(xs, ys, <span class="a">color</span> = <span class="f">hsv</span>(<span class="n">48</span>, <span class="n">0.55</span>, <span class="n">0.98</span>), <span class="a">width</span> = <span class="n">1.6</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── the stars ───────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">star</span>(cx, cy, size, glow)
+    <span class="c"># A halo and a core. The halo is what makes a star read as light rather</span>
+    <span class="c"># than as a dot, and drawing it as three rings rather than one gradient</span>
+    <span class="c"># keeps the file small.</span>
+    <span class="k">for</span> k <span class="k">in</span> <span class="n">3</span> <span class="k">to</span> <span class="n">1</span> <span class="k">step</span> -<span class="n">1</span>
+        r = size * k * <span class="n">0.9</span>
+        a = <span class="n">0.10</span> * glow / k
+        <span class="f">circle</span>(cx, cy, r, <span class="a">fill</span> = <span class="f">hsv</span>(<span class="n">52</span>, <span class="n">0.45</span>, <span class="n">1.0</span>), <span class="a">alpha</span> = a, <span class="a">width</span> = <span class="n">0.2</span>)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="f">circle</span>(cx, cy, size * <span class="n">0.42</span>, <span class="a">fill</span> = <span class="f">hsv</span>(<span class="n">50</span>, <span class="n">0.22</span>, <span class="n">1.0</span>), <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── the cypress ─────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">cypress</span>(base_x, phase)
+    <span class="c"># A silhouette generated from the noise field rather than typed, so it</span>
+    <span class="c"># is a different tree for a different seed. It sways: the displacement</span>
+    <span class="c"># grows with height, which is how a tree actually moves.</span>
+    xs = ()
+    ys = ()
+    n = <span class="n">34</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n
+        u = i / n
+        y = H * <span class="n">1.02</span> * u
+        wobble = <span class="n">0.30</span> * <span class="f">turbulence</span>(u * <span class="n">5.0</span>, phase * <span class="n">0.5</span>)
+        sway = <span class="n">0.16</span> * <span class="f">sin</span>(phase * <span class="n">2</span> + u * <span class="n">2.2</span>) * u * u
+        width = <span class="n">1.15</span> * (<span class="n">1.0</span> - u) ^ <span class="n">0.65</span>
+        xs = <span class="f">append</span>(xs, base_x + sway + wobble * <span class="n">0.4</span> - width)
+        ys = <span class="f">append</span>(ys, y)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">for</span> i <span class="k">in</span> n <span class="k">to</span> <span class="n">0</span> <span class="k">step</span> -<span class="n">1</span>
+        u = i / n
+        y = H * <span class="n">1.02</span> * u
+        wobble = <span class="n">0.30</span> * <span class="f">turbulence</span>(u * <span class="n">5.0</span> + <span class="n">3.0</span>, phase * <span class="n">0.5</span>)
+        sway = <span class="n">0.16</span> * <span class="f">sin</span>(phase * <span class="n">2</span> + u * <span class="n">2.2</span>) * u * u
+        width = <span class="n">1.15</span> * (<span class="n">1.0</span> - u) ^ <span class="n">0.65</span>
+        xs = <span class="f">append</span>(xs, base_x + sway + wobble * <span class="n">0.4</span> + width)
+        ys = <span class="f">append</span>(ys, y)
+    <span class="k">end</span> <span class="k">for</span>
+    dark = <span class="f">lab</span>(<span class="n">11</span>, <span class="n">6</span>, -<span class="n">4</span>)
+    <span class="f">polygon</span>(xs, ys, <span class="a">fill</span> = dark, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── the village ─────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">village</span>()
+    ground = <span class="f">lab</span>(<span class="n">14</span>, -<span class="n">3</span>, -<span class="n">6</span>)
+    <span class="f">polygon</span>((<span class="n">0</span>, W, W, <span class="n">0</span>), (<span class="n">0</span>, <span class="n">0</span>, <span class="n">1.5</span>, <span class="n">1.2</span>), <span class="a">fill</span> = ground, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="c"># A handful of roofs and one lit window each.</span>
+    <span class="k">for</span> k <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">6</span>
+        x = <span class="n">3.4</span> + k * <span class="n">1.7</span>
+        w = <span class="n">0.55</span>
+        h = <span class="n">0.55</span> + <span class="n">0.28</span> * <span class="f">turbulence</span>(k * <span class="n">2.0</span>, <span class="n">1.0</span>)
+        wall = <span class="f">lab</span>(<span class="n">17</span>, <span class="n">2</span>, -<span class="n">3</span>)
+        <span class="f">polygon</span>((x - w, x + w, x + w, x - w), (<span class="n">0.9</span>, <span class="n">0.9</span>, <span class="n">0.9</span> + h, <span class="n">0.9</span> + h),
+                <span class="a">fill</span> = wall, <span class="a">alpha</span> = <span class="n">1.0</span>)
+        <span class="f">polygon</span>((x - w - <span class="n">0.16</span>, x + w + <span class="n">0.16</span>, x), (<span class="n">0.9</span> + h, <span class="n">0.9</span> + h, <span class="n">1.35</span> + h),
+                <span class="a">fill</span> = wall, <span class="a">alpha</span> = <span class="n">1.0</span>)
+        lit = <span class="f">hsv</span>(<span class="n">46</span>, <span class="n">0.72</span>, <span class="n">0.95</span>)
+        <span class="f">rect</span>(x - <span class="n">0.13</span>, <span class="n">1.05</span>, x + <span class="n">0.13</span>, <span class="n">1.05</span> + <span class="n">0.22</span>, <span class="a">color</span> = lit)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="c"># The steeple, because the composition needs one vertical.</span>
+    spire = <span class="f">lab</span>(<span class="n">9</span>, <span class="n">1</span>, -<span class="n">5</span>)
+    <span class="f">polygon</span>((<span class="n">7.6</span>, <span class="n">8.4</span>, <span class="n">8.4</span>, <span class="n">7.6</span>), (<span class="n">0.9</span>, <span class="n">0.9</span>, <span class="n">2.6</span>, <span class="n">2.6</span>), <span class="a">fill</span> = spire, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="f">polygon</span>((<span class="n">7.5</span>, <span class="n">8.5</span>, <span class="n">8.0</span>), (<span class="n">2.6</span>, <span class="n">2.6</span>, <span class="n">4.4</span>), <span class="a">fill</span> = spire, <span class="a">alpha</span> = <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># ── one frame ───────────────────────────────────────────────────────────</span>
+
+<span class="k">function</span> <span class="f">frame</span>(i)
+    phase = <span class="n">2</span> * pi * i / FRAMES
+
+    <span class="f">figure_size</span>(<span class="n">1100</span>, <span class="n">690</span>)
+    <span class="f">xlim</span>(<span class="n">0</span>, W)
+    <span class="f">ylim</span>(<span class="n">0</span>, H)
+    <span class="f">theme</span>(<span class="s">"bw"</span>)
+
+    <span class="f">sky</span>(<span class="n">0.35</span> * phase)
+
+    <span class="c"># Three swirls, each on its own period so the sky never repeats a pose.</span>
+    <span class="f">swirl</span>(<span class="n">4.6</span>, <span class="n">7.4</span>, <span class="n">0.30</span>, <span class="n">1.55</span>, phase, <span class="f">hsv</span>(<span class="n">210</span>, <span class="n">0.55</span>, <span class="n">0.80</span>))
+    <span class="f">swirl</span>(<span class="n">9.8</span>, <span class="n">8.2</span>, <span class="n">0.22</span>, <span class="n">1.30</span>, -phase * <span class="n">0.8</span> + <span class="n">1.1</span>, <span class="f">hsv</span>(<span class="n">196</span>, <span class="n">0.50</span>, <span class="n">0.85</span>))
+    <span class="f">swirl</span>(<span class="n">13.2</span>, <span class="n">6.3</span>, <span class="n">0.17</span>, <span class="n">1.10</span>, phase * <span class="n">1.3</span> + <span class="n">2.4</span>, <span class="f">hsv</span>(<span class="n">224</span>, <span class="n">0.58</span>, <span class="n">0.72</span>))
+
+    <span class="c"># Stars pulse on coprime periods, so no two are ever in step.</span>
+    <span class="f">star</span>(<span class="n">2.0</span>, <span class="n">8.6</span>, <span class="n">0.24</span>, <span class="n">0.8</span> + <span class="n">0.5</span> * <span class="f">sin</span>(phase * <span class="n">3</span>))
+    <span class="f">star</span>(<span class="n">6.9</span>, <span class="n">9.1</span>, <span class="n">0.20</span>, <span class="n">0.8</span> + <span class="n">0.5</span> * <span class="f">sin</span>(phase * <span class="n">5</span> + <span class="n">1.0</span>))
+    <span class="f">star</span>(<span class="n">11.4</span>, <span class="n">9.3</span>, <span class="n">0.26</span>, <span class="n">0.8</span> + <span class="n">0.5</span> * <span class="f">sin</span>(phase * <span class="n">2</span> + <span class="n">2.0</span>))
+    <span class="f">star</span>(<span class="n">14.6</span>, <span class="n">8.1</span>, <span class="n">0.18</span>, <span class="n">0.8</span> + <span class="n">0.5</span> * <span class="f">sin</span>(phase * <span class="n">7</span> + <span class="n">0.5</span>))
+    <span class="f">star</span>(<span class="n">8.4</span>, <span class="n">6.6</span>, <span class="n">0.15</span>, <span class="n">0.8</span> + <span class="n">0.5</span> * <span class="f">sin</span>(phase * <span class="n">4</span> + <span class="n">3.0</span>))
+    <span class="c"># The moon, larger and steady.</span>
+    <span class="f">star</span>(<span class="n">14.0</span>, <span class="n">9.0</span>, <span class="n">0.55</span>, <span class="n">1.4</span>)
+
+    <span class="f">village</span>()
+    <span class="f">cypress</span>(<span class="n">1.5</span>, phase)
+
+    axis off
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c">#%% Draw it</span>
+<span class="f">print</span>(<span class="s">"rendering {FRAMES} frames..."</span>)
+<span class="f">animate</span>(<span class="s">"frame"</span>, FRAMES, <span class="s">"starry_night.svg"</span>, <span class="a">fps</span> = <span class="n">16</span>)
+<span class="f">print</span>(<span class="s">"open starry_night.svg in a browser -- it loops on its own, no script"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

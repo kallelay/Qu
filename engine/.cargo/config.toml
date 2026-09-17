@@ -1,0 +1,15 @@
+# `qu-interp`'s `call_builtin` is one enormous match (hundreds of builtin
+# arms) that recurses into itself for several tensor-aware ops — see
+# `qu-cli/src/main.rs`'s own comment on the same issue. In an unoptimized
+# debug build that one function's stack frame is large enough that a few
+# levels of ordinary tree-walking-evaluator recursion plus a couple of
+# nested `call_builtin` re-entries (routine for tensor/autograd-heavy
+# scripts, e.g. `quick_mlp`'s forward+backward pass) can exhaust the
+# default 2 MiB test-thread stack on Windows and crash with
+# STATUS_STACK_OVERFLOW instead of failing/passing normally. `qu-cli`
+# fixes this for the real binary by running on a dedicated 64 MiB-stack
+# thread; `cargo test`'s own test-runner threads don't go through that
+# code path, so give them the same headroom via `RUST_MIN_STACK` instead
+# of duplicating the thread-spawn workaround in every test.
+[env]
+RUST_MIN_STACK = "67108864"

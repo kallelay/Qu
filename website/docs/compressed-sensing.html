@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compressed Sensing — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html" class="here">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Compressed Sensing</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">Is your sensing matrix any good?</a><a href="#s77">The methods</a><a href="#s107">The other kind of sparsity</a><a href="#s153">Choosing</a></nav>
+<p>Recovering a signal from far fewer measurements than Nyquist demands.</p>
+<h2 id="s0">The idea</h2>
+<p>You measure <code>y = A·x</code>, where <code>A</code> is <code>m × n</code> and <code>m</code> is much smaller than <code>n</code>. That system is massively underdetermined — infinitely many <code>x</code> explain any <code>y</code> — so on its own it says nothing at all.</p>
+<p>Compressed sensing adds one assumption and gets a unique answer back: <strong></strong><code>x</code> is sparse<strong>. At most </strong><code>k</code> of its entries are non-zero, and <code>k</code> is small compared with <code>m</code>.</p>
+<p>The assumption is not a trick, and it is not rare. Almost everything a laboratory measures is sparse in *some* basis: a spectrum is a handful of tones among thousands of bins, an impedance sweep is a few relaxation processes, a vibration record is a few modes, an image is sparse in wavelets. Whenever the interesting part of a measurement is small compared with the grid it is measured on, you can measure below Nyquist and lose nothing.</p>
+<p>The example below builds exactly that scene. <code>A</code> is a <code>60 × 200</code> sensing matrix — 60 random measurements of 200 unknowns — and the true <code>x</code> is 3-sparse: three named entries, the rest exactly zero. <code>cs_recover(A, y, method = "omp", sparsity = 3)</code> is told the target sparsity up front and returns a record whose <code>.x</code> field is the reconstruction; the printed line reports the reconstruction error <code>‖r.x - x‖₂</code>, which comes out on the order of <code>1e-12</code> — recovered, to floating-point precision, from well under a third of the samples a direct measurement of <code>x</code> would need.</p>
+<div class="example"><pre class="hl"><code>n = <span class="n">200</span>
+m = <span class="n">60</span>
+A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(m)
+
+x = <span class="f">zeros</span>(n)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"recovered from {m} of {n}: error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h2 id="s26">Is your sensing matrix any good?</h2>
+<p>Two conditions, in decreasing order of usefulness.</p>
+<p><strong>Coherence</strong> — <code>coherence(A)</code> — takes one argument, <code>A</code> (a <code>Mat</code>, <code>m × n</code>, the sensing matrix), and returns a single <code>number</code>: the largest absolute inner product between two different unit-normalised columns of <code>A</code>. Small is good. Exact recovery is *guaranteed* whenever <code>k &lt; (1 + 1/mu)/2</code>, where <code>mu</code> is that coherence. <code>cs_guarantee(A)</code> takes the same single argument <code>A</code> (<code>Mat</code>, <code>m × n</code>) and returns that bound directly, as a <code>number</code> giving the largest sparsity <code>k</code> coherence alone can *prove* recoverable.</p>
+<p>The example below takes the same <code>60 × 200</code> Gaussian matrix used above and prints both numbers on one line, so the coherence and the sparsity it proves recoverable can be read off together.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<span class="f">print</span>(<span class="s">"coherence {coherence(A):.3f}, provable sparsity {cs_guarantee(A)}"</span>)
+</code></pre>
+</div>
+<p>That guarantee is real and badly pessimistic. The matrix above proves <code>k=1</code> and recovers <code>k=5</code> without difficulty. <strong>Treat a pass as proof and a failure as no information.</strong> It is the only certificate that is computable at all, which is why it is here.</p>
+<p><strong>The restricted isometry property</strong> is the condition the strong theorems are stated in: <code>A</code> satisfies RIP of order <code>k</code> with constant <code>d</code> when <code>(1-d)‖x‖² ≤ ‖Ax‖² ≤ (1+d)‖x‖²</code> for every <code>k</code>-sparse <code>x</code>. Verifying it for a given matrix is NP-hard, so nothing here computes it. You get it from *construction* instead: a random Gaussian or Bernoulli matrix satisfies RIP of order <code>k</code> with high probability once <code>m ≳ k·log(n/k)</code>. That is where the working rule of thumb comes from:</p>
+<p>&gt; <strong></strong><code>m ≈ 4k</code><strong> measurements for </strong><code>k</code> non-zeros, and check by trying.</p>
+<p>Randomness here is not laziness. No deterministic construction is known that does better for general use, and <code>randn(m, n, seed=)</code> with a fixed seed is reproducible, which is what actually matters.</p>
+<h2 id="s77">The methods</h2>
+<p>Finding the sparsest <code>x</code> is combinatorial — an <code>l0</code> problem, NP-hard — so every method below is a tractable stand-in. They divide into two families that fail differently, which is the reason to have both.</p>
+<p>All of them are reached through one call:</p>
+<pre><code>cs_recover(A, y, method = , sparsity = , lambda = , iters = , tol = , debias = , step = , rho = )
+</code></pre>
+<p>One dispatcher rather than eight builtins, because the arguments are the same for all of them and the method is a keyword — so comparing methods means changing one word, not one call. Its parameters:</p>
+<div class="tablewrap"><table>
+<tr><td>Parameter</td><td>Type / shape</td><td>Meaning</td></tr>
+<tr><td><code>A</code></td><td><code>Mat</code>, <code>m × n</code></td><td>The sensing matrix: <code>m</code> measurements of <code>n</code> unknowns, with <code>m</code> usually far smaller than <code>n</code>.</td></tr>
+<tr><td><code>y</code></td><td><code>Vec</code>, length <code>m</code></td><td>The measurements, <code>y = A·x</code>.</td></tr>
+<tr><td><code>method</code></td><td><code>string</code>, default <code>"omp"</code></td><td>Which solver to run: greedy (<code>"omp"</code>, <code>"cosamp"</code>, <code>"sp"</code>/<code>"subspace_pursuit"</code>, <code>"iht"</code>, <code>"niht"</code>) or convex (<code>"fista"</code>, <code>"ista"</code>, <code>"bp"</code>/<code>"basis_pursuit"</code>).</td></tr>
+<tr><td><code>sparsity</code></td><td><code>number</code> (an integer count <code>k</code>), no default</td><td>The target number of non-zeros, <code>1 ≤ k ≤ n</code>. Required by every greedy method — omitting it is an error; the convex methods infer the support instead and silently ignore <code>sparsity=</code> if it is passed anyway.</td></tr>
+<tr><td><code>lambda</code></td><td><code>number</code>, default <code>1e-3</code></td><td>The <code>l1</code> penalty weight, used only by <code>"ista"</code>/<code>"fista"</code>.</td></tr>
+<tr><td><code>iters</code></td><td><code>number</code> (an integer count), default <code>200</code></td><td>The iteration cap. <code>"ista"</code>, <code>"fista"</code>, and <code>"bp"</code> silently raise this to at least <code>1000</code>, and <code>"niht"</code> to at least <code>500</code>, regardless of a smaller value passed here.</td></tr>
+<tr><td><code>tol</code></td><td><code>number</code>, default <code>1e-9</code></td><td>The residual norm at which the solver declares convergence and stops early. <code>"bp"</code> never accepts a value tighter than <code>1e-8</code>.</td></tr>
+<tr><td><code>debias</code></td><td><code>bool</code>, default <code>false</code></td><td>When <code>true</code>, re-fits the recovered support by plain least squares after the chosen method finishes, removing the <code>l1</code> shrinkage bias (see below).</td></tr>
+<tr><td><code>step</code></td><td><code>number</code>, default <code>0.5</code></td><td>The gradient step size, used only by <code>"iht"</code>. Must stay under <code>1/‖A‖₂²</code> or the iteration diverges; <code>"niht"</code> computes its own step every iteration and ignores this parameter.</td></tr>
+<tr><td><code>rho</code></td><td><code>number</code>, default <code>1.0</code></td><td>The ADMM penalty parameter, used only by <code>"bp"</code>.</td></tr>
+</table></div>
+<p><code>cs_recover</code> always returns a <code>record</code>; see "What comes back" below for its fields.</p>
+<h3>Greedy</h3>
+<p>Build the support one decision at a time. Fast, need <code>k</code> up front, and brittle: a column chosen wrongly early is a wrong answer.</p>
+<div class="tablewrap"><table>
+<tr><td><code>method=</code></td><td>What it does</td><td>When</td></tr>
+<tr><td><code>"omp"</code></td><td>Orthogonal matching pursuit, using <code>sparsity=k</code> and <code>tol=</code>. Add the column most correlated with the residual, re-solve least squares on the whole support, repeat until <code>k</code> columns are chosen or the residual falls below <code>tol</code>.</td><td>The baseline. Hard to beat when <code>A</code> is well conditioned and <code>k</code> is genuinely small.</td></tr>
+<tr><td><code>"cosamp"</code></td><td>Compressive sampling matching pursuit, using <code>sparsity=k</code>, <code>iters=</code>, <code>tol=</code>. Takes the <code>2k</code> best candidates at once, solves least squares on the union with the current support, prunes back to the best <code>k</code>, and repeats up to <code>iters</code> times or until <code>tol</code> is met.</td><td>When OMP stalls. The prune lets it *undo* a bad early choice, which OMP structurally cannot.</td></tr>
+<tr><td><code>"sp"</code> / <code>"subspace_pursuit"</code></td><td>Subspace pursuit, using the same <code>sparsity=k</code>, <code>iters=</code>, <code>tol=</code> as CoSaMP: the same structure with a <code>k</code>-sized (rather than <code>2k</code>-sized) working set each round.</td><td>Cheaper than CoSaMP, comparable robustness.</td></tr>
+<tr><td><code>"iht"</code></td><td>Iterative hard thresholding, using <code>sparsity=k</code>, <code>step=</code> (default <code>0.5</code>), <code>iters=</code>, <code>tol=</code>. Gradient step, keep the <code>k</code> largest entries, repeat. No least-squares solve at all.</td><td>A problem too large to factorise. Needs <code>step=</code> below <code>1/‖A‖₂²</code> or it diverges.</td></tr>
+<tr><td><code>"niht"</code></td><td>Normalised IHT, same <code>sparsity=k</code>, <code>iters=</code>, <code>tol=</code> as <code>"iht"</code>, but the step is recomputed from the gradient every iteration, so <code>step=</code> is ignored, and at least <code>500</code> iterations always run.</td><td>Almost always in preference to <code>iht</code>. It does not diverge.</td></tr>
+</table></div>
+<h3>Convex</h3>
+<p>Replace the count of non-zeros with the <code>l1</code> norm, its tightest convex relaxation, and solve that exactly. Slower, and they do <strong>not</strong> need to be told <code>k</code>.</p>
+<div class="tablewrap"><table>
+<tr><td><code>method=</code></td><td>What it does</td><td>When</td></tr>
+<tr><td><code>"fista"</code></td><td>Proximal gradient with Nesterov momentum, using <code>lambda=</code> (default <code>1e-3</code>), <code>iters=</code> (floored at <code>1000</code>), <code>tol=</code>, on <code>½‖Ax-y‖² + λ‖x‖₁</code> — the LASSO / basis-pursuit-denoising problem.</td><td>The default convex choice. Noisy measurements, or <code>k</code> only estimated.</td></tr>
+<tr><td><code>"ista"</code></td><td>The same objective, and the same <code>lambda=</code>/<code>iters=</code>/<code>tol=</code>, without the momentum term.</td><td>Only to see the difference: same cost per iteration, <code>O(1/t)</code> convergence against FISTA's <code>O(1/t²)</code>.</td></tr>
+<tr><td><code>"bp"</code> / <code>"basis_pursuit"</code></td><td>Basis pursuit by ADMM, using <code>rho=</code> (default <code>1.0</code>), <code>iters=</code> (floored at <code>1000</code>), <code>tol=</code> (floored at <code>1e-8</code>): <code>min ‖x‖₁ subject to Ax = y</code>.</td><td>Clean measurements, when you want the constraint satisfied rather than penalised.</td></tr>
+</table></div>
+<p>The two families are not just different code paths — they behave visibly differently on the exact same problem, which the tables above describe but do not show: same sensing matrix, same signal, same measurements, and one call finishes in three iterations at machine precision while the other takes hundreds and settles for a residual bias. Neither number is a defect; it is what "combinatorial search over a known support size" versus "convex relaxation that infers the support" costs and buys.</p>
+<h4>Overloads: <code>cs_recover</code></h4>
+<h4>Case: Greedy (<code>omp</code>)</h4>
+<p>Told the true sparsity <code>k = 3</code> up front, OMP picks one column per iteration and stops the moment it has three — <code>.iterations</code> comes out equal to <code>k</code>, and the least-squares re-solve on that exact support drives the error to floating-point zero.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Convex (<code>fista</code>)</h4>
+<p>The same <code>A</code>, <code>x</code>, and <code>y</code>, handed to FISTA instead — no <code>sparsity=</code> at all, the support falls out of the <code>l1</code> penalty — takes hundreds of proximal-gradient steps rather than three, and still settles for an error around <code>1e-3</code> instead of machine precision, the shrinkage bias the next section is about.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Greedy (<code>cosamp</code>)</h4>
+<p>Same problem, <code>2k</code>-at-a-time candidate selection with pruning — converges in even fewer iterations than plain OMP here because the prune corrects for any early misstep, though OMP already had no misstep to correct on this well-conditioned a matrix.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"cosamp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Greedy (<code>sp</code>)</h4>
+<p>Subspace pursuit: the same structure as CoSaMP with a <code>k</code>-sized rather than <code>2k</code>-sized working set each round — cheaper per iteration, same machine-precision result on this problem.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"sp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Greedy (<code>iht</code>)</h4>
+<p>No least-squares solve at all — just a gradient step and a hard threshold to the <code>k</code> largest entries, repeated. Needs many more iterations than the solve-based greedy methods above to reach the same precision, the real cost of avoiding the solve.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"iht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Greedy (<code>niht</code>)</h4>
+<p>The normalised variant of <code>iht</code>: the step size is recomputed from the gradient every iteration instead of held fixed, so it needs roughly a third as many iterations here and, unlike plain <code>iht</code>, cannot diverge from a poorly chosen fixed step.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"niht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Convex (<code>ista</code>)</h4>
+<p>The same LASSO objective as <code>fista</code>, without the Nesterov momentum term. Both hit the iteration cap on this problem, but where <code>fista</code> still lands at a <code>1e-3</code>-scale error, plain <code>ista</code>'s slower <code>O(1/t)</code> convergence leaves it far short — the practical reason FISTA, not ISTA, is the default convex choice.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"ista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h4>Case: Convex (<code>bp</code>)</h4>
+<p>Basis pursuit by ADMM: solves <code>min ‖x‖₁ subject to Ax = y</code> exactly rather than a penalized version of it — no <code>lambda=</code> to choose at all — landing between the greedy methods' machine precision and FISTA/ISTA's shrinkage bias, at a cost of roughly a hundred iterations on this problem.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+x[<span class="n">91</span>] = <span class="n">0.75</span>
+y = A * x
+
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"bp"</span>)
+<span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
+</code></pre>
+</div>
+<h3>The shrinkage, and <code>debias=true</code></h3>
+<p>The <code>l1</code> penalty does two jobs with one term: it finds the support, and it pulls every coefficient toward zero. The first is what you wanted; the second is a systematic bias, visible as a few parts in ten thousand.</p>
+<p>Once the support is known that pull has no purpose. <code>debias = true</code> re-fits those columns by plain least squares and discards the shrunk values.</p>
+<p>The example below recovers the same 2-sparse setup twice with <code>method = "fista"</code>: once as <code>raw</code>, straight off the solver, and once as <code>fixed</code>, with <code>debias = true</code> added. Both find the same support, but <code>raw.x</code> still carries the <code>l1</code> shrinkage on its two non-zero coefficients, while <code>fixed.x</code> has had that support re-fit by ordinary least squares. The two printed lines report the worst-case coefficient error, <code>max(abs(...))</code>, for each version; the debiased one should read several orders of magnitude smaller.</p>
+<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+x = <span class="f">zeros</span>(<span class="n">200</span>)
+x[<span class="n">7</span>] = <span class="n">1.5</span>
+x[<span class="n">33</span>] = -<span class="n">2.0</span>
+y = A * x
+
+raw = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
+fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>, <span class="a">debias</span> = <span class="k">true</span>)
+<span class="f">print</span>(<span class="s">"fista alone    {max(abs(raw.x - x)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"fista debiased {max(abs(fixed.x - x)):.2e}"</span>)
+</code></pre>
+</div>
+<p>Standard practice, and cheap. The one reason not to: if the support is wrong, debiasing commits to the error instead of leaving it visibly shrunk.</p>
+<h3>What comes back</h3>
+<p><code>cs_recover</code> returns a <code>record</code>, and the diagnostics are not decoration:</p>
+<div class="tablewrap"><table>
+<tr><td>Field</td><td>Type / shape</td><td>Meaning</td></tr>
+<tr><td><code>.x</code></td><td><code>Vec</code>, length <code>n</code></td><td>The recovered signal.</td></tr>
+<tr><td><code>.support</code></td><td><code>Vec</code> of indices, length ≤ <code>n</code></td><td>Indices where <code>.x</code> is non-zero, ascending.</td></tr>
+<tr><td><code>.residual</code></td><td><code>number</code></td><td><code>‖A·x - y‖₂</code> at the answer.</td></tr>
+<tr><td><code>.iterations</code></td><td><code>number</code> (an integer count)</td><td>How many the solver actually ran.</td></tr>
+<tr><td><code>.converged</code></td><td><code>bool</code></td><td>Whether the tolerance was met, or the iteration cap hit.</td></tr>
+<tr><td><code>.method</code></td><td><code>string</code></td><td>The <code>method=</code> value that was used, echoed back exactly as passed (or <code>"omp"</code> if <code>method=</code> was omitted) — useful when a script loops over several methods and prints results together.</td></tr>
+</table></div>
+<p>A method that ran out of iterations and one that converged return the same shape of answer, and are told apart only by <code>.converged</code>. A script that ignores it will eventually publish a result that never converged.</p>
+<h2 id="s107">The other kind of sparsity</h2>
+<p>Everything above assumes few non-zero *samples*. <strong>Total variation</strong> assumes few *changes* instead — a staircase, a segmented profile, a step response — by penalising <code>‖∇x‖₁</code> rather than <code>‖x‖₁</code>.</p>
+<p><code>tv_denoise(y, lambda)</code> takes the noisy signal <code>y</code> (a <code>Vec</code>, length <code>n</code>) and the penalty weight <code>lambda</code> (a <code>number</code>, default <code>1.0</code> if the second argument is omitted — larger means smoother), and returns a <code>Vec</code> of length <code>n</code>: the denoised signal.</p>
+<p>The example below builds a clean step (<code>clean</code>), corrupts it with Gaussian noise, and denoises it with <code>tv_denoise(noisy, 0.3)</code>. <code>sum(abs(diff(...)))</code> is a cheap proxy for how much "changiness" is left in a signal — the total variation of the noisy trace versus the denoised one — printed before and after so the two can be compared directly; the denoised number should be far smaller, showing the flat regions were smoothed while the one real jump at the step survived.</p>
+<div class="example"><pre class="hl"><code>clean = <span class="f">zeros</span>(<span class="n">200</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">60</span> <span class="k">to</span> <span class="n">129</span>
+    clean[i] = <span class="n">1.0</span>
+<span class="k">end</span> <span class="k">for</span>
+noisy = clean + <span class="n">0.15</span> * <span class="f">randn</span>(<span class="n">200</span>, <span class="a">seed</span> = <span class="n">3</span>)
+
+tv = <span class="f">tv_denoise</span>(noisy, <span class="n">0.3</span>)
+<span class="f">print</span>(<span class="s">"total variation {sum(abs(diff(noisy))):.1f} -&gt; {sum(abs(diff(tv))):.1f}"</span>)
+</code></pre>
+</div>
+<p>This is what recovers an edge that a smoothing filter would round off. On the signal above, against a low-pass filter tuned to remove a comparable amount of noise: TV reaches half the RMS error, and its 10–90% rise is 5 samples against the filter's 7. Neither reaches the true 1, and TV is nonlinear with a penalty to choose where a filter has a cutoff — but it never assumed the signal was smooth, only that it changes rarely.</p>
+<p><code>tv_denoise</code> uses Condat's direct algorithm: one pass, <code>O(n)</code>, exact rather than iterative.</p>
+<h2 id="s153">Choosing</h2>
+<div class="tablewrap"><table>
+<tr><td></td><td></td></tr>
+<tr><td>Clean, <code>k</code> known, <code>A</code> well conditioned</td><td><code>"omp"</code></td></tr>
+<tr><td>Noisy, or <code>k</code> only estimated</td><td><code>"fista"</code>, with <code>debias = true</code></td></tr>
+<tr><td>OMP finding the wrong support</td><td><code>"cosamp"</code></td></tr>
+<tr><td>Too large to factorise</td><td><code>"niht"</code></td></tr>
+<tr><td>Piecewise-constant signal</td><td><code>tv_denoise</code></td></tr>
+</table></div>
+<p><code>catalog/qu_compressed_sensing.qu</code> runs all six on the same data and prints the comparison.</p>
+<h3>The claim, drawn</h3>
+<p>The whole subject rests on one surprising fact: a signal with few non-zeros can be recovered from far fewer measurements than it has unknowns. Here are 200 unknowns, 8 of them non-zero, from 60 measurements.</p>
+<div class="example"><pre class="hl"><code>n = <span class="n">200</span>
+k = <span class="n">8</span>
+m = <span class="n">60</span>
+truth = <span class="f">zeros</span>(n)
+<span class="k">for</span> j <span class="k">in</span> (<span class="n">11</span>, <span class="n">27</span>, <span class="n">48</span>, <span class="n">76</span>, <span class="n">103</span>, <span class="n">140</span>, <span class="n">168</span>, <span class="n">191</span>)
+    truth[j] = <span class="n">1</span>
+<span class="k">end</span> <span class="k">for</span>
+
+A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">12</span>) / <span class="f">sqrt</span>(m)
+y = A * truth
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = k)
+
+<span class="f">print</span>(<span class="s">"{m} measurements, {n} unknowns, {k} non-zeros"</span>)
+<span class="f">print</span>(<span class="s">"support found:  {r.support}"</span>)
+<span class="f">print</span>(<span class="s">"recovery error: {round(rmse(truth, r.x), 8)}"</span>)
+
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, truth, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"truth"</span>)
+<span class="f">scatter</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, r.x, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">label</span> = <span class="s">"recovered"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"8 spikes from 60 measurements"</span>)
+</code></pre>
+</div>
+<p>The error is zero — not small, zero to floating precision — because OMP identified the exact support and then solved an ordinary least-squares problem on those eight columns. That only happens while the number of measurements is comfortably above the sparsity; push <code>m</code> down towards <code>k</code> and it stops working, abruptly rather than gracefully.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

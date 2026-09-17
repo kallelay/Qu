@@ -1,0 +1,233 @@
+[package]
+name = "qu-interp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Qu tree-walking interpreter for the M2 runnable subset (scalars, vectors, ranges, a DSP-flavored builtin set)."
+
+[dependencies]
+qu-syntax = { path = "../qu-syntax" }
+# `gamma`/`lgamma`/`erf`/`erfc` (§ special functions, 2026-09-16, Ahmed's
+# direct go-ahead -- see BACKLOG.md/board2.txt): checked first for an
+# existing implementation anywhere in the dependency tree (grepped
+# `Cargo.lock` for `libm`/`statrs`/`special` -- none present, not even
+# transitively) before adding anything. `libm` is the standard, minimal,
+# pure-Rust, zero-transitive-dependency reimplementation of C's libm (the
+# same math library Rust's own `std` calls out to on platforms that have
+# one) -- picked over hand-rolling Stirling's approximation or a rational
+# erf series, which is exactly the kind of subtly-wrong-at-the-tails code
+# this crate's own policy (see `spade`/`quick-xml`/`hdf5-metno` notes
+# above) says to avoid. `cbrt`/`exp2`/`expm1`/`log1p`/`asinh`/`acosh`/
+# `atanh` do NOT need this crate: `std::f64` already provides correct,
+# accurate implementations of all seven directly as inherent methods.
+libm = "0.2"
+# For `UNITS`, so `similar_units` suggests from the same list the lexer
+# accepts rather than a second copy that could drift from it.
+qu-lexer = { path = "../qu-lexer" }
+# `voronoi(points)` (§ Voronoi diagram, 2026-09-01): real 2-D Delaunay
+# triangulation + its dual Voronoi diagram, not a hand-rolled Fortune's
+# sweep (a notoriously fiddly algorithm to get robust against degenerate/
+# cocircular input). Picked over `voronoice` (crates.io: last published
+# 2022-02-28, effectively unmaintained) and a hand-rolled implementation:
+# `spade` is actively maintained (2.15.1, published 2026-03), pure Rust, no
+# system/C dependency, and exposes the Voronoi dual directly off its
+# Delaunay triangulation (`VertexHandle::as_voronoi_face`,
+# `VoronoiFace::adjacent_edges`, `VoronoiVertex::Inner`/`Outer` for the
+# finite-vs-unbounded-cell distinction) rather than requiring this crate to
+# derive Voronoi cells from raw triangle output itself.
+spade = "2"
+# `touch(path)` (§ file I/O extensions, 2026-08-31): a tiny, standard crate
+# for setting a file's mtime for real (`std::fs`/`OpenOptions` alone has no
+# portable "bump mtime without touching content" primitive — the classic
+# open-for-append-then-close trick does NOT reliably update mtime on every
+# platform). Already present in this workspace's own `Cargo.lock` as a
+# transitive dependency (pulled in by another crate already in the tree),
+# so adding it here directly resolves with no new crate actually entering
+# the build graph.
+filetime = "0.2"
+# `remove_file`/`remove_dir` with `recycle_bin=true` (§ fileops, 2026-09-16,
+# Ahmed's direct go-ahead): sending a file/folder to the OS Recycle Bin/
+# Trash rather than a permanent `std::fs::remove_*` is not something `std`
+# can do at all -- there is no portable syscall for it, only per-platform
+# shell/COM APIs (`SHFileOperationW` + `IFileOperation` on Windows,
+# `NSWorkspace` on macOS, the FreeDesktop Trash spec on Linux). `trash` is
+# the standard, actively-maintained (5.2.9, MIT, checked crates.io
+# directly 2026-09-16) crate for exactly this and nothing else -- covers
+# all three platforms this engine ships for, and its `delete`/`delete_all`
+# API handles a folder as a single trashed item with no separate recursive
+# flag needed. Not present anywhere in this workspace's Cargo.lock already
+# (checked), so this is a genuinely new crate entering the build graph --
+# justified because permanent-delete-only would leave `remove_file`/
+# `remove_dir` unable to do the one thing that makes deleting from a
+# script survivable.
+trash = "5"
+# `mmap_open`/`mmap_read` (§ memory-mapped file access, 2026-08-31):
+# read-only random-access mapping of a file's bytes without loading it into
+# a `Vec` up front. The standard, widely-used safe(r) wrapper around the
+# OS's own `mmap`/`MapViewOfFile` — `unsafe` is inherent to memory-mapping
+# itself (the mapped bytes can change under you if another process writes
+# the file), `memmap2` is the conventional way to do this in Rust rather
+# than hand-rolling the platform-specific FFI. Also already present in this
+# workspace's `Cargo.lock` as a transitive dependency, same "no new crate
+# actually enters the build graph" note as `filetime` above.
+memmap2 = "0.9"
+# `http_get(url)` (§ HTTP fetch, 2026-08-31): reuses the exact crate/major-
+# version `qu-llm`'s `hf-hub` feature already depends on for its own model
+# downloads (checked `crates/qu-llm/Cargo.toml` first — `ureq = "2"` there)
+# rather than adding a second HTTP client dependency to this workspace.
+ureq = "2"
+# `parallel` (rayon-backed multi-core matmul/elementwise kernels) is on by
+# default here, unlike `gpu` below: rayon is a small, vendor-neutral, no-driver
+# dependency (works identically on Intel/AMD, no wgpu-style setup), so there's
+# no reason to hide the speedup behind a flag for the native engine — only
+# qu-wasm (which can't assume real OS threads) leaves it off.
+# `fast-matmul` (SIMD GEMM via the `matrixmultiply` crate, see qu-core's own
+# Cargo.toml) is on by default for the same reason: pure Rust, no C/Fortran
+# toolchain or system BLAS install, so nothing about it is WASM-hostile the
+# way `gpu`'s wgpu driver requirement is -- only `qu-wasm` leaves it off,
+# same as `parallel`. Measured real win across the board except literally
+# tiny (<~8x8) matrices -- see `qu-core/src/matrix.rs`'s `matmul` doc comment
+# and IMPL.md's dated entry for the full measurement table.
+qu-core = { path = "../../../qu-core", features = ["parallel", "fast-matmul"] }
+# Same "on by default" call as `qu-core`'s `parallel` feature just above —
+# used directly here (not just via `qu-core`) for `randn`/`rand`'s
+# multi-core generation path (`generate_random_fill` in `src/lib.rs`).
+rayon = "1.10"
+# Optional, default-off: keeps this crate (and the rest of engine/) dependency
+# -free by default, per its own stated policy. Enable with `--features gpu`
+# to pull in qu-gpu (and, transitively, wgpu) for the `gpu_matmul` builtin —
+# a deliberate, explicit milestone jump (IMPL.md's M6 Acceleration), not the
+# default build.
+qu-gpu = { path = "../../../qu-gpu", optional = true }
+# Optional, default-off, same "keep the crate dependency-free by default"
+# policy as `qu-gpu` just above: enable with `--features backend-torch` to
+# pull in `tch` (Rust bindings to libtorch, the PyTorch C++ engine) for an
+# ALTERNATE execution backend on the Sequential API's `dense`/`relu`/SGD
+# training path (`compile(..., backend="torch")` -- see `tensor_backend.rs`'s
+# own module doc comment for the `TensorBackend` trait this swaps behind).
+# Native Qu autodiff (the existing tape in this file) stays the DEFAULT and
+# REQUIRED path -- this crate must keep building with zero change for
+# `qu-wasm` (wasm32, which can't link libtorch at all) and for the plain
+# `qu-cli` build every other feature here already has to keep working.
+# Needs a local libtorch install (or a pip `torch` install found via the
+# `LIBTORCH_USE_PYTORCH=1` env var -- see `tch`'s own README) at BUILD and
+# RUN time, same class of "needs a system library" as `gpu`'s wgpu driver
+# requirement, just more so (no software-only fallback the way wgpu has one).
+tch = { version = "0.26", optional = true }
+# Optional, default-off, same "keep the crate dependency-free by default"
+# policy as `tch` above: enable with `--features backend-tensorflow` for a
+# THIRD `TensorBackend` (`TensorFlowBackend`, `tensor_backend_tensorflow.rs`
+# -- kept in its own file, not `tensor_backend.rs`, see that `mod` item's
+# own doc comment in `lib.rs`) built on the official `tensorflow` crate
+# (C-API bindings to libtensorflow). Unlike `tch`, this needs NO manual
+# system install or pip-reuse trick: `tensorflow-sys`'s own build script
+# downloads a prebuilt `libtensorflow-cpu-*.zip` (~76MB, matched to the host
+# OS/arch) straight from Google's storage bucket the first time this
+# feature is built, and links against that -- verified working on this
+# repo's Windows dev environment with ZERO manual setup (see IMPL.md's
+# dated entry for the exact probe). The one real requirement is network
+# access at BUILD time (not run time -- the downloaded .dll is cached
+# under `target/`).
+tensorflow = { version = "0.21", optional = true }
+# `save`/`save_all`/`load` (workspace persistence): pure Rust, no OS/native
+# dependency, works identically on wasm32 — the same portability bar every
+# other always-on dependency here already clears. JSON (not a custom binary
+# format) so a saved file is human-readable/diffable/debuggable; `Value` is
+# converted to/from `serde_json::Value` by hand (see `value_to_json`/
+# `json_to_value` in `src/lib.rs`) rather than via `#[derive(Serialize)]`,
+# so `Worker`/`Mutex`/`Semaphore` (live runtime handles, not data) can
+# refuse to serialize with a clear error instead of being silently
+# corrupted or requiring qu-core's own types to grow a serde dependency.
+# `preserve_order`: `serde_json::Map` is a BTreeMap by default, so every
+# object round-tripped through it comes back with its keys SORTED. For a
+# table that means the columns silently reorder -- `name,age` in, `age,name`
+# out -- which is user-visible and wrong. IndexMap keeps insertion order.
+serde_json = { version = "1", features = ["preserve_order"] }
+# Optional, default-off, same "keep the crate dependency-free by default"
+# policy as `qu-gpu`/`tch` above: enable with `--features h5-models` for
+# `save_model(net, path)`/`load_model(path)` (docs/qu-language-spec.md
+# §38.4) on `kind="sequential"` models. `hdf5-metno` is the actively
+# maintained fork of the original `hdf5` crate (unmaintained since ~2021,
+# whose `hdf5-sys` build script no longer locates a modern HDF5 install) —
+# real Rust bindings to the actual HDF5 C library, per IMPL.md §7's "call
+# vendor libraries for a real FORMAT, don't hand-roll it" policy (HDF5's
+# chunked/hierarchical binary layout is not something to hand-roll the way
+# the earlier from-scratch PNG encoder was). Built with `static`+`zlib` so
+# `hdf5-metno-src` compiles HDF5 from vendored C source via cmake at build
+# time — no system libhdf5 install required. Verified buildable on Windows
+# (MSVC) in this repo's dev environment, but ONLY from a shell with the
+# MSVC toolchain on PATH (e.g. `vcvarsall.bat x64`) and with
+# `CMAKE_GENERATOR=NMake Makefiles` set — the default Visual Studio cmake
+# generator failed to locate a working C compiler here even with vcvars
+# applied; forcing NMake did not. See `h5_model.rs`'s own module doc
+# comment for the on-disk layout and exact Keras-compatibility level.
+hdf5-metno = { version = "0.14", optional = true, features = ["static", "zlib"] }
+# Optional, default-off, same "keep the crate dependency-free by default"
+# policy as `qu-gpu`/`tch`/`hdf5-metno` above: enable with `--features llm`
+# for `llm_load(...)`/`.generate(...)` (the "AI core" inference primitive,
+# see IMPL.md's dated entry) -- a small, in-process local LLM via `candle`
+# (pure-Rust, no C++/cmake toolchain needed, unlike `llama-cpp-rs`). Kept in
+# its OWN crate (`qu-llm`, not a module here) rather than folded straight
+# into this crate: `candle`+`tokenizers`+`hf-hub`'s combined dependency
+# weight is the heaviest of any optional backend here, and a script/CLI
+# build that never touches the LLM feature (the overwhelming majority)
+# should not need to even resolve those crates' own transitive
+# dependencies, the same "compiles clean, pays nothing" bar `gpu`/
+# `backend-torch`/`h5-models` already hold themselves to.
+qu-llm = { path = "../qu-llm", optional = true }
+# `serial_open`/`serial_ports`/etc. (§ real serial port I/O, 2026-09-01,
+# Ahmed asked directly for genuine UART/RS-232/USB-serial support — grepped
+# first and confirmed zero serial port support existed anywhere in Qu:
+# `tcp_listen`/`tcp_connect`/etc. are raw TCP sockets only, no serial
+# framing/baud-rate concept at all). `serialport` is the standard,
+# actively-maintained, cross-platform (Windows/macOS/Linux) Rust crate for
+# this — a thin safe wrapper over each OS's native serial API (`CreateFile`+
+# `DCB`/`COMMTIMEOUTS` on Windows via `winapi`, termios on Unix), not a
+# hand-rolled FFI layer. Pulled in as a plain always-on dependency (not
+# behind an optional feature like `gpu`/`tch`/`h5-models` above): it's a
+# small, pure-Rust-plus-OS-syscalls crate with no external system library or
+# driver to install (unlike `tch`'s libtorch or `hdf5-metno`'s cmake build),
+# so there is no "keep the default build free of this" reason to hide it
+# behind a flag the way those genuinely heavy/optional backends are.
+# `regex_*` and `like`. The reference implementation, and the one that
+# matters for a language a person drives interactively: it is linear in the
+# input by construction, so a pattern typed at a prompt cannot hang the
+# engine the way a backtracking engine can on `(a+)+b`.
+regex = "1"
+serialport = "4"
+# `xmlify(value)`/`parse_xml(str)` (§ data-format conversion builtins,
+# 2026-09-01, Ahmed's ask — see `BACKLOG.md`'s "Format conversion builtins"
+# entry, and `xml_ops.rs`'s own module doc comment for the full `Value`<->XML
+# mapping this crate defines). No XML support of any kind existed anywhere
+# in this codebase before this — grepped first, zero hits. `quick-xml` is
+# the standard, actively maintained, pure-Rust pull-parser/writer for XML
+# (0.42.0, published 2026-08-22), same "real library for a real format"
+# policy this crate already follows for `spade` (Voronoi) and `hdf5-metno`
+# (HDF5) above — a hand-rolled tag scanner would be exactly the kind of
+# from-scratch reimplementation of a real, fiddly format (entity escaping,
+# CDATA, attribute quoting, ...) that policy exists to rule out. Pulled in
+# as a plain always-on dependency, not behind an optional feature like
+# `gpu`/`h5-models` above: it's a small, pure-Rust crate with no system
+# library, no build-time codegen, and no platform restriction (works on
+# wasm32 same as every other always-on dependency here), so there's no
+# "keep the default build free of this" reason to hide it behind a flag.
+quick-xml = "0.42"
+
+# Optional, default-off. Unlike `gpu`/`tch`/`h5-models` above this needs no
+# system library, no toolchain and no build-time download -- `calamine` and
+# `rust_xlsxwriter` are pure Rust -- so it is off only because a module
+# should be something a script asks for by name (`import xlsx`), not because
+# it is expensive. That is the point the module system exists to make: the
+# cost of a backend is a compile flag, and the cost of NOT using one is
+# zero, including zero names in the global builtin table.
+qu-xlsx = { path = "../qu-xlsx", optional = true }
+qu-codec = { path = "../qu-codec", optional = true }
+
+[features]
+xlsx = ["dep:qu-xlsx"]
+codec = ["dep:qu-codec"]
+gpu = ["dep:qu-gpu"]
+backend-torch = ["dep:tch"]
+backend-tensorflow = ["dep:tensorflow"]
+h5-models = ["dep:hdf5-metno"]
+llm = ["dep:qu-llm"]

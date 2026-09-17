@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>svd — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>svd</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>svd(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Thin SVD of <code>A</code> (<code>r×c</code> <code>Mat</code> or <code>CMat</code>), <code>A = U·diag(s)·Vᵀ</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>A</code> can be Mat or CMat.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-svd-0" checked>
+<input type="radio" name="typetab" id="tt-svd-1">
+<div class="tabbar">
+<label for="tt-svd-0">real</label>
+<label for="tt-svd-1">complex</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svd(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>u</code> <span class="iotype">Mat</span><span class="iodesc"><code>r×k</code> <code>Mat</code></span></div>
+<div class="ioitem"><code>s</code> <span class="iotype">Vec</span><span class="iodesc">length-<code>k</code> <code>Vec</code> of singular values</span></div>
+<div class="ioitem"><code>vt</code> <span class="iotype">Mat</span><span class="iodesc"><code>k×c</code> <code>Mat</code></span></div>
+</td><td>Returns a <code>Model</code> with fields <code>u</code> (<code>r×k</code> <code>Mat</code>), <code>s</code> (length-<code>k</code> <code>Vec</code> of singular values), and <code>vt</code> (<code>k×c</code> <code>Mat</code>), where <code>k = min(r,c)</code> — the full factorization, ready to reassemble <code>A</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+r = <span class="f">svd</span>(A)
+<span class="f">print</span>(r.s)   <span class="c"># [4.618034, 2.381966]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svd(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">CMat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>values</code> <span class="iotype">&mdash;</span><span class="iodesc">the singular values</span></div>
+</td><td>Returns a *differently-shaped* <code>Model</code> — only <code>values</code> (the singular values), <code>condition</code>, and <code>rank</code>; there is no <code>u</code>/<code>vt</code> factor pair to reassemble <code>A</code> from in this branch.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>C = [<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span> - <span class="n">1j</span>]
+rc = <span class="f">svd</span>(C)
+<span class="f">print</span>(<span class="s">"values={rc.values}  condition={round(rc.condition, 3)}  rank={rc.rank}"</span>)
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>svd(A)</code> — the thin SVD <code>A = U * diag(s) * V^T</code>. Model kind <code>"svd"</code>, fields <code>u</code>/<code>s</code>/<code>vt</code> — the same named-field multi-return convention as <code>kalman_init</code>/<code>ols_model</code>, since the three factors are one related result.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

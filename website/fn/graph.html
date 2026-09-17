@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>graph — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>graph</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>graph([directed=false])</code></pre>
+<p class="fnnote">Input: directed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Optional named <code>directed</code> (<code>bool</code>, default <code>false</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = graph([directed=false])</code></td><td><div class="ioitem"><code>directed</code> <span class="iotype">bool, optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a <code>graph</code> handle: a new, empty node+edge graph.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>g = <span class="f">graph</span>()
+g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">4</span>)
+g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"C"</span>, <span class="a">weight</span>=<span class="n">1</span>)
+g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">2</span>)
+g.<span class="f">add_edge</span>(<span class="s">"B"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">5</span>)
+g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">8</span>)
+<span class="f">print</span>(g.<span class="f">shortest_path</span>(<span class="s">"A"</span>, <span class="s">"D"</span>))   <span class="c"># 8, via A -&gt; C -&gt; B -&gt; D (1 + 2 + 5)</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>h = <span class="f">graph</span>()
+<span class="f">add_node</span>(h, <span class="s">"X"</span>)          <span class="c"># an isolated node, no edges yet</span>
+h.<span class="f">add_edge</span>(<span class="s">"X"</span>, <span class="s">"Y"</span>)
+<span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Y"</span>))   <span class="c"># true</span>
+<span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Z"</span>))   <span class="c"># false -- Z isn't even a node</span>
+<span class="f">print</span>(<span class="f">neighbors</span>(h, <span class="s">"X"</span>))       <span class="c"># ("Y")</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<h2>How it works</h2>
+<p><code>graph([directed=])</code> (§ data structures pass, 2026-09-01, algorithm, Dijkstra's <code>shortest_path</code>; see that module's own doc comment for the node-id normalization rule and why Dijkstra over plain BFS.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

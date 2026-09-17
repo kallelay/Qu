@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>read_all_text — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>read_all_text</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>read_all_text(path)</code></pre>
+<p class="fnnote">Input: path &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Reads <code>path</code> (string) in full.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = read_all_text(path)</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
+</td><td>Returns the whole file's content as one string. For splitting it into lines, open a handle with <code>fopen</code> and loop over <code>read_line</code>; for a file that isn't text, read it as raw bytes instead — <code>read_bin(f, n)</code> on a handle opened in binary mode, or <code>read_array</code>/<code>mmap_read</code> for typed/binary data.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>txt = <span class="f">read_all_text</span>(path)
+<span class="f">print</span>(<span class="s">"chars: {len(txt)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>path = <span class="s">"/tmp/qu_scratch_append.txt"</span>
+<span class="f">write_text</span>(path, <span class="s">"first line\n"</span>)
+<span class="f">append_text</span>(path, <span class="s">"second line\n"</span>)
+<span class="f">print</span>(<span class="f">read_all_text</span>(path))   <span class="c"># "first line\nsecond line\n"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line one"</span>)
+<span class="f">write_line</span>(n, <span class="s">"line two"</span>)
+<span class="f">close</span>(n)
+<span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"notes.txt"</span>))
+<span class="c"># line one</span>
+<span class="c"># line two</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#ff0000"</span>)
+<span class="f">savefig</span>(tmp_svg)
+<span class="f">print</span>(<span class="f">contains</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"opacity=\"0.18\""</span>))   <span class="c"># true</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<h2>How it works</h2>
+<p><code>read_all_text(path)</code> (§ wait until / sleep, scoped 2026-08-26) — a one-shot convenience for the single most common file-I/O idiom, "read this whole text file into a string": exactly <code>read_all(fopen(path, "r"))</code>, just without needing a two-call, explicit-handle dance for a case that never needed one (a text-mode <code>fopen</code> reads the whole file into memory immediately — see its own doc comment — and there is no lingering OS handle to <code>close()</code> either way). Implemented directly against <code>std::fs::read</code> + <code>from_utf8_lossy</code> (the exact same two steps <code>fopen("r")</code> and text-mode <code>read_all</code> each perform) rather than literally constructing and discarding a <code>Value::File</code>, so this has no behavior gap from the two-call form — same bytes read, same lossy UTF-8 decoding, same "could not read" error wording — just fewer moving parts for a case with nothing to configure (no mode, no binary option: text is the whole point).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

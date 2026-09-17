@@ -1,0 +1,78 @@
+/* Retro traffic-light window-chrome CSS, copied verbatim from
+   docs/design/retro-window-chrome.md (a saved, already-tested asset --
+   see that file's own header for where this look originated and where
+   else it's used). Do not hand-edit these rules without also updating
+   the design doc; if the look needs to change, change it there first. */
+
+.win {
+  border-radius: 8px; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(20,40,70,0.18);
+  min-width: 0; /* required inside a CSS grid track -- grid items default
+    to min-width:auto, which lets an unbreakable <pre> line force the
+    whole track (and the page) wider than the viewport. */
+}
+.win-chrome {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px;
+  background: linear-gradient(180deg, #e9edf3, #cdd6e2);
+  border-bottom: 1px solid #b7c1cf;
+}
+.win-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 1px 1px rgba(255,255,255,0.5); }
+.win-dot.r { background: radial-gradient(circle at 35% 30%, #ff6b5f, #d33327); }
+.win-dot.y { background: radial-gradient(circle at 35% 30%, #ffd25f, #dba020); }
+.win-dot.g { background: radial-gradient(circle at 35% 30%, #6de06a, #2ba82b); }
+.win-title { font-family: monospace; font-size: 11px; color: #4b5a6b; margin-left: 6px; }
+
+/* Code panel: warm cream, like a classic syntax-highlighted snippet widget */
+.code-win .win-chrome { background: linear-gradient(180deg, #f3f0e2, #ddd6bc); border-bottom-color: #c7bd9c; }
+.code-win .win-title { color: #6b6248; }
+.code-body {
+  background: #fdfbf3; color: #3a3527; font-family: monospace; font-size: 12px; line-height: 1.55;
+  padding: 12px 14px; margin: 0; overflow-x: auto; max-height: 380px; overflow-y: auto; white-space: pre;
+}
+.code-body .kw { color: #9c4ba5; font-weight: 700; }  /* keywords */
+.code-body .cm { color: #8a9b7a; font-style: italic; } /* comments */
+.code-body .str { color: #b5651d; }                    /* strings */
+.code-body .num { color: #1f6fa8; }                    /* numbers */
+
+/* Terminal panel: dark, like a real OS X Terminal.app window */
+.term-win .win-chrome { background: linear-gradient(180deg, #4a4a4a, #2b2b2b); border-bottom-color: #1a1a1a; }
+.term-win .win-title { color: #cfcfcf; }
+.term-body {
+  background: #1c1e22; color: #d6f5dc; font-family: monospace; font-size: 12px; line-height: 1.55;
+  padding: 12px 14px; margin: 0; overflow-x: auto; max-height: 380px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.term-body::before { content: "$ qu run " attr(data-cmd) "\A"; color: #7fb0ff; }
+
+/* ---- Report-specific additions below (not part of the design doc) ----
+   Page layout, and styling for the two panel bodies the design doc never
+   defines because they're new to this report (a plain SVG figure, and a
+   plain data table) -- both still live inside the same `.win`/`.win-chrome`
+   chrome as everything else, per the design decision to reuse that look
+   rather than invent a bespoke one for these two panels. */
+
+body {
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  margin: 2rem auto; max-width: 960px; line-height: 1.4;
+  color: #1a1a1a; background: #fff; padding: 0 1rem 3rem;
+}
+h1 { font-size: 1.1rem; color: #666; font-weight: 600; }
+.win { margin-bottom: 1.25rem; }
+
+.fig-body { background: #fff; padding: 14px; text-align: center; }
+.fig-body svg { max-width: 100%; height: auto; }
+
+.profile-body {
+  background: #fdfbf3; color: #3a3527; padding: 12px 14px;
+  font-family: monospace; font-size: 12px;
+}
+.profile-body p { margin: 0 0 4px; }
+.profile-body table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.profile-body th, .profile-body td { text-align: left; padding: 4px 10px; border-bottom: 1px solid #e6ddb8; }
+.profile-body th { color: #6b6248; }
+
+.error-body {
+  background: #fff0f0; color: #900; border-top: 1px solid #eaa;
+  font-family: monospace; font-size: 12px; white-space: pre-wrap;
+  margin: 0; padding: 12px 14px;
+}

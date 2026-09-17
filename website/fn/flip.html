@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flip — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>flip</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>flip(A, dim=1)</code></pre>
+<p class="fnnote">Input: A, dim &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Reverses row order (<code>flipud</code>, <code>dim=1</code>) or column order (<code>fliplr</code>/<code>mirror</code>, <code>dim=2</code>) of <code>A</code>, a <code>Str</code>, <code>Vec</code>, <code>Mat</code>, or <code>Image</code>. On a <code>Str</code> every spelling reverses the character order; on a plain <code>Vec</code> (which has no row/column orientation) both directions just reverse element order. <code>dim</code> (only meaningful for <code>flip</code>) is an optional keyword-or-positional scalar, <code>1</code> or <code>2</code>, defaulting to <code>1</code>.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>A</code> can be Str, Vec, Mat, or Image; <code>dim</code> can be string or scalar.</p>
+<p class="fnnote">3 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-flip-0" checked>
+<input type="radio" name="typetab" id="tt-flip-1">
+<input type="radio" name="typetab" id="tt-flip-2">
+<div class="tabbar">
+<label for="tt-flip-0">Str</label>
+<label for="tt-flip-1">Vec</label>
+<label for="tt-flip-2">Mat</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = flip(A, dim=1)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Str</span><span class="iodesc"><code>A</code> a <code>Str</code>.</span></div>
+<div class="ioitem"><code>dim</code> <span class="iotype">string (default <code>1</code>)</span><span class="iodesc">Every spelling (<code>flip</code>, <code>flipud</code>, <code>fliplr</code>, <code>mirror</code>) reverses character order the same way, regardless of <code>dim</code> — a string has no row/ column orientation to pick between.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>(<span class="s">"hello"</span>))   <span class="c"># olleh</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = flip(A, dim=1)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Vec</span><span class="iodesc"><code>A</code> a plain <code>Vec</code>, which likewise has no row/column orientation.</span></div>
+<div class="ioitem"><code>dim</code> <span class="iotype">scalar (default <code>1</code>)</span><span class="iodesc">Both directions just reverse element order, so <code>dim</code> makes no difference here either.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [3, 2, 1]</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = flip(A, dim=1)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat or Image</span><span class="iodesc"><code>A</code> an <code>r×c</code> <code>Mat</code> (or <code>Image</code>).</span></div>
+<div class="ioitem"><code>dim</code> <span class="iotype">scalar (default <code>1</code>)</span><span class="iodesc">Here <code>dim</code> genuinely matters: <code>1</code> reverses row order (top-to-bottom), <code>2</code> reverses column order (left-to-right).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<span class="f">print</span>(<span class="f">flip</span>(M, <span class="n">1</span>))   <span class="c"># [3, 4; 1, 2] -- rows reversed</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>See also</h2>
+<p><a href="flipud.html"><code>flipud</code></a>, <a href="fliplr.html"><code>fliplr</code></a>, <a href="mirror.html"><code>mirror</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

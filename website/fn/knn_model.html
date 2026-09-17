@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>knn_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>knn_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>knn_model(X, y, k, [metric=], [kind=])</code></pre>
+<p class="fnnote">Input: X, y, k, metric, kind &middot; Output: result</p>
+<h2>What it is</h2>
+<p>k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred). Fitting only stores <code>X</code>/<code>y</code>; all the work happens inside <code>.predict</code>, which returns a length-<code>M</code> vector for an <code>M</code>-row query matrix.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>X</code> can be number or string; <code>y</code> can be number or string; <code>k</code> can be number or string; <code>metric</code> can be number or string; <code>kind</code> can be number or string.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-knn_model-0" checked>
+<input type="radio" name="typetab" id="tt-knn_model-1">
+<div class="tabbar">
+<label for="tt-knn_model-0">regression</label>
+<label for="tt-knn_model-1">classification</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = knn_model(X, y, k, [metric=], [kind=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">number</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">number</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>k</code> <span class="iotype">number</span><span class="iodesc"><code>kind = "regression"</code> predicts the mean of the <code>k</code> nearest neighbours' target values -- a number that can fall between any two training targets.</span></div>
+<div class="ioitem"><code>metric</code> <span class="iotype">number, optional</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">number, optional</span><span class="iodesc"><code>kind = "regression"</code> predicts the mean of the <code>k</code> nearest neighbours' target values -- a number that can fall between any two training targets.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xk = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+yk = [<span class="n">10.0</span>, <span class="n">12.0</span>, <span class="n">30.0</span>, <span class="n">32.0</span>]
+knr = <span class="f">knn_model</span>(Xk, yk, <span class="n">2</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
+q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"knn_model regression predict(1.5): {knr.predict(q)}"</span>)   <span class="c"># mean of the 2 nearest y's</span>
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = knn_model(X, y, k, [metric=], [kind=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">string</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">string</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>k</code> <span class="iotype">string</span><span class="iodesc"><code>kind = "classification"</code> predicts the majority label among the <code>k</code> nearest neighbours instead -- always one of the training labels, never an average.</span></div>
+<div class="ioitem"><code>metric</code> <span class="iotype">string, optional</span><span class="iodesc">k-nearest-neighbours on an <code>N</code>-row, <code>D</code>-column <code>X</code> and a length-<code>N</code> target <code>y</code>, with integer neighbour count <code>k</code>, an optional <code>metric</code> string (distance function name), and <code>kind</code> (<code>"regression"</code> or <code>"classification"</code>, never inferred).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">string, optional</span><span class="iodesc"><code>kind = "classification"</code> predicts the majority label among the <code>k</code> nearest neighbours instead -- always one of the training labels, never an average.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Model</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xkc = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+ykc = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
+knc = <span class="f">knn_model</span>(Xkc, ykc, <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+<span class="f">print</span>(<span class="s">"knn_model classification predict(1.5): {knc.predict(q)}"</span>)   <span class="c"># majority vote among 3 nearest labels</span>
+</code></pre>
+</div>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>knn_model(X, y, k, [metric=], [kind=])</code> — k-nearest-neighbors, a lazy/instance-based method: <code>.fit</code> doesn't compute anything at all, it just stores the training <code>X</code>/<code>y</code> verbatim as model fields; every real bit of work happens later, in <code>.predict</code>, which finds each new row's <code>k</code> nearest training rows and combines their <code>y</code>s. <code>metric=</code> picks how "nearest" is measured: <code>"euclidean"</code> (default, L2) or <code>"manhattan"</code> (L1) — the latter pairs naturally with <code>kmedians_model</code> below, which also builds on L1. <code>kind=</code> follows <code>tree_model</code>'s own already- established convention (see that builtin's doc comment) for the genuinely ambiguous "is <code>y</code> categorical or continuous" question, rather than guessing from the values themselves: <code>kind="classification"</code> majority-votes the <code>k</code> neighbors' labels (ties broken in favor of whichever label is seen first scanning nearest-to-farthest, i.e. the closer label wins a tie), <code>kind="regression"</code> (the default, matching <code>tree_model</code>'s own default) averages them.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# demo_timer.qu — timing code with a real stopwatch object.
+#
+# `tic()`/`toc()` is one global stopwatch, so it cannot time two things at
+# once. `timer()` gives you as many independent stopwatches as you like.
+#
+# Exercises:
+#   timer()      make a stopwatch (it starts STOPPED -- call start())
+#   start/pause  control it
+#   elapsed()    read it WITHOUT stopping it
+#   t.start()    method spelling; `t.f()` is the same as `f(t)`
+
+# --- one stopwatch, the simplest use ------------------------------------
+t = timer(1)
+t.start()
+
+total = 0
+for i = 1 to 2000000
+    total = total + sqrt(i)
+end for
+
+print("sum of sqrt(1..2e6) = {total:.1f}")
+print("took {t.elapsed():.4f} s")
+print("")
+
+# --- two at once, which tic()/toc() cannot do ---------------------------
+# `whole` keeps running while `part` times a section inside it.
+whole = timer(1)
+part = timer(1)
+
+whole.start()
+
+for i = 1 to 1000000
+    total = total + i
+end for
+
+part.start()                       # start a second clock mid-flight
+for i = 1 to 1000000
+    total = total + sin(i)
+end for
+part_time = part.elapsed()
+
+whole_time = whole.elapsed()       # reading it does NOT stop it
+
+print("inner section : {part_time:.4f} s")
+print("whole block   : {whole_time:.4f} s")
+print("inner was {100 * part_time / whole_time:.0f}% of the block")
+print("")
+
+# --- pause and resume ---------------------------------------------------
+# Time only the parts you care about, skipping the setup in between.
+work = timer(1)
+work.start()
+for i = 1 to 500000
+    total = total + i
+end for
+work.pause()                       # clock frozen here
+
+x = zeros(200000)                  # setup we do NOT want to count
+for i = 0 to 199999
+    x[i] = i * 0.5
+end for
+
+work.start()                       # resumes from where it paused
+for i = 1 to 500000
+    total = total + i
+end for
+
+print("counted work only: {work.elapsed():.4f} s")
+print("(the array setup in the middle was not counted)")

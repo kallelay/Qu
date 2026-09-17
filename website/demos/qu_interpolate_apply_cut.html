@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interpolate, apply & cut — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Signal processing</p>
+<h1>Interpolate, apply &amp; cut</h1>
+<p class="lede">signal-aware interpolation, elementwise transforms, and range extraction (commit 48ea648).</p>
+<p class="srcpath">catalog/qu_interpolate_apply_cut.qu</p>
+<p>Three small, composable Signal operations: interpolate_at(sig, t_query, [method]) -- interp1 against the signal's OWN implicit time axis (sig.t = [0, 1/Fs, 2/Fs, ...]), so the caller never has to reconstruct that axis by hand. Returns a plain Num/Vec (never re-wrapped as a Signal -- arbitrary query times have no honest Fs to attach). sig.apply(fnName) -- runs a user-defined (:= or `function`) scalar function elementwise over a Signal's samples, preserving it AS a Signal (same Fs in, same Fs out) -- unlike interpolate_at, this one genuinely stays a Signal because the sample rate is unchanged. cut(sig, t_start, t_end) -- slices out the range [t_start, t_end], INCLUSIVE of both ends, by rounding to the nearest sample index at the signal's own Fs.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>signal(data, Fs) / sig.Fs / sig.t     -- Signal construction + fields</li>
+<li>interp1(x, y, xq)                     -- reference for interpolate_at</li>
+<li>interpolate_at(sig, t_query, [method])</li>
+<li>double(x) := x * 2  /  sig.apply("double")</li>
+<li>cut(sig, t_start, t_end)</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Build a real signal: 5 Hz sine, Fs=100 Hz, 0.5 s (50 samples)</h3>
+<pre class="hl"><code>Fs = <span class="n">100</span>
+N  = <span class="n">50</span>
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t_axis = n / Fs
+values = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t_axis)
+sig = <span class="f">signal</span>(values, Fs)
+<span class="f">print</span>(<span class="s">"sig: N={length(values)} samples, Fs={sig.Fs} Hz, duration={N / Fs} s"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>interpolate_at vs interp1 on the signal's own time axis -- must agree</h3>
+<p>exactly (interpolate_at just reuses interp1_eval with sig.t as x).</p>
+<pre class="hl"><code>queries = [<span class="n">0.055</span>, <span class="n">0.123</span>, <span class="n">0.301</span>]
+via_interpolate_at = <span class="f">interpolate_at</span>(sig, queries)
+via_interp1 = <span class="f">interp1</span>(sig.t, sig, queries)
+<span class="f">print</span>(<span class="s">"query times        = {queries}"</span>)
+<span class="f">print</span>(<span class="s">"interpolate_at(sig)= {via_interpolate_at}"</span>)
+<span class="f">print</span>(<span class="s">"interp1(sig.t, sig)= {via_interp1}"</span>)
+<span class="f">print</span>(<span class="s">"max abs difference = {max(abs(via_interpolate_at - via_interp1)):.2e} (expect 0 -- same algorithm)"</span>)
+
+<span class="c"># Sanity: value at t=0.055 sits between samples 5 (t=0.05) and 6 (t=0.06).</span>
+y5 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * <span class="n">0.05</span>)
+y6 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * <span class="n">0.06</span>)
+hand_linear = y5 + (<span class="n">0.055</span> - <span class="n">0.05</span>) / (<span class="n">0.06</span> - <span class="n">0.05</span>) * (y6 - y5)
+<span class="f">print</span>(<span class="s">"hand-computed linear interp at t=0.055 = {hand_linear:.6f} vs interpolate_at = {via_interpolate_at[0]:.6f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>sig.apply("double") -- elementwise transform, still a Signal, same Fs</h3>
+<pre class="hl"><code><span class="f">double</span>(x) := x * <span class="n">2</span>
+doubled = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"doubled[0:4]  = {doubled[0:4]}"</span>)
+<span class="f">print</span>(<span class="s">"original[0:4] = {sig[0:4]}"</span>)
+<span class="f">print</span>(<span class="s">"doubled.Fs == sig.Fs? {doubled.Fs == sig.Fs} (Fs preserved: {doubled.Fs})"</span>)
+<span class="f">print</span>(<span class="s">"doubled really is 2x: max abs diff = {max(abs(doubled - 2 * sig)):.2e}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>cut(sig, t_start, t_end) -- extract a range, verify length/duration</h3>
+<pre class="hl"><code>segment = <span class="f">cut</span>(sig, <span class="n">0.1</span>, <span class="n">0.3</span>)
+<span class="c"># Both ends are kept, so the count is the span in samples PLUS ONE -- the</span>
+<span class="c"># fencepost. A window from t=0.1 to t=0.3 at 100 Hz holds samples 10</span>
+<span class="c"># through 30, which is 21 of them, not 20.</span>
+expected_len = <span class="f">round</span>((<span class="n">0.3</span> - <span class="n">0.1</span>) * Fs) + <span class="n">1</span>
+<span class="f">print</span>(<span class="s">"cut(sig, 0.1, 0.3): length={length(segment)} (expected {expected_len}), Fs={segment.Fs}"</span>)
+<span class="c"># ... and the duration spanned is one sample interval longer than the</span>
+<span class="c"># difference of the two times, for the same reason.</span>
+expected_dur = (<span class="n">0.3</span> - <span class="n">0.1</span>) + <span class="n">1</span> / Fs
+<span class="f">print</span>(<span class="s">"segment duration = {length(segment) / segment.Fs} s (expected {expected_dur} s)"</span>)
+<span class="f">print</span>(<span class="s">"segment[0] should equal original sample at t=0.1 (index 10): segment[0]={segment[0]:.6f}, sig[10]={sig[10]:.6f}"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>sig: N=50 samples, Fs=100 Hz, duration=0.5 s
+query times        = [0.055, 0.123, 0.301]
+interpolate_at(sig)= [0.975528, -0.654155, -0.030902]
+interp1(sig.t, sig)= [0.975528, -0.654155, -0.030902]
+max abs difference = 0.00e0 (expect 0 -- same algorithm)
+hand-computed linear interp at t=0.055 = 0.975528 vs interpolate_at = 0.975528
+doubled[0:4]  = signal(Fs=100) [0, 0.618034, 1.175571, 1.618034, 1.902113]
+original[0:4] = signal(Fs=100) [0, 0.309017, 0.587785, 0.809017, 0.951057]
+doubled.Fs == sig.Fs? true (Fs preserved: 100)
+doubled really is 2x: max abs diff = 0.00e0
+cut(sig, 0.1, 0.3): length=21 (expected 21), Fs=100
+segment duration = 0.21 s (expected 0.21 s)
+segment[0] should equal original sample at t=0.1 (index 10): segment[0]=0.000000, sig[10]=0.000000</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_interpolate_apply_cut.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_interpolate_apply_cut.qu -- signal-aware interpolation, elementwise</span>
+<span class="c"># transforms, and range extraction (commit 48ea648).</span>
+<span class="c">#</span>
+<span class="c"># Three small, composable Signal operations:</span>
+<span class="c">#   interpolate_at(sig, t_query, [method]) -- interp1 against the signal's</span>
+<span class="c">#     OWN implicit time axis (sig.t = [0, 1/Fs, 2/Fs, ...]), so the caller</span>
+<span class="c">#     never has to reconstruct that axis by hand. Returns a plain</span>
+<span class="c">#     Num/Vec (never re-wrapped as a Signal -- arbitrary query times have</span>
+<span class="c">#     no honest Fs to attach).</span>
+<span class="c">#   sig.apply(fnName) -- runs a user-defined (:= or `function`) scalar</span>
+<span class="c">#     function elementwise over a Signal's samples, preserving it AS a</span>
+<span class="c">#     Signal (same Fs in, same Fs out) -- unlike interpolate_at, this one</span>
+<span class="c">#     genuinely stays a Signal because the sample rate is unchanged.</span>
+<span class="c">#   cut(sig, t_start, t_end) -- slices out the range [t_start, t_end],</span>
+<span class="c">#     INCLUSIVE of both ends, by rounding to the nearest sample index at</span>
+<span class="c">#     the signal's own Fs.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   signal(data, Fs) / sig.Fs / sig.t     -- Signal construction + fields</span>
+<span class="c">#   interp1(x, y, xq)                     -- reference for interpolate_at</span>
+<span class="c">#   interpolate_at(sig, t_query, [method])</span>
+<span class="c">#   double(x) := x * 2  /  sig.apply("double")</span>
+<span class="c">#   cut(sig, t_start, t_end)</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Build a real signal: 5 Hz sine, Fs=100 Hz, 0.5 s (50 samples)</span>
+Fs = <span class="n">100</span>
+N  = <span class="n">50</span>
+n  = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t_axis = n / Fs
+values = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t_axis)
+sig = <span class="f">signal</span>(values, Fs)
+<span class="f">print</span>(<span class="s">"sig: N={length(values)} samples, Fs={sig.Fs} Hz, duration={N / Fs} s"</span>)
+
+<span class="c">#%% interpolate_at vs interp1 on the signal's own time axis -- must agree</span>
+<span class="c"># exactly (interpolate_at just reuses interp1_eval with sig.t as x).</span>
+queries = [<span class="n">0.055</span>, <span class="n">0.123</span>, <span class="n">0.301</span>]
+via_interpolate_at = <span class="f">interpolate_at</span>(sig, queries)
+via_interp1 = <span class="f">interp1</span>(sig.t, sig, queries)
+<span class="f">print</span>(<span class="s">"query times        = {queries}"</span>)
+<span class="f">print</span>(<span class="s">"interpolate_at(sig)= {via_interpolate_at}"</span>)
+<span class="f">print</span>(<span class="s">"interp1(sig.t, sig)= {via_interp1}"</span>)
+<span class="f">print</span>(<span class="s">"max abs difference = {max(abs(via_interpolate_at - via_interp1)):.2e} (expect 0 -- same algorithm)"</span>)
+
+<span class="c"># Sanity: value at t=0.055 sits between samples 5 (t=0.05) and 6 (t=0.06).</span>
+y5 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * <span class="n">0.05</span>)
+y6 = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * <span class="n">0.06</span>)
+hand_linear = y5 + (<span class="n">0.055</span> - <span class="n">0.05</span>) / (<span class="n">0.06</span> - <span class="n">0.05</span>) * (y6 - y5)
+<span class="f">print</span>(<span class="s">"hand-computed linear interp at t=0.055 = {hand_linear:.6f} vs interpolate_at = {via_interpolate_at[0]:.6f}"</span>)
+
+<span class="c">#%% sig.apply("double") -- elementwise transform, still a Signal, same Fs</span>
+<span class="f">double</span>(x) := x * <span class="n">2</span>
+doubled = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
+<span class="f">print</span>(<span class="s">"doubled[0:4]  = {doubled[0:4]}"</span>)
+<span class="f">print</span>(<span class="s">"original[0:4] = {sig[0:4]}"</span>)
+<span class="f">print</span>(<span class="s">"doubled.Fs == sig.Fs? {doubled.Fs == sig.Fs} (Fs preserved: {doubled.Fs})"</span>)
+<span class="f">print</span>(<span class="s">"doubled really is 2x: max abs diff = {max(abs(doubled - 2 * sig)):.2e}"</span>)
+
+<span class="c">#%% cut(sig, t_start, t_end) -- extract a range, verify length/duration</span>
+segment = <span class="f">cut</span>(sig, <span class="n">0.1</span>, <span class="n">0.3</span>)
+<span class="c"># Both ends are kept, so the count is the span in samples PLUS ONE -- the</span>
+<span class="c"># fencepost. A window from t=0.1 to t=0.3 at 100 Hz holds samples 10</span>
+<span class="c"># through 30, which is 21 of them, not 20.</span>
+expected_len = <span class="f">round</span>((<span class="n">0.3</span> - <span class="n">0.1</span>) * Fs) + <span class="n">1</span>
+<span class="f">print</span>(<span class="s">"cut(sig, 0.1, 0.3): length={length(segment)} (expected {expected_len}), Fs={segment.Fs}"</span>)
+<span class="c"># ... and the duration spanned is one sample interval longer than the</span>
+<span class="c"># difference of the two times, for the same reason.</span>
+expected_dur = (<span class="n">0.3</span> - <span class="n">0.1</span>) + <span class="n">1</span> / Fs
+<span class="f">print</span>(<span class="s">"segment duration = {length(segment) / segment.Fs} s (expected {expected_dur} s)"</span>)
+<span class="f">print</span>(<span class="s">"segment[0] should equal original sample at t=0.1 (index 10): segment[0]={segment[0]:.6f}, sig[10]={sig[10]:.6f}"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

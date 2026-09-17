@@ -1,0 +1,83 @@
+# qu_fifo_double_buffer.qu -- a small acquisition-loop simulation showing
+# why a real sensor pipeline needs BOTH a `fifo` and a `double_buffer`, not
+# just one or the other.
+#
+# The scenario: a noisy sensor is sampled once per tick. A `fifo(capacity)`
+# keeps a short rolling HISTORY of raw samples (for on-the-fly smoothing --
+# a moving average over the last few readings), while a `double_buffer`
+# holds the single CURRENT, ready-to-read "frame" that a consumer (e.g. a
+# display or a control loop) pulls from. The two data structures solve two
+# different problems that a real acquisition loop always has at once:
+#   - fifo: bounded rolling history, oldest sample evicted automatically
+#     once the ring is full -- exactly what a moving-average window needs.
+#   - double_buffer: the consumer must NEVER see a half-written frame --
+#     `.write` only ever touches the back buffer, so the smoothed value is
+#     only exposed via `.read()` once `.swap()` makes it current.
+#
+# Constructs exercised (all real, verified-working builtins):
+#   fifo(capacity)               -- bounded ring buffer of raw samples
+#   f.push(value), f.pop()        -- ring-buffer push/evict, FIFO pop
+#   f.peek(), f.is_full(), f.is_empty()
+#   len(f)                       -- element count
+#   double_buffer(initial)        -- front/back current-frame holder
+#   b.write(value), b.read(), b.swap()
+
+backend auto
+seed(7)
+
+#%% Simulate a noisy sensor: a slow sine wave plus noise, sampled 12 times
+N = 12
+true_signal = 5 + 2 * sin(2 * pi * (0 to N - 1) / N)
+noisy_samples = true_signal + 0.3 * randn(N)
+
+#%% A 4-sample rolling-history FIFO feeds a moving average into a
+#%% double-buffered "current frame" the way a real acquisition loop would:
+#%% raw samples land in the fifo every tick; only a SWAPPED frame is ever
+#%% considered "the current reading" a downstream consumer may read.
+history = fifo(4)
+frame = double_buffer(0.0)
+
+print("Acquisition loop -- fifo(4) rolling history feeding a double-buffered frame")
+for k = 0 to N - 1
+    was_full_before = history.is_full()
+    history.push(noisy_samples[k])
+
+    # Moving average over whatever is currently in the ring (<=4 samples).
+    n_in_ring = len(history)
+    total = 0
+    tmp = fifo(4)
+    for i = 0 to n_in_ring - 1
+        v = history.pop()
+        total = total + v
+        tmp.push(v)          # preserve the samples we just drained
+    end for
+    for i = 0 to n_in_ring - 1
+        history.push(tmp.pop())
+    end for
+    avg = total / n_in_ring
+
+    # Stage the smoothed value in the back buffer; the front buffer (what
+    # `.read()` returns) does NOT change until we explicitly `.swap()`.
+    stale_reading = frame.read()
+    frame.write(avg)
+    reading_before_swap = frame.read()
+    frame.swap()
+    reading_after_swap = frame.read()
+
+    print("tick {k}: raw={noisy_samples[k]:.3f} ring_full_before_push={was_full_before} " +
+          "avg={avg:.3f} pre_swap_read={reading_before_swap:.3f} post_swap_read={reading_after_swap:.3f}")
+end for
+
+print("")
+print("Final rolling history (oldest to newest): peek={history.peek():.3f}, count={len(history)}, is_full={history.is_full()}")
+print("Final current frame (front buffer): {frame.read():.3f}")
+
+#%% Plot the raw noisy samples against the ground truth for context
+t = 0 to N - 1
+plot(t, true_signal, label="true signal", color="black")
+plot(t, noisy_samples, label="noisy sensor sample", color="gray")
+xlabel("Tick")
+ylabel("Value")
+title("Sensor acquisition: fifo history + double-buffered current frame")
+legend()
+show plot

@@ -1,0 +1,50 @@
+# qu_multisine.qu — multisine synthesis with a per-tone figure breakdown.
+#
+# The broadcast-synthesis idiom -- a frequency column against a time row --
+# with a wide log-spaced tone set snapped to DFT bins, plus a `figure()` loop that opens one figure per
+# tone so each sine can be inspected on its own.
+
+backend auto
+
+#%% Setup
+fo = logspace(-2, 3, 64)
+Fs = 5e3
+N = 1000
+df = Fs / N
+dt = 1 / Fs
+
+f = round(fo / df) * df
+f = unique(f)
+K = length(f)
+print("freqs: {f} -> df={df}")
+
+tmeas = N * dt
+t = 0 to (N - 1) * dt step dt
+
+A = ones(K, 1)
+phi = randn(K, 1)
+
+f as vector(K, 1)
+A as vector(K, 1)
+phi as vector(K, 1)
+t as vector(1, N)
+
+#%% Synthesize
+Mt := t as matrix(K, N)
+Mx := A .* cos(2*pi*f .* Mt + phi)
+x = sum(Mx, axis=0)
+
+#%% Plot
+plot(t, x)
+xlabel("Time (s)")
+ylabel("Amplitude")
+grid on
+box on
+show plot
+
+#%% Per-tone figures
+for k = 0 to K - 1
+    figure()
+    plot(t, Mx[k, :])
+    title("Sine {k}")
+end for

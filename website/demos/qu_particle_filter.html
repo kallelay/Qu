@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Particle filter — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Statistics &amp; estimation</p>
+<h1>Particle filter</h1>
+<p class="lede">a GPU-dispatchable particle filter tracking a noisy 1-D constant-velocity target.</p>
+<p class="srcpath">catalog/qu_particle_filter.qu</p>
+<p>Unlike `particle_filter_init` (the fully generic sequential-Monte-Carlo filter, whose transition/likelihood are arbitrary Qu functions by name -- see qu_kalman_tracking.qu's sibling example for that one), `particle_filter` hardcodes a constant-velocity position/velocity motion model. That's a real, deliberate restriction: it turns the predict step into a single matrix multiply (`particles * A^T`, `A` the constant-velocity transition matrix) applied to every particle at once, instead of one interpreter call-back per particle -- which is exactly what makes it eligible for GPU dispatch (`--features gpu` builds route this matmul through the same `qu-gpu`/`gpu_probe` machinery `gpu_matmul` uses, once the particle count clears the measured crossover; see benchmarks/particle_filter_gpu/README.md for the real numbers on this machine -- short version: GPU wins only at particle counts far beyond what a position/velocity tracker realistically needs, so this script's own 800 particles run entirely on the CPU path, and that's the honest, expected outcome, not a missed optimization).</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>particle_filter(n, x0, process_noise=, obs_noise=, spread=, seed=)</li>
+<li>state.move(dt)                    -- the constant-velocity time update</li>
+<li>state.update(observation)          -- Gaussian likelihood + resample</li>
+<li>state.estimate()                   -- weighted-mean [position, velocity]</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Ground truth: constant velocity plus a noisy position-only sensor</h3>
+<pre class="hl"><code><span class="f">seed</span>(<span class="n">3</span>)
+N = <span class="n">80</span>
+dt = <span class="n">0.05</span>
+true_v = <span class="n">1.5</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.4</span> * <span class="f">randn</span>(N)
+</code></pre>
+</section>
+<section class="step">
+<h3>Particle filter: state = [position, velocity], 800 particles</h3>
+<pre class="hl"><code>pf = <span class="f">particle_filter</span>(<span class="n">800</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    pf = pf.<span class="f">move</span>(dt)
+    pf = pf.<span class="f">update</span>([measured[k]])
+    est = pf.<span class="f">estimate</span>()
+    est_pos[k] = est[<span class="n">0</span>]
+    est_vel[k] = est[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, particle filter estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Plot ground truth, raw measurements, and the filtered track</h3>
+<pre class="hl"><code><span class="f">plot</span>(t, true_pos, <span class="a">label</span>=<span class="s">"true position"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, measured, <span class="a">label</span>=<span class="s">"noisy sensor"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(t, est_pos, <span class="a">label</span>=<span class="s">"particle filter estimate"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Position"</span>)
+<span class="f">title</span>(<span class="s">"Constant-velocity particle filter tracking"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>Position RMS error: raw sensor=0.396, particle filter estimate=0.219
+True velocity=1.50, final estimated velocity=1.724</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="498.86" x2="866.00" y2="498.86" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="498.86" x2="86.00" y2="498.86" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="503.34" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="430.37" x2="866.00" y2="430.37" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="430.37" x2="86.00" y2="430.37" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="434.85" font-size="12.8" text-anchor="end" fill="#5a5a5a">1</text>
+<line x1="86.00" y1="361.89" x2="866.00" y2="361.89" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="361.89" x2="86.00" y2="361.89" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="366.37" font-size="12.8" text-anchor="end" fill="#5a5a5a">2</text>
+<line x1="86.00" y1="293.41" x2="866.00" y2="293.41" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="293.41" x2="86.00" y2="293.41" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="297.89" font-size="12.8" text-anchor="end" fill="#5a5a5a">3</text>
+<line x1="86.00" y1="224.92" x2="866.00" y2="224.92" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="224.92" x2="86.00" y2="224.92" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="229.40" font-size="12.8" text-anchor="end" fill="#5a5a5a">4</text>
+<line x1="86.00" y1="156.44" x2="866.00" y2="156.44" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="156.44" x2="86.00" y2="156.44" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="160.92" font-size="12.8" text-anchor="end" fill="#5a5a5a">5</text>
+<line x1="86.00" y1="87.96" x2="866.00" y2="87.96" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="87.96" x2="86.00" y2="87.96" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="92.44" font-size="12.8" text-anchor="end" fill="#5a5a5a">6</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="180.03" y1="48.00" x2="180.03" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="180.03" y1="540.00" x2="180.03" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="180.03" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0.5</text>
+<line x1="274.07" y1="48.00" x2="274.07" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="274.07" y1="540.00" x2="274.07" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="274.07" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.0</text>
+<line x1="368.10" y1="48.00" x2="368.10" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="368.10" y1="540.00" x2="368.10" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="368.10" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">1.5</text>
+<line x1="462.13" y1="48.00" x2="462.13" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="462.13" y1="540.00" x2="462.13" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="462.13" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.0</text>
+<line x1="556.16" y1="48.00" x2="556.16" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="556.16" y1="540.00" x2="556.16" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="556.16" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">2.5</text>
+<line x1="650.20" y1="48.00" x2="650.20" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="650.20" y1="540.00" x2="650.20" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="650.20" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.0</text>
+<line x1="744.23" y1="48.00" x2="744.23" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="744.23" y1="540.00" x2="744.23" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="744.23" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">3.5</text>
+<line x1="838.26" y1="48.00" x2="838.26" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="838.26" y1="540.00" x2="838.26" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="838.26" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">4.0</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="86.00,498.86 95.40,493.72 104.81,488.58 114.21,483.45 123.61,478.31 133.02,473.17 142.42,468.04 151.82,462.90 161.23,457.77 170.63,452.63 180.03,447.49 189.44,442.36 198.84,437.22 208.24,432.09 217.65,426.95 227.05,421.81 236.45,416.68 245.86,411.54 255.26,406.40 264.66,401.27 274.07,396.13 283.47,391.00 292.87,385.86 302.27,380.72 311.68,375.59 321.08,370.45 330.48,365.31 339.89,360.18 349.29,355.04 358.69,349.91 368.10,344.77 377.50,339.63 386.90,334.50 396.31,329.36 405.71,324.22 415.11,319.09 424.52,313.95 433.92,308.82 443.32,303.68 452.73,298.54 462.13,293.41 471.53,288.27 480.94,283.14 490.34,278.00 499.74,272.86 509.15,267.73 518.55,262.59 527.95,257.45 537.36,252.32 546.76,247.18 556.16,242.05 565.57,236.91 574.97,231.77 584.37,226.64 593.78,221.50 603.18,216.36 612.58,211.23 621.99,206.09 631.39,200.96 640.79,195.82 650.20,190.68 659.60,185.55 669.00,180.41 678.41,175.27 687.81,170.14 697.21,165.00 706.61,159.87 716.02,154.73 725.42,149.59 734.82,144.46 744.23,139.32 753.63,134.19 763.03,129.05 772.44,123.91 781.84,118.78 791.24,113.64 800.65,108.50 810.05,103.37 819.45,98.23 828.86,93.10" fill="none" stroke="#000000" stroke-width="1.5"/>
+<polyline points="86.00,516.39 95.40,480.60 104.81,471.37 114.21,496.73 123.61,482.55 133.02,495.58 142.42,476.27 151.82,469.23 161.23,430.66 170.63,440.70 180.03,452.32 189.44,478.16 198.84,434.40 208.24,467.64 217.65,431.79 227.05,413.59 236.45,428.07 245.86,459.12 255.26,424.12 264.66,379.99 274.07,404.69 283.47,397.26 292.87,363.07 302.27,455.64 311.68,396.80 321.08,393.20 330.48,391.52 339.89,338.65 349.29,375.16 358.69,370.67 368.10,308.04 377.50,375.89 386.90,372.63 396.31,331.69 405.71,335.69 415.11,379.57 424.52,330.87 433.92,370.37 443.32,341.97 452.73,292.40 462.13,311.38 471.53,297.86 480.94,269.73 490.34,287.25 499.74,224.60 509.15,273.03 518.55,241.42 527.95,250.93 537.36,223.26 546.76,267.01 556.16,204.03 565.57,273.53 574.97,263.14 584.37,203.98 593.78,265.24 603.18,233.78 612.58,247.59 621.99,200.07 631.39,206.86 640.79,180.25 650.20,228.94 659.60,178.90 669.00,208.42 678.41,218.44 687.81,195.30 697.21,178.98 706.61,153.29 716.02,126.77 725.42,148.96 734.82,207.49 744.23,149.32 753.63,108.71 763.03,137.13 772.44,118.74 781.84,70.36 791.24,96.74 800.65,71.30 810.05,109.73 819.45,88.68 828.86,77.46" fill="none" stroke="#808080" stroke-width="1.5"/>
+<polyline points="86.00,517.64 95.40,498.22 104.81,486.74 114.21,488.96 123.61,485.51 133.02,488.37 142.42,483.27 151.82,477.19 161.23,458.86 170.63,449.29 180.03,445.97 189.44,451.54 198.84,443.20 208.24,446.49 217.65,439.65 227.05,429.61 236.45,425.93 245.86,431.60 255.26,427.01 264.66,411.83 274.07,407.01 283.47,401.39 292.87,388.38 302.27,401.06 311.68,397.40 321.08,393.11 330.48,389.56 339.89,375.66 349.29,372.03 358.69,368.63 368.10,350.22 377.50,353.07 386.90,354.37 396.31,345.78 405.71,339.76 415.11,345.69 424.52,338.84 433.92,343.33 443.32,340.16 452.73,326.16 462.13,319.52 471.53,311.89 480.94,298.91 490.34,292.40 499.74,274.15 509.15,269.47 518.55,259.28 527.95,252.93 537.36,242.38 546.76,242.97 556.16,230.53 565.57,235.03 574.97,237.49 584.37,225.59 593.78,230.20 603.18,226.96 612.58,228.01 621.99,217.81 631.39,211.76 640.79,201.26 650.20,203.23 659.60,194.12 669.00,193.35 678.41,194.85 687.81,191.44 697.21,185.41 706.61,174.76 716.02,160.57 725.42,153.52 734.82,161.10 744.23,154.83 753.63,140.57 763.03,135.73 772.44,127.88 781.84,109.98 791.24,102.27 800.65,90.19 810.05,90.04 819.45,85.07 828.86,78.99" fill="none" stroke="#ff0000" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Constant-velocity particle filter tracking</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Time (s)</text>
+<text x="59.73" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 59.73 294.00)">Position</text>
+<rect x="94.00" y="56.00" width="162.97" height="68.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="101.00" y1="72.00" x2="121.00" y2="72.00" stroke="#000000" stroke-width="2.2"/>
+<text x="127.00" y="75.50" font-size="12" text-anchor="start" fill="#222">true position</text>
+<line x1="101.00" y1="90.00" x2="121.00" y2="90.00" stroke="#808080" stroke-width="2.2"/>
+<text x="127.00" y="93.50" font-size="12" text-anchor="start" fill="#222">noisy sensor</text>
+<line x1="101.00" y1="108.00" x2="121.00" y2="108.00" stroke="#ff0000" stroke-width="2.2"/>
+<text x="127.00" y="111.50" font-size="12" text-anchor="start" fill="#222">particle filter estimate</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_particle_filter.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_particle_filter.qu -- a GPU-dispatchable particle filter tracking a</span>
+<span class="c"># noisy 1-D constant-velocity target.</span>
+<span class="c">#</span>
+<span class="c"># Unlike `particle_filter_init` (the fully generic sequential-Monte-Carlo</span>
+<span class="c"># filter, whose transition/likelihood are arbitrary Qu functions by name --</span>
+<span class="c"># see qu_kalman_tracking.qu's sibling example for that one), `particle_filter`</span>
+<span class="c"># hardcodes a constant-velocity position/velocity motion model. That's a</span>
+<span class="c"># real, deliberate restriction: it turns the predict step into a single</span>
+<span class="c"># matrix multiply (`particles * A^T`, `A` the constant-velocity transition</span>
+<span class="c"># matrix) applied to every particle at once, instead of one interpreter</span>
+<span class="c"># call-back per particle -- which is exactly what makes it eligible for</span>
+<span class="c"># GPU dispatch (`--features gpu` builds route this matmul through the same</span>
+<span class="c"># `qu-gpu`/`gpu_probe` machinery `gpu_matmul` uses, once the particle count</span>
+<span class="c"># clears the measured crossover; see benchmarks/particle_filter_gpu/README.md</span>
+<span class="c"># for the real numbers on this machine -- short version: GPU wins only at</span>
+<span class="c"># particle counts far beyond what a position/velocity tracker realistically</span>
+<span class="c"># needs, so this script's own 800 particles run entirely on the CPU path,</span>
+<span class="c"># and that's the honest, expected outcome, not a missed optimization).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   particle_filter(n, x0, process_noise=, obs_noise=, spread=, seed=)</span>
+<span class="c">#   state.move(dt)                    -- the constant-velocity time update</span>
+<span class="c">#   state.update(observation)          -- Gaussian likelihood + resample</span>
+<span class="c">#   state.estimate()                   -- weighted-mean [position, velocity]</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Ground truth: constant velocity plus a noisy position-only sensor</span>
+<span class="f">seed</span>(<span class="n">3</span>)
+N = <span class="n">80</span>
+dt = <span class="n">0.05</span>
+true_v = <span class="n">1.5</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.4</span> * <span class="f">randn</span>(N)
+
+<span class="c">#%% Particle filter: state = [position, velocity], 800 particles</span>
+pf = <span class="f">particle_filter</span>(<span class="n">800</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    pf = pf.<span class="f">move</span>(dt)
+    pf = pf.<span class="f">update</span>([measured[k]])
+    est = pf.<span class="f">estimate</span>()
+    est_pos[k] = est[<span class="n">0</span>]
+    est_vel[k] = est[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, particle filter estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+
+<span class="c">#%% Plot ground truth, raw measurements, and the filtered track</span>
+<span class="f">plot</span>(t, true_pos, <span class="a">label</span>=<span class="s">"true position"</span>, <span class="a">color</span>=<span class="s">"black"</span>)
+<span class="f">plot</span>(t, measured, <span class="a">label</span>=<span class="s">"noisy sensor"</span>, <span class="a">color</span>=<span class="s">"gray"</span>)
+<span class="f">plot</span>(t, est_pos, <span class="a">label</span>=<span class="s">"particle filter estimate"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
+<span class="f">xlabel</span>(<span class="s">"Time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Position"</span>)
+<span class="f">title</span>(<span class="s">"Constant-velocity particle filter tracking"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+# Both root workspaces (`Qu/Cargo.toml` and each per-worktree copy) already
+# `exclude = ["qu-studio-tauri/src-tauri"]` -- but `exclude` only stops
+# Cargo's upward search from treating THAT Cargo.toml as this crate's
+# workspace; it does not stop the search from continuing past it. Run from
+# inside a Claude Code worktree (`<repo>/.claude/worktrees/<name>/...`,
+# nested under the real repo root rather than a sibling of it), that
+# upward walk continues right past the worktree's own excluding
+# Cargo.toml and lands on the outer repo root's, whose `exclude` entry is
+# relative to ITS OWN tree and so doesn't match this nested path -- Cargo
+# then reports "current package believes it's in a workspace when it's
+# not". An empty `[workspace]` table here is the standard, documented fix:
+# it makes this crate its own single-package workspace root, so the
+# upward search stops immediately and never reaches an ancestor at all --
+# consistent with (and strictly safer than) the `exclude` entries' own
+# already-stated intent, with no effect on a normal, non-nested checkout.
+[workspace]
+
+[package]
+name = "qu-studio"
+version = "0.2.1"
+description = "Qu Studio - Modern IDE for the Qu scientific scripting language"
+authors = ["Qu Language Team"]
+license = "Apache-2.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [ "window-show", "window-set-focus", "window-create", "window-hide", "window-set-title", "window-center", "window-close", "shell-open", "shell-sidecar", "fs-all", "path-all", "dialog-all", "process-all"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+env_logger = "0.11"
+log = "0.4"
+# Only used to base64-encode figure SVG/PNG bytes into `data:` URIs for
+# `ExecuteResponse.plots` -- see `execute_code`/`collect_plot_outputs`.
+base64 = "0.22"
+serialport = "4"
+
+# Qu engine crates - workspace members
+qu-core = { path = "../../qu-core" }
+# Linked directly (not shelled out to `qu check`/`qu parse`) for `check_syntax`
+# -- this runs on every debounced keystroke from CodeEditor.tsx's inline
+# diagnostics, so a subprocess-per-keystroke would be needlessly slow. Safe
+# to link in-process: `qu-syntax` depends on nothing but `qu-lexer` (std
+# only, see its own Cargo.toml), unlike `qu-llm` below which pulls in real
+# weight and is gated behind the `llm` feature for exactly that reason.
+qu-syntax = { path = "../../engine/crates/qu-syntax" }
+
+# Optional, default-OFF "AI core" bridge (mascot chat + inline autocomplete,
+# see IMPL.md's dated entry) -- links `qu-llm` (the local, in-process
+# candle-based LLM primitive, see its own module doc comment) DIRECTLY into
+# this binary rather than shelling out to `qu.exe` per call, which would
+# reload ~669MB of GGUF weights from disk on every single mascot message or
+# autocomplete trigger -- unacceptable latency. `qu-interp` is deliberately
+# NOT the dependency here: this crate has no use for its `Value`/script
+# builtin plumbing, only the bare `load`/`generate` primitive `qu-llm`
+# itself exposes.
+#
+# Cross-workspace path dependency: this crate is excluded from BOTH the
+# repo-root workspace (`exclude = ["qu-studio-tauri/src-tauri"]` in the root
+# Cargo.toml) and `engine`'s own workspace, so it has no `[workspace]`
+# ancestor of its own -- but that's fine. `qu-llm`'s `version.workspace =
+# true`/etc. resolve against the nearest `[workspace]` table found by
+# walking up from ITS OWN manifest (`engine/Cargo.toml`), independent of
+# which package depends on it -- a normal, already-supported Cargo pattern,
+# not something special-cased here.
+qu-llm = { path = "../../engine/crates/qu-llm", optional = true }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+# Off by default -- see `qu-llm`'s own Cargo.toml comment for why
+# (candle + tokenizers + hf-hub is real dependency weight that a normal
+# QuStudio build/user who never touches the mascot or autocomplete should
+# not pay for). Mirrors `qu-cli`'s own `llm` feature, which forwards
+# `qu-interp`'s -- see that crate's Cargo.toml.
+llm = ["dep:qu-llm"]
+
+# Measured (see IMPL.md's dated entry): candle's quantized matmul kernels
+# are drastically slower under a plain unoptimized `cargo build`/`cargo
+# tauri dev` -- multiple minutes for a single-digit number of generated
+# tokens, vs. sub-second per token once optimized. `cargo tauri dev` builds
+# the DEV profile by default, and this crate's own code (Tauri glue,
+# nowhere near numerically hot) is exactly what should stay fast to
+# recompile -- so rather than switching the whole dev workflow to
+# `--release` (slow to rebuild on every edit), this overrides opt-level
+# for every DEPENDENCY (candle-core/-nn/-transformers, gemm*, tokenizers,
+# hf-hub, tauri itself, qu-core, ...) while leaving this crate's own `dev`
+# profile entry (i.e. its own code) alone. This crate is its own standalone
+# Cargo workspace root (excluded from both the repo-root and `engine`
+# workspaces -- see the `qu-llm` dependency's own comment above), so this
+# override is scoped to just this workspace's builds; it does not touch
+# `engine`'s own dev-profile settings.
+[profile.dev.package."*"]
+opt-level = 3

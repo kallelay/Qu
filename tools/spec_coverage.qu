@@ -1,0 +1,192 @@
+# spec_coverage.qu — how much of each spec chapter the engine actually has.
+#
+# The specification is a design document and says so at the top ("Status:
+# Specification first; engine later"). The website renders it as a
+# documentation page, where a reader landing three thousand lines in has no
+# way to tell §36 (built) from §56 (not). This measures the difference so
+# the page can say it.
+#
+# Method: pull every name used in call position inside the chapter's code
+# fences, drop the ones the chapter defines itself, and ask the engine
+# whether it answers to the rest. A chapter whose names are all real is
+# built; one where none are is a sketch.
+#
+#   qu run tools/spec_coverage.qu
+
+SPEC = "docs/qu-language-spec.md"
+IDENT = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+# Words that take a parenthesis but are syntax, not calls.
+KEYWORDS = ("if", "for", "while", "return", "and", "or", "not", "in", "to",
+            "step", "end", "then", "else", "function", "as", "on", "do",
+            "each", "with", "where", "by", "of", "is", "let", "case", "when")
+
+known = builtins()
+
+function is_ident(c)
+    return contains(IDENT, c)
+end function
+
+function known_name(nm)
+    for k in known
+        if k == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+function is_keyword(nm)
+    for k in KEYWORDS
+        if k == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+# Every name immediately followed by `(` on this line.
+function calls_in(line)
+    out = ()
+    tok = ""
+    for i in 0 to len(line) - 1
+        c = substr(line, i, 1)
+        if is_ident(c)
+            tok = tok + c
+        else
+            if c == "(" and len(tok) > 0
+                out = append(out, tok)
+            end if
+            tok = ""
+        end if
+    end for
+    return out
+end function
+
+function seen(xs, nm)
+    for x in xs
+        if x == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+# ── walk the spec ──────────────────────────────────────────────────────
+
+titles = ()
+uses = ()          # one list of distinct names per chapter
+defines = ()       # names the chapter defines itself
+
+title = "(front matter)"
+used = ()
+defined = ()
+in_code = false
+
+for raw in lines(read_all_text(SPEC))
+    line = raw
+    t = trim(line)
+
+    if starts_with(t, "```")
+        in_code = not in_code
+        continue
+    end if
+
+    if not in_code and starts_with(t, "## ")
+        titles = append(titles, title)
+        uses = append(uses, used)
+        defines = append(defines, defined)
+        title = trim(substr(t, 3, len(t) - 3))
+        used = ()
+        defined = ()
+        continue
+    end if
+
+    if not in_code
+        continue
+    end if
+
+    if contains(t, "function ")
+        after_kw = after(t, "function ")
+        nm = ""
+        for i in 0 to len(after_kw) - 1
+            c = substr(after_kw, i, 1)
+            if is_ident(c)
+                nm = nm + c
+            else
+                break
+            end if
+        end for
+        if len(nm) > 0
+            defined = append(defined, nm)
+        end if
+    end if
+
+    for nm in calls_in(line)
+        if not is_keyword(nm) and not seen(used, nm)
+            used = append(used, nm)
+        end if
+    end for
+end for
+
+titles = append(titles, title)
+uses = append(uses, used)
+defines = append(defines, defined)
+
+# ── report ─────────────────────────────────────────────────────────────
+
+print("chapter                                              have  want   %")
+print("--------------------------------------------------------------------")
+
+total_have = 0
+total_want = 0
+sketches = ()
+
+for i in 0 to len(titles) - 1
+    names = uses[i]
+    mine = defines[i]
+    have = 0
+    want = 0
+    missing = ()
+    for nm in names
+        if seen(mine, nm)
+            continue
+        end if
+        want = want + 1
+        if known_name(nm)
+            have = have + 1
+        else
+            missing = append(missing, nm)
+        end if
+    end for
+    if want == 0
+        continue
+    end if
+    total_have = total_have + have
+    total_want = total_want + want
+    pct = round(100 * have / want)
+    label = titles[i]
+    if len(label) > 50
+        label = substr(label, 0, 50)
+    end if
+    while len(label) < 52
+        label = label + " "
+    end while
+    print("{label}{have}    {want}   {pct}")
+    if pct < 50 and want >= 8
+        sketches = append(sketches, titles[i])
+        gone = ""
+        for m in missing
+            gone = gone + m + " "
+        end for
+        print("      absent: " + gone)
+    end if
+end for
+
+print("")
+print("overall: {total_have} of {total_want} names exist")
+print("")
+print("chapters under 25% -- sketches, not documentation:")
+for s in sketches
+    print("  " + s)
+end for

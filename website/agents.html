@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qu for AI agents</title>
+<meta name="description" content="An MCP server that lets an assistant run Qu instead of guessing at it, plus llms.txt, an agent guide, and the language decisions that make mistakes visible.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/agents.css">
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="learn.html">Learn</a>
+    <a href="docs.html">Docs</a>
+    <a href="refs.html">Refs</a>
+    <a href="demos.html">Demos</a>
+    <a href="editors.html">Editors</a>
+    <a href="agents.html" aria-current="page">For AI agents</a>
+    <a href="download.html">Download</a>
+    <a href="changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <h1>Stop guessing. Run it.</h1>
+  <p class="lede">A model writing Qu from memory gets it subtly wrong — a half-open
+  range, a function that does not exist, a keyword spelled the Python way — and
+  nobody finds out until a person runs the script. Qu ships an MCP server so the
+  assistant can check instead: parse it, run it, look up the name, draw the figure
+  and read the labels back.</p>
+  <div class="cta">
+    <a class="btn primary" href="#mcp">Set up the MCP server</a>
+    <a class="btn ghost" href="docs/agent-guide.html">Read the agent guide</a>
+  </div>
+</div></header>
+
+<!-- ── MCP ─────────────────────────────────────────────────────────── -->
+<section id="mcp"><div class="wrap">
+  <p class="eyebrow">Model Context Protocol</p>
+  <h2><code>qu mcp</code></h2>
+  <p class="sub">One command. The server speaks JSON-RPC over stdin and stdout, the
+  standard MCP stdio transport, and it is part of the <code>qu</code> binary — there
+  is nothing else to install, and no separate process to keep in step with the
+  engine you are actually running.</p>
+
+  <h3>Add it to your client</h3>
+  <p>Claude Code, in one line:</p>
+  <pre><code>claude mcp add qu -- qu mcp</code></pre>
+
+  <p>Or the configuration file directly — the same <code>mcpServers</code> block
+  every MCP client uses. For Claude Desktop that is
+  <code>%APPDATA%\Claude\claude_desktop_config.json</code> on Windows and
+  <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> on
+  macOS:</p>
+  <pre><code>{
+  "mcpServers": {
+    "qu": {
+      "command": "qu",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+
+  <p>If <code>qu</code> is not on the path, give the full path to the binary
+  instead. Restart the client; the tools appear under <strong>qu</strong>.</p>
+
+  <h3>The tools</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Tool</th><th>What it settles</th></tr></thead>
+    <tbody>
+      <tr><td><code>qu_eval</code></td>
+        <td>Runs Qu source and returns everything it printed. Printing the shape or
+        the first few values of a result costs one call and settles the question
+        that would otherwise be answered by assertion.</td></tr>
+      <tr><td><code>qu_check</code></td>
+        <td>Parses without executing and returns diagnostics with line and column.
+        Cheaper than running, and safe on code with side effects. It catches the
+        structural mistakes — a missing <code>end for</code>, a Python-style colon —
+        but not undefined names, which are a runtime error in Qu.</td></tr>
+      <tr><td><code>qu_builtins</code></td>
+        <td>Searches the engine's own dispatch table. This is the authority on
+        whether a function exists: the table is the one the interpreter dispatches
+        on, not a list in a document. A model that checks here does not hallucinate
+        an API.</td></tr>
+      <tr><td><code>qu_docs</code></td>
+        <td>Reads a documentation page, optionally filtered to the sections that
+        mention a term. Sixteen pages are compiled into the binary, so this works
+        nowhere near a checkout.</td></tr>
+      <tr><td><code>qu_figure</code></td>
+        <td>Runs Qu that draws and returns the figure as SVG. The axis labels, tick
+        values and legend text come back as text, so a model can verify a plot
+        contains what it intended rather than hoping.</td></tr>
+      <tr><td><code>qu_run_file</code></td>
+        <td>Runs a <code>.qu</code> file from disk, with arguments reaching the
+        script as <code>argv()</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>The documentation is also exposed as MCP <em>resources</em> under
+  <code>qu://docs/…</code>, for clients that browse resources rather than call
+  tools.</p>
+</div></section>
+
+<!-- ── safety ──────────────────────────────────────────────────────── -->
+<section class="alt"><div class="wrap">
+  <h2>What it is allowed to do</h2>
+  <p class="sub">A model will write <code>while true</code> sooner or later. The
+  server is built so that this is uninteresting when it happens.</p>
+
+  <div class="cards">
+    <div><p class="eyebrow">Isolated</p><h3>A process per call</h3>
+      <p>Evaluating in-process would save a few milliseconds and give up the three
+      properties that matter: a hard wall-clock limit, a hard memory limit, and
+      surviving a script that aborts. <code>qu run</code> already implements all
+      three as flags, so the server spends a process and gets them.</p></div>
+    <div><p class="eyebrow">Sandboxed by default</p><h3>No network, no writes</h3>
+      <p>Calls run under <code>--sandbox</code>, which denies the network,
+      process-spawning and file-writing builtins at the moment they are called —
+      not by static analysis, which can be talked around.</p></div>
+    <div><p class="eyebrow">Bounded</p><h3>30 seconds, 2 GB</h3>
+      <p>Both adjustable. A run that exceeds either is killed with a message
+      naming which limit it hit, so the model learns something rather than
+      waiting.</p></div>
+  </div>
+
+  <p>Figures come back without lifting the sandbox: <code>qu_figure</code> is
+  written by the CLI rather than by the script, so a sandboxed script that never
+  calls <code>savefig</code> still produces one.</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--allow-write</td>
+        <td>Lifts the sandbox. Needed only if you want scripts to save their own
+        files.</td></tr>
+      <tr><td class="mono">--timeout &lt;s&gt;</td><td>Wall-clock limit per call. Default 30.</td></tr>
+      <tr><td class="mono">--memory &lt;MB&gt;</td><td>Memory limit per call. Default 2048.</td></tr>
+      <tr><td class="mono">--root &lt;dir&gt;</td>
+        <td>Confines <code>qu_run_file</code> to one directory. A path outside it is
+        refused by name rather than clamped — silently running a different file than
+        the one asked for is worse than saying no.</td></tr>
+    </tbody>
+  </table></div>
+
+  <pre><code>qu mcp --root ./analysis --timeout 60 --allow-write</code></pre>
+</div></section>
+
+<!-- ── the six rules ───────────────────────────────────────────────── -->
+<section><div class="wrap">
+  <h2>The six rules</h2>
+  <p class="sub">The server hands these to the client during <code>initialize</code>,
+  so a model has them before it writes a line. They are not the interesting parts of
+  the language — they are the places Qu differs from what you would assume from
+  Python or MATLAB, which is a different list.</p>
+
+  <ol class="rules">
+    <li><strong>Every range includes both ends.</strong> <code>0 to 9</code> is ten
+      values, and so is a slice: <code>v[0:4]</code> is five elements,
+      <code>M[0:1, :]</code> is two rows. <code>v[0:n]</code> is <em>n+1</em>
+      elements; the first <em>n</em> are <code>v[0:n - 1]</code>.</li>
+    <li><strong>Indices start at zero.</strong> The last of a thousand is
+      <code>v[999]</code>.</li>
+    <li><strong><code>*</code> and <code>^</code> are matrix operations.</strong>
+      Element-by-element is <code>.*</code> and <code>.^</code>. On two vectors of
+      the same length <code>*</code> is an error, not a product.</li>
+    <li><strong><code>as matrix(r, c)</code> fills by column.</strong> This one is
+      silent: you get a matrix, just not the one you meant.</li>
+    <li><strong>An unread keyword argument is an error</strong>, with the nearest
+      real name suggested. <code>colour=</code> does not quietly do nothing.</li>
+    <li><strong>Blocks close with a word</strong> — <code>end if</code>,
+      <code>end for</code>, <code>end function</code>. Indentation carries no
+      meaning.</li>
+  </ol>
+
+  <p>Two more worth knowing: assignment inside a function is local unless the
+  function says <code>global name</code>, and <code>()</code> is the empty list.</p>
+</div></section>
+
+<!-- ── without MCP ─────────────────────────────────────────────────── -->
+<section class="alt"><div class="wrap">
+  <h2>Without a server</h2>
+  <p class="sub">Three files, in the order they are worth reading.</p>
+  <div class="cards">
+    <div><p class="eyebrow">The important one</p><h3>Agent guide</h3>
+      <p>Every place Qu differs from what a model would assume, each with the error
+      message the wrong assumption produces. It is the set of mistakes actually made
+      porting scientific code to Qu, in the order they cost time.</p>
+      <p class="go"><a href="docs/agent-guide.html">Read it &rarr;</a></p></div>
+    <div><p class="eyebrow">Authoritative</p><h3>Builtin index</h3>
+      <p>Generated from the interpreter's own table. If a name is not there, the
+      engine does not have it — whatever any other document says.</p>
+      <p class="go"><a href="refs.html">Search the names &rarr;</a></p></div>
+    <div><p class="eyebrow">/llms.txt</p><h3>The map</h3>
+      <p>Follows the <code>llms.txt</code> convention: a short description and an
+      ordered set of links, so a model can find the right document without crawling
+      the site.</p>
+      <p class="go"><a href="../llms.txt">Open &rarr;</a></p></div>
+  </div>
+</div></section>
+
+<!-- ── why it works ────────────────────────────────────────────────── -->
+<section><div class="wrap">
+  <h2>Why the language cooperates</h2>
+  <p class="sub">These were decided for people. They happen to matter more for a
+  model, which cannot look at a figure and notice it is wrong.</p>
+  <div class="cards">
+    <div><p class="eyebrow">No silent drop</p><h3>Keywords are validated</h3>
+      <p>Tracked from the code itself rather than a table, so it cannot drift. A
+      guessed argument name is refused immediately, not three figures later.</p></div>
+    <div><p class="eyebrow">No spooky action</p><h3>Calls cannot reach out</h3>
+      <p>A function cannot write to its caller's variables. Generated helper code
+      cannot corrupt the surrounding script by reusing a common name.</p></div>
+    <div><p class="eyebrow">No hallucinated API</p><h3>The index is generated</h3>
+      <p>The list of functions comes from the interpreter's own table, and
+      <code>available("part")</code> searches it from inside a running program.</p></div>
+  </div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Assumption</th><th>What Qu does</th><th>What you see</th></tr></thead>
+    <tbody>
+      <tr><td>Ranges are half-open</td><td><code>0 to 9</code> is ten values, both ends</td>
+          <td class="mono">index 100000 is outside 0..99999</td></tr>
+      <tr><td>Slices are half-open</td><td>they include both ends too</td>
+          <td>no error &mdash; one element too many</td></tr>
+      <tr><td><code>as matrix</code> fills by rows</td><td>it fills by columns</td>
+          <td>no error &mdash; a different matrix</td></tr>
+      <tr><td><code>*</code> is elementwise</td><td><code>*</code> is matmul,
+          <code>.*</code> is elementwise</td><td>no error &mdash; a blank field</td></tr>
+      <tr><td>An unknown keyword is ignored</td><td>it is an error</td>
+          <td class="mono">unknown keyword argument `colour=`</td></tr>
+      <tr><td><code>"\tau"</code> is a backslash</td><td>it is a tab</td>
+          <td>a label reading <em>au</em></td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Three of those six produce no error at all. That is the argument
+  for running the code rather than reading it.</p>
+</div></section>
+
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>
+    <a href="index.html">Home</a> &nbsp; <a href="docs.html">Docs</a> &nbsp;
+    <a href="refs.html">Refs</a> &nbsp; <a href="demos.html">Demos</a> &nbsp;
+    <a href="download.html">Download</a>
+  </div>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

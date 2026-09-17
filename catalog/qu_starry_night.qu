@@ -1,0 +1,246 @@
+# qu_starry_night.qu — an animated Starry Night, drawn entirely in Qu.
+#
+# Not a demonstration of a plotting library so much as of what falls out of
+# one when the primitives are right. Everything here is `polygon`, `circle`,
+# `ellipse` and `arc` on a panel with equal axes, coloured through `hsv` and
+# `lab`, and animated by `animate`, which calls one function per frame and
+# writes the sequence as a single SVG.
+#
+# THE PARTS
+#
+#   - The sky is a Perlin-like value-noise field, contoured. Van Gogh's sky
+#     is not random: it is a few large flows with smaller eddies inside
+#     them, which is exactly what summing octaves of noise produces.
+#   - The swirls are logarithmic spirals, r = a*exp(b*theta), because that
+#     is the curve his brush actually follows and because it is one line of
+#     maths rather than a traced path.
+#   - The stars are concentric circles with a halo, drawn in HSV so that
+#     "the same star, brighter" is one number.
+#   - The cypress is a polygon whose silhouette is generated from noise,
+#     so it is different every time the seed changes rather than a shape
+#     someone typed in.
+#
+# WHY IT MOVES. The sky rotates the noise field's phase, the swirls advance
+# along their own arc, and the stars pulse on independent periods. All three
+# are functions of the frame number, so the animation is deterministic:
+# frame 40 always looks the same.
+#
+# Exercises:
+#   animate("frame", n, path, fps=)   — one figure per frame, one SVG out
+#   polygon / circle / ellipse / arc  — the whole drawing surface
+#   hsv / lab / palette               — colour picked in a space that suits
+#   randn(n, seed=)                   — reproducible texture
+
+backend auto
+
+SEED = 11
+FRAMES = 48
+W = 16.0
+H = 10.0
+
+# ── the noise field ─────────────────────────────────────────────────────
+#
+# Value noise: a coarse random lattice, smoothly interpolated. Summing a few
+# octaves at halving amplitude gives the "large flows with eddies inside"
+# structure a night sky has and pure randomness does not.
+
+GRID = 12
+lattice = randn(GRID * GRID, seed = SEED)
+
+function smooth(t)
+    # The smoothstep polynomial. Linear interpolation between lattice
+    # points leaves visible creases along the grid lines; this has zero
+    # first derivative at both ends, so the field is continuous in slope.
+    return t * t * (3.0 - 2.0 * t)
+end function
+
+function noise_at(x, y)
+    # Wrap so the field is seamless, which matters because the animation
+    # loops.
+    gx = x - GRID * floor(x / GRID)
+    gy = y - GRID * floor(y / GRID)
+    x0 = floor(gx)
+    y0 = floor(gy)
+    x1 = x0 + 1 - GRID * floor((x0 + 1) / GRID)
+    y1 = y0 + 1 - GRID * floor((y0 + 1) / GRID)
+    fx = smooth(gx - x0)
+    fy = smooth(gy - y0)
+    a = lattice[y0 * GRID + x0]
+    b = lattice[y0 * GRID + x1]
+    c = lattice[y1 * GRID + x0]
+    d = lattice[y1 * GRID + x1]
+    top = a + (b - a) * fx
+    bot = c + (d - c) * fx
+    return top + (bot - top) * fy
+end function
+
+function turbulence(x, y)
+    # Three octaves. Four is not visibly better at this figure size and
+    # costs a third more work per frame.
+    return noise_at(x, y) + 0.5 * noise_at(x * 2, y * 2) + 0.25 * noise_at(x * 4, y * 4)
+end function
+
+# ── the sky ─────────────────────────────────────────────────────────────
+
+function sky(phase)
+    # Bands of colour following the noise field. Drawn as polygons rather
+    # than a contour call because each band wants its own hue, and a
+    # contour would give them all one colormap.
+    steps = 26
+    for k in -1 to steps + 1
+        u = k / steps
+        # Deep midnight at the top, teal toward the horizon. Walking hue
+        # and value together in HSV keeps every band the same weight, which
+        # is what stops a gradient looking striped.
+        hue = 228 - 26 * u
+        sat = 0.72 - 0.12 * u
+        val = 0.20 + 0.34 * u
+        band = hsv(hue, sat, val)
+
+        xs = ()
+        ys = ()
+        cols = 40
+        for i in 0 to cols
+            x = W * i / cols
+            n = turbulence(x * 0.75 + phase, u * 6.0 + phase * 0.4)
+            xs = append(xs, x)
+            ys = append(ys, H * u + 0.42 * n)
+        end for
+        # Close the band downward into the one below it.
+        for i in cols to 0 step -1
+            x = W * i / cols
+            n = turbulence(x * 0.75 + phase, (u + 1.0 / steps) * 6.0 + phase * 0.4)
+            xs = append(xs, x)
+            ys = append(ys, H * (u + 1.0 / steps) + 0.42 * n)
+        end for
+        polygon(xs, ys, fill = band, alpha = 1.0)
+    end for
+end function
+
+# ── the swirls ──────────────────────────────────────────────────────────
+
+function swirl(cx, cy, scale, turns, phase, tint)
+    # A logarithmic spiral, r = a*exp(b*theta). Van Gogh's brush follows
+    # this curve; a circle does not, and an Archimedean spiral opens too
+    # evenly to read as motion.
+    xs = ()
+    ys = ()
+    n = 90
+    for i in 0 to n
+        th = turns * 2 * pi * i / n + phase
+        r = scale * exp(0.14 * th)
+        xs = append(xs, cx + r * cos(th))
+        ys = append(ys, cy + r * sin(th))
+    end for
+    # Two strokes: a wide dim one under a narrow bright one. That is how a
+    # brush loaded with two tones actually lands, and it is what makes the
+    # line read as paint rather than as a plot.
+    plot(xs, ys, color = tint, width = 5.0, alpha = 0.30)
+    plot(xs, ys, color = hsv(48, 0.55, 0.98), width = 1.6)
+end function
+
+# ── the stars ───────────────────────────────────────────────────────────
+
+function star(cx, cy, size, glow)
+    # A halo and a core. The halo is what makes a star read as light rather
+    # than as a dot, and drawing it as three rings rather than one gradient
+    # keeps the file small.
+    for k in 3 to 1 step -1
+        r = size * k * 0.9
+        a = 0.10 * glow / k
+        circle(cx, cy, r, fill = hsv(52, 0.45, 1.0), alpha = a, width = 0.2)
+    end for
+    circle(cx, cy, size * 0.42, fill = hsv(50, 0.22, 1.0), alpha = 1.0)
+end function
+
+# ── the cypress ─────────────────────────────────────────────────────────
+
+function cypress(base_x, phase)
+    # A silhouette generated from the noise field rather than typed, so it
+    # is a different tree for a different seed. It sways: the displacement
+    # grows with height, which is how a tree actually moves.
+    xs = ()
+    ys = ()
+    n = 34
+    for i in 0 to n
+        u = i / n
+        y = H * 1.02 * u
+        wobble = 0.30 * turbulence(u * 5.0, phase * 0.5)
+        sway = 0.16 * sin(phase * 2 + u * 2.2) * u * u
+        width = 1.15 * (1.0 - u) ^ 0.65
+        xs = append(xs, base_x + sway + wobble * 0.4 - width)
+        ys = append(ys, y)
+    end for
+    for i in n to 0 step -1
+        u = i / n
+        y = H * 1.02 * u
+        wobble = 0.30 * turbulence(u * 5.0 + 3.0, phase * 0.5)
+        sway = 0.16 * sin(phase * 2 + u * 2.2) * u * u
+        width = 1.15 * (1.0 - u) ^ 0.65
+        xs = append(xs, base_x + sway + wobble * 0.4 + width)
+        ys = append(ys, y)
+    end for
+    dark = lab(11, 6, -4)
+    polygon(xs, ys, fill = dark, alpha = 1.0)
+end function
+
+# ── the village ─────────────────────────────────────────────────────────
+
+function village()
+    ground = lab(14, -3, -6)
+    polygon((0, W, W, 0), (0, 0, 1.5, 1.2), fill = ground, alpha = 1.0)
+    # A handful of roofs and one lit window each.
+    for k in 0 to 6
+        x = 3.4 + k * 1.7
+        w = 0.55
+        h = 0.55 + 0.28 * turbulence(k * 2.0, 1.0)
+        wall = lab(17, 2, -3)
+        polygon((x - w, x + w, x + w, x - w), (0.9, 0.9, 0.9 + h, 0.9 + h),
+                fill = wall, alpha = 1.0)
+        polygon((x - w - 0.16, x + w + 0.16, x), (0.9 + h, 0.9 + h, 1.35 + h),
+                fill = wall, alpha = 1.0)
+        lit = hsv(46, 0.72, 0.95)
+        rect(x - 0.13, 1.05, x + 0.13, 1.05 + 0.22, color = lit)
+    end for
+    # The steeple, because the composition needs one vertical.
+    spire = lab(9, 1, -5)
+    polygon((7.6, 8.4, 8.4, 7.6), (0.9, 0.9, 2.6, 2.6), fill = spire, alpha = 1.0)
+    polygon((7.5, 8.5, 8.0), (2.6, 2.6, 4.4), fill = spire, alpha = 1.0)
+end function
+
+# ── one frame ───────────────────────────────────────────────────────────
+
+function frame(i)
+    phase = 2 * pi * i / FRAMES
+
+    figure_size(1100, 690)
+    xlim(0, W)
+    ylim(0, H)
+    theme("bw")
+
+    sky(0.35 * phase)
+
+    # Three swirls, each on its own period so the sky never repeats a pose.
+    swirl(4.6, 7.4, 0.30, 1.55, phase, hsv(210, 0.55, 0.80))
+    swirl(9.8, 8.2, 0.22, 1.30, -phase * 0.8 + 1.1, hsv(196, 0.50, 0.85))
+    swirl(13.2, 6.3, 0.17, 1.10, phase * 1.3 + 2.4, hsv(224, 0.58, 0.72))
+
+    # Stars pulse on coprime periods, so no two are ever in step.
+    star(2.0, 8.6, 0.24, 0.8 + 0.5 * sin(phase * 3))
+    star(6.9, 9.1, 0.20, 0.8 + 0.5 * sin(phase * 5 + 1.0))
+    star(11.4, 9.3, 0.26, 0.8 + 0.5 * sin(phase * 2 + 2.0))
+    star(14.6, 8.1, 0.18, 0.8 + 0.5 * sin(phase * 7 + 0.5))
+    star(8.4, 6.6, 0.15, 0.8 + 0.5 * sin(phase * 4 + 3.0))
+    # The moon, larger and steady.
+    star(14.0, 9.0, 0.55, 1.4)
+
+    village()
+    cypress(1.5, phase)
+
+    axis off
+end function
+
+#%% Draw it
+print("rendering {FRAMES} frames...")
+animate("frame", FRAMES, "starry_night.svg", fps = 16)
+print("open starry_night.svg in a browser -- it loops on its own, no script")

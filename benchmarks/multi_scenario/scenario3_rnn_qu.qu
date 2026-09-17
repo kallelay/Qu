@@ -1,0 +1,90 @@
+# scenario3_rnn_qu.qu -- Scenario 3 (Sequence/RNN), Qu side.
+#
+# 3-class synthetic sequence task (rising ramp / falling ramp / oscillating),
+# length T=20, input_size=1, 144 train / 36 test (see
+# scenario3_rnn_make_dataset.py) -- an extension of `simple_rnn_classifier`'s
+# own 2-class rising-vs-falling ramp acceptance test
+# (`engine/crates/qu-interp/tests/acceptance.rs`) to 3 classes and a real
+# "few hundred samples" scale.
+#
+# Uses the model-zoo `simple_rnn_classifier(input_size, hidden_size,
+# n_classes, seed=)` constructor: `gru_init`'s 9-tensor GRU weights plus a
+# dense softmax-ready readout on the LAST hidden state. PyTorch/Keras sides
+# build the matching architecture by hand: `nn.GRU(1, hidden_size)`/
+# `layers.GRU(hidden_size)` + a `Linear`/`Dense(n_classes)` readout on the
+# GRU's final hidden state.
+#
+# Data loading: input_size=1 means each sequence is naturally one row of T
+# numbers, so (unlike Scenario 2's images) no vertical-stacking trick is
+# needed -- `rnn_{train,test}_sequences.csv` is a plain (n, T) headerless
+# CSV, read with `read_csv(..., headers=false)`, assembled into one (n, T)
+# matrix via `hstack`, then each sequence is pulled out with `Xall[i, :]`
+# (which returns a plain Vec, not a 1xT Mat -- confirmed: `rows()`/`cols()`
+# on a single-row slice report the VECTOR's own length/1, not 1/T) and cast
+# to the `(1, T)` Mat `gru_forward` expects via `... as matrix(1, T)`, the
+# exact idiom the acceptance test's own `make_seq` helper uses.
+#
+# Run: qu run benchmarks/multi_scenario/scenario3_rnn_qu.qu
+# (or the prebuilt release binary: engine/target/release/qu.exe run benchmarks/multi_scenario/scenario3_rnn_qu.qu)
+
+backend auto
+
+DATA = "benchmarks/multi_scenario/"
+T = 20
+N_CLASSES = 3
+HIDDEN = 8
+EPOCHS = 200
+LR = 0.3
+
+function load_sequences(path, t)
+    df = read_csv(path, headers=false)
+    n = nrow(df)
+    Xall = hstack(reshape(df.col1, n, 1), reshape(df.col2, n, 1), reshape(df.col3, n, 1), reshape(df.col4, n, 1), reshape(df.col5, n, 1), reshape(df.col6, n, 1), reshape(df.col7, n, 1), reshape(df.col8, n, 1), reshape(df.col9, n, 1), reshape(df.col10, n, 1), reshape(df.col11, n, 1), reshape(df.col12, n, 1), reshape(df.col13, n, 1), reshape(df.col14, n, 1), reshape(df.col15, n, 1), reshape(df.col16, n, 1), reshape(df.col17, n, 1), reshape(df.col18, n, 1), reshape(df.col19, n, 1), reshape(df.col20, n, 1))
+    first = Xall[0, :] as matrix(1, t)
+    sequences = (first,)
+    for i = 1 to n - 1
+        row = Xall[i, :] as matrix(1, t)
+        sequences = append(sequences, row)
+    end for
+    return sequences
+end function
+
+seq_tr = load_sequences(DATA + "rnn_train_sequences.csv", T)
+seq_te = load_sequences(DATA + "rnn_test_sequences.csv", T)
+lab_tr = read_csv(DATA + "rnn_train_labels.csv")
+lab_te = read_csv(DATA + "rnn_test_labels.csv")
+ytr = lab_tr.y
+yte = lab_te.y
+n = length(seq_tr)
+nte = length(seq_te)
+print("train {n} sequences len {T}, test {nte} sequences")
+
+# =============================================================================
+# THE ENTIRE MODEL: simple_rnn_classifier(...) + net.fit(...).
+# =============================================================================
+net = simple_rnn_classifier(1, HIDDEN, N_CLASSES, seed=13)
+
+tic()
+trained = net.fit(seq_tr, ytr, epochs=EPOCHS, lr=LR)
+train_time = toc()
+# =============================================================================
+
+losses = trained.loss_history
+print("first_loss={losses[0]:.6f}  last_loss={losses[EPOCHS - 1]:.6f}")
+print("train_time_s={train_time:.4f}  per_epoch_ms={1000 * train_time / EPOCHS:.4f}")
+
+function accuracy(net, seqs, y, rows)
+    logits = net.predict(seqs)
+    correct = 0
+    for i = 0 to rows - 1
+        row = logits[i, :]
+        if argmax(row) == y[i] then
+            correct = correct + 1
+        end if
+    end for
+    return correct / rows
+end function
+
+train_acc = accuracy(trained, seq_tr, ytr, n)
+test_acc = accuracy(trained, seq_te, yte, nte)
+print("train_accuracy={train_acc:.4f}  test_accuracy={test_acc:.4f}")

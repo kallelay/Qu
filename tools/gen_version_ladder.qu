@@ -1,0 +1,939 @@
+# Generate the maturity ladder: every function the engine has, and how
+# proven it is.
+#
+# WHY THIS IS COMPUTED AND NOT WRITTEN
+#
+# The ladder has GATES, not just labels. Alpha++ asks for a measured
+# performance comparison; RC asks that no private material leaks. A gate
+# that nothing checks is this repo's most common defect -- declared and
+# not honoured. So the evidence is scraped from the tree on every run,
+# and a rung nothing supports is reported rather than believed.
+#
+# WHAT A MACHINE MAY AND MAY NOT DECIDE
+#
+# Evidence can show that a function is exercised and measured. It cannot
+# show that a person tried it with awkward inputs and was satisfied. So
+# this tool assigns AT MOST 0.1.0-4.aplus on its own. Beta, RC and Public
+# require a signed row in versions/ladder.tsv -- Ahmed's signature, with
+# a date and what was actually tried. Functions whose evidence has
+# outrun their signature are listed as a review queue, which is a
+# worklist rather than a claim.
+#
+# Run:  qu run tools/gen_version_ladder.qu
+# Out:  All_functions_and_Features.md
+#       Garbage.txt
+
+SRC     = "engine/crates/qu-interp/src/lib.rs"
+LADDER  = "versions/ladder.tsv"
+GARBAGE = "versions/garbage.tsv"
+ASPIRE  = "versions/aspire.tsv"
+TRIAGE  = "versions/triage.tsv"
+OUT_MD  = "All_functions_and_Features.md"
+OUT_GB  = "Garbage.txt"
+
+BT = substr("`x", 0, 1)
+TAB = "\t"
+
+# -- the universe: what the engine will actually answer to --------------
+#
+# Scraped from the interpreter's own table, so this cannot claim a
+# function the engine lacks nor omit one it has. Same door as
+# tools/gen_builtin_index.qu, deliberately.
+
+function names_between(text, marker)
+    at = index_of(text, marker)
+    if at < 0
+        return ()
+    end if
+    body = substr(text, at, len(text) - at)
+    body = substr(body, 0, index_of(body, "];"))
+    open_at = index_of(body, "&[")
+    body = substr(body, open_at + 2, len(body) - open_at - 2)
+    out = ()
+    parts = split(body, "\"")
+    i = 1
+    while i < len(parts)
+        if len(parts[i]) > 0
+            out = append(out, parts[i])
+        end if
+        i = i + 2
+    end while
+    return out
+end function
+
+src_text = read_all_text(SRC)
+names = names_between(src_text, "pub const BUILTIN_NAMES")
+print("{len(names)} builtins in the engine")
+
+# -- the corpora --------------------------------------------------------
+#
+# Each corpus answers one question, and the questions are different:
+#   docs      -- is it described where a reader would look?
+#   tests     -- does anything execute it?
+#   bench     -- has its speed been measured against something?
+#   examples  -- has anyone written real code with it?
+#   private   -- does unpublishable material mention it? (an RC gate)
+#
+# The test corpus is the tests/ directories PLUS the #[cfg(test)] region
+# of the interpreter, which is where most of the tests actually live --
+# reading only tests/ would report almost everything as untested, which
+# is the "check that never reached its subject" shape this tool exists
+# to prevent.
+
+function walk(dir, exts)
+    out = ()
+    if not dir_exists(dir)
+        return out
+    end if
+    for entry in list_dir(dir)
+        path = dir + "/" + entry
+        if dir_exists(path)
+            for child in walk(path, exts)
+                out = append(out, child)
+            end for
+        else
+            for ext in exts
+                if ends_with(entry, ext)
+                    out = append(out, path)
+                end if
+            end for
+        end if
+    end for
+    return out
+end function
+
+function test_region_of_interp()
+    at = index_of(src_text, "#[cfg(test)]")
+    if at < 0
+        return ""
+    end if
+    return substr(src_text, at, len(src_text) - at)
+end function
+
+CODE = (".rs", ".qu", ".py", ".m")
+DOC  = (".md", ".markdown")
+
+docs_files = ()
+for f in walk("book/src/stdlib", DOC)
+    # The builtin index lists every name by construction; counting it
+    # would report the whole language as documented.
+    if not contains(f, "builtin-index")
+        docs_files = append(docs_files, f)
+    end if
+end for
+
+test_files = ()
+for d in ("engine/crates/qu-interp/tests", "engine/crates/qu-cli/tests", "tests")
+    for f in walk(d, CODE)
+        test_files = append(test_files, f)
+    end for
+end for
+
+# Only Qu benchmarks. benchmarks/ holds 41 .qu files beside 50 .py and
+# 20 .m, and scanning all three identically made a NumPy script's own
+# `print()` count as evidence about QU's `print` -- 357 of its former
+# benchmark hits were Python's. Worse, 41 functions held Alpha++ without
+# a single Qu benchmark calling them: the rung says "measured against
+# MATLAB" and what had been established was that MATLAB has a function
+# of that name. The .py and .m files are the thing being compared
+# AGAINST; they are not evidence about Qu.
+QU_ONLY = (".qu", ".QU")
+bench_files = walk("benchmarks", QU_ONLY)
+
+# Qu examples only, for the same reason and with a sharper edge:
+# example_codes/ is 175 MATLAB files and ZERO Qu files, so before this
+# every one of its call sites was evidence about MATLAB filed under
+# Qu's name. `abs` showed 1487 examples and `plot` 1001; almost all of
+# it was the language being compared against. What survives is
+# catalog/, which is 100 .qu files and no MATLAB.
+example_files = ()
+for d in ("catalog", "example_codes")
+    for f in walk(d, QU_ONLY)
+        example_files = append(example_files, f)
+    end for
+end for
+
+private_files = walk("private", CODE)
+
+print("corpora: {len(docs_files)} doc, {len(test_files)} test, {len(bench_files)} bench, {len(example_files)} example, {len(private_files)} private files")
+
+# -- counting call sites ------------------------------------------------
+#
+# A bare word is not evidence: `add`, `all`, `box` and `min` are ordinary
+# English and ordinary Rust. A CALL is evidence, so the token counted is
+# a name immediately followed by an opening bracket. Splitting on the
+# bracket and reading backwards off each piece walks the text once
+# rather than searching it once per name.
+
+# `.` is NOT in IDENT. An earlier version included it, to stop Rust's
+# `.len(` and `.sum(` counting as Qu calls -- but that also swallowed the
+# receiver, so `lp.pzplot(` tokenised as `lp.pzplot` and matched nothing,
+# and every test written in Qu's method syntax was invisible. The
+# character before the token is now inspected instead, which separates
+# the three cases the old reading confused.
+IDENT = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+BS = chr(92)
+
+function trailing_ident(s)
+    n = len(s)
+    i = n
+    while i > 0
+        c = substr(s, i - 1, 1)
+        if (index_of(IDENT, c) ?? -1) < 0
+            break
+        end if
+        i = i - 1
+    end while
+    if i >= n
+        return ""
+    end if
+    return substr(s, i, n - i)
+end function
+
+# Counts land under "f:name" for a plain call and "d:name" for a call
+# written with a receiver. They are kept apart rather than added: a
+# dotted call in a .rs file is ambiguous -- `v.len(` is Rust's own method
+# and `x.mean(` inside an embedded Qu program is a real Qu call, and the
+# preceding character cannot tell them apart. Folding them together would
+# invent test coverage; dropping them silently hid it. So they are
+# counted, shown, and kept out of the rung.
+function count_into(counts, text, known)
+    parts = split(text, "(")
+    for k in 0 to len(parts) - 2
+        s = parts[k]
+        nm = trailing_ident(s)
+        if len(nm) == 0
+            continue
+        end if
+        at = len(s) - len(nm)
+        before = ""
+        if at > 0
+            before = substr(s, at - 1, 1)
+        end if
+        # `Matrix::zeros(` is host Rust reaching its own constructor, not
+        # a test of Qu's `zeros`. Before this check it counted as one.
+        if before == ":"
+            continue
+        end if
+        # Tests embed Qu programs inside Rust string literals, where a
+        # newline is the two characters `\` and `n`. A call at the start
+        # of such a line reads as `\nplot(`, and walking back over it
+        # yields `nplot`, which matches nothing -- so the most common
+        # shape in the whole test corpus was being discarded.
+        if before == BS and len(nm) > 1
+            first = substr(nm, 0, 1)
+            if first == "n" or first == "t" or first == "r"
+                nm = substr(nm, 1, len(nm) - 1)
+                before = ""
+            end if
+        end if
+        if not has_key(known, nm)
+            continue
+        end if
+        key = "f:" + nm
+        if before == "."
+            key = "d:" + nm
+        end if
+        counts = set(counts, key, get(counts, key) + 1)
+    end for
+    return counts
+end function
+
+known = dict()
+for nm in names
+    known = set(known, nm, true)
+end for
+
+function fresh_counts()
+    c = dict()
+    for nm in names
+        c = set(c, "f:" + nm, 0)
+        c = set(c, "d:" + nm, 0)
+    end for
+    return c
+end function
+
+# Plain calls -- the only kind a rung is allowed to rest on.
+function flat(c, nm)
+    return get(c, "f:" + nm)
+end function
+
+# Receiver-syntax calls -- reported, never promoted on.
+function dotted(c, nm)
+    return get(c, "d:" + nm)
+end function
+
+function scan(files, extra_text)
+    c = fresh_counts()
+    for f in files
+        c = count_into(c, read_all_text(f), known)
+    end for
+    if len(extra_text) > 0
+        c = count_into(c, extra_text, known)
+    end if
+    return c
+end function
+
+print("scanning...")
+n_docs     = scan(docs_files, "")
+n_tests    = scan(test_files, test_region_of_interp())
+n_bench    = scan(bench_files, "")
+n_examples = scan(example_files, "")
+n_private  = scan(private_files, "")
+
+# A chapter may name a function in prose or a table cell without a call
+# shape -- a backticked `linspace` in a Description column is a real
+# description. So documentation gets a second, looser reading.
+doc_ticked = dict()
+# Which chapter first mentions a name is also recorded here, because it
+# is the only grouping of the 838 that is EVIDENCE rather than opinion:
+# it is how the stdlib is already organised. The work list below groups
+# by it, so nobody has to invent a taxonomy to hand work out by.
+chapter_of = dict()
+for f in docs_files
+    text = read_all_text(f)
+    short = f
+    at = index_of(short, "stdlib/") ?? -1
+    if at >= 0
+        short = substr(short, at + 7, len(short) - at - 7)
+    end if
+    if ends_with(short, ".md")
+        short = substr(short, 0, len(short) - 3)
+    end if
+    for chunk in split(text, BT)
+        nm = trim(chunk)
+        if has_key(known, nm)
+            doc_ticked = set(doc_ticked, nm, true)
+            if not has_key(chapter_of, nm)
+                chapter_of = set(chapter_of, nm, short)
+            end if
+        end if
+    end for
+    # A chapter that CALLS a name documents it just as much as one that
+    # backticks it, and some chapters do only the former.
+    for part in split(text, "(")
+        nm = trailing_ident(part)
+        if has_key(known, nm) and not has_key(chapter_of, nm)
+            chapter_of = set(chapter_of, nm, short)
+        end if
+    end for
+end for
+
+function documented(nm)
+    if flat(n_docs, nm) > 0
+        return true
+    end if
+    return has_key(doc_ticked, nm)
+end function
+
+# -- the machine floor --------------------------------------------------
+#
+# Read this as "the evidence in the tree supports AT LEAST this rung".
+# It never returns beta or higher: see the header.
+
+function floor_rung(nm)
+    t = flat(n_tests, nm)
+    b = flat(n_bench, nm)
+    if t >= 1 and b > 0
+        return "0.1.0-4.aplus"
+    end if
+    if t >= 1
+        return "0.1.0-3.a"
+    end if
+    return "0.1.0-2.x"
+end function
+
+# What the evidence would ALLOW a person to sign, if they tried it. This
+# is a review queue, not a promotion.
+function ready_for(nm)
+    t = flat(n_tests, nm)
+    d = documented(nm)
+    if d and t >= 3 and (flat(n_bench, nm) > 0 or flat(n_examples, nm) > 0)
+        return "0.3.0-6.rc"
+    end if
+    if d and t >= 2
+        return "0.2.0-5.b"
+    end if
+    return ""
+end function
+
+RUNGS = ("0.1.0-1.asp", "0.1.0-2.x", "0.1.0-3.a", "0.1.0-4.aplus", "0.2.0-5.b", "0.3.0-6.rc", "0.4.0")
+RUNG_NAME = ("Aspire", "Next", "Alpha", "Alpha++", "Beta", "RC", "Public")
+
+function rung_order(r)
+    for i in 0 to len(RUNGS) - 1
+        if RUNGS[i] == r
+            return i
+        end if
+    end for
+    return -1
+end function
+
+# -- signed rows: the only way past Alpha++ -----------------------------
+
+signed_name = ()
+signed_rung = ()
+signed_by = ()
+signed_on = ()
+signed_note = ()
+
+if file_exists(LADDER)
+    for raw in lines(read_all_text(LADDER))
+        line = trim(raw)
+        if len(line) == 0 or starts_with(line, "#")
+            continue
+        end if
+        cells = split(line, TAB)
+        if len(cells) < 5
+            continue
+        end if
+        signed_name = append(signed_name, trim(cells[0]))
+        signed_rung = append(signed_rung, trim(cells[1]))
+        signed_by   = append(signed_by,   trim(cells[2]))
+        signed_on   = append(signed_on,   trim(cells[3]))
+        signed_note = append(signed_note, trim(cells[4]))
+    end for
+end if
+
+function signature_of(nm)
+    for i in 0 to len(signed_name) - 1
+        if signed_name[i] == nm
+            return i
+        end if
+    end for
+    return -1
+end function
+
+# -- assign, and report anything that contradicts itself ----------------
+
+contradictions = ()
+final_rung = dict()
+queue_beta = ()
+queue_rc = ()
+
+for nm in names
+    fl = floor_rung(nm)
+    s = signature_of(nm)
+    r = fl
+    if s >= 0
+        sr = signed_rung[s]
+        if rung_order(sr) < 0
+            contradictions = append(contradictions, nm + ": signed rung " + sr + " is not a rung")
+        else
+            r = sr
+            # A signature does not create evidence. Beta and above claim
+            # the function has been executed; if nothing executes it, the
+            # signature describes something that did not happen.
+            if rung_order(sr) >= rung_order("0.2.0-5.b") and flat(n_tests, nm) == 0
+                contradictions = append(contradictions, nm + ": signed " + sr + " but no test executes it")
+            end if
+            if rung_order(sr) >= rung_order("0.1.0-4.aplus") and flat(n_bench, nm) == 0
+                contradictions = append(contradictions, nm + ": signed " + sr + " but nothing measures its speed")
+            end if
+            if rung_order(sr) >= rung_order("0.4.0") and flat(n_private, nm) > 0
+                contradictions = append(contradictions, nm + ": signed public but private/ mentions it")
+            end if
+        end if
+    else
+        rf = ready_for(nm)
+        if rf == "0.3.0-6.rc"
+            queue_rc = append(queue_rc, nm)
+        end if
+        if rf == "0.2.0-5.b"
+            queue_beta = append(queue_beta, nm)
+        end if
+    end if
+    final_rung = set(final_rung, nm, r)
+end for
+
+# -- the project version is computed, not declared ----------------------
+#
+# It is the LOWEST rung on the public surface. You cannot call the
+# language 0.4.0 while three hundred functions sit at 0.1.0-2.x, and this
+# is the line that refuses to let you.
+
+lowest = len(RUNGS) - 1
+for nm in names
+    o = rung_order(get(final_rung, nm))
+    if o >= 0 and o < lowest
+        lowest = o
+    end if
+end for
+project_version = RUNGS[lowest]
+
+tally = dict()
+for r in RUNGS
+    tally = set(tally, r, 0)
+end for
+for nm in names
+    r = get(final_rung, nm)
+    if has_key(tally, r)
+        tally = set(tally, r, get(tally, r) + 1)
+    end if
+end for
+
+# -- write All_functions_and_Features.md --------------------------------
+
+h = fopen(OUT_MD, "w")
+write(h, "# All Functions and Features\n\n")
+write(h, "Every function the engine answers to, alphabetically, with the\n")
+write(h, "maturity rung it has actually earned.\n\n")
+write(h, "**Generated by `tools/gen_version_ladder.qu`. Do not edit.** The\n")
+write(h, "names come from the interpreter's own dispatch table and the\n")
+write(h, "evidence is re-scraped on every run, so this page cannot claim a\n")
+write(h, "function the engine lacks, omit one it has, or keep asserting a\n")
+write(h, "rung after the evidence for it goes away.\n\n")
+
+write(h, "## Project version: `" + project_version + "`\n\n")
+write(h, "Computed, not declared: it is the lowest rung any function sits\n")
+write(h, "on. The version rises when the weakest function rises, which is\n")
+write(h, "the only reading of a version number that cannot be optimistic.\n\n")
+
+write(h, "## The ladder\n\n")
+write(h, "| Rung | Stage | What it means | Who may grant it |\n")
+write(h, "|---|---|---|---|\n")
+write(h, "| `0.1.0-1.asp` | Aspire | An idea being looked at. Interesting? Useful? | anyone; a no goes to `Garbage.txt` |\n")
+write(h, "| `0.1.0-2.x` | Next | Experimental. Exists; nothing proves it works. | computed |\n")
+write(h, "| `0.1.0-3.a` | Alpha | At least one test executes it. | computed |\n")
+write(h, "| `0.1.0-4.aplus` | Alpha++ | Executed AND its speed measured against MATLAB/Python/Matty. | computed |\n")
+write(h, "| `0.2.0-5.b` | Beta | Tried repeatedly, with varied inputs, by a person. | **Ahmed only** |\n")
+write(h, "| `0.3.0-6.rc` | RC | User-tested; on par with or better than Python/MATLAB. | **Ahmed only** |\n")
+write(h, "| `0.4.0` | Public | No private leak, no debug data, released. | **Ahmed only** |\n\n")
+write(h, "These are real version strings, not labels: `cargo` accepts every\n")
+write(h, "one of them, which `v0.01a` and `v0.010a` could not -- a leading\n")
+write(h, "zero in the minor field is rejected outright. Two consequences of\n")
+write(h, "using semver honestly are visible above. Alpha++ is spelled\n")
+write(h, "`aplus` because `+` introduces build metadata in semver and would\n")
+write(h, "be discarded from the comparison. And each stage carries a NUMBER\n")
+write(h, "before its name, because pre-release tags sort alphabetically --\n")
+write(h, "left to themselves `-a` would sort below `-asp`, putting Alpha\n")
+write(h, "beneath Aspire and inverting the ladder. A leading `1.`..`6.`\n")
+write(h, "sorts numerically, so the order above is the order semver reads.\n\n")
+write(h, "The line between the computed rungs and the signed ones is the\n")
+write(h, "point of this file. Evidence can show that a function is\n")
+write(h, "exercised and measured. It cannot show that someone tried it with\n")
+write(h, "awkward inputs and was satisfied. So this tool stops at\n")
+write(h, "`0.1.0-4.aplus`, and Beta upward needs a row in `versions/ladder.tsv`\n")
+write(h, "carrying a signature, a date, and what was actually tried.\n\n")
+
+write(h, "## Where the functions stand\n\n")
+write(h, "| Rung | Count |\n|---|---|\n")
+for i in 0 to len(RUNGS) - 1
+    write(h, "| `" + RUNGS[i] + "` " + RUNG_NAME[i] + " | {get(tally, RUNGS[i])} |\n")
+end for
+write(h, "\n")
+
+if len(contradictions) > 0
+    write(h, "## Contradictions\n\n")
+    write(h, "A signature the evidence does not support. Each of these is a\n")
+    write(h, "rung asserted about something that did not happen.\n\n")
+    for c in contradictions
+        write(h, "- " + c + "\n")
+    end for
+    write(h, "\n")
+end if
+
+if len(queue_rc) > 0 or len(queue_beta) > 0
+    write(h, "## Waiting for Ahmed\n\n")
+    write(h, "The evidence has outrun the signature. These are not\n")
+    write(h, "promotions -- they are a worklist: functions whose tests and\n")
+    write(h, "documentation would justify the next rung if a person sat\n")
+    write(h, "down and tried them.\n\n")
+    write(h, "**RC-ready ({len(queue_rc)})** -- documented, three or more tests,\n")
+    write(h, "and either a benchmark or real example code:\n\n")
+    line = ""
+    for nm in queue_rc
+        line = line + BT + nm + BT + " "
+        if len(line) > 64
+            write(h, trim(line) + "\n")
+            line = ""
+        end if
+    end for
+    if len(trim(line)) > 0
+        write(h, trim(line) + "\n")
+    end if
+    write(h, "\n**Beta-ready ({len(queue_beta)})** -- documented and tested\n")
+    write(h, "more than once:\n\n")
+    line = ""
+    for nm in queue_beta
+        line = line + BT + nm + BT + " "
+        if len(line) > 64
+            write(h, trim(line) + "\n")
+            line = ""
+        end if
+    end for
+    if len(trim(line)) > 0
+        write(h, trim(line) + "\n")
+    end if
+    write(h, "\n")
+end if
+
+# Aspire entries are ideas, not functions, so they are listed apart --
+# putting them in the alphabetical table would imply the engine has them.
+if file_exists(ASPIRE)
+    rows = ()
+    for raw in lines(read_all_text(ASPIRE))
+        line = trim(raw)
+        if len(line) == 0 or starts_with(line, "#")
+            continue
+        end if
+        rows = append(rows, line)
+    end for
+    if len(rows) > 0
+        write(h, "## Aspire (`0.1.0-1.asp`) -- ideas under consideration\n\n")
+        write(h, "Not in the engine. Listed here so that looking around has\n")
+        write(h, "somewhere to land other than memory. A no moves the row to\n")
+        write(h, "`Garbage.txt` with its reasoning intact.\n\n")
+        write(h, "| Idea | Where it came from | Verdict so far |\n|---|---|---|\n")
+        for r in rows
+            cells = split(r, TAB)
+            while len(cells) < 3
+                cells = append(cells, "")
+            end while
+            write(h, "| " + cells[0] + " | " + cells[1] + " | " + cells[2] + " |\n")
+        end for
+        write(h, "\n")
+    end if
+end if
+
+write(h, "## Every function\n\n")
+write(h, "`tests` counts call sites in the test corpus -- the `tests/`\n")
+write(h, "directories and the interpreter's own `#[cfg(test)]` region.\n")
+write(h, "`bench` counts them under `benchmarks/`, `ex` under `catalog/`\n")
+write(h, "and `example_codes/`. `doc` is whether a stdlib chapter\n")
+write(h, "describes it. A call site is counted, not a bare word, because\n")
+write(h, "`add`, `all`, `box` and `min` are ordinary English.\n\n")
+write(h, "**A caution about the `doc` column: it is currently `yes` for\n")
+write(h, "every one of the {len(names)} builtins.** A column with one value\n")
+write(h, "carries no information, and the readiness gate that reads it is\n")
+write(h, "therefore weaker than its wording suggests -- Beta-ready reduces\n")
+write(h, "to two tests, RC-ready to three tests plus a benchmark or an\n")
+write(h, "example. It is still computed rather than removed, so that an\n")
+write(h, "undocumented builtin landing tomorrow makes the column start\n")
+write(h, "discriminating again and this paragraph stop being true. Until\n")
+write(h, "then, read `doc` as a fact about the chapters, not about any\n")
+write(h, "individual function.\n\n")
+
+letters = "abcdefghijklmnopqrstuvwxyz"
+for k in 0 to len(letters) - 1
+    c = substr(letters, k, 1)
+    group = ()
+    for nm in names
+        if starts_with(lower(nm), c)
+            group = append(group, nm)
+        end if
+    end for
+    if len(group) == 0
+        continue
+    end if
+    write(h, "### " + upper(c) + "\n\n")
+    write(h, "| Function | Rung | doc | tests | dot | bench | ex | Signed |\n")
+    write(h, "|---|---|---|---|---|---|---|---|\n")
+    for nm in group
+        s = signature_of(nm)
+        sig = ""
+        if s >= 0
+            sig = signed_by[s] + ", " + signed_on[s] + " -- " + signed_note[s]
+        end if
+        d = "no"
+        if documented(nm)
+            d = "yes"
+        end if
+        write(h, "| " + BT + nm + BT + " | " + BT + get(final_rung, nm) + BT + " | " + d + " | {flat(n_tests, nm)} | {dotted(n_tests, nm)} | {flat(n_bench, nm)} | {flat(n_examples, nm)} | " + sig + " |\n")
+    end for
+    write(h, "\n")
+end for
+close(h)
+print("wrote " + OUT_MD + " (project version " + project_version + ")")
+
+# -- write Garbage.txt --------------------------------------------------
+#
+# The four verdicts are kept apart on purpose. Conflating them deletes
+# work someone is midway through: a function can be inert because it is
+# RESERVED for a feature not yet built, not because it is dead.
+
+VERDICTS = ("dead", "reserved", "incomplete", "broken")
+VERDICT_HEAD = ("DEAD -- nothing reaches it; remove", "RESERVED -- deliberately inert; keep, do not redact", "INCOMPLETE -- works partially; finish", "BROKEN -- fix, do not remove")
+
+g = fopen(OUT_GB, "w")
+write(g, "GARBAGE AND QUARANTINE\n")
+write(g, "======================\n\n")
+write(g, "Generated by tools/gen_version_ladder.qu from versions/garbage.tsv.\n")
+write(g, "Do not edit this file; edit the .tsv.\n\n")
+write(g, "Four verdicts, kept apart on purpose. Only the first is garbage.\n")
+write(g, "Collapsing them into one list deletes work that is midway done:\n")
+write(g, "a function can be inert because it is RESERVED for a feature not\n")
+write(g, "yet built, and redacting it throws away the reservation.\n\n")
+
+gb_item = ()
+gb_verdict = ()
+gb_report = ()
+if file_exists(GARBAGE)
+    for raw in lines(read_all_text(GARBAGE))
+        line = trim(raw)
+        if len(line) == 0 or starts_with(line, "#")
+            continue
+        end if
+        cells = split(line, TAB)
+        if len(cells) < 3
+            continue
+        end if
+        gb_item = append(gb_item, trim(cells[0]))
+        gb_verdict = append(gb_verdict, lower(trim(cells[1])))
+        gb_report = append(gb_report, trim(cells[2]))
+    end for
+end if
+
+for vi in 0 to len(VERDICTS) - 1
+    hits = ()
+    for i in 0 to len(gb_item) - 1
+        if gb_verdict[i] == VERDICTS[vi]
+            hits = append(hits, i)
+        end if
+    end for
+    write(g, VERDICT_HEAD[vi] + "\n")
+    write(g, "----------------------------------------------------------\n")
+    if len(hits) == 0
+        write(g, "  (none recorded)\n\n")
+        continue
+    end if
+    for i in hits
+        write(g, "\n  " + gb_item[i] + "\n")
+        # Wrap the report rather than emitting one long line: this file
+        # is read in a terminal.
+        line = "   "
+        for w in split(gb_report[i], " ")
+            if len(line) + len(w) > 70
+                write(g, line + "\n")
+                line = "   "
+            end if
+            line = line + " " + w
+        end for
+        if len(trim(line)) > 0
+            write(g, line + "\n")
+        end if
+        # If the engine still has this name, say so -- a redaction that
+        # never reached the engine is the failure this file invites.
+        if has_key(known, gb_item[i])
+            write(g, "    STILL IN BUILTIN_NAMES: the engine answers to this today.\n")
+        end if
+    end for
+    write(g, "\n")
+end for
+
+write(g, "\nUNREACHED BY ANYTHING\n")
+write(g, "----------------------------------------------------------\n")
+write(g, "Builtins that no chapter describes, no test executes, no\n")
+write(g, "benchmark measures and no example uses. Not automatically\n")
+write(g, "garbage -- but nothing in the tree would notice if they broke,\n")
+write(g, "so each needs a verdict written into versions/garbage.tsv.\n\n")
+unreached = 0
+for nm in names
+    if flat(n_tests, nm) == 0 and flat(n_bench, nm) == 0 and flat(n_examples, nm) == 0 and not documented(nm)
+        write(g, "  " + nm + "\n")
+        unreached = unreached + 1
+    end if
+end for
+if unreached == 0
+    write(g, "  (none -- every builtin is reached by at least one of them)\n")
+end if
+close(g)
+print("wrote " + OUT_GB + " ({len(gb_item)} recorded, {unreached} unreached)")
+
+# -- write versions/next-work.md ---------------------------------------
+#
+# The work between the current project version and the next one, ready to
+# hand out. This used to be a file written by hand and named after the
+# count in it -- `next-163.md` -- which is a staleness trap with a clock
+# in its own filename: the moment a lane lands one test the name is a
+# lie. Generated, it cannot drift from the rung table it came from, and
+# the count lives inside where it is regenerated with everything else.
+#
+# Two jobs, not one, and the difference is most of the cost. A name with
+# DOTTED test calls is probably already exercised -- the counter refuses
+# to count it because inside a .rs file `v.push(` is Rust's own method
+# and `x.mean(` inside an embedded Qu program is a real Qu call, and the
+# preceding character cannot separate them. Those need someone to READ
+# the call sites, not to write tests. The rest have no evidence at all.
+
+lowest_name = RUNG_NAME[lowest]
+next_i = lowest + 1
+work = ()
+for nm in names
+    if get(final_rung, nm) == RUNGS[lowest]
+        work = append(work, nm)
+    end if
+end for
+
+triage = 0
+for nm in work
+    if dotted(n_tests, nm) > 0
+        triage = triage + 1
+    end if
+end for
+
+w = fopen("versions/next-work.md", "w")
+write(w, "# The work between " + BT + project_version + BT + " and the next rung\n\n")
+write(w, "**Generated by `tools/gen_version_ladder.qu`. Do not edit.**\n")
+write(w, "Regenerating is how you find out whether this is still true; it\n")
+write(w, "is derived from the same scrape as the rung table, so it cannot\n")
+write(w, "disagree with it.\n\n")
+if next_i < len(RUNGS)
+    write(w, "The project version is the lowest rung any function occupies.\n")
+    write(w, "**{len(work)} functions sit on `" + project_version + "` (" + lowest_name + ").**\n")
+    write(w, "When the last reaches `" + RUNGS[next_i] + "` (" + RUNG_NAME[next_i] + "), the project advances to it. That is\n")
+    write(w, "checkable by re-running this tool rather than by anyone's\n")
+    write(w, "judgement, which is the point.\n\n")
+end if
+
+# The dotted names have been read by hand and their verdicts stored in
+# versions/triage.tsv. That file is DATA, not a derivation: two attempts
+# to automate this failed in instructive ways (see its header), so the
+# verdicts are looked up here rather than guessed at again.
+tri_name = ()
+tri_verdict = ()
+if file_exists(TRIAGE)
+    for raw in lines(read_all_text(TRIAGE))
+        line = trim(raw)
+        if len(line) == 0 or starts_with(line, "#")
+            continue
+        end if
+        cells = split(line, TAB)
+        if len(cells) < 2
+            continue
+        end if
+        tri_name = append(tri_name, trim(cells[0]))
+        tri_verdict = append(tri_verdict, trim(cells[1]))
+    end for
+end if
+
+function verdict_of(nm)
+    for i in 0 to len(tri_name) - 1
+        if tri_name[i] == nm
+            return tri_verdict[i]
+        end if
+    end for
+    return ""
+end function
+
+countable = ()
+rust_only = ()
+untriaged = ()
+for nm in work
+    if dotted(n_tests, nm) > 0
+        v = verdict_of(nm)
+        if v == "qu-tested"
+            countable = append(countable, nm)
+        else
+            if v == "rust-only"
+                rust_only = append(rust_only, nm)
+            else
+                untriaged = append(untriaged, nm)
+            end if
+        end if
+    end if
+end for
+
+write(w, "## Three jobs, cheapest first\n\n")
+write(w, "**{len(countable)} are ALREADY TESTED in Qu** and only invisible\n")
+write(w, "to the counter, which refuses to count a dotted call in a `.rs`\n")
+write(w, "file because `v.push(` is Rust's own method and `x.mean(` inside\n")
+write(w, "an embedded Qu program is not, and the preceding character\n")
+write(w, "cannot separate them. **The coverage exists.** Each needs only a\n")
+write(w, "small `.qu` test to make it countable. Marked **[countable]**.\n\n")
+write(w, "**{len(rust_only)} are genuinely untested** -- every dotted hit\n")
+write(w, "is a Rust host method. Marked **[rust-only]**.\n\n")
+if len(untriaged) > 0
+    write(w, "**{len(untriaged)} have dotted calls nobody has read yet.**\n")
+    write(w, "Marked **(dot=N)** with no verdict: read the call sites before\n")
+    write(w, "writing anything.\n\n")
+end if
+write(w, "**The remaining {len(work) - triage} have no evidence of any\n")
+write(w, "kind** and need tests written.\n\n")
+write(w, "The split above is HAND-CONFIRMED and stored in\n")
+write(w, "`versions/triage.tsv`. Do not re-derive it with a script. Two\n")
+write(w, "attempts were made: one cleared 35 of 36 uniformly, which is how\n")
+write(w, "it was caught, since nothing legitimately does that; the next\n")
+write(w, "scored 12 out of 12 against hand-read names and still got\n")
+write(w, "`viterbi` and `diff` wrong, because it stopped searching after\n")
+write(w, "25 lines and none of the twelve sat further away than that.\n\n")
+
+# Anything already carrying a verdict is NOT work to hand out. A
+# reserved name that graduates is a name someone has to take back.
+skipped = ()
+for nm in work
+    for i in 0 to len(gb_item) - 1
+        if gb_item[i] == nm
+            skipped = append(skipped, nm + " (" + gb_verdict[i] + ")")
+        end if
+    end for
+end for
+if len(skipped) > 0
+    write(w, "## Do NOT hand these out\n\n")
+    write(w, "Listed in `versions/garbage.tsv` with a verdict. A reserved or\n")
+    write(w, "dead name that gets a test is work someone has to undo.\n\n")
+    for s in skipped
+        write(w, "- " + s + "\n")
+    end for
+    write(w, "\n")
+else
+    write(w, "No function below appears in `versions/garbage.tsv`, so none\n")
+    write(w, "of this is work that should not happen.\n\n")
+end if
+
+# Group by chapter, largest first, so the biggest chunk is visible.
+seen_ch = ()
+for nm in work
+    ch = get(chapter_of, nm) ?? "unclassified"
+    known_ch = false
+    for c in seen_ch
+        if c == ch
+            known_ch = true
+        end if
+    end for
+    if not known_ch
+        seen_ch = append(seen_ch, ch)
+    end if
+end for
+
+write(w, "## Grouped by documenting chapter\n\n")
+write(w, "Grouped by the chapter that documents each name, because that is\n")
+write(w, "how the stdlib is already organised -- evidence, rather than an\n")
+write(w, "opinion about what belongs with what.\n\n")
+
+for ch in seen_ch
+    grp = ()
+    for nm in work
+        if (get(chapter_of, nm) ?? "unclassified") == ch
+            grp = append(grp, nm)
+        end if
+    end for
+    write(w, "### " + ch + " ({len(grp)})\n\n")
+    line = ""
+    for nm in grp
+        cell = BT + nm + BT
+        if dotted(n_tests, nm) > 0
+            v = verdict_of(nm)
+            if v == "qu-tested"
+                cell = cell + " **[countable]**"
+            else
+                if v == "rust-only"
+                    cell = cell + " **[rust-only]**"
+                else
+                    cell = cell + " **(dot={dotted(n_tests, nm)})**"
+                end if
+            end if
+        end if
+        line = line + cell + " "
+        if len(line) > 66
+            write(w, trim(line) + "\n")
+            line = ""
+        end if
+    end for
+    if len(trim(line)) > 0
+        write(w, trim(line) + "\n")
+    end if
+    write(w, "\n")
+end for
+close(w)
+print("wrote versions/next-work.md ({len(work)} on {project_version}, {triage} needing triage)")

@@ -1,0 +1,29 @@
+{
+    // Build system for Qu (.qu files) — runs `qu run` on the current file
+    // and shows output in Sublime's build output panel (Ctrl+B / Cmd+B,
+    // or Tools > Build). Only active while a .qu file (scope "source.qu",
+    // set by Qu.sublime-syntax) has focus.
+    //
+    // If `qu`/`qu.exe` isn't already on PATH, either:
+    //   (a) add its directory to the "path" entry below, or
+    //   (b) replace "qu" in "cmd" with the executable's full path.
+    // See this folder's README.md for details and platform-specific notes.
+    "cmd": ["qu", "run", "$file"],
+    "file_regex": "^qu: parse error at (\\d+):(\\d+): (.*)$",
+    "selector": "source.qu",
+    "working_dir": "$file_path",
+
+    // Uncomment and edit if `qu` isn't on PATH already:
+    // "path": "C:\\path\\to\\engine\\target\\release;$PATH"
+
+    "variants": [
+        {
+            "name": "Run",
+            "cmd": ["qu", "run", "$file"]
+        },
+        {
+            "name": "Parse (check syntax only)",
+            "cmd": ["qu", "parse", "$file"]
+        }
+    ]
+}

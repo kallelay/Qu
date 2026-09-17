@@ -1,0 +1,25 @@
+# Does a whole-value Vec reduction in `parallel for` still silently produce
+# the wrong answer, or does it now refuse?
+#
+# ANSWERED 2026-09-10 BY RUNNING IT: it REFUSES. This script exits non-zero
+# with "parallel for: iteration 0 reassigned `x` (a vector that existed
+# before the loop) as a whole value". It never reaches its own print.
+#
+# It was written when bench.qu's header still documented the case as
+# SILENTLY WRONG -- expected [6,6,6,6,6], actual [3,3,3,3,3], "no error at
+# all". That was true when written and was fixed in a116c451 (2026-08-31),
+# which extended the unsafe-reassignment check to Value::Vec/Value::Mat.
+# bench.qu's header has since been corrected; this file's had not been, so
+# it cited a claim its own execution disproves.
+#
+# KEEP IT AND KEEP RUNNING IT. A non-zero exit is now the PASS: if the check
+# ever regresses, this file goes back to printing [3,3,3,3,3] and exiting 0,
+# which is exactly the silent failure the guard exists to prevent. Reading
+# the source cannot tell you which state you are in -- running it can.
+
+x = zeros(5)
+parallel for k in 0 to 2
+    x = x + [1, 2, 3][k]
+end parallel
+print("no error raised. x = {x}")
+print("expected [6,6,6,6,6] if reductions worked; [3,3,3,3,3] means silently wrong")

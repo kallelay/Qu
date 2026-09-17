@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reinforcement learning — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Machine learning</p>
+<h1>Reinforcement learning</h1>
+<p class="lede">tabular reinforcement learning on a grid world: Q-learning (off-policy) vs SARSA (on-policy), trained side by side.</p>
+<p class="srcpath">catalog/qu_gridworld_rl.qu</p>
+<p>`gridworld_env` builds an NxN grid with a start/goal cell and a per-step reward; `q_learning`/`sarsa` share the same signature and both return a Model with `.q_table` and `.rewards` (one total-reward entry per episode) so the two algorithms can be compared directly on identical episodes.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>gridworld_env(n, start=, goal=, step_reward=, goal_reward=)</li>
+<li>q_learning(env, episodes, alpha=, gamma=, epsilon=, seed=) -- off-policy</li>
+<li>sarsa(env, episodes, ...)                                 -- on-policy</li>
+<li>env.reset() / env.step(state, action)                     -- manual rollout</li>
+<li>argmax                                                     -- greedy policy from a Q-row</li>
+</ul>
+<h2>How it works</h2>
+<section class="step">
+<h3>Build a 6x6 grid world: start top-left, goal bottom-right</h3>
+<pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">6</span>, <span class="a">start</span>=<span class="n">0</span>, <span class="a">goal</span>=<span class="n">35</span>, <span class="a">step_reward</span>=-<span class="n">1</span>, <span class="a">goal_reward</span>=<span class="n">20</span>)
+<span class="f">print</span>(<span class="s">"grid: {env.n}x{env.n}, {env.n_states} states, {env.n_actions} actions"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Train both algorithms on the same number of episodes</h3>
+<pre class="hl"><code>episodes = <span class="n">400</span>
+q = <span class="f">q_learning</span>(env, episodes, <span class="a">alpha</span>=<span class="n">0.2</span>, <span class="a">gamma</span>=<span class="n">0.95</span>, <span class="a">epsilon</span>=<span class="n">0.15</span>, <span class="a">seed</span>=<span class="n">1</span>)
+s = <span class="f">sarsa</span>(env, episodes, <span class="a">alpha</span>=<span class="n">0.2</span>, <span class="a">gamma</span>=<span class="n">0.95</span>, <span class="a">epsilon</span>=<span class="n">0.15</span>, <span class="a">seed</span>=<span class="n">1</span>)
+
+mean_first_50 = <span class="f">mean</span>(q.rewards[<span class="n">0</span>:<span class="n">49</span>])
+mean_last_50 = <span class="f">mean</span>(q.rewards[episodes-<span class="n">50</span>:<span class="k">end</span>])
+<span class="f">print</span>(<span class="s">"Q-learning: mean reward first 50 eps = {mean_first_50:.2f}, last 50 eps = {mean_last_50:.2f}"</span>)
+
+mean_first_50_s = <span class="f">mean</span>(s.rewards[<span class="n">0</span>:<span class="n">49</span>])
+mean_last_50_s = <span class="f">mean</span>(s.rewards[episodes-<span class="n">50</span>:<span class="k">end</span>])
+<span class="f">print</span>(<span class="s">"SARSA:      mean reward first 50 eps = {mean_first_50_s:.2f}, last 50 eps = {mean_last_50_s:.2f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Roll out the greedy Q-learning policy from the start state</h3>
+<pre class="hl"><code>state = env.<span class="f">reset</span>()
+path = [state]
+total_reward = <span class="n">0</span>
+<span class="k">for</span> hop = <span class="n">1</span> <span class="k">to</span> env.n_states
+    action = <span class="f">argmax</span>(q.q_table[state, :])
+    result = env.<span class="k">step</span>(state, action)
+    total_reward = total_reward + result.reward
+    state = result.next_state
+    path = [path, state]
+    <span class="k">if</span> result.done
+        break
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"Greedy rollout: {length(path)} steps, total reward = {total_reward}, reached goal cell {path[length(path)-1]}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Learning curves</h3>
+<pre class="hl"><code><span class="f">plot</span>(<span class="n">1</span> <span class="k">to</span> episodes, q.rewards, <span class="a">label</span>=<span class="s">"Q-learning"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">plot</span>(<span class="n">1</span> <span class="k">to</span> episodes, s.rewards, <span class="a">label</span>=<span class="s">"SARSA"</span>, <span class="a">color</span>=<span class="s">"orange"</span>)
+<span class="f">xlabel</span>(<span class="s">"Episode"</span>)
+<span class="f">ylabel</span>(<span class="s">"Total reward"</span>)
+<span class="f">title</span>(<span class="s">"Gridworld: Q-learning vs SARSA"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>grid: 6x6, 36 states, 4 actions
+Q-learning: mean reward first 50 eps = -7.36, last 50 eps = 9.22
+SARSA:      mean reward first 50 eps = -7.54, last 50 eps = 9.14
+Greedy rollout: 11 steps, total reward = 11, reached goal cell 35</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="86.00" y1="506.09" x2="866.00" y2="506.09" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="506.09" x2="86.00" y2="506.09" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="510.57" font-size="12.8" text-anchor="end" fill="#5a5a5a">-140</text>
+<line x1="86.00" y1="448.38" x2="866.00" y2="448.38" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="448.38" x2="86.00" y2="448.38" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="452.86" font-size="12.8" text-anchor="end" fill="#5a5a5a">-120</text>
+<line x1="86.00" y1="390.67" x2="866.00" y2="390.67" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="390.67" x2="86.00" y2="390.67" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="395.15" font-size="12.8" text-anchor="end" fill="#5a5a5a">-100</text>
+<line x1="86.00" y1="332.96" x2="866.00" y2="332.96" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="332.96" x2="86.00" y2="332.96" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="337.44" font-size="12.8" text-anchor="end" fill="#5a5a5a">-80</text>
+<line x1="86.00" y1="275.24" x2="866.00" y2="275.24" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="275.24" x2="86.00" y2="275.24" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="279.72" font-size="12.8" text-anchor="end" fill="#5a5a5a">-60</text>
+<line x1="86.00" y1="217.53" x2="866.00" y2="217.53" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="217.53" x2="86.00" y2="217.53" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="222.01" font-size="12.8" text-anchor="end" fill="#5a5a5a">-40</text>
+<line x1="86.00" y1="159.82" x2="866.00" y2="159.82" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="159.82" x2="86.00" y2="159.82" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="164.30" font-size="12.8" text-anchor="end" fill="#5a5a5a">-20</text>
+<line x1="86.00" y1="102.11" x2="866.00" y2="102.11" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="82.00" y1="102.11" x2="86.00" y2="102.11" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="76.00" y="106.59" font-size="12.8" text-anchor="end" fill="#5a5a5a">0</text>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="540.00" x2="86.00" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="86.00" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">0</text>
+<line x1="178.87" y1="48.00" x2="178.87" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="178.87" y1="540.00" x2="178.87" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="178.87" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">50</text>
+<line x1="271.74" y1="48.00" x2="271.74" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="271.74" y1="540.00" x2="271.74" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="271.74" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">100</text>
+<line x1="364.60" y1="48.00" x2="364.60" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="364.60" y1="540.00" x2="364.60" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="364.60" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">150</text>
+<line x1="457.47" y1="48.00" x2="457.47" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="457.47" y1="540.00" x2="457.47" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="457.47" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">200</text>
+<line x1="550.34" y1="48.00" x2="550.34" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="550.34" y1="540.00" x2="550.34" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="550.34" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">250</text>
+<line x1="643.21" y1="48.00" x2="643.21" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="643.21" y1="540.00" x2="643.21" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="643.21" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">300</text>
+<line x1="736.08" y1="48.00" x2="736.08" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="736.08" y1="540.00" x2="736.08" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="736.08" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">350</text>
+<line x1="828.95" y1="48.00" x2="828.95" y2="540.00" stroke="#e6e6e6" stroke-width="0.7272727272727273"/>
+<line x1="828.95" y1="540.00" x2="828.95" y2="544.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<text x="828.95" y="558.00" font-size="12.8" text-anchor="middle" fill="#5a5a5a">400</text>
+<line x1="86.00" y1="540.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="86.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="86.00" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="540.00" stroke="#333333" stroke-width="0.7272727272727273"/>
+<clipPath id="qu-clip-8600-4800-78000-49200"><rect x="86.00" y="48.00" width="780.00" height="492.00"/></clipPath><g clip-path="url(#qu-clip-8600-4800-78000-49200)">
+<polyline points="87.86,324.30 89.71,295.44 91.57,177.13 93.43,433.95 95.29,200.22 97.14,304.10 99.00,104.99 100.86,237.73 102.72,191.56 104.57,174.25 106.43,99.22 108.29,90.56 110.15,165.59 112.00,110.76 113.86,99.22 115.72,104.99 117.58,139.62 119.43,99.22 121.29,102.11 123.15,79.02 125.00,96.33 126.86,79.02 128.72,99.22 130.58,87.68 132.43,73.25 134.29,84.79 136.15,84.79 138.01,87.68 139.86,116.53 141.72,76.13 143.58,87.68 145.44,130.96 147.29,79.02 149.15,104.99 151.01,81.91 152.87,79.02 154.72,81.91 156.58,145.39 158.44,81.91 160.29,73.25 162.15,76.13 164.01,76.13 165.87,93.45 167.72,104.99 169.58,76.13 171.44,76.13 173.30,76.13 175.15,70.36 177.01,76.13 178.87,76.13 180.73,73.25 182.58,70.36 184.44,76.13 186.30,70.36 188.16,76.13 190.01,90.56 191.87,84.79 193.73,76.13 195.58,76.13 197.44,79.02 199.30,70.36 201.16,76.13 203.01,76.13 204.87,70.36 206.73,70.36 208.59,70.36 210.44,81.91 212.30,76.13 214.16,76.13 216.02,70.36 217.87,70.36 219.73,70.36 221.59,70.36 223.44,76.13 225.30,70.36 227.16,87.68 229.02,79.02 230.87,76.13 232.73,70.36 234.59,76.13 236.45,81.91 238.30,81.91 240.16,70.36 242.02,93.45 243.88,70.36 245.73,70.36 247.59,73.25 249.45,70.36 251.31,84.79 253.16,84.79 255.02,70.36 256.88,84.79 258.73,73.25 260.59,76.13 262.45,81.91 264.31,70.36 266.16,84.79 268.02,73.25 269.88,70.36 271.74,76.13 273.59,70.36 275.45,79.02 277.31,76.13 279.17,76.13 281.02,76.13 282.88,81.91 284.74,70.36 286.60,76.13 288.45,70.36 290.31,81.91 292.17,70.36 294.02,96.33 295.88,76.13 297.74,87.68 299.60,70.36 301.45,76.13 303.31,79.02 305.17,73.25 307.03,70.36 308.88,79.02 310.74,73.25 312.60,70.36 314.46,76.13 316.31,70.36 318.17,76.13 320.03,79.02 321.89,70.36 323.74,76.13 325.60,76.13 327.46,70.36 329.31,70.36 331.17,76.13 333.03,70.36 334.89,84.79 336.74,81.91 338.60,70.36 340.46,87.68 342.32,70.36 344.17,87.68 346.03,87.68 347.89,70.36 349.75,70.36 351.60,76.13 353.46,76.13 355.32,76.13 357.18,87.68 359.03,70.36 360.89,76.13 362.75,79.02 364.60,70.36 366.46,81.91 368.32,87.68 370.18,70.36 372.03,73.25 373.89,73.25 375.75,73.25 377.61,76.13 379.46,76.13 381.32,70.36 383.18,73.25 385.04,73.25 386.89,76.13 388.75,70.36 390.61,81.91 392.47,81.91 394.32,93.45 396.18,70.36 398.04,70.36 399.89,76.13 401.75,76.13 403.61,93.45 405.47,76.13 407.32,76.13 409.18,70.36 411.04,70.36 412.90,76.13 414.75,76.13 416.61,81.91 418.47,70.36 420.33,70.36 422.18,70.36 424.04,73.25 425.90,70.36 427.75,76.13 429.61,79.02 431.47,70.36 433.33,81.91 435.18,70.36 437.04,87.68 438.90,76.13 440.76,73.25 442.61,70.36 444.47,81.91 446.33,81.91 448.19,73.25 450.04,87.68 451.90,70.36 453.76,73.25 455.62,70.36 457.47,76.13 459.33,81.91 461.19,70.36 463.04,81.91 464.90,79.02 466.76,70.36 468.62,73.25 470.47,70.36 472.33,70.36 474.19,84.79 476.05,81.91 477.90,81.91 479.76,73.25 481.62,81.91 483.48,76.13 485.33,70.36 487.19,76.13 489.05,70.36 490.91,87.68 492.76,70.36 494.62,73.25 496.48,73.25 498.33,70.36 500.19,81.91 502.05,81.91 503.91,93.45 505.76,76.13 507.62,76.13 509.48,81.91 511.34,84.79 513.19,76.13 515.05,76.13 516.91,70.36 518.77,76.13 520.62,70.36 522.48,76.13 524.34,70.36 526.20,76.13 528.05,70.36 529.91,70.36 531.77,76.13 533.62,81.91 535.48,70.36 537.34,70.36 539.20,70.36 541.05,76.13 542.91,73.25 544.77,79.02 546.63,70.36 548.48,81.91 550.34,70.36 552.20,73.25 554.06,70.36 555.91,76.13 557.77,76.13 559.63,70.36 561.49,70.36 563.34,76.13 565.20,70.36 567.06,73.25 568.91,70.36 570.77,70.36 572.63,76.13 574.49,76.13 576.34,81.91 578.20,76.13 580.06,70.36 581.92,81.91 583.77,79.02 585.63,76.13 587.49,81.91 589.35,90.56 591.20,87.68 593.06,76.13 594.92,70.36 596.78,70.36 598.63,81.91 600.49,73.25 602.35,70.36 604.20,81.91 606.06,87.68 607.92,70.36 609.78,70.36 611.63,70.36 613.49,70.36 615.35,73.25 617.21,76.13 619.06,76.13 620.92,70.36 622.78,70.36 624.64,70.36 626.49,70.36 628.35,81.91 630.21,76.13 632.07,76.13 633.92,81.91 635.78,70.36 637.64,70.36 639.49,84.79 641.35,99.22 643.21,104.99 645.07,76.13 646.92,76.13 648.78,90.56 650.64,84.79 652.50,87.68 654.35,79.02 656.21,70.36 658.07,76.13 659.93,81.91 661.78,79.02 663.64,70.36 665.50,81.91 667.35,96.33 669.21,70.36 671.07,79.02 672.93,76.13 674.78,87.68 676.64,76.13 678.50,76.13 680.36,76.13 682.21,70.36 684.07,70.36 685.93,84.79 687.79,79.02 689.64,81.91 691.50,76.13 693.36,76.13 695.22,76.13 697.07,93.45 698.93,70.36 700.79,76.13 702.64,93.45 704.50,81.91 706.36,76.13 708.22,76.13 710.07,87.68 711.93,70.36 713.79,79.02 715.65,76.13 717.50,76.13 719.36,81.91 721.22,70.36 723.08,81.91 724.93,76.13 726.79,79.02 728.65,70.36 730.51,70.36 732.36,70.36 734.22,76.13 736.08,84.79 737.93,76.13 739.79,76.13 741.65,76.13 743.51,70.36 745.36,73.25 747.22,76.13 749.08,70.36 750.94,76.13 752.79,76.13 754.65,76.13 756.51,70.36 758.37,70.36 760.22,81.91 762.08,70.36 763.94,84.79 765.80,73.25 767.65,76.13 769.51,73.25 771.37,96.33 773.22,70.36 775.08,84.79 776.94,76.13 778.80,70.36 780.65,81.91 782.51,79.02 784.37,70.36 786.23,76.13 788.08,70.36 789.94,70.36 791.80,70.36 793.66,79.02 795.51,76.13 797.37,73.25 799.23,81.91 801.09,76.13 802.94,76.13 804.80,76.13 806.66,70.36 808.51,76.13 810.37,79.02 812.23,81.91 814.09,81.91 815.94,76.13 817.80,76.13 819.66,70.36 821.52,70.36 823.37,76.13 825.23,70.36 827.09,70.36 828.95,73.25" fill="none" stroke="#0000ff" stroke-width="1.5"/>
+<polyline points="87.86,517.64 89.71,197.33 91.57,174.25 93.43,402.21 95.29,255.04 97.14,119.42 99.00,113.65 100.86,102.11 102.72,341.61 104.57,154.05 106.43,174.25 108.29,104.99 110.15,217.53 112.00,116.53 113.86,81.91 115.72,79.02 117.58,81.91 119.43,76.13 121.29,79.02 123.15,182.90 125.00,110.76 126.86,87.68 128.72,99.22 130.58,90.56 132.43,99.22 134.29,113.65 136.15,76.13 138.01,70.36 139.86,96.33 141.72,93.45 143.58,81.91 145.44,81.91 147.29,90.56 149.15,76.13 151.01,113.65 152.87,102.11 154.72,76.13 156.58,76.13 158.44,99.22 160.29,81.91 162.15,76.13 164.01,90.56 165.87,76.13 167.72,93.45 169.58,96.33 171.44,73.25 173.30,81.91 175.15,76.13 177.01,70.36 178.87,70.36 180.73,70.36 182.58,81.91 184.44,70.36 186.30,81.91 188.16,70.36 190.01,93.45 191.87,73.25 193.73,73.25 195.58,76.13 197.44,76.13 199.30,79.02 201.16,70.36 203.01,76.13 204.87,76.13 206.73,70.36 208.59,70.36 210.44,70.36 212.30,81.91 214.16,76.13 216.02,70.36 217.87,70.36 219.73,70.36 221.59,70.36 223.44,70.36 225.30,76.13 227.16,70.36 229.02,70.36 230.87,79.02 232.73,73.25 234.59,76.13 236.45,70.36 238.30,76.13 240.16,76.13 242.02,84.79 243.88,81.91 245.73,81.91 247.59,70.36 249.45,76.13 251.31,70.36 253.16,70.36 255.02,90.56 256.88,76.13 258.73,87.68 260.59,70.36 262.45,73.25 264.31,70.36 266.16,81.91 268.02,70.36 269.88,81.91 271.74,76.13 273.59,70.36 275.45,76.13 277.31,70.36 279.17,79.02 281.02,76.13 282.88,76.13 284.74,76.13 286.60,81.91 288.45,70.36 290.31,76.13 292.17,70.36 294.02,76.13 295.88,70.36 297.74,81.91 299.60,73.25 301.45,70.36 303.31,81.91 305.17,70.36 307.03,81.91 308.88,81.91 310.74,70.36 312.60,76.13 314.46,81.91 316.31,70.36 318.17,70.36 320.03,76.13 321.89,70.36 323.74,79.02 325.60,76.13 327.46,70.36 329.31,81.91 331.17,70.36 333.03,70.36 334.89,70.36 336.74,73.25 338.60,76.13 340.46,99.22 342.32,70.36 344.17,93.45 346.03,70.36 347.89,96.33 349.75,84.79 351.60,70.36 353.46,70.36 355.32,76.13 357.18,76.13 359.03,70.36 360.89,70.36 362.75,73.25 364.60,70.36 366.46,81.91 368.32,70.36 370.18,70.36 372.03,81.91 373.89,84.79 375.75,70.36 377.61,70.36 379.46,70.36 381.32,73.25 383.18,70.36 385.04,70.36 386.89,70.36 388.75,76.13 390.61,76.13 392.47,70.36 394.32,73.25 396.18,70.36 398.04,79.02 399.89,76.13 401.75,87.68 403.61,70.36 405.47,70.36 407.32,73.25 409.18,76.13 411.04,87.68 412.90,76.13 414.75,76.13 416.61,70.36 418.47,70.36 420.33,76.13 422.18,70.36 424.04,76.13 425.90,73.25 427.75,70.36 429.61,70.36 431.47,79.02 433.33,73.25 435.18,76.13 437.04,81.91 438.90,70.36 440.76,81.91 442.61,70.36 444.47,84.79 446.33,76.13 448.19,76.13 450.04,70.36 451.90,81.91 453.76,70.36 455.62,81.91 457.47,70.36 459.33,79.02 461.19,70.36 463.04,70.36 464.90,76.13 466.76,76.13 468.62,76.13 470.47,76.13 472.33,87.68 474.19,70.36 476.05,76.13 477.90,70.36 479.76,70.36 481.62,81.91 483.48,76.13 485.33,102.11 487.19,73.25 489.05,81.91 490.91,76.13 492.76,70.36 494.62,79.02 496.48,70.36 498.33,87.68 500.19,76.13 502.05,76.13 503.91,70.36 505.76,70.36 507.62,81.91 509.48,79.02 511.34,81.91 513.19,76.13 515.05,76.13 516.91,76.13 518.77,73.25 520.62,76.13 522.48,81.91 524.34,70.36 526.20,70.36 528.05,73.25 529.91,76.13 531.77,70.36 533.62,70.36 535.48,76.13 537.34,70.36 539.20,73.25 541.05,70.36 542.91,79.02 544.77,70.36 546.63,76.13 548.48,70.36 550.34,70.36 552.20,84.79 554.06,70.36 555.91,70.36 557.77,79.02 559.63,76.13 561.49,70.36 563.34,70.36 565.20,73.25 567.06,76.13 568.91,70.36 570.77,70.36 572.63,79.02 574.49,76.13 576.34,70.36 578.20,70.36 580.06,76.13 581.92,76.13 583.77,76.13 585.63,76.13 587.49,73.25 589.35,70.36 591.20,76.13 593.06,76.13 594.92,76.13 596.78,81.91 598.63,81.91 600.49,70.36 602.35,84.79 604.20,70.36 606.06,70.36 607.92,70.36 609.78,81.91 611.63,70.36 613.49,76.13 615.35,81.91 617.21,76.13 619.06,70.36 620.92,70.36 622.78,70.36 624.64,70.36 626.49,70.36 628.35,76.13 630.21,76.13 632.07,70.36 633.92,70.36 635.78,70.36 637.64,70.36 639.49,81.91 641.35,76.13 643.21,76.13 645.07,81.91 646.92,70.36 648.78,70.36 650.64,84.79 652.50,81.91 654.35,70.36 656.21,93.45 658.07,76.13 659.93,81.91 661.78,84.79 663.64,84.79 665.50,96.33 667.35,76.13 669.21,73.25 671.07,76.13 672.93,73.25 674.78,79.02 676.64,70.36 678.50,84.79 680.36,81.91 682.21,76.13 684.07,76.13 685.93,79.02 687.79,76.13 689.64,76.13 691.50,76.13 693.36,73.25 695.22,76.13 697.07,70.36 698.93,87.68 700.79,76.13 702.64,79.02 704.50,73.25 706.36,73.25 708.22,76.13 710.07,70.36 711.93,81.91 713.79,73.25 715.65,76.13 717.50,76.13 719.36,70.36 721.22,87.68 723.08,70.36 724.93,81.91 726.79,81.91 728.65,70.36 730.51,81.91 732.36,70.36 734.22,76.13 736.08,73.25 737.93,70.36 739.79,76.13 741.65,79.02 743.51,81.91 745.36,70.36 747.22,70.36 749.08,70.36 750.94,70.36 752.79,87.68 754.65,79.02 756.51,76.13 758.37,76.13 760.22,70.36 762.08,76.13 763.94,76.13 765.80,70.36 767.65,76.13 769.51,70.36 771.37,76.13 773.22,70.36 775.08,70.36 776.94,81.91 778.80,70.36 780.65,70.36 782.51,87.68 784.37,70.36 786.23,79.02 788.08,99.22 789.94,70.36 791.80,84.79 793.66,70.36 795.51,73.25 797.37,70.36 799.23,81.91 801.09,73.25 802.94,76.13 804.80,70.36 806.66,70.36 808.51,70.36 810.37,81.91 812.23,76.13 814.09,76.13 815.94,81.91 817.80,76.13 819.66,70.36 821.52,79.02 823.37,76.13 825.23,76.13 827.09,81.91 828.95,76.13" fill="none" stroke="#ffa500" stroke-width="1.5"/>
+</g>
+<text x="86.00" y="30.00" font-size="19.2" text-anchor="start" fill="#444" font-weight="700">Gridworld: Q-learning vs SARSA</text>
+<text x="476.00" y="578.00" font-size="16" text-anchor="middle" fill="#444">Episode</text>
+<text x="40.56" y="294.00" font-size="16" text-anchor="middle" fill="#444" transform="rotate(-90 40.56 294.00)">Total reward</text>
+<rect x="757.70" y="482.00" width="100.30" height="50.00" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="764.70" y1="498.00" x2="784.70" y2="498.00" stroke="#0000ff" stroke-width="2.2"/>
+<text x="790.70" y="501.50" font-size="12" text-anchor="start" fill="#222">Q-learning</text>
+<line x1="764.70" y1="516.00" x2="784.70" y2="516.00" stroke="#ffa500" stroke-width="2.2"/>
+<text x="790.70" y="519.50" font-size="12" text-anchor="start" fill="#222">SARSA</text>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_gridworld_rl.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_gridworld_rl.qu -- tabular reinforcement learning on a grid world:</span>
+<span class="c"># Q-learning (off-policy) vs SARSA (on-policy), trained side by side.</span>
+<span class="c">#</span>
+<span class="c"># `gridworld_env` builds an NxN grid with a start/goal cell and a per-step</span>
+<span class="c"># reward; `q_learning`/`sarsa` share the same signature and both return a</span>
+<span class="c"># Model with `.q_table` and `.rewards` (one total-reward entry per episode)</span>
+<span class="c"># so the two algorithms can be compared directly on identical episodes.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   gridworld_env(n, start=, goal=, step_reward=, goal_reward=)</span>
+<span class="c">#   q_learning(env, episodes, alpha=, gamma=, epsilon=, seed=) -- off-policy</span>
+<span class="c">#   sarsa(env, episodes, ...)                                 -- on-policy</span>
+<span class="c">#   env.reset() / env.step(state, action)                     -- manual rollout</span>
+<span class="c">#   argmax                                                     -- greedy policy from a Q-row</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Build a 6x6 grid world: start top-left, goal bottom-right</span>
+env = <span class="f">gridworld_env</span>(<span class="n">6</span>, <span class="a">start</span>=<span class="n">0</span>, <span class="a">goal</span>=<span class="n">35</span>, <span class="a">step_reward</span>=-<span class="n">1</span>, <span class="a">goal_reward</span>=<span class="n">20</span>)
+<span class="f">print</span>(<span class="s">"grid: {env.n}x{env.n}, {env.n_states} states, {env.n_actions} actions"</span>)
+
+<span class="c">#%% Train both algorithms on the same number of episodes</span>
+episodes = <span class="n">400</span>
+q = <span class="f">q_learning</span>(env, episodes, <span class="a">alpha</span>=<span class="n">0.2</span>, <span class="a">gamma</span>=<span class="n">0.95</span>, <span class="a">epsilon</span>=<span class="n">0.15</span>, <span class="a">seed</span>=<span class="n">1</span>)
+s = <span class="f">sarsa</span>(env, episodes, <span class="a">alpha</span>=<span class="n">0.2</span>, <span class="a">gamma</span>=<span class="n">0.95</span>, <span class="a">epsilon</span>=<span class="n">0.15</span>, <span class="a">seed</span>=<span class="n">1</span>)
+
+mean_first_50 = <span class="f">mean</span>(q.rewards[<span class="n">0</span>:<span class="n">49</span>])
+mean_last_50 = <span class="f">mean</span>(q.rewards[episodes-<span class="n">50</span>:<span class="k">end</span>])
+<span class="f">print</span>(<span class="s">"Q-learning: mean reward first 50 eps = {mean_first_50:.2f}, last 50 eps = {mean_last_50:.2f}"</span>)
+
+mean_first_50_s = <span class="f">mean</span>(s.rewards[<span class="n">0</span>:<span class="n">49</span>])
+mean_last_50_s = <span class="f">mean</span>(s.rewards[episodes-<span class="n">50</span>:<span class="k">end</span>])
+<span class="f">print</span>(<span class="s">"SARSA:      mean reward first 50 eps = {mean_first_50_s:.2f}, last 50 eps = {mean_last_50_s:.2f}"</span>)
+
+<span class="c">#%% Roll out the greedy Q-learning policy from the start state</span>
+state = env.<span class="f">reset</span>()
+path = [state]
+total_reward = <span class="n">0</span>
+<span class="k">for</span> hop = <span class="n">1</span> <span class="k">to</span> env.n_states
+    action = <span class="f">argmax</span>(q.q_table[state, :])
+    result = env.<span class="k">step</span>(state, action)
+    total_reward = total_reward + result.reward
+    state = result.next_state
+    path = [path, state]
+    <span class="k">if</span> result.done
+        break
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"Greedy rollout: {length(path)} steps, total reward = {total_reward}, reached goal cell {path[length(path)-1]}"</span>)
+
+<span class="c">#%% Learning curves</span>
+<span class="f">plot</span>(<span class="n">1</span> <span class="k">to</span> episodes, q.rewards, <span class="a">label</span>=<span class="s">"Q-learning"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
+<span class="f">plot</span>(<span class="n">1</span> <span class="k">to</span> episodes, s.rewards, <span class="a">label</span>=<span class="s">"SARSA"</span>, <span class="a">color</span>=<span class="s">"orange"</span>)
+<span class="f">xlabel</span>(<span class="s">"Episode"</span>)
+<span class="f">ylabel</span>(<span class="s">"Total reward"</span>)
+<span class="f">title</span>(<span class="s">"Gridworld: Q-learning vs SARSA"</span>)
+<span class="f">legend</span>()
+show plot
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

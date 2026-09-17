@@ -1,0 +1,255 @@
+# check_links.qu — every local link on the site, against what git tracks.
+#
+# Two ways a link on this site can be a lie, and both have happened:
+#
+#   1. The target does not exist at all. `gen_refs.qu` linked every token in
+#      a chapter's alias column, and that column holds signatures, units and
+#      method forms as well as names -- so `butter(order, kind, cutoff, fs)`
+#      became a link to `fn/butter(order.html`. 229 of those, all 404.
+#   2. The target exists here and nowhere else. The pages for `decode_wav`
+#      and `decode_mp3` were generated, correct, linked -- and untracked. A
+#      clone got the link and not the page, and locally everything looked
+#      right, because the generator recreates it for you and for nobody
+#      else.
+#
+# The second is the nastier one and it is why this reads git's list rather
+# than the filesystem: `file_exists` cannot tell a published page from a
+# build artefact sitting in a working copy.
+#
+#   bash tools/check_links.sh
+
+MANIFEST = ".link-check/tracked.txt"
+PAGES = ".link-check/pages.txt"
+
+function is_local(href)
+    if len(href) == 0
+        return false
+    end if
+    if contains(href, ":") or starts_with(href, "#") or starts_with(href, "//")
+        return false
+    end if
+    return true
+end function
+
+# `website/docs/../fn/x.html` -> `website/fn/x.html`. Only `..` and `.`,
+# which is all a relative href in this site ever uses.
+function normalise(path)
+    out = ()
+    for part in split(path, "/")
+        if part == "." or len(part) == 0
+            continue
+        end if
+        if part == ".."
+            if len(out) > 0
+                trimmed = ()
+                for i in 0 to len(out) - 2
+                    trimmed = append(trimmed, out[i])
+                end for
+                out = trimmed
+            end if
+            continue
+        end if
+        out = append(out, part)
+    end for
+    return join(out, "/")
+end function
+
+function dir_of(path)
+    cut = -1
+    for i in 0 to len(path) - 1
+        if substr(path, i, 1) == "/"
+            cut = i
+        end if
+    end for
+    if cut < 0
+        return ""
+    end if
+    return substr(path, 0, cut)
+end function
+
+# Every href="..." on a line, without a regex engine.
+function hrefs_in(text)
+    out = ()
+    marker = "href=" + chr(34)
+    rest = text
+    while true
+        at = index_of(rest, marker) ?? -1
+        if at < 0
+            break
+        end if
+        rest = substr(rest, at + len(marker), len(rest) - at - len(marker))
+        stop = index_of(rest, chr(34)) ?? -1
+        if stop < 0
+            break
+        end if
+        out = append(out, substr(rest, 0, stop))
+        rest = substr(rest, stop, len(rest) - stop)
+    end while
+    return out
+end function
+
+function strip_fragment(href)
+    for mark in ("#", "?")
+        at = index_of(href, mark) ?? -1
+        if at >= 0
+            href = substr(href, 0, at)
+        end if
+    end for
+    return href
+end function
+
+function seen_bad_has(xs, nm)
+    for x in xs
+        if x == nm
+            return true
+        end if
+    end for
+    return false
+end function
+
+tracked = ()
+for line in lines(read_all_text(MANIFEST))
+    t = trim(line)
+    if len(t) > 0
+        tracked = append(tracked, t)
+    end if
+end for
+
+function is_tracked(path)
+    for t in tracked
+        if t == path
+            return true
+        end if
+    end for
+    return false
+end function
+
+# Pages a reader can arrive at without following a link from inside the
+# site. Everything else has to be reachable from somewhere, or it is
+# published and unfindable.
+ENTRY_POINTS = ("website/index.html",)
+
+# `website/assets/` holds the generator's INPUTS, not its outputs: page
+# skeletons carrying `@@TITLE@@`, and fragments like `header.html` that
+# begin mid-document with a bare `<div>`. Nothing links to them because
+# nothing should -- they are pasted into pages, not visited.
+#
+# Excluded here rather than added to ENTRY_POINTS, because they are not
+# entry points either: a reader who lands on one gets a page fragment.
+# (That they are published at all is a separate question, noted on board2
+# rather than decided here.)
+function is_build_input(path)
+    return starts_with(path, "website/assets/")
+end function
+
+function is_entry(path)
+    for e in ENTRY_POINTS
+        if e == path
+            return true
+        end if
+    end for
+    return false
+end function
+
+# A dict, not a parallel list: Qu lists are not index-assignable, and a
+# map keyed by path makes the reverse pass a lookup rather than a scan.
+reached = dict()
+
+print("{len(tracked)} files tracked under website/")
+
+checked = 0
+broken = 0
+seen_bad = ()
+
+for raw in lines(read_all_text(PAGES))
+    page = trim(raw)
+    if len(page) == 0 or not file_exists(page)
+        continue
+    end if
+    base = dir_of(page)
+    text = read_all_text(page)
+    for href in hrefs_in(text)
+        target = strip_fragment(href)
+        if not is_local(target)
+            continue
+        end if
+        # Only files the site is meant to serve.
+        if not (ends_with(target, ".html") or ends_with(target, ".css") or ends_with(target, ".js") or ends_with(target, ".svg"))
+            continue
+        end if
+        full = normalise(base + "/" + target)
+        checked = checked + 1
+        if is_tracked(full)
+            reached = set(reached, full, true)
+            continue
+        end if
+        broken = broken + 1
+        if not seen_bad_has(seen_bad, full)
+            seen_bad = append(seen_bad, full)
+        end if
+    end for
+end for
+
+print("{checked} local links checked")
+print("")
+
+# --- the other direction: tracked, and reachable from nothing -----------
+#
+# The forward pass asks whether every link has a page. It cannot see a page
+# that exists, is published, and is linked from nowhere -- because it only
+# ever looks at names it found in a link. A name is only checked against a
+# list it is on, and that blind spot is why `split` stayed undocumented:
+# registered, so "registered with no chapter row" passed it; no plotting
+# row, so "documented but not a builtin" never saw it.
+orphans = ()
+for t in tracked
+    if not ends_with(t, ".html")
+        continue
+    end if
+    if is_entry(t) or is_build_input(t) or has_key(reached, t)
+        continue
+    end if
+    orphans = append(orphans, t)
+end for
+
+if len(orphans) == 0
+    print("every tracked page is reachable from a link")
+else
+    print("{len(orphans)} tracked page(s) that nothing links to:")
+    shown = 0
+    for o in orphans
+        if shown >= 20
+            print("  ... and {len(orphans) - 20} more")
+            break
+        end if
+        print("  " + o)
+        shown = shown + 1
+    end for
+    print("")
+    print("These ship and cannot be reached by following links. Either link")
+    print("them, add them to ENTRY_POINTS if a reader arrives directly, or")
+    print("stop publishing them.")
+end if
+print("")
+
+if broken == 0
+    print("every local link points at a file git tracks")
+else
+    print("{broken} links point at {len(seen_bad)} target(s) git does not track:")
+    print("")
+    shown = 0
+    for b in seen_bad
+        if shown >= 25
+            print("  ... and {len(seen_bad) - 25} more")
+            break
+        end if
+        here = "absent here too"
+        if file_exists(b)
+            here = "present here, UNTRACKED -- a clone would 404"
+        end if
+        print("  " + b + "  (" + here + ")")
+        shown = shown + 1
+    end for
+    print("")
+    error("check_links: {broken} link(s) point outside what git tracks")
+end if

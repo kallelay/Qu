@@ -1,0 +1,7 @@
+# @name: Overload an operator for a record type
+# @desc: Give a tagged record its own + behavior via multiple dispatch.
+Vec2(x, y) := {__type = "Vec2", x = x, y = y}
+
+function +(a: record<Vec2>, b: record<Vec2>)
+    return Vec2(a.x + b.x, a.y + b.y)
+end function

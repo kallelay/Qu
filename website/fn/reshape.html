@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>reshape — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>reshape</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig"><code>reshape(x, r, c)</code></pre>
+<p class="fnnote">Input: x, r, c &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Reinterprets a value as a matrix of a given shape. <code>x</code> is the value being reshaped, a scalar, <code>Vec</code> or <code>Mat</code>; <code>r</code> (number) is the row count of the result; <code>c</code> (number) is the column count, and <code>r * c</code> must equal the number of elements <code>x</code> holds. This is a genuine element relayout (column-major) when <code>x</code> is a scalar or <code>Vec</code>, or when <code>x</code> is already an <code>r×c</code> <code>Mat</code>; when <code>x</code> is a <code>Mat</code> with one dimension equal to <code>1</code> it is also a real reshape. <strong>Reshaping a matrix that has more than one row *and* more than one column into a different two-dimensional shape does not relayout the data</strong> — it falls through to a broadcast check instead and errors unless the two shapes are broadcast-compatible, a real, confirmed engine limitation rather than a documentation simplification. <code>expr -&gt; (r, c)</code> is postfix-style sugar for exactly this call — see below.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>x</code> can be scalar, Vec, or Mat.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-reshape-0" checked>
+<input type="radio" name="typetab" id="tt-reshape-1">
+<div class="tabbar">
+<label for="tt-reshape-0"><code>reshape(x, r, c)</code> where <code>x</code> is a scalar, <code>Vec</code>, or a <code>Mat</code> with one dimension equal to <code>1</code></label>
+<label for="tt-reshape-1"><code>reshape(x, r, c)</code> where <code>x</code> is a <code>Mat</code> with more than one row and more than one column</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = reshape(x, r, c) where x is a scalar, Vec, or a Mat with one dimension equal to 1</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, or Mat</span><span class="iodesc"><code>x</code> is the value being reshaped, a scalar, <code>Vec</code> or <code>Mat</code>.</span></div>
+<div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iodesc"><code>r</code> (number) is the row count of the result.</span></div>
+<div class="ioitem"><code>c</code> <span class="iotype">number</span><span class="iodesc"><code>c</code> (number) is the column count, and <code>r * c</code> must equal the number of elements <code>x</code> holds.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>A genuine element relayout (column-major) into the new <code>r×c</code> shape.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
+dt = <span class="n">0.1</span>
+true_v = <span class="n">2.0</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.8</span> * <span class="f">randn</span>(N)
+
+F = [<span class="n">1</span>, dt; <span class="n">0</span>, <span class="n">1</span>]
+Q = [<span class="n">0.001</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0.001</span>]
+H = <span class="f">reshape</span>([<span class="n">1</span>, <span class="n">0</span>], <span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">0.64</span>]
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">10</span>])
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [measured[k]], R)
+    est_pos[k] = s.x[<span class="n">0</span>]
+    est_vel[k] = s.x[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
+c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
+c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
+c1y = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">4</span>)
+
+Xc0 = <span class="f">hstack</span>(<span class="f">reshape</span>(c0x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c0y, n_per_class, <span class="n">1</span>))
+Xc1 = <span class="f">hstack</span>(<span class="f">reshape</span>(c1x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c1y, n_per_class, <span class="n">1</span>))
+Xc = <span class="f">vstack</span>(Xc0, Xc1)             <span class="c"># (120, 2)</span>
+
+n = <span class="n">2</span> * n_per_class
+idx = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+y = <span class="f">floor</span>(idx / n_per_class)      <span class="c"># 0 for the first 60 rows, 1 for the last 60</span>
+
+<span class="k">function</span> <span class="f">one_hot</span>(labels, rows, k)
+    m = <span class="f">zeros</span>(rows, k)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        m[i, labels[i]] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> m
+<span class="k">end</span> <span class="k">function</span>
+
+Y = <span class="f">one_hot</span>(y, n, <span class="n">2</span>)
+
+net = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<span class="n">200</span>, <span class="a">lr</span>=<span class="n">0.1</span>, <span class="a">loss</span>=<span class="s">"cross_entropy"</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model, X, Ytrue, rows)
+    logits = model.<span class="f">predict</span>(X)
+    correct = <span class="n">0</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        <span class="k">if</span> <span class="f">argmax</span>(logits[i, :]) == <span class="f">argmax</span>(Ytrue[i, :]) <span class="k">then</span>
+            correct = correct + <span class="n">1</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> correct / rows
+<span class="k">end</span> <span class="k">function</span>
+
+acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
+<span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = reshape(x, r, c) where x is a Mat with more than one row and more than one column</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, or Mat</span><span class="iodesc"><code>x</code> is the value being reshaped, a scalar, <code>Vec</code> or <code>Mat</code>.</span></div>
+<div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iodesc"><code>r</code> (number) is the row count of the result.</span></div>
+<div class="ioitem"><code>c</code> <span class="iotype">number</span><span class="iodesc"><code>c</code> (number) is the column count, and <code>r * c</code> must equal the number of elements <code>x</code> holds.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Not a relayout. Falls through to a broadcast check instead and errors unless the two shapes are broadcast-compatible — a real, confirmed engine limitation, not a documentation simplification.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
+dt = <span class="n">0.1</span>
+true_v = <span class="n">2.0</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
+true_pos = true_v * t
+measured = true_pos + <span class="n">0.8</span> * <span class="f">randn</span>(N)
+
+F = [<span class="n">1</span>, dt; <span class="n">0</span>, <span class="n">1</span>]
+Q = [<span class="n">0.001</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0.001</span>]
+H = <span class="f">reshape</span>([<span class="n">1</span>, <span class="n">0</span>], <span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">0.64</span>]
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">10</span>])
+est_pos = <span class="f">zeros</span>(<span class="n">1</span>, N)
+est_vel = <span class="f">zeros</span>(<span class="n">1</span>, N)
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [measured[k]], R)
+    est_pos[k] = s.x[<span class="n">0</span>]
+    est_vel[k] = s.x[<span class="n">1</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+raw_err = <span class="f">rms</span>(measured - true_pos)
+filt_err = <span class="f">rms</span>(est_pos - true_pos)
+<span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
+<span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
+c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
+c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
+c1y = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">4</span>)
+
+Xc0 = <span class="f">hstack</span>(<span class="f">reshape</span>(c0x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c0y, n_per_class, <span class="n">1</span>))
+Xc1 = <span class="f">hstack</span>(<span class="f">reshape</span>(c1x, n_per_class, <span class="n">1</span>), <span class="f">reshape</span>(c1y, n_per_class, <span class="n">1</span>))
+Xc = <span class="f">vstack</span>(Xc0, Xc1)             <span class="c"># (120, 2)</span>
+
+n = <span class="n">2</span> * n_per_class
+idx = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+y = <span class="f">floor</span>(idx / n_per_class)      <span class="c"># 0 for the first 60 rows, 1 for the last 60</span>
+
+<span class="k">function</span> <span class="f">one_hot</span>(labels, rows, k)
+    m = <span class="f">zeros</span>(rows, k)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        m[i, labels[i]] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> m
+<span class="k">end</span> <span class="k">function</span>
+
+Y = <span class="f">one_hot</span>(y, n, <span class="n">2</span>)
+
+net = <span class="f">mlp_classifier</span>(<span class="n">2</span>, [<span class="n">8</span>], <span class="n">2</span>, <span class="a">seed</span>=<span class="n">42</span>)
+trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<span class="n">200</span>, <span class="a">lr</span>=<span class="n">0.1</span>, <span class="a">loss</span>=<span class="s">"cross_entropy"</span>)
+
+<span class="k">function</span> <span class="f">accuracy</span>(model, X, Ytrue, rows)
+    logits = model.<span class="f">predict</span>(X)
+    correct = <span class="n">0</span>
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> rows - <span class="n">1</span>
+        <span class="k">if</span> <span class="f">argmax</span>(logits[i, :]) == <span class="f">argmax</span>(Ytrue[i, :]) <span class="k">then</span>
+            correct = correct + <span class="n">1</span>
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> correct / rows
+<span class="k">end</span> <span class="k">function</span>
+
+acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
+<span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p>Shape contracts that cannot mean anything without dimensions. Naming the full form is the entire fix the reader needs.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+# Generate the builtin index from the interpreter's own name table.
+#
+# The list of NAMES comes from `BUILTIN_NAMES` in the interpreter, so the
+# index cannot claim a function the engine does not have and cannot omit
+# one it does. A reference written by hand drifts the moment a builtin is
+# added; this one is regenerated.
+#
+# What each name MEANS comes from the stdlib chapters' own tables, joined
+# on the name. So there is still exactly one place a description is
+# written -- the chapter that teaches the subject -- and the index is a
+# view onto it rather than a second copy that can disagree.
+#
+# An earlier version of this page was a wall of backticked names grouped by
+# first letter, which answers "does this exist" and nothing else. The
+# question people actually have at an index is "which of these is the one I
+# want", and that needs a line of prose beside each name.
+#
+# A name with no chapter entry is listed too, marked, because a gap you can
+# see is worth more than a gap that is quietly omitted -- and the count at
+# the top is the documentation backlog, computed rather than remembered.
+#
+# Run:  qu run tools/gen_builtin_index.qu
+# Out:  book/src/stdlib/builtin-index.md
+
+SRC = "engine/crates/qu-interp/src/lib.rs"
+OUT = "book/src/stdlib/builtin-index.md"
+BT  = substr("`x", 0, 1)
+
+# The chapters to join against, and the page each row links to.
+chapters = ("book/src/stdlib/core-math.md",
+            "book/src/stdlib/signal-processing.md",
+            "book/src/stdlib/compressed-sensing.md",
+            "book/src/stdlib/noise.md",
+            "book/src/stdlib/statistics-ml.md",
+            "book/src/stdlib/plotting.md",
+            "book/src/stdlib/images.md",
+            "book/src/stdlib/collections-strings.md",
+            "book/src/stdlib/file-io.md",
+            "book/src/stdlib/concurrency.md",
+            "book/src/stdlib/repl-diagnostics.md")
+
+ch_short = ("Core maths",
+            "Signal processing",
+            "Compressed sensing",
+            "Noise",
+            "Statistics & ML",
+            "Plotting",
+            "Images",
+            "Collections & strings",
+            "File I/O",
+            "Concurrency",
+            "REPL & diagnostics")
+
+ch_link = ("core-math.md",
+           "signal-processing.md",
+           "compressed-sensing.md",
+           "noise.md",
+           "statistics-ml.md",
+           "plotting.md",
+           "images.md",
+           "collections-strings.md",
+           "file-io.md",
+           "concurrency.md",
+           "repl-diagnostics.md")
+
+# `strip_ticks`, `esc` and the rest come from the shared module rather than
+# being written here for the third time. The path is relative to this file,
+# so the tool runs from wherever it is invoked.
+import "lib/text.qu"
+
+
+# ── what exists ────────────────────────────────────────────────────────
+
+text = read_all_text(SRC)
+start = index_of(text, "pub const BUILTIN_NAMES")
+body = substr(text, start, len(text) - start)
+body = substr(body, 0, index_of(body, "];"))
+open_at = index_of(body, "&[")
+body = substr(body, open_at + 2, len(body) - open_at - 2)
+
+names = ()
+parts = split(body, "\"")
+i = 1
+while i < len(parts)
+    if len(parts[i]) > 0
+        names = append(names, parts[i])
+    end if
+    i = i + 2
+end while
+print("{len(names)} builtins in the engine")
+
+# ── what each one means ────────────────────────────────────────────────
+
+doc_names = ()
+doc_desc = ()
+doc_where = ()
+
+for ci in 0 to len(chapters) - 1
+    if not file_exists(chapters[ci])
+        continue
+    end if
+    prev = ""
+    col = 3
+    for raw in lines(read_all_text(chapters[ci]))
+        line = trim(raw)
+        if not starts_with(line, "|")
+            prev = line
+            continue
+        end if
+        if is_separator_row(line)
+            # The separator row: the line before it was this table's header.
+            col = desc_column(prev)
+            prev = line
+            continue
+        end if
+        prev = line
+        cells = split_cells(line)
+        if len(cells) < 4
+            continue
+        end if
+        if col > len(cells) - 2
+            continue
+        end if
+        first = trim(cells[1])
+        if not contains(first, BT)
+            continue
+        end if
+        # Not every table whose first cell holds backticked names is a
+        # table OF FUNCTIONS -- the plotting chapter's "Handle | Properties"
+        # gave `text` a bare property list, and the compressed-sensing
+        # chapter's "Parameter | Type | Meaning" gave `step` the
+        # description of a step SIZE. A function entry has a signature
+        # column, and that signature names the function.
+        if col <= 2
+            continue
+        end if
+        sigcell = cells[2]
+        named = false
+        for a in split(first, ",")
+            cand = strip_ticks(a)
+            if len(cand) > 0 and contains(sigcell, cand)
+                named = true
+            end if
+        end for
+        if not named
+            continue
+        end if
+        desc = one_line(cells[col])
+        if len(desc) == 0
+            continue
+        end if
+        for a in split(first, ",")
+            nm = strip_ticks(a)
+            if len(nm) > 0
+                doc_names = append(doc_names, nm)
+                doc_desc = append(doc_desc, desc)
+                doc_where = append(doc_where, ci)
+            end if
+        end for
+    end for
+end for
+
+function lookup(nm)
+    for k in 0 to len(doc_names) - 1
+        if doc_names[k] == nm
+            return k
+        end if
+    end for
+    return -1
+end function
+
+# ── the page ───────────────────────────────────────────────────────────
+
+described = 0
+for nm in names
+    if lookup(nm) >= 0
+        described = described + 1
+    end if
+end for
+print("{described} of them carry a description")
+
+h = fopen(OUT, "w")
+write(h, "# Builtin Index\n\n")
+write(h, "Every function the engine will answer to, with a line saying what it\n")
+write(h, "does and where it is documented properly.\n\n")
+write(h, "The names come from the interpreter's own dispatch table, so this page\n")
+write(h, "cannot claim a function the engine lacks or omit one it has. The\n")
+write(h, "descriptions come from the chapters, joined on the name -- so a\n")
+write(h, "description is written in exactly one place, the chapter that teaches\n")
+write(h, "the subject, and this page is a view onto it rather than a second copy\n")
+write(h, "that can drift.\n\n")
+if described == len(names)
+    write(h, "**{len(names)} builtins, all of them described.**\n\n")
+else
+    write(h, "**{len(names)} builtins, {described} described.** The rest are\n")
+    write(h, "listed at the end, by name: a gap you can see is worth more than\n")
+    write(h, "one quietly omitted.\n\n")
+end if
+write(h, "`apropos(\"filter\")` searches these names from inside a running\n")
+write(h, "program, and a misspelled call suggests the nearest match.\n\n")
+
+letters = "abcdefghijklmnopqrstuvwxyz"
+undocumented = ()
+
+for k in 0 to len(letters) - 1
+    c = substr(letters, k, 1)
+    group = ()
+    for nm in names
+        if starts_with(nm, c) and lookup(nm) >= 0
+            group = append(group, nm)
+        end if
+    end for
+    if len(group) == 0
+        continue
+    end if
+    write(h, "## " + upper(c) + "\n\n")
+    write(h, "| | | |\n|---|---|---|\n")
+    for nm in group
+        j = lookup(nm)
+        row = "| [`" + nm + "`](../fn/" + nm + ".html) | " + md_cell_text(doc_desc[j]) + " | ["
+        row = row + ch_short[doc_where[j]] + "](" + ch_link[doc_where[j]] + ") |\n"
+        write(h, row)
+    end for
+    write(h, "\n")
+end for
+
+# ── what the native modules add ────────────────────────────────────────
+#
+# `builtins()` does not list `xlsx.read` or `codec.decode_flac`, and it is
+# right not to: they are not in the dispatch table, they come from modules
+# `import` opens. But a reader looking for "does Qu read spreadsheets"
+# looks here, and an index that answers no because of an implementation
+# detail is answering the wrong question. `MODULE_EXPORTS` is where the
+# interpreter declares them; a test walks it against the dispatch arms.
+mod_names = ()
+mod_body = read_all_text(SRC)
+mod_at = index_of(mod_body, "pub const MODULE_EXPORTS") ?? -1
+if mod_at >= 0
+    mod_body = substr(mod_body, mod_at, len(mod_body) - mod_at)
+    mod_body = substr(mod_body, 0, index_of(mod_body, "];") ?? len(mod_body))
+    for line in lines(mod_body)
+        if not contains(line, "(\"")
+            continue
+        end if
+        cells = split(line, "\"")
+        ns = ""
+        k = 1
+        while k < len(cells)
+            if len(cells[k]) > 0
+                if len(ns) == 0
+                    ns = cells[k]
+                else
+                    mod_names = append(mod_names, ns + "." + cells[k])
+                end if
+            end if
+            k = k + 2
+        end while
+    end for
+end if
+
+if len(mod_names) > 0
+    write(h, "## Native modules\n\n")
+    write(h, "Not builtins, and deliberately not in the count above: these\n")
+    write(h, "come from modules compiled into the engine, and a program\n")
+    write(h, "reaches them with `import`, which opens the bare name and\n")
+    write(h, "leaves the qualified one available too.\n\n")
+    write(h, "| | | |\n|---|---|---|\n")
+    for nm in mod_names
+        j = lookup(nm)
+        # `where` is a builtin; a local of that name is a value where the
+        # engine wants the function, and the error it gives ("expected a
+        # mask, found string") does not point back here.
+        blurb = "not described in a chapter yet"
+        chapter_cell = "| |"
+        if j >= 0
+            blurb = md_cell_text(doc_desc[j])
+            chapter_cell = "| [" + ch_short[doc_where[j]] + "](" + ch_link[doc_where[j]] + ") |"
+        end if
+        write(h, "| [`" + nm + "`](../fn/" + nm + ".html) | " + blurb + " " + chapter_cell + "\n")
+    end for
+    write(h, "\n")
+end if
+
+for nm in names
+    if lookup(nm) < 0
+        undocumented = append(undocumented, nm)
+    end if
+end for
+
+if len(undocumented) > 0
+    write(h, "## Not yet described\n\n")
+    write(h, "These names are in the engine and answer to a call, but no chapter\n")
+    write(h, "table describes them yet. The list is computed by comparing the\n")
+    write(h, "interpreter's table against the chapters, so it is the documentation\n")
+    write(h, "backlog rather than a statement about the language.\n\n")
+    line = ""
+    for nm in undocumented
+        line = line + "[`" + nm + "`](../fn/" + nm + ".html) "
+        if len(line) > 68
+            write(h, trim(line) + "\n")
+            line = ""
+        end if
+    end for
+    if len(trim(line)) > 0
+        write(h, trim(line) + "\n")
+    end if
+    write(h, "\n")
+end if
+
+close(h)
+print("wrote " + OUT + " ({len(undocumented)} still undescribed)")

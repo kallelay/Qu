@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tree_model — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>tree_model</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>tree_model(X, y, [max_depth=20], [min_samples_split=2], [kind=])</code></pre>
+<p class="fnnote">Input: X, y, max_depth, min_samples_split, kind &middot; Output: result</p>
+<h2>What it is</h2>
+<p>One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters). Splits by variance reduction for regression, Gini impurity for classification.</p>
+<h2>Overloads</h2>
+<p class="ioacross"><code>X</code> can be number, matrix, or string; <code>y</code> can be number, matrix, or string; <code>max_depth</code> can be number, matrix, or string; <code>min_samples_split</code> can be number, matrix, or string; <code>kind</code> can be number, matrix, or string.</p>
+<p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
+<div class="typetabs">
+<input type="radio" name="typetab" id="tt-tree_model-0" checked>
+<input type="radio" name="typetab" id="tt-tree_model-1">
+<div class="tabbar">
+<label for="tt-tree_model-0">regression</label>
+<label for="tt-tree_model-1">classification</label>
+</div>
+<div class="panels">
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = tree_model(X, y, [max_depth=20], [min_samples_split=2], [kind=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">number</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">number</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>max_depth</code> <span class="iotype">number, optional (default <code>20</code>)</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>min_samples_split</code> <span class="iotype">number, optional (default <code>2</code>)</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">number, optional</span><span class="iodesc"><code>kind = "regression"</code> splits each node by variance reduction and predicts the mean of a leaf's training targets -- a continuous number.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xtr = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">53</span>)
+ytr = Xtr[:, <span class="n">0</span>] * <span class="n">3</span> + Xtr[:, <span class="n">1</span>] * -<span class="n">2</span> + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">80</span>, <span class="a">seed</span> = <span class="n">55</span>)
+Xte = <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">54</span>)
+yte = Xte[:, <span class="n">0</span>] * <span class="n">3</span> + Xte[:, <span class="n">1</span>] * -<span class="n">2</span>
+trm = <span class="f">tree_model</span>(Xtr, ytr, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
+<span class="f">print</span>(<span class="s">"tree_model regression R2 on new data: {round(trm.score(Xte, yte), 3)}"</span>)
+</code></pre>
+</div>
+
+</div>
+<div class="panel">
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = tree_model(X, y, [max_depth=20], [min_samples_split=2], [kind=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix or string</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">matrix or string</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>max_depth</code> <span class="iotype">matrix or string, optional (default <code>20</code>)</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>min_samples_split</code> <span class="iotype">matrix or string, optional (default <code>2</code>)</span><span class="iodesc">One CART decision tree on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>, with <code>max_depth</code> (integer, default 20) limiting tree depth, <code>min_samples_split</code> (integer, default 2) the minimum node size to keep splitting, and <code>kind</code> a string, <code>"regression"</code> or <code>"classification"</code> (never inferred — must be given explicitly when it matters).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">matrix or string, optional</span><span class="iodesc"><code>kind = "classification"</code> splits each node by Gini impurity instead and predicts the majority class among a leaf's training labels.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
+<div class="example"><pre class="hl"><code>Xtrc = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">56</span>)
+ytrc = <span class="f">zeros</span>(<span class="n">80</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">79</span>
+    <span class="k">if</span> Xtrc[i, <span class="n">0</span>] + Xtrc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        ytrc[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+Xtec = <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">57</span>)
+ytec = <span class="f">zeros</span>(<span class="n">20</span>)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">19</span>
+    <span class="k">if</span> Xtec[i, <span class="n">0</span>] + Xtec[i, <span class="n">1</span>] &gt; <span class="n">0</span>
+        ytec[i] = <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+tcm = <span class="f">tree_model</span>(Xtrc, ytrc, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
+<span class="f">print</span>(<span class="s">"tree_model classification accuracy on new data: {round(tcm.score(Xtec, ytec), 3)}"</span>)
+</code></pre>
+</div>
+<p><code>random_forest_model</code> takes the same <code>kind=</code> and branches the same way, tree by tree.</p>
+
+</div>
+</div>
+</div>
+<h2>How it works</h2>
+<p><code>tree_model(X, y, [max_depth=], [min_samples_split=], [kind=])</code> — a single CART-style tree (see <code>TreeArrays</code>'s own doc comment for the flat array representation, and <code>build_tree</code>'s for the splitting rule). <code>kind=</code> is explicit, not auto-detected from <code>y</code> ("looks categorical" is genuinely ambiguous — a 0/1 target and a small integer *count* regression target look identical at the type level): <code>kind="regression"</code> (default, variance/SSE reduction) or <code>kind="classification"</code> (Gini impurity).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

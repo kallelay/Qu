@@ -1,0 +1,46 @@
+[package]
+name = "qu-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+nalgebra.workspace = true
+rayon = { workspace = true, optional = true }
+# Pure-Rust SIMD-dispatched GEMM (see the root Cargo.toml's own comment on
+# this dependency for the full "why matrixmultiply, not MKL/OpenBLAS"
+# rationale). Optional: gated behind `fast-matmul` below so a minimal/WASM
+# build doesn't pay for it unless asked.
+matrixmultiply = { workspace = true, optional = true }
+# Pure Rust, MIT/Apache-2.0, SIMD-dispatched (falls back to portable scalar
+# on targets without runtime feature detection, e.g. wasm32) mixed-radix +
+# Bluestein FFT — replaces this crate's own hand-written radix-2 + Bluestein
+# implementation (`fft_dispatch` in src/lib.rs). Not feature-gated: unlike
+# `rayon` (needs real OS threads), rustfft has no platform requirement
+# `qu-wasm`'s wasm32 target can't meet, so it's always on. Considered (and
+# rejected) FFTW here: GPL-licensed against this workspace's MIT/Apache-2.0,
+# and a C library via FFI breaks the wasm32 target — see BOARD.md.
+rustfft.workspace = true
+# Real-FFT companion to `rustfft` above — see the root `Cargo.toml`'s own
+# comment on this dependency and `fft_real`/`rfft` in `src/lib.rs` for why.
+realfft.workspace = true
+
+[features]
+# Multi-core matmul/elementwise kernels via `rayon`. Opt-in, not default:
+# `rayon` needs real OS threads, which the wasm32 target (qu-wasm) can't
+# assume — the native engine (qu-interp) turns this on explicitly. Mirrors
+# how qu-gpu is opt-in for the same "don't force a dependency on every
+# target" reason.
+parallel = ["dep:rayon"]
+# Single-thread SIMD matmul kernel via the `matrixmultiply` crate. Independent
+# of `parallel` on purpose (one is "use more cores", the other is "use each
+# core better") but they compose: when both are on, `matmul` splits the
+# output columns across rayon workers and each worker calls the SIMD kernel
+# on its own column slice, instead of rayon dispatching the naive scalar
+# triple loop. See `qu-core/src/matrix.rs`'s `matmul` doc comment for the
+# measured effect of each feature alone and combined.
+fast-matmul = ["dep:matrixmultiply"]

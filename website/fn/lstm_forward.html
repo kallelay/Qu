@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lstm_forward — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>lstm_forward</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>lstm_forward(x_sequence, h0, c0, weights)</code></pre>
+<p class="fnnote">Input: x_sequence, h0, c0, weights &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Unrolls <code>lstm_cell</code> over a whole sequence: <code>x_sequence</code> an <code>(input_size, seq_len)</code> matrix (one column per timestep), <code>h0</code>/<code>c0</code> length-<code>hidden_size</code> initial states, <code>weights</code> the same gate-weights Record as <code>lstm_cell</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = lstm_forward(x_sequence, h0, c0, weights)</code></td><td><div class="ioitem"><code>x_sequence</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>h0</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>c0</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>weights</code> <span class="iotype">matrix or Record</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a length-<code>seq_len</code> list of length-<code>hidden_size</code> hidden-state vectors, one per timestep; the cell state threads through internally and is not returned.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
+     wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
+     wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
+     wg=<span class="f">param</span>(raw.wg), ug=<span class="f">param</span>(raw.ug), bg=<span class="f">param</span>(raw.bg)}
+Xseq = [<span class="n">0.5</span>, -<span class="n">0.3</span>, <span class="n">0.8</span>; <span class="n">0.2</span>, <span class="n">0.4</span>, -<span class="n">0.1</span>]   <span class="c"># (input_size, seq_len)</span>
+hs = <span class="f">lstm_forward</span>(Xseq, [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>], w)
+h_last = hs[<span class="f">length</span>(hs) - <span class="n">1</span>]
+loss = <span class="f">sum</span>(h_last .^ <span class="n">2</span>)
+g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)                <span class="c"># through time, on the same tape</span>
+<span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>lstm_forward(x_sequence, h0, c0, weights)</code> — unrolls <code>lstm_cell</code> across a whole sequence, mirroring <code>gru_forward</code>'s own structure and <code>x_sequence</code> shape contract exactly (a <code>Value::Mat</code> of shape <code>(input_size, seq_len)</code>, one COLUMN per timestep, or a <code>Value::List</code> of per-timestep batched <code>Mat</code>s — see <code>gru_forward</code>'s own doc comment for why batching rides on <code>Matrix::matmul</code>'s own rayon parallelism rather than a hand-rolled thread fan-out here, which applies identically to LSTM's tape-mutating <code>&amp;mut self</code> cell calls). Returns a <code>Value::List</code> of every timestep's HIDDEN state only (<code>h_t</code>, not <code>c_t</code>) — the same "one value per timestep, caller slices <code>hs[length(hs)-1]</code> for the last one" contract <code>gru_forward</code> already established, so any code built against <code>gru_forward</code>'s return shape (e.g. a dense readout on the last hidden state) works unchanged against <code>lstm_forward</code>. <code>c_t</code> still threads through the loop below (<code>lstm_cell</code>'s own <code>{h, c}</code> record is unpacked each step via <code>lstm_field</code>), it's just not part of what's handed back to the caller — matching most high-level LSTM APIs (PyTorch's <code>nn.LSTM</code> also returns only the hidden-state sequence by default, with the final cell state as a separate secondary output most sequence- classification callers never touch).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

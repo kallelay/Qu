@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nnls — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>nnls</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>nnls(A, b, max_iter=)</code></pre>
+<p class="fnnote">Input: A, b, max_iter &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Non-negative least squares by Lawson-Hanson, for when a negative coefficient would be physically meaningless — a concentration, a mass, a relaxation strength. <code>A</code> is an <code>m×n</code> <code>Mat</code>, <code>b</code> a length-<code>m</code> <code>Vec</code>; <code>max_iter</code> is an optional scalar iteration cap (unset by default, meaning the solver's own internal limit applies).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = nnls(A, b, max_iter=)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat or Vec</span><span class="iodesc"><code>A</code> is an <code>m×n</code> <code>Mat</code>, <code>b</code> a length-<code>m</code> <code>Vec</code>.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">Mat or Vec</span><span class="iodesc"><code>A</code> is an <code>m×n</code> <code>Mat</code>, <code>b</code> a length-<code>m</code> <code>Vec</code>.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">scalar</span><span class="iodesc"><code>max_iter</code> is an optional scalar iteration cap (unset by default, meaning the solver's own internal limit applies).</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec</span><span class="iodesc">length-<code>n</code> <code>Vec</code>, every entry <code>&gt;= 0</code></span></div>
+<div class="ioitem"><code>residual</code> <span class="iotype">scalar or Num</span><span class="iodesc">a scalar <code>Num</code>, <code>‖A·x - b‖</code></span></div>
+</td><td>Returns a <code>Record</code> with fields <code>x</code> (length-<code>n</code> <code>Vec</code>, every entry <code>&gt;= 0</code>) and <code>residual</code> (a scalar <code>Num</code>, <code>‖A·x - b‖</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">3.0</span>]
+<span class="f">print</span>(<span class="s">"diag={diag(A)}  trace={trace(A)}  cond={cond(A)}"</span>)
+
+b = [<span class="n">1.0</span>, <span class="n">2.0</span>]
+r = <span class="f">nnls</span>(A, b)
+<span class="f">print</span>(<span class="s">"nnls x={r.x}  residual={r.residual}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

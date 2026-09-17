@@ -1,0 +1,363 @@
+# check_doc_truth.qu — the chapters and the engine, against each other.
+#
+# **A NAME IS ONLY CHECKED AGAINST A LIST IT IS ON.** That is the whole
+# reason this file has three checks instead of one, and the reason it kept
+# finding things after each of them looked complete. Every audit here runs
+# over some list -- registered builtins, documented function rows, command
+# verbs -- and a name absent from BOTH sides of a comparison is invisible
+# to it, not caught by it. `split plot` survived every one-directional
+# sweep for exactly this reason: `split` IS a registered builtin (the
+# string one), so "registered with no chapter row" passed it, and it had
+# no plotting row, so "documented but not a builtin" never saw it.
+#
+# So the question to ask of any new check here is not "what does it
+# catch" but "what is on neither list". A fourth way to be on neither is
+# a fourth check, not a wider one.
+#
+# Three ways the documentation and the interpreter can disagree, and all
+# three have happened, repeatedly, in the same week:
+#
+#   1. A builtin exists, works, and is documented -- and is not in
+#      `BUILTIN_NAMES`. It is then invisible to `builtins()`, `apropos`,
+#      `help`, the builtin index and the function pages. Twenty-eight of
+#      them: `cd`, `pwd`, `list_dir`, `seek`, `mmap_open` and eighteen more
+#      found on 2026-09-09, then `chr`, `ord`, `DataFrame`, `http_get`,
+#      `StreamFile`, `StreamURL` found by an earlier version of this script
+#      the same evening. Adding the dispatch arm is half of adding a
+#      builtin; the name list is the other half, and nothing was checking
+#      that the two halves agreed.
+#   2. A name is documented as a function and is not one at all. This is
+#      the release-blocking direction -- Ahmed's rule is that documented
+#      behaviour which is not implemented must not appear in the docs.
+#   3. A bare command verb the parser accepts is named in no chapter at
+#      all: `pan`, `zoom` and `split plot`. Neither list above sees these,
+#      which is the point made at the top of this file.
+#
+# THE RULE THAT MAKES THIS USABLE, and the reason it is a script rather
+# than a grep: not every table whose first column holds backticked names
+# is a table OF FUNCTIONS. The compressed-sensing chapter's
+# `| Parameter | Type | Meaning |` describes `cs_recover`'s arguments, the
+# plotting chapter's `| Handle | Properties |` lists what a handle carries,
+# and the noise chapter's `| Kind | Models | Spectrum |` names noise kinds.
+# Read naively, those tables report 146 documented builtins that do not
+# exist, and the real findings drown in them.
+#
+# So a function row must (a) come from a table with a signature column and
+# (b) have that signature name one of the row's own names. This is the
+# same test `gen_function_pages.qu` and `gen_builtin_index.qu` apply when
+# deciding what to build a page from -- deliberately, so this measures the
+# thing the generators actually do rather than a second opinion about it.
+# That test was itself added after those generators gave `uniform` the
+# description "A bounded error source", `text` a bare property list, and
+# `step` the description of a step SIZE.
+#
+# What this does NOT check: whether a page's prose is TRUE -- that a
+# function returns what its "Returns" sentence claims. Calling all 838 to
+# find out would spawn processes, open sockets and write files. Nothing
+# here calls a builtin; it reads names.
+#
+#   engine/target/release/qu.exe run tools/check_doc_truth.qu
+#
+# Exits with an error if either direction has a finding, so it can gate a
+# release the way check_links.qu does.
+
+CHAPTERS = "book/src/stdlib/*.md"
+
+# Names documented in a function table that are deliberately NOT functions.
+# Each has been looked at and ruled on; a name NOT on this list failing the
+# check is a new finding and fails the build.
+#
+# A gate that is always red is a gate nobody runs, and the honest way to
+# keep it green is to say which mismatches are known and why -- not to
+# widen the rule until they stop being reported.
+ACKNOWLEDGED = ("not",
+                "hold", "next", "clear", "axis", "yyaxis", "xxaxis", "show",
+                "pan", "zoom", "H")
+
+# Why, in the same order, so the list cannot quietly become a place to hide
+# a finding.
+ACK_WHY = ("an operator (`not a`), documented beside the functions",
+           "a bare command (`hold on`), like `grid`; runs, but is not callable",
+           "a bare command",
+           "a bare command",
+           "a bare command",
+           "a bare command",
+           "a bare command",
+           "a bare command",
+           "a bare command that is an accepted no-op; documented as one",
+           "a bare command that is an accepted no-op; documented as one",
+           "a column header in signal-processing.md's circuit-model table (transfer function symbol, not a callable) -- `| \\`H\\` |` reads like a function row's name cell")
+
+# Is this line a markdown table's own separator row (`|---|---|---|`)
+# rather than a DATA row that merely contains a dash-heavy substring in
+# its prose? A bare `contains(line, "---")` matches both -- found via
+# `progress()`'s own chapter row, whose description illustrates its
+# output inline (`[####------] 42%`, six consecutive hyphens) and so
+# was silently read as a table separator and skipped. See
+# `tools/lib/text.qu`'s own `is_separator_row` (the canonical version;
+# this file predates that import and duplicates the small check locally
+# rather than risk colliding with its own `desc_col`/`has` below).
+function is_separator_row(line)
+    t = trim(line)
+    if len(t) == 0
+        return false
+    end if
+    stripped = trim(replace(replace(replace(t, "|", ""), "-", ""), ":", ""))
+    return len(stripped) == 0 and contains(t, "-")
+end function
+
+# Which column holds the description -- the same question `desc_column`
+# asks in both generators, and asked the same way, so a chapter that
+# renames its columns moves all three together or none.
+function desc_col(header)
+    cells = split(header, "|")
+    n = len(cells) - 2
+    if n < 2
+        return 2
+    end if
+    for i = 2 to n
+        h = lower(trim(cells[i]))
+        if contains(h, "description") or contains(h, "what it") or contains(h, "meaning") or contains(h, "models") or contains(h, "result") or contains(h, "properties")
+            return i
+        end if
+    end for
+    if n >= 3
+        return 3
+    end if
+    return 2
+end function
+
+function has(list, x)
+    for v in list
+        if v == x
+            return true
+        end if
+    end for
+    return false
+end function
+
+documented = ()
+seen_in = ()
+
+for path in list_files(CHAPTERS)
+    # The index is generated FROM the chapters, so reading it here would
+    # only ever confirm this script's own input back to it.
+    if contains(path, "builtin-index")
+        continue
+    end if
+    prev = ""
+    col = 3
+    for raw in lines(read_all_text(path))
+        line = trim(raw)
+        if not starts_with(line, "|")
+            prev = line
+            continue
+        end if
+        if is_separator_row(line)
+            col = desc_col(prev)
+            prev = line
+            continue
+        end if
+        prev = line
+        cells = split(line, "|")
+        if len(cells) < 4 or col > len(cells) - 2
+            continue
+        end if
+        # No signature column means this is not a table of functions.
+        if col <= 2
+            continue
+        end if
+        first = trim(cells[1])
+        if not contains(first, "`")
+            continue
+        end if
+        # The signature must name one of the row's own names.
+        sigcell = cells[2]
+        named = false
+        for part in split(first, ",")
+            cand = trim(replace(part, "`", ""))
+            if len(cand) > 0 and contains(sigcell, cand)
+                named = true
+            end if
+        end for
+        if not named
+            continue
+        end if
+        for part in split(first, ",")
+            nm = trim(replace(part, "`", ""))
+            # A method spelling (`.push`) documents a builtin that is
+            # listed under its bare name elsewhere; a module function
+            # (`xlsx.read`) is deliberately absent from `builtins()`,
+            # which lists bare names only. Neither is a finding.
+            if len(nm) > 0 and not contains(nm, ".") and not contains(nm, " ")
+                documented = append(documented, nm)
+                seen_in = append(seen_in, path)
+            end if
+        end for
+    end for
+end for
+
+real = builtins()
+print("{len(documented)} function rows across the chapters, {len(real)} registered builtins")
+print("")
+
+# ── documented as a function, but not a builtin ─────────────────────────
+ghosts = ()
+ghost_where = ()
+for i = 0 to len(documented) - 1
+    nm = documented[i]
+    if not has(real, nm) and not has(ghosts, nm)
+        ghosts = append(ghosts, nm)
+        ghost_where = append(ghost_where, seen_in[i])
+    end if
+end for
+
+new_ghosts = ()
+new_where = ()
+for i = 0 to len(ghosts) - 1
+    if not has(ACKNOWLEDGED, ghosts[i])
+        new_ghosts = append(new_ghosts, ghosts[i])
+        new_where = append(new_where, ghost_where[i])
+    end if
+end for
+
+if len(new_ghosts) == 0
+    print("every name documented as a function is a registered builtin,")
+    print("or is on the acknowledged not-a-function list below")
+else
+    print("{len(new_ghosts)} name(s) documented as a function are NOT registered builtins:")
+    print("")
+    for i = 0 to len(new_ghosts) - 1
+        print("  " + new_ghosts[i] + "  (" + new_where[i] + ")")
+    end for
+    print("")
+    print("  Each is one of two things, and they need opposite fixes:")
+    print("   - it EXISTS and is missing from BUILTIN_NAMES  -> register it")
+    print("   - it does not exist                            -> the doc goes")
+    print("  Tell them apart by calling it with no arguments: a real")
+    print("  builtin complains about its arguments, a name that does not")
+    print("  exist says so.")
+end if
+
+# The acknowledged ones are still PRINTED. They are a standing decision,
+# not a silence: a reader searching `hold` in the index still finds
+# nothing, and this is where that stays visible until it is fixed.
+print("")
+print("acknowledged as documented-but-not-functions ({len(ACKNOWLEDGED)}):")
+for i = 0 to len(ACKNOWLEDGED) - 1
+    mark = "  "
+    if not has(ghosts, ACKNOWLEDGED[i])
+        # It became a builtin, or its row went away. Either way this entry
+        # has outlived its reason and should go.
+        mark = "! "
+    end if
+    print("  " + mark + ACKNOWLEDGED[i] + " -- " + ACK_WHY[i])
+end for
+print("  (a `!` marks an entry no longer needed -- remove it)")
+
+# ── registered, but no chapter row ──────────────────────────────────────
+print("")
+orphans = ()
+for nm in real
+    if not has(documented, nm)
+        orphans = append(orphans, nm)
+    end if
+end for
+
+if len(orphans) == 0
+    print("every registered builtin has a chapter row")
+else
+    print("{len(orphans)} registered builtin(s) have no chapter function row:")
+    print("")
+    shown = 0
+    for o in orphans
+        if shown >= 25
+            print("  ... and {len(orphans) - 25} more")
+            break
+        end if
+        print("  " + o)
+        shown = shown + 1
+    end for
+end if
+
+# ── every command verb the parser accepts is mentioned somewhere ────────
+#
+# The third way the docs and the engine disagree, and the one that hid the
+# longest. `pan` and `zoom` parse, run, and appear in no chapter at all --
+# so neither direction above sees them: they are not registered builtins,
+# so "registered with no row" misses them, and they have no row, so
+# "documented but not a builtin" misses them too. A name can only be
+# checked against a list it is on, and they were on neither.
+#
+# What made it worse: the interpreter's own comment on their dispatch arm
+# says they "are documented no-ops here". Nothing else ever claimed it.
+# A comment asserting a documentation state that does not exist is the
+# same failure as a doc asserting an implementation that does not exist,
+# and it is not catchable by reading the comment -- there is no reliable
+# way to tell a claim about documentation from any other prose. It IS
+# catchable from the other end: ask whether the thing the comment is
+# about appears in a chapter. That is this check.
+#
+# A MENTION, not a table row: a command has no signature, so requiring a
+# function row would demand exactly the shape that does not fit it.
+#
+# But the mention has to be in the chapter that OWNS the feature, and the
+# first version of this check did not say so. Every verb in COMMAND_VERBS
+# is a plotting verb -- the interpreter dispatches them from
+# `exec_plot_command` -- so plotting.md is where a reader looks. Searching
+# all chapters instead let this pass on `pan` and `zoom`, whose only
+# appearance anywhere is a passing aside in the FILE I/O chapter, naming
+# them to explain what a different verb (`close`) does. That mention tells
+# a reader nothing about `pan` and is not documentation of it. A check
+# that goes green on it is worse than no check, because it reports the gap
+# as closed.
+SYNTAX_SRC = "engine/crates/qu-syntax/src/lib.rs"
+COMMAND_CHAPTER = "book/src/stdlib/plotting.md"
+
+verbs = ()
+stext = read_all_text(SYNTAX_SRC)
+vstart = index_of(stext, "COMMAND_VERBS: &[&str] = &[") ?? -1
+if vstart < 0
+    error("check_doc_truth: COMMAND_VERBS is not where this expects it in " + SYNTAX_SRC)
+end if
+vbody = substr(stext, vstart, len(stext) - vstart)
+vbody = substr(vbody, 0, index_of(vbody, "];") ?? len(vbody))
+vparts = split(vbody, chr(34))
+vi = 1
+while vi < len(vparts)
+    if len(trim(vparts[vi])) > 0
+        verbs = append(verbs, trim(vparts[vi]))
+    end if
+    vi = vi + 2
+end while
+
+command_text = read_all_text(COMMAND_CHAPTER)
+
+print("")
+unmentioned = ()
+for v in verbs
+    if not contains(command_text, chr(96) + v + chr(96))
+        unmentioned = append(unmentioned, v)
+    end if
+end for
+
+if len(unmentioned) == 0
+    print("all {len(verbs)} command verbs are named in " + COMMAND_CHAPTER)
+else
+    print("{len(unmentioned)} of {len(verbs)} command verbs are NOT named in " + COMMAND_CHAPTER + ":")
+    print("")
+    for u in unmentioned
+        print("  " + u + "  -- the parser accepts it; the chapter never says so")
+    end for
+    print("")
+    print("  If it does something, document it. If it is an accepted")
+    print("  no-op, document THAT -- a reader porting a script needs to")
+    print("  learn it here rather than from a command that silently does")
+    print("  nothing.")
+end if
+
+print("")
+if len(new_ghosts) > 0 or len(orphans) > 0 or len(unmentioned) > 0
+    error("check_doc_truth: {len(new_ghosts)} documented but not a builtin, {len(orphans)} builtin with no chapter row, {len(unmentioned)} command verb with no mention")
+end if
+print("the chapters and the engine agree")

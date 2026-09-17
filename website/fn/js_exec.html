@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>js_exec — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>js_exec</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>python_exec(code, [vars=])</code> / <code>js_exec(code, [vars=])</code></pre>
+<p class="fnnote">Input: code, vars &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Runs <code>code</code> (string, source in the guest language) as a subprocess. <code>vars</code> (optional, a Record) is injected into the guest as ordinary variables. The guest writes its result as JSON to an injected output-path variable (<code>_qu_output_path</code>), which this call reads back.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = python_exec(code, [vars=]) / js_exec(code, [vars=])</code></td><td><div class="ioitem"><code>code</code> <span class="iotype">string</span><span class="iodesc">Runs <code>code</code> (string, source in the guest language) as a subprocess.</span></div>
+<div class="ioitem"><code>vars</code> <span class="iotype">Record, optional</span><span class="iodesc"><code>vars</code> (optional, a Record) is injected into the guest as ordinary variables.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns a record <code>{stdout, stderr, success, exit_code, result}</code>: captured output streams, whether the process exited cleanly, its exit code, and the parsed JSON result. For a library with no Qu equivalent yet — and a dependency to be honest about in anything published using it.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>py = <span class="f">python_exec</span>(<span class="s">"result = 1 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"</span>)
+<span class="f">print</span>(py.result)                         <span class="c"># 2</span>
+
+py2 = <span class="f">python_exec</span>(<span class="s">"import json\nresult = x * 2\njson.dump(result, open(_qu_output_path, 'w'))"</span>, <span class="a">vars</span>={<span class="a">x</span>=<span class="n">21</span>})
+<span class="f">print</span>(py2.result)                        <span class="c"># 42</span>
+
+js = <span class="f">js_exec</span>(<span class="s">"const fs = require('fs'); fs.writeFileSync(_qu_output_path, JSON.stringify(1 + 1));"</span>)
+<span class="f">print</span>(js.result)                         <span class="c"># 2</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<h2>How it works</h2>
+<p>Other inline languages share one implementation -- see deliberately excludes.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="python_exec.html"><code>python_exec</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

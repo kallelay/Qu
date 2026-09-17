@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lu — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>lu</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>lu(A)</code></pre>
+<p class="fnnote">Input: A &middot; Output: result</p>
+<h2>What it is</h2>
+<p>LU decomposition with partial pivoting of a square <code>n×n</code> <code>Mat</code> <code>A</code>, <code>P·A = L·U</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = lu(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">Mat</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"lu"</code></span></div>
+<div class="ioitem"><code>l</code> <span class="iotype">Mat</span><span class="iodesc"><code>n×n</code> lower-triangular <code>Mat</code>, unit diagonal</span></div>
+<div class="ioitem"><code>u</code> <span class="iotype">Mat</span><span class="iodesc"><code>n×n</code> upper-triangular <code>Mat</code></span></div>
+<div class="ioitem"><code>p</code> <span class="iotype">Mat</span><span class="iodesc"><code>n×n</code> permutation <code>Mat</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"lu"</code>) with fields <code>l</code> (<code>n×n</code> lower-triangular <code>Mat</code>, unit diagonal), <code>u</code> (<code>n×n</code> upper-triangular <code>Mat</code>), and <code>p</code> (<code>n×n</code> permutation <code>Mat</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+S = [s.s[<span class="n">0</span>], <span class="n">0</span>; <span class="n">0</span>, s.s[<span class="n">1</span>]]
+<span class="f">print</span>(<span class="s">"U*S*Vt reconstructs A: {s.u * S * s.vt}"</span>)
+
+r = <span class="f">qr</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+<span class="f">print</span>(<span class="s">"Q*R == A: {r.q * r.r}"</span>)
+
+f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">3</span>; <span class="n">8</span>, <span class="n">7</span>, <span class="n">9</span>])
+<span class="f">print</span>(<span class="s">"P*A == L*U: {f.p * [2,1,1;4,3,3;8,7,9]} vs {f.l * f.u}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<h2>How it works</h2>
+<p><code>lu(A)</code> — LU decomposition with partial pivoting, <code>P * A = L * U</code>. Model kind <code>"lu"</code>, fields <code>l</code>/<code>u</code>/<code>p</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

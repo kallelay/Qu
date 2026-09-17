@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rmse — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rmse</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>rmse(actual, predicted)</code></pre>
+<p class="fnnote">Input: actual, predicted &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The regression-error trio, each taking a length-<code>N</code> vector of true values <code>actual</code> and a length-<code>N</code> vector of predictions <code>predicted</code>, and returning a single number: <code>mae</code> the mean absolute error, <code>mse</code> the mean squared error, <code>rmse</code> its square root. <code>.score(X, y)</code> on a model already gives R-squared; these three give the plain error numbers instead, in the target's own units for <code>mae</code> and <code>rmse</code> (<code>mse</code> is in squared units).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rmse(actual, predicted)</code></td><td><div class="ioitem"><code>actual</code> <span class="iotype">vector or number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>predicted</code> <span class="iotype">vector or number</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
+</td><td>Returns a scalar <code>Num</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>n = <span class="n">200</span>
+k = <span class="n">8</span>
+m = <span class="n">60</span>
+truth = <span class="f">zeros</span>(n)
+<span class="k">for</span> j <span class="k">in</span> (<span class="n">11</span>, <span class="n">27</span>, <span class="n">48</span>, <span class="n">76</span>, <span class="n">103</span>, <span class="n">140</span>, <span class="n">168</span>, <span class="n">191</span>)
+    truth[j] = <span class="n">1</span>
+<span class="k">end</span> <span class="k">for</span>
+
+A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">12</span>) / <span class="f">sqrt</span>(m)
+y = A * truth
+r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = k)
+
+<span class="f">print</span>(<span class="s">"{m} measurements, {n} unknowns, {k} non-zeros"</span>)
+<span class="f">print</span>(<span class="s">"support found:  {r.support}"</span>)
+<span class="f">print</span>(<span class="s">"recovery error: {round(rmse(truth, r.x), 8)}"</span>)
+
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, truth, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"truth"</span>)
+<span class="f">scatter</span>(<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>, r.x, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">label</span> = <span class="s">"recovered"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"8 spikes from 60 measurements"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/compressed-sensing.html">compressed-sensing</a></p>
+<div class="example"><pre class="hl"><code>truth = <span class="f">zeros</span>(<span class="n">60</span>)
+meas = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    truth[t] = <span class="n">0.5</span> * t
+    meas[t] = truth[t] + <span class="f">randn</span>() * <span class="n">2</span>
+<span class="k">end</span> <span class="k">for</span>
+
+F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)     <span class="c"># column-major: rows are [1, 1] and [0, 1]</span>
+Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+H = [<span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)
+R = [<span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
+
+s = <span class="f">kalman_init</span>([<span class="n">0</span>, <span class="n">0</span>], [<span class="n">10</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">10</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+est = <span class="f">zeros</span>(<span class="n">60</span>)
+<span class="k">for</span> t = <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
+    s = s.<span class="f">predict</span>(F, Q)
+    s = s.<span class="f">update</span>(H, [meas[t]], R)
+    est[t] = s.<span class="f">estimate</span>()[<span class="n">0</span>]
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">"measurement error: {round(rmse(truth, meas), 3)}"</span>)
+<span class="f">print</span>(<span class="s">"filtered error:    {round(rmse(truth, est), 3)}"</span>)
+<span class="f">scatter</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, meas, <span class="a">color</span> = <span class="s">"#94a3b8"</span>, <span class="a">label</span> = <span class="s">"measured"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, truth, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">label</span> = <span class="s">"truth"</span>)
+<span class="f">plot</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">59</span>, est, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"Kalman"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"constant-velocity Kalman filter"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>mae(actual, predicted)</code> / <code>mse(actual, predicted)</code> / <code>rmse(actual, predicted)</code> — the standard regression-error trio. <code>.score(X, y)</code> on a <code>_model</code> handle already gives R^2; these are the companion plain-number metrics for scripts that want the error in the target's own units (<code>mae</code>/<code>rmse</code>) or need <code>mse</code> directly (e.g. as a loss to compare against <code>gradient_boosting_model</code>'s own <code>train_mse_history</code>).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="mae.html"><code>mae</code></a>, <a href="mse.html"><code>mse</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

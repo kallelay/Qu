@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vstack — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>vstack</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig">result = <code>hstack(a, b, ...)</code></pre>
+<p class="fnnote">Input: a, b, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Named equivalents of bracket-literal block concatenation (<code>[a, b]</code> horizontally / <code>[a; b]</code> vertically). Each of the 2+ required arguments is a scalar, <code>Vec</code>, or <code>Mat</code> (real or complex — any complex argument makes the whole result complex); <code>hstack</code> needs matching row counts, <code>vstack</code> needs matching column counts.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = hstack(a, b, ...)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">&mdash;</span><span class="iodesc">Named equivalents of bracket-literal block concatenation (<code>[a, b]</code> horizontally / <code>[a.</code></span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">b]<code> vertically).</code></span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>Mat</code> <span class="iotype">CMat</span><span class="iodesc">or <code>CMat</code> if any input was complex</span></div>
+</td><td>Returns a <code>Mat</code> (or <code>CMat</code> if any input was complex).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+labels = <span class="f">kmeans</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+centers = <span class="f">kmeans_centers</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+xs = G[:, <span class="n">0</span>]
+ys = G[:, <span class="n">1</span>]
+<span class="k">for</span> k <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">2</span>
+    inside = labels == k
+    <span class="f">print</span>(<span class="s">"cluster {k}: {len(xs[inside])} points"</span>)
+    <span class="f">scatter</span>(xs[inside], ys[inside], <span class="a">label</span> = <span class="s">"cluster {k}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">scatter</span>(centers[:, <span class="n">0</span>], centers[:, <span class="n">1</span>], <span class="a">marker</span> = <span class="s">"x"</span>, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">size</span> = <span class="n">12</span>, <span class="a">label</span> = <span class="s">"centroids"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"kmeans, k = 3"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+d = <span class="f">dbscan</span>(G, <span class="n">1.5</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"dbscan labels: {distinct(d)}"</span>)
+
+proj  = <span class="f">pca</span>(G, <span class="n">2</span>)                    <span class="c"># the (n, 2) projected coordinates</span>
+comps = <span class="f">pca_components</span>(G, <span class="n">2</span>)         <span class="c"># the (2, 2) loading matrix</span>
+ev    = <span class="f">pca_explained_variance</span>(G, <span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"pca projected shape: {rows(proj)} x {cols(proj)}"</span>)
+<span class="f">print</span>(<span class="s">"pca components:\n{round(comps, 3)}"</span>)
+<span class="f">print</span>(<span class="s">"explained variance: {round(ev, 3)}"</span>)
+
+small = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">41</span>) + <span class="n">3</span>, <span class="f">randn</span>(<span class="n">6</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>) - <span class="n">3</span>)
+low = <span class="f">tsne</span>(small, <span class="a">n_components</span> = <span class="n">2</span>, <span class="a">perplexity</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>, <span class="a">max_iter</span> = <span class="n">100</span>)
+<span class="f">print</span>(<span class="s">"tsne output rows: {rows(low)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<h2>How it works</h2>
+<p><code>hstack(a, b, ...)</code> / <code>vstack(a, b, ...)</code> — explicit, named equivalents of the bracket-literal block-concatenation magic (<code>[a, b]</code> / <code>[a; b]</code>, see <code>eval_matrix_literal_blocks</code>), for scripts that would rather spell the operation out than rely on <code>[...]</code>'s implicit dispatch — same "also give it a plain function name" precedent as <code>panel</code>/<code>subplot</code>. Both need 2+ arrays; a single argument would make the call redundant.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="hstack.html"><code>hstack</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

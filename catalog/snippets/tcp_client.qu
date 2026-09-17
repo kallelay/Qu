@@ -1,0 +1,6 @@
+# @name: TCP client round trip
+# @desc: Connect to a host:port, send a message, and read the reply.
+conn = tcp_connect(host, port)
+tcp_send(conn, "hello")
+reply = tcp_recv(conn)
+tcp_close(conn)

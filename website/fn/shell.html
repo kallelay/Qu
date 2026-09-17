@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shell — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>shell</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>shell(command, [style])</code></pre>
+<p class="fnnote">Input: command, style &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Hands <code>command</code> (a <code>Str</code>) to the OS shell and returns <strong>immediately</strong>, without waiting — Visual Basic's <code>Shell</code>, which is where the window styles come from too. <code>style</code> (an optional <code>Str</code>, positional or <code>style=</code>) is one of <code>"normal"</code> (the default), <code>"hidden"</code> (also spelled <code>"ghost"</code>), <code>"minimized"</code> or <code>"maximized"</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = shell(command, [style])</code></td><td><div class="ioitem"><code>command</code> <span class="iotype">Str</span><span class="iodesc">Hands <code>command</code> (a <code>Str</code>) to the OS shell and returns <strong>immediately</strong>, without waiting — Visual Basic's <code>Shell</code>, which is where the window styles come from too.</span></div>
+<div class="ioitem"><code>style</code> <span class="iotype">Str, optional</span><span class="iodesc"><code>style</code> (an optional <code>Str</code>, positional or <code>style=</code>) is one of <code>"normal"</code> (the default), <code>"hidden"</code> (also spelled <code>"ghost"</code>), <code>"minimized"</code> or <code>"maximized"</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Num</span></div>
+</td><td>Returns a <code>Num</code>: the process id.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>module's own doc comment for why running a program and launching one are two builtins rather than one. Both are on <code>check_sandbox</code>'s deny list, and the single guard at the top of this function is what applies it. Calling it again HERE would deny them always, sandboxed or not -- that guard is the only place <code>self.sandboxed</code> is read.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

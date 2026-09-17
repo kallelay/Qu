@@ -1,0 +1,76 @@
+# qu_memoize_lazy.qu -- `memoize function` result-caching and `lazy`
+# deferred-variable evaluation, each proven with real evidence rather than
+# just asserted: a memoized recursive Fibonacci is timed with `tic()`/
+# `toc()` to show the cached second call is essentially instant, and a
+# `lazy` variable's initializer is proven to not run until the variable is
+# actually read.
+#
+# Constructs exercised (all real, verified-working builtins/syntax):
+#   memoize function name(params) ... end function
+#   tic() / toc()                 -- real wall-clock timing
+#   lazy name = expr              -- deferred variable evaluation
+
+backend auto
+
+#%% Part 1: memoize function -- a deliberately slow recursive Fibonacci.
+#%% Naive recursive fib(n) is O(2^n) without caching; memoization collapses
+#%% repeat sub-calls with identical arguments to a single cached lookup.
+calls = 0
+memoize function slow_fib(n)
+    # The counter lives outside this function, so the function has to
+    # say it is writing to it -- an assignment binds locally otherwise.
+    global calls
+    calls = calls + 1
+    if n < 2 then
+        return n
+    else
+        return slow_fib(n - 1) + slow_fib(n - 2)
+    end if
+end function
+
+tic()
+first_result = slow_fib(28)
+first_elapsed = toc()
+calls_after_first = calls
+
+tic()
+second_result = slow_fib(28)
+second_elapsed = toc()
+calls_after_second = calls
+
+print("slow_fib(28) first call  = {first_result}, elapsed = {first_elapsed:.6f}s, body calls so far = {calls_after_first}")
+print("slow_fib(28) second call = {second_result}, elapsed = {second_elapsed:.6f}s, body calls so far = {calls_after_second}")
+print("second call re-ran the body: {calls_after_second > calls_after_first} (expected false -- served from cache)")
+print("second call was faster: {second_elapsed < first_elapsed}")
+
+# A fresh, previously-uncached argument still runs (and grows the cache).
+third_result = slow_fib(29)
+calls_after_third = calls
+print("slow_fib(29) (new argument) = {third_result}, body calls grew: {calls_after_third > calls_after_second}")
+
+#%% Part 2: lazy -- deferred variable evaluation. The initializer expression
+#%% does not run at the `lazy` statement; only the FIRST read forces it,
+#%% and the result is then cached for every later read.
+init_runs = 0
+function expensive_init()
+    # The counter lives outside this function, so the function has to
+    # say it is writing to it -- an assignment binds locally otherwise.
+    global init_runs
+    init_runs = init_runs + 1
+    return sum(ones(1, 1000000))     # a real, non-trivial computation
+end function
+
+lazy total = expensive_init()
+runs_before_any_read = init_runs
+
+first_read = total
+runs_after_first_read = init_runs
+
+second_read = total
+runs_after_second_read = init_runs
+
+print("")
+print("lazy init_runs before any read of `total`: {runs_before_any_read} (expected 0)")
+print("lazy init_runs after first read: {runs_after_first_read} (expected 1)")
+print("lazy init_runs after second read: {runs_after_second_read} (expected 1 -- cached, not re-run)")
+print("first_read = {first_read}, second_read = {second_read}")

@@ -1,0 +1,65 @@
+# qu_linear_algebra.qu — a tour of Qu's M2 matrix surface.
+#
+# Runs end-to-end on the reference interpreter (`qu run`). Exercises:
+#   §13  matrix `*` (matmul) vs elementwise `.*`
+#   §14  NumPy-style broadcasting and orientation contracts (`as vector(r,c)`)
+#   §15  2-D indexing: M[i,j], M[i,:], M[:,j], submatrices
+#   §24  reductions with an `axis=` keyword
+#   built-ins: eye, zeros/ones, reshape, transpose (`'`), matmul, dot, norm
+
+backend auto
+
+#%% Matrix basics
+# --- Matrix literals are row-major to read; stored column-major ------------
+A = [1, 2; 3, 4]
+B = [5, 6; 7, 8]
+
+print("A       = {A}")
+print("B       = {B}")
+print("A * B   = {A * B}")          # matrix multiplication -> [19,22;43,50]
+print("A .* B  = {A .* B}")         # elementwise (Hadamard) -> [5,12;21,32]
+print("A'      = {A'}")             # transpose -> [1,3;2,4]
+print("I3      = {eye(3)}")
+
+#%% Indexing
+# --- Indexing --------------------------------------------------------------
+print("A[0, 1] = {A[0, 1]}")        # 2   (zero-based)
+print("A[1, :] = {A[1, :]}")        # row 1 -> [3, 4]
+print("A[:, 0] = {A[:, 0]}")        # col 0 -> [1, 3]
+
+#%% Assignment
+# --- Assignment into a matrix ---------------------------------------------
+M = zeros(3, 3)
+M[0, :] = [1, 2, 3]                 # write a whole row
+M[1, 1] = 9                         # write a single cell
+M[2, :] = ones(1, 3)               # broadcast a row of ones
+print("M       = {M}")
+
+#%% Broadcasting
+# --- Broadcasting: outer product via orientation contracts (§14) ----------
+u = [1, 2, 3]
+v = [10, 20]
+u as vector(3, 1)                  # column
+v as vector(1, 2)                  # row
+outer = u * v                      # (3,1) * (1,2) -> (3,2) outer product
+print("outer   = {outer}")
+print("shape   = {shape(outer)}")
+
+#%% Reductions
+# --- Reductions along an axis ---------------------------------------------
+G = [1, 2, 3; 4, 5, 6]
+print("colsum  = {sum(G, axis=0)}")   # down columns -> [5, 7, 9]
+print("rowmean = {mean(G, axis=1)}")  # across rows  -> [2, 5]
+
+#%% Vector algebra
+# --- Vector algebra --------------------------------------------------------
+a = [1, 2, 2]
+print("dot     = {dot(a, a)}")        # 9
+print("norm    = {norm(a):.4f}")      # 3.0000
+
+#%% Reshape
+# --- Reshape preserves column-major order ---------------------------------
+r = reshape(0 to 5, 2, 3)
+print("reshape = {r}")
+
+show plot

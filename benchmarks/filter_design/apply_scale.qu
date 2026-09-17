@@ -1,0 +1,46 @@
+# apply_scale.qu -- filter APPLICATION at large scale: sosfilt/filtfilt on
+# 1M and 10M samples. csv_filters/bench.qu already benchmarks sosfilt/
+# filtfilt application, but only at 500k samples (and via a CSV round trip,
+# which mixes load time into the picture) -- this goes 2x and 20x larger,
+# generating the signal directly in memory, to see whether the picture
+# changes at real "big data" scale.
+#
+# Filter: Butterworth lowpass, order 4, 500 Hz cutoff, Fs = 10 kHz -- same
+# design as csv_filters/bench.qu's `lp`, so the two benchmarks are directly
+# comparable at their overlapping 500k/1M scale (a sanity cross-check, not
+# just a bigger number).
+#
+# Run: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/filter_design/apply_scale.qu
+
+backend auto
+
+Fs = 10000
+lp = butter(4, "low", 500, Fs)
+
+function run_scale(N, seed_val)
+    # `linspace`, not `n = 0 to N-1` -- Qu's `a to b` range literal has a
+    # deliberate 1,000,000-element safety cap (qu-core's
+    # `DEFAULT_ELEMENT_LIMIT`, a guard against accidental huge allocations
+    # from e.g. a typo'd bound), which the 10M-sample scale below would
+    # trip. `linspace(0, (N-1)/Fs, N)` has no such cap and produces the
+    # identical N evenly-spaced timestamps.
+    t = linspace(0, (N - 1) / Fs, N)
+    seed(seed_val)
+    x = sin(2 * pi * 50 * t) + 0.5 * sin(2 * pi * 500 * t) + 0.25 * sin(2 * pi * 2000 * t) + 0.1 * randn(N, 1)
+    x as vector(1, N)
+
+    tic()
+    y_sos = sosfilt(lp, x)
+    t_sos = toc()
+    print("sosfilt   N={N}  : {t_sos:.4f} s")
+
+    tic()
+    y_ff = filtfilt(lp, x)
+    t_ff = toc()
+    print("filtfilt  N={N}  : {t_ff:.4f} s")
+
+    print("rms(y_sos) = {rms(y_sos):.4f}")
+end function
+
+run_scale(1000000, 21)
+run_scale(10000000, 22)

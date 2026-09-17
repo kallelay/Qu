@@ -1,0 +1,123 @@
+# bench.qu -- shallow (classical) ML train+predict timing: k-means, SVM
+# (RBF), random forest, gradient boosting, and PCA. Same
+# classification_{train,test}.csv / clustering_{train,test}.csv datasets
+# as bench.py/bench.m (generated once by make_dataset.py) -- byte-identical
+# rows across all languages.
+#
+# Run: qu run benchmarks/shallow_ml/bench.qu
+# (or: cargo run --manifest-path engine/Cargo.toml -p qu-cli --release -- run benchmarks/shallow_ml/bench.qu)
+
+backend auto
+
+DATA = "benchmarks/shallow_ml/"
+N_TRIALS = 3
+
+# --- load classification data (SVM, random forest, gradient boosting, PCA) --
+df = read_csv(DATA + "classification_train.csv")
+dfte = read_csv(DATA + "classification_test.csv")
+n = nrow(df)
+nte = nrow(dfte)
+X = hstack(reshape(df.f0, n, 1),reshape(df.f1, n, 1),reshape(df.f2, n, 1),reshape(df.f3, n, 1),reshape(df.f4, n, 1),reshape(df.f5, n, 1),reshape(df.f6, n, 1),reshape(df.f7, n, 1),reshape(df.f8, n, 1),reshape(df.f9, n, 1),reshape(df.f10, n, 1),reshape(df.f11, n, 1),reshape(df.f12, n, 1),reshape(df.f13, n, 1),reshape(df.f14, n, 1),reshape(df.f15, n, 1),reshape(df.f16, n, 1),reshape(df.f17, n, 1),reshape(df.f18, n, 1),reshape(df.f19, n, 1))
+Xte = hstack(reshape(dfte.f0, nte, 1),reshape(dfte.f1, nte, 1),reshape(dfte.f2, nte, 1),reshape(dfte.f3, nte, 1),reshape(dfte.f4, nte, 1),reshape(dfte.f5, nte, 1),reshape(dfte.f6, nte, 1),reshape(dfte.f7, nte, 1),reshape(dfte.f8, nte, 1),reshape(dfte.f9, nte, 1),reshape(dfte.f10, nte, 1),reshape(dfte.f11, nte, 1),reshape(dfte.f12, nte, 1),reshape(dfte.f13, nte, 1),reshape(dfte.f14, nte, 1),reshape(dfte.f15, nte, 1),reshape(dfte.f16, nte, 1),reshape(dfte.f17, nte, 1),reshape(dfte.f18, nte, 1),reshape(dfte.f19, nte, 1))
+y = df.y
+yte = dfte.y
+print("classification: train {n}x{cols(X)}, test {nte}x{cols(Xte)}")
+
+# --- load clustering data (k-means) -----------------------------------------
+dfc = read_csv(DATA + "clustering_train.csv")
+dfcte = read_csv(DATA + "clustering_test.csv")
+ncl = nrow(dfc)
+ncte = nrow(dfcte)
+Xc = hstack(reshape(dfc.f0,ncl,1),reshape(dfc.f1,ncl,1),reshape(dfc.f2,ncl,1),reshape(dfc.f3,ncl,1),reshape(dfc.f4,ncl,1),reshape(dfc.f5,ncl,1),reshape(dfc.f6,ncl,1),reshape(dfc.f7,ncl,1))
+Xcte = hstack(reshape(dfcte.f0,ncte,1),reshape(dfcte.f1,ncte,1),reshape(dfcte.f2,ncte,1),reshape(dfcte.f3,ncte,1),reshape(dfcte.f4,ncte,1),reshape(dfcte.f5,ncte,1),reshape(dfcte.f6,ncte,1),reshape(dfcte.f7,ncte,1))
+print("clustering: train {ncl}x{cols(Xc)}, test {ncte}x{cols(Xcte)}")
+print("")
+
+# =========================== k-means (k=6) ==================================
+km_fit = zeros(N_TRIALS, 1)
+km_pred = zeros(N_TRIALS, 1)
+for t = 0 to N_TRIALS - 1
+    tic()
+    km = kmeans_model(Xc, 6, seed=42)
+    km_fit[t] = toc()
+    tic()
+    km_labels = km.predict(Xcte)
+    km_pred[t] = toc()
+end for
+km_train_inertia = -km.score(Xc)
+km_test_inertia = -km.score(Xcte)
+print("kmeans        fit  trials(s)={km_fit}  mean={mean(km_fit):.4f}")
+print("kmeans        pred trials(s)={km_pred}  mean={mean(km_pred):.4f}")
+print("kmeans        train_inertia={km_train_inertia:.4f}  test_inertia={km_test_inertia:.4f}")
+# Qu's kmeans_model is plain single-random-init Lloyd's (no k-means++, no
+# restarts) -- dump the fitted labels alongside the dataset's own
+# true_label (never used for fitting, ground truth only) so the README's
+# cross-language quality check can compute an Adjusted Rand Index against
+# sklearn's/MATLAB's own cluster assignments.
+km_check = table(true_label=dfc.true_label, qu_label=km.labels)
+write_csv(km_check, DATA + "kmeans_qu_labels.csv")
+print("")
+
+# =========================== PCA (k=5) =======================================
+pca_fit = zeros(N_TRIALS, 1)
+pca_pred = zeros(N_TRIALS, 1)
+for t = 0 to N_TRIALS - 1
+    tic()
+    pm = pca_model(X, 5)
+    pca_fit[t] = toc()
+    tic()
+    proj_te = pm.predict(Xte)
+    pca_pred[t] = toc()
+end for
+print("pca           fit  trials(s)={pca_fit}  mean={mean(pca_fit):.4f}")
+print("pca           pred trials(s)={pca_pred}  mean={mean(pca_pred):.4f}")
+print("pca           explained_variance_ratio(top5)={pm.explained_variance_ratio}")
+print("pca           sum_explained(top5)={sum(pm.explained_variance_ratio):.4f}")
+print("")
+
+# =========================== SVM (RBF, C=1, gamma=1/n_features) =============
+svm_fit_t = zeros(N_TRIALS, 1)
+svm_pred_t = zeros(N_TRIALS, 1)
+for t = 0 to N_TRIALS - 1
+    tic()
+    svm = svm_model(X, y, kernel="rbf", C=1.0, gamma=0.05)
+    svm_fit_t[t] = toc()
+    tic()
+    svm_acc = svm.score(Xte, yte)
+    svm_pred_t[t] = toc()
+end for
+print("svm(rbf)      fit  trials(s)={svm_fit_t}  mean={mean(svm_fit_t):.4f}")
+print("svm(rbf)      pred trials(s)={svm_pred_t}  mean={mean(svm_pred_t):.4f}")
+print("svm(rbf)      test_accuracy={svm_acc:.4f}  n_support={svm.n_support}  converged={svm.converged}")
+print("")
+
+# =========================== Random Forest (100 trees, depth 10) ============
+rf_fit_t = zeros(N_TRIALS, 1)
+rf_pred_t = zeros(N_TRIALS, 1)
+for t = 0 to N_TRIALS - 1
+    tic()
+    rf = random_forest_model(X, y, 100, kind="classification", max_depth=10, seed=42)
+    rf_fit_t[t] = toc()
+    tic()
+    rf_acc = rf.score(Xte, yte)
+    rf_pred_t[t] = toc()
+end for
+print("random_forest fit  trials(s)={rf_fit_t}  mean={mean(rf_fit_t):.4f}")
+print("random_forest pred trials(s)={rf_pred_t}  mean={mean(rf_pred_t):.4f}")
+print("random_forest test_accuracy={rf_acc:.4f}  train_accuracy={rf.accuracy:.4f}")
+print("")
+
+# =========================== Gradient Boosting (100 trees, depth 3, lr 0.1) ==
+gb_fit_t = zeros(N_TRIALS, 1)
+gb_pred_t = zeros(N_TRIALS, 1)
+for t = 0 to N_TRIALS - 1
+    tic()
+    gb = gradient_boosting_model(X, y, 100, kind="classification", learning_rate=0.1, max_depth=3)
+    gb_fit_t[t] = toc()
+    tic()
+    gb_acc = gb.score(Xte, yte)
+    gb_pred_t[t] = toc()
+end for
+print("grad_boosting fit  trials(s)={gb_fit_t}  mean={mean(gb_fit_t):.4f}")
+print("grad_boosting pred trials(s)={gb_pred_t}  mean={mean(gb_pred_t):.4f}")
+print("grad_boosting test_accuracy={gb_acc:.4f}  train_accuracy={gb.accuracy:.4f}")
