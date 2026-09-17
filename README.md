@@ -45,93 +45,30 @@ ylabel("amplitude")
 savefig("filtered.pdf")
 ```
 
-## Contents
+Real output, not mockups — every figure below is a `.svg` a Qu script
+actually produced, checked in as-is. More in [`catalog/`](catalog/),
+around a hundred complete, runnable examples.
 
-- [What it has](#what-it-has)
-- [Gallery](#gallery)
-- [Qu Studio](#qu-studio)
-- [Other editors](#other-editors)
-- [Getting started](#getting-started)
-- [Design commitments](#design-commitments)
-- [Status](#status)
-- [Credits](#credits)
-- [Licence](#licence)
-
-## Gallery
-
-Real output from `catalog/`, not mockups — every figure below is a `.svg`
-a Qu script actually produced, checked in as-is.
-
-<table>
-<tr>
-<td width="34%">
-
-**Filter design and response**<br>
-[`demo_filter.qu`](catalog/demo_filter.qu)
-
-</td>
-<td>
-<img src="catalog/demo_filter.svg" alt="Filter design and frequency response">
-</td>
-</tr>
-<tr>
-<td width="34%">
-
-**Independent twin axes**<br>
-[`qu_twin_axis_reference.qu`](catalog/qu_twin_axis_reference.qu) —
-different scales, one figure, a common EE-measurement need most
-plotting libraries make awkward
-
-</td>
-<td>
-<img src="catalog/qu_twin_axis_reference.svg" alt="Twin-axis plot with independent scales">
-</td>
-</tr>
-<tr>
-<td width="34%">
-
-**Marker gallery**<br>
-[`catalog/qu_markers.qu`](catalog/qu_markers.qu) — the ~30 marker glyphs
-mentioned above, for real, all in one figure
-
-</td>
-<td>
-<img src="catalog/qu_markers.svg" alt="Marker glyph gallery">
-</td>
-</tr>
-<tr>
-<td width="34%">
-
-**Peak finding**<br>
-[`engine/examples/peak_finding.qu`](engine/examples/peak_finding.qu)
-
-</td>
-<td>
-<img src="engine/examples/peak_finding.svg" alt="Peak finding on a noisy signal">
-</td>
-</tr>
-</table>
-
-More in [`catalog/`](catalog/) — around a hundred complete, runnable
-scripts, each one a self-contained example.
+<p align="center">
+<img src="catalog/demo_filter.svg" width="46%" alt="Filter design and frequency response">
+<img src="catalog/qu_markers.svg" width="46%" alt="Marker glyph gallery">
+<img src="catalog/qu_twin_axis_reference.svg" width="46%" alt="Twin-axis plot with independent scales">
+<img src="engine/examples/peak_finding.svg" width="46%" alt="Peak finding on a noisy signal">
+</p>
 
 ## Five things people actually use it for
 
-**Mathematical computation.** Dense linear algebra, real and complex, no
-separate import or setup:
-
-```qu
-A = [4, -2; 1, 1]
-e = eig(A)
-print("eigenvalues: {e.values}")
-
-U = svd(A)
-recon_error = norm(U.u * diag(U.s) * U.vt - A)
-print("SVD reconstruction error: {recon_error:.2e}")
-```
-
-**Machine learning.** Classic algorithms, a real train/test split, a real
-accuracy number — not a toy:
+**Mathematical computation** — dense linear algebra, real and complex,
+no separate import. **Testing an algorithm against another** — `seed=`
+makes every random draw reproducible, so "which method is actually
+better" is a real comparison, not noise. **A sandbox that won't lie to
+you** — an unread keyword, a shape mismatch, a singular matrix: errors,
+never guesses (see [Design commitments](#design-commitments), the one
+thing the whole language is organised around). **A testbed for real
+signals** — Qu Studio's DSP Workbench and `qu repl` are built for
+change-one-parameter-re-run-look, not edit-save-switch-window-look.
+**Machine learning** — classic algorithms, a real train/test split, a
+real accuracy number:
 
 ```qu
 n = 60
@@ -143,34 +80,8 @@ y = [zeros(n), ones(n)]
 split = train_test_split(X, y, test_size=0.3, seed=7)
 model = knn_model(split.X_train, split.y_train, 5, kind="classification")
 pred  = model.predict(split.X_test)
-
-accuracy = length(where(pred == split.y_test)) / length(pred)
-print("test accuracy: {accuracy:.3f}")
+print("test accuracy: {length(where(pred == split.y_test)) / length(pred):.3f}")
 ```
-
-**Testing an algorithm against another.** `seed=` makes every random draw
-reproducible, so "which method is actually better" is a real comparison
-on identical data, not noise:
-
-```qu
-rf  = random_forest_model(split.X_train, split.y_train, 100, seed=7)
-knn = knn_model(split.X_train, split.y_train, 5, kind="classification")
-
-rf_acc  = length(where(rf.predict(split.X_test) == split.y_test)) / length(split.y_test)
-knn_acc = length(where(knn.predict(split.X_test) == split.y_test)) / length(split.y_test)
-print("forest: {rf_acc:.3f}, k-NN: {knn_acc:.3f} -- same split, same seed, a real answer")
-```
-
-**A sandbox that won't lie to you.** An unread keyword argument, a shape
-mismatch, a non-positive-definite matrix — Qu errors instead of guessing,
-so a script that runs is a script whose numbers you can trust. See
-[Design commitments](#design-commitments) below; this is the one thing
-the whole language is organised around.
-
-**A testbed for real signals.** Qu Studio's DSP Workbench and the `qu
-repl` are built for the loop this actually is: change one parameter,
-re-run, look at the number and the figure together, repeat — not
-edit-save-switch-window-look.
 
 ## What it has
 
@@ -206,45 +117,11 @@ equally reachable from `qu run`/`qu repl` on the command line — but it's
 where the language and the plotting backend are meant to be felt working
 together, not just described.
 
-<table>
-<tr>
-<td width="34%">
-
-**Code editor**<br>
-Run and re-run, figures and variables inspectable live alongside the
-script that produced them.
-
-</td>
-<td>
-<img src="website/assets/screenshots/studio-code-fft.png" alt="Qu Studio code editor running an FFT analysis">
-</td>
-</tr>
-<tr>
-<td width="34%">
-
-**DSP Workbench — Filter Designer**<br>
-Change a control, the magnitude/phase/group-delay/impulse-response
-figure redraws — no separate plotting step.
-
-</td>
-<td>
-<img src="website/assets/screenshots/studio-filter-designer.png" alt="Qu Studio DSP Workbench filter designer">
-</td>
-</tr>
-<tr>
-<td width="34%">
-
-**A real comparison, not a mockup**<br>
-Two denoising methods on the same noisy step — moving average smooths
-the edge away, total-variation keeps it. The kind of figure this
-project exists to make easy.
-
-</td>
-<td>
-<img src="website/assets/screenshots/studio-denoise-comparison.png" alt="Qu Studio figure comparing moving-average and total-variation denoising">
-</td>
-</tr>
-</table>
+<p align="center">
+<img src="website/assets/screenshots/studio-code-fft.png" width="31%" alt="Qu Studio code editor running an FFT analysis, figures and variables live alongside the script">
+<img src="website/assets/screenshots/studio-filter-designer.png" width="31%" alt="Qu Studio DSP Workbench: change a control, the response redraws live">
+<img src="website/assets/screenshots/studio-denoise-comparison.png" width="31%" alt="Two real denoising methods compared on the same noisy step">
+</p>
 
 Source under [`qu-studio-tauri/`](qu-studio-tauri/); build it the same
 way as any Tauri app (`npm install && npm run tauri build`) once the
