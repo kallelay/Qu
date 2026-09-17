@@ -1,0 +1,100 @@
+name: CI
+
+# Runs on every push and pull request against main -- unlike release.yml
+# (which only fires on a version tag), this is the thing that catches a
+# break before it lands, not after someone tags a release with it.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: engine (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+          workspaces: engine
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Format check
+        run: cargo fmt --manifest-path engine/Cargo.toml --all -- --check
+
+      - name: Build
+        run: cargo build --release --locked --manifest-path engine/Cargo.toml
+
+      - name: Test (qu-interp)
+        run: cargo test --release --locked -p qu-interp --lib --manifest-path engine/Cargo.toml
+
+      - name: Test (qu-core)
+        run: cargo test --release --locked -p qu-core --lib --manifest-path engine/Cargo.toml
+
+      - name: Smoke test the built binary
+        shell: bash
+        run: |
+          BIN="engine/target/release/qu"
+          [ -f "$BIN" ] || BIN="$BIN.exe"
+          echo 'print("ok {1 + 1}")' > smoke.qu
+          "$BIN" run smoke.qu
+
+  studio:
+    name: Qu Studio (typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: qu-studio-tauri/package-lock.json
+
+      - name: Install
+        working-directory: qu-studio-tauri
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: qu-studio-tauri
+        run: npx tsc --noEmit
+
+  links:
+    name: Doc links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check internal links
+        run: |
+          if [ -x tools/check_links.sh ]; then
+            bash tools/check_links.sh
+          else
+            echo "tools/check_links.sh not found or not executable, skipping"
+          fi
