@@ -180,3 +180,94 @@ jobs:
           body_path: CHANGELOG.md
           draft: true
           generate_release_notes: true
+
+  studio:
+    name: Qu Studio (${{ matrix.name }})
+    # Runs after `publish` so the draft release already exists -- this
+    # job uploads its installers into that SAME release (softprops's
+    # action matches by tag and adds assets, it doesn't create a second
+    # release) rather than each job racing to create its own.
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+          - name: macos-universal
+            os: macos-14
+            # Tauri builds a universal (arm64 + x86_64) macOS bundle when
+            # given both targets, rather than one job per architecture.
+            target: aarch64-apple-darwin,x86_64-apple-darwin
+
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: studio-${{ matrix.name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: qu-studio-tauri/package-lock.json
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        # libudev/pkg-config for the engine's serialport dependency;
+        # the webkit2gtk/appindicator/etc. set is what Tauri itself
+        # needs to build and bundle on Linux.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libgtk-3-dev
+
+      # Qu Studio bundles its own `qu` binary as a Tauri "sidecar" --
+      # tauri.conf.json's externalBin expects it at
+      # binaries/qu-<target-triple>(.exe), built from the SAME commit,
+      # not a downloaded artifact from the `build` job (different
+      # jobs don't share a filesystem, and this keeps the sidecar's
+      # provenance simple: built here, from this checkout).
+      - name: Build the qu engine (sidecar)
+        shell: bash
+        run: |
+          set -e
+          for T in $(echo "${{ matrix.target }}" | tr ',' ' '); do
+            cargo build --release --locked --target "$T" --manifest-path engine/Cargo.toml
+            mkdir -p qu-studio-tauri/src-tauri/binaries
+            SRC="engine/target/$T/release/qu"
+            [ -f "$SRC.exe" ] && SRC="$SRC.exe"
+            DST="qu-studio-tauri/src-tauri/binaries/qu-$T"
+            [ -f "$SRC" ] && [[ "$SRC" == *.exe ]] && DST="$DST.exe"
+            cp "$SRC" "$DST"
+          done
+
+      - name: Install frontend dependencies
+        working-directory: qu-studio-tauri
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: qu-studio-tauri
+          # Attach to the same tag's (already-created, draft) release
+          # instead of tauri-action's own release-management flow.
+          tagName: ${{ github.ref_name }}
+          releaseDraft: true
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || '' }}
