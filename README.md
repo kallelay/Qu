@@ -205,6 +205,46 @@ equally reachable from `qu run`/`qu repl` on the command line — but it's
 where the language and the plotting backend are meant to be felt working
 together, not just described.
 
+<table>
+<tr>
+<td width="34%">
+
+**Code editor**<br>
+Run and re-run, figures and variables inspectable live alongside the
+script that produced them.
+
+</td>
+<td>
+<img src="website/assets/screenshots/studio-code-fft.png" alt="Qu Studio code editor running an FFT analysis">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**DSP Workbench — Filter Designer**<br>
+Change a control, the magnitude/phase/group-delay/impulse-response
+figure redraws — no separate plotting step.
+
+</td>
+<td>
+<img src="website/assets/screenshots/studio-filter-designer.png" alt="Qu Studio DSP Workbench filter designer">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**A real comparison, not a mockup**<br>
+Two denoising methods on the same noisy step — moving average smooths
+the edge away, total-variation keeps it. The kind of figure this
+project exists to make easy.
+
+</td>
+<td>
+<img src="website/assets/screenshots/studio-denoise-comparison.png" alt="Qu Studio figure comparing moving-average and total-variation denoising">
+</td>
+</tr>
+</table>
+
 Source under [`qu-studio-tauri/`](qu-studio-tauri/); build it the same
 way as any Tauri app (`npm install && npm run tauri build`) once the
 engine itself is built.
