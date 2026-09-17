@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="website/assets/logo-dark.svg">
-    <img src="website/assets/logo-light.svg" alt="Qu" width="120">
-  </picture>
+  <img src="website/assets/logo.png" alt="Qu" width="120">
 </p>
 
 <h1 align="center">Qu</h1>
