@@ -19,6 +19,16 @@ prototype in one language, plot in another, and hand-transcribe the
 numbers into a manuscript — puts a copy step between the computation and
 the claim, and that step is where results go wrong.
 
+One engine, one syntax, for the work that usually gets split across three
+tools: **signal processing** (filters, spectra, transforms), **numerical
+computation** (dense linear algebra, real and complex), **testing an
+algorithm against another** (same seed, same data, a real number
+either way), **a sandbox that fails loudly instead of quietly** (an
+unread keyword, a shape mismatch, a singular matrix — errors, never
+guesses), and **machine learning** (classic algorithms today, a fuller
+platform on the roadmap). Prototype, measure, and plot it without
+leaving the language, or the REPL.
+
 ```qu
 # A noisy tone, filtered, measured and plotted — all of it here.
 fs = 1000
@@ -99,21 +109,67 @@ mentioned above, for real, all in one figure
 <img src="engine/examples/peak_finding.svg" alt="Peak finding on a noisy signal">
 </td>
 </tr>
-<tr>
-<td width="34%">
-
-**PRM viewer self-test**<br>
-[`catalog/qu_prm_viewer.qu`](catalog/qu_prm_viewer.qu)
-
-</td>
-<td>
-<img src="catalog/qu_prm_viewer_selftest.svg" alt="PRM viewer self-test output">
-</td>
-</tr>
 </table>
 
 More in [`catalog/`](catalog/) — around a hundred complete, runnable
 scripts, each one a self-contained example.
+
+## Five things people actually use it for
+
+**Mathematical computation.** Dense linear algebra, real and complex, no
+separate import or setup:
+
+```qu
+A = [4, -2; 1, 1]
+e = eig(A)
+print("eigenvalues: {e.values}")
+
+U = svd(A)
+recon_error = norm(U.u * diag(U.s) * U.vt - A)
+print("SVD reconstruction error: {recon_error:.2e}")
+```
+
+**Machine learning.** Classic algorithms, a real train/test split, a real
+accuracy number — not a toy:
+
+```qu
+n = 60
+class0 = randn(n, 2) + [2, 2]
+class1 = randn(n, 2) + [-1.5, -1.5]
+X = vstack(class0, class1)
+y = [zeros(n), ones(n)]
+
+split = train_test_split(X, y, test_size=0.3, seed=7)
+model = knn_model(split.X_train, split.y_train, 5, kind="classification")
+pred  = model.predict(split.X_test)
+
+accuracy = length(where(pred == split.y_test)) / length(pred)
+print("test accuracy: {accuracy:.3f}")
+```
+
+**Testing an algorithm against another.** `seed=` makes every random draw
+reproducible, so "which method is actually better" is a real comparison
+on identical data, not noise:
+
+```qu
+rf  = random_forest_model(split.X_train, split.y_train, 100, seed=7)
+knn = knn_model(split.X_train, split.y_train, 5, kind="classification")
+
+rf_acc  = length(where(rf.predict(split.X_test) == split.y_test)) / length(split.y_test)
+knn_acc = length(where(knn.predict(split.X_test) == split.y_test)) / length(split.y_test)
+print("forest: {rf_acc:.3f}, k-NN: {knn_acc:.3f} -- same split, same seed, a real answer")
+```
+
+**A sandbox that won't lie to you.** An unread keyword argument, a shape
+mismatch, a non-positive-definite matrix — Qu errors instead of guessing,
+so a script that runs is a script whose numbers you can trust. See
+[Design commitments](#design-commitments) below; this is the one thing
+the whole language is organised around.
+
+**A testbed for real signals.** Qu Studio's DSP Workbench and the `qu
+repl` are built for the loop this actually is: change one parameter,
+re-run, look at the number and the figure together, repeat — not
+edit-save-switch-window-look.
 
 ## What it has
 
