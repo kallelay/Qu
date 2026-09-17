@@ -44,6 +44,15 @@ jobs:
     # Reads matrix.allow-failure per entry -- see the linux-x86_64-static
     # comment below for why one leg needs this and the others don't.
     continue-on-error: ${{ matrix.allow-failure || false }}
+    # A real incident, not a hypothetical: macos-x86_64 sat QUEUED for
+    # 3+ hours on 2026-09-17 (GitHub's shared macOS runner pool, likely
+    # exhausted minutes -- macOS is billed at 10x normal Actions
+    # minutes and that night had heavy usage). Without a timeout, a
+    # stuck-queued leg blocks `publish`/`studio` forever, not just
+    # slowly. 40 min covers every leg's real build time with margin
+    # (the slowest so far, windows-x86_64, took ~17 min) without
+    # letting one stuck runner hang the whole pipeline indefinitely.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -96,10 +105,17 @@ jobs:
             target: aarch64-apple-darwin
             archive: tar
 
+          # allow-failure: macos-arm64 above already covers modern Apple
+          # Silicon; this Intel leg is the one that sat queued for 3+
+          # hours (see the job-level timeout-minutes comment) -- with
+          # the timeout now in place it will fail cleanly instead of
+          # hanging, but it still shouldn't be allowed to block
+          # publish/studio the way it did before either fix landed.
           - name: macos-x86_64
             os: macos-13
             target: x86_64-apple-darwin
             archive: tar
+            allow-failure: true
 
     steps:
       - uses: actions/checkout@v4
