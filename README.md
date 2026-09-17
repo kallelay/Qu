@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="website/assets/logo.svg" alt="Qu" width="120">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="website/assets/logo-dark.svg">
+    <img src="website/assets/logo-light.svg" alt="Qu" width="120">
+  </picture>
 </p>
 
 <h1 align="center">Qu</h1>
@@ -86,6 +89,28 @@ mentioned above, for real, all in one figure
 </td>
 <td>
 <img src="catalog/qu_markers.svg" alt="Marker glyph gallery">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**Peak finding**<br>
+[`engine/examples/peak_finding.qu`](engine/examples/peak_finding.qu)
+
+</td>
+<td>
+<img src="engine/examples/peak_finding.svg" alt="Peak finding on a noisy signal">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**PRM viewer self-test**<br>
+[`catalog/qu_prm_viewer.qu`](catalog/qu_prm_viewer.qu)
+
+</td>
+<td>
+<img src="catalog/qu_prm_viewer_selftest.svg" alt="PRM viewer self-test output">
 </td>
 </tr>
 </table>
