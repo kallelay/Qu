@@ -81,13 +81,16 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": ["../../catalog/**/*"],
+      "resources": ["../../catalog/**/*", "../../editors/**/*"],
       "shortDescription": "Qu Studio IDE",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",
-        "timestampUrl": ""
+        "timestampUrl": "",
+        "nsis": {
+          "installerHooks": "installer-hooks.nsh"
+        }
       }
     },
     "security": {
