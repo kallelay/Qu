@@ -38,12 +38,60 @@ savefig("filtered.pdf")
 ## Contents
 
 - [What it has](#what-it-has)
+- [Gallery](#gallery)
 - [Qu Studio](#qu-studio)
 - [Getting started](#getting-started)
 - [Design commitments](#design-commitments)
 - [Status](#status)
 - [Credits](#credits)
 - [Licence](#licence)
+
+## Gallery
+
+Real output from `catalog/`, not mockups — every figure below is a `.svg`
+a Qu script actually produced, checked in as-is.
+
+<table>
+<tr>
+<td width="34%">
+
+**Filter design and response**<br>
+[`demo_filter.qu`](catalog/demo_filter.qu)
+
+</td>
+<td>
+<img src="catalog/demo_filter.svg" alt="Filter design and frequency response">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**Independent twin axes**<br>
+[`qu_twin_axis_reference.qu`](catalog/qu_twin_axis_reference.qu) —
+different scales, one figure, a common EE-measurement need most
+plotting libraries make awkward
+
+</td>
+<td>
+<img src="catalog/qu_twin_axis_reference.svg" alt="Twin-axis plot with independent scales">
+</td>
+</tr>
+<tr>
+<td width="34%">
+
+**Marker gallery**<br>
+[`catalog/qu_markers.qu`](catalog/qu_markers.qu) — the ~30 marker glyphs
+mentioned above, for real, all in one figure
+
+</td>
+<td>
+<img src="catalog/qu_markers.svg" alt="Marker glyph gallery">
+</td>
+</tr>
+</table>
+
+More in [`catalog/`](catalog/) — around a hundred complete, runnable
+scripts, each one a self-contained example.
 
 ## What it has
 
