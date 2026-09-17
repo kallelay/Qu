@@ -1,4 +1,14 @@
-# Qu
+<p align="center">
+  <img src="website/assets/logo.svg" alt="Qu" width="120">
+</p>
+
+<h1 align="center">Qu</h1>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0%20%2F%20CC--BY--SA--4.0-blue"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-informational">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-~2%2C200%20passing-brightgreen">
+</p>
 
 An array language for measurement science: signals, spectra, impedance,
 and the figures that go in the paper.
@@ -25,6 +35,16 @@ ylabel("amplitude")
 savefig("filtered.pdf")
 ```
 
+## Contents
+
+- [What it has](#what-it-has)
+- [Qu Studio](#qu-studio)
+- [Getting started](#getting-started)
+- [Design commitments](#design-commitments)
+- [Status](#status)
+- [Credits](#credits)
+- [Licence](#licence)
+
 ## What it has
 
 **Numerics.** Real and complex scalars, vectors and matrices. FFT, filter
@@ -47,18 +67,36 @@ arrays and structs, images.
 gradient boosting, k-NN, PCA, GMM, MLPs), parallel `pmap`/pools, GPU
 matmul, serial and TCP I/O.
 
+## Qu Studio
+
+A desktop IDE (Tauri + Rust, bundles its own engine build) for when a
+terminal and a text editor aren't the whole workflow: a code editor with
+live run, a visual GUI designer for building instrument-panel-style
+front ends without hand-writing layout code, a DSP workbench for
+interactive filter/spectrum exploration, and a figure/report browser for
+the plots a script produces. It is optional — everything Qu does is
+equally reachable from `qu run`/`qu repl` on the command line — but it's
+where the language and the plotting backend are meant to be felt working
+together, not just described.
+
+Source under [`qu-studio-tauri/`](qu-studio-tauri/); build it the same
+way as any Tauri app (`npm install && npm run tauri build`) once the
+engine itself is built.
+
 ## Getting started
 
 ```
 cargo build --release --manifest-path engine/Cargo.toml
-engine/target/release/qu run examples/hello.qu
+engine/target/release/qu run catalog/demo_hello.qu
 engine/target/release/qu repl
 ```
 
 The [book](book/src/SUMMARY.md) is the place to start reading: a guided
 tour, three fundamentals volumes, and a standard-library reference
-organised by domain. [`docs/qu-language-spec.md`](docs/qu-language-spec.md)
-is the normative specification.
+organised by domain.
+[`docs/qu-language-spec.built.md`](docs/qu-language-spec.built.md) is the
+normative specification, built directly from the working engine so it
+cannot claim a feature that doesn't exist.
 
 [`catalog/`](catalog/) holds around a hundred worked scripts, each one a
 complete program that runs.
