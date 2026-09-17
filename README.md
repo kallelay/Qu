@@ -50,6 +50,7 @@ savefig("filtered.pdf")
 - [What it has](#what-it-has)
 - [Gallery](#gallery)
 - [Qu Studio](#qu-studio)
+- [Other editors](#other-editors)
 - [Getting started](#getting-started)
 - [Design commitments](#design-commitments)
 - [Status](#status)
@@ -248,6 +249,25 @@ project exists to make easy.
 Source under [`qu-studio-tauri/`](qu-studio-tauri/); build it the same
 way as any Tauri app (`npm install && npm run tauri build`) once the
 engine itself is built.
+
+## Other editors
+
+Not everyone wants a dedicated IDE. Three lightweight integrations live
+under [`editors/`](editors/) — none published to a marketplace yet, all
+install locally in a couple of minutes:
+
+| | Gives you | Install |
+|---|---|---|
+| [VS Code](editors/vscode-qu) | Syntax highlighting, run-file (▶/`Ctrl+Alt+Q`) with output streaming, live parse-error squiggles as you type | Copy the folder into your extensions directory, or package with `vsce` |
+| [Sublime Text](editors/sublime-qu) | Syntax highlighting, `Ctrl+B` to run, `Ctrl+Shift+B` to check syntax only | Copy two files into Sublime's Packages folder |
+| [Notepad++](editors/notepadpp-qu) | Syntax highlighting (User Defined Language), run via the built-in Run dialog or the NppExec plugin | Import one `.xml` file |
+
+None of these fake a debugger — Qu's execution model (`qu run <file>`, a
+one-shot subprocess with no persistent interpreter state) genuinely
+doesn't support breakpoints or stepping today, and each integration says
+so directly rather than pretending otherwise. The VS Code extension's
+post-run variable dump is the honest substitute: the script's final
+top-level bindings, after it finishes running, not a paused inspection.
 
 ## Getting started
 
