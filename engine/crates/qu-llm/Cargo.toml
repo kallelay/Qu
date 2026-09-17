@@ -34,3 +34,17 @@ hf-hub = "0.3"
 # header; a plain `ureq::get(...).call()` follows the SAME redirect
 # correctly since it doesn't hand-parse the header at all).
 ureq = "2"
+
+# hf-hub -> native-tls -> openssl-sys, for musl only (see below).
+[target.'cfg(target_env = "musl")'.dependencies]
+# musl cross-compilation has no system OpenSSL for openssl-sys to link
+# against, and native-tls doesn't expose a "vendored" passthrough feature
+# of its own. Depending on `openssl` directly with `vendored` here turns
+# on openssl-sys's own vendored/build-from-source feature for this target
+# via Cargo's per-target feature unification (same openssl-sys version
+# already in the graph via native-tls) -- musl gets a real, statically
+# linked OpenSSL instead of failing to find one. Scoped to musl so other
+# targets (which don't hit this at all -- Windows/macOS native-tls uses
+# schannel/Security.framework, and glibc Linux has a system OpenSSL) don't
+# pay for a from-source OpenSSL build they don't need.
+openssl = { version = "0.10", features = ["vendored"] }
