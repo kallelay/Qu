@@ -253,7 +253,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: qu-studio-tauri/package-lock.json
 
@@ -314,32 +314,47 @@ jobs:
               -output qu-studio-tauri/src-tauri/binaries/qu-universal-apple-darwin
           fi
 
+      # qu-studio-tauri's own `postinstall` (`npm install --prefix
+      # ../qu-ui-components`) runs a SECOND npm process nested inside this
+      # one. On windows-latest that nested install hit a real failure: a
+      # Windows-only EPERM on rmdir mid-reinstall (large tree, thousands of
+      # small files under monaco-editor/@maplibre -- looks like AV/file-lock
+      # contention, not a logic bug), which npm retried into a runaway loop
+      # that eventually corrupted its own subprocess's PATH ("'npm' is not
+      # recognized"). Installing both packages explicitly and sequentially
+      # here, with `--ignore-scripts` on the second so the postinstall
+      # doesn't ALSO try to redo the first one nested inside itself, avoids
+      # the nested-npm-under-load scenario entirely rather than hoping the
+      # flakiness doesn't recur. `ci` (not `install`) for both -- both now
+      # have committed lockfiles, so this is also the more deterministic
+      # install besides.
+      # A second, independent diagnosis of the SAME v0.2.3 Windows failure
+      # (qumaster's `8a7cec20`-era fix, reconciled here rather than
+      # overridden) found the same root cause -- npm's postinstall-nested
+      # reinstall hitting a transient `EPERM: ... rmdir` under
+      # monaco-editor/maplibre, something else (Defender, the indexer)
+      # holding a handle for a moment -- and fixed it with a 3-attempt
+      # retry. That retry is real insurance against ANY transient
+      # Windows file-lock flakiness here, nesting or not, so it stays.
+      # Splitting into two explicit `--prefix` installs (below) removes
+      # the nested-npm-nested-process pattern itself, which halves the
+      # file-write volume this step does (qu-ui-components no longer
+      # gets installed twice -- once explicitly, once again via
+      # postinstall) and is the more likely actual reduction in how
+      # often the transient lock gets hit in the first place. Belt and
+      # suspenders: fewer retries needed, and a safety net if one is.
       - name: Install frontend dependencies
-        working-directory: qu-studio-tauri
         shell: bash
-        # Retried: `npm ci`'s postinstall runs a NESTED `npm install
-        # --prefix ../qu-ui-components`, and on the Windows runner that
-        # inner install's own node_modules teardown intermittently hits
-        # `EPERM: operation not permitted, rmdir ...` on files under
-        # monaco-editor/maplibre -- something else (Defender, the
-        # indexer) still has a handle open on them for a moment. Real,
-        # observed failure (tag v0.2.3's run), not hypothetical: the
-        # actual `npm error code 1` is buried under a wall of nested
-        # "cleanup failed" noise from npm re-reporting the same error at
-        # every recursion level. A clean retry succeeds because the lock
-        # is transient -- confirmed by the failing run's own log
-        # containing a REAL install (all packages fetched, postinstall
-        # ran) before the cleanup step is what failed, not the fetch.
         run: |
           set -e
           for attempt in 1 2 3; do
-            if npm ci; then
+            if npm ci --prefix qu-ui-components && npm ci --prefix qu-studio-tauri --ignore-scripts; then
               exit 0
             fi
-            echo "npm ci failed (attempt $attempt/3) -- retrying after a moment"
+            echo "install failed (attempt $attempt/3) -- retrying after a moment"
             sleep 10
           done
-          echo "npm ci failed 3 times" >&2
+          echo "install failed 3 times" >&2
           exit 1
 
       - uses: tauri-apps/tauri-action@v0
