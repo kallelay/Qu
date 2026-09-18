@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>spec = <span class="f">input</span>(<span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>spec = <span class="f">input</span>(<span class="n">3</span>)
 <span class="f">print</span>(spec.out_dim)          <span class="c"># 3 -- nothing built yet</span>
 <span class="f">print</span>(spec.layers)           <span class="c"># () -- empty</span>
 
@@ -52,8 +52,11 @@ net = <span class="f">input</span>(<span class="n">3</span>) |&gt; <span class="
 <span class="f">print</span>(net.out_dim)            <span class="c"># 1 -- the last layer's output size</span>
 <span class="f">print</span>(<span class="f">length</span>(net.layers))     <span class="c"># 2 -- one record per dense() stage</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
+<div class="out"><span class="lbl">output</span><pre>3
+()
+1
+2</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
 y_true = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
 w = <span class="f">param</span>(<span class="n">0.0</span>)
 <span class="k">function</span> <span class="f">loss_fn</span>(w)
@@ -111,7 +114,13 @@ quick = <span class="f">quick_mlp</span>(Xxor, Yxor, <span class="a">seed</span>
 nq = <span class="f">length</span>(quick.loss_history)
 <span class="f">print</span>(<span class="s">"quick_mlp: loss {round(quick.loss_history[0], 4)} -&gt; {round(quick.loss_history[nq - 1], 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>train_loop (sgd): loss 30 -&gt; 0
+optimizer_step (adam): w -&gt; 1.7775 (target 2.0)
+nesterov_sgd -&gt; 0.715, adamw -&gt; 0.9495, nadam -&gt; 0.9263
+adamax -&gt; 0.95, rmsprop -&gt; 0.8419, adagrad -&gt; 0.95, adadelta -&gt; 0.9996
+compile + fit(lr_plateau): loss 3.3387 -&gt; 0.0341
+compile + fit(lr_adaptive): loss 0.3897 -&gt; 0.0002
+quick_mlp: loss 3.1877 -&gt; 0.0922</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p>style ergonomics over the raw <code>param</code>/<code>dense</code>/<code>relu</code>/<code>grad</code> primitives above, WITHOUT the spec's (§38.4) unbuilt <code>model ... end model</code> / <code>layer ... end layer</code> grammar. Every piece here is an ordinary function returning <code>Value::Record</code> (an unfitted layer spec) or <code>Value::Model</code> (an initialized network) — the same "fit-style API via existing value shapes, no new syntax" convention <code>kmeans_model</code>/<code>fit_scaler</code>/ <code>gru_init</code> already established. See <code>sequential_forward</code>'s own doc comment for how a spec+params pair actually runs. <code>input(n)</code> — starts a Tier-2 pipeline (Sequential pipeline API, 2026-08-26): a lightweight <code>Value::Record</code> tagged <code>kind = "pipeline_input"</code> tracking just the running output shape (<code>out_dim</code>, starting at <code>n</code>) and the layer-spec list built so far (empty here). Every <code>dense(...)</code> pipeline stage (see that builtin arm's own doc comment) reads and extends this same shape via <code>eval_pipe</code>'s "piped value becomes the first argument" rule, and <code>compile(...)</code> turns the finished Record into a real <code>sequential(...)</code> model. Deliberately a DIFFERENT Record shape from <code>dense_layer</code>'s own pipe-chain accumulation just below (<code>kind="dense"|"dropout"</code>, checked by <code>is_layer_spec</code>) — two independent, non-colliding pipe-based ways to build a layer list, not one competing with the other.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">80</span>, <span class="n">90</span>, <span class="n">85</span>, <span class="n">95</span>; <span class="n">88</span>, <span class="n">92</span>, <span class="n">84</span>, <span class="n">91</span>; <span class="n">86</span>, <span class="n">89</span>, <span class="n">93</span>, <span class="n">87</span>; <span class="n">90</span>, <span class="n">85</span>, <span class="n">88</span>, <span class="n">92</span>]
+<div class="example hasout"><pre class="hl"><code>m = [<span class="n">80</span>, <span class="n">90</span>, <span class="n">85</span>, <span class="n">95</span>; <span class="n">88</span>, <span class="n">92</span>, <span class="n">84</span>, <span class="n">91</span>; <span class="n">86</span>, <span class="n">89</span>, <span class="n">93</span>, <span class="n">87</span>; <span class="n">90</span>, <span class="n">85</span>, <span class="n">88</span>, <span class="n">92</span>]
 img = <span class="f">image_from_matrix</span>(m)
 
 eq = <span class="f">histeq</span>(img)
@@ -56,7 +56,12 @@ noisy_sp = <span class="f">imnoise</span>(img, <span class="s">"salt_pepper"</sp
 <span class="f">imshow</span>(noisy_sp)
 <span class="f">print</span>(eq.width, eq2.width, noisy_g.width, noisy_sp.width)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="out"><span class="lbl">output</span><pre>4 4 4 4</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="244.61" y="48.00" width="480.84" height="480.84" href="data:image/bmp;base64,Qk1mAAAAAAAAADYAAAAoAAAABAAAAAQAAAABABgAAAAAADAAAAATCwAAEwsAAAAAAAAAAAAAWlpaVVVVWFhYXFxcVlZWWVlZXV1dV1dXWFhYXFxcVFRUW1tbUFBQWlpaVVVVX19f" preserveAspectRatio="none"/>
+<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p>and synthetic noise (§ contrast/rotation/noise pass, 2026-08-24). See <code>image::Image</code>'s own doc comments (the "Contrast/intensity adjustment..." section, right after <code>label_components</code>) for the full per-function algorithm and design-decision writeups this comment block only summarizes. <code>imequalize(img)</code> (alias <code>histeq</code>) — global histogram equalization: RGB-preserving via BT.601-luma CDF remapping, NOT a grayscale-only fallback (the higher-quality option this feature was asked to prefer when time allowed).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

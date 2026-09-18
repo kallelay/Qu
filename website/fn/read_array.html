@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">20.5</span>)
 <span class="f">write_double</span>(f, <span class="n">21.0</span>)
 <span class="f">write_double</span>(f, <span class="n">19.8</span>)
@@ -62,8 +62,10 @@ vals = <span class="f">read_values</span>(g, <span class="s">"f64"</span>, <span
 whole = <span class="f">read_array</span>(<span class="s">"temps.bin"</span>, <span class="a">type</span>=<span class="s">"f64"</span>)
 <span class="f">print</span>(whole)                             <span class="c"># [20.5, 21, 19.8]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"wb"</span>)
+<div class="out"><span class="lbl">output</span><pre>24
+[20.5, 21, 19.8]
+[20.5, 21, 19.8]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_int64</span>(f, -<span class="n">123456789012</span>)
 <span class="f">write_uint64</span>(f, <span class="n">9007199254740993</span>)   <span class="c"># 1 past 2^53 -- the exact-precision edge</span>
 <span class="f">close</span>(f)
@@ -79,7 +81,8 @@ M = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span
 back = <span class="f">read_array</span>(<span class="s">"matrix.bin"</span>, <span class="a">type</span> = <span class="s">"int32"</span>) -&gt; (<span class="n">2</span>, <span class="n">3</span>)
 <span class="f">print</span>(back)                    <span class="c"># [1, 2, 3; 4, 5, 6] -- shape recovered via reshape</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>-123456789012 9007199254740992
+[1, 2, 3; 4, 5, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

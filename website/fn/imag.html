@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs  = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs  = <span class="n">1000</span>
 t   = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
 x   = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
 sig = <span class="f">signal</span>(x, fs)
@@ -57,8 +57,11 @@ X = <span class="f">fft</span>(sig)
 clean = <span class="f">ifft</span>(<span class="f">band_zero</span>(X, <span class="n">250</span>, <span class="n">350</span>))                    <span class="c"># notch out the 300 Hz tone</span>
 <span class="f">print</span>(<span class="s">"residual imaginary part: {max(abs(imag(clean)))}"</span>)   <span class="c"># ~1e-16, still real</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>x = <span class="n">0.5</span>
+<div class="out"><span class="lbl">output</span><pre>df = 1 Hz, Nyquist = 500 Hz
+power at 100 Hz: 0.5
+power at 300 Hz: 0.125
+residual imaginary part: 3.079059e-16</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>x = <span class="n">0.5</span>
 <span class="f">print</span>(<span class="s">"tan={tan(x)}  asin={asin(x)}  acos={acos(x)}  atan={atan(x)}"</span>)
 <span class="f">print</span>(<span class="s">"sinh={sinh(x)}  cosh={cosh(x)}  tanh={tanh(x)}"</span>)
 <span class="f">print</span>(<span class="s">"ln(e^2)={ln(exp(2))}  log(e^2)={log(exp(2))}  log2(8)={log2(8)}"</span>)
@@ -68,7 +71,11 @@ z = <span class="n">3</span> + <span class="n">4j</span>
 
 <span class="f">print</span>(<span class="f">ceil</span>(<span class="n">2.1</span>))   <span class="c"># 3</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="out"><span class="lbl">output</span><pre>tan=0.546302  asin=0.523599  acos=1.047198  atan=0.463648
+sinh=0.521095  cosh=1.127626  tanh=0.462117
+ln(e^2)=2  log(e^2)=2  log2(8)=3
+arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4i
+3</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>See also</h2>
 <p><a href="im.html"><code>im</code></a> &mdash; documented in the same entry.</p>
 </main>

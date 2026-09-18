@@ -44,15 +44,24 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)
 table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
 df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
 <span class="f">print</span>(df3)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
+<div class="out"><span class="lbl">output</span><pre>x   y
+-  --
+1  10
+2  20
+3  -5
+x   y
+-  --
+1  10
+2  20
+3  -5</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example hasout"><pre class="hl"><code>measurements = <span class="f">table</span>(
     <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
     <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
 )
@@ -64,8 +73,22 @@ df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
 <span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
 <span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
+<div class="out"><span class="lbl">output</span><pre>5
+stat         x
+-----  -------
+count        5
+mean       0.9
+std    2.03562
+min       -1.5
+25%      -0.25
+50%        0.5
+75%          2
+max       3.75
+x,sensor
+0.5,b
+2,a
+    ... 1 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
     <span class="a">temp</span>     = [<span class="n">21.5</span>, <span class="n">22.1</span>, <span class="n">35.0</span>, <span class="n">21.8</span>, <span class="n">36.2</span>, <span class="n">22.0</span>, <span class="n">34.5</span>, <span class="n">21.6</span>, <span class="n">35.8</span>, <span class="n">22.3</span>],
     <span class="a">humidity</span> = [<span class="n">45.2</span>, <span class="n">46.0</span>, <span class="n">20.1</span>, <span class="n">45.5</span>, <span class="n">19.5</span>, <span class="n">45.8</span>, <span class="n">21.0</span>, <span class="n">45.1</span>, <span class="n">20.4</span>, <span class="n">46.2</span>],
     <span class="a">pressure</span> = [<span class="n">1012.1</span>, <span class="n">1011.8</span>, <span class="n">1009.5</span>, <span class="n">1012.0</span>, <span class="n">1008.9</span>, <span class="n">1012.3</span>, <span class="n">1009.8</span>, <span class="n">1012.2</span>, <span class="n">1009.1</span>, <span class="n">1011.9</span>],
@@ -86,7 +109,45 @@ scaled_temp = <span class="f">standardize</span>(df.temp)
 <span class="f">print</span>(<span class="s">"standardized temp[0] = {scaled_temp[0]:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"mean(standardized) = {mean(scaled_temp):.4f}, std(standardized) = {std(scaled_temp):.4f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="out"><span class="lbl">output</span><pre>rows = 10, cols = 4
+temp  humidity  pressure  label
+----  --------  --------  -----
+21.5      45.2    1012.1  ok   
+22.1        46    1011.8  ok   
+  35      20.1    1009.5  warn 
+[1, -0.997357, -0.991317; -0.997357, 1, 0.983511; -0.991317, 0.983511, 1]
+· savefig quickstart_corrmat.svg
+  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
+standardized temp[0] = -0.8275
+mean(standardized) = -0.0000, std(standardized) = 1.0000</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="314.22" y="48.00" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>temp, temp: 1</title></rect>
+<text x="385.92" y="125.94" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<rect x="457.62" y="48.00" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>temp, humidity: -0.997</title></rect>
+<text x="529.33" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
+<rect x="601.03" y="48.00" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>temp, pressure: -0.991</title></rect>
+<text x="672.73" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
+<rect x="314.22" y="191.41" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>humidity, temp: -0.997</title></rect>
+<text x="385.92" y="269.35" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
+<rect x="457.62" y="191.41" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>humidity, humidity: 1</title></rect>
+<text x="529.33" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<rect x="601.03" y="191.41" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>humidity, pressure: 0.984</title></rect>
+<text x="672.73" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
+<rect x="314.22" y="334.81" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>pressure, temp: -0.991</title></rect>
+<text x="385.92" y="412.75" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
+<rect x="457.62" y="334.81" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>pressure, humidity: 0.984</title></rect>
+<text x="529.33" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
+<rect x="601.03" y="334.81" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>pressure, pressure: 1</title></rect>
+<text x="672.73" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<text x="304.50" y="125.37" font-size="16.2" text-anchor="end" fill="#444444">temp</text>
+<text x="304.50" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">humidity</text>
+<text x="304.50" y="412.19" font-size="16.2" text-anchor="end" fill="#444444">pressure</text>
+<text x="385.92" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 385.92 504.14)">temp</text>
+<text x="529.33" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 529.33 504.14)">humidity</text>
+<text x="672.73" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 672.73 504.14)">pressure</text>
+<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">First plot</text>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
 </main>
 </div>
 <footer><div class="wrap">

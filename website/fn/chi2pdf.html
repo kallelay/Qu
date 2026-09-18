@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">seed</span>(<span class="n">42</span>)                             <span class="c"># reseed the shared stream</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">42</span>)                             <span class="c"># reseed the shared stream</span>
 u = <span class="f">rand</span>(<span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)                <span class="c"># an explicit seed still wins</span>
 <span class="f">print</span>(<span class="s">"rand draws: {round(u, 3)}"</span>)
 <span class="f">print</span>(<span class="s">"chi2pdf(2, 3):  {round(chi2pdf(2, 3), 4)}"</span>)
@@ -54,7 +54,10 @@ u = <span class="f">rand</span>(<span class="n">3</span>, <span class="a">seed</
 walk = <span class="f">random_walk</span>(<span class="n">20</span>, <span class="a">drift</span> = <span class="n">0.1</span>, <span class="a">volatility</span> = <span class="n">1.0</span>, <span class="a">seed</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"random walk, last value: {round(walk[19], 3)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>rand draws: [0.746, 0.971, 0.444]
+chi2pdf(2, 3):  0.2076
+normpdf(0):     0.3989
+random walk, last value: -3.552</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>chi2pdf(x, k)</code> — the chi-square density with <code>k</code> degrees of freedom, computed in log-space via <code>ln_gamma</code> (the naive <code>x^(k/2-1)*exp(-x/2)/(2^(k/2)*Gamma(k/2))</code> overflows/ underflows for even modest <code>k</code>) then exponentiated. Broadcasts over a vector <code>x</code> like any elemental-math builtin.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line one"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line two"</span>)
 <span class="f">close</span>(n)
@@ -64,7 +64,8 @@ a = <span class="f">drain</span>(<span class="f">StreamFile</span>(<span class="
 b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
 <span class="f">print</span>(<span class="f">length</span>(b) &gt; <span class="n">0</span>)                        <span class="c"># true -- some HTML came back</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>line one|line two|
+true</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
     total = <span class="s">""</span>
     <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)

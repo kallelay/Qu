@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+<div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
 d = <span class="f">dbscan</span>(G, <span class="n">1.5</span>, <span class="n">4</span>)
@@ -62,7 +62,12 @@ small = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="
 low = <span class="f">tsne</span>(small, <span class="a">n_components</span> = <span class="n">2</span>, <span class="a">perplexity</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>, <span class="a">max_iter</span> = <span class="n">100</span>)
 <span class="f">print</span>(<span class="s">"tsne output rows: {rows(low)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>dbscan labels: (0, 1, 2)
+pca projected shape: 120 x 2
+pca components:
+[0.694, 0.72; 0.72, -0.694]
+explained variance: [0.969, 0.031]
+tsne output rows: 12</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>pca_components(X, k)</code> — the (k, d) principal-direction matrix (rows are unit loading vectors, scikit-learn's own <code>components_</code> convention) — a separate call rather than a second return value, same "no tuples, cheaply recompute" reasoning as <code>kmeans_centers</code>, except here it's not just cheap but exactly reproducible with zero extra cost (PCA has no randomness to keep in sync via a seed).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

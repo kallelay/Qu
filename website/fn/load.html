@@ -43,14 +43,23 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)
 table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
 df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
 <span class="f">print</span>(df3)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>x   y
+-  --
+1  10
+2  20
+3  -5
+x   y
+-  --
+1  10
+2  20
+3  -5</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example"><pre class="hl"><code>x = <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>
 A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
 m = <span class="f">ols_model</span>([<span class="n">1</span>;<span class="n">2</span>;<span class="n">3</span>;<span class="n">4</span>], [<span class="n">2</span>;<span class="n">4</span>;<span class="n">6</span>;<span class="n">8</span>])   <span class="c"># a fitted model round-trips too</span>

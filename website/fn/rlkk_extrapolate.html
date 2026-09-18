@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
+<div class="example hasout"><pre class="hl"><code>freqs = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">4</span>, <span class="n">20</span>)
 R = <span class="n">100</span>
 C = <span class="n">1e-6</span>
 w = <span class="n">2</span> * pi * freqs
@@ -57,7 +57,7 @@ target = <span class="f">logspace</span>(-<span class="n">1</span>, <span class=
 Z_ext = <span class="f">rlkk_extrapolate</span>(Z, freqs, target, <span class="a">lambda</span>=<span class="n">1e-4</span>)
 <span class="f">print</span>(<span class="s">"extrapolated {length(Z_ext)} points, first = {Z_ext[0]}, last = {Z_ext[9]}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>extrapolated 10 points, first = 100.003341 + 0.005947i, last = 0.110709 - 2.404278i</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>rlkk_extrapolate(Z, freqs, target_freqs, [lambda=1e-4])</code> — refits the DRT from <code>(Z, freqs)</code> and evaluates it at <code>target_freqs</code>, which may extend beyond the measured band — the "reconstruct truncated/incomplete data" use case. A single value (<code>CVec</code>), not a model: there is only one output.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

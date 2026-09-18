@@ -69,7 +69,7 @@
 <p>Assumes Books 1 and 2. Everything here runs. Where a capability has a boundary, the boundary is stated where you would hit it, rather than a section describing something that does not exist yet.</p>
 <h2 id="s0">1. Machine learning</h2>
 <p>Every model in Qu is built by a <code>*_model</code> constructor and answers the same three questions: what did you fit, what do you predict, how well did you do.</p>
-<div class="example"><pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">8</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+<div class="example hasout"><pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">8</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
 y = [<span class="n">3.1</span>, <span class="n">5.2</span>, <span class="n">7.1</span>, <span class="n">9.3</span>]
 
 m = <span class="f">ols_model</span>(X, y)          <span class="c"># ordinary least squares, automatic intercept</span>
@@ -77,28 +77,30 @@ m = <span class="f">ols_model</span>(X, y)          <span class="c"># ordinary l
 <span class="f">print</span>(<span class="s">"intercept    {m.intercept:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"R^2          {m.score(X, y):.4f}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>coefficients [1.025, 1.025]
+intercept    -3.0500
+R^2          0.9993</pre></div></div>
 <p><code>.coef</code> and <code>.intercept</code> are read-only fields, not method calls. <code>.predict</code> and <code>.score</code> take new data. The same shape holds across the family:</p>
-<div class="example"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
+<div class="example hasout"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
 k = <span class="f">kmeans_model</span>(X, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>)    <span class="c"># .predict assigns to the nearest centroid</span>
 p = <span class="f">pca_model</span>(X, <span class="n">1</span>)                  <span class="c"># .predict projects onto the fitted components</span>
 <span class="f">print</span>(<span class="s">"cluster of row 0: {k.predict(X)[0]}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>cluster of row 0: 1</pre></div></div>
 <p>The plain <code>ridge</code>, <code>kmeans</code>, <code>pca</code> builtins are still there and are the simpler choice when you do not need <code>.predict</code> on new data later. The <code>_model</code> versions exist for when you do.</p>
 <h3>Pipelines</h3>
 <p>A pipeline composes named stages into one fit/predict/score object. Every stage but the last is a plain transform; the last is an estimator <code>(X, y) -&gt; model</code>. Stages are named by string, the same convention <code>pmap</code> and <code>spawn</code> use, because a stage has to be re-runnable inside the pipeline.</p>
-<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+<div class="example hasout"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
 <span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
 
 pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
 fitted = pipe.<span class="f">fit</span>(X, y)
 <span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>pipeline R^2 0.9992</pre></div></div>
 <h3>Neural networks</h3>
 <p>Layers are specs, a network is a list of them, and training returns a new fitted model rather than mutating the one you built — the same "return a new value" convention as everything else in the language.</p>
-<div class="example"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+<div class="example hasout"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
 Y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">1</span>)
 
 layers = (<span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>), <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>))
@@ -108,16 +110,17 @@ trained = net.<span class="f">fit</span>(X, Y, <span class="a">epochs</span> = <
 <span class="f">print</span>(<span class="s">"loss {trained.loss_history[0]:.4f} -&gt; {trained.loss_history[1999]:.6f}"</span>)
 <span class="f">print</span>(<span class="s">"XOR predictions (want 0, 1, 1, 0): {trained.predict(X)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>loss 0.9916 -&gt; 0.000000
+XOR predictions (want 0, 1, 1, 0): [4.134172e-84; 1; 1; -6.676147e-84]</pre></div></div>
 <p><code>mlp_classifier</code>, <code>simple_cnn</code> and <code>simple_rnn_classifier</code> build the common architectures in one call. <code>conv1d</code>/<code>conv2d</code>, <code>lstm_cell</code>, <code>gru_cell</code>, <code>multi_head_attention</code>, <code>transformer_block</code>, <code>layer_norm</code> and <code>dropout</code> are the pieces to assemble something else from. Activations (<code>relu</code>, <code>gelu</code>, <code>tanh</code>, <code>sigmoid</code>, <code>softmax</code>) are ordinary elementwise functions and work outside a network too.</p>
 <h2 id="s37">2. Estimation: Kalman filtering</h2>
 <p>The whole estimation family — linear Kalman, extended and unscented Kalman, particle filters — is reached through three shared verbs rather than a separate name per filter: <code>predict</code>, <code>update</code>, <code>estimate</code>. Each returns a new state rather than mutating one, so a script threads it through:</p>
-<div class="example"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
+<div class="example hasout"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
 state = state.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0</span>])     <span class="c"># time update: F, Q</span>
 state = state.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>]) <span class="c"># measurement update: H, z, R</span>
 <span class="f">print</span>(<span class="s">"estimate {state.x}, covariance {state.P}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>estimate [1], covariance [0.5]</pre></div></div>
 <p>The equations are the standard ones with no shortcuts: <code>x' = F*x</code>, <code>P' = F*P*F' + Q</code> for the time update; innovation <code>y = z - H*x</code>, gain <code>K = P*H'*(H*P*H'+R)^-1</code>, corrected <code>x' = x + K*y</code>, <code>P' = (I-K*H)*P</code> for the measurement update. A tracking loop reads as one:</p>
 <div class="example norun"><pre class="hl"><code><span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n_steps - <span class="n">1</span>
     state = state.<span class="f">predict</span>(F, Q)
@@ -130,7 +133,7 @@ state = state.<span class="f">update</span>([<span class="n">1</span>], [<span c
 <h2 id="s87">3. Impedance spectroscopy: regularized linear Kramers-Kronig</h2>
 <p>A port of Kallel &amp; Kanoun, *Regularized linear Kramers-Kronig transform for consistency check of noisy impedance spectra with logarithmic frequency distribution*, IWIS 2021.</p>
 <p>Boukamp's Lin-KK test checks whether a measured impedance spectrum <code>Z(f)</code> is causal, linear, stable and finite by fitting a Distribution-of-Relaxation- Times model and inspecting the residual. rLKK adds Tikhonov regularization on the DRT, so the fit tolerates noisy or truncated data without assuming any particular equivalent circuit.</p>
-<div class="example"><pre class="hl"><code>Z = [<span class="n">100</span> - <span class="n">20i</span>, <span class="n">80</span> - <span class="n">45i</span>, <span class="n">50</span> - <span class="n">55i</span>, <span class="n">30</span> - <span class="n">35i</span>, <span class="n">22</span> - <span class="n">12i</span>]   <span class="c"># measured impedance</span>
+<div class="example hasout"><pre class="hl"><code>Z = [<span class="n">100</span> - <span class="n">20i</span>, <span class="n">80</span> - <span class="n">45i</span>, <span class="n">50</span> - <span class="n">55i</span>, <span class="n">30</span> - <span class="n">35i</span>, <span class="n">22</span> - <span class="n">12i</span>]   <span class="c"># measured impedance</span>
 freqs = [<span class="n">0.1</span>, <span class="n">1</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">1000</span>]                          <span class="c"># Hz</span>
 
 fit = <span class="f">rlkk_reconstruct</span>(Z, freqs, <span class="a">lambda</span> = <span class="n">1e-4</span>) <span class="c"># fit.z, fit.gamma</span>
@@ -141,30 +144,114 @@ v = <span class="f">rlkk_validate</span>(Z, freqs, <span class="a">lambda</span>
     <span class="f">print</span>(<span class="s">"bad points: {where(abs(v.residuals) &gt; 2.0)}"</span>)
 <span class="k">end</span> <span class="k">if</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>consistent within 0.00%</pre></div></div>
 <p><code>rlkk_reconstruct(Z, freqs, [lambda=1e-4], [fx=])</code> returns the reconstructed spectrum in <code>.z</code> and the fitted DRT coefficients in <code>.gamma</code>. <code>fx</code> overrides the default DRT frequency grid (<code>logspace(-8, 8, 160)</code> Hz — deliberately far broader than any realistic measurement band). A larger <code>lambda</code> tolerates noisier data at the cost of fitting detail; there is no separate "aggressive" variant, because passing a larger <code>lambda</code>, or a per-point-derived one such as <code>lambda = 1e10 ./ abs(Z)</code>, is the same thing.</p>
 <p><code>rlkk_validate</code> is <code>valid</code> only when every point's percent residual <code>(|Z_recon| - |Z|) / |Z_recon| * 100</code> is under <code>threshold</code>. <code>.residuals</code> and <code>.max_residual</code> come back too, so "did it pass" and "which points are bad" are one call rather than two.</p>
 <p><code>rlkk_extrapolate(Z, freqs, target_freqs, [lambda=1e-4])</code> refits and re-evaluates at <code>target_freqs</code> — to extend a truncated measurement past its measured band, or to move onto a different grid.</p>
 <p><code>nyquist(Z)</code> draws the standard EIS view (<code>Re(Z)</code> against <code>-Im(Z)</code>, the sign convention the instruments themselves use). <code>bode_magnitude</code> and <code>bode_phase</code> are the two halves of a Bode plot, kept as separate calls so a script keeps control of its own layout:</p>
-<div class="example"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
 <span class="f">bode_magnitude</span>(Z, freqs)
 <span class="f">panel</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
 <span class="f">bode_phase</span>(Z, freqs)
 </code></pre>
-</div>
+<figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="228.93" x2="866.00" y2="228.93" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="228.93" x2="104.06" y2="228.93" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="234.60" font-size="16.2" text-anchor="end" fill="#4d4d4d">28</text>
+<line x1="104.06" y1="200.61" x2="866.00" y2="200.61" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="200.61" x2="104.06" y2="200.61" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="206.28" font-size="16.2" text-anchor="end" fill="#4d4d4d">30</text>
+<line x1="104.06" y1="172.30" x2="866.00" y2="172.30" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="172.30" x2="104.06" y2="172.30" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="177.97" font-size="16.2" text-anchor="end" fill="#4d4d4d">32</text>
+<line x1="104.06" y1="143.98" x2="866.00" y2="143.98" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="143.98" x2="104.06" y2="143.98" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="149.65" font-size="16.2" text-anchor="end" fill="#4d4d4d">34</text>
+<line x1="104.06" y1="115.67" x2="866.00" y2="115.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="115.67" x2="104.06" y2="115.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="121.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">36</text>
+<line x1="104.06" y1="87.35" x2="866.00" y2="87.35" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="87.35" x2="104.06" y2="87.35" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="93.02" font-size="16.2" text-anchor="end" fill="#4d4d4d">38</text>
+<line x1="104.06" y1="59.04" x2="866.00" y2="59.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="59.04" x2="104.06" y2="59.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="64.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">40</text>
+<line x1="138.70" y1="48.00" x2="138.70" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="138.70" y1="237.84" x2="138.70" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="138.70" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="311.86" y1="48.00" x2="311.86" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="311.86" y1="237.84" x2="311.86" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="311.86" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="485.03" y1="48.00" x2="485.03" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.03" y1="237.84" x2="485.03" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.03" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10.0</text>
+<line x1="658.20" y1="48.00" x2="658.20" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="658.20" y1="237.84" x2="658.20" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="658.20" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100.0</text>
+<line x1="831.37" y1="48.00" x2="831.37" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="831.37" y1="237.84" x2="831.37" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="831.37" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1000.0</text>
+<line x1="104.06" y1="237.84" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-18984"><rect x="104.06" y="48.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-18984)">
+<polyline points="138.70,56.63 311.86,69.58 485.03,95.52 658.20,154.27 831.37,229.21" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<line x1="104.06" y1="522.94" x2="866.00" y2="522.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="522.94" x2="104.06" y2="522.94" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="528.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">-50</text>
+<line x1="104.06" y1="477.63" x2="866.00" y2="477.63" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="477.63" x2="104.06" y2="477.63" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="483.30" font-size="16.2" text-anchor="end" fill="#4d4d4d">-40</text>
+<line x1="104.06" y1="432.32" x2="866.00" y2="432.32" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="432.32" x2="104.06" y2="432.32" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="437.99" font-size="16.2" text-anchor="end" fill="#4d4d4d">-30</text>
+<line x1="104.06" y1="387.01" x2="866.00" y2="387.01" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="387.01" x2="104.06" y2="387.01" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="392.68" font-size="16.2" text-anchor="end" fill="#4d4d4d">-20</text>
+<line x1="104.06" y1="341.69" x2="866.00" y2="341.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="341.69" x2="104.06" y2="341.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="347.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">-10</text>
+<line x1="138.70" y1="339.00" x2="138.70" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="138.70" y1="528.84" x2="138.70" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="138.70" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="311.86" y1="339.00" x2="311.86" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="311.86" y1="528.84" x2="311.86" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="311.86" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="485.03" y1="339.00" x2="485.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.03" y1="528.84" x2="485.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10.0</text>
+<line x1="658.20" y1="339.00" x2="658.20" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="658.20" y1="528.84" x2="658.20" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="658.20" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100.0</text>
+<line x1="831.37" y1="339.00" x2="831.37" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="831.37" y1="528.84" x2="831.37" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="831.37" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1000.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="866.00" y2="339.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="339.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-33900-76194-18984"><rect x="104.06" y="339.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-33900-76194-18984)">
+<polyline points="138.70,347.63 311.86,429.41 485.03,512.64 658.20,520.21 831.37,426.02" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+</svg></figure></div>
 <p><strong>Boundary:</strong> no equivalent-circuit fitting (R/L/C/CPE/Warburg elements, global and local optimization, fixed parameters) and no model search across candidate circuits. rLKK validates and reconstructs without assuming a topology at all, which is a different tool from circuit fitting rather than a lesser one.</p>
 <h2 id="s166">4. Timers, concurrency and shared state</h2>
-<div class="example"><pre class="hl"><code>count = <span class="n">0</span>
+<div class="example hasout"><pre class="hl"><code>count = <span class="n">0</span>
 every <span class="n">1</span> s <span class="k">do</span>
     count = count + <span class="n">1</span>
 <span class="k">end</span>
 <span class="f">run_for</span>(<span class="n">5</span> s)
 <span class="f">print</span>(<span class="s">"fired {count} times"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>· run_for(5s): 5 timer firing(s) across 1 registered timer(s)
+fired 5 times</pre></div></div>
 <p>Timers run on virtual time, so a five-second test takes no time at all.</p>
 <p>Real background work and share-nothing parallel loops:</p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
 <span class="f">print</span>(<span class="s">"spawned result {join(w)}"</span>)
@@ -175,23 +262,24 @@ parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">
 <span class="k">end</span> parallel
 <span class="f">print</span>(<span class="s">"parallel results {results}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>spawned result 49
+parallel results [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</pre></div></div>
 <p>Each iteration of a <code>parallel for</code> gets an isolated environment and a fresh RNG stream. There is no shared mutable state, so there are no races, by construction rather than by discipline.</p>
 <p><code>pmap</code> is the same isolation as an expression, for the common "apply this pure function to every sample" shape, and composes with <code>|&gt;</code>:</p>
-<div class="example"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
 out = (<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>) |&gt; <span class="f">pmap</span>(<span class="s">"extract"</span>)
 <span class="f">print</span>(out)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</pre></div></div>
 <p>Only a function *you* defined can be <code>pmap</code>'d or <code>spawn</code>'d, not a builtin — it has to run inside the worker's own environment.</p>
 <p>When you genuinely need shared state — a counter, a bounded resource — you opt in:</p>
-<div class="example"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+<div class="example hasout"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
 parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">100</span>
     <span class="f">mutex_add</span>(counter, <span class="n">1</span>)
 <span class="k">end</span> parallel
 <span class="f">print</span>(<span class="s">"total {mutex_get(counter)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>total 100</pre></div></div>
 <p><code>semaphore</code>/<code>semaphore_acquire</code>/<code>semaphore_release</code> bound a resource; <code>channel_send</code>/<code>channel_recv</code> pass values between workers; <code>queue</code>, <code>fifo</code> and <code>double_buffer</code> are the buffering structures.</p>
 <h2 id="s225">5. Serial ports</h2>
 <p>Real UART/RS-232/USB-serial I/O, through the OS.</p>

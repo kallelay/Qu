@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="c"># The file is written here first. Mapping one the repository does not</span>
+<div class="example hasout"><pre class="hl"><code><span class="c"># The file is written here first. Mapping one the repository does not</span>
 <span class="c"># carry would make this block fail, and a block that fails is dropped</span>
 <span class="c"># from the page while the build still reports success.</span>
 <span class="f">write_array</span>(<span class="s">"big_dataset.bin"</span>, <span class="n">0</span> <span class="k">to</span> <span class="n">511</span>, <span class="a">type</span> = <span class="s">"u8"</span>)
@@ -59,7 +59,9 @@ record5 = <span class="f">mmap_read</span>(m, <span class="n">5</span> * <span c
 <span class="f">print</span>(header)
 <span class="f">print</span>(record5)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>512
+[0, 1, 2, 3, 4, 5, 6, 7, ... (16 elements)]
+[255, 255, 255, 255, 255, 255, 255, 255, ... (64 elements)]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"mmap_demo.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_byte</span>(f, <span class="n">65</span>)
 <span class="f">write_byte</span>(f, <span class="n">66</span>)

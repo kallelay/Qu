@@ -48,7 +48,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+<div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
 d = <span class="f">dbscan</span>(G, <span class="n">1.5</span>, <span class="n">4</span>)
@@ -65,7 +65,12 @@ small = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="
 low = <span class="f">tsne</span>(small, <span class="a">n_components</span> = <span class="n">2</span>, <span class="a">perplexity</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>, <span class="a">max_iter</span> = <span class="n">100</span>)
 <span class="f">print</span>(<span class="s">"tsne output rows: {rows(low)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>dbscan labels: (0, 1, 2)
+pca projected shape: 120 x 2
+pca components:
+[0.694, 0.72; 0.72, -0.694]
+explained variance: [0.969, 0.031]
+tsne output rows: 12</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>tsne(X, [n_components=2], [perplexity=], [seed=], [max_iter=], [method=], [angle=])</code> — t-SNE (van der Maaten &amp; Hinton 2008) dimensionality reduction for visualization: calibrates a per-point Gaussian bandwidth in the input space by binary-searching for <code>perplexity</code> (the reference paper's own pseudocode, <code>tsne_hbeta</code>), then runs gradient descent (momentum + per-parameter adaptive gains + early exaggeration for the first 100 iterations — all the paper's own constants, not invented ones) on a low-dimensional embedding under a Student-t kernel. <code>perplexity</code> defaults to <code>min(30, (n-1)/3)</code> — a real, well-known constraint (perplexity must stay well under the point count or the per-point neighborhood the binary search is solving for doesn't exist). <code>max_iter</code> defaults to a conservative 300 (most reference implementations run ~1000): this reliably resolves the well-separated-cluster case it's verified against, but is NOT guaranteed to converge to a good embedding for a harder/pathological input — supply a larger <code>max_iter=</code> explicitly for those. <code>method</code> picks how the gradient itself gets computed — <code>"exact"</code> (the paper's own O(n^2)-per-iteration dense sum) or <code>"barnes_hut"</code> (van der Maaten 2014's O(n log n) tree approximation, same algorithm and default scikit-learn's own <code>TSNE</code> uses; only supports <code>n_components=2</code> — see <code>tsne_fit</code>'s own doc comment for both the algorithm and why that restriction exists). Defaults to <code>"barnes_hut"</code> when <code>n_components=2</code> (matching scikit-learn's own default) and <code>"exact"</code> otherwise, since Barnes-Hut has nothing to offer outside 2 dimensions here. <code>angle</code> (default <code>0.5</code>, only meaningful for <code>method="barnes_hut"</code>) is that approximation's accuracy/speed knob — named to match scikit-learn's own parameter. See <code>pairwise_sqdist_via_matmul</code>'s own doc comment for how <code>method="exact"</code>'s repeated per-iteration pairwise-distance step routes through <code>qu_gpu</code> when built with <code>--features gpu</code> (<code>"barnes_hut"</code> has no comparable matmul-shaped step to route through it).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

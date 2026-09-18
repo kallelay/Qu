@@ -56,14 +56,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">100</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
 iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">20</span>, fs)
 y_iir = <span class="f">sosfilt</span>(iir, x)
 <span class="f">print</span>(<span class="s">"IIR-filtered length: {length(y_iir)}"</span>)   <span class="c"># IIR-filtered length: 20</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>IIR-filtered length: 20</pre></div></div>
 
 </div>
 <div class="panel">
@@ -77,14 +77,14 @@ y_iir = <span class="f">sosfilt</span>(iir, x)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">100</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 y_fir = <span class="f">sosfilt</span>(fir, x)
 <span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>FIR-filtered length: 20</pre></div></div>
 
 </div>
 </div>

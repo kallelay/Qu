@@ -58,7 +58,7 @@ p = <span class="f">pwm</span>(modulator, <span class="n">5000</span>, <span cla
                                            <span class="c"># follows the modulator's value)</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 tone = <span class="f">sine</span>(<span class="n">50</span>, fs, <span class="n">20</span>)
 bits = <span class="f">sigma_delta</span>(tone)            <span class="c"># 1-bit noise-shaping quantizer</span>
 <span class="f">print</span>(<span class="s">"sigma_delta output range: [{min(bits)}, {max(bits)}]"</span>)
@@ -67,7 +67,8 @@ s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</s
 trimmed = <span class="f">signal_slice_time</span>(s, <span class="n">0.2</span>, <span class="n">0.6</span>)   <span class="c"># same operation `cut` is the friendlier name for</span>
 <span class="f">print</span>(<span class="s">"signal_slice_time(0.2, 0.6) -&gt; {trimmed}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>sigma_delta output range: [-1, 1]
+signal_slice_time(0.2, 0.6) -&gt; signal(Fs=10) [2, 3, 4, 5, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p>pwm, plus DIBS excitation signals via composition with the already-real elementwise <code>sign</code> and the new <code>sigma_delta</code> primitive rather than dedicated <code>_signum</code>/<code>_dibs</code> builtins — <code>chirp(...) |&gt; sign</code> is a signum chirp, <code>multisine(...) |&gt; sigma_delta</code> is a DIBS-ΔΣ excitation, with no new surface area needed for either. <code>sine(freq, fs, n, [phase=], [amplitude=])</code> — a single-tone generator built on the exact same synthesis kernel <code>multisine</code> uses (a sine is a one-tone multisine); returns a <code>Signal</code> (carries <code>Fs</code>, like <code>signal(...)</code>/<code>randn</code> don't but arguably should — this generator family is where <code>Fs</code> metadata earns its keep).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

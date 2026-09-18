@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>seq = <span class="f">sequential_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.2</span>)
+<div class="example hasout"><pre class="hl"><code>seq = <span class="f">sequential_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.2</span>)
 <span class="f">print</span>(<span class="s">"sequential_split train rows: {rows(seq.X_train)}"</span>)
 
 strat = <span class="f">stratified_split</span>(Xc, yc, <span class="a">test_size</span> = <span class="n">0.3</span>, <span class="a">seed</span> = <span class="n">9</span>)
@@ -57,7 +57,25 @@ tvt = <span class="f">train_val_test_split</span>(Xc, yc, <span class="a">val_si
 m = <span class="f">knn_model</span>(strat.X_train, strat.y_train, <span class="n">5</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
 <span class="f">confusion_matrix</span>(strat.y_test, m.<span class="f">predict</span>(strat.X_test), <span class="n">2</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>sequential_split train rows: 96
+stratified_split train rows: 140
+train/val/test rows: 120, 40, 40</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="314.22" y="48.00" width="215.11" height="215.11" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>0, 0: 29</title></rect>
+<text x="421.77" y="161.79" font-size="17.82" text-anchor="middle" fill="#ffffff">29</text>
+<rect x="529.33" y="48.00" width="215.11" height="215.11" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>0, 1: 0</title></rect>
+<text x="636.88" y="161.79" font-size="17.82" text-anchor="middle" fill="#111111">0</text>
+<rect x="314.22" y="263.11" width="215.11" height="215.11" rx="0" fill="#ebf3fb" stroke="#ffffff" opacity="1"><title>1, 0: 2</title></rect>
+<text x="421.77" y="376.90" font-size="17.82" text-anchor="middle" fill="#111111">2</text>
+<rect x="529.33" y="263.11" width="215.11" height="215.11" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>1, 1: 29</title></rect>
+<text x="636.88" y="376.90" font-size="17.82" text-anchor="middle" fill="#ffffff">29</text>
+<text x="304.50" y="161.22" font-size="16.2" text-anchor="end" fill="#444444">0</text>
+<text x="304.50" y="376.33" font-size="16.2" text-anchor="end" fill="#444444">1</text>
+<text x="421.77" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 421.77 504.14)">0</text>
+<text x="636.88" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 636.88 504.14)">1</text>
+<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">constant-velocity Kalman filter</text>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>confusion_matrix(actual, predicted, [n_classes])</code> — integer class labels assumed 0-based; <code>n_classes</code> defaults to the largest label seen, plus one.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

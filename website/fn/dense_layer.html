@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+<div class="example hasout"><pre class="hl"><code>X = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
 Y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">1</span>)
 
 layers = (<span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>), <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>))
@@ -56,8 +56,9 @@ trained = net.<span class="f">fit</span>(X, Y, <span class="a">epochs</span> = <
 <span class="f">print</span>(<span class="s">"loss {trained.loss_history[0]:.4f} -&gt; {trained.loss_history[1999]:.6f}"</span>)
 <span class="f">print</span>(<span class="s">"XOR predictions (want 0, 1, 1, 0): {trained.predict(X)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+<div class="out"><span class="lbl">output</span><pre>loss 0.9916 -&gt; 0.000000
+XOR predictions (want 0, 1, 1, 0): [4.134172e-84; 1; 1; -6.676147e-84]</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example hasout"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
 dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
 dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
 net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
@@ -77,7 +78,10 @@ nc = <span class="f">length</span>(mc.loss_history)
 preds = mc.<span class="f">predict</span>(Xxor)
 <span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>layer count: 3
+sequential + dropout_layer: loss 3.0224 -&gt; 0.5
+mlp_classifier: loss 0.7146 -&gt; 0.6938
+mlp_classifier raw logits shape: 4 x 2</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>dense_layer(in_dim, out_dim, [activation="relu"|"none"])</code> — an UNINITIALIZED layer spec (no weights yet; <code>sequential(...)</code> does the actual init). <code>activation</code> defaults to <code>"none"</code> (a bare affine layer, e.g. a regression readout). Pipe-chain accumulation (2026-08-26): <code>dense_layer(2,8, activation="relu") |&gt; dense_layer(8,1) |&gt; sequential(seed=1)</code> needs zero new grammar because <code>eval_pipe</code> already inserts the piped-in value as arg0 (see its own doc comment) — so a SECOND <code>dense_layer</code> in a chain sees its predecessor's spec (or the growing chain so far) sitting in <code>arg_all(&amp;args)[0]</code>, with its own real <code>(in_dim, out_dim)</code> shifted right to <code>arg_all(&amp;args)[1]</code>/ <code>arg_all(&amp;args)[2]</code>. Detected by shape, not position: <code>arg_all(&amp;args)[0]</code> is either a bare layer-spec <code>Value::Record</code> (<code>kind="dense"| "dropout"</code>, from a single prior <code>dense_layer</code>/<code>dropout_layer</code> call) or a <code>Value::List</code> of them (a chain already 2+ long) — a shape a real <code>in_dim</code> (always numeric) can never take, so this can't misfire on the ordinary <code>dense_layer(2, 8)</code> direct-call form. Accumulation rule: always fold into and return a flat <code>Value::List</code> (never nest lists-of-lists) — a lone prior Record becomes a 2-element list, an existing list gets the new spec appended. <code>sequential(...)</code> separately accepts EITHER a <code>List</code> (the &gt;=2-layer case) or a lone <code>Record</code> (the never-piped <code>sequential(dense_layer(...))</code> one-layer case this rule never needs to produce) — see that arm's own doc comment.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

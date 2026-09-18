@@ -44,26 +44,28 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>noisy = signal + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>noisy = signal + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"clean {rms(signal):.3f}, noisy {rms(noisy):.3f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
-<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t)          <span class="c"># 50 Hz, one value per sample</span>
+<div class="out"><span class="lbl">output</span><pre>clean 0.707, noisy 0.768</pre></div></div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * t)          <span class="c"># 50 Hz, one value per sample</span>
 y = x + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)   <span class="c"># the same signal, with noise on it</span>
 <span class="f">print</span>(<span class="s">"clean rms {rms(x):.4f}, noisy rms {rms(y):.4f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
+<div class="out"><span class="lbl">output</span><pre>clean rms 0.7071, noisy rms 0.7375</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
 smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
 <span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
+<div class="out"><span class="lbl">output</span><pre>noise removed: rms 0.2010 -&gt; 0.0978</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
 G = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"colsum = {sum(G, axis=0)}"</span>)
 <span class="f">print</span>(<span class="s">"rowsum = {sum(G, axis=1)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="out"><span class="lbl">output</span><pre>mean = 15, std = 7.0711, rms = 15.8114
+colsum = [5, 7, 9]
+rowsum = [6, 15]</pre></div></div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
 </main>
 </div>
 <footer><div class="wrap">

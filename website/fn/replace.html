@@ -51,13 +51,16 @@
 <span class="f">replace</span>(<span class="s">"a1 b2 c3"</span>, <span class="s">"?#"</span>, <span class="s">"X"</span>, <span class="a">pattern</span>=<span class="s">"wildcard"</span>) <span class="c"># "X X X"</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
 <span class="f">print</span>(<span class="s">"[{trim(s)}]"</span>)              <span class="c"># [Measurement Lane]</span>
 <span class="f">print</span>(<span class="f">upper</span>(<span class="f">trim</span>(s)))             <span class="c"># MEASUREMENT LANE</span>
 <span class="f">print</span>(<span class="f">contains</span>(s, <span class="s">"Lane"</span>))        <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">replace</span>(s, <span class="s">"Lane"</span>, <span class="s">"Window"</span>))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="out"><span class="lbl">output</span><pre>[Measurement Lane]
+MEASUREMENT LANE
+true
+  Measurement Window  </pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
 <h2>How it works</h2>
 <p><code>replace(s, old, new)</code> — every occurrence of <code>old</code> replaced by <code>new</code> (literal substring match, not regex).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

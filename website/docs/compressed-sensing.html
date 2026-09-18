@@ -72,7 +72,7 @@
 <p>Compressed sensing adds one assumption and gets a unique answer back: <strong></strong><code>x</code> is sparse<strong>. At most </strong><code>k</code> of its entries are non-zero, and <code>k</code> is small compared with <code>m</code>.</p>
 <p>The assumption is not a trick, and it is not rare. Almost everything a laboratory measures is sparse in *some* basis: a spectrum is a handful of tones among thousands of bins, an impedance sweep is a few relaxation processes, a vibration record is a few modes, an image is sparse in wavelets. Whenever the interesting part of a measurement is small compared with the grid it is measured on, you can measure below Nyquist and lose nothing.</p>
 <p>The example below builds exactly that scene. <code>A</code> is a <code>60 × 200</code> sensing matrix — 60 random measurements of 200 unknowns — and the true <code>x</code> is 3-sparse: three named entries, the rest exactly zero. <code>cs_recover(A, y, method = "omp", sparsity = 3)</code> is told the target sparsity up front and returns a record whose <code>.x</code> field is the reconstruction; the printed line reports the reconstruction error <code>‖r.x - x‖₂</code>, which comes out on the order of <code>1e-12</code> — recovered, to floating-point precision, from well under a third of the samples a direct measurement of <code>x</code> would need.</p>
-<div class="example"><pre class="hl"><code>n = <span class="n">200</span>
+<div class="example hasout"><pre class="hl"><code>n = <span class="n">200</span>
 m = <span class="n">60</span>
 A = <span class="f">randn</span>(m, n, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(m)
 
@@ -86,15 +86,15 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"recovered from {m} of {n}: error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>recovered from 60 of 200: error 3.19e-12</pre></div></div>
 <h2 id="s26">Is your sensing matrix any good?</h2>
 <p>Two conditions, in decreasing order of usefulness.</p>
 <p><strong>Coherence</strong> — <code>coherence(A)</code> — takes one argument, <code>A</code> (a <code>Mat</code>, <code>m × n</code>, the sensing matrix), and returns a single <code>number</code>: the largest absolute inner product between two different unit-normalised columns of <code>A</code>. Small is good. Exact recovery is *guaranteed* whenever <code>k &lt; (1 + 1/mu)/2</code>, where <code>mu</code> is that coherence. <code>cs_guarantee(A)</code> takes the same single argument <code>A</code> (<code>Mat</code>, <code>m × n</code>) and returns that bound directly, as a <code>number</code> giving the largest sparsity <code>k</code> coherence alone can *prove* recoverable.</p>
 <p>The example below takes the same <code>60 × 200</code> Gaussian matrix used above and prints both numbers on one line, so the coherence and the sparsity it proves recoverable can be read off together.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 <span class="f">print</span>(<span class="s">"coherence {coherence(A):.3f}, provable sparsity {cs_guarantee(A)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>coherence 0.558, provable sparsity 1</pre></div></div>
 <p>That guarantee is real and badly pessimistic. The matrix above proves <code>k=1</code> and recovers <code>k=5</code> without difficulty. <strong>Treat a pass as proof and a failure as no information.</strong> It is the only certificate that is computable at all, which is why it is here.</p>
 <p><strong>The restricted isometry property</strong> is the condition the strong theorems are stated in: <code>A</code> satisfies RIP of order <code>k</code> with constant <code>d</code> when <code>(1-d)‖x‖² ≤ ‖Ax‖² ≤ (1+d)‖x‖²</code> for every <code>k</code>-sparse <code>x</code>. Verifying it for a given matrix is NP-hard, so nothing here computes it. You get it from *construction* instead: a random Gaussian or Bernoulli matrix satisfies RIP of order <code>k</code> with high probability once <code>m ≳ k·log(n/k)</code>. That is where the working rule of thumb comes from:</p>
 <p>&gt; <strong></strong><code>m ≈ 4k</code><strong> measurements for </strong><code>k</code> non-zeros, and check by trying.</p>
@@ -141,7 +141,7 @@ r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <spa
 <h4>Overloads: <code>cs_recover</code></h4>
 <h4>Case: Greedy (<code>omp</code>)</h4>
 <p>Told the true sparsity <code>k = 3</code> up front, OMP picks one column per iteration and stops the moment it has three — <code>.iterations</code> comes out equal to <code>k</code>, and the least-squares re-solve on that exact support drives the error to floating-point zero.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -151,10 +151,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"omp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>3 iterations, converged true, error 3.19e-12</pre></div></div>
 <h4>Case: Convex (<code>fista</code>)</h4>
 <p>The same <code>A</code>, <code>x</code>, and <code>y</code>, handed to FISTA instead — no <code>sparsity=</code> at all, the support falls out of the <code>l1</code> penalty — takes hundreds of proximal-gradient steps rather than three, and still settles for an error around <code>1e-3</code> instead of machine precision, the shrinkage bias the next section is about.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -164,10 +164,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>563 iterations, converged true, error 1.75e-3</pre></div></div>
 <h4>Case: Greedy (<code>cosamp</code>)</h4>
 <p>Same problem, <code>2k</code>-at-a-time candidate selection with pruning — converges in even fewer iterations than plain OMP here because the prune corrects for any early misstep, though OMP already had no misstep to correct on this well-conditioned a matrix.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -177,10 +177,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"cosamp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2 iterations, converged true, error 4.87e-12</pre></div></div>
 <h4>Case: Greedy (<code>sp</code>)</h4>
 <p>Subspace pursuit: the same structure as CoSaMP with a <code>k</code>-sized rather than <code>2k</code>-sized working set each round — cheaper per iteration, same machine-precision result on this problem.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -190,10 +190,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"sp"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>1 iterations, converged true, error 3.19e-12</pre></div></div>
 <h4>Case: Greedy (<code>iht</code>)</h4>
 <p>No least-squares solve at all — just a gradient step and a hard threshold to the <code>k</code> largest entries, repeated. Needs many more iterations than the solve-based greedy methods above to reach the same precision, the real cost of avoiding the solve.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -203,10 +203,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"iht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>35 iterations, converged true, error 5.91e-10</pre></div></div>
 <h4>Case: Greedy (<code>niht</code>)</h4>
 <p>The normalised variant of <code>iht</code>: the step size is recomputed from the gradient every iteration instead of held fixed, so it needs roughly a third as many iterations here and, unlike plain <code>iht</code>, cannot diverge from a poorly chosen fixed step.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -216,10 +216,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"niht"</span>, <span class="a">sparsity</span> = <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>13 iterations, converged true, error 3.26e-10</pre></div></div>
 <h4>Case: Convex (<code>ista</code>)</h4>
 <p>The same LASSO objective as <code>fista</code>, without the Nesterov momentum term. Both hit the iteration cap on this problem, but where <code>fista</code> still lands at a <code>1e-3</code>-scale error, plain <code>ista</code>'s slower <code>O(1/t)</code> convergence leaves it far short — the practical reason FISTA, not ISTA, is the default convex choice.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -229,10 +229,10 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"ista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>1000 iterations, converged false, error 1.58e0</pre></div></div>
 <h4>Case: Convex (<code>bp</code>)</h4>
 <p>Basis pursuit by ADMM: solves <code>min ‖x‖₁ subject to Ax = y</code> exactly rather than a penalized version of it — no <code>lambda=</code> to choose at all — landing between the greedy methods' machine precision and FISTA/ISTA's shrinkage bias, at a cost of roughly a hundred iterations on this problem.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -242,12 +242,12 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"bp"</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>115 iterations, converged true, error 1.02e-8</pre></div></div>
 <h3>The shrinkage, and <code>debias=true</code></h3>
 <p>The <code>l1</code> penalty does two jobs with one term: it finds the support, and it pulls every coefficient toward zero. The first is what you wanted; the second is a systematic bias, visible as a few parts in ten thousand.</p>
 <p>Once the support is known that pull has no purpose. <code>debias = true</code> re-fits those columns by plain least squares and discards the shrunk values.</p>
 <p>The example below recovers the same 2-sparse setup twice with <code>method = "fista"</code>: once as <code>raw</code>, straight off the solver, and once as <code>fixed</code>, with <code>debias = true</code> added. Both find the same support, but <code>raw.x</code> still carries the <code>l1</code> shrinkage on its two non-zero coefficients, while <code>fixed.x</code> has had that support re-fit by ordinary least squares. The two printed lines report the worst-case coefficient error, <code>max(abs(...))</code>, for each version; the debiased one should read several orders of magnitude smaller.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 x = <span class="f">zeros</span>(<span class="n">200</span>)
 x[<span class="n">7</span>] = <span class="n">1.5</span>
 x[<span class="n">33</span>] = -<span class="n">2.0</span>
@@ -258,7 +258,8 @@ fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = 
 <span class="f">print</span>(<span class="s">"fista alone    {max(abs(raw.x - x)):.2e}"</span>)
 <span class="f">print</span>(<span class="s">"fista debiased {max(abs(fixed.x - x)):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>fista alone    9.41e-4
+fista debiased 2.11e-12</pre></div></div>
 <p>Standard practice, and cheap. The one reason not to: if the support is wrong, debiasing commits to the error instead of leaving it visibly shrunk.</p>
 <h3>What comes back</h3>
 <p><code>cs_recover</code> returns a <code>record</code>, and the diagnostics are not decoration:</p>
@@ -276,7 +277,7 @@ fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = 
 <p>Everything above assumes few non-zero *samples*. <strong>Total variation</strong> assumes few *changes* instead — a staircase, a segmented profile, a step response — by penalising <code>‖∇x‖₁</code> rather than <code>‖x‖₁</code>.</p>
 <p><code>tv_denoise(y, lambda)</code> takes the noisy signal <code>y</code> (a <code>Vec</code>, length <code>n</code>) and the penalty weight <code>lambda</code> (a <code>number</code>, default <code>1.0</code> if the second argument is omitted — larger means smoother), and returns a <code>Vec</code> of length <code>n</code>: the denoised signal.</p>
 <p>The example below builds a clean step (<code>clean</code>), corrupts it with Gaussian noise, and denoises it with <code>tv_denoise(noisy, 0.3)</code>. <code>sum(abs(diff(...)))</code> is a cheap proxy for how much "changiness" is left in a signal — the total variation of the noisy trace versus the denoised one — printed before and after so the two can be compared directly; the denoised number should be far smaller, showing the flat regions were smoothed while the one real jump at the step survived.</p>
-<div class="example"><pre class="hl"><code>clean = <span class="f">zeros</span>(<span class="n">200</span>)
+<div class="example hasout"><pre class="hl"><code>clean = <span class="f">zeros</span>(<span class="n">200</span>)
 <span class="k">for</span> i <span class="k">in</span> <span class="n">60</span> <span class="k">to</span> <span class="n">129</span>
     clean[i] = <span class="n">1.0</span>
 <span class="k">end</span> <span class="k">for</span>
@@ -285,7 +286,7 @@ noisy = clean + <span class="n">0.15</span> * <span class="f">randn</span>(<span
 tv = <span class="f">tv_denoise</span>(noisy, <span class="n">0.3</span>)
 <span class="f">print</span>(<span class="s">"total variation {sum(abs(diff(noisy))):.1f} -&gt; {sum(abs(diff(tv))):.1f}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>total variation 36.5 -&gt; 2.5</pre></div></div>
 <p>This is what recovers an edge that a smoothing filter would round off. On the signal above, against a low-pass filter tuned to remove a comparable amount of noise: TV reaches half the RMS error, and its 10–90% rise is 5 samples against the filter's 7. Neither reaches the true 1, and TV is nonlinear with a penalty to choose where a filter has a cutoff — but it never assumed the signal was smooth, only that it changes rarely.</p>
 <p><code>tv_denoise</code> uses Condat's direct algorithm: one pass, <code>O(n)</code>, exact rather than iterative.</p>
 <h2 id="s153">Choosing</h2>
@@ -300,7 +301,7 @@ tv = <span class="f">tv_denoise</span>(noisy, <span class="n">0.3</span>)
 <p><code>catalog/qu_compressed_sensing.qu</code> runs all six on the same data and prints the comparison.</p>
 <h3>The claim, drawn</h3>
 <p>The whole subject rests on one surprising fact: a signal with few non-zeros can be recovered from far fewer measurements than it has unknowns. Here are 200 unknowns, 8 of them non-zero, from 60 measurements.</p>
-<div class="example"><pre class="hl"><code>n = <span class="n">200</span>
+<div class="example hasout"><pre class="hl"><code>n = <span class="n">200</span>
 k = <span class="n">8</span>
 m = <span class="n">60</span>
 truth = <span class="f">zeros</span>(n)
@@ -321,7 +322,293 @@ r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <spa
 <span class="f">legend</span>()
 <span class="f">title</span>(<span class="s">"8 spikes from 60 measurements"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>60 measurements, 200 unknowns, 8 non-zeros
+support found:  [11, 27, 48, 76, 103, 140, 168, 191]
+recovery error: 0
+· plot: figure 1 (200 points)
+· scatter: figure 2 (200 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.99" y1="48.00" x2="176.99" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.99" y1="528.84" x2="176.99" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.99" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="249.92" y1="48.00" x2="249.92" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.92" y1="528.84" x2="249.92" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.92" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="322.85" y1="48.00" x2="322.85" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="322.85" y1="528.84" x2="322.85" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="322.85" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="395.78" y1="48.00" x2="395.78" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="395.78" y1="528.84" x2="395.78" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="395.78" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">80</text>
+<line x1="468.71" y1="48.00" x2="468.71" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="468.71" y1="528.84" x2="468.71" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="468.71" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="541.64" y1="48.00" x2="541.64" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="541.64" y1="528.84" x2="541.64" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="541.64" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">120</text>
+<line x1="614.57" y1="48.00" x2="614.57" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="614.57" y1="528.84" x2="614.57" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="614.57" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">140</text>
+<line x1="687.50" y1="48.00" x2="687.50" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="687.50" y1="528.84" x2="687.50" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="687.50" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">160</text>
+<line x1="760.43" y1="48.00" x2="760.43" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="760.43" y1="528.84" x2="760.43" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="760.43" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">180</text>
+<line x1="833.36" y1="48.00" x2="833.36" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="833.36" y1="528.84" x2="833.36" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="833.36" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,528.84 107.71,528.84 111.36,528.84 115.00,528.84 118.65,528.84 122.30,528.84 125.94,528.84 129.59,528.84 133.23,528.84 136.88,528.84 140.53,528.84 144.17,70.90 147.82,528.84 151.47,528.84 155.11,528.84 158.76,528.84 162.41,528.84 166.05,528.84 169.70,528.84 173.35,528.84 176.99,528.84 180.64,528.84 184.29,528.84 187.93,528.84 191.58,528.84 195.23,528.84 198.87,528.84 202.52,70.90 206.16,528.84 209.81,528.84 213.46,528.84 217.10,528.84 220.75,528.84 224.40,528.84 228.04,528.84 231.69,528.84 235.34,528.84 238.98,528.84 242.63,528.84 246.28,528.84 249.92,528.84 253.57,528.84 257.22,528.84 260.86,528.84 264.51,528.84 268.16,528.84 271.80,528.84 275.45,528.84 279.09,70.90 282.74,528.84 286.39,528.84 290.03,528.84 293.68,528.84 297.33,528.84 300.97,528.84 304.62,528.84 308.27,528.84 311.91,528.84 315.56,528.84 319.21,528.84 322.85,528.84 326.50,528.84 330.15,528.84 333.79,528.84 337.44,528.84 341.09,528.84 344.73,528.84 348.38,528.84 352.02,528.84 355.67,528.84 359.32,528.84 362.96,528.84 366.61,528.84 370.26,528.84 373.90,528.84 377.55,528.84 381.20,70.90 384.84,528.84 388.49,528.84 392.14,528.84 395.78,528.84 399.43,528.84 403.08,528.84 406.72,528.84 410.37,528.84 414.02,528.84 417.66,528.84 421.31,528.84 424.96,528.84 428.60,528.84 432.25,528.84 435.89,528.84 439.54,528.84 443.19,528.84 446.83,528.84 450.48,528.84 454.13,528.84 457.77,528.84 461.42,528.84 465.07,528.84 468.71,528.84 472.36,528.84 476.01,528.84 479.65,70.90 483.30,528.84 486.95,528.84 490.59,528.84 494.24,528.84 497.89,528.84 501.53,528.84 505.18,528.84 508.82,528.84 512.47,528.84 516.12,528.84 519.76,528.84 523.41,528.84 527.06,528.84 530.70,528.84 534.35,528.84 538.00,528.84 541.64,528.84 545.29,528.84 548.94,528.84 552.58,528.84 556.23,528.84 559.88,528.84 563.52,528.84 567.17,528.84 570.82,528.84 574.46,528.84 578.11,528.84 581.75,528.84 585.40,528.84 589.05,528.84 592.69,528.84 596.34,528.84 599.99,528.84 603.63,528.84 607.28,528.84 610.93,528.84 614.57,70.90 618.22,528.84 621.87,528.84 625.51,528.84 629.16,528.84 632.81,528.84 636.45,528.84 640.10,528.84 643.75,528.84 647.39,528.84 651.04,528.84 654.68,528.84 658.33,528.84 661.98,528.84 665.62,528.84 669.27,528.84 672.92,528.84 676.56,528.84 680.21,528.84 683.86,528.84 687.50,528.84 691.15,528.84 694.80,528.84 698.44,528.84 702.09,528.84 705.74,528.84 709.38,528.84 713.03,528.84 716.68,70.90 720.32,528.84 723.97,528.84 727.62,528.84 731.26,528.84 734.91,528.84 738.55,528.84 742.20,528.84 745.85,528.84 749.49,528.84 753.14,528.84 756.79,528.84 760.43,528.84 764.08,528.84 767.73,528.84 771.37,528.84 775.02,528.84 778.67,528.84 782.31,528.84 785.96,528.84 789.61,528.84 793.25,528.84 796.90,528.84 800.55,70.90 804.19,528.84 807.84,528.84 811.48,528.84 815.13,528.84 818.78,528.84 822.42,528.84 826.07,528.84 829.72,528.84" fill="none" stroke="#0f172a" stroke-width="2"/>
+<circle cx="104.06" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=0, y=0</title></circle>
+<circle cx="107.71" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=1, y=0</title></circle>
+<circle cx="111.36" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=2, y=0</title></circle>
+<circle cx="115.00" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=3, y=0</title></circle>
+<circle cx="118.65" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=4, y=0</title></circle>
+<circle cx="122.30" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=5, y=0</title></circle>
+<circle cx="125.94" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=6, y=0</title></circle>
+<circle cx="129.59" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=7, y=0</title></circle>
+<circle cx="133.23" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=8, y=0</title></circle>
+<circle cx="136.88" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=9, y=0</title></circle>
+<circle cx="140.53" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=10, y=0</title></circle>
+<circle cx="144.17" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=11, y=1</title></circle>
+<circle cx="147.82" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=12, y=0</title></circle>
+<circle cx="151.47" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=13, y=0</title></circle>
+<circle cx="155.11" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=14, y=0</title></circle>
+<circle cx="158.76" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=15, y=0</title></circle>
+<circle cx="162.41" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=16, y=0</title></circle>
+<circle cx="166.05" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=17, y=0</title></circle>
+<circle cx="169.70" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=18, y=0</title></circle>
+<circle cx="173.35" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=19, y=0</title></circle>
+<circle cx="176.99" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=20, y=0</title></circle>
+<circle cx="180.64" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=21, y=0</title></circle>
+<circle cx="184.29" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=22, y=0</title></circle>
+<circle cx="187.93" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=23, y=0</title></circle>
+<circle cx="191.58" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=24, y=0</title></circle>
+<circle cx="195.23" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=25, y=0</title></circle>
+<circle cx="198.87" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=26, y=0</title></circle>
+<circle cx="202.52" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=27, y=1</title></circle>
+<circle cx="206.16" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=28, y=0</title></circle>
+<circle cx="209.81" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=29, y=0</title></circle>
+<circle cx="213.46" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=30, y=0</title></circle>
+<circle cx="217.10" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=31, y=0</title></circle>
+<circle cx="220.75" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=32, y=0</title></circle>
+<circle cx="224.40" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=33, y=0</title></circle>
+<circle cx="228.04" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=34, y=0</title></circle>
+<circle cx="231.69" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=35, y=0</title></circle>
+<circle cx="235.34" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=36, y=0</title></circle>
+<circle cx="238.98" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=37, y=0</title></circle>
+<circle cx="242.63" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=38, y=0</title></circle>
+<circle cx="246.28" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=39, y=0</title></circle>
+<circle cx="249.92" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=40, y=0</title></circle>
+<circle cx="253.57" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=41, y=0</title></circle>
+<circle cx="257.22" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=42, y=0</title></circle>
+<circle cx="260.86" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=43, y=0</title></circle>
+<circle cx="264.51" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=44, y=0</title></circle>
+<circle cx="268.16" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=45, y=0</title></circle>
+<circle cx="271.80" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=46, y=0</title></circle>
+<circle cx="275.45" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=47, y=0</title></circle>
+<circle cx="279.09" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=48, y=1</title></circle>
+<circle cx="282.74" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=49, y=0</title></circle>
+<circle cx="286.39" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=50, y=0</title></circle>
+<circle cx="290.03" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=51, y=0</title></circle>
+<circle cx="293.68" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=52, y=0</title></circle>
+<circle cx="297.33" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=53, y=0</title></circle>
+<circle cx="300.97" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=54, y=0</title></circle>
+<circle cx="304.62" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=55, y=0</title></circle>
+<circle cx="308.27" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=56, y=0</title></circle>
+<circle cx="311.91" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=57, y=0</title></circle>
+<circle cx="315.56" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=58, y=0</title></circle>
+<circle cx="319.21" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=59, y=0</title></circle>
+<circle cx="322.85" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=60, y=0</title></circle>
+<circle cx="326.50" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=61, y=0</title></circle>
+<circle cx="330.15" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=62, y=0</title></circle>
+<circle cx="333.79" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=63, y=0</title></circle>
+<circle cx="337.44" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=64, y=0</title></circle>
+<circle cx="341.09" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=65, y=0</title></circle>
+<circle cx="344.73" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=66, y=0</title></circle>
+<circle cx="348.38" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=67, y=0</title></circle>
+<circle cx="352.02" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=68, y=0</title></circle>
+<circle cx="355.67" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=69, y=0</title></circle>
+<circle cx="359.32" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=70, y=0</title></circle>
+<circle cx="362.96" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=71, y=0</title></circle>
+<circle cx="366.61" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=72, y=0</title></circle>
+<circle cx="370.26" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=73, y=0</title></circle>
+<circle cx="373.90" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=74, y=0</title></circle>
+<circle cx="377.55" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=75, y=0</title></circle>
+<circle cx="381.20" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=76, y=1</title></circle>
+<circle cx="384.84" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=77, y=0</title></circle>
+<circle cx="388.49" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=78, y=0</title></circle>
+<circle cx="392.14" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=79, y=0</title></circle>
+<circle cx="395.78" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=80, y=0</title></circle>
+<circle cx="399.43" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=81, y=0</title></circle>
+<circle cx="403.08" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=82, y=0</title></circle>
+<circle cx="406.72" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=83, y=0</title></circle>
+<circle cx="410.37" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=84, y=0</title></circle>
+<circle cx="414.02" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=85, y=0</title></circle>
+<circle cx="417.66" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=86, y=0</title></circle>
+<circle cx="421.31" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=87, y=0</title></circle>
+<circle cx="424.96" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=88, y=0</title></circle>
+<circle cx="428.60" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=89, y=0</title></circle>
+<circle cx="432.25" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=90, y=0</title></circle>
+<circle cx="435.89" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=91, y=0</title></circle>
+<circle cx="439.54" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=92, y=0</title></circle>
+<circle cx="443.19" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=93, y=0</title></circle>
+<circle cx="446.83" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=94, y=0</title></circle>
+<circle cx="450.48" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=95, y=0</title></circle>
+<circle cx="454.13" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=96, y=0</title></circle>
+<circle cx="457.77" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=97, y=0</title></circle>
+<circle cx="461.42" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=98, y=0</title></circle>
+<circle cx="465.07" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=99, y=0</title></circle>
+<circle cx="468.71" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=100, y=0</title></circle>
+<circle cx="472.36" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=101, y=0</title></circle>
+<circle cx="476.01" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=102, y=0</title></circle>
+<circle cx="479.65" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=103, y=1</title></circle>
+<circle cx="483.30" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=104, y=0</title></circle>
+<circle cx="486.95" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=105, y=0</title></circle>
+<circle cx="490.59" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=106, y=0</title></circle>
+<circle cx="494.24" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=107, y=0</title></circle>
+<circle cx="497.89" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=108, y=0</title></circle>
+<circle cx="501.53" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=109, y=0</title></circle>
+<circle cx="505.18" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=110, y=0</title></circle>
+<circle cx="508.82" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=111, y=0</title></circle>
+<circle cx="512.47" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=112, y=0</title></circle>
+<circle cx="516.12" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=113, y=0</title></circle>
+<circle cx="519.76" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=114, y=0</title></circle>
+<circle cx="523.41" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=115, y=0</title></circle>
+<circle cx="527.06" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=116, y=0</title></circle>
+<circle cx="530.70" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=117, y=0</title></circle>
+<circle cx="534.35" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=118, y=0</title></circle>
+<circle cx="538.00" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=119, y=0</title></circle>
+<circle cx="541.64" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=120, y=0</title></circle>
+<circle cx="545.29" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=121, y=0</title></circle>
+<circle cx="548.94" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=122, y=0</title></circle>
+<circle cx="552.58" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=123, y=0</title></circle>
+<circle cx="556.23" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=124, y=0</title></circle>
+<circle cx="559.88" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=125, y=0</title></circle>
+<circle cx="563.52" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=126, y=0</title></circle>
+<circle cx="567.17" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=127, y=0</title></circle>
+<circle cx="570.82" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=128, y=0</title></circle>
+<circle cx="574.46" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=129, y=0</title></circle>
+<circle cx="578.11" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=130, y=0</title></circle>
+<circle cx="581.75" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=131, y=0</title></circle>
+<circle cx="585.40" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=132, y=0</title></circle>
+<circle cx="589.05" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=133, y=0</title></circle>
+<circle cx="592.69" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=134, y=0</title></circle>
+<circle cx="596.34" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=135, y=0</title></circle>
+<circle cx="599.99" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=136, y=0</title></circle>
+<circle cx="603.63" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=137, y=0</title></circle>
+<circle cx="607.28" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=138, y=0</title></circle>
+<circle cx="610.93" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=139, y=0</title></circle>
+<circle cx="614.57" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=140, y=1</title></circle>
+<circle cx="618.22" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=141, y=0</title></circle>
+<circle cx="621.87" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=142, y=0</title></circle>
+<circle cx="625.51" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=143, y=0</title></circle>
+<circle cx="629.16" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=144, y=0</title></circle>
+<circle cx="632.81" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=145, y=0</title></circle>
+<circle cx="636.45" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=146, y=0</title></circle>
+<circle cx="640.10" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=147, y=0</title></circle>
+<circle cx="643.75" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=148, y=0</title></circle>
+<circle cx="647.39" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=149, y=0</title></circle>
+<circle cx="651.04" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=150, y=0</title></circle>
+<circle cx="654.68" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=151, y=0</title></circle>
+<circle cx="658.33" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=152, y=0</title></circle>
+<circle cx="661.98" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=153, y=0</title></circle>
+<circle cx="665.62" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=154, y=0</title></circle>
+<circle cx="669.27" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=155, y=0</title></circle>
+<circle cx="672.92" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=156, y=0</title></circle>
+<circle cx="676.56" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=157, y=0</title></circle>
+<circle cx="680.21" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=158, y=0</title></circle>
+<circle cx="683.86" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=159, y=0</title></circle>
+<circle cx="687.50" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=160, y=0</title></circle>
+<circle cx="691.15" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=161, y=0</title></circle>
+<circle cx="694.80" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=162, y=0</title></circle>
+<circle cx="698.44" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=163, y=0</title></circle>
+<circle cx="702.09" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=164, y=0</title></circle>
+<circle cx="705.74" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=165, y=0</title></circle>
+<circle cx="709.38" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=166, y=0</title></circle>
+<circle cx="713.03" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=167, y=0</title></circle>
+<circle cx="716.68" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=168, y=1</title></circle>
+<circle cx="720.32" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=169, y=0</title></circle>
+<circle cx="723.97" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=170, y=0</title></circle>
+<circle cx="727.62" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=171, y=0</title></circle>
+<circle cx="731.26" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=172, y=0</title></circle>
+<circle cx="734.91" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=173, y=0</title></circle>
+<circle cx="738.55" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=174, y=0</title></circle>
+<circle cx="742.20" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=175, y=0</title></circle>
+<circle cx="745.85" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=176, y=0</title></circle>
+<circle cx="749.49" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=177, y=0</title></circle>
+<circle cx="753.14" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=178, y=0</title></circle>
+<circle cx="756.79" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=179, y=0</title></circle>
+<circle cx="760.43" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=180, y=0</title></circle>
+<circle cx="764.08" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=181, y=0</title></circle>
+<circle cx="767.73" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=182, y=0</title></circle>
+<circle cx="771.37" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=183, y=0</title></circle>
+<circle cx="775.02" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=184, y=0</title></circle>
+<circle cx="778.67" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=185, y=0</title></circle>
+<circle cx="782.31" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=186, y=0</title></circle>
+<circle cx="785.96" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=187, y=0</title></circle>
+<circle cx="789.61" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=188, y=0</title></circle>
+<circle cx="793.25" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=189, y=0</title></circle>
+<circle cx="796.90" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=190, y=0</title></circle>
+<circle cx="800.55" cy="70.90" r="4.05" fill="none" stroke="#e11d48"><title>x=191, y=1</title></circle>
+<circle cx="804.19" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=192, y=0</title></circle>
+<circle cx="807.84" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=193, y=0</title></circle>
+<circle cx="811.48" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=194, y=0</title></circle>
+<circle cx="815.13" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=195, y=0</title></circle>
+<circle cx="818.78" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=196, y=0</title></circle>
+<circle cx="822.42" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=197, y=0</title></circle>
+<circle cx="826.07" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=198, y=0</title></circle>
+<circle cx="829.72" cy="528.84" r="4.05" fill="none" stroke="#e11d48"><title>x=199, y=0</title></circle>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">8 spikes from 60 measurements</text>
+<rect x="728.85" y="454.52" width="129.15" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="737.71" y1="475.53" x2="763.02" y2="475.53" stroke="#0f172a" stroke-width="2.2"/>
+<text x="770.62" y="479.03" font-size="16.2" text-anchor="start" fill="#222">truth</text>
+<circle cx="750.37" cy="499.83" r="4.429687499999999" fill="none" stroke="#e11d48"/>
+<text x="770.62" y="503.33" font-size="16.2" text-anchor="start" fill="#222">recovered</text>
+</svg></figure></div>
 <p>The error is zero — not small, zero to floating precision — because OMP identified the exact support and then solved an ordinary least-squares problem on those eight columns. That only happens while the number of measurements is comfortably above the sparsity; push <code>m</code> down towards <code>k</code> and it stops working, abruptly rather than gracefully.</p>
 </main>
 </div>

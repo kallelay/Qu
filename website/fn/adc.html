@@ -55,13 +55,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
+<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
 v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
 
 c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
 <span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<div class="out"><span class="lbl">output</span><pre>LSB 1.000 mV, clipped 0, ideal SNR 74.0 dB</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p>── noise, interference, distortion ───────────────────────── <code>add_noise(x, "gaussian", snr = 3)</code> — noise specified the way a datasheet, a standard and a reviewer all specify it. An amplitude is not a statement about a measurement, because it depends entirely on how big the signal is; an SNR is. Pass <code>amplitude=</code> instead when a raw figure is what you were actually given. Works on a vector and on an image alike: every kind here is per-sample, so one function covers 1-D and 2-D rather than two that drift apart. <code>adc(x, bits = 12, vmin = -1, vmax = 1, dither = false)</code> — quantise the way an instrument does: a REFERENCE RANGE and a RESOLUTION, not a step size. <code>add_noise(x, "quantize", ...)</code> takes a raw step, which is the mathematician's parameter. A converter has a range, and the difference is not cosmetic: outside it the signal CLIPS, and a step-based model cannot express that at all -- it will happily quantise a signal ten times the converter's range and report no problem. Returns a record rather than a bare signal, because <code>.clipped</code> is not a detail: a converter that clips has stopped measuring, and a script that never looks at that number will report a flat-topped waveform as data.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

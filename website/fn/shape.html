@@ -44,31 +44,35 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
 <span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)))  <span class="c"># [2, 2]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>[4, 1]
+[2, 2]</pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 bp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
 <span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
 <span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>lowpass sections: 2
+bandpass sections: 4</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">ellip</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="n">40</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 bp = <span class="f">ellip</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="n">40</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
 <span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
 <span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>lowpass sections: 2
+bandpass sections: 4</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">cheby1</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 bp = <span class="f">cheby1</span>(<span class="n">4</span>, <span class="n">1</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
 <span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
 <span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>lowpass sections: 2
+bandpass sections: 4</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>See also</h2>
 <p><a href="size.html"><code>size</code></a> &mdash; documented in the same entry.</p>
 </main>

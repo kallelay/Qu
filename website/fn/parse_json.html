@@ -54,13 +54,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 back = <span class="f">parse_json</span>(env)
 <span class="f">print</span>(env)          <span class="c"># {"type":"complex","re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(back))   <span class="c"># complex</span>
 <span class="f">print</span>(back)         <span class="c"># 3 + 4i</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>{"type":"complex","re":3.0,"im":4.0}
+complex
+3 + 4i</pre></div></div>
 
 </div>
 <div class="panel">
@@ -72,13 +74,14 @@ back = <span class="f">parse_json</span>(env)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 plain = <span class="f">replace</span>(env, <span class="s">"\"type\":\"complex\","</span>, <span class="s">""</span>)
 v = <span class="f">parse_json</span>(plain)
 <span class="f">print</span>(plain)         <span class="c"># {"re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(v))       <span class="c"># record</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>{"re":3.0,"im":4.0}
+record</pre></div></div>
 
 </div>
 </div>

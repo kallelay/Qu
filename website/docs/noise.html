@@ -70,14 +70,14 @@
 <p>The point of a noise module is not to make a signal look untidy. It is to state exactly how hard a problem is, hand the same problem to several methods, and see which one wins and where.</p>
 <h2 id="s0">Noise is specified in decibels</h2>
 <p>"Add Gaussian noise of amplitude 0.1" is not a statement about a measurement — it depends entirely on how big the signal is. "Add Gaussian noise at 3 dB SNR" is, and it is what a datasheet, a standard and a reviewer all speak.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">2047</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
 
 noisy = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">7</span>)
 <span class="f">print</span>(<span class="s">"asked for 3 dB, measured {measure_snr(clean, noisy):.2f} dB"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>asked for 3 dB, measured 3.00 dB</pre></div></div>
 <p>Yes, 3 dB is possible, and so is 0, and so is −6. The amplitude is worked out from the signal:</p>
 <pre><code>SNR_dB = 10·log10(P_signal / P_noise)   ⟹   P_noise = P_signal / 10^(SNR/10)
 </code></pre>
@@ -101,7 +101,7 @@ noisy = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span
 <h4>Overloads: <code>add_noise</code></h4>
 <h4>Case: additive kinds (<code>gaussian</code>, <code>pink</code>, <code>uniform</code>, ...)</h4>
 <p>Every sample is perturbed by a little: none of the output matches the clean input exactly.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
 g = <span class="f">add_noise</span>(x, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
 untouched = <span class="n">0</span>
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
@@ -111,10 +111,10 @@ untouched = <span class="n">0</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(untouched)   <span class="c"># 0 -- every sample was perturbed a little</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>0</pre></div></div>
 <h4>Case: replacing (<code>salt_pepper</code>)</h4>
 <p>The same <code>snr</code> targets a corruption *rate* instead: most samples are left bit-for-bit alone, and a fraction are slammed to an extreme.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
 sp = <span class="f">add_noise</span>(x, <span class="s">"salt_pepper"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
 untouched = <span class="n">0</span>
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
@@ -124,7 +124,7 @@ untouched = <span class="n">0</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(untouched)   <span class="c"># 184 -- ~8% got slammed to an extreme, the rest untouched</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>184</pre></div></div>
 <p>Pink noise is worth a second look: it dominates at low frequencies, which is why a slow measurement is harder than a fast one and a long integration is not free.</p>
 <p>Works on a vector and on an image alike — every kind is per-sample, so one function covers 1-D and 2-D rather than two that drift apart.</p>
 <h2 id="s102">Quantisation, as an instrument does it</h2>
@@ -140,13 +140,13 @@ untouched = <span class="n">0</span>
 <li>Returns a record — see the fields below — not a bare vector, because whether anything clipped is part of the answer.</li>
 </ul>
 <p>A single sine run shows what the record gives back: not just the quantised signal, but whether the chosen range fit it and what an ideal converter of that word length could have done. Here a 1.2 V peak tone is digitised on a 0–4.096 V, 12-bit reference:</p>
-<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
+<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
 v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
 
 c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
 <span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>LSB 1.000 mV, clipped 0, ideal SNR 74.0 dB</pre></div></div>
 <p>The LSB is the range over <code>2^bits</code> — not <code>2^bits − 1</code>, which is the off-by-one that puts every reading half a step out. A 0–4.096 V 12-bit converter therefore has an LSB of exactly 1 mV, which is why that reference is so common.</p>
 <p>It returns a record, not a bare signal, because <code>.clipped</code> is not a detail:</p>
 <div class="tablewrap"><table>
@@ -179,7 +179,7 @@ c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">
 </table></div>
 <p><code>hum</code> adds <strong>odd</strong> harmonics: mains pickup arrives through a symmetric nonlinearity — a rectifier, a saturating core — and a symmetric nonlinearity generates odd harmonics only. So <code>harmonics = 3</code> means 50, 150 and 250 Hz, not 50, 100 and 150. That matters: a notch at the fundamental alone leaves two thirds of the problem behind, and a model without the harmonics makes every notch filter look better than it is.</p>
 <p><code>emf</code> is two things at once, because real EMI is: a carrier at the switching frequency, amplitude-modulated because the coupling is never constant, *plus* a damped ring at each switching edge from the <code>di/dt</code> of the commutation. A method tested against only one of those fails on the other.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
 
@@ -187,7 +187,7 @@ h = <span class="f">hum</span>(clean, fs, <span class="a">freq</span> = <span cl
 e = <span class="f">emf</span>(clean, fs, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
 <span class="f">print</span>(<span class="s">"hum {measure_snr(clean, h):.2f} dB, emf {measure_snr(clean, e):.2f} dB"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>hum 6.00 dB, emf 6.00 dB</pre></div></div>
 <h2 id="s205">Distortion is neither</h2>
 <p>Distortion is a <strong>function of the signal</strong>. Noise is independent of it, so averaging a hundred records reduces noise; distortion is identical in every record and averaging is powerless against it. The only cure is not to distort.</p>
 <pre><code>distort(x, kind, [amount = 0.3])
@@ -208,14 +208,14 @@ e = <span class="f">emf</span>(clean, fs, <span class="a">carrier</span> = <span
 <tr><td><code>quantize</code></td><td>Word length, 16 bits down to 2</td></tr>
 </table></div>
 <p>Two kinds on the same clean tone show why "distortion" is not one number: hard clipping and soft saturation both add odd harmonics at the same <code>amount</code>, but clipping does it abruptly and saturation gradually, and <code>thd</code> (total harmonic distortion, in dB below the fundamental) shows the gap between them directly:</p>
-<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
 pure = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">31</span> * t)
 
 clipped = <span class="f">distort</span>(pure, <span class="s">"clip"</span>, <span class="n">0.4</span>)
 soft = <span class="f">distort</span>(pure, <span class="s">"soft"</span>, <span class="n">0.4</span>)
 <span class="f">print</span>(<span class="s">"clip {thd(clipped):.1f} dB, soft {thd(soft):.1f} dB, below the fundamental"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>clip -15.6 dB, soft -9.8 dB, below the fundamental</pre></div></div>
 <p>Measured on a single 31 Hz tone, <code>thd</code> in dB below the fundamental:</p>
 <pre><code>clean tone          -44.5 dB
 soft         0.4    -20.3 dB
@@ -245,13 +245,16 @@ clip         0.4    -25.6 dB
 </table></div>
 <p>The window is <strong>odd and centred</strong>, the same rule as <code>medfilt</code>/<code>savgol</code>/ <code>smooth</code>/<code>hampel</code> above and refused the same way if it is even — an even window has no middle sample and which way it rounds changes the answer. A window longer than the data is fine: it simply covers the whole vector at every index.</p>
 <p>At the edges these <strong>deliberately differ</strong> from the smoothers above, and the difference is the point rather than an inconsistency. <code>medfilt</code> and <code>moving_average</code> *pad* (reflect, or clamp) because a filter must emit one sample per input sample and has to invent the neighbours it does not have. A rolling statistic is not a filter: it answers "what was the mean/spread/ range of the data actually here", and padding would answer that with fabricated samples. For <code>rolling_std</code> padding does not merely add a little edge error, it biases the answer the wrong way — a clamped repeat has zero variance, so a padded <code>rolling_std</code> reports the signal as *quietest* at exactly the two places least is known about it. So the window <strong>shrinks</strong> at the edges instead (MATLAB's <code>movmean</code>/<code>movstd</code> default, pandas' <code>min_periods=1</code>), and every value returned is the statistic of real samples only.</p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">rolling_mean</span>(x, <span class="n">3</span>))   <span class="c"># [1.5, 2, 3, 4, 4.5] -- ends over 2 samples, not 3</span>
 <span class="f">print</span>(<span class="f">rolling_min</span>(x, <span class="n">3</span>))    <span class="c"># [1, 1, 2, 3, 4]</span>
 <span class="f">print</span>(<span class="f">rolling_std</span>(x, <span class="n">3</span>))    <span class="c"># [0.707107, 1, 1, 1, 0.707107]</span>
 <span class="f">print</span>(<span class="f">std</span>([<span class="n">1</span>, <span class="n">2</span>]))          <span class="c"># 0.707107 -- the same number the edge reports</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[1.5, 2, 3, 4, 4.5]
+[1, 1, 2, 3, 4]
+[0.707107, 1, 1, 1, 0.707107]
+0.707107</pre></div></div>
 <h2 id="s323">Outliers</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>For</td></tr>
@@ -276,7 +279,7 @@ clip         0.4    -25.6 dB
 <p><code>"hampel"</code> is the only *local* criterion: it compares each sample against a window around it rather than against the whole record, which is what lets it catch a spike riding on a baseline that itself travels much further than the spike does — a case the three global tests cannot see by construction. It shares its implementation with the <code>hampel</code> builtin above, so the two can never disagree about what an outlier is.</p>
 <p>It inherits one caveat from <code>hampel</code>, worth knowing before reading a quiet answer as a clean signal: <strong>on a perfectly flat local baseline it flags nothing.</strong> If over half the window holds identical values the local MAD is exactly zero, so the threshold is zero and nothing can exceed it. Whether that should be special-cased is an open question for whoever owns the noise builtins — it is deliberately not settled here (see the note on <code>hampel_replaces_an_outlier_against_a_varying_baseline</code> in the engine's own tests). <code>"modified_zscore"</code> does handle the degenerate case, falling back to the mean absolute deviation, so it is the one to reach for on a held or heavily quantised channel. That fallback has a small-sample ceiling of its own, though: on a flat baseline of N samples plus one outlier it scores <code>N/1.2533</code> regardless of how extreme the outlier is, clearing the default 3.5 only from N=5 up.</p>
 <p>There is no count in any return value. <code>length(find_outliers(...))</code> is the count, it is available *before* committing to a transform, and leaving it out keeps the transforms chainable (<code>x.remove_outliers().fft()</code>) instead of returning a record the next call cannot take.</p>
-<div class="example"><pre class="hl"><code>y = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">100</span>]
+<div class="example hasout"><pre class="hl"><code>y = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">100</span>]
 <span class="f">print</span>(<span class="f">find_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))      <span class="c"># [10]</span>
 <span class="f">print</span>(<span class="f">remove_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))    <span class="c"># the 100 is gone</span>
 <span class="f">print</span>(<span class="f">replace_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>)[<span class="n">10</span>])  <span class="c"># 2 -- patched in place</span>
@@ -286,7 +289,11 @@ drift[<span class="n">20</span>] = drift[<span class="n">20</span>] + <span clas
 <span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"hampel"</span>, <span class="a">window</span> = <span class="n">7</span>))  <span class="c"># [20]</span>
 <span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"zscore"</span>))              <span class="c"># [] -- global test cannot see it</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[10]
+[1, 2, 3, 2, 1, 2, 3, 2, 1, 2]
+2
+[20]
+[]</pre></div></div>
 <h2 id="s351">Missing samples</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>For</td></tr>
@@ -297,38 +304,44 @@ drift[<span class="n">20</span>] = drift[<span class="n">20</span>] + <span clas
 </table></div>
 <p><strong>"Missing" means not finite — NaN *or* ±Inf</strong>, not NaN alone. An infinity poisons a mean exactly as thoroughly as a NaN does and a saturated channel can produce either, so treating only NaN as missing would leave the other to be discovered downstream. <code>remove_nan</code> keeps its familiar name and removes both.</p>
 <p>This family exists because one dropout costs the whole record otherwise — every numeric builtin here propagates NaN faithfully, as it should:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">detrend</span>([<span class="n">1</span>, <span class="n">2</span>, nan, <span class="n">4</span>], <span class="n">0</span>))   <span class="c"># [NaN, NaN, NaN, NaN]</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">detrend</span>([<span class="n">1</span>, <span class="n">2</span>, nan, <span class="n">4</span>], <span class="n">0</span>))   <span class="c"># [NaN, NaN, NaN, NaN]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[NaN, NaN, NaN, NaN]</pre></div></div>
 <p>The <code>"linear"</code> fill deliberately does <strong>not extrapolate</strong>. A gap with good data on one side only — one that runs off the start or the end of the record — holds that nearest good sample instead. <code>interp1</code> *does* extrapolate (<code>interp1([0,1,2,3], [0,10,20,30], 6)</code> is <code>60</code>), which is why it is not reused here unchanged: the two are answering different questions. <code>interp1</code>'s caller asked for the model's value at a named point outside the data and gets its honest opinion. Here nobody asked for anything — a trailing dropout is being patched so the next stage has something to work with, and extrapolating turns that dropout into a trend, which is worse than a flat patch precisely because it looks like data.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
 <span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, nan]))    <span class="c"># [0, 10, 20, 20] -- holds, does not climb</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">method</span> = <span class="s">"previous"</span>))  <span class="c"># [1, 1, 9]</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">value</span> = <span class="n">0</span>))            <span class="c"># [1, 0, 9]</span>
 <span class="f">print</span>(<span class="f">find_missing</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                       <span class="c"># [1]</span>
 <span class="f">print</span>(<span class="f">remove_nan</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                         <span class="c"># [1, 3]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[0, 10, 20, 30]
+[0, 10, 20, 20]
+[1, 1, 9]
+[1, 0, 9]
+[1]
+[1, 3]</pre></div></div>
 <p>There is no <code>isnan</code> builtin; <code>x != x</code> is the elementwise missing-sample mask if you want one, and <code>find_missing</code> is the indexed form.</p>
 <h4>Overloads: <code>medfilt</code></h4>
 <h4>Case: vector</h4>
 <p><code>x</code> a length-N number vector. Slides a <code>window</code>-wide 1-D neighbourhood and keeps the median.</p>
-<div class="example"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
+<div class="example hasout"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
 <span class="f">print</span>(<span class="f">medfilt</span>(v, <span class="n">3</span>))   <span class="c"># [3, 5, 6, 6, 5, 4, 4] -- the spike at index 2 is gone</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[3, 5, 6, 6, 5, 4, 4]</pre></div></div>
 <h4>Case: image</h4>
 <p><code>x</code> an <code>Image</code>. Runs the true 2-D median over a <code>window</code>×<code>window</code> square, channel by channel — not a row-by-row 1-D median, which would smear vertical structure it never looks at. Only possible because the <code>Image</code> carries its own width and height. (<code>medfilt2</code>/<code>median_filter</code> are the exact same builtin under other names, so this case applies to them too.)</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
+<div class="example hasout"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
 img = <span class="f">image_from_matrix</span>(m)
 cleaned = <span class="f">medfilt</span>(img, <span class="n">3</span>)
 <span class="f">print</span>(<span class="f">imhist</span>(img, <span class="n">4</span>))       <span class="c"># [0, 0, 24, 1] -- one bright pixel</span>
 <span class="f">print</span>(<span class="f">imhist</span>(cleaned, <span class="n">4</span>))   <span class="c"># [0, 0, 25, 0] -- gone, over a 2-D neighbourhood this time</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[0, 0, 24, 1]
+[0, 0, 25, 0]</pre></div></div>
 <p>The paragraph and table above describe the removal tools individually; the example below chains several of them into one cleanup pipeline. First, <code>impulse(n, [index=], [amplitude=])</code> builds the spike to inject in the first place — a plain length-<code>n</code> zero vector with one sample set to <code>amplitude</code> at position <code>index</code>. <code>n</code> is a required positional integer, the output length; <code>index</code> is a named integer sample position, default <code>0</code>; <code>amplitude</code> is a named number, default <code>1</code>. It returns a length-<code>n</code> number vector, and is the natural way to add a single, controlled transient rather than reaching for <code>add_noise</code>'s random placement.</p>
 <p>A clean tone corrupted by both a single spike and a slow linear drift needs two different tools, applied in the right order — a median filter cannot see through a ramp, and a polynomial detrend cannot see through a spike, so the spike must go first:</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">500</span>
 t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
@@ -342,7 +355,7 @@ sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class=
 sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
 <span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>after cleanup: 17.81 dB (savgol), 17.81 dB (smooth)</pre></div></div>
 <h3>Why a median, and when not</h3>
 <p>An average is pulled by an outlier in proportion to how far out it is. A median ignores it entirely, as long as fewer than half the window is corrupt. On salt-and-pepper at 8%:</p>
 <pre><code>as measured          3.97 dB
@@ -366,14 +379,14 @@ moving average    0.907
 <p><code>window</code> must be odd for all of these, so there is a middle sample; an even one is refused rather than silently rounded, because which way it rounds changes the answer.</p>
 <h3>Hampel, when the data are good apart from a few spikes</h3>
 <p><code>hampel</code> replaces a sample by the local median <strong>only</strong> when it lies more than <code>n_sigma</code> robust deviations from it, and leaves everything else bit for bit. That is the difference from <code>medfilt</code>, which rewrites every sample whether it needed it or not.</p>
-<div class="example"><pre class="hl"><code>spiky = <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> <span class="n">499</span>) / <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>spiky = <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> <span class="n">499</span>) / <span class="n">100</span>)
 spiky[<span class="n">120</span>] = <span class="n">6.0</span>
 spiky[<span class="n">300</span>] = -<span class="n">7.0</span>
 
 r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"replaced {r.replaced} samples of {len(spiky)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>replaced 2 samples of 500</pre></div></div>
 <p>It returns both the cleaned signal and the count, because "it removed 3 outliers" and "it rewrote 400 samples" are very different results and should not look the same.</p>
 <p>The scale is <code>1.4826 × MAD</code> — the constant that makes the median absolute deviation an unbiased estimate of the standard deviation on Gaussian data, so <code>n_sigma</code> means what it says.</p>
 <p><code>catalog/qu_noise_and_removal.qu</code> runs all of this on one signal.</p>
@@ -391,14 +404,14 @@ r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="
 <tr><td><code>cs_guarantee</code></td><td><code>cs_guarantee(A)</code></td><td><code>A</code> is an M×N sensing matrix. Returns a single number: the largest sparsity level that the matrix's coherence alone can *prove* recoverable. Badly pessimistic, and the only certificate that is computable at all.</td></tr>
 </table></div>
 <p>On an <code>Image</code>, <code>medfilt2</code> (and its synonym <code>median_filter</code>) run the true 2-D median over a square window, channel by channel, rather than the 1-D <code>medfilt</code> above. A 1-D median taken row-by-row on a 2-D image would smear vertical structure it never looks at, which is why the two-dimensional version exists as its own function rather than a loop over <code>medfilt</code>. The example below builds a small, badly salt-and-peppered checkerboard as a matrix, turns it into an <code>Image</code>, and runs both names of the filter over it — the point being that they are the same function, so nothing about choosing one name over the other changes the result:</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
+<div class="example hasout"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
 img = <span class="f">image_from_matrix</span>(m)
 
 a = <span class="f">medfilt2</span>(img, <span class="n">3</span>)
 b = <span class="f">median_filter</span>(img, <span class="n">3</span>)      <span class="c"># same filter, other name</span>
 <span class="f">print</span>(<span class="s">"{a.width}x{a.height} cleaned, {b.width}x{b.height} cleaned"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>3x3 cleaned, 3x3 cleaned</pre></div></div>
 </main>
 </div>
 <footer><div class="wrap">

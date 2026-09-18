@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
 
 m = <span class="f">ols_model</span>(X, y)
 yhat = m.<span class="f">predict</span>(X)
@@ -71,7 +71,19 @@ ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</spa
 <span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
 <span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>corrcoef matrix:
+[1, -0.119, 0.007; -0.119, 1, -0.036; 0.007, -0.036, 1]
+mae: 0.0847, mse: 0.011
+precision: 0.995
+recall:    0.995
+f1:        0.995
+k_fold: 4 folds, first fold trains on 90 rows
+cv_stability: 0.908 +/- 0.012
+ablation_study scores: [0.2401, 0.1301]
+rfe keeps:             [0]
+mutual_info_classif:   [0.2398, 0.1939]
+astar_mrmr keeps:      [0]
+permutation_importance: [1.5394, 0.3327, 0.0947]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>k_fold(X, y, k, [seed=], [shuffle=true])</code> — sklearn's <code>KFold</code>: partitions rows into <code>k</code> roughly-equal contiguous groups (sizes differ by at most 1 — the extra <code>n % k</code> rows go to the first folds, matching sklearn's own convention) after an optional shuffle, and returns a <code>Value::List</code> of <code>k</code> <code>"split"</code>-kind model handles — the exact same <code>.X_train</code>/ <code>.X_test</code>/<code>.y_train</code>/<code>.y_test</code> field convention <code>train_test_ split</code> already established, so any existing <code>_model</code> + <code>.score</code> script pattern works unchanged inside a <code>for fold in k_fold(...)</code> loop. Deliberately returns *data*, not a score: unlike sklearn's <code>cross_val_score</code>, Qu has no way to pass an unfitted estimator as a first-class value, so the fit/score call is left to the calling script (or, later, to <code>grad</code>'s §38 successors) rather than baked in here.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

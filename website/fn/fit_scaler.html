@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
 scaler = <span class="f">fit_scaler</span>(split.X_train, <span class="a">method</span> = <span class="s">"standard"</span>)
 <span class="f">print</span>(<span class="s">"training column means: {round(scaler.mean, 3)}"</span>)
 
@@ -54,7 +54,9 @@ Xte = scaler.<span class="f">transform</span>(split.X_test)
 <span class="f">print</span>(<span class="s">"train columns after scaling: {round(mean(Xtr, axis = 0), 3)}"</span>)
 <span class="f">print</span>(<span class="s">"test columns after scaling:  {round(mean(Xte, axis = 0), 3)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>training column means: [-0.23, 0.011, 0]
+train columns after scaling: [0, 0, 0]
+test columns after scaling:  [0.428, 0.053, -0.046]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>fit_scaler(X, method="standard"|"minmax"|"robust"|"quantile")</code> — computes and stores whatever parameters that method needs as named fields on a <code>kind="scaler"</code> <code>Value::Model</code>, for reuse via <code>.transform(newX)</code>/<code>.inverse_transform(newX)</code> on data that may be different from <code>X</code> (e.g. a held-out test set fit on the training set's own distribution) — that reuse is the entire point, <code>newX</code> is never re-fit. Field names mirror what each method's <code>scaler::ColumnParams</code> variant stores (<code>mean</code>/<code>std</code> for <code>"standard"</code>, <code>min</code>/<code>max</code> for <code>"minmax"</code>, <code>median</code>/<code>iqr</code> for <code>"robust"</code>, <code>reference</code> — the sorted fitted values, one column per feature — for <code>"quantile"</code>), plus <code>method</code> itself so <code>.transform</code>/<code>.inverse_transform</code> know which formula to replay.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

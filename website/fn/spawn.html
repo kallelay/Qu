@@ -47,27 +47,27 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">6</span>)
 <span class="f">print</span>(<span class="f">join</span>(w))   <span class="c"># 36</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="out"><span class="lbl">output</span><pre>36</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
 result = <span class="f">join</span>(w)
 <span class="f">print</span>(<span class="s">"result = {result}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="out"><span class="lbl">output</span><pre>result = 49</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)                  <span class="c"># runs on its own OS thread</span>
 <span class="k">while</span> <span class="k">not</span> <span class="f">worker_done</span>(w)               <span class="c"># non-blocking poll; handle stays valid</span>
 <span class="k">end</span> <span class="k">while</span>
 result = <span class="f">join</span>(w)                       <span class="c"># blocks for the result (49)</span>
 <span class="f">print</span>(result)                          <span class="c"># 49</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="out"><span class="lbl">output</span><pre>49</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
 <span class="f">print</span>(<span class="s">"spawned result {join(w)}"</span>)
@@ -78,7 +78,8 @@ parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">
 <span class="k">end</span> parallel
 <span class="f">print</span>(<span class="s">"parallel results {results}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="out"><span class="lbl">output</span><pre>spawned result 49
+parallel results [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
 <h2>How it works</h2>
 <p><code>spawn("fnName", arg1, arg2, ...)</code> runs an already-defined user function (one-line <code>:=</code> or block <code>function ... end</code>) on its own OS thread, the Worker abstraction (§47/§54): an ISOLATED environment (a full snapshot of the current globals and function table, plus a freshly-drawn RNG seed), never the live shared <code>env</code> — so nothing a worker does can race with the calling script or with another worker. Only a user function can be spawned (not a builtin): builtins like <code>plot</code>/<code>savefig</code> mutate figure/output state that has no meaning off the main thread. Returns a <code>Value::Worker</code> handle; get the result (blocking) with <code>join(w)</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -45,15 +45,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 pool workers <span class="k">with</span> cpu=<span class="n">2</span>
 <span class="k">end</span> pool
 q = <span class="f">queue</span>()
 q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
 <span class="f">print</span>(run q on workers)   <span class="c"># (9)</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="out"><span class="lbl">output</span><pre>(9)</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 
 pool workers <span class="k">with</span> cpu=<span class="n">4</span>
 <span class="k">end</span> pool
@@ -66,7 +66,7 @@ q = <span class="f">queue</span>()
 results = run q on workers
 <span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>(0, 1, 4, 9, 16)</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">square</span>(x)
     <span class="k">return</span> x * x
 <span class="k">end</span> <span class="k">function</span>

@@ -55,27 +55,35 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
+<div class="example hasout"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
 <span class="f">print</span>(<span class="s">"sort ascending  = {sort(y)}"</span>)
 <span class="f">print</span>(<span class="s">"sort descending = {sort(y, true)}"</span>)
 <span class="f">print</span>(<span class="s">"argsort(y) = {argsort(y)}"</span>)   <span class="c"># the permutation that would sort y</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
-<div class="example"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
+<div class="out"><span class="lbl">output</span><pre>sort ascending  = [1, 1, 2, 5, 9, 9]
+sort descending = [9, 9, 5, 2, 1, 1]
+argsort(y) = [3, 4, 1, 0, 2, 5]</pre></div></div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="example hasout"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
 <span class="f">print</span>(<span class="f">sort</span>(words))            <span class="c"># ("apple", "banana", "cherry") -- a List, lexicographic</span>
 nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">sort</span>(nums))             <span class="c"># [1, 1, 3, 4, 5] -- a Vec, numeric</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(words)))      <span class="c"># "list"</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(nums)))       <span class="c"># "vector"</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
+<div class="out"><span class="lbl">output</span><pre>("apple", "banana", "cherry")
+[1, 1, 3, 4, 5]
+list
+vector</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">unique</span>(xs))          <span class="c"># [1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs))            <span class="c"># [1, 1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">argsort</span>(xs))         <span class="c"># permutation of indices, ascending</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs, <span class="k">true</span>))      <span class="c"># descending</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>[1, 2, 3, 4, 5, 6, 9]
+[1, 1, 2, 3, 4, 5, 6, 9]
+[1, 3, 6, 0, 2, 4, 7, 5]
+[9, 6, 5, 4, 3, 2, 1, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 </div>
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
@@ -87,27 +95,35 @@ nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</s
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
+<div class="example hasout"><pre class="hl"><code>y = [<span class="n">5</span>, <span class="n">2</span>, <span class="n">9</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">9</span>]
 <span class="f">print</span>(<span class="s">"sort ascending  = {sort(y)}"</span>)
 <span class="f">print</span>(<span class="s">"sort descending = {sort(y, true)}"</span>)
 <span class="f">print</span>(<span class="s">"argsort(y) = {argsort(y)}"</span>)   <span class="c"># the permutation that would sort y</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
-<div class="example"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
+<div class="out"><span class="lbl">output</span><pre>sort ascending  = [1, 1, 2, 5, 9, 9]
+sort descending = [9, 9, 5, 2, 1, 1]
+argsort(y) = [3, 4, 1, 0, 2, 5]</pre></div></div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="example hasout"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
 <span class="f">print</span>(<span class="f">sort</span>(words))            <span class="c"># ("apple", "banana", "cherry") -- a List, lexicographic</span>
 nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">sort</span>(nums))             <span class="c"># [1, 1, 3, 4, 5] -- a Vec, numeric</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(words)))      <span class="c"># "list"</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(nums)))       <span class="c"># "vector"</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
+<div class="out"><span class="lbl">output</span><pre>("apple", "banana", "cherry")
+[1, 1, 3, 4, 5]
+list
+vector</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">unique</span>(xs))          <span class="c"># [1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs))            <span class="c"># [1, 1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">argsort</span>(xs))         <span class="c"># permutation of indices, ascending</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs, <span class="k">true</span>))      <span class="c"># descending</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>[1, 2, 3, 4, 5, 6, 9]
+[1, 1, 2, 3, 4, 5, 6, 9]
+[1, 3, 6, 0, 2, 4, 7, 5]
+[9, 6, 5, 4, 3, 2, 1, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 </div>
 </div>
 </div>

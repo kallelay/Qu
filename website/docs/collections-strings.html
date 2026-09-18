@@ -118,21 +118,28 @@
 <tr><td><code>substr(s, start, length)</code></td><td>Exactly <code>length</code> characters starting at <code>start</code>, clamped (not an error) if <code>length</code> runs past what's left — the 3-argument form.</td></tr>
 </table></div>
 <p><code>mid</code> is the exact same builtin under a second, BASIC/Excel-flavored name; either spelling accepts either form. The example below starts with the simplest call — everything after a fixed position — then the bounded form, then shows the clamping behavior when the requested length overruns the string:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, World!"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"Hello, World!"</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>))          <span class="c"># "World!" — to the end</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># "Hello" — bounded</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>, <span class="n">100</span>))     <span class="c"># "World!" — clamped, not an error</span>
 <span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">5</span>))          <span class="c"># "World" — mid is substr under another name</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>World!
+Hello
+World!
+World</pre></div></div>
 <p>These are the string functions reached for constantly: slicing out a piece, swapping one substring for another, padding a value so a column of output lines up, and fixing up capitalization on a name typed in whatever case a user felt like. <code>s * n</code> repeats a string, in either order, and a non-whole count is an error rather than a silent floor — the same operator overload <code>3 * 4</code> uses, extended to strings rather than a separate <code>repeat_str</code> call being the only spelling. The example below chains a slice into a replace, pads a number-turned-string with leading zeros, title-cases a name, and counts a substring's occurrences:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"-"</span> * <span class="n">40</span>)                                  <span class="c"># "----------------------------------------"</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"-"</span> * <span class="n">40</span>)                                  <span class="c"># "----------------------------------------"</span>
 <span class="f">print</span>(<span class="s">"hello"</span>.<span class="f">substr</span>(<span class="n">0</span>, <span class="n">2</span>).<span class="f">replace</span>(<span class="s">"e"</span>, <span class="s">"i"</span>))    <span class="c"># "hi"</span>
 <span class="f">print</span>(<span class="f">pad_left</span>(<span class="f">str</span>(<span class="n">7</span>), <span class="n">3</span>, <span class="s">"0"</span>))                  <span class="c"># "007"</span>
 <span class="f">print</span>(<span class="f">proper</span>(<span class="s">"ada lovelace"</span>))                    <span class="c"># "Ada Lovelace"</span>
 <span class="f">print</span>(<span class="f">count</span>(<span class="s">"banana"</span>, <span class="s">"a"</span>))                      <span class="c"># 3</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>----------------------------------------
+hi
+007
+Ada Lovelace
+3</pre></div></div>
 <h4>Overloads: <code>remove</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it does</td></tr>
@@ -141,12 +148,14 @@
 <tr><td><code>remove(s, start, count)</code></td><td><code>count</code> is a number of characters. Deletes exactly that many, starting at <code>start</code>, clamped rather than erroring if <code>count</code> runs past what's left.</td></tr>
 </table></div>
 <p>Picked by the TYPE of the second argument, not a flag: a <code>Str</code> means "delete every occurrence of this text anywhere in <code>s</code>"; a number means "delete this run of characters" instead, with an optional third argument narrowing how many. Returns a <code>Str</code> either way:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"hello, world"</span>
 <span class="f">print</span>(<span class="f">remove</span>(s, <span class="s">", "</span>))       <span class="c"># "helloworld" -- every occurrence of the text</span>
 <span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># ", world" -- 5 characters starting at position 0</span>
 <span class="f">print</span>(<span class="f">remove</span>(s, <span class="n">7</span>))          <span class="c"># "hello, " -- position 7 to the end, count omitted</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>helloworld
+, world
+hello, </pre></div></div>
 <h3>Patterns</h3>
 <p>A regular expression is the one string tool with no workaround — everything else here can be written as a loop, and this cannot.</p>
 <div class="tablewrap"><table>
@@ -161,25 +170,31 @@
 <tr><td><code>like</code></td><td><code>like(s, pattern)</code></td><td><code>s</code> and <code>pattern</code> are <code>Str</code>s. BASIC's wildcard match, anchored at both ends: <code>*</code> any run, <code>?</code> any one character, <code>#</code> any digit, <code>[abc]</code>/<code>[!abc]</code> a set. Returns a <code>bool</code>.</td></tr>
 </table></div>
 <p><code>regex_find_all</code> pulls out every run of digits in a string, <code>regex_replace</code> rearranges a date using capture-group backreferences, <code>regex_groups</code> reads those same captures back individually, and <code>like</code> answers a wildcard question without writing a full pattern:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_find_all</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))                                          <span class="c"># ("1", "22", "333")</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_find_all</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))                                          <span class="c"># ("1", "22", "333")</span>
 <span class="f">print</span>(<span class="f">regex_replace</span>(<span class="s">"2026-09-07"</span>, <span class="s">"([0-9]+)-([0-9]+)-([0-9]+)"</span>, <span class="s">"$3/$2/$1"</span>))          <span class="c"># "07/09/2026"</span>
 <span class="f">print</span>(<span class="f">regex_groups</span>(<span class="s">"v1.2.3"</span>, <span class="s">"v([0-9]+)\.([0-9]+)"</span>))                                  <span class="c"># ("1", "2")</span>
 <span class="f">print</span>(<span class="f">like</span>(<span class="s">"hello.txt"</span>, <span class="s">"*.txt"</span>))                                                      <span class="c"># true</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("1", "22", "333")
+07/09/2026
+("1", "2")
+true</pre></div></div>
 <p><code>regex_match</code> just asks yes/no, <code>regex_find</code> returns the first match alone, <code>regex_split</code> divides the string on the pattern, and <code>regex_count</code> tallies non-overlapping matches:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"sensor_1: 12.4, sensor_2: 9.8, sensor_3: 15.0"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"sensor_1: 12.4, sensor_2: 9.8, sensor_3: 15.0"</span>
 <span class="f">print</span>(<span class="f">regex_match</span>(s, <span class="s">"sensor_[0-9]+"</span>))    <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">regex_find</span>(s, <span class="s">"[0-9]+\.[0-9]+"</span>))    <span class="c"># "12.4"</span>
 <span class="f">print</span>(<span class="f">regex_split</span>(s, <span class="s">", *"</span>))              <span class="c"># 3-piece split on each comma</span>
 <span class="f">print</span>(<span class="f">regex_count</span>(s, <span class="s">"sensor_"</span>))          <span class="c"># 3</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+12.4
+("sensor_1: 12.4", "sensor_2: 9.8", "sensor_3: 15.0")
+3</pre></div></div>
 <p>The engine is the <code>regex</code> crate, which is linear in the input by construction: a pattern typed at a prompt cannot hang the interpreter the way a backtracking engine can on <code>(a+)+b</code>. The price is no backreferences and no lookaround, which is the right trade for a language you drive interactively. A pattern that does not compile is an error naming the character it choked on, never a silent no-match — a typo and a genuine miss must not look the same.</p>
 <p><code>like</code> is translated into a regular expression rather than matched by a second engine, so the two cannot disagree about anchoring or Unicode. Reach for it first: most "does this look like that" questions are a wildcard question, and a wildcard is far easier to get right.</p>
 <h3>Chaining</h3>
 <p>Every string function is also a method on the value, so a chain reads left to right:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"  Hello, Qu World!  "</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"  Hello, Qu World!  "</span>
 trimmed = <span class="f">trim</span>(s)
 parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)
 <span class="f">print</span>(parts)                  <span class="c"># ["Hello", "Qu World!"]</span>
@@ -188,10 +203,14 @@ parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)
 <span class="f">print</span>(<span class="s">"hello"</span>.<span class="f">substr</span>(<span class="n">0</span>, <span class="n">2</span>).<span class="f">replace</span>(<span class="s">"e"</span>, <span class="s">"i"</span>).<span class="f">flip</span>().<span class="f">flip</span>())
 <span class="f">print</span>(<span class="s">"hi world"</span>.<span class="f">split</span>(<span class="s">" "</span>).<span class="f">join</span>(<span class="s">", "</span>) + <span class="s">"!"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("Hello", "Qu World!")
+HELLO
+true
+hi
+hi, world!</pre></div></div>
 <h3>More string examples</h3>
 <p>Real text rarely arrives in the shape you want it: a filename needs a substring pulled out of it, a heading needs consistent case, a field read from a form needs its leading/trailing padding stripped before it is safe to compare. This block runs one string through several of those cleanups — slicing with <code>mid</code>/<code>left</code>/<code>right</code>, case conversion under all of its aliases (<code>upper</code>/<code>lower</code>/<code>ucase</code>/<code>lcase</code>/<code>toupper</code>/<code>tolower</code>), and trimming/padding — to show that they compose without any of them mutating the original:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
 <span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">2</span>))          <span class="c"># "Qu"</span>
 <span class="f">print</span>(<span class="f">left</span>(s, <span class="n">5</span>))            <span class="c"># "Hello"</span>
 <span class="f">print</span>(<span class="f">right</span>(s, <span class="n">6</span>))           <span class="c"># "World!"</span>
@@ -208,9 +227,23 @@ parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)
 <span class="f">print</span>(<span class="f">compare</span>(<span class="s">"apple"</span>, <span class="s">"banana"</span>)) <span class="c"># -1</span>
 <span class="f">print</span>(<span class="f">asc</span>(<span class="s">"A"</span>))              <span class="c"># 65</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>Qu
+Hello
+World!
+cba
+shout
+SHOUT
+shout
+MIX
+mix
+Ada lovelace
+padded
+padded|
+ab...
+-1
+    ... 1 more lines</pre></div></div>
 <p>Searching for a marker and cutting the string around it — <code>index_of</code>/ <code>last_index_of</code> from the front and back, <code>after</code>/<code>before</code>/<code>after_last</code>/ <code>before_last</code> to grab one side of it directly:</p>
-<div class="example"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
+<div class="example hasout"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
 <span class="f">print</span>(<span class="f">ends_with</span>(path, <span class="s">".txt"</span>))         <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">index_of</span>(path, <span class="s">"_"</span>))              <span class="c"># 6</span>
 <span class="f">print</span>(<span class="f">last_index_of</span>(path, <span class="s">"_"</span>))         <span class="c"># 12</span>
@@ -223,24 +256,38 @@ full = <span class="s">"a/b/c.txt"</span>
 <span class="f">print</span>(<span class="f">after_last</span>(full, <span class="s">"/"</span>))            <span class="c"># "c.txt"</span>
 <span class="f">print</span>(<span class="f">before_last</span>(full, <span class="s">"/"</span>))           <span class="c"># "a/b"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+6
+12
+hello, world
+helloworld
+value
+key
+c.txt
+a/b</pre></div></div>
 <p>Breaking text apart into lines or characters, and the two ways of putting it back together:</p>
-<div class="example"><pre class="hl"><code>text = <span class="s">"one\ntwo\nthree"</span>
+<div class="example hasout"><pre class="hl"><code>text = <span class="s">"one\ntwo\nthree"</span>
 <span class="f">print</span>(<span class="f">lines</span>(text))                     <span class="c"># ("one", "two", "three")</span>
 <span class="f">print</span>(<span class="f">chars</span>(<span class="s">"abc"</span>))                    <span class="c"># ("a", "b", "c")</span>
 <span class="f">print</span>(<span class="f">repeat_str</span>(<span class="s">"ab"</span>, <span class="n">3</span>))             <span class="c"># "ababab"</span>
 <span class="f">print</span>(<span class="f">as_text</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]).<span class="f">join</span>(<span class="s">", "</span>))   <span class="c"># "1, 2, 3"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("one", "two", "three")
+("a", "b", "c")
+ababab
+1, 2, 3</pre></div></div>
 <p><code>parse_as</code>/<code>scan</code> pull values out of a fixed-shape line of text; <code>format</code> goes the other way, a number into a picture:</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
 <span class="f">print</span>(n)                          <span class="c"># 12</span>
 reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <span class="s">"temp = %f %s"</span>)
 <span class="f">print</span>(reading)                    <span class="c"># (98.6, "F")</span>
 <span class="f">print</span>(<span class="f">format</span>(<span class="n">1234.5</span>, <span class="s">"#,##0.0"</span>))  <span class="c"># "1,234.5"</span>
 <span class="f">print</span>(<span class="f">format</span>(<span class="n">0.256</span>, <span class="s">"0.0%"</span>))      <span class="c"># "25.6%"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>12
+(98.6, "F")
+1,234.5
+25.6%</pre></div></div>
 <h3>Case modes and pattern languages</h3>
 <p><code>replace</code> and <code>contains</code> take two independent keywords. Both default to today's behaviour, so existing calls are unchanged.</p>
 <p><code>case=</code> is <code>"sensitive"</code> (default), <code>"insensitive"</code>, or <code>"preserve"</code> — where the match is case-insensitive and the replacement inherits the case of what it replaced, letter by letter:</p>
@@ -268,11 +315,12 @@ reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <s
 </div>
 <p><strong>A limit worth stating.</strong> Qu cannot tell you at parse time that a template is impossible, and it does not try. <code>\d</code> is genuinely ambiguous — a regex habit, or the start of a Windows path like <code>C:\data</code> — so an unrecognised escape is kept literally rather than rejected, and <code>scan("C:\data\x 42", r"C:\data\x %d")</code> works. The consequence is that a template with a typo in it is a template that simply does not match, and a bare <code>none</code> still means "did not match" without saying why. <code>must_match=</code> exists because that question is answerable at the point of use, where the input is in hand, and not before.</p>
 <p><code>tail</code> for the end of a string, <code>grep</code> for the lines of it that match a pattern — both borrowed from their command-line namesakes:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
 log = <span class="s">"INFO start\nERROR disk full\nINFO retry\nERROR timeout"</span>
 <span class="f">print</span>(<span class="f">grep</span>(log, <span class="s">"ERROR"</span>))     <span class="c"># ("ERROR disk full", "ERROR timeout")</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>fgh
+("ERROR disk full", "ERROR timeout")</pre></div></div>
 <p>Sometimes the destination for a piece of text is a file rather than the terminal — a log line, a generated report, a config value computed at runtime. <code>write_text(path, s)</code> writes the whole string in one call and hands back the byte count written, so a caller can confirm nothing was truncated without a separate file-size check (to a scratch path here, not anywhere inside a project -- <code>/tmp/</code> resolves to the system temporary directory on every platform, including Windows):</p>
 <div class="example"><pre class="hl"><code>out_path = <span class="s">"/tmp/qu_scratch_note.txt"</span>
 bytes = <span class="f">write_text</span>(out_path, <span class="s">"hello from Qu\n"</span>)
@@ -280,12 +328,17 @@ bytes = <span class="f">write_text</span>(out_path, <span class="s">"hello from 
 </code></pre>
 </div>
 <p>Notes written as Markdown often need to become HTML for a report or a web page, and HTML pasted from somewhere else sometimes needs to become plain Markdown so it can be edited by hand. <code>md2html</code>/<code>html2md</code> convert between the two formats for the common subset — headings, paragraphs, lists, code, links, and emphasis — without pulling in an external converter:</p>
-<div class="example"><pre class="hl"><code>md = <span class="s">"# Title\n\nSome **bold** text."</span>
+<div class="example hasout"><pre class="hl"><code>md = <span class="s">"# Title\n\nSome **bold** text."</span>
 html = <span class="f">md2html</span>(md)
 <span class="f">print</span>(html)
 <span class="f">print</span>(<span class="f">html2md</span>(html))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>&lt;h1&gt;Title&lt;/h1&gt;
+&lt;p&gt;Some &lt;strong&gt;bold&lt;/strong&gt; text.&lt;/p&gt;
+
+# Title
+
+Some **bold** text.</pre></div></div>
 <h2 id="s25">Bitwise &amp; Number-Base Conversion</h2>
 <p><code>Value</code> has no separate integer type — everything is <code>f64</code> — so all of these read each argument as an integer via a strict integer check (rejecting non-integral input rather than silently truncating it), do the operation as <code>i64</code>, and hand back a <code>Num</code>. These are deliberately plain builtins, not <code>&amp;</code>/<code>|</code>-family operators: <code>and</code>/<code>or</code> already mean logical and/or in Qu, so <code>|</code>/<code>&amp;</code> are a clear parse error pointing here instead.</p>
 <div class="tablewrap"><table>
@@ -304,7 +357,7 @@ html = <span class="f">md2html</span>(md)
 <tr><td><code>dec2bin</code></td><td><code>dec2bin(n)</code></td><td><code>n</code> is a number holding an integer value. Returns a <code>Str</code> of <code>0</code>/<code>1</code> digits, no prefix.</td></tr>
 </table></div>
 <p>Qu also accepts <code>0xFF</code>-style hex literals directly in source; <code>hex2dec</code>/ <code>bin2dec</code> are for runtime string-to-number conversion (e.g. values read from a file or built at runtime). The block below runs each bitwise, logical, and base-conversion function once so their outputs can be checked at a glance — <code>12</code> and <code>10</code> chosen because their bit patterns (<code>1100</code> and <code>1010</code>) make the AND/OR/XOR results easy to verify by hand:</p>
-<div class="example"><pre class="hl"><code>flags = <span class="f">bitand</span>(<span class="n">12</span>, <span class="n">10</span>)          <span class="c"># 8   -- bits common to both</span>
+<div class="example hasout"><pre class="hl"><code>flags = <span class="f">bitand</span>(<span class="n">12</span>, <span class="n">10</span>)          <span class="c"># 8   -- bits common to both</span>
 <span class="f">print</span>(flags)
 <span class="f">print</span>(<span class="f">bitor</span>(<span class="n">12</span>, <span class="n">10</span>))            <span class="c"># 14</span>
 <span class="f">print</span>(<span class="f">bitxor</span>(<span class="n">12</span>, <span class="n">10</span>))           <span class="c"># 6</span>
@@ -319,7 +372,19 @@ html = <span class="f">md2html</span>(md)
 <span class="f">print</span>(<span class="f">bin2dec</span>(<span class="s">"1010"</span>))          <span class="c"># 10</span>
 <span class="f">print</span>(<span class="f">dec2bin</span>(<span class="n">10</span>))              <span class="c"># "1010"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>8
+14
+6
+-1
+16
+4
+true
+false
+true
+255
+FF
+10
+1010</pre></div></div>
 <h2 id="s80">Collections (arrays &amp; lists)</h2>
 <p><code>remove</code>/<code>insert</code>/<code>append</code> return a NEW list/vector rather than mutating in place — Qu values are immutable by convention everywhere else.</p>
 <div class="tablewrap"><table>
@@ -337,13 +402,16 @@ html = <span class="f">md2html</span>(md)
 </table></div>
 <p><code>contains</code>/<code>indexof</code> compare elements via structural equality (<code>values_equal</code>), which does handle <code>Str</code>. The <code>==</code>/<code>!=</code> operators themselves are narrower today: they fall back to numeric coercion for anything that isn't two <code>Vec</code>s or two same-type <code>EnumVal</code>s, so <code>"a" == "b"</code> currently errors rather than returning <code>false</code> — a pre-existing gap, not a documentation omission. Prefer <code>contains</code>/<code>indexof</code> (or <code>starts_with</code>/<code>ends_with</code>/<code>replace</code> for substring checks) over <code>==</code> when comparing strings.</p>
 <p>The functions below are the everyday toolkit for a numeric vector once it has been collected: sort it, get a de-duplicated set of its values, or find the order that WOULD sort it (<code>argsort</code>) without disturbing the original — useful when a second vector needs to be reordered in step with the first:</p>
-<div class="example"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>, <span class="n">9</span>, <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">unique</span>(xs))          <span class="c"># [1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs))            <span class="c"># [1, 1, 2, 3, 4, 5, 6, 9]</span>
 <span class="f">print</span>(<span class="f">argsort</span>(xs))         <span class="c"># permutation of indices, ascending</span>
 <span class="f">print</span>(<span class="f">sort</span>(xs, <span class="k">true</span>))      <span class="c"># descending</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[1, 2, 3, 4, 5, 6, 9]
+[1, 1, 2, 3, 4, 5, 6, 9]
+[1, 3, 6, 0, 2, 4, 7, 5]
+[9, 6, 5, 4, 3, 2, 1, 1]</pre></div></div>
 <h4>Overloads: <code>sort</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it returns</td></tr>
@@ -351,22 +419,28 @@ html = <span class="f">md2html</span>(md)
 <tr><td><code>sort(vec, [descending])</code></td><td><code>vec</code> is (or coerces to) a numeric <code>Vec</code>. Sorts numerically via <code>f64::total_cmp</code>, immune to a stray <code>NaN</code>. Returns a <code>Vec</code>.</td></tr>
 </table></div>
 <p>Picked by the TYPE of the first argument, not a flag: a <code>List</code> in which every element is a <code>Str</code> sorts as text and comes back as a <code>List</code>; anything else is read as a numeric <code>Vec</code> and sorted as numbers, coming back as a <code>Vec</code> — a different return type as well as a different comparison, which matters the moment the result is chained into something that expects one or the other:</p>
-<div class="example"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
+<div class="example hasout"><pre class="hl"><code>words = [<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>]
 <span class="f">print</span>(<span class="f">sort</span>(words))            <span class="c"># ("apple", "banana", "cherry") -- a List, lexicographic</span>
 nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">sort</span>(nums))             <span class="c"># [1, 1, 3, 4, 5] -- a Vec, numeric</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(words)))      <span class="c"># "list"</span>
 <span class="f">print</span>(<span class="f">type</span>(<span class="f">sort</span>(nums)))       <span class="c"># "vector"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("apple", "banana", "cherry")
+[1, 1, 3, 4, 5]
+list
+vector</pre></div></div>
 <p><code>contains</code>/<code>indexof</code> for membership, <code>cumsum</code> for a running total, and <code>numel</code> for the element count:</p>
-<div class="example"><pre class="hl"><code>ys = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
+<div class="example hasout"><pre class="hl"><code>ys = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">contains</span>(ys, <span class="n">4</span>))     <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">indexof</span>(ys, <span class="n">4</span>))      <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">cumsum</span>(ys))          <span class="c"># [3, 4, 8, 9, 14]</span>
 <span class="f">print</span>(<span class="f">numel</span>(ys))           <span class="c"># 5</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+2
+[3, 4, 8, 9, 14]
+5</pre></div></div>
 <h2 id="s131">Enums</h2>
 <p>The <code>enum Name ... end</code> declaration is a small, purely symbolic enum type shipped 2026-08-24: named, validated constants, explicitly not a Rust/Swift-style tagged union with per-variant payloads (Qu has no static type system yet). Variants are reached via ordinary dot-access on the declared type (<code>Season.Spring</code>), and two <code>EnumVal</code>s compare equal only when both their type and variant name match.</p>
 <div class="tablewrap"><table>
@@ -374,7 +448,7 @@ nums = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</s
 <tr><td><code>enum_values</code></td><td><code>enum_values(EnumType)</code></td><td><code>EnumType</code> is a type declared with <code>enum ... end</code> (not a string — the bare type name). Returns a <code>List</code> of <code>EnumVal</code>s: every variant of the declared type, in declaration order — makes the type a real enumeration rather than just a handful of named constants, and lets code iterate "all seasons" without hardcoding the list a second time.</td></tr>
 </table></div>
 <p>A declared enum's variants can always be named directly (<code>Season.Spring</code>), but a function that needs to iterate every possible value — filling a dropdown, generating a test matrix, printing a legend — needs a way to ask the type itself what its variants are. That's what <code>enum_values</code> is for:</p>
-<div class="example"><pre class="hl"><code>enum Season
+<div class="example hasout"><pre class="hl"><code>enum Season
     Spring, Summer, Autumn, Winter
 <span class="k">end</span>
 
@@ -383,7 +457,10 @@ seasons = <span class="f">enum_values</span>(Season)
     <span class="f">print</span>(seasons[i])
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>Spring
+Summer
+Autumn
+Winter</pre></div></div>
 <h2 id="s156">Data Frames / Tables</h2>
 <p>A <code>Table</code> (constructed via <code>table(...)</code>/<code>DataFrame(...)</code>) is Qu's DataFrame primitive — see <code>engine/crates/qu-interp/src/table.rs</code> for the underlying column-oriented representation (<code>Column::Num</code>/<code>Column::Str</code>). A numeric column of a table is read with <code>df.colname</code> (returns a plain <code>Vec</code>); a text column has no vector-of-strings Qu value to become yet, so it can only be used inside table operations (<code>filter</code>/<code>sort_by</code>/<code>group_by_agg</code>).</p>
 <p><code>read_csv</code>/<code>write_csv</code> also produce/consume <code>Table</code> values, but are documented in <a href="file-io.html">File I/O</a> since they are fundamentally file operations — see that chapter's CSV section.</p>
@@ -401,7 +478,7 @@ seasons = <span class="f">enum_values</span>(Season)
 <tr><td><code>describe</code></td><td><code>describe(df)</code></td><td><code>df</code> is a <code>Table</code>. Pandas-style <code>describe()</code>: returns a <code>Table</code> with one row per summary statistic (<code>count</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>25%</code>, <code>50%</code>, <code>75%</code>, <code>max</code>) and one column per NUMERIC column of <code>df</code> (text columns are skipped). Returns a <code>Table</code>, 8 rows by however many numeric columns <code>df</code> has.</td></tr>
 </table></div>
 <p>A <code>Table</code> is where several parallel columns of data live together as one value — the shape almost every real dataset actually arrives in. The example below builds one from three columns (two numeric, one broadcast string), asks it its own shape, filters it down to the rows that satisfy a condition, narrows to a subset of columns, and finally runs <code>describe</code> for a quick statistical summary of every numeric column at once:</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -409,18 +486,33 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>5
+3
+x   y
+-  --
+3  30
+4  40
+5  50
+stat          x          y
+-----  --------  ---------
+count         5          5
+mean          3         30
+std    1.581139  15.811388
+min           1         10
+25%           2         20
+    ... 3 more lines</pre></div></div>
 <h3><code>df.nrows</code> / <code>df.ncols</code> — property-style row/column count</h3>
 <p><code>df.nrows</code> and <code>df.ncols</code> read as plain (no-parens) properties, returning exactly what <code>nrow(df)</code>/<code>ncol(df)</code> compute — pure sugar, same values. A real column literally named <code>nrows</code>/<code>ncols</code> always takes priority: <code>df.col</code> column access is tried first, so the property is only a fallback for the (overwhelmingly common) case where no such column exists.</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">y</span>=[<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>])
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">y</span>=[<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>])
 <span class="f">print</span>(df.nrows)             <span class="c"># 3, same as nrow(df)</span>
 <span class="f">print</span>(df.ncols)             <span class="c"># 2, same as ncol(df)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>3
+2</pre></div></div>
 <h3>Writing a table the way the data arrives</h3>
 <p><code>table(x = ..., y = ...)</code> wants the columns. Data usually arrives as rows — a header and then a line per measurement — and giving it to the column-wise form means transposing it by hand first, which is both tedious and a place to make a mistake nobody will catch.</p>
 <p>So <code>table</code> also takes one string:</p>
-<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
+<div class="example hasout"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
     channel, baseline, treated
     1,       0.412,    0.240
     2,       0.508,    0.301
@@ -429,18 +521,26 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(runs)
 <span class="f">print</span>(<span class="f">mean</span>(runs.baseline))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>channel  baseline  treated
+-------  --------  -------
+      1     0.412     0.24
+      2     0.508    0.301
+      3     0.377    0.219
+0.432333</pre></div></div>
 <p>Every cell is trimmed and blank lines are ignored. That is what lets the columns line up in the source without the padding reaching the table — it matters more than it looks, because a text column would otherwise carry the spaces and <code>runs.name == "steel"</code> would quietly be false.</p>
 <p>A column is numeric if every cell in it parses as a number, and text otherwise; the decision is per column, not per cell, so one stray <code>n/a</code> turns that whole column into text rather than silently becoming a zero.</p>
 <p><code>sep=</code> for a different delimiter, which is what makes a table drawn with pipes work:</p>
-<div class="example"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
+<div class="example hasout"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
     name  | density | modulus
     steel | 7.85    | 200
     alu   | 2.70    | 69
 "</span>, <span class="a">sep</span> = <span class="s">"|"</span>)
 <span class="f">print</span>(alloys)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>name   density  modulus
+-----  -------  -------
+steel     7.85      200
+alu        2.7       69</pre></div></div>
 <p>and <code>headers = false</code> when the text is bare rows, in which case the columns are named <code>col1</code>, <code>col2</code>, and so on.</p>
 <p>A row with the wrong number of fields is an error, not a padded row:</p>
 <pre><code>table: a row has 1 field, the header has 2
@@ -471,14 +571,16 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <tr><td><code>cast(vec_or_signal, "mask")</code> / <code>cast(mask, "vec")</code></td><td><code>vec_or_signal</code> is numeric, <code>mask</code> is boolean; both are the same length in and out. Elementwise nonzero-is-true, or the numeric <code>0.0</code>/<code>1.0</code> inverse.</td></tr>
 </table></div>
 <p>A conversion is most often needed right after reading raw text (every CSV cell, every <code>parse_as</code> non-numeric field, every value pulled from JSON arrives as a <code>Str</code> until something converts it) or right before writing numbers back out as text. The example below converts a tuple of numeric strings into a real <code>Vec</code>, does the reverse, and shows the <code>.cast(...)</code> method-chain spelling working identically to the free-function form:</p>
-<div class="example"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
+<div class="example hasout"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
   <span class="f">print</span>(n)                               <span class="c"># [1, 2.5, -3]</span>
   s = <span class="f">cast</span>([<span class="n">1</span>, <span class="n">2.5</span>, -<span class="n">3</span>], <span class="s">"str"</span>)
   <span class="f">print</span>(s)                               <span class="c"># ("1", "2.5", "-3")</span>
   b = <span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>)
   <span class="f">print</span>(b)                               <span class="c"># 42, via method-chain sugar</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[1, 2.5, -3]
+("1", "2.5", "-3")
+42</pre></div></div>
 <h2 id="s269">Data Structures</h2>
 <p>Four opaque handle types (§ data structures pass, 2026-09-01), following the same <code>Arc</code>-wrapped shared-handle convention as <code>timer</code>/<code>mutex</code>/<code>channel</code> elsewhere in this codebase: cloning one of these into a variable, a function argument, or a <code>spawn</code> env snapshot shares the SAME live structure, not an independent copy.</p>
 <h3><code>fifo(capacity)</code> — bounded circular FIFO buffer</h3>
@@ -495,7 +597,7 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(f)</code></td><td><code>f</code> is a <code>fifo</code> handle. Returns a <code>number</code>: the current element count (via the same generic length dispatch every collection uses).</td></tr>
 </table></div>
 <p>A <code>fifo</code> is the right container whenever the newest N readings matter more than the complete history — a rolling window of the last few sensor samples, a small undo buffer, a moving-average source. The example below fills a 3-slot buffer past capacity, watches the oldest value get evicted, and reads the rest back out:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fifo</span>(<span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fifo</span>(<span class="n">3</span>)
 f.<span class="f">push</span>(<span class="n">1</span>)
 f.<span class="f">push</span>(<span class="n">2</span>)
 f.<span class="f">push</span>(<span class="n">3</span>)
@@ -504,7 +606,9 @@ f.<span class="f">push</span>(<span class="n">4</span>)          <span class="c"
 <span class="f">print</span>(f.<span class="f">pop</span>())      <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">len</span>(f))        <span class="c"># 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2
+2
+2</pre></div></div>
 <h3><code>double_buffer(initial)</code> — front/back double buffering</h3>
 <p>The standard real-time/embedded/graphics pattern: <code>.write(v)</code> only ever touches the BACK buffer; <code>.read()</code> only ever returns the FRONT buffer; <code>.swap()</code> atomically exchanges the two. The entire reason this exists (rather than a plain <code>mutex(initial)</code>) is that a reader must never observe a write that hasn't been swapped in yet.</p>
 <div class="tablewrap"><table>
@@ -515,13 +619,14 @@ f.<span class="f">push</span>(<span class="n">4</span>)          <span class="c"
 <tr><td><code>.swap</code></td><td><code>b.swap()</code></td><td><code>b</code> is a <code>double_buffer</code> handle. Atomically exchanges front and back. Returns <code>Nothing</code>.</td></tr>
 </table></div>
 <p>This is the pattern for a value a writer updates continuously while a reader must only ever see complete, consistent frames — a sensor-fusion result, a render target, a shared configuration snapshot. The example below writes a new value, shows it is NOT visible yet, then swaps and shows that it is:</p>
-<div class="example"><pre class="hl"><code>b = <span class="f">double_buffer</span>(<span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>b = <span class="f">double_buffer</span>(<span class="n">1</span>)
 b.<span class="f">write</span>(<span class="n">2</span>)
 <span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 1 -- the write above is not visible yet</span>
 b.<span class="f">swap</span>()
 <span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 2 -- now it is</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>1
+2</pre></div></div>
 <h3><code>linked_list()</code> — double-ended list</h3>
 <p>A double-ended list of arbitrary values with O(1) push/pop at both ends. Implemented as a <code>VecDeque</code>-backed deque internally, not a traditional chain of individually heap-allocated nodes: Qu has no way for a script to hold a reference into the middle of a list (the one scenario a real node chain's O(1) arbitrary-position splice would ever pay for), so a <code>VecDeque</code> gives the identical O(1) front/back complexity with far better cache locality and no extra per-element allocation — the more honest, useful choice for how this is actually called from Qu script code.</p>
 <div class="tablewrap"><table>
@@ -535,7 +640,7 @@ b.<span class="f">swap</span>()
 <tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(l)</code></td><td><code>l</code> is a <code>linked_list</code> handle. Returns a <code>number</code>: the current element count.</td></tr>
 </table></div>
 <p>Reach for a <code>linked_list</code> when values need to be added or removed from EITHER end at constant cost — a sliding window, a work queue processed from the front while new jobs arrive at the back, an undo/redo stack pair. The example below builds a small list from both ends, then drains it from both ends too:</p>
-<div class="example"><pre class="hl"><code>l = <span class="f">linked_list</span>()
+<div class="example hasout"><pre class="hl"><code>l = <span class="f">linked_list</span>()
 l.<span class="f">push_back</span>(<span class="n">1</span>)
 l.<span class="f">push_back</span>(<span class="n">2</span>)
 l.<span class="f">push_front</span>(<span class="n">0</span>)
@@ -544,7 +649,10 @@ l.<span class="f">push_front</span>(<span class="n">0</span>)
 <span class="f">print</span>(<span class="f">pop_back</span>(l))  <span class="c"># 2 -- removes from the back</span>
 <span class="f">print</span>(l.<span class="f">to_vec</span>())   <span class="c"># (1) -- what's left</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(0, 1, 2)
+0
+2
+(1)</pre></div></div>
 <h3><code>graph([directed=false])</code> — nodes, edges, and Dijkstra's algorithm</h3>
 <p>A real node+edge graph, not a chart. Node ids are normalized the same way <code>dict</code>'s keys are (string or number, canonicalized so <code>1</code> and <code>1.0</code> name the same node) — <code>.neighbors</code> always hands back string ids regardless of what kind of value was originally passed in.</p>
 <div class="tablewrap"><table>
@@ -558,7 +666,7 @@ l.<span class="f">push_front</span>(<span class="n">0</span>)
 <tr><td><code>len</code>, <code>length</code>, <code>numel</code></td><td><code>len(g)</code></td><td><code>g</code> is a <code>graph</code> handle. Returns a <code>number</code>: the node count.</td></tr>
 </table></div>
 <p>Dijkstra (over a plain unweighted BFS) was chosen specifically because edges carry a real optional <code>weight=</code> — a weighted-shortest-path algorithm is the one that actually exercises that part of the data model. The first example below builds a small weighted graph and asks for the cheapest route between two nodes:</p>
-<div class="example"><pre class="hl"><code>g = <span class="f">graph</span>()
+<div class="example hasout"><pre class="hl"><code>g = <span class="f">graph</span>()
 g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">4</span>)
 g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"C"</span>, <span class="a">weight</span>=<span class="n">1</span>)
 g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">2</span>)
@@ -566,16 +674,18 @@ g.<span class="f">add_edge</span>(<span class="s">"B"</span>, <span class="s">"D
 g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">8</span>)
 <span class="f">print</span>(g.<span class="f">shortest_path</span>(<span class="s">"A"</span>, <span class="s">"D"</span>))   <span class="c"># 8, via A -&gt; C -&gt; B -&gt; D (1 + 2 + 5)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>8</pre></div></div>
 <p><code>add_node</code> on its own for an isolated node, <code>has_edge</code> to ask whether two nodes are joined, <code>neighbors</code> to list what one node connects to:</p>
-<div class="example"><pre class="hl"><code>h = <span class="f">graph</span>()
+<div class="example hasout"><pre class="hl"><code>h = <span class="f">graph</span>()
 <span class="f">add_node</span>(h, <span class="s">"X"</span>)          <span class="c"># an isolated node, no edges yet</span>
 h.<span class="f">add_edge</span>(<span class="s">"X"</span>, <span class="s">"Y"</span>)
 <span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Y"</span>))   <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Z"</span>))   <span class="c"># false -- Z isn't even a node</span>
 <span class="f">print</span>(<span class="f">neighbors</span>(h, <span class="s">"X"</span>))       <span class="c"># ("Y")</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+false
+("Y")</pre></div></div>
 <h2 id="s304">More functions</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -622,7 +732,7 @@ h.<span class="f">add_edge</span>(<span class="s">"X"</span>, <span class="s">"Y
 <tr><td><code>shortest_path</code></td><td><code>shortest_path(g, from, to)</code></td><td><code>g</code> is a <code>graph</code> handle; <code>from</code>/<code>to</code> are node ids. Returns a <code>number</code> (the shortest total edge weight, via Dijkstra) or <code>none</code> if <code>to</code> is unreachable from <code>from</code> — disconnected is an answer, not an error. Errors instead if <code>from</code>/<code>to</code> isn't even a node in <code>g</code>. Same free-function form as <code>.shortest_path</code>, <strong>not</strong> the sequence of node names along the route.</td></tr>
 </table></div>
 <p><code>input</code> is where a neural-network pipeline starts — you reach for it when building a <code>sequential</code> model layer by layer with <code>|&gt;</code> instead of hand-rolling weight matrices. <code>input(3)</code> alone just records the dimension and an empty layer list; piping it through <code>dense(...)</code> stages (documented in <a href="statistics-ml.html">Statistics &amp; ML</a>) grows that list one layer at a time, each new record replacing the running <code>out_dim</code> with the layer's own output size:</p>
-<div class="example"><pre class="hl"><code>spec = <span class="f">input</span>(<span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>spec = <span class="f">input</span>(<span class="n">3</span>)
 <span class="f">print</span>(spec.out_dim)          <span class="c"># 3 -- nothing built yet</span>
 <span class="f">print</span>(spec.layers)           <span class="c"># () -- empty</span>
 
@@ -630,9 +740,12 @@ net = <span class="f">input</span>(<span class="n">3</span>) |&gt; <span class="
 <span class="f">print</span>(net.out_dim)            <span class="c"># 1 -- the last layer's output size</span>
 <span class="f">print</span>(<span class="f">length</span>(net.layers))     <span class="c"># 2 -- one record per dense() stage</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>3
+()
+1
+2</pre></div></div>
 <p><code>and</code>/<code>or</code>/<code>mod</code> as operators, and the <code>print</code> family/<code>type</code>/<code>shape</code> for inspecting a value:</p>
-<div class="example"><pre class="hl"><code>i = <span class="n">2</span>
+<div class="example hasout"><pre class="hl"><code>i = <span class="n">2</span>
 xs = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
 <span class="f">print</span>(i &lt; <span class="f">length</span>(xs) <span class="k">and</span> xs[i] &gt; <span class="n">0</span>)  <span class="c"># true -- short-circuiting guard</span>
 <span class="f">print</span>(-<span class="n">1</span> <span class="k">mod</span> <span class="n">3</span>)                       <span class="c"># 2 -- sign of the divisor</span>
@@ -643,9 +756,16 @@ xs = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</
 <span class="f">print</span>(<span class="f">type</span>(<span class="s">"hi"</span>))                     <span class="c"># "string"</span>
 <span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))               <span class="c"># [3, 1]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+2
+disp, echo, writeline, and print are the same function
+this line came from echo(...)
+and this one from writeline(...)
+number
+string
+[3, 1]</pre></div></div>
 <p><code>all</code>/<code>any</code> test a predicate over a collection; <code>first</code>/<code>last</code>/<code>take</code> slice it; <code>distinct</code>/<code>flatten</code> reshape it; <code>fold</code>/<code>reduce</code>/<code>map</code>/<code>zip</code> combine it with a named function:</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(x)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(x)
     <span class="k">return</span> x <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -673,9 +793,22 @@ xs = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</spa
 <span class="f">print</span>(xs.<span class="f">map</span>(double))             <span class="c"># (2, 4, 6, 8, 10) -- and so the method form works</span>
 <span class="f">print</span>(<span class="f">zip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>]))  <span class="c"># ((1, "a"), (2, "b"), (3, "c"))</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>false
+true
+1
+5
+(1, 2, 3)
+(1, 2, 3)
+(1, 2, 3, 4)
+15
+15
+(2, 4, 6, 8, 10)
+(10, 20, 30, 40, 50)
+(2, 4, 6, 8, 10)
+(2, 4, 6, 8, 10)
+((1, "a"), (2, "b"), (3, "c"))</pre></div></div>
 <p><code>dict</code>/<code>get</code>/<code>set</code>/<code>keys</code>/<code>values</code>/<code>items</code>/<code>has_key</code> build and inspect a key-value store:</p>
-<div class="example"><pre class="hl"><code>d = <span class="f">dict</span>([<span class="s">"a"</span>, <span class="s">"b"</span>], [<span class="n">1</span>, <span class="n">2</span>])
+<div class="example hasout"><pre class="hl"><code>d = <span class="f">dict</span>([<span class="s">"a"</span>, <span class="s">"b"</span>], [<span class="n">1</span>, <span class="n">2</span>])
 d = <span class="f">set</span>(d, <span class="s">"c"</span>, <span class="n">3</span>)
 <span class="f">print</span>(<span class="f">get</span>(d, <span class="s">"b"</span>))       <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">keys</span>(d))           <span class="c"># ("a", "b", "c")</span>
@@ -684,16 +817,32 @@ d = <span class="f">set</span>(d, <span class="s">"c"</span>, <span class="n">3<
 <span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"c"</span>))   <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"z"</span>))   <span class="c"># false</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2
+("a", "b", "c")
+(1, 2, 3)
+(("a", 1), ("b", 2), ("c", 3))
+true
+false</pre></div></div>
 <p><code>at</code>/<code>index</code>/<code>insert_row</code> on a table -- one row by position, setting a label column as the row index, and adding a new row:</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
 <span class="f">print</span>(<span class="f">at</span>(df, <span class="n">1</span>))                              <span class="c"># {id = 2, name = "steel"}</span>
 labeled = <span class="f">index</span>(df, <span class="s">"name"</span>)
 <span class="f">print</span>(labeled)
 grown = <span class="f">insert_row</span>(df, <span class="n">3</span>, {<span class="a">id</span>=<span class="n">4</span>, <span class="a">name</span>=<span class="s">"glass"</span>})
 <span class="f">print</span>(grown)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>{id = 2, name = "steel"}
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+ 4  glass</pre></div></div>
 <p><code>append_text</code> adds to the end of a file without disturbing what is already there (a scratch path here, not anywhere inside a project):</p>
 <div class="example"><pre class="hl"><code>path = <span class="s">"/tmp/qu_scratch_append.txt"</span>
 <span class="f">write_text</span>(path, <span class="s">"first line\n"</span>)

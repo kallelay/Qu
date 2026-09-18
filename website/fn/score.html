@@ -61,13 +61,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xr = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">61</span>)
+<div class="example hasout"><pre class="hl"><code>Xr = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">61</span>)
 beta = [<span class="n">1.5</span>, -<span class="n">0.7</span>]
 yr = Xr * beta + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">62</span>)
 om = <span class="f">ols_model</span>(Xr, yr)
 <span class="f">print</span>(<span class="s">"regression score is R2: {round(om.score(Xr, yr), 4)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>regression score is R2: 0.999</pre></div></div>
 
 </div>
 <div class="panel">
@@ -80,7 +80,7 @@ om = <span class="f">ols_model</span>(Xr, yr)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xc2 = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">63</span>)
+<div class="example hasout"><pre class="hl"><code>Xc2 = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">63</span>)
 yc2 = <span class="f">zeros</span>(<span class="n">60</span>)
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">59</span>
     <span class="k">if</span> Xc2[i, <span class="n">0</span>] + Xc2[i, <span class="n">1</span>] &gt; <span class="n">0</span>
@@ -90,7 +90,7 @@ yc2 = <span class="f">zeros</span>(<span class="n">60</span>)
 lgm = <span class="f">logistic_model</span>(Xc2, yc2)
 <span class="f">print</span>(<span class="s">"classification score is accuracy: {round(lgm.score(Xc2, yc2), 4)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>classification score is accuracy: 1</pre></div></div>
 
 </div>
 <div class="panel">
@@ -103,11 +103,11 @@ lgm = <span class="f">logistic_model</span>(Xc2, yc2)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+<div class="example hasout"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
 km = <span class="f">kmeans_model</span>(Gs, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"kmeans score is negative inertia: {round(km.score(Gs), 4)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>kmeans score is negative inertia: -59.3334</pre></div></div>
 
 </div>
 <div class="panel">
@@ -120,11 +120,11 @@ km = <span class="f">kmeans_model</span>(Gs, <span class="n">2</span>, <span cla
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+<div class="example hasout"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
 pm = <span class="f">pca_model</span>(Gs, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"pca score is summed explained variance: {round(pm.score(Gs), 4)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>pca score is summed explained variance: 0.9807</pre></div></div>
 
 </div>
 <div class="panel">
@@ -137,11 +137,11 @@ pm = <span class="f">pca_model</span>(Gs, <span class="n">1</span>)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+<div class="example hasout"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
 gm = <span class="f">gmm_model</span>(Gs, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"gmm score is total log-likelihood: {round(gm.score(Gs), 2)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>gmm score is total log-likelihood: -127.81</pre></div></div>
 
 </div>
 </div>

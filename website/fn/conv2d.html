@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>x1d = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>, <span class="n">5.0</span>]
+<div class="example hasout"><pre class="hl"><code>x1d = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>, <span class="n">5.0</span>]
 edge_kernel = [<span class="n">1.0</span>, <span class="n">0.0</span>, -<span class="n">1.0</span>]
 y1d = <span class="f">conv1d</span>(x1d, edge_kernel)
 <span class="f">print</span>(<span class="s">"conv1d edge response: {y1d}"</span>)
@@ -60,7 +60,11 @@ y2d = <span class="f">conv2d</span>(img, k2d, <span class="n">1</span>, <span cl
 <span class="f">print</span>(<span class="s">"maxpool2d: {maxpool2d(img, 2)}"</span>)
 <span class="f">print</span>(<span class="s">"avgpool2d: {avgpool2d(img, 2)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>conv1d edge response: [-2, -2, -2]
+conv2d output:
+[-2, -4, 1; 2, -3, 9; 6, 1, 5]
+maxpool2d: [5, 9; 7, 6]
+avgpool2d: [3.25, 5; 2.75, 2]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>conv2d(x, kernel, [stride], [padding])</code> — the 2-D sibling of <code>conv1d</code> above, picking up exactly the follow-ups that arm's own doc comment named as out of scope: real <code>stride</code> and <code>"valid"</code>/<code>"same"</code> padding. Still deliberately single input channel &amp; single output channel (multi-channel is its own, larger follow-up — same "correct over broad" call). <code>x</code> is either a lone image (<code>Value::Mat</code>, <code>H x W</code>) or a batch of them (<code>Value::List</code> of <code>Value::Mat</code>, one image per element — <code>List</code>, not a stacked <code>Mat</code>, since a whole 2-D image can't be one row of another matrix the way a 1-D sequence could for <code>conv1d</code>'s own batching). <code>kernel</code> is always a plain <code>Mat</code> (<code>kH x kW</code>). <code>stride</code> (positional 3rd arg or <code>stride=</code>, default <code>1</code>) and <code>padding</code> (positional 4th arg or <code>padding=</code>, default <code>"valid"</code>) are both optional, mirroring <code>conv1d</code>'s own default-everything-else shape. The sliding-window sum itself runs on rayon (<code>conv2d_single</code>'s <code>into_par_iter</code> over output rows) — real CPU-parallel acceleration, not "runs on one core under a fancier name." Gradient-checked against central finite differences for both <code>x</code> and <code>kernel</code> (lone image and batched-<code>List</code>, <code>"valid"</code> and <code>"same"</code>) before this shipped, matching every other autodiff addition in this file.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

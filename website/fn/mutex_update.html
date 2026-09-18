@@ -45,14 +45,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
 
 m = <span class="f">mutex</span>(<span class="n">0</span>)
 <span class="f">mutex_set</span>(m, <span class="n">3</span>)                        <span class="c"># overwrite -- no read involved</span>
 <span class="f">mutex_update</span>(m, <span class="s">"running_max"</span>)         <span class="c"># atomic read-modify-write via a user fn</span>
 <span class="f">print</span>(<span class="f">mutex_get</span>(m))                    <span class="c"># 7</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>7</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>mutex_update(m, "fnName")</code> — atomic read-modify-write via an arbitrary user function (called with the current value as its one argument), for accumulations <code>mutex_add</code> can't express (e.g. tracking a running max, appending to a log). The lock is held for the whole call, so <code>fnName</code>'s body must not itself touch this same mutex (directly or by calling back into anything that does) — that would deadlock, the same way any mutex reentered from inside its own critical section would.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -54,11 +54,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
 <span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [4, 5, 4] -- two-argument elementwise clip</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
-<div class="example"><pre class="hl"><code>scale = <span class="n">100</span>
+<div class="out"><span class="lbl">output</span><pre>5
+[4, 5, 4]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example hasout"><pre class="hl"><code>scale = <span class="n">100</span>
 
 <span class="k">function</span> <span class="f">scaled</span>(v)
     <span class="k">return</span> v * scale        <span class="c"># reads the outer `scale`</span>
@@ -66,16 +67,16 @@
 
 <span class="f">print</span>(<span class="s">"scaled max {max(scaled([0.1, 0.5])):.1f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>               <span class="c"># a plain number</span>
+<div class="out"><span class="lbl">output</span><pre>scaled max 50.0</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>               <span class="c"># a plain number</span>
 t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs    <span class="c"># a range, divided elementwise -&gt; a vector</span>
 <span class="f">print</span>(<span class="s">"{len(t)} samples covering {max(t):.3f} s"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code>signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+<div class="out"><span class="lbl">output</span><pre>1000 samples covering 0.999 s</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code>signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
 <span class="f">print</span>(<span class="s">"goes from {min(signal):.2f} to {max(signal):.2f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
+<div class="out"><span class="lbl">output</span><pre>goes from -1.00 to 1.00</pre></div></div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
 </div>
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
@@ -87,21 +88,22 @@ t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</sp
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
 <span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [4, 5, 4] -- two-argument elementwise clip</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="out"><span class="lbl">output</span><pre>5
+[4, 5, 4]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <div class="example"><pre class="hl"><code>clipped = <span class="f">min</span>(<span class="f">max</span>(x, -<span class="n">1</span>), <span class="n">1</span>)   <span class="c"># same as clip(x, -1, 1)</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
-<div class="example"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
 
 m = <span class="f">mutex</span>(<span class="n">0</span>)
 <span class="f">mutex_set</span>(m, <span class="n">3</span>)                        <span class="c"># overwrite -- no read involved</span>
 <span class="f">mutex_update</span>(m, <span class="s">"running_max"</span>)         <span class="c"># atomic read-modify-write via a user fn</span>
 <span class="f">print</span>(<span class="f">mutex_get</span>(m))                    <span class="c"># 7</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>7</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 </div>
 </div>
 </div>

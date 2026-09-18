@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">63</span>
 t = n / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t)
@@ -63,7 +63,10 @@ half = <span class="f">rfft</span>(x)
 back = <span class="f">irfft</span>(half, <span class="n">64</span>)
 <span class="f">print</span>(<span class="s">"rfft/irfft roundtrip max err: {max(abs(back - x))}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>idft roundtrip max err: 1.604386e-14
+goertzel magnitude at bin 6.4: 32.158025
+goertzel_freq agrees: true
+rfft/irfft roundtrip max err: 3.330669e-16</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </main>
 </div>
 <footer><div class="wrap">

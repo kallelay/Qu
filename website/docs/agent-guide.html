@@ -96,14 +96,15 @@
 <hr>
 <h2 id="s70">Quick arithmetic</h2>
 <p>The commonest thing anyone opens Python for, and the least defensible.</p>
-<div class="example"><pre class="hl"><code>bytes_moved = <span class="n">1500000</span> * <span class="n">51</span> * <span class="n">8</span>
+<div class="example hasout"><pre class="hl"><code>bytes_moved = <span class="n">1500000</span> * <span class="n">51</span> * <span class="n">8</span>
 gb = bytes_moved / <span class="n">1e9</span>
 <span class="f">print</span>(<span class="s">"moved {gb} GB"</span>)                       <span class="c"># moved 0.612 GB</span>
 
 secs = <span class="n">0.0269</span>
 <span class="f">print</span>(<span class="s">"effective {bytes_moved / secs / 1e9} GB/s"</span>)   <span class="c"># 22.750929 GB/s</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>moved 0.612 GB
+effective 22.750929 GB/s</pre></div></div>
 <p><code>{...}</code> inside a string interpolates an expression, so there is no <code>format</code>/f-string ceremony for the common case. Put a script in a scratch file and <code>qu run scratch.qu</code>.</p>
 <hr>
 <h2 id="s105">Reading files</h2>
@@ -134,32 +135,37 @@ b         4
 <p>Also there: <code>read_csv</code>, <code>write_csv</code>, <code>parse_csv</code>, <code>parse_json</code>, <code>parse_xml</code>, <code>read_all</code>, <code>file_exists</code>, <code>file_size</code>, <code>list_files</code>, <code>glob</code>, <code>load</code>, <code>save</code>. For binary, the typed readers — <code>read_int16</code>, <code>read_uint32</code>, <code>read_double</code>, <code>read_structs</code> — are a complete toolkit; see the worked example below.</p>
 <hr>
 <h2 id="s138">Text</h2>
-<div class="example"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
 <span class="f">print</span>(<span class="s">"[{trim(s)}]"</span>)              <span class="c"># [Measurement Lane]</span>
 <span class="f">print</span>(<span class="f">upper</span>(<span class="f">trim</span>(s)))             <span class="c"># MEASUREMENT LANE</span>
 <span class="f">print</span>(<span class="f">contains</span>(s, <span class="s">"Lane"</span>))        <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">replace</span>(s, <span class="s">"Lane"</span>, <span class="s">"Window"</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[Measurement Lane]
+MEASUREMENT LANE
+true
+  Measurement Window  </pre></div></div>
 <p>Regex — <strong>the string comes first, the pattern second</strong>:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"abc123"</span>, <span class="s">"[0-9]+"</span>))     <span class="c"># true</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"abc123"</span>, <span class="s">"[0-9]+"</span>))     <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">regex_count</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))  <span class="c"># 3</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>true
+3</pre></div></div>
 <p>Also <code>regex_find</code>, <code>regex_find_all</code>, <code>regex_groups</code>, <code>regex_replace</code>, <code>regex_split</code>, plus <code>starts_with</code>, <code>ends_with</code>, <code>index_of</code>, <code>substr</code>, <code>pad_left</code>, <code>split</code>, <code>chars</code>.</p>
 <hr>
 <h2 id="s162">Collections</h2>
 <p>A <code>(...)</code> literal is a <strong>list</strong> and a <code>[...]</code> literal is a <strong>vector</strong>. The list is the general container; the vector is numeric and is what maths operates on. Build a list by appending:</p>
-<div class="example"><pre class="hl"><code>acc = ()
+<div class="example hasout"><pre class="hl"><code>acc = ()
 <span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">6</span>
     acc = <span class="f">append</span>(acc, i * i)
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(acc)          <span class="c"># (1, 4, 9, 16, 25, 36)</span>
 <span class="f">print</span>(<span class="f">len</span>(acc))     <span class="c"># 6</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(1, 4, 9, 16, 25, 36)
+6</pre></div></div>
 <p><code>filter</code> and <code>fold</code> take the name of a function you defined, <strong>as a string</strong>:</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(n)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(n)
     <span class="k">return</span> n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -170,7 +176,8 @@ b         4
 <span class="f">print</span>(<span class="f">filter</span>(acc, <span class="s">"is_even"</span>))     <span class="c"># (4, 16, 36)</span>
 <span class="f">print</span>(<span class="f">fold</span>(acc, <span class="s">"add2"</span>, <span class="n">0</span>))       <span class="c"># 91</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(4, 16, 36)
+91</pre></div></div>
 <p>Also <code>map</code>, <code>reduce</code>, <code>sort</code>, <code>sort_by</code>, <code>unique</code>, <code>first</code>, <code>last</code>, <code>take</code>, <code>drop</code>, <code>zip</code>, <code>group_by_agg</code>, <code>dict</code>, <code>keys</code>, <code>values</code>, <code>items</code>, <code>table</code>.</p>
 <hr>
 <h2 id="s193">Timing</h2>
@@ -183,9 +190,9 @@ dt = <span class="f">toc</span>()          <span class="c"># a number, in second
 <hr>
 <h2 id="s219">Finding your way without leaving Qu</h2>
 <p>You do not have to grep the source or the book to find a function:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">apropos</span>(<span class="s">"csv"</span>))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">apropos</span>(<span class="s">"csv"</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("csv2json", "csv2xml", "csvify", "json2csv", "parse_csv", "read_csv", "write_csv", "xml2csv")</pre></div></div>
 <pre><code>("csv2json", "csv2xml", "csvify", "json2csv", "parse_csv", "read_csv",
  "write_csv", "xml2csv")
 </code></pre>
@@ -201,12 +208,17 @@ dt = <span class="f">toc</span>()          <span class="c"># a number, in second
 </div>
 <p><strong>There is currently no way to ask a builtin for its signature from inside Qu.</strong> <code>help(name)</code> gives the name, related names, and a pointer to <code>catalog/</code>; it does not state parameters, for any builtin. <code>apropos(name)</code> finds names. Neither answers "what are the arguments, in what order".</p>
 <p>For that, read the function's page in the book, or — usually faster — find a real call:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">help</span>(<span class="s">"read_csv"</span>))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">help</span>(<span class="s">"read_csv"</span>))
 <span class="c">#   read_csv is a Qu builtin.</span>
 <span class="c">#   related: read, re</span>
 <span class="c">#   worked examples live in catalog/ -- search it for `read_csv(`.</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>  read_csv(path, [headers=true], [sep=","], [decimal="."])
+  Reads a CSV file into a `Table`.
+  related: read, re
+  full reference: website/fn/read_csv.html
+  worked examples live in catalog/ -- search it for `read_csv(`.
+none</pre></div></div>
 <p>That last line is the honest route: <code>catalog/</code> is full of working scripts, and a real call answers the question a signature would.</p>
 <p>This entry is here twice over. The error message first suggested <code>available("tic")</code> — a <strong>serial port</strong> builtin, so following it produced a second, stranger error. That was fixed to <code>help(...)</code>, still promising "for what it takes" — which <code>help</code> does not do for any of the six builtins I checked. A quieter false promise, but the same one. The message now claims only what <code>help</code> returns.</p>
 <p><strong>A well-written wrong answer is harder to catch than a badly-written one.</strong> That message names the failure, the consequence and a remedy; it reads beautifully; it was reviewed and praised. Nobody ran the remedy.</p>
@@ -223,25 +235,28 @@ dt = <span class="f">toc</span>()          <span class="c"># a number, in second
 <p><strong>The dangerous failure is not the one that returns nothing — it is the one that returns something believable.</strong> Read that twice before writing a smoke test.</p>
 <h3>A variable named <code>where</code> cannot be subscripted</h3>
 <p><code>where</code> is a builtin, and assigning to it is accepted. The variable is <strong>fine</strong> — it is the *indexing* that breaks, because <code>where[...]</code> reads as the masking builtin rather than as an index into your value:</p>
-<div class="example"><pre class="hl"><code>where = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
+<div class="example hasout"><pre class="hl"><code>where = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
 <span class="f">print</span>(<span class="f">len</span>(where))        <span class="c"># 3       &lt;- the list is intact</span>
 <span class="f">print</span>(where[<span class="n">0</span>])          <span class="c"># []      &lt;- no error, no warning</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>3
+[]</pre></div></div>
 <p>That <code>len</code> is correct is the cruel part: everything you check to reassure yourself looks right, and only the subscript lies. <strong>If a variable reads back empty but its length is correct, check the name against the builtins.</strong></p>
 <p><code>where</code> is the only name I found that does this. <code>filter</code>, <code>find</code> and <code>at</code> are builtins too and are <strong>not</strong> affected — <code>filter = [10, 20, 30]</code> then <code>filter[0]</code> gives <code>10</code>. They are named here only so nobody renames a working variable on a rumour.</p>
 <h3>A reversed regex can return <code>true</code></h3>
 <p><code>regex_match(s, pattern)</code> — string first. Reversed, it does not reliably return <code>false</code>; it returns <code>true</code> whenever the pattern text occurs literally in the string, which includes the case where you test it against itself:</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"[0-9]+"</span>, <span class="s">"abc123"</span>))    <span class="c"># false</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"[0-9]+"</span>, <span class="s">"abc123"</span>))    <span class="c"># false</span>
 <span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"[0-9]+"</span>, <span class="s">"[0-9]+"</span>))    <span class="c"># true   &lt;- a smoke test passes</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>false
+true</pre></div></div>
 <p>So the tell is a count or result that looks plausible, not a zero.</p>
 <h3>A nested list literal is not a matrix</h3>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">shape</span>([[<span class="n">1</span>, <span class="n">2</span>], [<span class="n">3</span>, <span class="n">4</span>]]))            <span class="c"># [4, 1]   -- a column vector</span>
 <span class="f">print</span>(<span class="f">shape</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)))  <span class="c"># [2, 2]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[4, 1]
+[2, 2]</pre></div></div>
 <p>No error. Every reduction over it then answers about four numbers rather than two rows, and <code>axis=</code> looks ignored.</p>
 <p>And <code>as matrix</code> fills <strong>column-major</strong>: <code>[1,2,3,4] as matrix(2,2)</code> is <code>[1, 3; 2, 4]</code>, not <code>[1, 2; 3, 4]</code>.</p>
 <h3>Lists are not vectors</h3>
@@ -273,10 +288,10 @@ dt = <span class="f">toc</span>()          <span class="c"># a number, in second
 <p>Hoist definitions to the top of a probe script. This bites specifically when you add a helper while debugging and append it at the bottom.</p>
 <h3>A bare <code>{</code> in a string interpolates — sometimes silently</h3>
 <p><code>{...}</code> inside a string is an expression to evaluate. If the name inside happens to exist, there is <strong>no error at all</strong> and your prose changes under you:</p>
-<div class="example"><pre class="hl"><code>set = <span class="n">42</span>
+<div class="example hasout"><pre class="hl"><code>set = <span class="n">42</span>
 <span class="f">print</span>(<span class="s">"the {set} of values"</span>)     <span class="c"># the 42 of values</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>the 42 of values</pre></div></div>
 <p>That is the form that bites, because the words most likely to appear in a sentence — <code>set</code>, <code>value</code>, <code>n</code>, <code>x</code> — are also the names most likely to be live variables.</p>
 <p>If the name does *not* exist you get a <strong>runtime</strong> error, not a parse error:</p>
 <div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"literal {braces} here"</span>)
@@ -326,12 +341,12 @@ imported a second time
 <h3><code>bitand</code>/<code>bitor</code>/<code>bitxor</code>/<code>bitcmp</code>/<code>bitshift</code> round-trip through</h3>
 <h3><code>f64</code> on the way OUT, not just on the way in</h3>
 <p>Every value in Qu is a 64-bit float, exact only up to <code>2^53</code>. It is easy to assume that's only a hazard for the INPUTS to a bitwise op — check that your operands fit, and the result is safe. It isn't: the engine computes the correct answer internally as a real integer, then casts <code>as f64</code> to return it, which is a SECOND, separate rounding — one that can corrupt a result even when both inputs were exact:</p>
-<div class="example"><pre class="hl"><code>r = <span class="f">bitor</span>(<span class="n">9007199254740992</span>, <span class="n">1</span>)   <span class="c"># 2^53 OR 1 -- both operands exact</span>
+<div class="example hasout"><pre class="hl"><code>r = <span class="f">bitor</span>(<span class="n">9007199254740992</span>, <span class="n">1</span>)   <span class="c"># 2^53 OR 1 -- both operands exact</span>
 <span class="f">print</span>(r)          <span class="c"># 9007199254740992 -- unchanged!</span>
 <span class="c"># true answer:      9007199254740993 -- odd, and f64 only represents</span>
 <span class="c">#                   EVEN integers exactly once you're past 2^53</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>9007199254740992</pre></div></div>
 <p>Found porting SHA-256 (Qu-8 lane, 2026-09-16): <code>bitor(21248329, 91260882377506816)</code> returns <code>91260882398755152</code> in Qu; the true integer OR is <code>91260882398755145</code> — silently off by 7, no error, no warning. Confirmed by reading the source (<code>engine/crates/qu-interp/src/lib.rs</code>, the <code>"bitand"</code>/<code>"bitor"</code>/<code>"bitxor"</code>/<code>"bitcmp"</code>/<code>"bitshift"</code> builtin arms): all five share the identical pattern, <code>(int_arg(...) &lt;op&gt; int_arg(...)) as f64</code> — the internal arithmetic is exact, correct 64-bit integer math; only the RETURN cast loses it.</p>
 <p><strong>The practical rule this changes</strong>: it is not enough for the value you actually care about to fit under <code>2^53</code> (or under 32/53 significant bits, however you're framing it) — every INTERMEDIATE result that passes back out through one of these five builtins is a chance to lose precision, even in a chain where the final answer would have been fine. A 32-bit rotate built as <code>bitor(bitshift(x, -n), bitshift(x, 32 - n))</code> is a real example that breaks: the unmasked left-shift term can need up to 63 raw bits before you mask it back down to 32, and that intermediate value round-trips through the same lossy <code>as f64</code> return on its way out of <code>bitshift</code> alone, before <code>bitor</code> ever sees it. The fix in that case is to mask each shifted half down to its intended width BEFORE combining them, not after — never let an oversized intermediate touch one of these five builtins at all.</p>
 <p><strong>No engine-level fix decided yet</strong> — whether these should gain a genuine integer return path, or whether large-magnitude bitwise work is simply out of scope for a float-backed <code>Value::Num</code>, is a real design question, flagged to Ahmed rather than patched here.</p>

@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
      wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
      wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
@@ -60,7 +60,8 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)        
 <span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
 <span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>loss: 0.0027
+dL/dwf: [0.0001, 0; 0.0005, 0; 0.0021, -0.0002]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>lstm_forward(x_sequence, h0, c0, weights)</code> — unrolls <code>lstm_cell</code> across a whole sequence, mirroring <code>gru_forward</code>'s own structure and <code>x_sequence</code> shape contract exactly (a <code>Value::Mat</code> of shape <code>(input_size, seq_len)</code>, one COLUMN per timestep, or a <code>Value::List</code> of per-timestep batched <code>Mat</code>s — see <code>gru_forward</code>'s own doc comment for why batching rides on <code>Matrix::matmul</code>'s own rayon parallelism rather than a hand-rolled thread fan-out here, which applies identically to LSTM's tape-mutating <code>&amp;mut self</code> cell calls). Returns a <code>Value::List</code> of every timestep's HIDDEN state only (<code>h_t</code>, not <code>c_t</code>) — the same "one value per timestep, caller slices <code>hs[length(hs)-1]</code> for the last one" contract <code>gru_forward</code> already established, so any code built against <code>gru_forward</code>'s return shape (e.g. a dense readout on the last hidden state) works unchanged against <code>lstm_forward</code>. <code>c_t</code> still threads through the loop below (<code>lstm_cell</code>'s own <code>{h, c}</code> record is unpacked each step via <code>lstm_field</code>), it's just not part of what's handed back to the caller — matching most high-level LSTM APIs (PyTorch's <code>nn.LSTM</code> also returns only the hidden-state sequence by default, with the final cell state as a separate secondary output most sequence- classification callers never touch).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

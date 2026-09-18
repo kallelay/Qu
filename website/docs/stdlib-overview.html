@@ -83,7 +83,7 @@
 </ul>
 <h2 id="s63">Function Memoization</h2>
 <p><code>memoize function name(params) ... end function</code> is a modifier on the block <code>function</code> declaration (not a builtin, and not available on the one-line <code>name(params) := expr</code> form) that caches the function's return value, keyed by its argument values, so a repeated call with the same inputs skips recomputing the body entirely:</p>
-<div class="example"><pre class="hl"><code>memoize <span class="k">function</span> <span class="f">slow_square</span>(x)
+<div class="example hasout"><pre class="hl"><code>memoize <span class="k">function</span> <span class="f">slow_square</span>(x)
     <span class="f">print</span>(<span class="s">"computing..."</span>)
     <span class="k">return</span> x * x
 <span class="k">end</span> <span class="k">function</span>
@@ -91,7 +91,7 @@
 a = <span class="f">slow_square</span>(<span class="n">7</span>)   <span class="c"># prints "computing...", returns 49</span>
 b = <span class="f">slow_square</span>(<span class="n">7</span>)   <span class="c"># no print — served straight from cache, still 49</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>computing...</pre></div></div>
 <p><strong>Cache key</strong>: an argument is only usable as a cache key if it's a plain number, string, or bool — the same three kinds <code>==</code> compares directly. A call where every argument is one of those is cached; a call with any other argument (a <code>Vec</code>, <code>Mat</code>, <code>Table</code>, <code>Model</code>, <code>List</code>, <code>Record</code>, or any live handle) still runs and returns the correct result, it's simply <strong>never cached</strong> for that call (a silent, documented bypass — not an error). Two numeric arguments are compared by exact bit pattern, so <code>-0.0</code> and <code>0.0</code> are different cache entries.</p>
 <p><strong>Scope and lifetime</strong>: the cache lives on the running interpreter, not a global/static — it's cleared naturally when the script ends, and each isolated <code>spawn</code>/<code>pmap</code>/<code>parallel for</code> worker gets its own independent cache, the same isolation every other per-worker state already has. Re-declaring a memoized function (a bugfix, or a REPL re-run) drops every cached entry for that name, so a stale result from the old body can never be served afterward.</p>
 <p><strong>Verifying it's working</strong>: since the whole point is that the body does NOT run again, the direct way to confirm memoization is happening is a counter the body itself increments (as in the example above, replace <code>print</code> with <code>calls = calls + 1</code>) — call the function twice with identical arguments and check the counter only advanced once.</p>

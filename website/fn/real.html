@@ -44,17 +44,18 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
+<div class="example hasout"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
 <span class="f">print</span>(<span class="s">"round-trip err = {max(abs(xr - x)):.2e}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
+<div class="out"><span class="lbl">output</span><pre>round-trip err = 4.93e-32</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example hasout"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
 x = <span class="f">sin</span>(t)
 X = <span class="f">fft</span>(x)
 <span class="f">print</span>(<span class="s">"length(X) = {length(X)}"</span>)
 <span class="f">print</span>(<span class="s">"round trip err = {max(abs(real(ifft(X)) - x)):.2e}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>length(X) = 50
+round trip err = 3.33e-16</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>See also</h2>
 <p><a href="re.html"><code>re</code></a> &mdash; documented in the same entry.</p>
 </main>

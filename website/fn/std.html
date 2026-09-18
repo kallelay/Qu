@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">normalize</span>(v)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">normalize</span>(v)
     m = <span class="f">mean</span>(v)
     s = <span class="f">std</span>(v)
     <span class="k">return</span> (v - m) / s
@@ -54,25 +54,30 @@
 z = <span class="f">normalize</span>(y)
 <span class="f">print</span>(<span class="s">"normalized: mean {mean(z):.2e}, std {std(z):.4f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
+<div class="out"><span class="lbl">output</span><pre>normalized: mean 3.37e-18, std 1.0000</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
 draws = <span class="f">monte_carlo</span>(<span class="s">"sample"</span>, <span class="n">10000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"mean = {mean(draws)}, std = {std(draws)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
+<div class="out"><span class="lbl">output</span><pre>mean = 0.001862, std = 1.008776</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mean = {mean(v)}, std = {std(v):.4f}, rms = {rms(v):.4f}"</span>)
 G = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"colsum = {sum(G, axis=0)}"</span>)
 <span class="f">print</span>(<span class="s">"rowsum = {sum(G, axis=1)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<div class="out"><span class="lbl">output</span><pre>mean = 15, std = 7.0711, rms = 15.8114
+colsum = [5, 7, 9]
+rowsum = [6, 15]</pre></div></div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">rolling_mean</span>(x, <span class="n">3</span>))   <span class="c"># [1.5, 2, 3, 4, 4.5] -- ends over 2 samples, not 3</span>
 <span class="f">print</span>(<span class="f">rolling_min</span>(x, <span class="n">3</span>))    <span class="c"># [1, 1, 2, 3, 4]</span>
 <span class="f">print</span>(<span class="f">rolling_std</span>(x, <span class="n">3</span>))    <span class="c"># [0.707107, 1, 1, 1, 0.707107]</span>
 <span class="f">print</span>(<span class="f">std</span>([<span class="n">1</span>, <span class="n">2</span>]))          <span class="c"># 0.707107 -- the same number the edge reports</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<div class="out"><span class="lbl">output</span><pre>[1.5, 2, 3, 4, 4.5]
+[1, 1, 2, 3, 4]
+[0.707107, 1, 1, 1, 0.707107]
+0.707107</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>var</code> and <code>median</code> were reachable from the dispatch arm's list and absent from this one, which is the pairing that makes the <code>_ =&gt; NAN</code> below dangerous: a name added there and forgotten here returns a vector of NaNs rather than an error. <code>var</code> is <code>std</code> squared here for the same reason the chapter states that invariant -- one definition, not two.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

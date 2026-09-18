@@ -57,13 +57,17 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>; <span class="n">50</span>, <span class="n">220</span>]
+<div class="example hasout"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>; <span class="n">50</span>, <span class="n">220</span>]
 img = <span class="f">image_from_matrix</span>(m)
 mask = <span class="f">threshold</span>(img, <span class="n">128</span>)
 <span class="f">imshow</span>(mask)
 <span class="f">print</span>(mask.width, mask.height)   <span class="c"># 2 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2 2</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="244.61" y="48.00" width="480.84" height="480.84" href="data:image/bmp;base64,Qk1GAAAAAAAAADYAAAAoAAAAAgAAAAIAAAABABgAAAAAABAAAAATCwAAEwsAAAAAAAAAAAAAAAAA////AAAAAAD///8AAA==" preserveAspectRatio="none"/>
+</svg></figure></div>
 
 </div>
 <div class="panel">
@@ -76,10 +80,10 @@ mask = <span class="f">threshold</span>(img, <span class="n">128</span>)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>], <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>], <span class="n">100</span>)
 <span class="f">print</span>(<span class="f">threshold</span>(sig, <span class="n">4</span>))   <span class="c"># signal(Fs=100) [0, 1, 0, 1]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>signal(Fs=100) [0, 1, 0, 1]</pre></div></div>
 
 </div>
 <div class="panel">
@@ -92,11 +96,12 @@ mask = <span class="f">threshold</span>(img, <span class="n">128</span>)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">5</span>, <span class="n">10</span>, <span class="n">2</span>]
+<div class="example hasout"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">5</span>, <span class="n">10</span>, <span class="n">2</span>]
 <span class="f">print</span>(<span class="f">threshold</span>(v, <span class="n">4</span>))    <span class="c"># [F, T, T, F]</span>
 <span class="f">print</span>(<span class="f">threshold</span>(<span class="n">7</span>, <span class="n">4</span>))    <span class="c"># true</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[F, T, T, F]
+true</pre></div></div>
 <p><code>multithreshold</code> branches on <code>x</code>'s type the same way, but the results differ more: its <code>Image</code> case returns a posterized *image* (evenly-spaced gray bands), while its <code>Signal</code>/plain-numeric case returns a raw 0-based *band index* rather than anything image-shaped.</p>
 
 </div>

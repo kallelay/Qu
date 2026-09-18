@@ -45,11 +45,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"det(A) = {det(A)}"</span>)     <span class="c"># 10</span>
 <span class="f">print</span>(<span class="s">"rank(A) = {rank(A)}"</span>)   <span class="c"># 2</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>det(A) = 10
+rank(A) = 2</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>rank(A)</code> — the numerical rank, the same SVD-based tolerance <code>pinv</code> already reports (a singular value counts once it clears <code>eps * max(rows, cols) * largest_singular_value</code>).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

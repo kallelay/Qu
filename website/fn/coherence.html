@@ -44,10 +44,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
+<div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
 <span class="f">print</span>(<span class="s">"coherence {coherence(A):.3f}, provable sparsity {cs_guarantee(A)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/compressed-sensing.html">compressed-sensing</a></p>
+<div class="out"><span class="lbl">output</span><pre>coherence 0.558, provable sparsity 1</pre></div></div><p class="fnfrom">from <a href="../docs/compressed-sensing.html">compressed-sensing</a></p>
 <h2>How it works</h2>
 <p><code>coherence(A)</code> — the largest inner product between two different normalised columns of a compressed-sensing matrix. Pre-existing, single-argument, left untouched. The unrelated DSP two-signal magnitude-squared coherence lives under its own name, <code>spectral_coherence</code>, below — see that arm's comment for why it isn't an overload of this one.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

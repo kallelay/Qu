@@ -43,7 +43,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>d = <span class="f">dict</span>([<span class="s">"a"</span>, <span class="s">"b"</span>], [<span class="n">1</span>, <span class="n">2</span>])
+<div class="example hasout"><pre class="hl"><code>d = <span class="f">dict</span>([<span class="s">"a"</span>, <span class="s">"b"</span>], [<span class="n">1</span>, <span class="n">2</span>])
 d = <span class="f">set</span>(d, <span class="s">"c"</span>, <span class="n">3</span>)
 <span class="f">print</span>(<span class="f">get</span>(d, <span class="s">"b"</span>))       <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">keys</span>(d))           <span class="c"># ("a", "b", "c")</span>
@@ -52,7 +52,12 @@ d = <span class="f">set</span>(d, <span class="s">"c"</span>, <span class="n">3<
 <span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"c"</span>))   <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">has_key</span>(d, <span class="s">"z"</span>))   <span class="c"># false</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>2
+("a", "b", "c")
+(1, 2, 3)
+(("a", 1), ("b", 2), ("c", 3))
+true
+false</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>dict(...)</code> (§47.4, 2026-08-26) — <code>value_to_json</code>'s own "dict" tag, <code>"record"</code>'s inverse verbatim since the on-disk shape is identical (<code>keys</code> + <code>data</code>), just reconstructing a <code>Value::Dict</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

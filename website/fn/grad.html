@@ -60,7 +60,7 @@ dy_dx = <span class="f">grad</span>(y, <span class="a">wrt</span>=x)      <span 
 <span class="f">print</span>(<span class="s">"dy/dx = {dy_dx}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = x * x + y * y
 dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)          <span class="c"># 2*x = 6</span>
@@ -68,7 +68,8 @@ grads = <span class="f">grad</span>(loss, x, y)              <span class="c"># [
 <span class="f">print</span>(<span class="s">"wrt=x form: {dloss_dx}"</span>)
 <span class="f">print</span>(<span class="s">"positional form: {grads}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="out"><span class="lbl">output</span><pre>wrt=x form: 6
+positional form: (6, 4)</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <div class="example"><pre class="hl"><code>target = <span class="f">stop_grad</span>(<span class="f">track</span>(<span class="n">5.0</span>))
 x = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = (x - target) * (x - target)
@@ -76,7 +77,7 @@ dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)
 <span class="f">print</span>(<span class="s">"dloss/dx = {dloss_dx}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
      wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
      wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
@@ -89,7 +90,8 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)        
 <span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
 <span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>loss: 0.0027
+dL/dwf: [0.0001, 0; 0.0005, 0; 0.0021, -0.0002]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 </div>
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
@@ -109,7 +111,7 @@ dy_dx = <span class="f">grad</span>(y, <span class="a">wrt</span>=x)      <span 
 <span class="f">print</span>(<span class="s">"dy/dx = {dy_dx}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = x * x + y * y
 dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)          <span class="c"># 2*x = 6</span>
@@ -117,7 +119,8 @@ grads = <span class="f">grad</span>(loss, x, y)              <span class="c"># [
 <span class="f">print</span>(<span class="s">"wrt=x form: {dloss_dx}"</span>)
 <span class="f">print</span>(<span class="s">"positional form: {grads}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="out"><span class="lbl">output</span><pre>wrt=x form: 6
+positional form: (6, 4)</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <div class="example"><pre class="hl"><code>target = <span class="f">stop_grad</span>(<span class="f">track</span>(<span class="n">5.0</span>))
 x = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = (x - target) * (x - target)
@@ -125,7 +128,7 @@ dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)
 <span class="f">print</span>(<span class="s">"dloss/dx = {dloss_dx}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
      wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
      wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
@@ -138,7 +141,8 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)        
 <span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
 <span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>loss: 0.0027
+dL/dwf: [0.0001, 0; 0.0005, 0; 0.0021, -0.0002]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 </div>
 </div>
 </div>

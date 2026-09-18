@@ -48,7 +48,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
 t = n / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">1024</span>, <span class="a">seed</span>=<span class="n">1</span>)
@@ -63,7 +63,8 @@ f_p = <span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="
 peak_p = <span class="f">find_peaks</span>(psd_p, <span class="a">min_height</span>=<span class="f">max</span>(psd_p)*<span class="n">0.5</span>)
 <span class="f">print</span>(<span class="s">"periodogram peak near {f_p[peak_p[0]]} Hz"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>welch peak near 101.5625 Hz
+periodogram peak near 99.609375 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>welch(x, fs, [nperseg=], [noverlap=], [window="hann"])</code> — Welch's method PSD estimate: segments <code>x</code> into overlapping, windowed frames and averages their squared-magnitude spectra (<code>qu_core::transforms::welch</code>, itself <code>stft</code>'s own framing scheme generalized to a caller-chosen window). <code>nperseg</code> defaults to <code>min(256, length(x))</code> (SciPy's own default); <code>noverlap</code> defaults to <code>nperseg/2</code> (50% overlap, also SciPy's default); <code>window</code> defaults to <code>"hann"</code>, matching <code>scipy.signal.welch</code>'s own default. Returns the one-sided PSD as a plain <code>Value::Vec</code> (<code>nperseg/2 + 1</code> bins, DC to Nyquist) in SciPy's <code>"density"</code> scaling (units²/Hz) — reconstruct the matching frequency axis with <code>linspace(0, fs/2, length(psd))</code>, the same convention <code>freqz</code>/<code>group_delay</code> already use. <code>periodogram</code> below is the same code path's one-segment, no-averaging special case.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -45,20 +45,28 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
+<div class="example hasout"><pre class="hl"><code>alloys = <span class="f">table</span>(<span class="s">"
     name  | density | modulus
     steel | 7.85    | 200
     alu   | 2.70    | 69
 "</span>, <span class="a">sep</span> = <span class="s">"|"</span>)
 <span class="f">print</span>(alloys)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
+<div class="out"><span class="lbl">output</span><pre>name   density  modulus
+-----  -------  -------
+steel     7.85      200
+alu        2.7       69</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
 <span class="f">print</span>(<span class="s">"standardize on a table, per numeric column (label untouched):"</span>)
 <span class="f">print</span>(<span class="f">standardize</span>(st))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(
+<div class="out"><span class="lbl">output</span><pre>standardize on a table, per numeric column (label untouched):
+ a   b  label
+--  --  -----
+-1  -1  x    
+ 0   0  y    
+ 1   1  z    </pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example hasout"><pre class="hl"><code>runs = <span class="f">table</span>(
     <span class="a">channel</span>  = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>],
     <span class="a">baseline</span> = [<span class="n">0.412</span>, <span class="n">0.508</span>, <span class="n">0.377</span>],
     <span class="a">treated</span>  = [<span class="n">0.240</span>, <span class="n">0.301</span>, <span class="n">0.219</span>]
@@ -66,8 +74,12 @@
 runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</span>, <span class="n">1</span> - runs.treated / runs.baseline)
 <span class="f">print</span>(runs)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
+<div class="out"><span class="lbl">output</span><pre>channel  baseline  treated  reduction
+-------  --------  -------  ---------
+      1     0.412     0.24   0.417476
+      2     0.508    0.301    0.40748
+      3     0.377    0.219   0.419098</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example hasout"><pre class="hl"><code>runs = <span class="f">table</span>(<span class="s">"
     channel, baseline, treated
     1,       0.412,    0.240
     2,       0.508,    0.301
@@ -76,7 +88,12 @@ runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</s
 <span class="f">print</span>(runs)
 <span class="f">print</span>(<span class="f">mean</span>(runs.baseline))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>channel  baseline  treated
+-------  --------  -------
+      1     0.412     0.24
+      2     0.508    0.301
+      3     0.377    0.219
+0.432333</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>See also</h2>
 <p><a href="DataFrame.html"><code>DataFrame</code></a> &mdash; documented in the same entry.</p>
 </main>

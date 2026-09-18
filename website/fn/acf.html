@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">511</span>
 t = n / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">20</span>*t) + <span class="n">0.2</span>*<span class="f">randn</span>(<span class="n">512</span>, <span class="a">seed</span>=<span class="n">4</span>)
@@ -58,7 +58,8 @@ h_tone = <span class="f">hurst_exponent</span>(x)
 h_walk = <span class="f">hurst_exponent</span>(<span class="f">cumsum</span>(<span class="f">randn</span>(<span class="n">512</span>, <span class="a">seed</span>=<span class="n">5</span>)))
 <span class="f">print</span>(<span class="s">"hurst (periodic+noise) = {h_tone}, hurst (random walk) = {h_walk}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>acf[0] = 1, acf drops below 1/e near lag 9
+hurst (periodic+noise) = 0.71599, hurst (random walk) = 0.998318</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>acf(x, [max_lag=])</code> — see the free function's own doc comment. <code>max_lag</code> defaults to <code>min(40, length(x)-1)</code> — R's own <code>acf()</code> default, a reasonable "show the interesting part" cutoff for a series of any real length.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

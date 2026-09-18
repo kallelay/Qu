@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
 S = [s.s[<span class="n">0</span>], <span class="n">0</span>; <span class="n">0</span>, s.s[<span class="n">1</span>]]
 <span class="f">print</span>(<span class="s">"U*S*Vt reconstructs A: {s.u * S * s.vt}"</span>)
 
@@ -57,7 +57,9 @@ r = <span class="f">qr</span>([<span class="n">1</span>, <span class="n">2</span
 f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">3</span>; <span class="n">8</span>, <span class="n">7</span>, <span class="n">9</span>])
 <span class="f">print</span>(<span class="s">"P*A == L*U: {f.p * [2,1,1;4,3,3;8,7,9]} vs {f.l * f.u}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>U*S*Vt reconstructs A: [1, 2; 3, 4; 5, 6]
+Q*R == A: [1, 2; 3, 4; 5, 6]
+P*A == L*U: [8, 7, 9; 2, 1, 1; 4, 3, 3] vs [8, 7, 9; 2, 1, 1; 4, 3, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>lu(A)</code> — LU decomposition with partial pivoting, <code>P * A = L * U</code>. Model kind <code>"lu"</code>, fields <code>l</code>/<code>u</code>/<code>p</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

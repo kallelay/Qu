@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">200</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">200</span>)
 mag = <span class="n">1</span> ./ <span class="f">sqrt</span>(<span class="n">1</span> + (f / <span class="n">100</span>) .^ <span class="n">2</span>)
 <span class="f">semilogx</span>(f, mag)
 <span class="f">figure</span>()
@@ -67,7 +67,34 @@ tbl = <span class="f">table</span>(<span class="a">a</span> = <span class="f">ra
 <span class="f">figure</span>()
 <span class="f">corrplot</span>(tbl)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="out"><span class="lbl">output</span><pre>· hist: figure 31 (500 points, 15 bins)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="314.22" y="48.00" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>a, a: 1</title></rect>
+<text x="385.92" y="125.94" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<rect x="457.62" y="48.00" width="143.41" height="143.41" rx="0" fill="#ddeaf7" stroke="#ffffff" opacity="1"><title>a, b: 0.048</title></rect>
+<text x="529.33" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">0.048</text>
+<rect x="601.03" y="48.00" width="143.41" height="143.41" rx="0" fill="#ddeaf7" stroke="#ffffff" opacity="1"><title>a, c: 0.051</title></rect>
+<text x="672.73" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">0.051</text>
+<rect x="314.22" y="191.41" width="143.41" height="143.41" rx="0" fill="#ddeaf7" stroke="#ffffff" opacity="1"><title>b, a: 0.048</title></rect>
+<text x="385.92" y="269.35" font-size="17.82" text-anchor="middle" fill="#111111">0.048</text>
+<rect x="457.62" y="191.41" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>b, b: 1</title></rect>
+<text x="529.33" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<rect x="601.03" y="191.41" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>b, c: -0.117</title></rect>
+<text x="672.73" y="269.35" font-size="17.82" text-anchor="middle" fill="#111111">-0.117</text>
+<rect x="314.22" y="334.81" width="143.41" height="143.41" rx="0" fill="#ddeaf7" stroke="#ffffff" opacity="1"><title>c, a: 0.051</title></rect>
+<text x="385.92" y="412.75" font-size="17.82" text-anchor="middle" fill="#111111">0.051</text>
+<rect x="457.62" y="334.81" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>c, b: -0.117</title></rect>
+<text x="529.33" y="412.75" font-size="17.82" text-anchor="middle" fill="#111111">-0.117</text>
+<rect x="601.03" y="334.81" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>c, c: 1</title></rect>
+<text x="672.73" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
+<text x="304.50" y="125.37" font-size="16.2" text-anchor="end" fill="#444444">a</text>
+<text x="304.50" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">b</text>
+<text x="304.50" y="412.19" font-size="16.2" text-anchor="end" fill="#444444">c</text>
+<text x="385.92" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 385.92 504.14)">a</text>
+<text x="529.33" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 529.33 504.14)">b</text>
+<text x="672.73" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 672.73 504.14)">c</text>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
 <h2>How it works</h2>
 <p><code>corr_heatmap(table)</code> / <code>corrplot(table)</code> — pairwise Pearson correlation of the table's numeric columns.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>net = <span class="f">simple_cnn</span>([<span class="n">6</span>, <span class="n">6</span>], <span class="n">2</span>, <span class="a">seed</span> = <span class="n">3</span>)
 img1 = <span class="f">zeros</span>(<span class="n">6</span>, <span class="n">6</span>)
 img1[<span class="n">2</span>, <span class="n">2</span>] = <span class="n">1.0</span>
 img1[<span class="n">2</span>, <span class="n">3</span>] = <span class="n">1.0</span>
@@ -67,7 +67,8 @@ seq2 = [<span class="n">0.9</span>, <span class="n">0.7</span>, <span class="n">
 rnn = rnn.<span class="f">fit</span>((seq1, seq2), [<span class="n">0</span>, <span class="n">1</span>], <span class="a">epochs</span> = <span class="n">5</span>, <span class="a">lr</span> = <span class="n">0.1</span>)
 <span class="f">print</span>(<span class="s">"simple_rnn_classifier predict rows: {rows(rnn.predict((seq1, seq2)))}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>simple_cnn predict rows: 2
+simple_rnn_classifier predict rows: 2</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>simple_rnn_classifier(input_size, hidden_size, n_classes, [seed=])</code> — <code>gru_init</code>'s own weights plus a softmax-ready dense readout on the LAST hidden state (<code>gru_forward(...)</code>'s final list entry). <code>out_w</code> is <code>(hidden_size, n_classes)</code> — the standard <code>dense(x, w, b)</code> orientation — applied to the transposed (row-shaped) last hidden state via <code>tt</code>, since <code>gru_forward</code>'s own hidden state is column-shaped (see <code>gru_cell_compute</code>'s doc comment): <code>dense(tt(h_last), out_w, out_b)</code>. Reuses <code>gru_init</code> directly (reseeding <code>self.rng</code> once up front so <code>seed=</code> covers both the GRU weights and the readout layer, not just the former).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

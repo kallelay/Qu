@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line one"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line two"</span>)
 <span class="f">close</span>(n)
@@ -53,8 +53,9 @@
 <span class="c"># line one</span>
 <span class="c"># line two</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<div class="out"><span class="lbl">output</span><pre>line one
+line two</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
 <span class="f">print</span>(<span class="s">""</span>)
 f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write</span>(f, <span class="s">"hello file"</span>)
@@ -63,8 +64,9 @@ g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<div class="out"><span class="lbl">output</span><pre>a 1 b
+hello file</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
     <span class="f">print</span>(<span class="f">read_line</span>(f))
 <span class="k">end</span> <span class="k">for</span>
@@ -74,14 +76,17 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<div class="out"><span class="lbl">output</span><pre>run started
+value = 42
+run started
+value = 42</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(f, <span class="s">"run started"</span>)
 <span class="f">write_line</span>(f, <span class="s">"value = "</span> + <span class="f">str</span>(<span class="n">42</span>))
 <span class="f">close</span>(f)
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"log.txt"</span>))    <span class="c"># 23 -- "run started\n" + "value = 42\n"</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>23</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>fopen(path, mode)</code> — a real, general-purpose file-handling library (§ file I/O, 2026-08-24, asked for directly: grepped first and confirmed there was no existing file I/O besides <code>savefig</code>/<code>save</code>/<code>load</code>, none of them general-purpose text/ binary file access). <code>mode</code> follows MATLAB's own <code>fopen</code> convention: <code>"r"</code> (read, errors if the file doesn't exist), <code>"w"</code> (write, truncate-or-create), <code>"a"</code> (append, create-if-missing), each with an optional <code>"b"</code> suffix (<code>"rb"</code>/<code>"wb"</code>/<code>"ab"</code>) for binary — accepted for MATLAB- familiar scripts but text/binary are treated identically at the byte level (see <code>FileHandleState</code>'s doc comment). Returns a <code>Value::File</code> handle; see <code>read_line</code>/<code>read_all</code>/etc. and <code>write</code>/<code>write_line</code>/etc. below for the full read/write set, and <code>close(f)</code> to release it. § real streaming reads (2026-08-31): the read side used to eagerly <code>std::fs::read(&amp;path)</code> the ENTIRE file into memory right here, before any read builtin was ever called — see <code>FileHandleState</code>'s own doc comment for the full story. Now just opens the file and records its length; not a single byte is read from disk until a <code>read_*</code>/<code>seek</code> builtin actually asks for one. Body lives in <code>open_file_handle</code> (see its own doc comment), shared verbatim with <code>StreamFile</code> below.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

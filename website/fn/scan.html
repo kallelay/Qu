@@ -51,14 +51,17 @@
 <span class="c">#        -- expected ` hello world` after %d</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
 <span class="f">print</span>(n)                          <span class="c"># 12</span>
 reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <span class="s">"temp = %f %s"</span>)
 <span class="f">print</span>(reading)                    <span class="c"># (98.6, "F")</span>
 <span class="f">print</span>(<span class="f">format</span>(<span class="n">1234.5</span>, <span class="s">"#,##0.0"</span>))  <span class="c"># "1,234.5"</span>
 <span class="f">print</span>(<span class="f">format</span>(<span class="n">0.256</span>, <span class="s">"0.0%"</span>))      <span class="c"># "25.6%"</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>12
+(98.6, "F")
+1,234.5
+25.6%</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>parse_as(s, template)</code> — scanf backwards, and the reason it exists is that a measurement file's header is a fixed sentence with numbers in it. <code>"hello world 12".parse_as("hello world %d")</code> gives 12. <code>%d</code> a whole number, <code>%f</code> any number, <code>%s</code> a run of non-space, <code>%*</code> anything at all. Literal text between the placeholders must match exactly, which is the point: a line that does not have the shape you said returns <code>none</code> rather than numbers pulled out of a different sentence.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

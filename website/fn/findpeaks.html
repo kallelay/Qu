@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+<div class="example hasout"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
 res = <span class="f">qr</span>(M)
 <span class="f">print</span>(res)
 <span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
@@ -57,7 +57,12 @@ pk = <span class="f">findpeaks</span>(x)
 <span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
 <span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>model(qr) {q = [0.5547, 0.83205; 0.83205, -0.5547], r = [7.211103, 4.160251; 0, 0.83205]}
+q = [0.5547, 0.83205; 0.83205, -0.5547]
+r = [7.211103, 4.160251; 0, 0.83205]
+model(findpeaks) {peaks = [3, 4], locations = [2, 6], prominences = [3, 4], widths = [1.5, 2]}
+peaks = [3, 4]
+locations = [2, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example"><pre class="hl"><code>N = <span class="n">512</span>
 Fs = <span class="n">512</span>
 t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs

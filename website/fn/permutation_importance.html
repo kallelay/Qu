@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"corrcoef matrix:\n{round(corrcoef(X), 3)}"</span>)
 
 m = <span class="f">ols_model</span>(X, y)
 yhat = m.<span class="f">predict</span>(X)
@@ -72,7 +72,19 @@ ab = <span class="f">ablation_study</span>(Xc, yc, <span class="a">cv_folds</spa
 <span class="f">print</span>(<span class="s">"astar_mrmr keeps:      {astar_mrmr(Xc, yc, 1)}"</span>)
 <span class="f">print</span>(<span class="s">"permutation_importance: {round(permutation_importance(m, X, y, n_repeats = 5), 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>corrcoef matrix:
+[1, -0.119, 0.007; -0.119, 1, -0.036; 0.007, -0.036, 1]
+mae: 0.0847, mse: 0.011
+precision: 0.995
+recall:    0.995
+f1:        0.995
+k_fold: 4 folds, first fold trains on 90 rows
+cv_stability: 0.908 +/- 0.012
+ablation_study scores: [0.2401, 0.1301]
+rfe keeps:             [0]
+mutual_info_classif:   [0.2398, 0.1939]
+astar_mrmr keeps:      [0]
+permutation_importance: [1.5394, 0.3327, 0.0947]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>permutation_importance(model, X, y, [n_repeats=10], [seed=])</code> — the standard model-agnostic explainability method (any fitted <code>_model</code> handle with <code>.predict</code>/<code>.score</code> — not just the tree-based kinds <code>ablation_study</code>/<code>rfe</code>/ <code>astar_mrmr</code> are restricted to, since this perturbs the *input*, never touches the model's own internals): shuffle one feature column at a time (breaking its relationship with <code>y</code> while leaving every other column's joint distribution untouched), re-score the already-fitted model, and average the score drop over <code>n_repeats</code> independent shuffles. A large drop means the model actually depends on that feature; ~0 or negative means it doesn't (or the shuffle got lucky). Genuinely single-threaded (each <code>model_predict</code>/<code>model_score</code> call needs <code>&amp;mut Interp</code>, unlike <code>ablation_study</code>/<code>cv_stability</code>/<code>rfe</code>/<code>astar_mrmr</code>'s direct-Rust <code>TreeBuilder</code> calls) — but each call is one cheap prediction pass, not a fit, so this doesn't need the same acceleration those do.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

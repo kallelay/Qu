@@ -70,31 +70,32 @@
 <p>A running theme in this book: <strong>floating-point roundoff is real and visible</strong>. A signal that's exactly periodic in theory will show FFT bins around <code>1e-16</code> instead of exactly <code>0</code>; a matrix times its own inverse will show off-diagonal terms around <code>1e-15</code> instead of exactly <code>0</code>. Qu doesn't hide this — the default <code>print</code> formatting shows tiny magnitudes in scientific notation rather than silently rounding them to a misleading <code>0</code>. Use a format spec (<code>{x:.4f}</code>) whenever you want a clean, rounded read-out for a report or a teaching example.</p>
 <h2 id="s0">1. The discrete Fourier transform</h2>
 <p><code>fft</code>/<code>ifft</code> operate on real or complex sample vectors, <strong>any length</strong>. Power-of-two lengths use a fast radix-2 kernel directly; any other length dispatches to Bluestein's algorithm (the chirp z-transform), which re-expresses the DFT as a linear convolution and evaluates it with three radix-2 FFTs — still <code>O(n log n)</code>, still exact:</p>
-<div class="example"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
+<div class="example hasout"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
 x = <span class="f">sin</span>(t)
 X = <span class="f">fft</span>(x)
 <span class="f">print</span>(<span class="s">"length(X) = {length(X)}"</span>)
 <span class="f">print</span>(<span class="s">"round trip err = {max(abs(real(ifft(X)) - x)):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>length(X) = 50
+round trip err = 3.33e-16</pre></div></div>
 <pre><code>length(X) = 50
 round trip err = 6.99e-15
 </code></pre>
-<div class="example"><pre class="hl"><code>N = <span class="n">8</span>
+<div class="example hasout"><pre class="hl"><code>N = <span class="n">8</span>
 n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
 x = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">2</span> * n / N)     <span class="c"># a pure tone at bin 2</span>
 X = <span class="f">fft</span>(x, N)
 <span class="f">print</span>(<span class="s">"mag = {abs(X)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>mag = [2.449294e-16, 3.463824e-16, 4, 3.463824e-16, 2.449294e-16, 3.463824e-16, 4, 3.463824e-16]</pre></div></div>
 <pre><code>mag = [2.449294e-16, 3.463824e-16, 4, 3.463824e-16, 2.449294e-16, 3.463824e-16, 4, 3.463824e-16]
 </code></pre>
 <p>Bins 2 and 6 (the tone and its mirror image) show magnitude 4; everything else is floating-point noise around zero, not four other real tones. Round it for a clean read-out: <code>{abs(X):.4f}</code>.</p>
 <p><code>ifft(fft(x))</code> round-trips to machine precision:</p>
-<div class="example"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
+<div class="example hasout"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
 <span class="f">print</span>(<span class="s">"round-trip err = {max(abs(xr - x)):.2e}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>round-trip err = 4.93e-32</pre></div></div>
 <pre><code>round-trip err = 9.86e-32
 </code></pre>
 <h3>Related transforms</h3>
@@ -180,10 +181,11 @@ X = <span class="f">fft</span>(x, N)
 <ul>
 <li><strong></strong><code>mag2db(x)</code> / <code>db2mag(db)</code><strong> and </strong><code>pow2db(x)</code> / <code>db2pow(db)</code><strong> — decibel conversion for amplitude/voltage ratios (factor of 20) and power ratios (factor of 10) respectively, named MATLAB's way rather than one ambiguous </strong><code>db()</code> — which factor applies is a naming decision, not a silent convention:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  <span class="f">print</span>(<span class="s">"{mag2db(2)} dB"</span>)   <span class="c"># 6.0206 -- a factor-of-2 voltage ratio</span>
+<div class="example hasout"><pre class="hl"><code>  <span class="f">print</span>(<span class="s">"{mag2db(2)} dB"</span>)   <span class="c"># 6.0206 -- a factor-of-2 voltage ratio</span>
   <span class="f">print</span>(<span class="s">"{pow2db(2)} dB"</span>)   <span class="c"># 3.0103 -- a factor-of-2 power ratio</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>6.0206 dB
+3.0103 dB</pre></div></div>
 <ul>
 <li><strong></strong><code>corr(x, y)</code><strong> — the Pearson correlation coefficient, a single scalar in </strong><code>[-1, 1]</code> (as opposed to <code>xcorr</code>, which returns a whole vector over every lag). <code>corr(x, x) == 1</code> for any non-constant <code>x</code>:</li>
 </ul>
@@ -255,16 +257,17 @@ notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">
 </div>
 <h2 id="s51">2. Matrices: the linear-algebra floor</h2>
 <p>Qu treats <code>matmul</code>, <code>dot</code>, <code>norm</code>, <code>inv</code>, <code>pinv</code>, transpose, and matrix power as core language features, not an optional package — see spec §23.</p>
-<div class="example"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>]
+<div class="example hasout"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>]
 <span class="f">print</span>(<span class="s">"dot(a,a) = {dot(a,a)}"</span>)   <span class="c"># 9</span>
 <span class="f">print</span>(<span class="s">"norm(a) = {norm(a)}"</span>)     <span class="c"># 3</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>dot(a,a) = 9
+norm(a) = 3</pre></div></div>
 <p>Inverse and the identity-check idiom:</p>
-<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"A*inv(A) = {A * inv(A)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>A*inv(A) = [1, -1.221245e-15; 0, 1]</pre></div></div>
 <pre><code>A*inv(A) = [1, -1.332268e-15; 0, 1]
 </code></pre>
 <p>That <code>-1.332268e-15</code> is floating-point noise, not a bug — <code>A * inv(A)</code> is mathematically the identity; round for display (<code>{... :.6f}</code>) when it matters for a report.</p>
@@ -280,11 +283,11 @@ x = A \ b                              <span class="c"># same result as inv(A) *
 </code></pre>
 </div>
 <p><code>chol(A)</code> is the Cholesky factor <code>L</code> of a symmetric positive-definite <code>A</code> (<code>A = L * L^T</code>, <code>L</code> lower-triangular) — the standard way to sample correlated Gaussians or update a covariance matrix, and cheaper than <code>inv</code> when it applies:</p>
-<div class="example"><pre class="hl"><code>A = [<span class="n">25</span>, <span class="n">15</span>, -<span class="n">5</span>; <span class="n">15</span>, <span class="n">18</span>, <span class="n">0</span>; -<span class="n">5</span>, <span class="n">0</span>, <span class="n">11</span>]
+<div class="example hasout"><pre class="hl"><code>A = [<span class="n">25</span>, <span class="n">15</span>, -<span class="n">5</span>; <span class="n">15</span>, <span class="n">18</span>, <span class="n">0</span>; -<span class="n">5</span>, <span class="n">0</span>, <span class="n">11</span>]
 L = <span class="f">chol</span>(A)
 <span class="f">print</span>(<span class="s">"L * L' == A: {L * L'}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>L * L' == A: [25, 15, -5; 15, 18, 0; -5, 0, 11]</pre></div></div>
 <p>A non-positive-definite <code>A</code> (e.g. <code>[1, 2; 2, 1]</code>, which has a negative eigenvalue) raises a clear error rather than returning a NaN-filled result.</p>
 <p><code>chol</code> also unlocks <code>mvnpdf(x, mu, Sigma)</code>, the multivariate Gaussian density — <code>x</code> is either one point (a plain vector, same dimension as <code>mu</code>) or a matrix whose rows are points, <code>mu</code> is the mean vector, <code>Sigma</code> the <code>(k,k)</code> covariance:</p>
 <div class="example"><pre class="hl"><code>mu = [<span class="n">0</span>, <span class="n">0</span>]
@@ -295,13 +298,14 @@ ps = <span class="f">mvnpdf</span>([<span class="n">0</span>,<span class="n">0</
 </div>
 <p><code>normpdf(x, mu, sigma)</code> is the univariate case (<code>sigma</code> is the standard deviation, matching <code>normal</code>/<code>randn</code>'s own parameterization) and broadcasts over a vector <code>x</code> the same way every elemental-math builtin does.</p>
 <p><strong></strong><code>det</code>/<code>rank</code>/<code>svd</code>/<code>qr</code>/<code>lu</code>/<code>eig</code><strong> round out the matrix decompositions, all via </strong><code>nalgebra</code>'s own implementations (the same dependency <code>chol</code>/<code>pinv</code> already build on):</p>
-<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">7</span>; <span class="n">2</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"det(A) = {det(A)}"</span>)     <span class="c"># 10</span>
 <span class="f">print</span>(<span class="s">"rank(A) = {rank(A)}"</span>)   <span class="c"># 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>det(A) = 10
+rank(A) = 2</pre></div></div>
 <p><code>svd(A)</code>, <code>qr(A)</code>, and <code>lu(A)</code> each return a <code>model(...)</code> with named read-only fields (the same multi-return convention as <code>ols_model</code>/ <code>kalman_init</code>) rather than a tuple, since these calls don't have anywhere else to put more than one output:</p>
-<div class="example"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
 S = [s.s[<span class="n">0</span>], <span class="n">0</span>; <span class="n">0</span>, s.s[<span class="n">1</span>]]
 <span class="f">print</span>(<span class="s">"U*S*Vt reconstructs A: {s.u * S * s.vt}"</span>)
 
@@ -311,9 +315,11 @@ r = <span class="f">qr</span>([<span class="n">1</span>, <span class="n">2</span
 f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">3</span>; <span class="n">8</span>, <span class="n">7</span>, <span class="n">9</span>])
 <span class="f">print</span>(<span class="s">"P*A == L*U: {f.p * [2,1,1;4,3,3;8,7,9]} vs {f.l * f.u}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>U*S*Vt reconstructs A: [1, 2; 3, 4; 5, 6]
+Q*R == A: [1, 2; 3, 4; 5, 6]
+P*A == L*U: [8, 7, 9; 2, 1, 1; 4, 3, 3] vs [8, 7, 9; 2, 1, 1; 4, 3, 3]</pre></div></div>
 <p><code>eig(A)</code> dispatches on symmetry (checked directly, not assumed): a symmetric <code>A</code> gets real eigenvalues *and* real eigenvectors (<code>e.values</code>/<code>e.vectors</code>, via the numerically preferred symmetric algorithm); a general <code>A</code>'s eigenvalues may be complex, and <code>e.vectors</code> is <code>nothing</code> in that case — a general matrix's eigenvectors would themselves be complex-valued, which isn't computed here, not silently approximated:</p>
-<div class="example"><pre class="hl"><code>sym = [<span class="n">2</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">3</span>]
+<div class="example hasout"><pre class="hl"><code>sym = [<span class="n">2</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">3</span>]
 e = <span class="f">eig</span>(sym)
 <span class="f">print</span>(<span class="s">"eigenvalues = {e.values}"</span>)
 <span class="f">print</span>(<span class="s">"eigenvectors = {e.vectors}"</span>)
@@ -323,19 +329,22 @@ er = <span class="f">eig</span>(rot)
 <span class="f">print</span>(<span class="s">"complex eigenvalues = {er.values}"</span>)
 <span class="f">print</span>(<span class="s">"eigenvectors = {er.vectors}"</span>)   <span class="c"># none: rot isn't symmetric</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>eigenvalues = [2, 3]
+eigenvectors = [1, 0; 0, 1]
+complex eigenvalues = [1i, -1i]
+eigenvectors = none</pre></div></div>
 <h2 id="s107">3. Complex matrices</h2>
 <p>Complex literals inside a matrix promote the whole literal to complex:</p>
 <div class="example"><pre class="hl"><code>C = [<span class="n">1</span>+<span class="n">2j</span>, <span class="n">3</span>+<span class="n">4j</span>; <span class="n">0</span>+<span class="n">1j</span>, <span class="n">2</span>-<span class="n">1j</span>]
 </code></pre>
 </div>
 <p>Every real-matrix operation has a complex counterpart: <code>matmul</code>, broadcasting, <code>^-1</code> (via a portable Gauss-Jordan elimination), and both transpose families (<code>'</code>/<code>.H</code> conjugate, <code>.'</code>/<code>.T</code> don't — see Book 1 §6 for why there's no <code>^H</code>/<code>^T</code>). A full complex least-squares solve — the normal-equations form <code>x = (AᴴA)⁻¹Aᴴb</code> — reads exactly like the linear algebra:</p>
-<div class="example"><pre class="hl"><code>D = [<span class="n">4</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>D = [<span class="n">4</span>, <span class="n">6</span>]
 D <span class="k">as</span> <span class="f">vector</span>(<span class="n">2</span>, <span class="n">1</span>)
 E2 = (C.H * C)^-<span class="n">1</span> * C.H * D
 <span class="f">print</span>(<span class="s">"E2 = {E2}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>E2 = [-1.25 - 3.5i; 0.75 + 1i]</pre></div></div>
 <pre><code>E2 = [-1.25 - 3.5i; 0.75 + 1i]
 </code></pre>
 <p><strong>A genuine mathematical trap, not a Qu bug:</strong> if your data matrix has fewer independent rows than columns, <code>AᴴA</code> is rank-deficient and its inverse does not exist — Qu raises a clear "matrix is singular" error rather than a silently wrong answer. This is correct behavior: a single 2-element row vector <code>C = [1+2j, 3+4j]</code> has <code>CᵀC</code> as a rank-1 outer product, which a 2×2 inverse cannot resolve, regardless of what language you're doing the algebra in.</p>
@@ -385,7 +394,7 @@ dibs_sigma_delta = excitation |&gt; sigma_delta  <span class="c"># higher fideli
 </div>
 <h2 id="s209">5. Smooth maxima: logsumexp, smoothmax, softmax</h2>
 <p><code>max</code> is not differentiable at the peak, so any quantity defined by a peak is awkward to put inside a gradient method. The crest factor of a signal, <code>max(abs(x)) / rms(x)</code> — a standard measure of how much of a converter's dynamic range a waveform wastes on its largest excursion — is the usual example. Qu ships the <strong>LogSumExp</strong> smooth-max family as a first-class numerical primitive:</p>
-<div class="example"><pre class="hl"><code><span class="f">crest</span>(x) := <span class="f">max</span>(<span class="f">abs</span>(x)) / <span class="f">rms</span>(x)
+<div class="example hasout"><pre class="hl"><code><span class="f">crest</span>(x) := <span class="f">max</span>(<span class="f">abs</span>(x)) / <span class="f">rms</span>(x)
 
 xs = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
 <span class="f">print</span>(<span class="s">"hard max = {max(xs)}"</span>)
@@ -393,7 +402,10 @@ xs = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</spa
 <span class="f">print</span>(<span class="s">"smoothmax b=50 = {smoothmax(xs, 50):.4f}"</span>)  <span class="c"># -&gt; hard max as beta grows</span>
 <span class="f">print</span>(<span class="s">"softmax = {softmax(xs)}"</span>)                <span class="c"># the gradient of logsumexp</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>hard max = 3
+logsumexp = 3.4402
+smoothmax b=50 = 3.0000
+softmax = [0.032059, 0.087144, 0.236883, 0.643914]</pre></div></div>
 <pre><code>hard max = 3
 logsumexp = 3.4402
 smoothmax b=50 = 3.0000
@@ -444,10 +456,10 @@ b = <span class="f">binomial</span>(<span class="n">20</span>, <span class="n">0
 <li>All of them respect <code>seed(n)</code>'s persistent stream the same way <code>rand</code>/ <code>randn</code> do, so a whole script re-run with the same <code>seed(n)</code> at the top reproduces bit-for-bit.</li>
 </ul>
 <p><code>chisquare(k, ...)</code> rounds out the sampling side — <code>k</code> degrees of freedom, constructed directly as the sum of <code>k</code> squared standard-normal draws:</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">chisquare</span>(<span class="n">4</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">chisquare</span>(<span class="n">4</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"sample mean: {mean(x)}"</span>)   <span class="c"># converges to k=4, the distribution's own mean</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>sample mean: 4.108075</pre></div></div>
 <p><code>chi2pdf(x, k)</code>/<code>chi2cdf(x, k)</code> are the density and cumulative distribution — goodness-of-fit tests and confidence regions read off <code>chi2cdf</code>, e.g. the familiar <code>p = 0.05</code> critical value for 1 degree of freedom:</p>
 <div class="example"><pre class="hl"><code>p = <span class="f">chi2cdf</span>(<span class="n">3.841459</span>, <span class="n">1</span>)   <span class="c"># 0.95 -- the textbook stats-table value</span>
 </code></pre>
@@ -456,16 +468,16 @@ b = <span class="f">binomial</span>(<span class="n">20</span>, <span class="n">0
 <h2 id="s391">8. Estimation theory: Kalman, extended/unscented Kalman, and particle filters</h2>
 <p>Every filter below is built from the same three verbs — <code>predict</code>, <code>update</code>, <code>estimate</code> — called as <code>state.predict(...)</code>/<code>state.update(...)</code>/ <code>state.estimate()</code>, the same <code>recv.method(args)</code> sugar every fitted model in this language already uses (<code>model.predict(X)</code>, <code>model.score(X)</code>). There is no separate <code>kalman_predict</code>/<code>ekf_update</code>/<code>particle_filter_...</code> family of names: <code>predict</code>/<code>update</code> dispatch on the state's own kind (and, for the Kalman family, on whether the second argument is a matrix or a function name), so the same two calls work whether the filter underneath is linear, extended, or unscented. Each call returns a *new* state rather than mutating one in place — the same idiom <code>filter_init</code>/<code>filter_next</code> (§1) already use, since Qu has no mutable-iterator-object primitive.</p>
 <p><strong>The linear Kalman filter</strong> — exact for a linear system with Gaussian noise: <code>x' = F*x + noise</code>, measurement <code>z = H*x + noise</code>. <code>kalman_init(x0, P0)</code> sets the initial estimate and its covariance; <code>predict(F, Q)</code> is the time update, <code>update(H, z, R)</code> is the measurement update:</p>
-<div class="example"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">10</span>])       <span class="c"># 1-D state, initial uncertainty 10</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">10</span>])       <span class="c"># 1-D state, initial uncertainty 10</span>
 <span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">8</span>
     s = s.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0.01</span>])   <span class="c"># static state: F=1, small process noise Q</span>
     s = s.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>])  <span class="c"># repeatedly measuring z=2, H=1, R=1</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(<span class="s">"x = {s.x}, P = {s.P}"</span>)   <span class="c"># x converges toward 2, P shrinks as evidence accumulates</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>x = [1.977787], P = [0.144572]</pre></div></div>
 <p><strong>The extended Kalman filter (EKF)</strong> — for a *nonlinear* <code>process_fn</code>/ <code>observation_fn</code>, still with (approximately) Gaussian noise: the function itself is evaluated exactly, only its Jacobian is linearized around the current estimate to propagate the covariance. Pass a function name where <code>F</code>/<code>H</code> was a matrix above — same <code>kalman_init</code> state, same <code>predict</code>/ <code>update</code> names, just a different argument type selecting the nonlinear path:</p>
-<div class="example"><pre class="hl"><code><span class="f">proc</span>(x) := x                       <span class="c"># static state (nonlinear in general)</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">proc</span>(x) := x                       <span class="c"># static state (nonlinear in general)</span>
 <span class="f">obs</span>(x) := [x[<span class="n">0</span>]^<span class="n">2</span>]                 <span class="c"># nonlinear observation, e.g. a squared reading</span>
 <span class="f">jac_obs</span>(x) := [<span class="n">2</span>*x[<span class="n">0</span>]]             <span class="c"># its exact Jacobian, dobs/dx</span>
 
@@ -476,17 +488,17 @@ s = <span class="f">kalman_init</span>([<span class="n">2</span>], [<span class=
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(<span class="s">"x = {s.x}"</span>)   <span class="c"># converges toward 3</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>x = [3.005003]</pre></div></div>
 <p><code>jac=</code> is optional — omit it and <code>predict</code>/<code>update</code> fall back to a central-difference approximation of the Jacobian (the same numerical fallback <code>minimize</code>/<code>curve_fit</code> use for their own derivatives), which is enough for a smooth nonlinearity like the one above; give it when the exact Jacobian is cheap to write, for less approximation error.</p>
 <p><strong>The unscented Kalman filter (UKF)</strong> — a second way to handle the same nonlinear <code>process_fn</code>/<code>observation_fn</code>, without a Jacobian at all: it propagates a small deterministic set of "sigma points" through the function exactly and recombines their mean/covariance, rather than linearizing. More expensive per step (<code>2n+1</code> function calls instead of one function call plus a Jacobian) and more accurate for a strongly curved nonlinearity. Add <code>method="ukf"</code> to the exact same <code>predict</code>/ <code>update</code> calls — everything else about the script above is unchanged:</p>
-<div class="example"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">2</span>], [<span class="n">10</span>])
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">2</span>], [<span class="n">10</span>])
 <span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">10</span>
     s = s.<span class="f">predict</span>(<span class="s">"proc"</span>, [<span class="n">0.001</span>], <span class="a">method</span>=<span class="s">"ukf"</span>)
     s = s.<span class="f">update</span>(<span class="s">"obs"</span>, [<span class="n">9</span>], [<span class="n">0.5</span>], <span class="a">method</span>=<span class="s">"ukf"</span>)
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(<span class="s">"x = {s.x}"</span>)   <span class="c"># converges toward 3, same as the EKF version above</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>x = [2.994821]</pre></div></div>
 <p><code>method="ukf"</code> takes its own optional <code>alpha=</code>/<code>beta=</code>/<code>kappa=</code> (defaults <code>1e-3</code>/<code>2.0</code>/<code>0.0</code>, the standard scaled-sigma-point parameters) instead of <code>jac=</code> — giving both together is a clear error, since the unscented filter never linearizes anything. For a genuinely *linear* <code>process_fn</code>/ <code>observation_fn</code>, UKF and the plain linear Kalman filter agree exactly: propagating sigma points through a linear map and recombining reproduces <code>F*x</code>/<code>F*P*F^T</code> to floating-point precision, the standard sanity check that sigma points are a generalization of the linear math, not an approximation of it.</p>
 <p><strong>The particle filter</strong> — for everything none of the three above can handle: strongly nonlinear models, non-Gaussian noise, multimodal beliefs. Instead of tracking a mean and covariance analytically, it represents the belief as a weighted set of sample states ("particles"). <code>process_fn</code>/<code>likelihood_fn</code> are ordinary user-defined Qu functions — the same "by name" convention <code>minimize</code>/<code>curve_fit</code> use — since a particle filter has no closed form to fall back to. <code>predict</code>/<code>update</code> dispatch to it the same way, by the state's own kind; <code>estimate()</code> (the particle filter's own third verb — the linear/EKF/UKF states don't need it, since their point estimate is just <code>state.x</code>) reads off the weighted-mean point estimate:</p>
 <div class="example"><pre class="hl"><code><span class="f">process</span>(p) := p + <span class="n">0.05</span>*<span class="f">randn</span>()                       <span class="c"># process_fn injects its</span>
@@ -523,11 +535,11 @@ fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, yd
 </code></pre>
 </div>
 <p><strong>General minimization</strong> — <code>minimize(f, x0, [grad=])</code> is L-BFGS, a quasi-Newton ("pseudo-Newton" — it approximates the inverse Hessian from recent gradient history instead of computing it outright) multivariate minimizer. By default the gradient is computed numerically (central differences):</p>
-<div class="example"><pre class="hl"><code><span class="f">bowl</span>(p) := (p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span> + (p[<span class="n">1</span>]+<span class="n">2</span>)^<span class="n">2</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">bowl</span>(p) := (p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span> + (p[<span class="n">1</span>]+<span class="n">2</span>)^<span class="n">2</span>
 m = <span class="f">minimize</span>(<span class="s">"bowl"</span>, [<span class="n">0</span>, <span class="n">0</span>])
 <span class="f">print</span>(<span class="s">"minimum at {m.params}, value {m.value}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>minimum at [3, -2], value 2.029121e-19</pre></div></div>
 <p>If you can write the gradient by hand, pass it as <code>grad=</code> — a function <code>params -&gt; gradient vector</code>, the same shape as <code>f</code> itself. An analytical gradient is both cheaper (one function call per step instead of <code>2n</code>, one per parameter in each direction) and exact, where finite differences are only ever an approximation:</p>
 <div class="example"><pre class="hl"><code><span class="f">bowl_grad</span>(p) := [<span class="n">2</span>*(p[<span class="n">0</span>]-<span class="n">3</span>), <span class="n">2</span>*(p[<span class="n">1</span>]+<span class="n">2</span>)]
 m2 = <span class="f">minimize</span>(<span class="s">"bowl"</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">grad</span>=<span class="s">"bowl_grad"</span>)   <span class="c"># same minimum, fewer</span>
@@ -544,11 +556,11 @@ found = <span class="f">basin_hopping</span>(<span class="s">"wavy"</span>, [-<s
 </code></pre>
 </div>
 <p><strong>Monte Carlo simulation</strong> — <code>monte_carlo(f, n, [seed=])</code> calls a zero-argument function (typically one that draws its own randomness via <code>randn</code>/<code>rand</code>) <code>n</code> times and collects every result:</p>
-<div class="example"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
+<div class="example hasout"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
 draws = <span class="f">monte_carlo</span>(<span class="s">"sample"</span>, <span class="n">10000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"mean = {mean(draws)}, std = {std(draws)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>mean = 0.001862, std = 1.008776</pre></div></div>
 <h2 id="s576">10. Pipelines: chaining transforms with <code>|&gt;</code></h2>
 <p><code>|&gt;</code> threads a value through a sequence of function calls left to right — each stage receives the previous stage's result as its first argument, so a multi-step DSP pipeline reads in the order it actually runs, instead of nesting inside-out:</p>
 <div class="example"><pre class="hl"><code>n = <span class="n">0</span> <span class="k">to</span> <span class="n">255</span>

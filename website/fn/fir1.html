@@ -57,33 +57,34 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 <span class="f">print</span>(<span class="s">"FIR poles: {poles(fir)}"</span>)
 <span class="c"># FIR poles: [0, 0, 0, 0, 0, 0]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>FIR poles: [0, 0, 0, 0, 0, 0]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">fir1</span>(<span class="n">20</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 bp = <span class="f">fir1</span>(<span class="n">20</span>, [<span class="n">80</span>, <span class="n">120</span>], <span class="a">kind</span>=<span class="s">"band"</span>, <span class="a">fs</span>=fs)
 <span class="f">print</span>(<span class="s">"lowpass taps: {length(lp.b)}"</span>)    <span class="c"># lowpass taps: 21</span>
 <span class="f">print</span>(<span class="s">"bandpass taps: {length(bp.b)}"</span>)   <span class="c"># bandpass taps: 21</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>lowpass taps: 21
+bandpass taps: 21</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 sf = <span class="f">filter_init</span>(fir)
 <span class="f">print</span>(<span class="s">"FIR state length: {length(sf.z)}"</span>)   <span class="c"># FIR state length: 6</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+<div class="out"><span class="lbl">output</span><pre>FIR state length: 6</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">100</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 y_fir = <span class="f">sosfilt</span>(fir, x)
 <span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>FIR-filtered length: 20</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </div>
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
@@ -97,33 +98,34 @@ y_fir = <span class="f">sosfilt</span>(fir, x)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 <span class="f">print</span>(<span class="s">"FIR poles: {poles(fir)}"</span>)
 <span class="c"># FIR poles: [0, 0, 0, 0, 0, 0]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>FIR poles: [0, 0, 0, 0, 0, 0]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">fir1</span>(<span class="n">20</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 bp = <span class="f">fir1</span>(<span class="n">20</span>, [<span class="n">80</span>, <span class="n">120</span>], <span class="a">kind</span>=<span class="s">"band"</span>, <span class="a">fs</span>=fs)
 <span class="f">print</span>(<span class="s">"lowpass taps: {length(lp.b)}"</span>)    <span class="c"># lowpass taps: 21</span>
 <span class="f">print</span>(<span class="s">"bandpass taps: {length(bp.b)}"</span>)   <span class="c"># bandpass taps: 21</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>lowpass taps: 21
+bandpass taps: 21</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">100</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 sf = <span class="f">filter_init</span>(fir)
 <span class="f">print</span>(<span class="s">"FIR state length: {length(sf.z)}"</span>)   <span class="c"># FIR state length: 6</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">100</span>
+<div class="out"><span class="lbl">output</span><pre>FIR state length: 6</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">100</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">19</span>) / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">10</span>*t)
 fir = <span class="f">fir1</span>(<span class="n">6</span>, <span class="n">20</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
 y_fir = <span class="f">sosfilt</span>(fir, x)
 <span class="f">print</span>(<span class="s">"FIR-filtered length: {length(y_fir)}"</span>)   <span class="c"># FIR-filtered length: 20</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>FIR-filtered length: 20</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </div>
 </div>
 </div>

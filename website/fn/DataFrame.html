@@ -45,20 +45,32 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">y</span>=[<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>])
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">y</span>=[<span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>])
 <span class="f">print</span>(df.nrows)             <span class="c"># 3, same as nrow(df)</span>
 <span class="f">print</span>(df.ncols)             <span class="c"># 2, same as ncol(df)</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
+<div class="out"><span class="lbl">output</span><pre>3
+2</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
 <span class="f">print</span>(<span class="f">at</span>(df, <span class="n">1</span>))                              <span class="c"># {id = 2, name = "steel"}</span>
 labeled = <span class="f">index</span>(df, <span class="s">"name"</span>)
 <span class="f">print</span>(labeled)
 grown = <span class="f">insert_row</span>(df, <span class="n">3</span>, {<span class="a">id</span>=<span class="n">4</span>, <span class="a">name</span>=<span class="s">"glass"</span>})
 <span class="f">print</span>(grown)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+<div class="out"><span class="lbl">output</span><pre>{id = 2, name = "steel"}
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+ 4  glass</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -66,7 +78,21 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>5
+3
+x   y
+-  --
+3  30
+4  40
+5  50
+stat          x          y
+-----  --------  ---------
+count         5          5
+mean          3         30
+std    1.581139  15.811388
+min           1         10
+25%           2         20
+    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>table(name=values, ...)</code> / <code>DataFrame(...)</code> — columns come straight from the call's named arguments, in the order they were written (that's why <code>style</code> is an ordered <code>Vec</code>, not a <code>HashMap</code>: table column order is part of a table's identity).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

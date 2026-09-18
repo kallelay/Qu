@@ -45,18 +45,19 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
+<div class="example hasout"><pre class="hl"><code>xr = <span class="f">real</span>(<span class="f">ifft</span>(X, N))
 <span class="f">print</span>(<span class="s">"round-trip err = {max(abs(xr - x)):.2e}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
+<div class="out"><span class="lbl">output</span><pre>round-trip err = 4.93e-32</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example hasout"><pre class="hl"><code>t = <span class="n">1</span>, <span class="n">2</span>, ..., <span class="n">50</span>        <span class="c"># N = 50, not a power of two</span>
 x = <span class="f">sin</span>(t)
 X = <span class="f">fft</span>(x)
 <span class="f">print</span>(<span class="s">"length(X) = {length(X)}"</span>)
 <span class="f">print</span>(<span class="s">"round trip err = {max(abs(real(ifft(X)) - x)):.2e}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code>fs  = <span class="n">1000</span>
+<div class="out"><span class="lbl">output</span><pre>length(X) = 50
+round trip err = 3.33e-16</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example hasout"><pre class="hl"><code>fs  = <span class="n">1000</span>
 t   = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
 x   = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t)
 sig = <span class="f">signal</span>(x, fs)
@@ -69,7 +70,10 @@ X = <span class="f">fft</span>(sig)
 clean = <span class="f">ifft</span>(<span class="f">band_zero</span>(X, <span class="n">250</span>, <span class="n">350</span>))                    <span class="c"># notch out the 300 Hz tone</span>
 <span class="f">print</span>(<span class="s">"residual imaginary part: {max(abs(imag(clean)))}"</span>)   <span class="c"># ~1e-16, still real</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>df = 1 Hz, Nyquist = 500 Hz
+power at 100 Hz: 0.5
+power at 300 Hz: 0.125
+residual imaginary part: 3.079059e-16</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </main>
 </div>
 <footer><div class="wrap">

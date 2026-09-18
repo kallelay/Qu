@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
 y_true = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
 w = <span class="f">param</span>(<span class="n">0.0</span>)
 <span class="k">function</span> <span class="f">loss_fn</span>(w)
@@ -103,7 +103,13 @@ quick = <span class="f">quick_mlp</span>(Xxor, Yxor, <span class="a">seed</span>
 nq = <span class="f">length</span>(quick.loss_history)
 <span class="f">print</span>(<span class="s">"quick_mlp: loss {round(quick.loss_history[0], 4)} -&gt; {round(quick.loss_history[nq - 1], 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>train_loop (sgd): loss 30 -&gt; 0
+optimizer_step (adam): w -&gt; 1.7775 (target 2.0)
+nesterov_sgd -&gt; 0.715, adamw -&gt; 0.9495, nadam -&gt; 0.9263
+adamax -&gt; 0.95, rmsprop -&gt; 0.8419, adagrad -&gt; 0.95, adadelta -&gt; 0.9996
+compile + fit(lr_plateau): loss 3.3387 -&gt; 0.0341
+compile + fit(lr_adaptive): loss 0.3897 -&gt; 0.0002
+quick_mlp: loss 3.1877 -&gt; 0.0922</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 </main>
 </div>
 <footer><div class="wrap">

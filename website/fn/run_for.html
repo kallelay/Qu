@@ -44,14 +44,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>count = <span class="n">0</span>
+<div class="example hasout"><pre class="hl"><code>count = <span class="n">0</span>
 every <span class="n">1</span> s <span class="k">do</span>
     count = count + <span class="n">1</span>
 <span class="k">end</span>
 <span class="f">run_for</span>(<span class="n">5</span> s)
 <span class="f">print</span>(<span class="s">"fired {count} times"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="out"><span class="lbl">output</span><pre>· run_for(5s): 5 timer firing(s) across 1 registered timer(s)
+fired 5 times</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
 <h2>How it works</h2>
 <p><code>run_for(duration)</code> (seconds — same convention as <code>every</code>/ <code>after</code>/<code>at</code>, e.g. <code>run_for(500 ms)</code> or <code>run_for(0.5)</code>) drives every registered timer across a <strong>simulated</strong> virtual timeline, not a real wall-clock sleep — a batch script asking to "simulate 10s of a control loop" should not actually block for 10 real seconds (and a real-time sleep would make test suites slow or flaky). Timers interleave by scheduled fire time (not "run timer A to completion, then timer B"), the way a real event loop would.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

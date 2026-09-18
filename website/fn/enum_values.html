@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>enum Season
+<div class="example hasout"><pre class="hl"><code>enum Season
     Spring, Summer, Autumn, Winter
 <span class="k">end</span>
 
@@ -53,7 +53,10 @@ seasons = <span class="f">enum_values</span>(Season)
     <span class="f">print</span>(seasons[i])
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>Spring
+Summer
+Autumn
+Winter</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>enum_values(Season)</code> (§ enum, 2026-08-24) — the piece that makes an enum a real *enumeration* rather than just a handful of named constants: takes the bare <code>Value::EnumType</code> reference (<code>Season</code>, resolved by <code>Expr::Name</code>'s fallback) and returns every one of its variants, as a <code>Value::EnumVal</code> each, in declaration order — a plain <code>List</code>, so a script can <code>for v in enum_values(Season)</code> with no special-cased loop construct needed.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

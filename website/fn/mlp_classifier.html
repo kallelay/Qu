@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+<div class="example hasout"><pre class="hl"><code>n_per_class = <span class="n">60</span>
 c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
 c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
 c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
@@ -88,8 +88,8 @@ trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<s
 acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
 <span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
-<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+<div class="out"><span class="lbl">output</span><pre>training accuracy = 1.0000</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+<div class="example hasout"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
 dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
 dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
 net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
@@ -109,7 +109,10 @@ nc = <span class="f">length</span>(mc.loss_history)
 preds = mc.<span class="f">predict</span>(Xxor)
 <span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>layer count: 3
+sequential + dropout_layer: loss 3.0224 -&gt; 0.5
+mlp_classifier: loss 0.7146 -&gt; 0.6938
+mlp_classifier raw logits shape: 4 x 2</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p>primitives above, the same "convenience constructor, no new grammar" spirit as <code>sequential</code>/<code>gru_init</code>. <code>mlp_classifier</code> builds directly on the just-landed <code>sequential</code>/<code>dense_layer</code> API (a dense+relu stack is exactly what <code>sequential</code> already does), so its <code>.fit()</code>/<code>.predict()</code> are the ordinary <code>kind="sequential"</code> ones — no new dispatch needed at all. <code>simple_cnn</code>/<code>simple_rnn_classifier</code> can't reuse <code>sequential</code> the same way: <code>sequential</code>'s layer protocol only knows <code>"dense"</code>/<code>"dropout"</code> (see its own doc comment), and — per the existing CNN acceptance test's own reasoning — <code>conv2d</code>/ <code>gru_forward</code> don't fit that per-layer <code>dense(h, w, b)</code> shape at all (a <code>List</code>-of-images batch, and a column-shaped hidden state, respectively, not a <code>(n, features)</code> row matrix). Both are built directly on the raw tracked primitives (<code>conv2d</code>/<code>maxpool2d</code>/<code>gru_forward</code>/<code>param</code>/ <code>grad</code>) instead, each getting its own <code>ModelHandle.kind</code> (<code>"simple_cnn"</code>/<code>"simple_rnn_classifier"</code>) and a matching branch in the <code>"fit"</code>/<code>"predict"</code> builtins further down — see <code>simple_cnn_fit</code>/<code>simple_rnn_fit</code>'s own doc comments for the training loop (same per-epoch <code>param()</code>+<code>grad()</code>+manual- SGD idiom <code>sequential_fit</code> and the GRU/CNN acceptance tests already use, since <code>sgd</code>/<code>train_loop</code> only support one flat parameter). <code>mlp_classifier(in_dim, hidden_dims, n_classes, [seed=])</code> — <code>hidden_dims</code> a <code>Vec</code> of hidden layer sizes (e.g. <code>[64, 32]</code>). Builds <code>dense_layer(prev, h, activation="relu")</code> for each hidden size in turn, then a final <code>dense_layer(last, n_classes, activation="none")</code> — raw logits, "softmax-ready" (the task's own wording): pair with <code>fit(X, Y, loss="cross_entropy")</code> (one-hot <code>Y</code>) and read <code>predict(X)</code>'s <code>(n, n_classes)</code> output through <code>softmax_rows</code>/<code>argmax</code> yourself, exactly the same contract every other <code>kind="sequential"</code> model already has.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
