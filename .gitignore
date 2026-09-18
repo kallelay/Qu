@@ -169,3 +169,24 @@ private/Qu8/
 # backup on H:. `private/` itself IS tracked, so without this line an
 # untracked Qu8 tree here is one broad `git add` away from four mirrors.
 private/Qu8/
+
+# Secret-pattern defensive exclusions, added 2026-09-18 after the
+# ".gitignore has no explicit secret-pattern entries" hardening gap
+# flagged earlier tonight was left open too long -- became actively
+# relevant once the LLM provider integration started handling real
+# API keys. A clean secret-history audit today doesn't prevent one
+# landing tomorrow; these patterns are defense in depth, not a
+# replacement for never committing a real key in the first place.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*_key
+*_secret
+*_token
+credentials.json
+credentials.*.json
+secrets.json
+*.p12
+*.pfx
