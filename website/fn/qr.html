@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
 res = <span class="f">qr</span>(M)
 <span class="f">print</span>(res)
 <span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
@@ -58,13 +58,8 @@ pk = <span class="f">findpeaks</span>(x)
 <span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
 <span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>model(qr) {q = [0.5547, 0.83205; 0.83205, -0.5547], r = [7.211103, 4.160251; 0, 0.83205]}
-q = [0.5547, 0.83205; 0.83205, -0.5547]
-r = [7.211103, 4.160251; 0, 0.83205]
-model(findpeaks) {peaks = [3, 4], locations = [2, 6], prominences = [3, 4], widths = [1.5, 2]}
-peaks = [3, 4]
-locations = [2, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="f">svd</span>([<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>; <span class="n">5</span>, <span class="n">6</span>])
 S = [s.s[<span class="n">0</span>], <span class="n">0</span>; <span class="n">0</span>, s.s[<span class="n">1</span>]]
 <span class="f">print</span>(<span class="s">"U*S*Vt reconstructs A: {s.u * S * s.vt}"</span>)
 
@@ -74,9 +69,7 @@ r = <span class="f">qr</span>([<span class="n">1</span>, <span class="n">2</span
 f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>; <span class="n">4</span>, <span class="n">3</span>, <span class="n">3</span>; <span class="n">8</span>, <span class="n">7</span>, <span class="n">9</span>])
 <span class="f">print</span>(<span class="s">"P*A == L*U: {f.p * [2,1,1;4,3,3;8,7,9]} vs {f.l * f.u}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>U*S*Vt reconstructs A: [1, 2; 3, 4; 5, 6]
-Q*R == A: [1, 2; 3, 4; 5, 6]
-P*A == L*U: [8, 7, 9; 2, 1, 1; 4, 3, 3] vs [8, 7, 9; 2, 1, 1; 4, 3, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>

@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">500</span>
 t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
@@ -60,7 +60,7 @@ sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class=
 sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
 <span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>after cleanup: 17.81 dB (savgol), 17.81 dB (smooth)</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>impulse(n, [index=], [amplitude=])</code> — a Kronecker delta: all zeros except <code>amplitude</code> at <code>index</code> (default the first sample). A plain <code>Vec</code>, not a <code>Signal</code> — the sample rate doesn't change what this sequence *is*; wrap it in <code>signal(impulse(n), fs)</code> if you need one.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

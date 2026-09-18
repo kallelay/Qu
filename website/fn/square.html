@@ -54,13 +54,12 @@ b = signals.<span class="f">square</span>(<span class="n">100</span>, <span clas
 <span class="f">print</span>(<span class="s">"identical = {a == b}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>a = <span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">20</span>, <span class="a">duty</span>=<span class="n">0.25</span>)
+<div class="example"><pre class="hl"><code>a = <span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">20</span>, <span class="a">duty</span>=<span class="n">0.25</span>)
 b = signals.<span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">20</span>, <span class="a">duty</span>=<span class="n">0.25</span>)   <span class="c"># identical to `a`</span>
 <span class="f">print</span>(<span class="s">"square: {a}"</span>)
 <span class="f">print</span>(<span class="s">"signals.square matches: {max(abs(a - b)) &lt; 1e-12}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>square: signal(Fs=1000) [1, 1, 1, -1, -1, -1, -1, -1, ... (20 elements)]
-signals.square matches: true</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <div class="example"><pre class="hl"><code>s = <span class="f">sine</span>(<span class="n">1</span> kHz, <span class="n">48</span> kHz, <span class="n">4800</span>)             <span class="c"># a single tone</span>
 c = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>)       <span class="c"># linear sweep, 20Hz to 20kHz</span>
 lc = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>, <span class="a">method</span>=<span class="s">"logarithmic"</span>)

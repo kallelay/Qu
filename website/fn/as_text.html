@@ -44,16 +44,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>text = <span class="s">"one\ntwo\nthree"</span>
+<div class="example"><pre class="hl"><code>text = <span class="s">"one\ntwo\nthree"</span>
 <span class="f">print</span>(<span class="f">lines</span>(text))                     <span class="c"># ("one", "two", "three")</span>
 <span class="f">print</span>(<span class="f">chars</span>(<span class="s">"abc"</span>))                    <span class="c"># ("a", "b", "c")</span>
 <span class="f">print</span>(<span class="f">repeat_str</span>(<span class="s">"ab"</span>, <span class="n">3</span>))             <span class="c"># "ababab"</span>
 <span class="f">print</span>(<span class="f">as_text</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]).<span class="f">join</span>(<span class="s">", "</span>))   <span class="c"># "1, 2, 3"</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>("one", "two", "three")
-("a", "b", "c")
-ababab
-1, 2, 3</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>as_text(v)</code> — the elements as strings, so a numeric vector can be joined: <code>[1, 2, 3].as_text().join(", ")</code>. <code>str</code> renders the whole value as one string, which is a different question.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -110,6 +110,18 @@
 //!   qu docs --json      dump the builtin reference table as JSON, for a
 //!                       host (e.g. QuStudio) that wants it without linking
 //!                       qu-interp or running an interpreter
+//!   qu kernel            persistent-interpreter mode for a programmatic
+//!                       host (QuStudio's Code editor "Run" button): reads
+//!                       one line-delimited JSON request per line from
+//!                       stdin (`{"op":"run","code":".."}` or
+//!                       `{"op":"restart"}`), keeps ONE `qu_interp::Interp`
+//!                       alive across requests (so state persists across
+//!                       "run" calls the way a Jupyter kernel's does), and
+//!                       writes exactly one JSON response line per request
+//!                       to stdout -- see `cmd_kernel`'s doc comment for the
+//!                       full protocol. Strictly additive: no existing
+//!                       subcommand's behavior changes, and nothing but
+//!                       `cmd_kernel` itself reads or writes this protocol.
 //!
 //! Kept intentionally thin: everything real lives in the library crates so the
 //! same core can later be driven from a WASM/browser front-end.
@@ -189,6 +201,7 @@ fn run() -> ExitCode {
         "diary" => cmd_diary(&args[1..]),
         "docs" => cmd_docs(&args[1..]),
         "repl" => cmd_repl(&args[1..]),
+        "kernel" => cmd_kernel(),
         "mcp" => mcp::cmd_mcp(&args[1..]),
         "version" | "--version" | "-V" => {
             println!("qu {}", env!("CARGO_PKG_VERSION"));
@@ -1181,88 +1194,12 @@ fn default_diary_path(input: &str) -> String {
     }
 }
 
-/// Does `src` (everything typed into the REPL so far, one or more physical
-/// lines joined by `\n`) look like a *complete* set of top-level statements,
-/// or is the user still mid-block (`for ... end`, an open `(`/`[`/`{`, …)?
-///
-/// Reuses the real tokenizer (`qu_lexer::lex`) rather than scanning raw text
-/// for keywords, specifically so a word like `for`/`end` sitting inside a
-/// string or a `#` comment can never be mistaken for a real block boundary
-/// — the lexer already resolves string/comment spans before any of this
-/// sees a single token. This is a lightweight token-count heuristic, not a
-/// second parser: it tracks bracket nesting and block-opener/`end` keyword
-/// balance, which is enough to decide "is it worth attempting a real parse
-/// yet" without duplicating `qu-syntax`'s actual grammar.
-///
-/// Block openers: `if`/`for`/`while`/`function`/`try`/`unsafe` are real
-/// lexer keywords, so every one of them (including `parallel for`, which is
-/// just `for` preceded by a contextual `parallel` identifier — the `for`
-/// token alone already accounts for the one `end` that closes it) is caught
-/// by matching on `Tok::Keyword`. `every`/`after`/`at ... do ... end` and
-/// `on elapsed(...)`/`on elapsedOnce(...) do ... end` (`qu-syntax`'s two
-/// *contextual* timer forms — see `Stmt::Timer`/`Stmt::OnElapsed`'s doc
-/// comments) are plain identifiers to the lexer, not keywords, so they're
-/// matched the same way the parser itself recognizes them: by shape, not by
-/// a reserved word.
-fn input_looks_complete(src: &str) -> bool {
-    use qu_lexer::{Tok, Token};
-    let tokens = qu_lexer::lex(src);
-    let mut bracket_depth: i32 = 0;
-    let mut block_depth: i32 = 0;
-    let mut i = 0;
-    // "start of statement" — true at the very first token and right after a
-    // newline/`;` — needed to tell a genuine `every 1 s do ... end` timer
-    // statement apart from `every` used mid-expression as an ordinary name.
-    let mut at_stmt_start = true;
-    while i < tokens.len() {
-        let tok = &tokens[i].tok;
-        match tok {
-            Tok::Op("(" | "[" | "{") => bracket_depth += 1,
-            Tok::Op(")" | "]" | "}") => bracket_depth -= 1,
-            Tok::Keyword("if" | "for" | "while" | "function" | "try" | "unsafe") => {
-                block_depth += 1;
-            }
-            Tok::Keyword("end") => {
-                block_depth -= 1;
-                // `end for` / `end if` / `end while` / `end function` are
-                // the forms every shipped example and the whole book use,
-                // and the file parser accepts them. Here the trailing
-                // keyword used to be counted as OPENING a new block, so
-                // `end for` netted to zero and the REPL sat at `...>`
-                // forever -- with no way out, since meta-commands were
-                // also swallowed as continuation lines. Pasting the first
-                // `for` loop out of the docs killed the session.
-                if matches!(
-                    tokens.get(i + 1).map(|t| &t.tok),
-                    Some(Tok::Keyword("if" | "for" | "while" | "function" | "try" | "unsafe"))
-                ) {
-                    i += 1; // part of this `end`, not a new block
-                }
-            }
-            Tok::Ident(name) if at_stmt_start => {
-                let next_is_assign = matches!(
-                    tokens.get(i + 1).map(|t| &t.tok),
-                    Some(Tok::Op("=" | ":=" | "+=" | "-=" | "*=" | "/=" | ".="))
-                );
-                if matches!(name.as_str(), "every" | "after" | "at") && !next_is_assign {
-                    block_depth += 1; // timer_stmt — closes with a bare `end`
-                } else if name == "on" {
-                    if let Some(Token { tok: Tok::Ident(ev), .. }) = tokens.get(i + 1) {
-                        let is_on_elapsed = matches!(ev.as_str(), "elapsed" | "elapsedOnce")
-                            && matches!(tokens.get(i + 2).map(|t| &t.tok), Some(Tok::Op("(")));
-                        if is_on_elapsed {
-                            block_depth += 1; // on_elapsed_stmt — closes with `end`
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-        at_stmt_start = matches!(tok, Tok::Newline | Tok::Op(";"));
-        i += 1;
-    }
-    block_depth <= 0 && bracket_depth <= 0
-}
+/// Moved to `qu_interp::input_looks_complete` so a Jupyter kernel (or any
+/// other host feeding Qu source incrementally) can share the exact same
+/// block-completion heuristic instead of re-deriving it. Brought into scope
+/// here so every existing call site (including this module's own tests)
+/// keeps working unqualified.
+use qu_interp::input_looks_complete;
 
 /// Built-in constants the interpreter seeds every session with. They are
 /// bindings like any other, but listing them under "your variables" is
@@ -1416,6 +1353,185 @@ fn cmd_repl(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// `qu kernel` — the persistent-interpreter backend for QuStudio's Code
+/// editor "Run" button (see `qu-studio-tauri/src-tauri/src/repl_bridge.rs`
+/// on the Tauri side). Unlike `qu repl`, this is not meant for a human at a
+/// terminal: no banner, no prompt, no `:`-prefixed meta-commands, no
+/// partial/multi-line-continuation buffering (the host sends one already-
+/// complete submission per request, exactly what the editor buffer held
+/// when Run was clicked — there's no line-at-a-time typing to buffer).
+///
+/// **Protocol.** Line-delimited JSON in both directions, one object per
+/// line, flushed after every response so a host reading the child's stdout
+/// asynchronously never blocks waiting for a line that's sitting in a
+/// buffer:
+///
+/// Request (stdin):
+///   `{"op":"run","code":"<source>"}` — parse+execute `code` against the
+///   ONE `Interp` this process keeps alive for its whole lifetime (created
+///   once, above the loop), so every binding a previous "run" made is still
+///   in scope. Statement-level atomicity comes straight from
+///   `Interp::run`/`exec`: it walks the parsed program's top-level
+///   statements in a plain `for` loop bailing out on the first `Err` (see
+///   `exec_block`), so whatever ran before the failing statement in THIS
+///   submission stays applied, the failing statement's own effect doesn't
+///   half-apply (each statement's `exec` either fully completes or returns
+///   before mutating further), and nothing from an earlier "run" is
+///   touched at all — this is exactly the semantics `qu repl` already
+///   relies on for a human typing line by line, just handed a whole
+///   submission's source at once instead of one line.
+///   `{"op":"restart"}` — drops the live `Interp` and replaces it with a
+///   fresh one, discarding all state. `{"op":"vars"}` reports the current
+///   bindings without executing anything (e.g. for a panel refresh that
+///   isn't tied to a run).
+///
+/// Response (stdout), one per request, in the same order:
+///   `{"op":"run","success":bool,"output":"..","error":string|null,
+///     "plots":["<svg>..",..],"variables":[{"name","type","preview"},..],
+///     "data":[{"name","type","shape","data"},..]}` — `output` is only the
+///   text `code` itself produced (the `it.out` growth since before this
+///   call, matching `cmd_repl`'s own `before`/slice pattern), NOT the
+///   whole session's output so far. `variables`/`data` ARE the whole
+///   session's current bindings (via `vars_to_json`/`data_to_json` against
+///   the live `it`, the same functions `qu run --emit-vars`/`--emit-data`
+///   use) — that's deliberate: the host's Variables/Figures panels are
+///   meant to show accumulated session state, not just this call's delta.
+///   `plots` is every figure in `it.figure_history` plus the current live
+///   one if it has content, rendered fresh each call — also accumulated
+///   session state, not just what THIS run touched.
+///   `{"op":"restart","success":true}` / `{"op":"vars","success":true,
+///     "variables":[..],"data":[..]}`.
+///   A line that isn't valid JSON, or whose `"op"` isn't recognized, gets
+///   `{"op":"error","success":false,"error":".."}` — the process itself
+///   never exits over a bad request, since one malformed message shouldn't
+///   kill a session the user has state in.
+fn cmd_kernel() -> Result<(), String> {
+    let mut it = qu_interp::Interp::new();
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let stdout = io::stdout();
+
+    while let Some(line) = lines.next() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let req: serde_json::Value = match serde_json::from_str(&line) {
+            Ok(v) => v,
+            Err(e) => {
+                write_kernel_response(
+                    &stdout,
+                    &serde_json::json!({
+                        "op": "error",
+                        "success": false,
+                        "error": format!("bad request JSON: {e}"),
+                    }),
+                );
+                continue;
+            }
+        };
+        let op = req.get("op").and_then(|v| v.as_str()).unwrap_or("");
+        match op {
+            "run" => {
+                let code = req.get("code").and_then(|v| v.as_str()).unwrap_or("");
+                let before = it.out.len();
+                let run_result = it.run(code);
+                let output = it.out[before..].to_string();
+                let (success, error) = match &run_result {
+                    Ok(()) => (true, None),
+                    Err(e) => (false, Some(e.to_string())),
+                };
+                write_kernel_response(&stdout, &kernel_run_response(&it, success, output, error));
+            }
+            "restart" => {
+                it = qu_interp::Interp::new();
+                write_kernel_response(
+                    &stdout,
+                    &serde_json::json!({"op": "restart", "success": true}),
+                );
+            }
+            "vars" => {
+                write_kernel_response(
+                    &stdout,
+                    &serde_json::json!({
+                        "op": "vars",
+                        "success": true,
+                        "variables": kernel_vars_value(&it),
+                        "data": kernel_data_value(&it),
+                    }),
+                );
+            }
+            other => {
+                write_kernel_response(
+                    &stdout,
+                    &serde_json::json!({
+                        "op": "error",
+                        "success": false,
+                        "error": format!("unknown op `{other}`"),
+                    }),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Writes one JSON response line and flushes immediately — the host reads
+/// this stream asynchronously and must see each response the moment it's
+/// ready, not whenever a stdio buffer happens to fill.
+fn write_kernel_response(mut stdout: &std::io::Stdout, resp: &serde_json::Value) {
+    let _ = writeln!(stdout, "{resp}");
+    let _ = stdout.flush();
+}
+
+/// `vars_to_json`'s output re-parsed as a `serde_json::Value` for embedding
+/// in a `qu kernel` response — reusing the exact same text builder as `qu
+/// run --emit-vars` rather than a second implementation, at the cost of one
+/// parse-back per call (negligible next to the interpreter run it follows).
+fn kernel_vars_value(it: &qu_interp::Interp) -> serde_json::Value {
+    serde_json::from_str(&vars_to_json(it)).unwrap_or_else(|_| serde_json::json!([]))
+}
+
+/// Same idea as `kernel_vars_value`, for `data_to_json`.
+fn kernel_data_value(it: &qu_interp::Interp) -> serde_json::Value {
+    serde_json::from_str(&data_to_json(it)).unwrap_or_else(|_| serde_json::json!([]))
+}
+
+/// Every figure `it` currently holds, rendered to SVG text — the session's
+/// full accumulated figure state, not just what the most recent "run"
+/// touched. Same source selection `cmd_run`'s `--emit-figure` handling uses
+/// (`figure_history` plus the live figure if it's non-pristine), kept as an
+/// independent copy here rather than a shared helper so this new, additive
+/// `kernel` path can never change `cmd_run`'s own behavior by editing code
+/// `cmd_run` also calls.
+fn kernel_figures_svg(it: &qu_interp::Interp) -> Vec<String> {
+    let mut figures: Vec<&qu_interp::plotting::Figure> = it.figure_history.iter().collect();
+    if !it.figure.is_pristine() {
+        figures.push(&it.figure);
+    }
+    figures
+        .iter()
+        .map(|fig| qu_interp::plotting::render_svg(fig, fig.width, fig.height, fig.publication))
+        .collect()
+}
+
+fn kernel_run_response(
+    it: &qu_interp::Interp,
+    success: bool,
+    output: String,
+    error: Option<String>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "op": "run",
+        "success": success,
+        "output": output,
+        "error": error,
+        "plots": kernel_figures_svg(it),
+        "variables": kernel_vars_value(it),
+        "data": kernel_data_value(it),
+    })
+}
+
 fn print_help() {
     println!("qu {} — reference engine (specification-first)\n", env!("CARGO_PKG_VERSION"));
     print!(
@@ -1437,6 +1553,8 @@ fn print_help() {
          docs --json       dump the builtin reference table (name/signature/summary/chapter) as JSON\n  \
          repl [<file.qu>]  interactive read-eval-print loop; with a file, run it first and\n  \
                            keep its bindings alive in the same session (like `python -i`)\n  \
+         kernel            persistent-interpreter JSON protocol on stdin/stdout, for a\n  \
+                           programmatic host (e.g. QuStudio's Run button) -- not for humans\n  \
          mcp [--allow-write] [--timeout <s>] [--memory <MB>] [--root <dir>]\n  \
                            Model Context Protocol server on stdin/stdout, so an\n  \
                            assistant can run Qu instead of guessing at it\n  \

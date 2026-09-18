@@ -46,35 +46,35 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
+<div class="example"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
 state = state.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0</span>])     <span class="c"># time update: F, Q</span>
 state = state.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>]) <span class="c"># measurement update: H, z, R</span>
 <span class="f">print</span>(<span class="s">"estimate {state.x}, covariance {state.P}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>estimate [1], covariance [0.5]</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code>s0 = <span class="f">kalman_init</span>([<span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">1.0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1.0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>s0 = <span class="f">kalman_init</span>([<span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">1.0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1.0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
 F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
 Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
 s1 = s0.<span class="f">predict</span>(F, Q)
 <span class="f">print</span>(<span class="s">"filter .predict returns a new state Record; its x field: {round(s1.x, 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>filter .predict returns a new state Record; its x field: [0, 0]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">10</span>])       <span class="c"># 1-D state, initial uncertainty 10</span>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">10</span>])       <span class="c"># 1-D state, initial uncertainty 10</span>
 <span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">8</span>
     s = s.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0.01</span>])   <span class="c"># static state: F=1, small process noise Q</span>
     s = s.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>])  <span class="c"># repeatedly measuring z=2, H=1, R=1</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(<span class="s">"x = {s.x}, P = {s.P}"</span>)   <span class="c"># x converges toward 2, P shrinks as evidence accumulates</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x = [1.977787], P = [0.144572]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">2</span>], [<span class="n">10</span>])
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">2</span>], [<span class="n">10</span>])
 <span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">10</span>
     s = s.<span class="f">predict</span>(<span class="s">"proc"</span>, [<span class="n">0.001</span>], <span class="a">method</span>=<span class="s">"ukf"</span>)
     s = s.<span class="f">update</span>(<span class="s">"obs"</span>, [<span class="n">9</span>], [<span class="n">0.5</span>], <span class="a">method</span>=<span class="s">"ukf"</span>)
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(<span class="s">"x = {s.x}"</span>)   <span class="c"># converges toward 3, same as the EKF version above</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x = [2.994821]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p>The estimation-theory family: a linear Kalman filter, built on the same <code>Value::Model</code> handle as the fit/predict/score protocol (kind <code>"kalman"</code>, fields <code>x</code>/<code>P</code>) — a script threads the returned state through successive <code>kalman_predict</code>/ <code>kalman_update</code> calls rather than mutating anything in place, matching this whole family's "return a new value" convention. No control input (<code>B*u</code>) in this first cut — flagged in BACKLOG.md, not silently assumed away. <code>kalman_init(x0, P0)</code> — the initial state estimate and its covariance.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

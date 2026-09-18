@@ -44,15 +44,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 x = <span class="n">5</span>
 <span class="f">print</span>(<span class="s">"val={val(x)}"</span>)
 <span class="f">print</span>(<span class="f">transpose</span>(A))
 <span class="f">print</span>(<span class="s">"mirror={mirror([1, 2, 3])}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>val=5
-[1, 4; 2, 5; 3, 6]
-mirror=[3, 2, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>val(x)</code> materializes a value: today <code>:=</code> is already eager (M2), so <code>val</code> is the identity; it becomes meaningful once deferred dataflow bindings (Â§11) are lazily fused at M4, where <code>val(x)</code> forces evaluation instead of inlining the view.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

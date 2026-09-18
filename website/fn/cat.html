@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"size={size(A)}  numel={numel(A)}"</span>)
 <span class="f">print</span>(<span class="f">eye</span>(<span class="n">3</span>))
 <span class="f">print</span>(<span class="f">identity</span>(<span class="n">2</span>))
@@ -56,11 +56,7 @@ q = [<span class="n">3</span>, <span class="n">4</span>]
 <span class="f">print</span>(<span class="f">cat</span>(<span class="n">1</span>, p, q))   <span class="c"># vertical: stacks rows</span>
 <span class="f">print</span>(<span class="f">cat</span>(<span class="n">2</span>, p, q))   <span class="c"># horizontal: concatenates</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>size=[2, 3]  numel=6
-[1, 0, 0; 0, 1, 0; 0, 0, 1]
-[1, 0; 0, 1]
-[1, 2; 3, 4]
-[1, 2, 3, 4]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>cat(dim, a, b, ...)</code> — MATLAB's own general concatenation form, matched exactly (<code>dim=1</code> vertical, <code>dim=2</code> horizontal): a direct, checkable spec to match rather than a Qu-specific convention.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

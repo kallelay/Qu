@@ -50,7 +50,7 @@ dy_dx = <span class="f">grad</span>(y, <span class="a">wrt</span>=x)      <span 
 <span class="f">print</span>(<span class="s">"dy/dx = {dy_dx}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = x * x + y * y
 dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)          <span class="c"># 2*x = 6</span>
@@ -58,8 +58,7 @@ grads = <span class="f">grad</span>(loss, x, y)              <span class="c"># [
 <span class="f">print</span>(<span class="s">"wrt=x form: {dloss_dx}"</span>)
 <span class="f">print</span>(<span class="s">"positional form: {grads}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>wrt=x form: 6
-positional form: (6, 4)</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <div class="example"><pre class="hl"><code>target = <span class="f">stop_grad</span>(<span class="f">track</span>(<span class="n">5.0</span>))
 x = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = (x - target) * (x - target)

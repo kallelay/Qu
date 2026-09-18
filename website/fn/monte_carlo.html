@@ -46,11 +46,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
+<div class="example"><pre class="hl"><code><span class="f">sample</span>() := <span class="f">randn</span>()
 draws = <span class="f">monte_carlo</span>(<span class="s">"sample"</span>, <span class="n">10000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"mean = {mean(draws)}, std = {std(draws)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mean = 0.001862, std = 1.008776</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>monte_carlo(f, n, [seed=])</code> — repeatedly calls the zero-argument user function <code>f</code> (typically drawing its own randomness via <code>randn</code>/<code>rand</code>) <code>n</code> times and collects every result into a vector — the general pattern most Monte Carlo simulations need, without prescribing what <code>f</code> computes.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

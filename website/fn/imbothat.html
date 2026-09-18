@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
+<div class="example"><pre class="hl"><code>m = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
 img = <span class="f">image_from_matrix</span>(m)
 <span class="f">imshow</span>(img)
 
@@ -58,12 +58,7 @@ dark = <span class="f">imbothat</span>(img, <span class="n">1</span>)           
 <span class="f">imshow</span>(opened)
 <span class="f">print</span>(eroded.width, dilated.width, opened.width, closed.width, bright.width, dark.width)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>6 6 6 6 6 6</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<image x="244.61" y="48.00" width="480.84" height="480.84" href="data:image/bmp;base64,Qk2uAAAAAAAAADYAAAAoAAAABgAAAAYAAAABABgAAAAAAHgAAAATCwAAEwsAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAD///////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" preserveAspectRatio="none"/>
-<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
-</svg></figure></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>imtophat(img, radius)</code> (original minus opening — extracts small bright features / corrects a slowly-varying bright background; the primary foreground/background separation mechanism beyond a plain threshold) / <code>imbothat(img, radius)</code> (closing minus original — the dark-feature dual).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

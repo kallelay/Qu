@@ -109,71 +109,71 @@ df = <span class="f">table</span>(<span class="a">price</span> = [<span class="n
 <h4>Overloads: <code>abs</code></h4>
 <h4>Case: scalar</h4>
 <p><code>x</code> a real number. Returns a <code>Num</code>, the standard real absolute value.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(-<span class="n">5</span>))   <span class="c"># 5</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(-<span class="n">5</span>))   <span class="c"># 5</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5</pre></div></div>
+</div>
 <h4>Case: vector</h4>
 <p><code>x</code> a <code>Vec</code>. Returns a <code>Vec</code> of the same length, <code>abs</code> applied elementwise.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [2, 0.5, 0.5, 2]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [2, 0.5, 0.5, 2]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[2, 0.5, 0.5, 2]</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value (the <code>i</code>/<code>j</code>-suffix literal). Returns a real <code>Num</code> — the magnitude <code>sqrt(re^2 + im^2)</code>, not either component alone — the case that most often surprises newcomers.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 5 — magnitude, not the real part</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">abs</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 5 — magnitude, not the real part</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5</pre></div></div>
+</div>
 <h4>Overloads: <code>angle</code></h4>
 <h4>Case: real</h4>
 <p><code>x</code> a signed real number (scalar, <code>Vec</code>, or <code>Mat</code>). Degrades to <code>0</code> for a non-negative value or <code>π</code> for a negative one — there is no real angle to compute, so this is a convention, not a measurement.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"angle(5)={angle(5)}  angle(-5)={angle(-5)}"</span>)
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"angle(5)={angle(5)}  angle(-5)={angle(-5)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>angle(5)=0  angle(-5)=3.141593</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Returns the true angle from the positive real axis, <code>atan2(im, re)</code>, in radians.</p>
-<div class="example hasout"><pre class="hl"><code>z = <span class="n">3</span> + <span class="n">4j</span>
+<div class="example"><pre class="hl"><code>z = <span class="n">3</span> + <span class="n">4j</span>
 <span class="f">print</span>(<span class="f">angle</span>(z))   <span class="c"># 0.927295</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>0.927295</pre></div></div>
+</div>
 <h4>Overloads: <code>re</code></h4>
 <h4>Case: real</h4>
 <p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Identity — passed through unchanged.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">5</span>))   <span class="c"># 5</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">5</span>))   <span class="c"># 5</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Returns just the real component, discarding the imaginary part.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">re</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3</pre></div></div>
+</div>
 <h4>Overloads: <code>im</code></h4>
 <h4>Case: real</h4>
 <p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Always <code>0</code>, since a real value has no imaginary part.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">5</span>))   <span class="c"># 0</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">5</span>))   <span class="c"># 0</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>0</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Returns just the imaginary component.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 4</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">im</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 4</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>4</pre></div></div>
+</div>
 <h4>Overloads: <code>conj</code></h4>
 <h4>Case: real</h4>
 <p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>. Identity — passed through unchanged, since conjugation is a no-op on a value with no imaginary part.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">5</span>))   <span class="c"># 5</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">5</span>))   <span class="c"># 5</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Negates the imaginary part, leaving the real part alone.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3 - 4i</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3 - 4i</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3 - 4i</pre></div></div>
+</div>
 <h4><code>sign</code>'s exact-zero case</h4>
 <p><code>sign</code> has its own exact-zero edge case worth seeing separately: it returns <code>+1</code>, never <code>0</code>, per Rust's <code>f64::signum</code>.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sign</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [-1, -1, 1, 1] — sign(0) would be +1, never 0</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sign</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [-1, -1, 1, 1] — sign(0) would be +1, never 0</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[-1, -1, 1, 1]</pre></div></div>
+</div>
 <p>The remaining functions in this table — the rest of the trig and inverse-trig family, the hyperbolic functions, the log family, the complex-component accessors (<code>arg</code>/<code>phase</code>/<code>re</code>/<code>im</code>/<code>conj</code>), and <code>ceil</code> — all follow the exact same elementwise pattern already shown above: one function in, one value of the same shape out, with only the domain notes already given in the table above to keep in mind. The example below runs each of them once on a scalar (or, for the complex ones, a single complex literal) so their actual return values are visible side by side.</p>
-<div class="example hasout"><pre class="hl"><code>x = <span class="n">0.5</span>
+<div class="example"><pre class="hl"><code>x = <span class="n">0.5</span>
 <span class="f">print</span>(<span class="s">"tan={tan(x)}  asin={asin(x)}  acos={acos(x)}  atan={atan(x)}"</span>)
 <span class="f">print</span>(<span class="s">"sinh={sinh(x)}  cosh={cosh(x)}  tanh={tanh(x)}"</span>)
 <span class="f">print</span>(<span class="s">"ln(e^2)={ln(exp(2))}  log(e^2)={log(exp(2))}  log2(8)={log2(8)}"</span>)
@@ -183,11 +183,7 @@ z = <span class="n">3</span> + <span class="n">4j</span>
 
 <span class="f">print</span>(<span class="f">ceil</span>(<span class="n">2.1</span>))   <span class="c"># 3</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>tan=0.546302  asin=0.523599  acos=1.047198  atan=0.463648
-sinh=0.521095  cosh=1.127626  tanh=0.462117
-ln(e^2)=2  log(e^2)=2  log2(8)=3
-arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4i
-3</pre></div></div>
+</div>
 <h2 id="s65">Reductions &amp; Descriptive Statistics</h2>
 <p>Basic order-statistic and spread reductions. <code>corr</code>, <code>cov</code>, <code>mode</code>, <code>skewness</code>, and <code>kurtosis</code> are documented in <a href="statistics-ml.html">Statistics &amp; Machine Learning</a>. Several of the pure reductions below (<code>sum</code>, <code>prod</code>, <code>mean</code>, <code>std</code>, <code>var</code>, <code>max</code>, <code>min</code>, <code>argmax</code>, <code>argmin</code>, <code>median</code>, <code>quantile</code>) additionally accept an <code>axis=</code> keyword when <code>x</code> is a <code>Mat</code>: <code>axis=0</code> collapses each column to one number (a length-<code>cols</code> <code>Vec</code>), <code>axis=1</code> collapses each row (a length-<code>rows</code> <code>Vec</code>), instead of flattening the whole matrix to a single scalar.</p>
 <p><code>mean</code>, <code>min</code>, <code>max</code>, <code>sum</code>, <code>std</code>, <code>var</code>, <code>median</code>, <code>quantile</code>, <code>argmin</code>, and <code>argmax</code> also accept <code>on_invalid=</code> — R's <code>na.rm=</code> for a NaN or Infinity in the input, extended to cover Inf too: <code>on_invalid="propagate"</code> (the default, unchanged from before this keyword existed) lets a NaN/Inf flow through untouched; <code>on_invalid="ignore"</code> drops every NaN/Inf element before reducing (for <code>mean</code>/<code>std</code>/<code>var</code> this also shrinks the <code>n</code> the average/variance divides by, since it is computed over the already- filtered values; for <code>argmin</code>/<code>argmax</code> the returned index still refers to the position in the ORIGINAL, unfiltered <code>x</code>); <code>on_invalid="error"</code> raises instead of silently returning a NaN/Inf result, naming what was found and at what index. On a <code>Mat</code> under <code>axis=</code>, <code>"ignore"</code> drops NaN/Inf independently within each row/column, not across the whole matrix.</p>
@@ -220,56 +216,49 @@ arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4i
 <h4>Overloads: <code>sum</code></h4>
 <h4>Case: real</h4>
 <p><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>. Returns a real scalar <code>Num</code>.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># 6</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># 6</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>6</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>CVec</code> or <code>CMat</code>. Returns a <code>Complex</code> scalar instead of a <code>Num</code> — the one reduction in this table that changes its own return *type* based on its input, rather than just its shape.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span> + <span class="n">2j</span>]))   <span class="c"># 3 + 3i</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span> + <span class="n">2j</span>]))   <span class="c"># 3 + 3i</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3 + 3i</pre></div></div>
+</div>
 <h4>Overloads: <code>max</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it returns</td></tr>
 <tr><td><code>max(x)</code></td><td>Largest element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened) — a single scalar <code>Num</code>.</td></tr>
 <tr><td><code>max(a, b)</code></td><td>Elementwise max of <code>a</code> and <code>b</code> (matching or broadcastable shapes) — the "clip" idiom, e.g. <code>max(x, 0)</code>. Returns the broadcast shape, not a scalar.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 5 -- one-argument reduction</span>
 <span class="f">print</span>(<span class="f">max</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [4, 5, 4] -- two-argument elementwise clip</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-[4, 5, 4]</pre></div></div>
+</div>
 <h4>Overloads: <code>min</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it returns</td></tr>
 <tr><td><code>min(x)</code></td><td>Smallest element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened) — a single scalar <code>Num</code>.</td></tr>
 <tr><td><code>min(a, b)</code></td><td>Elementwise min of <code>a</code> and <code>b</code> (matching or broadcastable shapes) — the same "clip" idiom as <code>max</code>, from the other side.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">min</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 1 -- one-argument reduction</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">min</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>]))      <span class="c"># 1 -- one-argument reduction</span>
 <span class="f">print</span>(<span class="f">min</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">3</span>], <span class="n">4</span>))   <span class="c"># [1, 4, 3] -- two-argument elementwise clip</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1
-[1, 4, 3]</pre></div></div>
+</div>
 <p>The next example runs the everyday descriptive-statistics toolkit — <code>mean</code>, <code>std</code>, <code>iqr</code>, and <code>percentile</code> — over a batch of 1000 standard-normal draws from <code>randn</code>, the kind of quick numeric summary a script reaches for before deciding whether a distribution looks the way it should. <code>percentile(x, 95)</code> is included specifically to show the 0-100 scale, as opposed to <code>quantile</code>'s 0-1 scale for the same computation.</p>
-<div class="example hasout"><pre class="hl"><code>samples = <span class="f">randn</span>(<span class="n">1000</span>, <span class="n">1</span>)
+<div class="example"><pre class="hl"><code>samples = <span class="f">randn</span>(<span class="n">1000</span>, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"mean={mean(samples)}  std={std(samples)}  iqr={iqr(samples)}"</span>)
 <span class="f">print</span>(<span class="s">"p95={percentile(samples, 95)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mean=0.012612  std=1.005695  iqr=1.356399
-p95=1.671269</pre></div></div>
+</div>
 <p>The second batch below covers the functions that don't fit neatly into the first example: <code>prod</code> (multiplicative reduction), the whole <code>arg*</code> index family (<code>argmedian</code>, <code>argquantile</code>, <code>argmean</code> — each returning a *position* into the data rather than a value), <code>clamp</code>'s three-argument clipping, and the <code>var</code>/<code>std</code> relationship (<code>var</code> is always <code>std</code> squared, which the last line checks directly), plus <code>lse</code> as the numerically stable form of <code>log(sum(exp(x)))</code>.</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">5.0</span>, <span class="n">3.0</span>, <span class="n">8.0</span>, <span class="n">1.0</span>, <span class="n">9.0</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">5.0</span>, <span class="n">3.0</span>, <span class="n">8.0</span>, <span class="n">1.0</span>, <span class="n">9.0</span>]
 <span class="f">print</span>(<span class="s">"prod={prod(v)}"</span>)
 <span class="f">print</span>(<span class="s">"argmedian={argmedian(v)}  argquantile(0.9)={argquantile(v, 0.9)}  argmean={argmean(v)}"</span>)
 <span class="f">print</span>(<span class="s">"clamp={clamp([-5, 0, 5, 10], 0, 5)}"</span>)
 <span class="f">print</span>(<span class="s">"var={var(v)}  std^2={std(v)^2}"</span>)
 <span class="f">print</span>(<span class="s">"lse={lse(v)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>prod=1080
-argmedian=0  argquantile(0.9)=4  argmean=0
-clamp=[0, 0, 5, 5]
-var=11.2  std^2=11.2
-lse=9.328591</pre></div></div>
+</div>
 <h2 id="s123">Shape, Construction &amp; Introspection</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -290,29 +279,27 @@ lse=9.328591</pre></div></div>
 <tr><td><code>zeros(r, c)</code></td><td>An <code>r×c</code> <code>Mat</code> of zeros — even <code>zeros(n, 1)</code> stays a genuine oriented matrix, distinct from <code>zeros(n)</code>.</td></tr>
 <tr><td><code>zeros(filt)</code></td><td><code>filt</code> a <code>"filter"</code> model (from <code>butter</code>/<code>fir1</code>/etc.), not a count at all — dispatch here is by argument *type*, not count. Returns that filter's zeros as a <code>CVec</code>.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
 <span class="f">print</span>(<span class="f">zeros</span>(<span class="n">2</span>, <span class="n">3</span>))                           <span class="c"># [0, 0, 0; 0, 0, 0]</span>
 filt = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, <span class="n">1000</span>)
 <span class="f">print</span>(<span class="f">zeros</span>(filt))                           <span class="c"># [-1, -1, -1, -1] -- a CVec, not a fresh zero-fill</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 0, 0]
-[0, 0, 0; 0, 0, 0]
-[-1, -1, -1, -1]</pre></div></div>
+</div>
 <h4>Overloads: <code>reshape</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What happens</td></tr>
 <tr><td><code>reshape(x, r, c)</code> where <code>x</code> is a scalar, <code>Vec</code>, or a <code>Mat</code> with one dimension equal to <code>1</code></td><td>A genuine element relayout (column-major) into the new <code>r×c</code> shape.</td></tr>
 <tr><td><code>reshape(x, r, c)</code> where <code>x</code> is a <code>Mat</code> with more than one row <strong>and</strong> more than one column</td><td><strong>Not a relayout.</strong> Falls through to a broadcast check instead and errors unless the two shapes are broadcast-compatible — a real, confirmed engine limitation, not a documentation simplification.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 3, 5; 2, 4, 6]</pre></div></div>
+</div>
 <p><code>reshape(A, 3, 2)</code> on the general <code>2×3</code> matrix <code>A = [1, 2, 3; 4, 5, 6]</code> from the earlier example, by contrast, does not relayout the data — it hits the broadcast check and errors:</p>
 <pre><code><span class="e">qu: runtime error: shapes (2x3) and (3x2) do not broadcast (each axis must match or be 1)</span>
 </code></pre>
 <p>The example below builds a small matrix and reads its shape back with <code>size</code>/<code>numel</code>, constructs identity matrices with both spellings (<code>eye</code>/<code>identity</code>), and shows the two <code>cat</code> orientations side by side — <code>dim=1</code> stacks the two vectors as new rows, <code>dim=2</code> lays them end to end as one longer row — the same distinction <code>vstack</code>/<code>hstack</code> make under more MATLAB-flavored names.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"size={size(A)}  numel={numel(A)}"</span>)
 <span class="f">print</span>(<span class="f">eye</span>(<span class="n">3</span>))
 <span class="f">print</span>(<span class="f">identity</span>(<span class="n">2</span>))
@@ -321,15 +308,11 @@ q = [<span class="n">3</span>, <span class="n">4</span>]
 <span class="f">print</span>(<span class="f">cat</span>(<span class="n">1</span>, p, q))   <span class="c"># vertical: stacks rows</span>
 <span class="f">print</span>(<span class="f">cat</span>(<span class="n">2</span>, p, q))   <span class="c"># horizontal: concatenates</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>size=[2, 3]  numel=6
-[1, 0, 0; 0, 1, 0; 0, 0, 1]
-[1, 0; 0, 1]
-[1, 2; 3, 4]
-[1, 2, 3, 4]</pre></div></div>
+</div>
 <h3><code>-&gt;</code> reshape operator</h3>
 <p><code>expr -&gt; (rows, cols)</code> is sugar for <code>reshape(expr, rows, cols)</code> — rewritten to that exact call at parse time (no separate evaluation path, so results are always identical to calling <code>reshape</code> directly). Scoped to the 2-argument form only (matching <code>reshape</code>'s own signature); there is no 1-argument <code>-&gt; n</code> shorthand. Because <code>reshape</code> itself only truly relays out data for a vector-like source (see the <code>reshape</code> row above), chaining two reshapes only works when the intermediate shape keeps one dimension equal to <code>1</code> — reshaping a genuinely two-dimensional intermediate result into yet another two-dimensional shape hits the same broadcast-only limitation and errors.</p>
 <p>Precedence: <code>-&gt;</code> sits *above* <code>|&gt;</code> (pipe) but *below* <code>as</code>/<code>??</code>/the ternary <code>? :</code> — it takes the <strong>entire</strong> preceding pipe/arithmetic expression as its value operand, not just the nearest operand:</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 m = v -&gt; (<span class="n">2</span>, <span class="n">3</span>)                  <span class="c"># same as reshape(v, 2, 3)</span>
 <span class="f">print</span>(m)
 mp = df.price -&gt; (n, <span class="n">1</span>)          <span class="c"># field access resolves first: (df.price) -&gt; (n, 1)</span>
@@ -341,11 +324,7 @@ r2 = x |&gt; normalize -&gt; (r, c)    <span class="c"># reshapes the PIPED RESU
 chained = v -&gt; (<span class="n">6</span>, <span class="n">1</span>) -&gt; (<span class="n">2</span>, <span class="n">3</span>)  <span class="c"># left-associative: reshape twice, via an intermediate column shape</span>
 <span class="f">print</span>(chained)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 3, 5; 2, 4, 6]
-[10; 12.5; 9.75; 14]
-[3.512478, 2.311214, -0.06689, 1.375279; -3.006714, 1.368403, -1.154908, -1.612839; -1.413089, 0.622247, -0.150671, -0.127341]
-[0, 0, 0, 0; 0, 0, 0, 0; 0, 0, 0, 0]
-[1, 3, 5; 2, 4, 6]</pre></div></div>
+</div>
 <h2 id="s182">Rearranging Arrays</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -356,32 +335,30 @@ chained = v -&gt; (<span class="n">6</span>, <span class="n">1</span>) -&gt; (<s
 <tr><td><code>rot90</code></td><td><code>rot90(A, k=1)</code></td><td>Rotates <code>A</code> (a <code>Mat</code>, or anything coercible to one) 90°×<code>k</code> counterclockwise; <code>k</code> is an optional scalar defaulting to <code>1</code>, may be negative for clockwise rotation, and is taken mod 4. An <code>r×c</code> input becomes <code>c×r</code> after an odd number of quarter-turns, or stays <code>r×c</code> after an even number. Returns a <code>Mat</code>.</td></tr>
 </table></div>
 <p>The example below runs the identity operation <code>val</code> on a plain number (to show it really is just a pass-through today), transposes a small matrix, and reverses a vector with <code>mirror</code> — the three "rearrange, don't recompute" operations in this table that are easiest to check by eye.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 x = <span class="n">5</span>
 <span class="f">print</span>(<span class="s">"val={val(x)}"</span>)
 <span class="f">print</span>(<span class="f">transpose</span>(A))
 <span class="f">print</span>(<span class="s">"mirror={mirror([1, 2, 3])}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>val=5
-[1, 4; 2, 5; 3, 6]
-mirror=[3, 2, 1]</pre></div></div>
+</div>
 <h4>Overloads: <code>flip</code></h4>
 <h4>Case: Str</h4>
 <p><code>A</code> a <code>Str</code>. Every spelling (<code>flip</code>, <code>flipud</code>, <code>fliplr</code>, <code>mirror</code>) reverses character order the same way, regardless of <code>dim</code> — a string has no row/ column orientation to pick between.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>(<span class="s">"hello"</span>))   <span class="c"># olleh</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>(<span class="s">"hello"</span>))   <span class="c"># olleh</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>olleh</pre></div></div>
+</div>
 <h4>Case: Vec</h4>
 <p><code>A</code> a plain <code>Vec</code>, which likewise has no row/column orientation. Both directions just reverse element order, so <code>dim</code> makes no difference here either.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [3, 2, 1]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">flip</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [3, 2, 1]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[3, 2, 1]</pre></div></div>
+</div>
 <h4>Case: Mat</h4>
 <p><code>A</code> an <code>r×c</code> <code>Mat</code> (or <code>Image</code>). Here <code>dim</code> genuinely matters: <code>1</code> reverses row order (top-to-bottom), <code>2</code> reverses column order (left-to-right).</p>
-<div class="example hasout"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
 <span class="f">print</span>(<span class="f">flip</span>(M, <span class="n">1</span>))   <span class="c"># [3, 4; 1, 2] -- rows reversed</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[3, 4; 1, 2]</pre></div></div>
+</div>
 <h2 id="s220">Selection</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -394,29 +371,27 @@ mirror=[3, 2, 1]</pre></div></div>
 <tr><td><code>where(mask)</code></td><td>Indices where the boolean <code>mask</code> (a <code>Vec</code>/<code>Mat</code>) is true, as a <code>Vec</code> — the 1-argument form.</td></tr>
 <tr><td><code>where(cond, a, b)</code></td><td>Elementwise selection: <code>a</code> where <code>cond</code> is true, <code>b</code> otherwise (NumPy's <code>where(cond, a, b)</code>) — the 3-argument form, returning <code>cond</code>'s shape rather than a list of indices.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
 <span class="f">print</span>(<span class="f">where</span>(mask))          <span class="c"># [0, 2] -- indices, 1-argument form</span>
 <span class="f">print</span>(<span class="f">where</span>(mask, <span class="n">1</span>, <span class="n">0</span>))    <span class="c"># [1, 0, 1] -- elementwise pick, 3-argument form</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 2]
-[1, 0, 1]</pre></div></div>
+</div>
 <h4>Overloads: <code>find</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it returns</td></tr>
 <tr><td><code>find(mask)</code></td><td>Identical to <code>where(mask)</code> — the indices where a boolean <code>Vec</code>/<code>Mat</code> is true.</td></tr>
 <tr><td><code>find(collection, fnName)</code></td><td><code>collection</code> (any indexable/iterable value) and <code>fnName</code> (a <code>Str</code> naming an already-defined one-argument predicate) — returns the *first element* of <code>collection</code> for which that predicate is truthy, not an index.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
+<div class="example"><pre class="hl"><code>mask = [<span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>]
 <span class="f">print</span>(<span class="f">find</span>(mask))                 <span class="c"># [0, 2] -- same as where(mask)</span>
 
 <span class="f">is_even</span>(n) := n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
 xs = [<span class="n">1</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">find</span>(xs, <span class="s">"is_even"</span>))        <span class="c"># 4 -- first element, not an index</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 2]
-4</pre></div></div>
+</div>
 <p>The example below builds a small vector, zeroes out its negative entries with a boolean-mask assignment, then uses <code>where</code> to find which (now non-negative) entries exceed a threshold and pulls just those values back out with <code>x[idx]</code> — the round trip of "get the indices, then use them to index back into the data" that <code>where</code> exists for.</p>
-<div class="example hasout"><pre class="hl"><code>x = [-<span class="n">2</span>, <span class="n">0.5</span>, <span class="n">4</span>, -<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>]
+<div class="example"><pre class="hl"><code>x = [-<span class="n">2</span>, <span class="n">0.5</span>, <span class="n">4</span>, -<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>]
 x[x &lt; <span class="n">0</span>] = <span class="n">0</span>
 <span class="f">print</span>(x)              <span class="c"># [0, 0.5, 4, 0, 5, 2]</span>
 idx := where x &gt; <span class="n">3</span>
@@ -424,93 +399,13 @@ idx := where x &gt; <span class="n">3</span>
 <span class="f">print</span>(x[idx])          <span class="c"># [4, 5] -- the entries themselves</span>
 <span class="f">plot</span>(x[idx], <span class="s">"x"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 0.5, 4, 0, 5, 2]
-[2, 4]
-[4, 5]
-· plot: figure 1 (2 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<line x1="104.06" y1="506.99" x2="866.00" y2="506.99" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="506.99" x2="104.06" y2="506.99" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="512.66" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.00</text>
-<line x1="104.06" y1="463.27" x2="866.00" y2="463.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="463.27" x2="104.06" y2="463.27" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="468.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.10</text>
-<line x1="104.06" y1="419.56" x2="866.00" y2="419.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="419.56" x2="104.06" y2="419.56" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="425.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.20</text>
-<line x1="104.06" y1="375.85" x2="866.00" y2="375.85" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="375.85" x2="104.06" y2="375.85" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="381.52" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.30</text>
-<line x1="104.06" y1="332.13" x2="866.00" y2="332.13" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="332.13" x2="104.06" y2="332.13" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="337.80" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.40</text>
-<line x1="104.06" y1="288.42" x2="866.00" y2="288.42" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="288.42" x2="104.06" y2="288.42" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="294.09" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.50</text>
-<line x1="104.06" y1="244.71" x2="866.00" y2="244.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="244.71" x2="104.06" y2="244.71" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="250.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.60</text>
-<line x1="104.06" y1="201.00" x2="866.00" y2="201.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="201.00" x2="104.06" y2="201.00" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="206.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.70</text>
-<line x1="104.06" y1="157.28" x2="866.00" y2="157.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="157.28" x2="104.06" y2="157.28" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="162.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.80</text>
-<line x1="104.06" y1="113.57" x2="866.00" y2="113.57" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="113.57" x2="104.06" y2="113.57" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="119.24" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.90</text>
-<line x1="104.06" y1="69.86" x2="866.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="69.86" x2="104.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">5.00</text>
-<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
-<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
-<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
-<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
-<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
-<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
-<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
-<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
-<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
-<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
-<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
-<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
-<path d="M99.63 502.56 L108.49 511.42 M108.49 502.56 L99.63 511.42" stroke="#ff0000" stroke-width="1.4"/>
-<path d="M825.29 65.43 L834.15 74.29 M834.15 65.43 L825.29 74.29" stroke="#ff0000" stroke-width="1.4"/>
-</g>
-</svg></figure></div>
+</div>
 <p><code>find</code>'s two-argument form searches by a named predicate instead of a mask — useful when the condition isn't a simple elementwise comparison but a small function of its own. The example below defines <code>is_even</code> as an ordinary one-argument Qu function, then hands its *name* (as a string) to <code>find</code> to get back the first element of <code>xs</code> that satisfies it.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">is_even</span>(n) := n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
+<div class="example"><pre class="hl"><code><span class="f">is_even</span>(n) := n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
 xs = [<span class="n">1</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="f">find</span>(xs, <span class="s">"is_even"</span>))   <span class="c"># 4 -- first element for which is_even is true</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>4</pre></div></div>
+</div>
 <h2 id="s249">Matrix Algebra &amp; Decompositions</h2>
 <p>Decompositions that return more than one related result (<code>svd</code>, <code>qr</code>, <code>lu</code>, <code>eig</code>) come back as a <code>Value::Model</code> handle with named fields — the same convention the fitted-model protocol uses (see <a href="statistics-ml.html">Statistics &amp; Machine Learning</a>) — rather than a tuple, since Qu has no multi-return values.</p>
 <div class="tablewrap"><table>
@@ -533,7 +428,7 @@ xs = [<span class="n">1</span>, <span class="n">3</span>, <span class="n">4</spa
 </table></div>
 <p>Unlike <code>pinv</code>/<code>inv</code>/<code>det</code>/<code>svd</code>, <code>matmul</code> does not accept a <code>CMat</code> — calling it on a complex matrix errors with "cannot use complex matrix as a matrix" rather than producing a complex product; there is no complex overload to reach for here.</p>
 <p>One convention worth knowing before the example: a bracket literal like <code>[1, 1, 0, 0]</code> is a <strong>column</strong> vector (<code>4×1</code>) in Qu, the opposite of MATLAB's row-vector default for the same syntax — reshape with <code>-&gt; (1, n)</code> to get a row. The example below builds the row/column pair, multiplies them one way to get the <code>1×1</code> inner product (the dot product), then the other way to get the <code>4×4</code> outer product — the same progression MATLAB's own <code>mtimes</code> documentation uses, and the same two numbers it gets — before moving on to two same-shape square matrices multiplied via both names <code>matmul</code>/<code>mtimes</code> are known by.</p>
-<div class="example hasout"><pre class="hl"><code>row = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>] -&gt; (<span class="n">1</span>, <span class="n">4</span>)
+<div class="example"><pre class="hl"><code>row = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>] -&gt; (<span class="n">1</span>, <span class="n">4</span>)
 col = [<span class="n">1</span>; <span class="n">2</span>; <span class="n">3</span>; <span class="n">4</span>]
 <span class="f">print</span>(<span class="f">matmul</span>(row, col))    <span class="c"># 3 — inner product (dot product) of the two</span>
 <span class="f">print</span>(<span class="f">matmul</span>(col, row))    <span class="c"># 4x4 outer product: [1,1,0,0; 2,2,0,0; 3,3,0,0; 4,4,0,0]</span>
@@ -543,24 +438,20 @@ B = [<span class="n">5</span>, <span class="n">6</span>; <span class="n">7</span
 <span class="f">print</span>(<span class="f">matmul</span>(A, B))
 <span class="f">print</span>(<span class="f">mtimes</span>(A, B))   <span class="c"># matmul and mtimes are the same builtin under two names</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3
-[1, 1, 0, 0; 2, 2, 0, 0; 3, 3, 0, 0; 4, 4, 0, 0]
-[19, 22; 43, 50]
-[19, 22; 43, 50]</pre></div></div>
+</div>
 <p><code>gpu_matmul(A, B)</code> has the same signature and result as <code>matmul</code>, but only runs in a build compiled with <code>--features gpu</code> (and dispatches to a real GPU device at runtime); a normal build errors clearly if called.</p>
 <p>The next example demonstrates two of the heavier decompositions: <code>chol</code>, which factors a symmetric positive-definite matrix into a lower-triangular square root (useful for generating correlated random samples or solving normal equations efficiently), and <code>svd</code>, whose singular values summarize how well- or ill-conditioned a matrix is. Multiplying the Cholesky factor by its own conjugate transpose should reproduce the original matrix exactly, which is the cheapest possible sanity check on the factorization.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
 L = <span class="f">chol</span>(A)
 <span class="f">print</span>(L * L.<span class="f">ctranspose</span>())   <span class="c"># reproduces A</span>
 
 r = <span class="f">svd</span>(A)
 <span class="f">print</span>(r.s)   <span class="c"># singular values</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[4, 1; 1, 3]
-[4.618034, 2.381966]</pre></div></div>
+</div>
 <h3>Seeing what a matrix does</h3>
 <p><code>cond(A)</code> is a number, and a number is hard to have intuition about. It is the ratio of the longest to the shortest axis of the ellipse <code>A</code> turns the unit circle into, so it can just be drawn:</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">3</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">3</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"cond(A) = {round(cond(A), 3)}"</span>)
 
 angles = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">2</span> * pi, <span class="n">200</span>)
@@ -579,98 +470,23 @@ out_y = <span class="f">zeros</span>(<span class="n">200</span>)
 <span class="f">legend</span>()
 <span class="f">title</span>(<span class="s">"what a 2x2 matrix does to a circle"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>cond(A) = 1.939
-· plot: figure 2 (200 points)
-· plot: figure 3 (200 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<line x1="104.06" y1="498.30" x2="866.00" y2="498.30" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="498.30" x2="104.06" y2="498.30" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="503.97" font-size="16.2" text-anchor="end" fill="#4d4d4d">-3</text>
-<line x1="104.06" y1="444.74" x2="866.00" y2="444.74" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="444.74" x2="104.06" y2="444.74" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="450.41" font-size="16.2" text-anchor="end" fill="#4d4d4d">-2</text>
-<line x1="104.06" y1="391.19" x2="866.00" y2="391.19" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="391.19" x2="104.06" y2="391.19" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="396.86" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1</text>
-<line x1="104.06" y1="337.63" x2="866.00" y2="337.63" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="337.63" x2="104.06" y2="337.63" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="343.30" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
-<line x1="104.06" y1="284.08" x2="866.00" y2="284.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="284.08" x2="104.06" y2="284.08" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="289.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">1</text>
-<line x1="104.06" y1="230.52" x2="866.00" y2="230.52" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="230.52" x2="104.06" y2="230.52" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="236.19" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
-<line x1="104.06" y1="176.97" x2="866.00" y2="176.97" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="176.97" x2="104.06" y2="176.97" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="182.64" font-size="16.2" text-anchor="end" fill="#4d4d4d">3</text>
-<line x1="104.06" y1="123.41" x2="866.00" y2="123.41" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="123.41" x2="104.06" y2="123.41" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="129.08" font-size="16.2" text-anchor="end" fill="#4d4d4d">4</text>
-<line x1="104.06" y1="69.86" x2="866.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="69.86" x2="104.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
-<line x1="149.03" y1="48.00" x2="149.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="149.03" y1="528.84" x2="149.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="149.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-4</text>
-<line x1="233.03" y1="48.00" x2="233.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="233.03" y1="528.84" x2="233.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="233.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-3</text>
-<line x1="317.03" y1="48.00" x2="317.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="317.03" y1="528.84" x2="317.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="317.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-2</text>
-<line x1="401.03" y1="48.00" x2="401.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="401.03" y1="528.84" x2="401.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="401.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-1</text>
-<line x1="485.03" y1="48.00" x2="485.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="485.03" y1="528.84" x2="485.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="485.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
-<line x1="569.03" y1="48.00" x2="569.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="569.03" y1="528.84" x2="569.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="569.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1</text>
-<line x1="653.03" y1="48.00" x2="653.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="653.03" y1="528.84" x2="653.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="653.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
-<line x1="737.03" y1="48.00" x2="737.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="737.03" y1="528.84" x2="737.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="737.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">3</text>
-<line x1="821.04" y1="48.00" x2="821.04" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="821.04" y1="528.84" x2="821.04" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="821.04" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
-<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
-<path d="M480.60 118.98 L489.46 127.84 M489.46 118.98 L480.60 127.84" stroke="#ff0000" stroke-width="1.4"/>
-<path d="M564.60 65.43 L573.46 74.29 M573.46 65.43 L564.60 74.29" stroke="#ff0000" stroke-width="1.4"/>
-<polyline points="569.03,337.63 568.99,335.94 568.86,334.25 568.66,332.57 568.36,330.89 567.99,329.21 567.53,327.55 566.99,325.89 566.37,324.25 565.66,322.62 564.88,321.00 564.02,319.40 563.07,317.82 562.05,316.26 560.96,314.72 559.79,313.21 558.54,311.71 557.22,310.25 555.83,308.81 554.36,307.40 552.83,306.02 551.23,304.67 549.57,303.35 547.84,302.07 546.05,300.82 544.19,299.61 542.28,298.44 540.31,297.31 538.29,296.22 536.21,295.17 534.08,294.16 531.91,293.19 529.68,292.27 527.41,291.39 525.10,290.56 522.75,289.78 520.36,289.04 517.94,288.36 515.48,287.72 513.00,287.13 510.48,286.59 507.94,286.11 505.38,285.67 502.80,285.29 500.20,284.96 497.58,284.68 494.95,284.45 492.31,284.28 489.67,284.16 487.02,284.09 484.37,284.08 481.72,284.12 479.07,284.21 476.43,284.36 473.79,284.56 471.17,284.81 468.56,285.12 465.97,285.47 463.40,285.88 460.84,286.34 458.32,286.86 455.82,287.42 453.34,288.03 450.90,288.70 448.50,289.41 446.13,290.17 443.80,290.97 441.51,291.83 439.26,292.72 437.06,293.67 434.91,294.66 432.80,295.69 430.75,296.76 428.76,297.87 426.82,299.02 424.93,300.21 423.11,301.44 421.35,302.71 419.65,304.01 418.02,305.34 416.45,306.70 414.96,308.10 413.53,309.52 412.17,310.98 410.89,312.46 409.68,313.96 408.55,315.49 407.49,317.04 406.51,318.61 405.60,320.20 404.78,321.81 404.04,323.43 403.37,325.07 402.79,326.72 402.29,328.38 401.88,330.05 401.54,331.73 401.29,333.41 401.12,335.10 401.04,336.79 401.04,338.48 401.12,340.17 401.29,341.85 401.54,343.54 401.88,345.22 402.29,346.89 402.79,348.55 403.37,350.20 404.04,351.83 404.78,353.46 405.60,355.06 406.51,356.65 407.49,358.22 408.55,359.77 409.68,361.30 410.89,362.81 412.17,364.29 413.53,365.74 414.96,367.17 416.45,368.56 418.02,369.93 419.65,371.26 421.35,372.56 423.11,373.82 424.93,375.05 426.82,376.24 428.76,377.39 430.75,378.51 432.80,379.58 434.91,380.61 437.06,381.60 439.26,382.54 441.51,383.44 443.80,384.29 446.13,385.10 448.50,385.86 450.90,386.57 453.34,387.23 455.82,387.84 458.32,388.41 460.84,388.92 463.40,389.38 465.97,389.79 468.56,390.15 471.17,390.45 473.79,390.71 476.43,390.90 479.07,391.05 481.72,391.14 484.37,391.19 487.02,391.17 489.67,391.10 492.31,390.98 494.95,390.81 497.58,390.59 500.20,390.31 502.80,389.98 505.38,389.59 507.94,389.16 510.48,388.67 513.00,388.13 515.48,387.54 517.94,386.91 520.36,386.22 522.75,385.48 525.10,384.70 527.41,383.87 529.68,382.99 531.91,382.07 534.08,381.11 536.21,380.10 538.29,379.05 540.31,377.95 542.28,376.82 544.19,375.65 546.05,374.44 547.84,373.19 549.57,371.91 551.23,370.60 552.83,369.25 554.36,367.87 555.83,366.46 557.22,365.02 558.54,363.55 559.79,362.06 560.96,360.54 562.05,359.00 563.07,357.44 564.02,355.86 564.88,354.26 565.66,352.65 566.37,351.02 566.99,349.37 567.53,347.72 567.99,346.05 568.36,344.38 568.66,342.70 568.86,341.01 568.99,339.32 569.03,337.63" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
-<polyline points="821.04,284.08 823.52,279.03 825.67,274.04 827.47,269.12 828.94,264.27 830.06,259.48 830.84,254.78 831.28,250.16 831.37,245.62 831.11,241.18 830.51,236.83 829.56,232.59 828.28,228.45 826.65,224.41 824.67,220.50 822.36,216.69 819.72,213.01 816.74,209.45 813.43,206.02 809.79,202.72 805.83,199.56 801.55,196.53 796.95,193.64 792.04,190.90 786.83,188.31 781.31,185.86 775.50,183.56 769.40,181.42 763.02,179.43 756.36,177.60 749.43,175.93 742.24,174.42 734.79,173.08 727.09,171.90 719.15,170.88 710.97,170.03 702.57,169.34 693.96,168.83 685.13,168.48 676.11,168.30 666.89,168.29 657.50,168.45 647.93,168.78 638.20,169.27 628.32,169.94 618.29,170.77 608.13,171.77 597.85,172.93 587.46,174.25 576.96,175.74 566.38,177.39 555.71,179.20 544.97,181.17 534.17,183.30 523.32,185.58 512.44,188.01 501.53,190.58 490.60,193.31 479.66,196.18 468.73,199.19 457.82,202.34 446.93,205.62 436.08,209.04 425.28,212.58 414.54,216.25 403.87,220.04 393.28,223.94 382.79,227.96 372.39,232.09 362.11,236.32 351.95,240.66 341.92,245.09 332.04,249.61 322.30,254.22 312.73,258.92 303.33,263.69 294.12,268.54 285.09,273.45 276.26,278.43 267.64,283.47 259.24,288.57 251.06,293.71 243.11,298.89 235.41,304.12 227.95,309.37 220.76,314.66 213.82,319.97 207.16,325.29 200.77,330.63 194.66,335.98 188.85,341.32 183.33,346.67 178.11,352.00 173.20,357.32 168.59,362.62 164.31,367.90 160.34,373.14 156.70,378.35 153.38,383.52 150.39,388.64 147.74,393.72 145.43,398.73 143.45,403.69 141.81,408.58 140.52,413.40 139.56,418.14 138.96,422.81 138.70,427.38 138.78,431.87 139.21,436.27 139.98,440.56 141.10,444.76 142.56,448.85 144.36,452.82 146.50,456.68 148.98,460.43 151.79,464.05 154.94,467.54 158.41,470.91 162.21,474.14 166.33,477.24 170.77,480.19 175.53,483.01 180.59,485.68 185.95,488.20 191.62,490.57 197.57,492.79 203.81,494.86 210.34,496.77 217.13,498.52 224.19,500.11 231.52,501.53 239.09,502.80 246.91,503.90 254.97,504.83 263.26,505.60 271.77,506.20 280.49,506.63 289.42,506.89 298.54,506.99 307.84,506.91 317.33,506.67 326.98,506.26 336.78,505.68 346.74,504.93 356.83,504.02 367.05,502.94 377.39,501.69 387.84,500.28 398.38,498.71 409.01,496.98 419.71,495.09 430.48,493.05 441.31,490.85 452.18,488.49 463.08,485.99 474.00,483.33 484.93,480.54 495.87,477.60 506.79,474.52 517.69,471.30 528.56,467.95 539.38,464.47 550.16,460.87 560.86,457.14 571.49,453.29 582.04,449.33 592.48,445.25 602.82,441.07 613.05,436.78 623.14,432.40 633.10,427.92 642.91,423.36 652.56,418.70 662.05,413.97 671.36,409.16 680.48,404.27 689.41,399.33 698.14,394.32 706.65,389.25 714.94,384.13 723.00,378.97 730.83,373.76 738.41,368.52 745.74,363.25 752.81,357.95 759.61,352.64 766.13,347.30 772.38,341.96 778.34,336.61 784.01,331.27 789.38,325.93 794.45,320.60 799.21,315.29 803.65,310.00 807.78,304.74 811.58,299.51 815.06,294.32 818.22,289.18 821.04,284.08" fill="none" stroke="#4169e1" stroke-width="2"/>
-</g>
-<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">what a 2x2 matrix does to a circle</text>
-<rect x="702.15" y="56.00" width="155.85" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
-<line x1="711.01" y1="77.01" x2="736.32" y2="77.01" stroke="#94a3b8" stroke-width="2.2"/>
-<text x="743.91" y="80.51" font-size="16.2" text-anchor="start" fill="#222">unit circle</text>
-<line x1="711.01" y1="101.31" x2="736.32" y2="101.31" stroke="#4169e1" stroke-width="2.2"/>
-<text x="743.91" y="104.81" font-size="16.2" text-anchor="start" fill="#222">A applied to it</text>
-</svg></figure></div>
+</div>
 <p>A well-conditioned matrix gives a nearly round ellipse. As the condition number grows the ellipse flattens, and a solve loses digits along the short axis — which is what "ill-conditioned" means, drawn.</p>
 <h4>Overloads: <code>svd</code></h4>
 <h4>Case: real</h4>
 <p><code>A</code> a real <code>r×c</code> <code>Mat</code>. Returns a <code>Model</code> with fields <code>u</code> (<code>r×k</code> <code>Mat</code>), <code>s</code> (length-<code>k</code> <code>Vec</code> of singular values), and <code>vt</code> (<code>k×c</code> <code>Mat</code>), where <code>k = min(r,c)</code> — the full factorization, ready to reassemble <code>A</code>.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
 r = <span class="f">svd</span>(A)
 <span class="f">print</span>(r.s)   <span class="c"># [4.618034, 2.381966]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[4.618034, 2.381966]</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>A</code> a <code>CMat</code>. Returns a *differently-shaped* <code>Model</code> — only <code>values</code> (the singular values), <code>condition</code>, and <code>rank</code>; there is no <code>u</code>/<code>vt</code> factor pair to reassemble <code>A</code> from in this branch.</p>
-<div class="example hasout"><pre class="hl"><code>C = [<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span> - <span class="n">1j</span>]
+<div class="example"><pre class="hl"><code>C = [<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span> - <span class="n">1j</span>]
 rc = <span class="f">svd</span>(C)
 <span class="f">print</span>(<span class="s">"values={rc.values}  condition={round(rc.condition, 3)}  rank={rc.rank}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>values=[5.628889, 0.561794]  condition=10.019  rank=2</pre></div></div>
+</div>
 <h2 id="s304">More functions</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -687,17 +503,16 @@ rc = <span class="f">svd</span>(C)
 <tr><td><code>is_empty</code>, <code>is_full</code></td><td><code>is_empty(q)</code></td><td>Whether the fixed-capacity ring buffer <code>q</code> (a <code>Fifo</code> handle created by <code>fifo(capacity)</code>) currently holds nothing, or has no room left for another <code>push</code> without evicting the oldest element. <code>q</code> must be a <code>Fifo</code>. Returns a <code>Bool</code>.</td></tr>
 </table></div>
 <p>The example below runs the small-matrix toolkit that doesn't fit neatly into the decomposition table above: <code>diag</code>/<code>trace</code>/<code>cond</code> read three different summary numbers off the same 2×2 matrix, and <code>nnls</code> fits a non-negative least-squares solution to a tiny system, showing both the fitted <code>x</code> (each entry constrained <code>&gt;= 0</code>) and the leftover <code>residual</code>.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">3.0</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">4.0</span>, <span class="n">1.0</span>; <span class="n">1.0</span>, <span class="n">3.0</span>]
 <span class="f">print</span>(<span class="s">"diag={diag(A)}  trace={trace(A)}  cond={cond(A)}"</span>)
 
 b = [<span class="n">1.0</span>, <span class="n">2.0</span>]
 r = <span class="f">nnls</span>(A, b)
 <span class="f">print</span>(<span class="s">"nnls x={r.x}  residual={r.residual}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>diag=[4, 3]  trace=7  cond=1.938749
-nnls x=[0.090909, 0.636364]  residual=4.965068e-16</pre></div></div>
+</div>
 <p>This next example covers three unrelated but frequently-needed shape utilities together: <code>meshgrid</code> builds the pair of coordinate matrices a contour or surface plot needs from two plain axis vectors, <code>ones_like</code>/ <code>zeros_like</code> stamp out a filler array that automatically matches another array's shape, and <code>row_mean</code>/<code>row_sum</code> collapse a matrix down to one number per row.</p>
-<div class="example hasout"><pre class="hl"><code>g = <span class="f">meshgrid</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">1</span>, <span class="n">2</span>])
+<div class="example"><pre class="hl"><code>g = <span class="f">meshgrid</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">1</span>, <span class="n">2</span>])
 <span class="f">print</span>(g.x)   <span class="c"># x-coordinate at every grid point</span>
 <span class="f">print</span>(g.y)   <span class="c"># y-coordinate at every grid point</span>
 
@@ -706,13 +521,9 @@ M = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span
 <span class="f">print</span>(<span class="f">zeros_like</span>(M))
 <span class="f">print</span>(<span class="s">"row_mean={row_mean(M)}  row_sum={row_sum(M)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 2, 3; 1, 2, 3]
-[1, 1, 1; 2, 2, 2]
-[1, 1, 1; 1, 1, 1]
-[0, 0, 0; 0, 0, 0]
-row_mean=[2; 5]  row_sum=[6; 15]</pre></div></div>
+</div>
 <p>Finally, the length-unit helpers and the <code>fifo</code> occupancy checks — two unrelated conveniences that happen to round out this chapter's "more functions" table. <code>mm</code>/<code>cm</code>/<code>inch</code>/<code>pt</code> convert a physical length into the figure's internal coordinate units (used anywhere a plotting call wants an exact size, like <code>legend(fontsize = pt(7))</code>); <code>is_empty</code>/ <code>is_full</code> let a script check a <code>fifo</code> ring buffer's occupancy before deciding whether to <code>push</code> into it.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
 
 f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_empty={is_empty(f)}"</span>)
@@ -720,21 +531,19 @@ f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">push</span>(f, <span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_full={is_full(f)}"</span>)   <span class="c"># at capacity -- the next push would evict the oldest</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mm(10)=100  cm(1)=100  inch(1)=254
-is_empty=true
-is_full=true</pre></div></div>
+</div>
 <h4>Overloads: <code>diag</code></h4>
 <h4>Case: matrix</h4>
 <p><code>M</code> an <code>r×c</code> <code>Mat</code>. Reads the main diagonal off <code>M</code> and returns it as a length-<code>min(r,c)</code> <code>Vec</code> — extraction.</p>
-<div class="example hasout"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
+<div class="example"><pre class="hl"><code>M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
 <span class="f">print</span>(<span class="f">diag</span>(M))   <span class="c"># [1, 4]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 4]</pre></div></div>
+</div>
 <h4>Case: vector</h4>
 <p><code>v</code> a length-<code>n</code> <code>Vec</code> (or scalar/other coercible value). Builds a new <code>n×n</code> <code>Mat</code> with <code>v</code>'s entries on the diagonal and zeros elsewhere — construction, the opposite direction from the matrix case.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">diag</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [1, 0, 0; 0, 2, 0; 0, 0, 3]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">diag</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))   <span class="c"># [1, 0, 0; 0, 2, 0; 0, 0, 3]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 0, 0; 0, 2, 0; 0, 0, 3]</pre></div></div>
+</div>
 </main>
 </div>
 <footer><div class="wrap">

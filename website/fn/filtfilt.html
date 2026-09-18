@@ -49,12 +49,12 @@
   zero_phase = <span class="f">filtfilt</span>(lp, signal)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
+<div class="example"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
 smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
 <span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>noise removed: rms 0.2010 -&gt; 0.0978</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span> <span class="k">to</span> <span class="n">999</span>
 t = n / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
@@ -68,8 +68,7 @@ err_filtered = <span class="f">rms</span>(filtered - clean)
 <span class="f">print</span>(<span class="s">"rms error before filtering = {err_noisy:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"rms error after filtering  = {err_filtered:.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>rms error before filtering = 0.7071
-rms error after filtering  = 0.0266</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
 fc = <span class="n">60</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)

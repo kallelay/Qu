@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">normalize</span>(v)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">normalize</span>(v)
     m = <span class="f">mean</span>(v)
     s = <span class="f">std</span>(v)
     <span class="k">return</span> (v - m) / s
@@ -53,7 +53,7 @@
 z = <span class="f">normalize</span>(y)
 <span class="f">print</span>(<span class="s">"normalized: mean {mean(z):.2e}, std {std(z):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>normalized: mean 3.37e-18, std 1.0000</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <h2>How it works</h2>
 <p>Feature scaling, one-shot verbs — fit-and-apply in one call, no reuse (see <code>fit_scaler</code> below for the fit-once/reuse-on- new-data path). <code>Mat</code> scales per column (rows = samples, columns = features); <code>Vec</code>/<code>Signal</code>/a plain number scale as a single feature; a <code>Table</code> scales each numeric column, text columns untouched. See <code>scaler</code>'s own module doc for the exact per-method formula and the <code>quantile_normalize</code> target- distribution choice. <code>normalize(X)</code> — min-max scaling to <code>[0, 1]</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

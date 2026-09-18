@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
 normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
 <span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
 
@@ -68,10 +68,7 @@ weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class
 block_out = <span class="f">transformer_block</span>(q, weights)
 <span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>layer_norm (scale-invariant per row): [-1.224736, 0, 1.224736; -1.224745, 0, 1.224745]
-attention output: [2.872, 3.872; 3.25, 4.25; 2.872, 3.872]
-multi_head_attention with 1 identity head matches plain self-attention: true
-transformer_block: [1, -1; -1, 1; 1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>transformer_block(x, weights)</code> — one post-norm Transformer encoder block (Vaswani et al. 2017, §3.1): multi-head self- attention, a residual add + <code>layer_norm</code>, a two-layer ReLU feedforward (reusing the EXISTING <code>dense</code>/<code>relu</code> builtins — no new layer primitive needed here either), then a second residual add + <code>layer_norm</code>: <code></code><code>text a  = multi_head_attention(x, weights.heads, len(weights.heads)) h1 = layer_norm(x + a, weights.ln1_gamma, weights.ln1_beta) f  = dense(relu(dense(h1, weights.w1, weights.b1)), weights.w2, weights.b2) h2 = layer_norm(h1 + f, weights.ln2_gamma, weights.ln2_beta) </code><code></code> <code>weights</code> is a <code>Value::Record</code> with fields <code>heads</code> (the <code>multi_head_attention</code> weights list — <code>n_heads</code> is read straight off its length, never a separate argument), <code>ln1_gamma</code>/<code>ln1_beta</code>/<code>ln2_gamma</code>/<code>ln2_beta</code>, and <code>w1</code>/<code>b1</code>/ <code>w2</code>/<code>b2</code> (the feedforward's two <code>dense</code> layers). Not its own tape op: every step below calls an already-tracked builtin, so backprop through the whole block falls out of the tape's ordinary reverse walk with no bespoke <code>tensor_vjp</code> rule — the same "compose, don't reimplement" argument <code>dense</code>/ <code>gru_cell_compute</code> already make.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

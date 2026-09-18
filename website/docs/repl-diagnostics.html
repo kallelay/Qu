@@ -83,7 +83,7 @@
 <tr><td><code>write(fileHandle, s)</code></td><td>Writes the string <code>s</code> verbatim to the already-open file <code>fileHandle</code>; no console output, no newline added.</td></tr>
 </table></div>
 <p>Which form runs is decided entirely by the type of the first argument, not by argument count — passing a <code>fileHandle</code> as the sole argument, or a string as the first of several ordinary values, stays on the console-printing path.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
 <span class="f">print</span>(<span class="s">""</span>)
 f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write</span>(f, <span class="s">"hello file"</span>)
@@ -92,13 +92,13 @@ g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a 1 b
-hello file</pre></div></div>
+</div>
 <pre><code>a 1 b
 hello file
 </code></pre>
 <h2 id="s42">Timers</h2>
 <p>MATLAB-style <code>tic</code>/<code>toc</code> for quick wall-clock timing, plus a <code>timer</code>/ <code>preciseTimer</code> object for cases where a single global slot isn't enough (nested or concurrent timing regions).</p>
+<p>Qu actually has four distinct profiling/timing mechanisms, and picking the wrong one is an easy mistake, so here they are side by side: <code>tic</code>/<code>toc</code> is the single global lap timer — simplest, for timing one region at a time. <code>timer()</code>/<code>preciseTimer()</code> is a standalone object for nested, concurrent, or pausable timing, one per variable instead of one shared global. <code>profile_start</code>/<code>profile_end</code> (below) measures a single named region's wall-clock time *and* memory (RSS delta), returning a plain value rather than mutating shared state, so multiple regions can overlap or nest freely. <code>profiling_mode</code>/<code>profile_stats</code> is a different shape entirely — it attributes call count and cumulative time *per builtin function* across a whole recording window, with no memory tracking; reach for it to find which builtin is slow, not to time one block of your own code. See also <code>profiling_mode</code>/<code>profile_stats</code> further below in this chapter for that fourth mechanism.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>tic</code></td><td><code>tic()</code></td><td>Takes no arguments. Starts (or restarts) the single global stopwatch. <code>timer.start()</code> is sugar for this — see below. Returns <code>Nothing</code>.</td></tr>
@@ -109,6 +109,8 @@ hello file
 <tr><td><code>elapsed</code></td><td><code>elapsed(t)</code></td><td>Takes one argument, <code>t</code> (a timer object). Returns a number: elapsed seconds so far. A pure read — never stops or resets the timer, callable regardless of running state.</td></tr>
 <tr><td><code>restart</code></td><td><code>restart(t)</code></td><td>Takes one argument, <code>t</code> (a timer object). Returns a number: the elapsed time up to this call (the completed "lap"), then resets the object to zero and immediately starts it running again — a one-call lap/checkpoint pattern for timing each iteration of a loop.</td></tr>
 <tr><td><code>stop</code></td><td><code>stop(t)</code></td><td>Takes one argument, <code>t</code> (a timer object). Freezes the timer <strong>and</strong> resets the count to zero (unlike <code>pause</code>, which keeps it); returns <code>none</code>. Also stops any <code>on elapsed(t)</code>/<code>on elapsedOnce(t)</code> registration from firing until <code>start</code>ed again. The handle remains valid and reusable. Returns <code>Nothing</code>.</td></tr>
+<tr><td><code>profile_start</code></td><td><code>profile_start()</code></td><td>Takes no arguments. Starts a named profiling window and returns a <code>Record</code> handle -- <code>t0</code> (wall-clock seconds) and <code>mem0</code> (RSS bytes, <code>NaN</code> if unsupported) -- to pass unmodified to <code>profile_end</code>. <code>t0</code>/<code>mem0</code> are semi-internal (read by <code>profile_end</code>, not meant to be inspected directly); <code>mem0</code> is <code>NaN</code> on a platform <code>current_rss_bytes</code> doesn't support (anything but Windows/Linux). Because the handle is an ordinary value rather than mutated global state (unlike <code>tic</code>), multiple windows — <code>p1 = profile_start()</code>, <code>p2 = profile_start()</code> — can overlap or nest without clobbering each other. Uses <code>SystemTime</code> rather than a monotonic clock, trading <code>tic</code>/<code>toc</code>'s clock-step immunity for a value that can round-trip through a <code>Record</code> field — prefer <code>tic</code>/<code>toc</code> for sub-millisecond or clock-step-sensitive timing. See also <code>timer</code>/<code>preciseTimer</code> above for a controllable object, and <code>profiling_mode</code>/<code>profile_stats</code> below for per-builtin call-count and time attribution (no memory) across a whole recording window instead of one region's time and memory.</td></tr>
+<tr><td><code>profile_end</code></td><td><code>profile_end(handle)</code></td><td>Takes one argument, <code>handle</code> (the <code>Record</code> returned by <code>profile_start()</code>, unmodified). Closes the window and returns a <code>Record</code> with fields <code>time</code> (elapsed seconds) and <code>mem</code> (RSS delta in bytes, <code>NaN</code> if either sample was <code>NaN</code>, e.g. on an unsupported platform). <code>mem</code> is <code>mem_now - mem0</code>, sampled once at each end rather than polled, so a large allocation that also frees before <code>profile_end</code> runs is invisible to it — the same coarse-sampling trade-off <code>qu-cli</code>'s own <code>--profile</code>/<code>--max-memory</code> watchdog documents for itself. Errors if <code>handle</code> is missing <code>t0</code>/<code>mem0</code> or either field isn't a number, naming which field and why. See also <code>tic</code>/<code>toc</code> above for simpler lap timing with no memory tracking, and <code>profiling_mode</code>/<code>profile_stats</code> below for call-count/time attribution across many builtin calls instead of one region.</td></tr>
 <tr><td><code>estimate_complexity</code></td><td><code>estimate_complexity(sizes, times)</code></td><td>Takes two same-length numeric vectors/lists: <code>sizes</code> (the problem sizes swept over) and <code>times</code> (the matching elapsed times in seconds, e.g. from <code>toc()</code> at each size) — at least 3 matching points are required in both. Fits several candidate growth models (<code>O(1)</code>, <code>O(log n)</code>, <code>O(n)</code>, <code>O(n log n)</code>, <code>O(n^2)</code>, <code>O(n^3)</code>) to the data by least squares and picks whichever has the best R², rather than a naive log-log slope (which misclassifies <code>O(log n)</code>/<code>O(n log n)</code>). As a side effect it prints the fit (label, R², coefficient); it also returns the label as a string (e.g. <code>"O(n)"</code>). Meant to pair with <code>tic</code>/<code>toc</code>: sweep over increasing problem sizes, record elapsed time at each, then call this on the two vectors. Returns a <code>Str</code>, the winning model's label (e.g. <code>"O(n)"</code>).</td></tr>
 </table></div>
 <h3><code>timer.start()</code> / <code>timer.elapsed()</code> / <code>timer.stop()</code> — Stopwatch-style sugar for <code>tic</code>/<code>toc</code></h3>
@@ -133,7 +135,7 @@ total = timer.<span class="f">stop</span>()        <span class="c"># same as toc
 <tr><td><code>grad(loss, wrt=X)</code></td><td>A single gradient value shaped like <code>X</code> — a number for a scalar <code>X</code>, a matrix for a matrix <code>X</code>.</td></tr>
 <tr><td><code>grad(loss, X, Y, ...)</code></td><td>A <code>List</code> of gradient values, one per positional argument, in the same order.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = x * x + y * y
 dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)          <span class="c"># 2*x = 6</span>
@@ -141,8 +143,7 @@ grads = <span class="f">grad</span>(loss, x, y)              <span class="c"># [
 <span class="f">print</span>(<span class="s">"wrt=x form: {dloss_dx}"</span>)
 <span class="f">print</span>(<span class="s">"positional form: {grads}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>wrt=x form: 6
-positional form: (6, 4)</pre></div></div>
+</div>
 <pre><code>wrt=x form: 6
 positional form: (6, 4)
 </code></pre>
@@ -160,7 +161,7 @@ positional form: (6, 4)
 <tr><td><code>rand(rows, cols)</code> / <code>randn(rows, cols)</code></td><td>Returns a <code>rows</code>×<code>cols</code> matrix, drawn from the persistent stream.</td></tr>
 <tr><td><code>rand(rows, cols, seed=n)</code></td><td>Draws from a fresh, independent, local stream seeded with <code>n</code> instead — the persistent stream's position is left completely untouched, which is the surprising part.</td></tr>
 </table></div>
-<div class="example hasout"><pre class="hl"><code>a = <span class="f">rand</span>(<span class="n">3</span>)
+<div class="example"><pre class="hl"><code>a = <span class="f">rand</span>(<span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"shape a: {size(a)}"</span>)
 
 <span class="f">seed</span>(<span class="n">5</span>)
@@ -174,8 +175,7 @@ q2 = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</sp
 
 <span class="f">print</span>(<span class="s">"q == q2: {q == q2}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>shape a: [3, 1]
-q == q2: [1, 1; 1, 1]</pre></div></div>
+</div>
 <pre><code>shape a: [3, 1]
 q == q2: [1, 1; 1, 1]
 </code></pre>
@@ -222,12 +222,12 @@ q == q2: [1, 1; 1, 1]
 </table></div>
 <h3>User-defined units</h3>
 <p><code>unit &lt;name&gt; = &lt;expr&gt;</code> declares a named scale factor, for a physical unit this table doesn't already cover (<code>ppm</code>, a lab-specific calibration constant, ...). <code>unit</code> is contextual, not a reserved word — a plain identifier everywhere else, only parsed as this declaration when it's immediately followed by another bare identifier and then <code>=</code>.</p>
-<div class="example hasout"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
+<div class="example"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
 x = <span class="n">5</span> * ppm            <span class="c"># 5e-6 -- ordinary arithmetic, works immediately</span>
 y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal-suffix adjacency also works</span>
 <span class="f">print</span>(<span class="f">unit_scale</span>(<span class="s">"ppm"</span>))   <span class="c"># 0.000001 -- reads the declaration back</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1e-6</pre></div></div>
+</div>
 <p>The grammar already parses <code>&lt;number&gt; &lt;identifier&gt;</code> for any trailing identifier, not just the statically-known spellings in this chapter's table above (that widening — and why a truly unknown unit is a runtime error naming it, not a parse failure — predates user-defined units). <code>unit name = value</code> is what makes a PREVIOUSLY-unknown identifier resolve instead of erroring "unknown unit": it registers <code>name</code> in a runtime table that <code>5 &lt;name&gt;</code> literal adjacency, ordinary <code>*</code> arithmetic, and <code>unit_scale(name)</code> all consult.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -243,30 +243,30 @@ y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal
 <h4>Overloads: <code>tex</code></h4>
 <h4>Case: scalar</h4>
 <p><code>x</code> a real number. Small/large magnitudes get split into <code>\times 10^{n}</code> scientific notation; otherwise it's printed as an ordinary decimal.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">4.7e-8</span>))
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">4.7e-8</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>$4.7 \times 10^{-8}$</pre></div></div>
+</div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Each component is formatted the same way a real scalar would be (including the scientific-notation split when a component is small/large), then joined as <code>re + im i</code>.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">3</span> + <span class="n">4j</span>))
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">3</span> + <span class="n">4j</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>$3 + 4i$</pre></div></div>
+</div>
 <h4>Case: vector or matrix</h4>
 <p><code>x</code> a <code>Vec</code>/<code>Mat</code>. Returns a <code>bmatrix</code> environment instead of a bare number, with <code>&amp;</code> separating entries.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>$\begin{bmatrix} 1 &amp; 2 &amp; 3 \end{bmatrix}$</pre></div></div>
+</div>
 <p><code>printtex</code> follows the exact same three cases — it just prints instead of returning the string.</p>
 <h2 id="s157">Examples</h2>
 <p><code>tic</code>/<code>toc</code> are the quickest way to answer "how long did that take": start the single global stopwatch with <code>tic()</code>, run the code, then read elapsed seconds with <code>toc()</code>. Because <code>toc()</code> is a non-resetting peek, the same <code>tic()</code> can be read multiple times to lap a loop without restarting the clock each iteration. The example below times a million square-root calls and prints the elapsed seconds:</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">tic</span>()
+<div class="example"><pre class="hl"><code><span class="f">tic</span>()
 <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">1000000</span>
     x = <span class="f">sqrt</span>(i)
 <span class="k">end</span>
 elapsed_s = <span class="f">toc</span>()
 <span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>took 0.0153s</pre></div></div>
+</div>
 <p><code>track</code> and <code>grad</code> are the entry points to Qu's reverse-mode autodiff tape: wrap the inputs you want a derivative with respect to in <code>track</code> (or its alias <code>param</code>), build an ordinary arithmetic expression from them, and then call <code>grad</code> on the result to walk the tape backwards. Here <code>x</code> is tracked, <code>y = x^2 + 2x</code> is computed from it, and <code>grad</code> returns <code>dy/dx</code> evaluated at <code>x = 3</code> (analytically <code>2x + 2 = 8</code>), which is then printed:</p>
 <div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = x * x + <span class="n">2</span> * x
@@ -383,7 +383,7 @@ p = <span class="f">gpu_probe_info</span>()
 <tr><td><code>apropos</code></td><td><code>apropos("filter")</code></td><td>Takes one argument, a search substring (a string, e.g. <code>"filter"</code>). Returns a <code>List</code> of strings: every builtin name containing that substring, in engine-registration order. Returns a list rather than printing, so a script can count (<code>len(...)</code>) or loop over the hits.</td></tr>
 <tr><td><code>help</code></td><td><code>help("curve_fit")</code></td><td>Takes one argument, a builtin name (a string, e.g. <code>"curve_fit"</code>). Prints what is known about that name directly to the console and returns <code>none</code> — that it exists, near matches when it does not (e.g. <code>help("not_a_real_fn")</code> suggests close spellings), and where the worked examples live. Honest about its limits — the engine carries no per-builtin prose. Returns <code>Nothing</code>; the report goes straight to the console.</td></tr>
 <tr><td><code>sandbox_mode</code></td><td><code>sandbox_mode(on)</code></td><td>Takes one argument, <code>on</code> (a boolean). Refuses file and network access for the rest of the session and returns <code>none</code>. One way only — passing <code>sandbox_mode(false)</code> does not turn it back off, which is the point; e.g. after <code>sandbox_mode(true)</code>, a subsequent <code>fopen(path, "w")</code> raises a catchable error instead of opening the file. Returns <code>Nothing</code>.</td></tr>
-<tr><td><code>profiling_mode</code>, <code>profile_stats</code></td><td><code>profiling_mode(true)</code></td><td><code>profiling_mode</code> takes one argument, a boolean (<code>true</code> to start recording, <code>false</code> to stop), and returns <code>none</code>. <code>profile_stats()</code> takes no arguments and returns a <code>Table</code> value with columns <code>function</code>, <code>calls</code>, and <code>seconds</code>, one row per builtin called while recording was on. Record per-builtin time and call counts, then read them back; off by default, because the recording itself costs something. Returns a <code>Table</code> from <code>profile_stats</code>, with columns <code>function</code>, <code>calls</code> and <code>seconds</code>; <code>profiling_mode</code> hands back no value.</td></tr>
+<tr><td><code>profiling_mode</code>, <code>profile_stats</code></td><td><code>profiling_mode(true)</code></td><td><code>profiling_mode</code> takes one argument, a boolean (<code>true</code> to start recording, <code>false</code> to stop), and returns <code>none</code>. <code>profile_stats()</code> takes no arguments and returns a <code>Table</code> value with columns <code>function</code>, <code>calls</code>, and <code>seconds</code>, one row per builtin called while recording was on. Record per-builtin time and call counts, then read them back; off by default, because the recording itself costs something. Returns a <code>Table</code> from <code>profile_stats</code>, with columns <code>function</code>, <code>calls</code> and <code>seconds</code>; <code>profiling_mode</code> hands back no value. See also the Timers section above, which lays out all four of Qu's profiling/timing mechanisms side by side (<code>tic</code>/<code>toc</code>, <code>timer</code>/<code>preciseTimer</code>, <code>profile_start</code>/<code>profile_end</code>, and this one) and says when to reach for which.</td></tr>
 <tr><td><code>device_used</code></td><td><code>device_used()</code></td><td>Takes no arguments. Returns a struct-like value with two fields: <code>.device</code> (a string, e.g. <code>"cpu"</code> or a GPU device name) and <code>.gpu_dispatches</code> (a number, the count of operations actually dispatched to the GPU). Reports where the accelerated work actually went — a GPU that quietly fell back to the CPU is the failure this catches.</td></tr>
 <tr><td><code>gpu_probe_info</code></td><td><code>gpu_probe_info()</code></td><td>Takes no arguments. Returns a struct-like value with three fields: <code>.available</code> (a boolean, whether a GPU backend was found), <code>.crossover</code> (a number, the measured matrix/problem size above which the GPU wins over the CPU — <code>inf</code> on a build without GPU support), and <code>.samples</code> (a list of the timed sample points used to compute the crossover). Reports what the GPU probe found at startup.</td></tr>
 </table></div>

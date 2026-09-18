@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
+<div class="example"><pre class="hl"><code>dl1 = <span class="f">dense_layer</span>(<span class="n">2</span>, <span class="n">8</span>, <span class="a">activation</span> = <span class="s">"relu"</span>)
 dl2 = <span class="f">dropout_layer</span>(<span class="n">0.3</span>)
 dl3 = <span class="f">dense_layer</span>(<span class="n">8</span>, <span class="n">1</span>, <span class="a">activation</span> = <span class="s">"none"</span>)
 net = <span class="f">sequential</span>((dl1, dl2, dl3), <span class="a">seed</span> = <span class="n">3</span>)
@@ -64,10 +64,7 @@ nc = <span class="f">length</span>(mc.loss_history)
 preds = mc.<span class="f">predict</span>(Xxor)
 <span class="f">print</span>(<span class="s">"mlp_classifier raw logits shape: {rows(preds)} x {cols(preds)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>layer count: 3
-sequential + dropout_layer: loss 3.0224 -&gt; 0.5
-mlp_classifier: loss 0.7146 -&gt; 0.6938
-mlp_classifier raw logits shape: 4 x 2</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>dropout_layer([rate=0.5])</code> — a stretch wrapper (the task's must-have is <code>dense_layer</code>): no weights of its own, just a spec <code>sequential_forward</code> turns into a <code>dropout(...)</code> call during training and a no-op passthrough during <code>predict</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

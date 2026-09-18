@@ -46,28 +46,28 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
+<div class="example"><pre class="hl"><code>r = <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)           <span class="c"># least squares with L2 regularization</span>
 k = <span class="f">kmeans_model</span>(X, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">42</span>)    <span class="c"># .predict assigns to the nearest centroid</span>
 p = <span class="f">pca_model</span>(X, <span class="n">1</span>)                  <span class="c"># .predict projects onto the fitted components</span>
 <span class="f">print</span>(<span class="s">"cluster of row 0: {k.predict(X)[0]}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>cluster of row 0: 1</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
 <span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
 
 pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
 fitted = pipe.<span class="f">fit</span>(X, y)
 <span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>pipeline R^2 0.9992</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
 <span class="f">final</span>(A, b) := <span class="f">ridge_model</span>(A, b, <span class="n">0.1</span>)
 
 pipe = <span class="f">pipeline</span>(<span class="s">"standardize_cols"</span>, <span class="s">"final"</span>)
 fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
 <span class="f">print</span>(<span class="s">"held-out R2: {round(fitted.score(split.X_test, split.y_test), 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>held-out R2: 0.991</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>ridge_model(X, y, alpha)</code> — <code>ols_model</code> plus L2 regularization on the centered design, the model-protocol sibling of the flat <code>ridge</code> builtin (which has no automatic intercept).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

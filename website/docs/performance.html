@@ -80,7 +80,7 @@
 </table></div>
 <h2 id="s38">Loop constructs: <code>for</code> vs <code>while</code> vs vectorized</h2>
 <p>Summing the integers 1..500,000 three ways:</p>
-<div class="example hasout"><pre class="hl"><code>N = <span class="n">500000</span>
+<div class="example"><pre class="hl"><code>N = <span class="n">500000</span>
 
 t = <span class="f">timer</span>()
 <span class="f">start</span>(t)
@@ -105,9 +105,7 @@ t3 = <span class="f">timer</span>()
 s3 = <span class="f">sum</span>(<span class="n">1</span> <span class="k">to</span> N)
 <span class="f">print</span>(<span class="s">"vectorized sum : {elapsed(t3)} s"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>for            : 0.0108 s
-while          : 0.015913 s
-vectorized sum : 0.001061 s</pre></div></div>
+</div>
 <pre><code>for            : 0.0047-0.0077 s
 while          : 0.163-0.198 s
 vectorized sum : 0.0018-0.0025 s

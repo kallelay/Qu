@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
 normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
 <span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
 
@@ -70,10 +70,7 @@ weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class
 block_out = <span class="f">transformer_block</span>(q, weights)
 <span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>layer_norm (scale-invariant per row): [-1.224736, 0, 1.224736; -1.224745, 0, 1.224745]
-attention output: [2.872, 3.872; 3.25, 4.25; 2.872, 3.872]
-multi_head_attention with 1 identity head matches plain self-attention: true
-transformer_block: [1, -1; -1, 1; 1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>layer_norm(x, gamma, beta, [eps=1e-5])</code> — normalizes each ROW of <code>x</code> (one row = one token/sample's feature vector, <code>(n, d)</code> overall) to zero mean / unit variance, then rescales with a learned per-feature <code>gamma</code> and shifts by <code>beta</code> (both length-<code>d</code>, broadcasting as a <code>(1, d)</code> row against <code>x</code> exactly the way <code>dense</code>'s own <code>X*W + b</code> bias already broadcasts). Composed ENTIRELY from already-tracked primitives (<code>tb</code>'s <code>"-"</code>/".*"<code>/</code>"+"<code>/".*"</code>, <code>trr</code>'s new <code>"row_mean"</code>, <code>tm1</code>'s <code>"sqrt"</code>) — no bespoke <code>tensor_vjp</code> rule for <code>layer_norm</code> itself, only for the two small row-reduction primitives it (and softmax) both build on. Layer norm's mean/variance backward terms are a well-known place autodiff implementations get subtly wrong, so this was gradient- checked against finite differences before shipping (see the acceptance tests) rather than just visually reasoned through.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -51,11 +51,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">bowl</span>(p) := (p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span> + (p[<span class="n">1</span>]+<span class="n">2</span>)^<span class="n">2</span>
+<div class="example"><pre class="hl"><code><span class="f">bowl</span>(p) := (p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span> + (p[<span class="n">1</span>]+<span class="n">2</span>)^<span class="n">2</span>
 m = <span class="f">minimize</span>(<span class="s">"bowl"</span>, [<span class="n">0</span>, <span class="n">0</span>])
 <span class="f">print</span>(<span class="s">"minimum at {m.params}, value {m.value}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>minimum at [3, -2], value 2.029121e-19</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example"><pre class="hl"><code><span class="f">bowl_grad</span>(p) := [<span class="n">2</span>*(p[<span class="n">0</span>]-<span class="n">3</span>), <span class="n">2</span>*(p[<span class="n">1</span>]+<span class="n">2</span>)]
 m2 = <span class="f">minimize</span>(<span class="s">"bowl"</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">grad</span>=<span class="s">"bowl_grad"</span>)   <span class="c"># same minimum, fewer</span>
                                                     <span class="c"># evaluations per step</span>

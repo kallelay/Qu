@@ -129,22 +129,26 @@ engine itself is built.
 
 ## Other editors
 
-Not everyone wants a dedicated IDE. Three lightweight integrations live
-under [`editors/`](editors/) — none published to a marketplace yet, all
-install locally in a couple of minutes:
+Not everyone wants a dedicated IDE. Qu Studio is the primary one; **VS
+Code is the second most-supported editor**, on the strength of a real
+Jupyter kernel — notebooks, not just syntax highlighting. Two more
+lightweight integrations live under [`editors/`](editors/):
 
 | | Gives you | Install |
 |---|---|---|
-| [VS Code](editors/vscode-qu) | Syntax highlighting, run-file (▶/`Ctrl+Alt+Q`) with output streaming, live parse-error squiggles as you type | Copy the folder into your extensions directory, or package with `vsce` |
+| **VS Code — notebooks** ([`qu-jupyter`](engine/crates/qu-jupyter)) | A real Jupyter kernel (ZeroMQ, HMAC-signed, no system libzmq needed): open a `.ipynb`, pick "Qu", get persistent state across cells, streamed output, inline figures — the same kernel works in JupyterLab/classic Jupyter too | `qu-jupyter install` registers the kernelspec; VS Code's Jupyter extension discovers it automatically |
+| [VS Code — syntax/run](editors/vscode-qu) | Syntax highlighting, run-file (▶/`Ctrl+Alt+Q`) with output streaming, live parse-error squiggles as you type | Copy the folder into your extensions directory, or package with `vsce` |
 | [Sublime Text](editors/sublime-qu) | Syntax highlighting, `Ctrl+B` to run, `Ctrl+Shift+B` to check syntax only | Copy two files into Sublime's Packages folder |
 | [Notepad++](editors/notepadpp-qu) | Syntax highlighting (User Defined Language), run via the built-in Run dialog or the NppExec plugin | Import one `.xml` file |
 
-None of these fake a debugger — Qu's execution model (`qu run <file>`, a
-one-shot subprocess with no persistent interpreter state) genuinely
-doesn't support breakpoints or stepping today, and each integration says
-so directly rather than pretending otherwise. The VS Code extension's
-post-run variable dump is the honest substitute: the script's final
-top-level bindings, after it finishes running, not a paused inspection.
+None of these fake a debugger — no breakpoints or stepping today. The
+notebook kernel's real persistent state (a cell can see an earlier
+cell's variables) is a genuinely different thing from that: it's `qu
+repl`'s session model over the Jupyter protocol, not stepped execution
+inside one statement. The plain VS Code extension's post-run variable
+dump remains the honest substitute where it's used instead: the script's
+final top-level bindings, after it finishes running, not a paused
+inspection.
 
 ## Getting started
 

@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**932 builtins, 928 described.** The rest are
+**936 builtins, 932 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -664,6 +664,8 @@ program, and a misspelled call suggests the nearest match.
 | [`print`](../fn/print.html) | Writes its arguments, space-separated, and a newline, to stdout | [Collections & strings](collections-strings.md) |
 | [`printtex`](../fn/printtex.html) | Same conversion as `tex(x)` on value `x` (number, Vec, Mat, or complex), but prints it directly instead of returning a string | [Plotting](plotting.md) |
 | [`prod`](../fn/prod.html) | Product of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal`, real only (unlike `sum`, does not accept a `CVec`/`CMat`) | [Core maths](core-math.md) |
+| [`profile_end`](../fn/profile_end.html) | Closes the window and returns a `Record` with fields `time` (elapsed seconds) and `mem` (RSS delta in bytes, `NaN` if either sample was `NaN`, e.g. on an unsupported platform) | [REPL & diagnostics](repl-diagnostics.md) |
+| [`profile_start`](../fn/profile_start.html) | Starts a named profiling window and returns a `Record` handle -- `t0` (wall-clock seconds) and `mem0` (RSS bytes, `NaN` if unsupported) -- to pass unmodified to `profile_end` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`profile_stats`](../fn/profile_stats.html) | `profiling_mode` takes one argument, a boolean (`true` to start recording, `false` to stop), and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`profiling_mode`](../fn/profiling_mode.html) | `profiling_mode` takes one argument, a boolean (`true` to start recording, `false` to stop), and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`progress`](../fn/progress.html) | A tqdm-style progress bar, called once per loop iteration: `i` is the 0-based index (`0` through `n - 1`), `n` is the total count | [REPL & diagnostics](repl-diagnostics.md) |
@@ -756,6 +758,7 @@ program, and a misspelled call suggests the nearest match.
 | [`remove_dir`](../fn/remove_dir.html) | Deletes the directory `path`. Refuses a non-empty directory unless `recursive=true` — this check applies whether or not `recycle_bin` is set, since "may I remove a whole tree" and "should.. | [File I/O](file-io.md) |
 | [`remove_file`](../fn/remove_file.html) | Deletes `path` (a `Str`). Errors if it does not exist or is not a regular file, rather than silently doing nothing | [File I/O](file-io.md) |
 | [`remove_nan`](../fn/remove_nan.html) | `x` with the missing samples dropped | [Noise](noise.md) |
+| [`remove_noise`](../fn/remove_noise.html) | `x` is a length-N number vector or `Signal`. `method="wiener"` (default): a local adaptive Wiener filter — for each sample, compares the local variance in a `window`-wide neighborhood.. | [Noise](noise.md) |
 | [`remove_outliers`](../fn/remove_outliers.html) | The same criterion, with the flagged samples dropped | [Noise](noise.md) |
 | [`remove_small_blobs`](../fn/remove_small_blobs.html) | Drop connected components below that area, after labelling internally (identical operation to `bwareaopen` above) | [Images](images.md) |
 | [`rename_file`](../fn/rename_file.html) | Renames `old` to `new` (both `Str`), generally within the same filesystem | [File I/O](file-io.md) |
@@ -1012,6 +1015,7 @@ program, and a misspelled call suggests the nearest match.
 | [`welch`](../fn/welch.html) | Returns a length-`nperseg/2 + 1` real vector, the one-sided PSD (DC to Nyquist) in SciPy's `"density"` scaling — Welch's method segments `x` into overlapping windowed frames and averages.. | [Signal processing](signal-processing.md) |
 | [`where`](../fn/where.html) | One argument `mask` (a `Vec`/`Mat` of booleans, typically produced by a comparison like `x < 0`) returns a `Vec` of the 0-based indices where it is true. Three arguments — `cond` (a boolean.. | [Core maths](core-math.md) |
 | [`worker_done`](../fn/worker_done.html) | Non-blocking check of whether worker `w` (a `Worker` handle from `spawn`) has finished | [Concurrency](concurrency.md) |
+| [`wrap`](../fn/wrap.html) | Returns the same shape as `x`, each value reduced modulo `hi - lo` into that range — the standard fix for angle/phase data that has accumulated past a full turn (`atan2` output, an.. | [Signal processing](signal-processing.md) |
 | [`write`](../fn/write.html) | Dispatches on the type of the first argument | [REPL & diagnostics](repl-diagnostics.md) |
 | [`write_array`](../fn/write_array.html) | Writes a whole `Vec`/`Mat`/`Signal` (or a bare number/`bool`) to a binary file in one call, without an explicit `fopen` — the write-side counterpart `read_array` never had | [File I/O](file-io.md) |
 | [`write_bin`](../fn/write_bin.html) | The inverse of `read_bin`: writes raw bytes to `f` (file handle, opened writable/appendable) | [File I/O](file-io.md) |

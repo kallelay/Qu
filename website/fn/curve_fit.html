@@ -57,13 +57,13 @@ fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, yd
 <span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
 xdata = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">50</span>)
 ydata = <span class="n">3</span> * <span class="f">exp</span>(-<span class="n">0.7</span> * xdata) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span>=<span class="n">1</span>)   <span class="c"># noisy samples of a=3, b=0.7</span>
 fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
 <span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a = 2.990869, b = 0.702002, cost = 0.018922</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>curve_fit(model, xdata, ydata, p0, [max_iter=200], [tol=1e-10])</code> — nonlinear least-squares curve fitting via Levenberg-Marquardt: finds <code>params</code> minimizing <code>sum((model(x_i, params) - y_i)^2)</code>. <code>model</code> takes a scalar <code>x</code> and a <code>params</code> vector; the Jacobian is computed numerically (forward differences), since Qu has no automatic differentiation. Model kind <code>"curve_fit"</code>, fields <code>params</code>, <code>cost</code> (the residual sum of squares at the returned parameters), and <code>converged</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

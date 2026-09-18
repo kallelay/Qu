@@ -49,7 +49,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]              <span class="c"># column coordinates</span>
+<div class="example"><pre class="hl"><code>x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]              <span class="c"># column coordinates</span>
 y = [<span class="n">0</span>, <span class="n">1</span>]                 <span class="c"># row coordinates</span>
 Z = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]     <span class="c"># Z[i,j] at (y[i], x[j])</span>
 v_grid   = <span class="f">interp2</span>(x, y, Z, <span class="n">1</span>, <span class="n">1</span>)         <span class="c"># exact grid point, no interpolation error</span>
@@ -57,8 +57,7 @@ v_center = <span class="f">interp2</span>(x, y, Z, <span class="n">0.5</span>, <
 <span class="f">print</span>(<span class="s">"interp2 at grid point (x=1,y=1): {v_grid}"</span>)
 <span class="f">print</span>(<span class="s">"interp2 at center (x=0.5,y=0.5): {v_center}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>interp2 at grid point (x=1,y=1): 5
-interp2 at center (x=0.5,y=0.5): 3</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>interp2(x, y, Z, xq, yq, [method])</code> — 2D grid interpolation (MATLAB's <code>interp2</code>). <code>x</code> (length <code>ncols</code>) are the grid's COLUMN coordinates and <code>y</code> (length <code>nrows</code>) its ROW coordinates; <code>Z</code> is an <code>(nrows, ncols)</code> matrix with <code>Z[i,j]</code> the value at <code>(y[i], x[j])</code> — <code>Matrix::get(row, col)</code>'s own indexing convention used everywhere else in this codebase (<code>heatmap</code>, <code>matrix_row</code>, ...), NOT a transposed/swapped axis order. <code>x</code>/<code>y</code> are each assumed strictly increasing (the same convention <code>interp1</code>'s <code>x</code> already assumes, per its own doc comment). <code>xq</code>/<code>yq</code> are paired query coordinates — either both scalars (one point) or both vectors of the SAME length (<code>xq[k]</code>/<code>yq[k]</code> is query point <code>k</code>, MATLAB's convention — not an implied meshgrid over every combination of the two). <code>method</code> is <code>"bilinear"</code> (default) or <code>"nearest"</code>; extrapolation beyond the grid is always on, matching <code>interp1</code>. Exactness at grid points: <code>interp_grid_bracket</code>'s own doc comment proves each axis's fractional position <code>t</code> comes out as EXACTLY <code>0.0</code> or <code>1.0</code> (not just close) whenever the query coordinate exactly equals one of that axis's own grid coordinates, floating-point division of identical nonzero values being exact in IEEE 754 — so a query at <code>(x[j], y[i])</code> collapses the bilinear blend to <code>Z[i,j]</code> with no rounding error at all, verified directly in the acceptance tests rather than just assumed from the algebra.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

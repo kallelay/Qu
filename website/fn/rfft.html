@@ -63,12 +63,12 @@ X[<span class="n">0.2</span> kHz]          <span class="c"># same bin as X[200 H
   back = <span class="f">irfft</span>(half, <span class="f">length</span>(x))
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
+<div class="example"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
 freqs    = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spectrum) - <span class="n">1</span>) * fs / <span class="f">len</span>(y)
 peak     = <span class="f">argmax</span>(spectrum)
 <span class="f">print</span>(<span class="s">"largest component at {freqs[peak]:.1f} Hz"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>largest component at 50.0 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <div class="example"><pre class="hl"><code>t  = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">500</span>)                  <span class="c"># one second at 500 Hz</span>
 y  = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t) + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">1</span>)
 mag  = <span class="f">abs</span>(<span class="f">rfft</span>(y))                       <span class="c"># 251 bins for 500 samples</span>

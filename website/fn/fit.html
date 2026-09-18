@@ -45,22 +45,22 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
+<div class="example"><pre class="hl"><code><span class="f">centre</span>(X) := X - <span class="f">mean</span>(X)
 <span class="f">final</span>(X, y) := <span class="f">ridge_model</span>(X, y, <span class="n">0.1</span>)
 
 pipe = <span class="f">pipeline</span>(<span class="s">"centre"</span>, <span class="s">"final"</span>)
 fitted = pipe.<span class="f">fit</span>(X, y)
 <span class="f">print</span>(<span class="s">"pipeline R^2 {fitted.score(X, y):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>pipeline R^2 0.9992</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code><span class="f">standardize_cols</span>(M) := (M - <span class="f">mean</span>(M)) ./ <span class="f">std</span>(M)
 <span class="f">final</span>(A, b) := <span class="f">ridge_model</span>(A, b, <span class="n">0.1</span>)
 
 pipe = <span class="f">pipeline</span>(<span class="s">"standardize_cols"</span>, <span class="s">"final"</span>)
 fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
 <span class="f">print</span>(<span class="s">"held-out R2: {round(fitted.score(split.X_test, split.y_test), 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>held-out R2: 0.991</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>fit(pipelineSpec, X, y)</code> — callable as <code>pipe.fit(X, y)</code>. Runs every transform stage in order (each stage's output feeds the next), then calls the final stage with <code>(transformed_X, y)</code> and wraps whatever <code>Model</code> it returns — <code>.predict</code>/<code>.score</code> on the *fitted* pipeline replay the same transform stages before delegating to that wrapped model.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

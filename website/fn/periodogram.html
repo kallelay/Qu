@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
 t = n / fs
 x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t) + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">1024</span>, <span class="a">seed</span>=<span class="n">1</span>)
@@ -61,8 +61,7 @@ f_p = <span class="f">linspace</span>(<span class="n">0</span>, fs/<span class="
 peak_p = <span class="f">find_peaks</span>(psd_p, <span class="a">min_height</span>=<span class="f">max</span>(psd_p)*<span class="n">0.5</span>)
 <span class="f">print</span>(<span class="s">"periodogram peak near {f_p[peak_p[0]]} Hz"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>welch peak near 101.5625 Hz
-periodogram peak near 99.609375 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>periodogram(x, fs, [window="hann"])</code> — the simplest PSD estimate: one segment (the whole signal), one window, no averaging — <code>welch</code>'s <code>nperseg = length(x)</code>, <code>noverlap = 0</code> special case, scaled identically (see <code>welch</code>'s own comment for the exact <code>"density"</code> scaling and Parseval-integration check).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

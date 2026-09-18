@@ -44,23 +44,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
 <span class="f">print</span>(df)
 <span class="f">print</span>(<span class="s">"nrow = {nrow(df)}"</span>)
 <span class="f">print</span>(<span class="s">"ncol = {ncol(df)}"</span>)
 <span class="f">print</span>(<span class="s">"df.nrows = {df.nrows}"</span>)
 <span class="f">print</span>(<span class="s">"rows(df) = {rows(df)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-nrow = 3
-ncol = 2
-df.nrows = 3
-rows(df) = 3</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -68,22 +60,8 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-3
-x   y
--  --
-3  30
-4  40
-5  50
-stat          x          y
------  --------  ---------
-count         5          5
-mean          3         30
-std    1.581139  15.811388
-min           1         10
-25%           2         20
-    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
     <span class="a">temp</span>     = [<span class="n">21.5</span>, <span class="n">22.1</span>, <span class="n">35.0</span>, <span class="n">21.8</span>, <span class="n">36.2</span>, <span class="n">22.0</span>, <span class="n">34.5</span>, <span class="n">21.6</span>, <span class="n">35.8</span>, <span class="n">22.3</span>],
     <span class="a">humidity</span> = [<span class="n">45.2</span>, <span class="n">46.0</span>, <span class="n">20.1</span>, <span class="n">45.5</span>, <span class="n">19.5</span>, <span class="n">45.8</span>, <span class="n">21.0</span>, <span class="n">45.1</span>, <span class="n">20.4</span>, <span class="n">46.2</span>],
     <span class="a">pressure</span> = [<span class="n">1012.1</span>, <span class="n">1011.8</span>, <span class="n">1009.5</span>, <span class="n">1012.0</span>, <span class="n">1008.9</span>, <span class="n">1012.3</span>, <span class="n">1009.8</span>, <span class="n">1012.2</span>, <span class="n">1009.1</span>, <span class="n">1011.9</span>],
@@ -104,45 +82,7 @@ scaled_temp = <span class="f">standardize</span>(df.temp)
 <span class="f">print</span>(<span class="s">"standardized temp[0] = {scaled_temp[0]:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"mean(standardized) = {mean(scaled_temp):.4f}, std(standardized) = {std(scaled_temp):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>rows = 10, cols = 4
-temp  humidity  pressure  label
-----  --------  --------  -----
-21.5      45.2    1012.1  ok   
-22.1        46    1011.8  ok   
-  35      20.1    1009.5  warn 
-[1, -0.997357, -0.991317; -0.997357, 1, 0.983511; -0.991317, 0.983511, 1]
-· savefig quickstart_corrmat.svg
-  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
-standardized temp[0] = -0.8275
-mean(standardized) = -0.0000, std(standardized) = 1.0000</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<rect x="314.22" y="48.00" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>temp, temp: 1</title></rect>
-<text x="385.92" y="125.94" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<rect x="457.62" y="48.00" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>temp, humidity: -0.997</title></rect>
-<text x="529.33" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
-<rect x="601.03" y="48.00" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>temp, pressure: -0.991</title></rect>
-<text x="672.73" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
-<rect x="314.22" y="191.41" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>humidity, temp: -0.997</title></rect>
-<text x="385.92" y="269.35" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
-<rect x="457.62" y="191.41" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>humidity, humidity: 1</title></rect>
-<text x="529.33" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<rect x="601.03" y="191.41" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>humidity, pressure: 0.984</title></rect>
-<text x="672.73" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
-<rect x="314.22" y="334.81" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>pressure, temp: -0.991</title></rect>
-<text x="385.92" y="412.75" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
-<rect x="457.62" y="334.81" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>pressure, humidity: 0.984</title></rect>
-<text x="529.33" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
-<rect x="601.03" y="334.81" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>pressure, pressure: 1</title></rect>
-<text x="672.73" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<text x="304.50" y="125.37" font-size="16.2" text-anchor="end" fill="#444444">temp</text>
-<text x="304.50" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">humidity</text>
-<text x="304.50" y="412.19" font-size="16.2" text-anchor="end" fill="#444444">pressure</text>
-<text x="385.92" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 385.92 504.14)">temp</text>
-<text x="529.33" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 529.33 504.14)">humidity</text>
-<text x="672.73" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 672.73 504.14)">pressure</text>
-<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">First plot</text>
-</svg></figure></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
 <h2>How it works</h2>
 <p><code>nrow</code>/<code>ncol</code> answer for anything <code>shape</code> answers for, and they answer it by ASKING <code>shape</code> -- <code>nrow(x)</code> is <code>shape(x)[0]</code> by construction, so the two cannot drift. They used to take a table and nothing else, which made <code>nrow(m)</code> on a matrix -- the obvious spelling -- an error naming tables. The duplication was already flagged in <code>shape_of</code>'s own comment, which notes that <code>rows</code>/<code>cols</code> "must return exactly the same values the dedicated nrow/ncol match arms compute": two places computing one answer, kept in step by hand. <code>shape_of</code> returns <code>None</code> for a value with no shape rather than the old silent <code>(0, 0)</code>, so these refuse instead of reporting zero rows for a function.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

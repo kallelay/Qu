@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>profile_start — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>profile_start</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a></p>
+<pre class="fnsig"><code>profile_start()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Takes no arguments. Starts a named profiling window and returns a <code>Record</code> handle -- <code>t0</code> (wall-clock seconds) and <code>mem0</code> (RSS bytes, <code>NaN</code> if unsupported) -- to pass unmodified to <code>profile_end</code>. <code>t0</code>/<code>mem0</code> are semi-internal (read by <code>profile_end</code>, not meant to be inspected directly); <code>mem0</code> is <code>NaN</code> on a platform <code>current_rss_bytes</code> doesn't support (anything but Windows/Linux). Because the handle is an ordinary value rather than mutated global state (unlike <code>tic</code>), multiple windows — <code>p1 = profile_start()</code>, <code>p2 = profile_start()</code> — can overlap or nest without clobbering each other. Uses <code>SystemTime</code> rather than a monotonic clock, trading <code>tic</code>/<code>toc</code>'s clock-step immunity for a value that can round-trip through a <code>Record</code> field — prefer <code>tic</code>/<code>toc</code> for sub-millisecond or clock-step-sensitive timing. See also <code>timer</code>/<code>preciseTimer</code> above for a controllable object, and <code>profiling_mode</code>/<code>profile_stats</code> below for per-builtin call-count and time attribution (no memory) across a whole recording window instead of one region's time and memory.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>profile_start()</code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>Takes no arguments. Starts a named profiling window and returns a <code>Record</code> handle -- <code>t0</code> (wall-clock seconds) and <code>mem0</code> (RSS bytes, <code>NaN</code> if unsupported) -- to pass unmodified to <code>profile_end</code>. <code>t0</code>/<code>mem0</code> are semi-internal (read by <code>profile_end</code>, not meant to be inspected directly); <code>mem0</code> is <code>NaN</code> on a platform <code>current_rss_bytes</code> doesn't support (anything but Windows/Linux). Because the handle is an ordinary value rather than mutated global state (unlike <code>tic</code>), multiple windows — <code>p1 = profile_start()</code>, <code>p2 = profile_start()</code> — can overlap or nest without clobbering each other. Uses <code>SystemTime</code> rather than a monotonic clock, trading <code>tic</code>/<code>toc</code>'s clock-step immunity for a value that can round-trip through a <code>Record</code> field — prefer <code>tic</code>/<code>toc</code> for sub-millisecond or clock-step-sensitive timing. See also <code>timer</code>/<code>preciseTimer</code> above for a controllable object, and <code>profiling_mode</code>/<code>profile_stats</code> below for per-builtin call-count and time attribution (no memory) across a whole recording window instead of one region's time and memory.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>profile_start()</code>/<code>profile_end(handle)</code> -- a named-window counterpart to <code>tic</code>/<code>toc</code> above. <code>tic</code>/<code>toc</code> are a single global lap timer (one <code>self.tic_start</code> field), which is fine for timing one thing at a time but can't have two windows open at once. <code>profile_start()</code> returns a plain <code>Record</code> instead of mutating interpreter state, so <code>prof1 = profile_start()</code> and <code>prof2 = profile_start()</code> can overlap or nest without clobbering each other -- ordinary Qu values, not a second global. Wall-clock time is captured via <code>SystemTime</code>, not <code>Instant</code>: <code>Instant</code> has no defined epoch and can't round-trip through a <code>Value::Num</code>, which a <code>Record</code> field must be. That trades away <code>tic</code>/<code>toc</code>'s monotonic-clock guarantee (a clock step during the window can skew the reading) for being a plain value -- fine at the seconds-scale this is meant for; use <code>tic</code>/<code>toc</code> for sub-millisecond or clock-step-sensitive timing. Memory is process RSS (<code>resource::current_rss_bytes</code>, shared with <code>qu-cli</code>'s <code>--profile</code>/<code>--max-memory</code> watchdog) sampled once at each end, not polled -- a single huge allocation that also frees before the matching <code>profile_end</code> call is invisible to this, same coarse-sampling trade-off <code>qu-cli</code>'s own resource monitor documents for itself. <code>.mem</code> is <code>NaN</code> on a platform <code>current_rss_bytes</code> doesn't support (anything but Windows/Linux), never a fabricated number.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

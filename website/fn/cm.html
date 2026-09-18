@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
 
 f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_empty={is_empty(f)}"</span>)
@@ -53,9 +53,7 @@ f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">push</span>(f, <span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_full={is_full(f)}"</span>)   <span class="c"># at capacity -- the next push would evict the oldest</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mm(10)=100  cm(1)=100  inch(1)=254
-is_empty=true
-is_full=true</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>loglog</code>/<code>semilogx</code>/<code>semilogy</code> — thin convenience wrappers: plot the series, then set whichever axes the name implies to log scale (both already-real features, just not combined into one call before now). <code>xscale("log")</code> / <code>yscale("log")</code> -- set an axis scale on its own, without plotting anything. <code>loglog</code>/<code>semilogx</code>/<code>semilogy</code> below can only set a scale as a side effect of drawing a series, which leaves every plot that has no series -- a <code>contour</code>, a <code>heatmap</code>, an annotated but empty panel -- with no way to ask for a log axis at all. That is what blocked the ceiling map: the whole figure is a <code>contourf</code> on two log axes. <code>pt(n)</code> / <code>mm(n)</code> / <code>inch(n)</code> -- a size in the unit people actually think in, converted to the figure units everything here measures in. A figure unit is a tenth of a millimetre, which nobody has any intuition for. Writing <code>fontsize = 7</code> meaning 7 point silently asks for 0.7 mm -- about two point -- and the result is a legend that renders but cannot be read. There is no safe way to guess which was meant (6-14 is a plausible number in either unit), so the unit is spelled: <code>legend(fontsize = pt(7))</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

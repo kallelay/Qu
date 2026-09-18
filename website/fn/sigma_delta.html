@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 tone = <span class="f">sine</span>(<span class="n">50</span>, fs, <span class="n">20</span>)
 bits = <span class="f">sigma_delta</span>(tone)            <span class="c"># 1-bit noise-shaping quantizer</span>
 <span class="f">print</span>(<span class="s">"sigma_delta output range: [{min(bits)}, {max(bits)}]"</span>)
@@ -53,8 +53,7 @@ s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</s
 trimmed = <span class="f">signal_slice_time</span>(s, <span class="n">0.2</span>, <span class="n">0.6</span>)   <span class="c"># same operation `cut` is the friendlier name for</span>
 <span class="f">print</span>(<span class="s">"signal_slice_time(0.2, 0.6) -&gt; {trimmed}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>sigma_delta output range: [-1, 1]
-signal_slice_time(0.2, 0.6) -&gt; signal(Fs=10) [2, 3, 4, 5, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>sigma_delta(x)</code> — a first-order (error-feedback) 1-bit noise-shaping quantizer: exact 1-bit binarization of <code>x</code> that pushes quantization error to higher frequencies instead of spreading it evenly (<code>sign(x)</code>'s own behavior) — the standard technique behind "DIBS-ΔΣ" excitation signals (<code>multisine(...) |&gt; sigma_delta</code>) and 1-bit DACs generally. A signal's own <code>Fs</code> survives (same convention as <code>diff</code>/<code>cumsum</code>) since this doesn't change the sample rate, only re-quantizes the values.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

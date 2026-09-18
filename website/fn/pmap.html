@@ -45,12 +45,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
+<div class="example"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
 xs = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
 out = xs |&gt; <span class="f">pmap</span>(<span class="s">"extract"</span>)            <span class="c"># same as pmap(xs, "extract")</span>
 <span class="f">print</span>(out)                             <span class="c"># [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>pmap(xs, fnName)</code> — apply a named function to every element of <code>xs</code> across <code>available_parallelism()</code> threads, same isolation model as <code>parallel for</code>/<code>spawn</code> (share-nothing: each worker gets its own env/funcs snapshot and RNG stream drawn up front from the parent's own stream, for reproducibility) — but shaped as an expression returning a new vector, for the common "apply this pure function to every sample" pipeline stage. <code>xs</code> comes FIRST (not <code>fnName</code>) specifically so <code>|&gt;</code> composes naturally: <code>signals |&gt; pmap("extract_features")</code> is <code>pmap(signals, "extract_features")</code>, matching <code>|&gt;</code>'s own rule that the piped value lands in the first argument slot.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

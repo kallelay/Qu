@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
     <span class="k">return</span> a + b
 <span class="k">end</span> <span class="k">function</span>
 
@@ -64,11 +64,8 @@
 <span class="f">print</span>(<span class="f">describe</span>(<span class="n">5</span>))
 <span class="f">print</span>(<span class="f">describe</span>(<span class="s">"hi"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>add(2,3) = 5
-square(5) = 25
-num: 5
-str: hi</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -76,22 +73,8 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-3
-x   y
--  --
-3  30
-4  40
-5  50
-stat          x          y
------  --------  ---------
-count         5          5
-mean          3         30
-std    1.581139  15.811388
-min           1         10
-25%           2         20
-    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example hasout"><pre class="hl"><code>measurements = <span class="f">table</span>(
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
     <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
     <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
 )
@@ -103,21 +86,7 @@ df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
 <span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
 <span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-stat         x
------  -------
-count        5
-mean       0.9
-std    2.03562
-min       -1.5
-25%      -0.25
-50%        0.5
-75%          2
-max       3.75
-x,sensor
-0.5,b
-2,a
-    ... 1 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>describe(df)</code> — pandas' <code>DataFrame.describe()</code>: one row per summary statistic (<code>count</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>25%</code>, <code>50%</code>, <code>75%</code>, <code>max</code>), one column per NUMERIC column of <code>df</code> (text columns are skipped, same filter <code>corr_heatmap</code> already applies — a mean/quantile of a text column isn't meaningful). Returned as a genuine <code>Value::Table</code> (not a <code>Model</code> handle): a table-of-stats reads and prints naturally with the existing table machinery (<code>head</code>, <code>select</code>, <code>print</code>, ...) and keeps the per-column layout pandas users expect, whereas a <code>Model</code> handle's flat named fields would force one field per column instead of one row-labeled table. Every number is computed via the existing free <code>std_dev</code>/<code>quantile_of</code> helpers (the same ones <code>std</code>/<code>quantile</code> themselves call) — no separate statistics implementation.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

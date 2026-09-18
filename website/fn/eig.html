@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>sym = [<span class="n">2</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>sym = [<span class="n">2</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">3</span>]
 e = <span class="f">eig</span>(sym)
 <span class="f">print</span>(<span class="s">"eigenvalues = {e.values}"</span>)
 <span class="f">print</span>(<span class="s">"eigenvectors = {e.vectors}"</span>)
@@ -56,10 +56,7 @@ er = <span class="f">eig</span>(rot)
 <span class="f">print</span>(<span class="s">"complex eigenvalues = {er.values}"</span>)
 <span class="f">print</span>(<span class="s">"eigenvectors = {er.vectors}"</span>)   <span class="c"># none: rot isn't symmetric</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>eigenvalues = [2, 3]
-eigenvectors = [1, 0; 0, 1]
-complex eigenvalues = [1i, -1i]
-eigenvectors = none</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>eig(A)</code> — eigenvalues (and, for a symmetric <code>A</code>, real eigenvectors — dispatched on symmetry, checked directly, not assumed). Model kind <code>"eig"</code>, fields <code>values</code> (real if the input is symmetric, otherwise a <code>CVec</code>) and <code>vectors</code> (a <code>Mat</code> when symmetric, <code>Nothing</code> otherwise — a general matrix's eigenvectors would themselves be complex-valued, which isn't computed here, not silently approximated).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,14 +44,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>b = <span class="f">double_buffer</span>(<span class="n">1</span>)
+<div class="example"><pre class="hl"><code>b = <span class="f">double_buffer</span>(<span class="n">1</span>)
 b.<span class="f">write</span>(<span class="n">2</span>)
 <span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 1 -- the write above is not visible yet</span>
 b.<span class="f">swap</span>()
 <span class="f">print</span>(b.<span class="f">read</span>())     <span class="c"># 2 -- now it is</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1
-2</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>double_buffer(initial)</code> (§ data structures pass, 2026-09-01, primitive. <code>"write"</code> on a <code>Value::DoubleBuffer</code> is a guarded arm further up this match (next to <code>Value::File</code>/ <code>Value::Serial</code>'s own <code>"write"</code> arms); <code>"double_buffer"</code>/ <code>"read"</code>/<code>"swap"</code> have no competing meaning anywhere else.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

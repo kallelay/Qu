@@ -43,24 +43,22 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
+<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">producer</span>() := <span class="f">channel_send</span>(ch, <span class="n">42</span>)
 w = <span class="f">spawn</span>(<span class="s">"producer"</span>)
 value = <span class="f">channel_recv</span>(ch)               <span class="c"># blocks until producer sends</span>
 <span class="f">print</span>(value)                           <span class="c"># 42</span>
 <span class="f">join</span>(w)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>42</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">print</span>(<span class="f">channel_try_recv</span>(ch))            <span class="c"># none -- nothing queued yet</span>
 <span class="f">channel_send</span>(ch, <span class="n">1</span>)
 <span class="f">channel_send</span>(ch, <span class="n">2</span>)
 <span class="f">print</span>(<span class="f">channel_len</span>(ch))                 <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">channel_recv</span>(ch))                <span class="c"># 1 (FIFO)</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>none
-2
-1</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>channel()</code> — worker-to-worker communication (2026-08-24, worker-pool pass), the message-passing counterpart to <code>mutex</code>'s shared-state: a blocking MPMC queue any worker holding the same channel can send into or receive from. Unlike <code>mutex</code>, no snapshot-time copy is needed to "give" a worker a channel — cloning a <code>Value::Channel</code> (which happens automatically when it's captured into a <code>spawn</code>/<code>pmap</code>/ <code>parallel for</code> env snapshot, same as any other variable) shares the same underlying queue, the same <code>Arc</code>-sharing convention <code>Mutex</code>/<code>Semaphore</code>/<code>Timer</code> already use.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

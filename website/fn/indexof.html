@@ -45,16 +45,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>ys = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
+<div class="example"><pre class="hl"><code>ys = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">1</span>, <span class="n">5</span>]
 <span class="f">print</span>(<span class="f">contains</span>(ys, <span class="n">4</span>))     <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">indexof</span>(ys, <span class="n">4</span>))      <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">cumsum</span>(ys))          <span class="c"># [3, 4, 8, 9, 14]</span>
 <span class="f">print</span>(<span class="f">numel</span>(ys))           <span class="c"># 5</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>true
-2
-[3, 4, 8, 9, 14]
-5</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>indexof(collection, value)</code> — index of the first element equal to <code>value</code>, or <code>Value::Nothing</code> if absent. <code>Nothing</code> (not <code>-1</code>) is Qu's existing "absent" marker (see how <code>??</code>/ <code>Expr::Coalesce</code> already treats it specially) — composes directly with that operator: <code>indexof(xs, v) ?? -1</code> for scripts that do want a sentinel index. <code>index_of</code> is accepted as well: it is the spelling most people reach for, and having only one of the two is a guessing game with no payoff.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

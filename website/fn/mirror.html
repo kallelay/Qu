@@ -45,15 +45,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 x = <span class="n">5</span>
 <span class="f">print</span>(<span class="s">"val={val(x)}"</span>)
 <span class="f">print</span>(<span class="f">transpose</span>(A))
 <span class="f">print</span>(<span class="s">"mirror={mirror([1, 2, 3])}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>val=5
-[1, 4; 2, 5; 3, 6]
-mirror=[3, 2, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>flipud(A)</code>/<code>fliplr(A)</code> — reverse row order / column order. On a plain <code>Vec</code> (no row/column orientation of its own), both just reverse the element order — <code>mirror</code> is an alias for <code>fliplr</code>, the more common colloquial name for the same operation. <code>flip(A, [dim=1])</code> picks between the two by MATLAB's own dimension numbering (<code>dim=1</code> rows, <code>dim=2</code> columns); on a <code>Vec</code>, <code>dim</code> is accepted but has no effect since there's only one axis to reverse either way.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
 <span class="f">print</span>(<span class="s">""</span>)
 f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write</span>(f, <span class="s">"hello file"</span>)
@@ -53,9 +53,8 @@ g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a 1 b
-hello file</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
     <span class="f">print</span>(<span class="f">read_line</span>(f))
 <span class="k">end</span> <span class="k">for</span>
@@ -65,10 +64,7 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>run started
-value = 42
-run started
-value = 42</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
 had_before = <span class="f">file_exists</span>(path)
 <span class="f">touch</span>(path)
@@ -89,7 +85,7 @@ content = <span class="f">read_all</span>(g)
 <span class="f">print</span>(<span class="s">"content = {content}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_char</span>(f, <span class="s">"Hello,World"</span>)
 <span class="f">close</span>(f)
 
@@ -106,7 +102,7 @@ rest        = <span class="f">read_all</span>(g)          <span class="c"># "orl
 <span class="f">print</span>(<span class="s">"{first}{next}{chunk} peeked={peeked} next_byte={next_byte} before_comma=\"{before_comma}\" w_byte={w_byte} rest={rest}"</span>)
 <span class="c"># Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>read_all(f)</code> — the remaining content (possibly empty at EOF — an empty read is a legitimate, non-exceptional result here, unlike the "is there anything at all" question <code>read_line</code>/ <code>read_char</code>/<code>read_byte</code>/<code>read_bit</code> answer). For a <code>"r"</code> (text) handle: one <code>Value::Str</code>, same as always. For an <code>"rb"</code> (binary) handle: a <code>Value::Vec</code> of raw bytes (0-255), same representation <code>read_bin</code> uses — see the bug note below. § position-control + typed-binary-I/O pass (2026-08-26): this used to run EVERY remaining byte through <code>String::from_utf8_lossy</code> regardless of <code>st.binary</code>, silently replacing any byte sequence that wasn't valid UTF-8 with U+FFFD replacement characters — real, silent data corruption for exactly the "open a binary file, read it all" case this pass was asked to check. Fixed here: binary-mode <code>read_all</code> now returns the exact bytes, never decoded as text; text-mode <code>read_all</code> is UNCHANGED (still <code>Value::Str</code>), so every existing script/test that opens <code>"r"</code>/<code>"w"</code> text handles sees no behavior difference. <code>read_all(f)</code> on a <code>Value::UrlStream</code> (from <code>StreamURL</code>) — see <code>net_ops::stream_read_all</code>'s own doc comment. Always <code>Value::Str</code> (no binary-mode <code>StreamURL</code>), matching <code>http_get</code>'s own "HTTP bodies are text" convention.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

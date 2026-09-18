@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1023</span>
 t = n / fs
 f0 = <span class="n">99</span> * fs / <span class="n">1024</span>          <span class="c"># exactly 99 cycles in the record -- coherent sampling</span>
@@ -65,11 +65,7 @@ est_sinad = <span class="f">sinad_estimate</span>(<span class="n">12</span>, <sp
 est_enob  = <span class="f">enob_estimate</span>(<span class="n">12</span>, <span class="f">sqrt</span>(<span class="n">2</span>))
 <span class="f">print</span>(<span class="s">"ideal 12-bit ADC: SINAD = {est_sinad} dB, ENOB = {est_enob} bits"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>THD  = -39.98542 dB
-SNR  = 56.858996 dB
-SINAD = 39.897111 dB, ENOB = 6.335068 bits, SFDR = 39.986015 dB
-ENOB (from thd/sinad breakdown) = 6.335068 bits
-ideal 12-bit ADC: SINAD = 74 dB, ENOB = 12 bits</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>sinad_estimate(bits, crest_factor)</code> -- the SINAD an ideal converter of that resolution would show for a signal of that crest factor, without needing a record. SINAD ~= 6.02 N + 1.76 - 20 log10(CF / sqrt(2)) This is the estimate the measured <code>sinad(...)</code> exists to be checked against, and it is what makes crest factor a resolution problem: every doubling costs 6 dB, which is one bit.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

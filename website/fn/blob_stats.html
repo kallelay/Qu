@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
+<div class="example"><pre class="hl"><code>m = [<span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">255</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">255</span>]
 binary = <span class="f">image_from_matrix</span>(m)
 
 cleaned = <span class="f">remove_small_blobs</span>(binary, <span class="n">3</span>)     <span class="c"># drop the two 1-pixel specks</span>
@@ -57,13 +57,7 @@ stats = <span class="f">blob_stats</span>(labeled)
     <span class="f">print</span>(r.label, r.area, r.centroid_x, r.centroid_y)
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1 4 0.5 0.5
-2 4 4.5 4.5</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<image x="244.61" y="48.00" width="480.84" height="480.84" href="data:image/bmp;base64,Qk2uAAAAAAAAADYAAAAoAAAABgAAAAYAAAABABgAAAAAAHgAAAATCwAAEwsAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAD///////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////8AAAAAAAAAAAAAAAAAAP///////wAAAAAAAAAAAAAAAAAA" preserveAspectRatio="none"/>
-<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
-</svg></figure></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>blob_stats(labeled)</code> (alias <code>regionprops</code>) — per-blob geometry from a <code>label_blobs</code>/<code>bwlabel</code> result: a <code>Value::List</code> of one <code>Value::Record</code> per blob (<code>label</code>, <code>area</code>, <code>centroid_x</code>, <code>centroid_y</code>, <code>bbox_x</code>, <code>bbox_y</code>, <code>bbox_width</code>, <code>bbox_height</code>), in label-id order. <code>centroid_x</code>/<code>centroid_y</code> are the real arithmetic mean of that blob's own pixel coordinates (not a bounding-box-center approximation); <code>bbox_*</code> is the tightest axis-aligned rectangle containing every one of that blob's pixels.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

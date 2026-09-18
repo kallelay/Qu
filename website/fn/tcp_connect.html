@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">echo_once</span>(listener)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">echo_once</span>(listener)
     conn = <span class="f">tcp_accept</span>(listener)        <span class="c"># blocks for the one client</span>
     msg = <span class="f">tcp_recv</span>(conn)
     <span class="f">tcp_send</span>(conn, msg)
@@ -62,7 +62,7 @@ client = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, 
 <span class="f">tcp_close</span>(client)
 <span class="f">join</span>(w)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>hello</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>tcp_connect(host, port)</code> blocks until connected (or the OS gives up and errors), returning a <code>Value::TcpConn</code> — the client-side mirror of <code>tcp_accept</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

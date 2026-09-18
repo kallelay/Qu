@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
+<div class="example"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
 <span class="c"># log.txt that the chapter does not create until 700 lines further down,</span>
 <span class="c"># so this block failed and was dropped from the page while the build</span>
 <span class="c"># reported success.</span>
@@ -62,7 +62,7 @@ next_line  = <span class="f">read_line</span>(f)          <span class="c"># only
 <span class="f">close</span>(f)
 <span class="c"># a | a | b</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a | a | b</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>peek_line</code>/<code>peek_char</code>/<code>peek_byte</code> (§ file I/O extensions, wrappers around <code>read_line</code>/<code>read_char</code>/<code>read_byte</code>; see <code>fs_ops::call</code>'s own doc comment for the full design (why three distinct names rather than one generic <code>peek()</code>, and why this is implemented via a real <code>seek</code> round-trip rather than a buffered "un-read").</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

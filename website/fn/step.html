@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
+<div class="example"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
 start = env.<span class="f">reset</span>()
 <span class="f">print</span>(<span class="s">"start state: {start}"</span>)
 
@@ -68,10 +68,7 @@ done = <span class="k">false</span>
 <span class="k">end</span> <span class="k">while</span>
 <span class="f">print</span>(<span class="s">"greedy policy reached the goal in {steps} steps"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>start state: 0
-q_learning reward: early -4 -&gt; late 4.45
-sarsa reward:      early -1.5 -&gt; late 4.6
-greedy policy reached the goal in 6 steps</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>step(env, state, action)</code> — callable as <code>env.step(state, action)</code>. Returns a <code>Value::Record</code> (<code>.next_state</code>/<code>.reward</code>/<code>.done</code>) — Qu has no tuples, so this follows the same "named-field return value" precedent as <code>train_test_split</code>'s <code>Model</code>, except a <code>Record</code> here since this is a one-shot data bag, not a handle with further methods.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

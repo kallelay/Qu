@@ -1,0 +1,45 @@
+[package]
+name = "qu-jupyter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "A Jupyter kernel for Qu — speaks the Jupyter wire protocol (ZeroMQ) so .ipynb notebooks in Jupyter and VS Code can run Qu cells against one persistent qu-interp session."
+
+[[bin]]
+name = "qu-jupyter"
+path = "src/main.rs"
+
+[dependencies]
+qu-lexer = { path = "../qu-lexer" }
+qu-syntax = { path = "../qu-syntax" }
+qu-interp = { path = "../qu-interp" }
+
+# Pure-Rust ZMTP implementation — no system libzmq to install/bundle, matching
+# the workspace's "builds reproducibly anywhere, no network, no native deps"
+# stance (see engine/Cargo.toml's own comment). Interoperates with real
+# Jupyter clients (jupyterlab, VS Code's Jupyter extension) because ZMTP is a
+# wire protocol, not an ABI — they don't know or care which implementation is
+# on the other end of the socket.
+zeromq = { version = "0.6", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "signal"] }
+bytes = "1"
+
+serde = { version = "1", features = ["derive"] }
+# Same version qu-interp/qu-cli already pin, so this adds nothing new to the
+# build; preserve_order matches their stated reason (predictable JSON key
+# order) and Jupyter message content is order-sensitive to read for humans.
+serde_json = { version = "1", features = ["preserve_order"] }
+
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+time = { version = "0.3", features = ["formatting"] }
+
+[features]
+# Mirrors qu-cli's own default forwarding (same Cargo.toml comment applies
+# here verbatim: xlsx/codec are pure Rust, cost only a compile) so a notebook
+# run behaves identically to the `qu` binary a user already has.
+default = ["xlsx", "codec"]
+xlsx = ["qu-interp/xlsx"]
+codec = ["qu-interp/codec"]

@@ -42,7 +42,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
      wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
      wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
@@ -59,10 +59,8 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
 h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
 <span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>gru_forward last hidden state: [-0.542; -0.0036; -0.0815]
-dL/dwz: [0.2321, -0.0486; -0.0006, 0.0001; -0.0079, 0.0034]
-gru_cell one step: [0.5012]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
 b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
 x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
 z = <span class="f">dense</span>(x, w, b)
@@ -84,13 +82,8 @@ kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n
 <span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
 <span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>relu:    [1, 1.4; 0, 1.25]
-sigmoid: [0.7311, 0.8022; 0.5, 0.7773]
-dL/dw:   [0.2875, 0.12; 0.5749, 0.9128]
-softmax row 0: [0.659, 0.2424, 0.0986]
-dropout output: [2, 2, 0, 0, 2, 0, 2, 0]
-survivors:      4 of 8, each scaled by 1/(1-rate)</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>]
 y_true = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
 w = <span class="f">param</span>(<span class="n">0.0</span>)
 <span class="k">function</span> <span class="f">loss_fn</span>(w)
@@ -148,13 +141,7 @@ quick = <span class="f">quick_mlp</span>(Xxor, Yxor, <span class="a">seed</span>
 nq = <span class="f">length</span>(quick.loss_history)
 <span class="f">print</span>(<span class="s">"quick_mlp: loss {round(quick.loss_history[0], 4)} -&gt; {round(quick.loss_history[nq - 1], 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>train_loop (sgd): loss 30 -&gt; 0
-optimizer_step (adam): w -&gt; 1.7775 (target 2.0)
-nesterov_sgd -&gt; 0.715, adamw -&gt; 0.9495, nadam -&gt; 0.9263
-adamax -&gt; 0.95, rmsprop -&gt; 0.8419, adagrad -&gt; 0.95, adadelta -&gt; 0.9996
-compile + fit(lr_plateau): loss 3.3387 -&gt; 0.0341
-compile + fit(lr_adaptive): loss 0.3897 -&gt; 0.0002
-quick_mlp: loss 3.1877 -&gt; 0.0922</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>tape_reset()</code> — frees every recorded <code>TapeEntry</code> (memory hygiene for a long-running script that keeps building new Tensors and never needs to <code>grad()</code> against an old one). Danger: any <code>Value::Tensor</code> created *before* this call has its <code>.node</code> index invalidated — the tape's own numbering starts over from 0, so a stale Tensor's old index can silently collide with a brand-new node created after the reset, corrupting *that* node's gradient rather than erroring (traced down inside <code>train_loop</code>, which used to clear the tape and then keep reusing the same pre-reset Tensor every epoch — fixed there by building a genuinely fresh leaf Tensor each time, right after each reset, never carrying one across the boundary). Safe usage: reset only when nothing you still hold a <code>Value::Tensor</code> reference to will be used in a later <code>grad()</code> call — re-wrap any value you need to keep training through via <code>param()</code>/<code>track()</code> again after resetting.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

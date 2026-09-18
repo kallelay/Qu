@@ -1069,13 +1069,17 @@ function App() {
     try {
       const start = performance.now();
       
-      const response = await invoke<ExecuteResponse>('execute_code', {
-        request: {
-          code: codeToRun,
-          file_path: null,
-        }
+      // `repl_run` (not `execute_code`): the Code editor Run button drives
+      // this session's persistent `qu kernel` interpreter (see
+      // `repl_bridge.rs`) instead of a fresh one-shot `qu run` process, so
+      // variables/functions defined by an earlier Run are still in scope.
+      // `variables`/`data`/`plots` in the response are therefore the whole
+      // session's ACCUMULATED state so far, not just this call's delta --
+      // see `kernel_run_response`'s doc comment on the Rust side.
+      const response = await invoke<ExecuteResponse>('repl_run', {
+        code: codeToRun,
       });
-      
+
       const elapsed = performance.now() - start;
 
       // Figures land in the response regardless of whether the script also
@@ -1088,8 +1092,17 @@ function App() {
         // are the ones that match the code on screen; drop these.
         return;
       }
+      // `response.plots` is now the persistent kernel's WHOLE accumulated
+      // figure history (see `repl_run`'s doc comment above), not just this
+      // one call's delta -- so it always replaces `figureImages` outright.
+      // The old `keepFigures ? prev.concat(plots) : plots` concat here would
+      // now double up every figure that was already in `response.plots`
+      // (once from the kernel's own history, once concatenated back on top
+      // of it), since `execute_code`'s one-shot "prev call's figures are
+      // gone unless you concat them yourself" premise no longer holds for
+      // this Run button.
       const plots = response.plots ?? [];
-      setFigureImages((prev) => (keepFigures ? prev.concat(plots) : plots));
+      setFigureImages(plots);
       setVariables(response.variables ?? []);
       setNumericVariables(response.data ?? []);
 
@@ -1129,6 +1142,29 @@ function App() {
       addTerminalLine(`❌ Execution failed: ${error.message}`, 'error');
     }
   }, [code, keepFigures]);
+
+  // Restarts the Code editor Run button's persistent `qu kernel` (see
+  // `repl_bridge.rs`'s `repl_restart`): kills the live interpreter and
+  // clears everything this session's UI was showing FROM it, so the next
+  // Run starts from a genuinely empty interpreter, not a merely-visually-
+  // cleared one. Blocked while a run is in flight for the same reason the
+  // Run button itself is disabled then -- restarting out from under a
+  // request that's mid-flight would leave that request's eventual response
+  // describing a kernel that no longer exists.
+  const restartKernel = useCallback(async () => {
+    if (executionState.isRunning) return;
+    try {
+      await invoke('repl_restart');
+      setVariables([]);
+      setNumericVariables([]);
+      setFigureImages([]);
+      setLastError(null);
+      setExecutionState({ isRunning: false, progress: 0, error: null });
+      addTerminalLine('↻ Kernel restarted -- session state cleared', 'success');
+    } catch (error: any) {
+      addTerminalLine(`❌ Restart failed: ${error.message ?? error}`, 'error');
+    }
+  }, [executionState.isRunning]);
 
   // Builds the "cheap context" the brief asks for: the current buffer plus
   // the last error, when there is one -- no RAG, no symbol indexing, just
@@ -2087,6 +2123,21 @@ function App() {
               <Play size={16} />
             )}
             {executionState.isRunning ? 'Running…' : 'Run'}
+          </button>
+          )}
+
+          {/* Restart the Run button's persistent kernel (see `repl_bridge.rs`):
+              kills the live interpreter and clears the Variables/Figures
+              panels, so the next Run starts from a genuinely empty session.
+              Hidden alongside Run for the Designer tab, for the same reason. */}
+          {activeTab !== 'designer' && (
+          <button
+            onClick={() => restartKernel()}
+            disabled={executionState.isRunning}
+            className="qu-bar-icon"
+            title="Restart the persistent kernel (clears all session state)"
+          >
+            <RotateCcw size={16} />
           </button>
           )}
 

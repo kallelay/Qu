@@ -44,24 +44,21 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 back = <span class="f">parse_json</span>(env)
 <span class="f">print</span>(env)          <span class="c"># {"type":"complex","re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(back))   <span class="c"># complex</span>
 <span class="f">print</span>(back)         <span class="c"># 3 + 4i</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>{"type":"complex","re":3.0,"im":4.0}
-complex
-3 + 4i</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 plain = <span class="f">replace</span>(env, <span class="s">"\"type\":\"complex\","</span>, <span class="s">""</span>)
 v = <span class="f">parse_json</span>(plain)
 <span class="f">print</span>(plain)         <span class="c"># {"re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(v))       <span class="c"># record</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>{"re":3.0,"im":4.0}
-record</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"product,price\nWidget,9.99\nGadget,4.50\n"</span>)
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"product,price\nWidget,9.99\nGadget,4.50\n"</span>)
 
 csv_text = <span class="f">csvify</span>(t)
 json_text = <span class="f">jsonify</span>(t)
@@ -78,15 +75,7 @@ json_from_xml = <span class="f">xml2json</span>(xml_from_json) <span class="c">#
 parsed = <span class="f">parse_json</span>(json_from_xml)      <span class="c"># parse_json accepts that shape too -- back to a real Table</span>
 <span class="f">print</span>(<span class="f">nrow</span>(parsed))                     <span class="c"># 2</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>product,price
-Widget,9.99
-Gadget,4.5
-
-product,price
-Widget,9.99
-Gadget,4.5
-
-2</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>§ data-format conversion builtins (2026-09-01, Ahmed's ask — see <code>BACKLOG.md</code>'s "Format conversion builtins" entry). Three formats (JSON/CSV/XML), each with a <code>xify(value) -&gt; str</code> / <code>parse_x(str) -&gt; value</code> primitive pair, plus six pairwise converters that are ONE-LINE compositions of those primitives — not six independent implementations. <code>jsonify</code>/<code>parse_json</code> expose <code>value_to_json</code>/<code>json_to_value</code> (just above/below this very arm — <code>save</code>/<code>save_all</code>/<code>load</code>'s own machinery, never previously reachable as a plain string round trip) through <code>serde_json::to_string</code>/<code>from_str</code>; <code>csvify</code>/<code>parse_csv</code> string-based internally (<code>read_csv</code>/<code>write_csv</code> above are themselves thin file-I/O wrappers around exactly these two); mapping (see that module's own doc comment for the full design — the one genuinely new piece here, everything else is "expose what already exists").</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -43,19 +43,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
 <span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, nan]))    <span class="c"># [0, 10, 20, 20] -- holds, does not climb</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">method</span> = <span class="s">"previous"</span>))  <span class="c"># [1, 1, 9]</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">value</span> = <span class="n">0</span>))            <span class="c"># [1, 0, 9]</span>
 <span class="f">print</span>(<span class="f">find_missing</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                       <span class="c"># [1]</span>
 <span class="f">print</span>(<span class="f">remove_nan</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                         <span class="c"># [1, 3]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 10, 20, 30]
-[0, 10, 20, 20]
-[1, 1, 9]
-[1, 0, 9]
-[1]
-[1, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>find_missing</code>/<code>remove_nan</code>/<code>fill_missing</code>/<code>interpolate_nan</code> — dropouts, which real DAQ data has and which nothing else in the engine had an answer for: <code>detrend([1, 2, nan, 4], 0)</code> is four NaNs, and every spectral builtin behaves the same way, so one dropout costs the whole record until it is dealt with. "Missing" means NOT FINITE -- NaN or +-Inf, not just NaN. An infinity poisons a mean exactly as thoroughly as a NaN does and a saturated channel can produce either, so treating only NaN as missing would leave the other one to be discovered downstream. <code>remove_nan</code> keeps its familiar name and removes both; the book says so out loud. As with the outlier family there is no count in the return value: <code>length(find_missing(x))</code> is the count, and these stay chainable.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

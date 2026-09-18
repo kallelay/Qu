@@ -14,6 +14,8 @@ use gui_bridge::{gui_start, gui_event, gui_stop, gui_snapshot};
 mod serial_protocol;
 mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
+mod repl_bridge;
+use repl_bridge::{repl_run, repl_restart, ReplState};
 use llm_bridge::{
     llm_chat, llm_complete, llm_fix_error, llm_transform_code, get_llm_provider_config,
     set_llm_provider_config, test_llm_provider,
@@ -1155,9 +1157,12 @@ fn main() {
         .manage(LiveRunState::default())
         .manage(gui_bridge::GuiState::default())
         .manage(seriplot::SeriPlotState::default())
+        .manage(ReplState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             execute_code,
+            repl_run,
+            repl_restart,
             save_figures,
             check_syntax,
             open_file,

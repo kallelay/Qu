@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
 scaler = <span class="f">fit_scaler</span>(split.X_train, <span class="a">method</span> = <span class="s">"standard"</span>)
 <span class="f">print</span>(<span class="s">"training column means: {round(scaler.mean, 3)}"</span>)
 
@@ -53,9 +53,7 @@ Xte = scaler.<span class="f">transform</span>(split.X_test)
 <span class="f">print</span>(<span class="s">"train columns after scaling: {round(mean(Xtr, axis = 0), 3)}"</span>)
 <span class="f">print</span>(<span class="s">"test columns after scaling:  {round(mean(Xte, axis = 0), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>training column means: [-0.23, 0.011, 0]
-train columns after scaling: [0, 0, 0]
-test columns after scaling:  [0.428, 0.053, -0.046]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>scaler.transform(newX)</code> — applies the *fitted* parameters to <code>newX</code> (never re-fits on it). <code>newX</code>'s feature-column count must match what the scaler was fit on.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -56,10 +56,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>sv = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
+<div class="example"><pre class="hl"><code>sv = [<span class="n">2.0</span>, <span class="n">4.0</span>, <span class="n">6.0</span>, <span class="n">8.0</span>]
 <span class="f">print</span>(<span class="s">"standardize on a vector: {round(standardize(sv), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>standardize on a vector: [-1.162, -0.387, 0.387, 1.162]</pre></div></div>
+</div>
 
 </div>
 <div class="panel">
@@ -71,10 +71,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>sm = [<span class="n">1.0</span>, <span class="n">100.0</span>; <span class="n">2.0</span>, <span class="n">200.0</span>; <span class="n">3.0</span>, <span class="n">300.0</span>]
+<div class="example"><pre class="hl"><code>sm = [<span class="n">1.0</span>, <span class="n">100.0</span>; <span class="n">2.0</span>, <span class="n">200.0</span>; <span class="n">3.0</span>, <span class="n">300.0</span>]
 <span class="f">print</span>(<span class="s">"standardize on a matrix, per column: {round(standardize(sm), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>standardize on a matrix, per column: [-1, -1; 0, 0; 1, 1]</pre></div></div>
+</div>
 
 </div>
 <div class="panel">
@@ -86,16 +86,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
+<div class="example"><pre class="hl"><code>st = <span class="f">table</span>(<span class="a">a</span> = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>], <span class="a">b</span> = [<span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>], <span class="a">label</span> = [<span class="s">"x"</span>, <span class="s">"y"</span>, <span class="s">"z"</span>])
 <span class="f">print</span>(<span class="s">"standardize on a table, per numeric column (label untouched):"</span>)
 <span class="f">print</span>(<span class="f">standardize</span>(st))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>standardize on a table, per numeric column (label untouched):
- a   b  label
---  --  -----
--1  -1  x    
- 0   0  y    
- 1   1  z    </pre></div></div>
+</div>
 <p><code>normalize</code>, <code>robust_scale</code> and <code>quantile_normalize</code> all branch the same three ways.</p>
 
 </div>

@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
+<div class="example"><pre class="hl"><code>path = <span class="s">"report_final_v2.txt"</span>
 <span class="f">print</span>(<span class="f">ends_with</span>(path, <span class="s">".txt"</span>))         <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">index_of</span>(path, <span class="s">"_"</span>))              <span class="c"># 6</span>
 <span class="f">print</span>(<span class="f">last_index_of</span>(path, <span class="s">"_"</span>))         <span class="c"># 12</span>
@@ -59,15 +59,7 @@ full = <span class="s">"a/b/c.txt"</span>
 <span class="f">print</span>(<span class="f">after_last</span>(full, <span class="s">"/"</span>))            <span class="c"># "c.txt"</span>
 <span class="f">print</span>(<span class="f">before_last</span>(full, <span class="s">"/"</span>))           <span class="c"># "a/b"</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>true
-6
-12
-hello, world
-helloworld
-value
-key
-c.txt
-a/b</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>insert(collection, index, value)</code> — returns a NEW list/vector with <code>value</code> inserted before position <code>index</code> (so <code>index == length</code> appends at the end); same immutable- return convention as <code>remove</code>/<code>append</code>. Dispatches on <code>arg0</code>'s type: a <code>Vec</code> insert must itself be numeric (it stays a plain numeric vector, never silently promoted to a heterogeneous <code>List</code>), a <code>List</code> insert accepts anything.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

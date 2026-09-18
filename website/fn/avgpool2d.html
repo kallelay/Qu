@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>x1d = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>, <span class="n">5.0</span>]
+<div class="example"><pre class="hl"><code>x1d = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">4.0</span>, <span class="n">5.0</span>]
 edge_kernel = [<span class="n">1.0</span>, <span class="n">0.0</span>, -<span class="n">1.0</span>]
 y1d = <span class="f">conv1d</span>(x1d, edge_kernel)
 <span class="f">print</span>(<span class="s">"conv1d edge response: {y1d}"</span>)
@@ -59,11 +59,7 @@ y2d = <span class="f">conv2d</span>(img, k2d, <span class="n">1</span>, <span cl
 <span class="f">print</span>(<span class="s">"maxpool2d: {maxpool2d(img, 2)}"</span>)
 <span class="f">print</span>(<span class="s">"avgpool2d: {avgpool2d(img, 2)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>conv1d edge response: [-2, -2, -2]
-conv2d output:
-[-2, -4, 1; 2, -3, 9; 6, 1, 5]
-maxpool2d: [5, 9; 7, 6]
-avgpool2d: [3.25, 5; 2.75, 2]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>avgpool2d(x, pool_size, [stride])</code> — 2-D average pooling, <code>"valid"</code> only, <code>stride</code> defaulting to <code>pool_size</code> the same way <code>maxpool2d</code> does. Backward divides each upstream gradient element evenly across its whole pooling window.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

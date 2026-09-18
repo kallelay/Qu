@@ -75,9 +75,9 @@ cargo build --manifest-path engine/Cargo.toml -p qu-cli
 </code></pre>
 <p>That builds a <code>qu</code> binary (<code>engine/target/debug/qu</code>, or use <code>cargo run</code> as shown below to build-and-run in one step). Two ways to use it:</p>
 <p><strong>Run a script.</strong> Save this as <code>hello.qu</code>:</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"Hello, Qu!"</span>)
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"Hello, Qu!"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Hello, Qu!</pre></div></div>
+</div>
 <pre><code>cargo run --manifest-path engine/Cargo.toml -p qu-cli -- run hello.qu
 </code></pre>
 <pre><code>Hello, Qu!
@@ -135,7 +135,7 @@ qu&gt;
 </div>
 <p><code>profile_stats()</code> returns a <code>Table</code> the script decides what to do with — print it, filter it, save it — rather than the CLI's external report string. <code>--max-time</code>/<code>--max-memory</code> have no in-script equivalent yet: they're enforced by an external OS-level watchdog thread in <code>qu-cli</code> started before the interpreter runs at all, so an in-script <code>max_time(...)</code>/<code>max_memory(...)</code> would need the watchdog to poll a value the interpreter can update mid-run rather than a fixed constant set at startup — a real design question, not yet built (see <code>BACKLOG.md</code>).</p>
 <h2 id="s36">2. Core syntax in one script</h2>
-<div class="example hasout"><pre class="hl"><code>x = <span class="n">5</span>
+<div class="example"><pre class="hl"><code>x = <span class="n">5</span>
 y = <span class="n">2.5</span>
 <span class="f">print</span>(<span class="s">"x + y = {x + y}"</span>)
 
@@ -168,17 +168,7 @@ total = <span class="n">0</span>
 r = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">2</span>
 <span class="f">print</span>(<span class="s">"r = {r}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x + y = 7.5
-k = 1
-k = 2
-k = 3
-k = 4
-k = 5
-total = 10
-total is big
-square(6) = 36
-hello, Qu
-r = [0, 2, 4, 6, 8, 10]</pre></div></div>
+</div>
 <pre><code>x + y = 7.5
 k = 1
 k = 2
@@ -200,7 +190,7 @@ r = [0, 2, 4, 6, 8, 10]
 </ul>
 <p>Book 1 goes much deeper here: <code>type explicit</code> mode, unit literals (<code>5 kHz</code>), complex numbers, logical/mask indexing, and <code>save</code>/<code>load</code>.</p>
 <h2 id="s83">3. Vectors and matrices</h2>
-<div class="example hasout"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
 b = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>]
 <span class="f">print</span>(<span class="s">"a + b = {a + b}"</span>)
 <span class="f">print</span>(<span class="s">"a .* b = {a .* b}"</span>)
@@ -220,14 +210,7 @@ x = A \ rhs
 <span class="f">print</span>(<span class="s">"x = {x}"</span>)
 <span class="f">print</span>(<span class="s">"A*x = {A * x}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a + b = [11, 22, 33]
-a .* b = [10, 40, 90]
-a[0] = 1
-M = [1, 2; 3, 4]
-M[0,1] = 2
-M*M = [7, 10; 15, 22]
-x = [-0.1; 0.2]
-A*x = [1; 1]</pre></div></div>
+</div>
 <pre><code>a + b = [11, 22, 33]
 a .* b = [10, 40, 90]
 a[0] = 1
@@ -239,7 +222,7 @@ A*x = [1; 1]
 </code></pre>
 <p><strong>The one fact worth memorizing before anything else</strong>: <code>A[0,1]</code> reads row 0, column 1 — zero-based, like Python/NumPy, <strong>not</strong> one-based like MATLAB. The other MATLAB-familiar convention that *does* carry over: bare <code>*</code> is matrix multiplication at a 2-D boundary (not elementwise — use <code>.*</code> for that), and <code>A \ b</code> solves <code>A*x = b</code> exactly like MATLAB's own backslash. Book 1 §6–7 covers orientation, transpose spellings, and logical indexing; Book 2 §2 covers the rest of the linear-algebra floor (<code>inv</code>, <code>det</code>, <code>svd</code>, <code>qr</code>, <code>lu</code>, <code>eig</code>, <code>chol</code>).</p>
 <h2 id="s125">4. Plotting</h2>
-<div class="example hasout"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
+<div class="example"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> <span class="k">step</span> <span class="n">0.1</span>
 y = <span class="f">sin</span>(x)
 <span class="f">plot</span>(x, y)
 <span class="f">xlabel</span>(<span class="s">"x"</span>)
@@ -249,95 +232,12 @@ grid on
 <span class="f">savefig</span>(<span class="s">"quickstart_plot.svg"</span>)
 <span class="f">print</span>(<span class="s">"saved quickstart_plot.svg"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (101 points)
-· savefig quickstart_plot.svg
-  note: this figure uses screen styling and may not hold up in print -- call theme("publication") before saving for a paper (said once per session)
-  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
-saved quickstart_plot.svg</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<line x1="104.06" y1="507.00" x2="866.00" y2="507.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="507.00" x2="104.06" y2="507.00" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="512.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
-<line x1="104.06" y1="463.28" x2="866.00" y2="463.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="463.28" x2="104.06" y2="463.28" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="468.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.8</text>
-<line x1="104.06" y1="419.56" x2="866.00" y2="419.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="419.56" x2="104.06" y2="419.56" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="425.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.6</text>
-<line x1="104.06" y1="375.83" x2="866.00" y2="375.83" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="375.83" x2="104.06" y2="375.83" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="381.50" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.4</text>
-<line x1="104.06" y1="332.11" x2="866.00" y2="332.11" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="332.11" x2="104.06" y2="332.11" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="337.78" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.2</text>
-<line x1="104.06" y1="288.38" x2="866.00" y2="288.38" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="288.38" x2="104.06" y2="288.38" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="294.05" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
-<line x1="104.06" y1="244.66" x2="866.00" y2="244.66" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="244.66" x2="104.06" y2="244.66" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="250.33" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
-<line x1="104.06" y1="200.94" x2="866.00" y2="200.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="200.94" x2="104.06" y2="200.94" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="206.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
-<line x1="104.06" y1="157.21" x2="866.00" y2="157.21" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="157.21" x2="104.06" y2="157.21" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="162.88" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
-<line x1="104.06" y1="113.49" x2="866.00" y2="113.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="113.49" x2="104.06" y2="113.49" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="119.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
-<line x1="104.06" y1="69.76" x2="866.00" y2="69.76" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="99.56" y1="69.76" x2="104.06" y2="69.76" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="92.81" y="75.43" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
-<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
-<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1</text>
-<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
-<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">3</text>
-<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
-<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">5</text>
-<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
-<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">7</text>
-<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
-<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">9</text>
-<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
-<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
-<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
-<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
-<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
-<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
-<polyline points="104.06,288.38 111.32,266.56 118.58,244.95 125.83,223.78 133.09,203.25 140.35,183.57 147.60,164.94 154.86,147.54 162.11,131.56 169.37,117.13 176.63,104.42 183.88,93.55 191.14,84.62 198.40,77.73 205.65,72.94 212.91,70.31 220.17,69.86 227.42,71.59 234.68,75.48 241.94,81.50 249.19,89.59 256.45,99.67 263.71,111.63 270.96,125.36 278.22,140.71 285.48,157.55 292.73,175.68 299.99,194.95 307.25,215.15 314.50,236.08 321.76,257.53 329.02,279.29 336.27,301.15 343.53,322.87 350.79,344.25 358.04,365.07 365.30,385.13 372.55,404.22 379.81,422.15 387.07,438.74 394.32,453.84 401.58,467.28 408.84,478.93 416.09,488.68 423.35,496.42 430.61,502.09 437.86,505.62 445.12,506.99 452.38,506.17 459.63,503.17 466.89,498.02 474.15,490.79 481.40,481.52 488.66,470.33 495.92,457.33 503.17,442.63 510.43,426.39 517.69,408.77 524.94,389.96 532.20,370.12 539.46,349.47 546.71,328.21 553.97,306.55 561.23,284.71 568.48,262.90 575.74,241.35 582.99,220.27 590.25,199.88 597.51,180.36 604.76,161.92 612.02,144.75 619.28,129.02 626.53,114.87 633.79,102.46 641.05,91.91 648.30,83.32 655.56,76.78 662.82,72.35 670.07,70.08 677.33,69.99 684.59,72.09 691.84,76.35 699.10,82.72 706.36,91.15 713.61,101.55 720.87,113.82 728.13,127.83 735.38,143.45 742.64,160.51 749.90,178.85 757.15,198.29 764.41,218.62 771.66,239.66 778.92,261.18 786.18,282.97 793.43,304.81 800.69,326.50 807.95,347.80 815.20,368.50 822.46,388.41 829.72,407.32" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
-</g>
-<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">First plot</text>
-<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">x</text>
-<text x="51.01" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.01 288.42)">sin(x)</text>
-</svg></figure></div>
+</div>
 <pre><code>saved quickstart_plot.svg
 </code></pre>
 <p><code>savefig</code> picks the output format from the file extension. <code>.svg</code> and <code>.pdf</code> are both real, implemented vector backends today (<code>.html</code> embeds the same SVG in a minimal page, <code>.tikz</code>/<code>.tex</code> emits LaTeX source) — they share one draw-command list, so they never visually disagree with each other. Full-figure <code>.png</code> is the one format <strong>not</strong> implemented yet (it needs a real rasterizer); raster <code>.png</code> export for actual image data (<code>save_image</code>) is a separate, already-working feature. See <a href="plotting.html">Plotting</a> for the full chart-type list (<code>stem</code>/<code>scatter</code>/<code>bar</code>/<code>hist</code>/<code>heatmap</code>/<code>spectrogram</code>/... ) and subplot layout.</p>
 <h2 id="s156">5. Signal processing: filtering a noisy signal</h2>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span> <span class="k">to</span> <span class="n">999</span>
 t = n / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
@@ -351,8 +251,7 @@ err_filtered = <span class="f">rms</span>(filtered - clean)
 <span class="f">print</span>(<span class="s">"rms error before filtering = {err_noisy:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"rms error after filtering  = {err_filtered:.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>rms error before filtering = 0.7071
-rms error after filtering  = 0.0266</pre></div></div>
+</div>
 <pre><code>rms error before filtering = 0.7071
 rms error after filtering  = 0.0266
 </code></pre>
@@ -372,7 +271,7 @@ rms error after filtering  = 0.0266
 22.3,46.2,1011.9,ok
 </code></pre>
 <p>The block below writes that same file before reading it, so the page you are looking at really did run this. Without it the example opens a file the build does not have, fails, and is dropped from the page — leaving a quickstart whose output a newcomer cannot see.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(<span class="f">table</span>(
     <span class="a">temp</span>     = [<span class="n">21.5</span>, <span class="n">22.1</span>, <span class="n">35.0</span>, <span class="n">21.8</span>, <span class="n">36.2</span>, <span class="n">22.0</span>, <span class="n">34.5</span>, <span class="n">21.6</span>, <span class="n">35.8</span>, <span class="n">22.3</span>],
     <span class="a">humidity</span> = [<span class="n">45.2</span>, <span class="n">46.0</span>, <span class="n">20.1</span>, <span class="n">45.5</span>, <span class="n">19.5</span>, <span class="n">45.8</span>, <span class="n">21.0</span>, <span class="n">45.1</span>, <span class="n">20.4</span>, <span class="n">46.2</span>],
     <span class="a">pressure</span> = [<span class="n">1012.1</span>, <span class="n">1011.8</span>, <span class="n">1009.5</span>, <span class="n">1012.0</span>, <span class="n">1008.9</span>, <span class="n">1012.3</span>, <span class="n">1009.8</span>, <span class="n">1012.2</span>, <span class="n">1009.1</span>, <span class="n">1011.9</span>],
@@ -393,45 +292,7 @@ scaled_temp = <span class="f">standardize</span>(df.temp)
 <span class="f">print</span>(<span class="s">"standardized temp[0] = {scaled_temp[0]:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"mean(standardized) = {mean(scaled_temp):.4f}, std(standardized) = {std(scaled_temp):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>rows = 10, cols = 4
-temp  humidity  pressure  label
-----  --------  --------  -----
-21.5      45.2    1012.1  ok   
-22.1        46    1011.8  ok   
-  35      20.1    1009.5  warn 
-[1, -0.997357, -0.991317; -0.997357, 1, 0.983511; -0.991317, 0.983511, 1]
-· savefig quickstart_corrmat.svg
-  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
-standardized temp[0] = -0.8275
-mean(standardized) = -0.0000, std(standardized) = 1.0000</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<rect x="314.22" y="48.00" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>temp, temp: 1</title></rect>
-<text x="385.92" y="125.94" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<rect x="457.62" y="48.00" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>temp, humidity: -0.997</title></rect>
-<text x="529.33" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
-<rect x="601.03" y="48.00" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>temp, pressure: -0.991</title></rect>
-<text x="672.73" y="125.94" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
-<rect x="314.22" y="191.41" width="143.41" height="143.41" rx="0" fill="#f7fbff" stroke="#ffffff" opacity="1"><title>humidity, temp: -0.997</title></rect>
-<text x="385.92" y="269.35" font-size="17.82" text-anchor="middle" fill="#111111">-0.997</text>
-<rect x="457.62" y="191.41" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>humidity, humidity: 1</title></rect>
-<text x="529.33" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<rect x="601.03" y="191.41" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>humidity, pressure: 0.984</title></rect>
-<text x="672.73" y="269.35" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
-<rect x="314.22" y="334.81" width="143.41" height="143.41" rx="0" fill="#f6fbff" stroke="#ffffff" opacity="1"><title>pressure, temp: -0.991</title></rect>
-<text x="385.92" y="412.75" font-size="17.82" text-anchor="middle" fill="#111111">-0.991</text>
-<rect x="457.62" y="334.81" width="143.41" height="143.41" rx="0" fill="#094896" stroke="#ffffff" opacity="1"><title>pressure, humidity: 0.984</title></rect>
-<text x="529.33" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">0.984</text>
-<rect x="601.03" y="334.81" width="143.41" height="143.41" rx="0" fill="#084594" stroke="#ffffff" opacity="1"><title>pressure, pressure: 1</title></rect>
-<text x="672.73" y="412.75" font-size="17.82" text-anchor="middle" fill="#ffffff">1</text>
-<text x="304.50" y="125.37" font-size="16.2" text-anchor="end" fill="#444444">temp</text>
-<text x="304.50" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">humidity</text>
-<text x="304.50" y="412.19" font-size="16.2" text-anchor="end" fill="#444444">pressure</text>
-<text x="385.92" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 385.92 504.14)">temp</text>
-<text x="529.33" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 529.33 504.14)">humidity</text>
-<text x="672.73" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 672.73 504.14)">pressure</text>
-<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">First plot</text>
-</svg></figure></div>
+</div>
 <pre><code>rows = 10, cols = 4
 table(3 rows x 4 cols: temp, humidity, pressure, label)
 [1, -0.997357, -0.991317; -0.997357, 1, 0.983511; -0.991317, 0.983511, 1]
@@ -440,7 +301,7 @@ mean(standardized) = -0.0000, std(standardized) = 1.0000
 </code></pre>
 <p>A <code>Table</code> prints as a compact one-line summary rather than a full grid — use <code>print(select(df, "temp", "humidity"))</code> for a subset, or <code>print(describe(df))</code> for pandas-style summary statistics, when you want to actually see values. <code>drop(df, "col", ...)</code> returns a new table with those columns removed (Qu tables are immutable, like everything else); <code>corrmat(df)</code> returns a <code>model(...)</code> with a <code>.matrix</code> field, and doubles as a plottable heatmap via <code>.plot()</code>. <code>standardize</code>/<code>normalize</code>/ <code>robust_scale</code>/<code>quantile_normalize</code> are one-shot scalers; <code>fit_scaler(X, method=...)</code> plus <code>.transform</code>/<code>.inverse_transform</code> is the fit-once/ reuse-on-new-data version for a real train/test split. See <a href="collections-strings.html">Collections, Strings &amp; Data Frames</a> and <a href="file-io.html">File I/O</a> for the rest of the <code>Table</code> API.</p>
 <h2 id="s262">7. Machine learning: train, predict, check accuracy</h2>
-<div class="example hasout"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
 c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
 c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
 c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
@@ -481,18 +342,18 @@ trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<s
 acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
 <span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>training accuracy = 1.0000</pre></div></div>
+</div>
 <pre><code>training accuracy = 1.0000
 </code></pre>
 <p><code>mlp_classifier(in_dim, hidden_dims, n_classes, <a href="statistics-ml.html">seed=])</code> builds a dense+ReLU stack ending in raw ("softmax-ready") logits; <code>.fit(X, Y, epochs=, lr=, loss="cross_entropy")</code> trains it with one-hot <code>Y</code>, and <code>.predict(X)</code> runs inference (dropout off, untracked). Two classes drawn from well-separated Gaussian blobs is an easy problem — 100% training accuracy just confirms the whole pipeline actually works end to end, not that the model is magic. For classical (non-neural) ML with the same <code>fit</code>/<code>predict</code>/<code>score</code> protocol, see <code>kmeans_model</code>, <code>ols_model</code>, <code>tree_model</code>, <code>knn_model</code>, and the rest of [Statistics &amp; Machine Learning</a>; Book 3 §2 covers the model-zoo and pipeline story in more depth.</p>
 <h2 id="s333">8. Concurrency: spawn and join</h2>
-<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)
 result = <span class="f">join</span>(w)
 <span class="f">print</span>(<span class="s">"result = {result}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>result = 49</pre></div></div>
+</div>
 <pre><code>result = 49
 </code></pre>
 <p><code>spawn("fn_name", args...)</code> runs a user-defined function on its own OS thread (only a function you defined can be spawned, never a builtin); <code>join(w)</code> blocks for its result. <code>parallel for</code> and <code>pmap</code> are the shared-nothing loop/pipeline-stage equivalents for "apply this to every element"; <code>mutex</code>/<code>semaphore</code> opt in to real shared state when you need it. See Book 3 §4 and §5 for timers (<code>every</code>/<code>after</code>), <code>parallel for</code>, and real serial-port I/O.</p>

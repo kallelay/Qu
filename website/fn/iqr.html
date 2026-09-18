@@ -44,12 +44,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>samples = <span class="f">randn</span>(<span class="n">1000</span>, <span class="n">1</span>)
+<div class="example"><pre class="hl"><code>samples = <span class="f">randn</span>(<span class="n">1000</span>, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"mean={mean(samples)}  std={std(samples)}  iqr={iqr(samples)}"</span>)
 <span class="f">print</span>(<span class="s">"p95={percentile(samples, 95)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mean=0.012612  std=1.005695  iqr=1.356399
-p95=1.671269</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>iqr(x)</code> — interquartile range, <code>percentile(x, 75) - percentile(x, 25)</code>: a spread measure robust to outliers, unlike <code>std</code>/<code>var</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

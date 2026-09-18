@@ -43,7 +43,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>P = [<span class="n">0.9</span>, <span class="n">0.5</span>, <span class="n">0.1</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)   <span class="c"># column-major: rows [0.9 0.1], [0.5 0.5]</span>
+<div class="example"><pre class="hl"><code>P = [<span class="n">0.9</span>, <span class="n">0.5</span>, <span class="n">0.1</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)   <span class="c"># column-major: rows [0.9 0.1], [0.5 0.5]</span>
 chain = <span class="f">markov_chain</span>(P, <span class="n">0</span>)
 <span class="f">print</span>(<span class="s">"stationary: {round(chain.stationary(), 4)}"</span>)
 <span class="f">print</span>(<span class="s">"3-step:     {round(chain.transition ^ 3, 4)}"</span>)
@@ -54,10 +54,7 @@ h = <span class="f">hmm</span>(trans, emit, [<span class="n">0.6</span>, <span c
 <span class="f">print</span>(<span class="s">"P(normal, cold, dizzy) = {round(h.forward([0, 1, 2]), 5)}"</span>)
 <span class="f">print</span>(<span class="s">"most likely path       = {h.viterbi([0, 1, 2])}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>stationary: [0.8333, 0.1667]
-3-step:     [0.844, 0.156; 0.78, 0.22]
-P(normal, cold, dizzy) = 0.03628
-most likely path       = [0, 0, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>stationary(chain)</code> — callable as <code>chain.stationary()</code>. The Markov chain's long-run state distribution, found by power iteration (<code>v &lt;- normalize(v * P)</code> from a uniform start) rather than an eigenvector extraction: <code>eig</code> only computes eigenvectors for a SYMMETRIC input (see <code>numeric::linalg::eig</code>'s own doc comment), and a general transition matrix has no reason to be symmetric. See <code>markov_stationary</code>'s own doc comment.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

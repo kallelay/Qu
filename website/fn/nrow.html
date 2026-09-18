@@ -49,23 +49,15 @@
 <span class="f">print</span>(<span class="f">head</span>(t, <span class="n">2</span>))
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
 <span class="f">print</span>(df)
 <span class="f">print</span>(<span class="s">"nrow = {nrow(df)}"</span>)
 <span class="f">print</span>(<span class="s">"ncol = {ncol(df)}"</span>)
 <span class="f">print</span>(<span class="s">"df.nrows = {df.nrows}"</span>)
 <span class="f">print</span>(<span class="s">"rows(df) = {rows(df)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-nrow = 3
-ncol = 2
-df.nrows = 3
-rows(df) = 3</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -73,22 +65,8 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-3
-x   y
--  --
-3  30
-4  40
-5  50
-stat          x          y
------  --------  ---------
-count         5          5
-mean          3         30
-std    1.581139  15.811388
-min           1         10
-25%           2         20
-    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example hasout"><pre class="hl"><code>measurements = <span class="f">table</span>(
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
     <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
     <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
 )
@@ -100,21 +78,7 @@ df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
 <span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
 <span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-stat         x
------  -------
-count        5
-mean       0.9
-std    2.03562
-min       -1.5
-25%      -0.25
-50%        0.5
-75%          2
-max       3.75
-x,sensor
-0.5,b
-2,a
-    ... 1 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>nrow</code>/<code>ncol</code> answer for anything <code>shape</code> answers for, and they answer it by ASKING <code>shape</code> -- <code>nrow(x)</code> is <code>shape(x)[0]</code> by construction, so the two cannot drift. They used to take a table and nothing else, which made <code>nrow(m)</code> on a matrix -- the obvious spelling -- an error naming tables. The duplication was already flagged in <code>shape_of</code>'s own comment, which notes that <code>rows</code>/<code>cols</code> "must return exactly the same values the dedicated nrow/ncol match arms compute": two places computing one answer, kept in step by hand. <code>shape_of</code> returns <code>None</code> for a value with no shape rather than the old silent <code>(0, 0)</code>, so these refuse instead of reporting zero rows for a function.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

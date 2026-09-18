@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(n)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">is_even</span>(n)
     <span class="k">return</span> n <span class="k">mod</span> <span class="n">2</span> == <span class="n">0</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -56,9 +56,8 @@
 <span class="f">print</span>(<span class="f">filter</span>(acc, <span class="s">"is_even"</span>))     <span class="c"># (4, 16, 36)</span>
 <span class="f">print</span>(<span class="f">fold</span>(acc, <span class="s">"add2"</span>, <span class="n">0</span>))       <span class="c"># 91</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>(4, 16, 36)
-91</pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
 pos = <span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>)
 <span class="f">print</span>(pos)
 
@@ -69,22 +68,8 @@ g = <span class="f">table</span>(<span class="a">grp</span>=[<span class="n">1</
 agg = <span class="f">group_by_agg</span>(g, <span class="s">"grp"</span>, <span class="s">"v"</span>, <span class="s">"mean"</span>)
 <span class="f">print</span>(agg)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-5   2
- x   y
---  --
- 3  -5
- 5   2
--1   7
- 1  10
- 2  20
-grp  mean_v
-    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">x</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>], <span class="a">label</span>=<span class="s">"sample"</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(df))            <span class="c"># 5</span>
 <span class="f">print</span>(<span class="f">ncol</span>(df))             <span class="c"># 3</span>
 tall = <span class="f">filter</span>(df, df.x &gt; <span class="n">2</span>)
@@ -92,22 +77,8 @@ xy = <span class="f">select</span>(tall, <span class="s">"x"</span>, <span class
 <span class="f">print</span>(xy)
 <span class="f">print</span>(<span class="f">describe</span>(df))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-3
-x   y
--  --
-3  30
-4  40
-5  50
-stat          x          y
------  --------  ---------
-count         5          5
-mean          3         30
-std    1.581139  15.811388
-min           1         10
-25%           2         20
-    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example hasout"><pre class="hl"><code>measurements = <span class="f">table</span>(
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
     <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
     <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
 )
@@ -119,21 +90,7 @@ df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
 <span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
 <span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5
-stat         x
------  -------
-count        5
-mean       0.9
-std    2.03562
-min       -1.5
-25%      -0.25
-50%        0.5
-75%          2
-max       3.75
-x,sensor
-0.5,b
-2,a
-    ... 1 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

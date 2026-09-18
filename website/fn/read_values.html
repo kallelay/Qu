@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">20.5</span>)
 <span class="f">write_double</span>(f, <span class="n">21.0</span>)
 <span class="f">write_double</span>(f, <span class="n">19.8</span>)
@@ -62,9 +62,7 @@ vals = <span class="f">read_values</span>(g, <span class="s">"f64"</span>, <span
 whole = <span class="f">read_array</span>(<span class="s">"temps.bin"</span>, <span class="a">type</span>=<span class="s">"f64"</span>)
 <span class="f">print</span>(whole)                             <span class="c"># [20.5, 21, 19.8]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>24
-[20.5, 21, 19.8]
-[20.5, 21, 19.8]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>Typed binary reads: <code>read_int16</code>/<code>read_uint16</code>/<code>read_int32</code>/ <code>read_uint32</code>/<code>read_float</code> (32-bit)/<code>read_double</code> (64-bit), each with an <code>endian=</code> kwarg (<code>"little"</code> default, matching x86/most common convention, or <code>"big"</code>), via Rust's own <code>from_le_bytes</code>/<code>from_be_bytes</code> (no hand-rolled byte shuffling). <code>Nothing</code> if fewer bytes remain than the type needs — the same "exhausted" signal as every read above. <code>read_values(f, type, n)</code> -- n values of one type, from an open handle, in one call. The single-value reads above are the right shape for a header and the wrong one for a payload: a raw instrument capture is 100 000 float64 samples per channel, and reading it a value at a time is 100 000 builtin calls per file. That is not a slow way to read a measurement, it is a reason not to read one. <code>read_array</code> covers a whole file; this covers a RUN inside a file, which is what a record with a length prefix, an interleaved channel, or a header-then-payload layout actually needs. Short at EOF rather than an error, matching every other read here: the caller checks <code>len</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -62,28 +62,25 @@ lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"lo
 notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"notch"</span>, [<span class="n">45</span>, <span class="n">55</span>], fs)  <span class="c"># removes 45-55 Hz (mains hum)</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
 <span class="f">print</span>(<span class="f">zeros</span>(<span class="n">2</span>, <span class="n">3</span>))                           <span class="c"># [0, 0, 0; 0, 0, 0]</span>
 filt = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, <span class="n">1000</span>)
 <span class="f">print</span>(<span class="f">zeros</span>(filt))                           <span class="c"># [-1, -1, -1, -1] -- a CVec, not a fresh zero-fill</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 0, 0]
-[0, 0, 0; 0, 0, 0]
-[-1, -1, -1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 <span class="f">print</span>(<span class="s">"IIR poles: {poles(iir)}"</span>)
 <span class="c"># IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 bp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
 <span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
 <span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>lowpass sections: 2
-bandpass sections: 4</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </div>
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
@@ -102,28 +99,25 @@ lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"lo
 notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"notch"</span>, [<span class="n">45</span>, <span class="n">55</span>], fs)  <span class="c"># removes 45-55 Hz (mains hum)</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">zeros</span>(<span class="n">3</span>))                              <span class="c"># [0, 0, 0]</span>
 <span class="f">print</span>(<span class="f">zeros</span>(<span class="n">2</span>, <span class="n">3</span>))                           <span class="c"># [0, 0, 0; 0, 0, 0]</span>
 filt = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, <span class="n">1000</span>)
 <span class="f">print</span>(<span class="f">zeros</span>(filt))                           <span class="c"># [-1, -1, -1, -1] -- a CVec, not a fresh zero-fill</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 0, 0]
-[0, 0, 0; 0, 0, 0]
-[-1, -1, -1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 <span class="f">print</span>(<span class="s">"IIR poles: {poles(iir)}"</span>)
 <span class="c"># IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
 bp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"band"</span>, [<span class="n">80</span>, <span class="n">120</span>], fs)
 <span class="f">print</span>(<span class="s">"lowpass sections: {shape(lp.sos)[0]}"</span>)    <span class="c"># lowpass sections: 2</span>
 <span class="f">print</span>(<span class="s">"bandpass sections: {shape(bp.sos)[0]}"</span>)   <span class="c"># bandpass sections: 4</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>lowpass sections: 2
-bandpass sections: 4</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </div>
 </div>
 </div>

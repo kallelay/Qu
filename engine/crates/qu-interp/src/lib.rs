@@ -81,6 +81,12 @@ pub mod color;
 /// doc comment for which subset of the format it covers and why both
 /// directions had to exist.
 pub mod markdown;
+/// This process's own live resource usage (currently just RSS) -- distinct
+/// from `sysinfo` below, which reports the machine, not this run. Backs
+/// the `profile_start`/`profile_end` builtins and is re-exported for
+/// `qu-cli`'s `--profile`/`--max-memory` watchdog to use too, so the
+/// platform FFI for reading it exists in exactly one place.
+pub mod resource;
 /// What machine a run happened on -- CPU, cores, memory, GPU, build
 /// profile. A benchmark number is not a result without it.
 pub mod sysinfo;
@@ -2801,6 +2807,91 @@ pub fn unit_tag_name(tag: &UnitTag) -> String {
         UnitTag::Dim(_d, Some(spelling)) => spelling.to_string(),
         UnitTag::Dim(d, None) => name_for_dim(*d).map(|n| n.to_string()).unwrap_or_else(|| d.compose()),
     }
+}
+
+/// Does `src` (one or more physical lines joined by `\n`) look like a
+/// *complete* set of top-level statements, or is the caller still mid-block
+/// (`for ... end`, an open `(`/`[`/`{`, …)? Shared by `qu-cli`'s REPL (to
+/// decide whether to keep prompting `...>`) and by any other host that feeds
+/// Qu source incrementally, such as a Jupyter kernel's `is_complete_request`.
+///
+/// Reuses the real tokenizer (`qu_lexer::lex`) rather than scanning raw text
+/// for keywords, specifically so a word like `for`/`end` sitting inside a
+/// string or a `#` comment can never be mistaken for a real block boundary
+/// — the lexer already resolves string/comment spans before any of this
+/// sees a single token. This is a lightweight token-count heuristic, not a
+/// second parser: it tracks bracket nesting and block-opener/`end` keyword
+/// balance, which is enough to decide "is it worth attempting a real parse
+/// yet" without duplicating `qu-syntax`'s actual grammar.
+///
+/// Block openers: `if`/`for`/`while`/`function`/`try`/`unsafe` are real
+/// lexer keywords, so every one of them (including `parallel for`, which is
+/// just `for` preceded by a contextual `parallel` identifier — the `for`
+/// token alone already accounts for the one `end` that closes it) is caught
+/// by matching on `Tok::Keyword`. `every`/`after`/`at ... do ... end` and
+/// `on elapsed(...)`/`on elapsedOnce(...) do ... end` (`qu-syntax`'s two
+/// *contextual* timer forms — see `Stmt::Timer`/`Stmt::OnElapsed`'s doc
+/// comments) are plain identifiers to the lexer, not keywords, so they're
+/// matched the same way the parser itself recognizes them: by shape, not by
+/// a reserved word.
+pub fn input_looks_complete(src: &str) -> bool {
+    use qu_lexer::{Tok, Token};
+    let tokens = qu_lexer::lex(src);
+    let mut bracket_depth: i32 = 0;
+    let mut block_depth: i32 = 0;
+    let mut i = 0;
+    // "start of statement" — true at the very first token and right after a
+    // newline/`;` — needed to tell a genuine `every 1 s do ... end` timer
+    // statement apart from `every` used mid-expression as an ordinary name.
+    let mut at_stmt_start = true;
+    while i < tokens.len() {
+        let tok = &tokens[i].tok;
+        match tok {
+            Tok::Op("(" | "[" | "{") => bracket_depth += 1,
+            Tok::Op(")" | "]" | "}") => bracket_depth -= 1,
+            Tok::Keyword("if" | "for" | "while" | "function" | "try" | "unsafe") => {
+                block_depth += 1;
+            }
+            Tok::Keyword("end") => {
+                block_depth -= 1;
+                // `end for` / `end if` / `end while` / `end function` are
+                // the forms every shipped example and the whole book use,
+                // and the file parser accepts them. Here the trailing
+                // keyword used to be counted as OPENING a new block, so
+                // `end for` netted to zero and the REPL sat at `...>`
+                // forever -- with no way out, since meta-commands were
+                // also swallowed as continuation lines. Pasting the first
+                // `for` loop out of the docs killed the session.
+                if matches!(
+                    tokens.get(i + 1).map(|t| &t.tok),
+                    Some(Tok::Keyword("if" | "for" | "while" | "function" | "try" | "unsafe"))
+                ) {
+                    i += 1; // part of this `end`, not a new block
+                }
+            }
+            Tok::Ident(name) if at_stmt_start => {
+                let next_is_assign = matches!(
+                    tokens.get(i + 1).map(|t| &t.tok),
+                    Some(Tok::Op("=" | ":=" | "+=" | "-=" | "*=" | "/=" | ".="))
+                );
+                if matches!(name.as_str(), "every" | "after" | "at") && !next_is_assign {
+                    block_depth += 1; // timer_stmt — closes with a bare `end`
+                } else if name == "on" {
+                    if let Some(Token { tok: Tok::Ident(ev), .. }) = tokens.get(i + 1) {
+                        let is_on_elapsed = matches!(ev.as_str(), "elapsed" | "elapsedOnce")
+                            && matches!(tokens.get(i + 2).map(|t| &t.tok), Some(Tok::Op("(")));
+                        if is_on_elapsed {
+                            block_depth += 1; // on_elapsed_stmt — closes with `end`
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        at_stmt_start = matches!(tok, Tok::Newline | Tok::Op(";"));
+        i += 1;
+    }
+    block_depth <= 0 && bracket_depth <= 0
 }
 
 pub fn display_value(v: &Value) -> String {
@@ -17762,6 +17853,67 @@ self.eval_grad(loss, wrt)
                 })?;
                 Ok(Value::Num(start.elapsed().as_secs_f64()))
             }
+            // `profile_start()`/`profile_end(handle)` -- a named-window
+            // counterpart to `tic`/`toc` above. `tic`/`toc` are a single
+            // global lap timer (one `self.tic_start` field), which is fine
+            // for timing one thing at a time but can't have two windows
+            // open at once. `profile_start()` returns a plain `Record`
+            // instead of mutating interpreter state, so `prof1 =
+            // profile_start()` and `prof2 = profile_start()` can overlap
+            // or nest without clobbering each other -- ordinary Qu values,
+            // not a second global.
+            //
+            // Wall-clock time is captured via `SystemTime`, not `Instant`:
+            // `Instant` has no defined epoch and can't round-trip through
+            // a `Value::Num`, which a `Record` field must be. That trades
+            // away `tic`/`toc`'s monotonic-clock guarantee (a clock step
+            // during the window can skew the reading) for being a plain
+            // value -- fine at the seconds-scale this is meant for; use
+            // `tic`/`toc` for sub-millisecond or clock-step-sensitive
+            // timing.
+            //
+            // Memory is process RSS (`resource::current_rss_bytes`, shared
+            // with `qu-cli`'s `--profile`/`--max-memory` watchdog) sampled
+            // once at each end, not polled -- a single huge allocation
+            // that also frees before the matching `profile_end` call is
+            // invisible to this, same coarse-sampling trade-off
+            // `qu-cli`'s own resource monitor documents for itself. `.mem`
+            // is `NaN` on a platform `current_rss_bytes` doesn't support
+            // (anything but Windows/Linux), never a fabricated number.
+            "profile_start" => {
+                let t0 = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs_f64())
+                    .unwrap_or(0.0);
+                let mem0 = resource::current_rss_bytes()
+                    .map(|b| b as f64)
+                    .unwrap_or(f64::NAN);
+                Ok(Value::Record(Arc::new(vec![
+                    ("t0".to_string(), Value::Num(t0)),
+                    ("mem0".to_string(), Value::Num(mem0)),
+                ])))
+            }
+            "profile_end" => {
+                let handle = arg_get(&args, 0).ok_or_else(|| EvalError {
+                    msg: "profile_end(handle) needs 1 argument -- the record returned by profile_start()".into(),
+                })?;
+                let t0 = profile_field(handle, "t0")?;
+                let mem0 = profile_field(handle, "mem0")?;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs_f64())
+                    .unwrap_or(0.0);
+                let elapsed = (now - t0).max(0.0);
+                let mem_now = resource::current_rss_bytes().map(|b| b as f64);
+                let mem = match mem_now {
+                    Some(now_bytes) if !mem0.is_nan() => now_bytes - mem0,
+                    _ => f64::NAN,
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("time".to_string(), Value::Num(elapsed)),
+                    ("mem".to_string(), Value::Num(mem)),
+                ])))
+            }
             // `progress(i, n)` (a tqdm-style progress indicator, Ahmed's
             // own request) — called once per loop iteration, `i` 0-based
             // and `i < n`: `for i = 0 to n - 1 ... progress(i, n) ... end
@@ -23571,6 +23723,82 @@ self.eval_grad(loss, wrt)
                         *slot = xs[src as usize];
                     }
                 }
+                Ok(match &x {
+                    Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+                    _ => Value::Vec(Arc::new(out)),
+                })
+            }
+            // `wrap(x, [lo=-pi], [hi=pi])` — wraps each value of `x` into
+            // the half-open interval `[lo, hi)` by modular arithmetic, the
+            // standard operation for angle/phase data that has accumulated
+            // past a full turn (`atan2` output, an integrated angular
+            // velocity, a raw `X.phase()` before unwrapping). Defaults to
+            // `[-pi, pi)`, the convention `atan2`/`angle` already return
+            // in, so `wrap(angle(z))` round-trips with no arguments.
+            // `rem_euclid` rather than `%`: Rust's `%` can return a
+            // negative remainder for a negative `x - lo`, which is exactly
+            // the case (`x` below `lo`) this function exists to fix.
+            "wrap" => {
+                let x = arg0(&args)?.clone();
+                let lo = style_num(&style, "lo").unwrap_or(-std::f64::consts::PI);
+                let hi = style_num(&style, "hi").unwrap_or(std::f64::consts::PI);
+                let span = hi - lo;
+                if !(span > 0.0) {
+                    return e(format!("wrap: hi ({hi}) must be greater than lo ({lo})"));
+                }
+                map1(x, move |v| lo + (v - lo).rem_euclid(span))
+            }
+            // `remove_noise(x, [method="wiener"], [window=5], [noise_var=])`
+            // — denoises `x`. `method="wiener"`: a local adaptive Wiener
+            // filter (the same algorithm SciPy's `wiener` implements) —
+            // for each sample, compares the local variance in a window
+            // around it to the estimated noise variance (the mean of every
+            // local variance across the record, unless `noise_var=` is
+            // given explicitly): where local variance is at or below the
+            // noise floor, the sample is fully smoothed to the local mean
+            // (there is nothing but noise there); where it is well above,
+            // the original value is mostly kept. `method="median"` —
+            // delegates to the existing `medfilt`, for outlier-shaped noise
+            // a Wiener filter would blur instead of removing. `window=` is
+            // shared by both. A `Signal` keeps its `Fs`.
+            "remove_noise" => {
+                let x = arg0(&args)?.clone();
+                let method = style_str(&style, "method").unwrap_or_else(|| "wiener".to_string());
+                let window = style_num(&style, "window").map(|v| v as usize).unwrap_or(5);
+                if window == 0 {
+                    return e("remove_noise: window must be at least 1");
+                }
+                let xs = to_cow(&x)?;
+                if xs.is_empty() {
+                    return e("remove_noise: the record is empty");
+                }
+                let out: Vec<f64> = match method.as_str() {
+                    "median" => numeric::noise::medfilt(&xs, window)
+                        .map_err(|err| EvalError { msg: format!("remove_noise: {err}") })?,
+                    "wiener" => {
+                        let (means, vars) = local_mean_var(&xs, window);
+                        let noise_var = match style_num(&style, "noise_var") {
+                            Some(v) => v,
+                            None => vars.iter().sum::<f64>() / vars.len() as f64,
+                        };
+                        xs.iter()
+                            .zip(means.iter())
+                            .zip(vars.iter())
+                            .map(|((&v, &m), &lv)| {
+                                if lv <= noise_var {
+                                    m
+                                } else {
+                                    m + (1.0 - noise_var / lv) * (v - m)
+                                }
+                            })
+                            .collect()
+                    }
+                    other => {
+                        return e(format!(
+                            "remove_noise: unknown method {other:?} -- expected \"wiener\" or \"median\""
+                        ))
+                    }
+                };
                 Ok(match &x {
                     Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
                     _ => Value::Vec(Arc::new(out)),
@@ -30200,7 +30428,16 @@ self.eval_grad(loss, wrt)
             // collection the way some runtimes' heap-size counters do, so
             // a rising delta across back-to-back calls is a real signal,
             // not GC noise.
-            "mem_usage" => Ok(match sysinfo::current_rss_bytes() {
+            //
+            // `resource::current_rss_bytes` is the one shared RSS reader
+            // (qu-cli's --profile/--max-memory watchdog uses the same
+            // function, not a second copy) -- see that module for the
+            // platform-by-platform implementation. `profile_start()`/
+            // `profile_end()` wrap this same primitive into a clean
+            // before/after window with timing bundled in; reach for
+            // those instead of two bare `mem_usage()` calls when both
+            // numbers are wanted at once.
+            "mem_usage" => Ok(match resource::current_rss_bytes() {
                 Some(bytes) => Value::Num(bytes as f64),
                 None => Value::Nothing,
             }),
@@ -36920,7 +37157,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "pipeline", "plot", "pmap", "point", "poisson", "polarplot", "poles",
     "polyfit", "polygon", "polyval", "pool", "pop", "pop_back", "pop_front",
     "porous", "pow", "pow2db", "preciseTimer", "precision", "predict", "print",
-    "printtex", "prod", "profile_stats", "profiling_mode", "progress",
+    "printtex", "prod", "profile_end", "profile_start", "profile_stats",
+    "profiling_mode", "progress",
     "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
     "pump_watches", "push", "push_back", "push_front", "pwd",
     "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qr", "quantile",
@@ -36935,7 +37173,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "real", "recall", "rect", "rectangle", "reduce", "reflection_coefficient",
     "regex_count", "regex_find", "regex_find_all", "regex_groups",
     "regex_match", "regex_replace", "regex_split", "regionprops", "relu",
-    "remove", "remove_dir", "remove_file", "remove_nan", "remove_outliers",
+    "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
     "remove_small_blobs", "rename_file", "repeat_str", "replace",
     "replace_outliers", "resample_to",
     "reset", "reshape", "resistor", "resize", "restart", "return_loss",
@@ -36974,7 +37212,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "ui_select", "ui_slider", "ui_text", "undershoot", "uniform", "unique", "unit_scale", "update",
     "upper", "val", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
     "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
-    "warburg_short", "warn", "waterfall", "welch", "where", "worker_done",
+    "warburg_short", "warn", "waterfall", "welch", "where", "worker_done", "wrap",
     "write", "write_array", "write_bin", "write_bit", "write_byte",
     "write_char", "write_csv", "write_double", "write_float", "write_int",
     "write_int16", "write_int32", "write_int64", "write_line", "write_report",
@@ -38065,6 +38303,29 @@ fn linspace(a: f64, b: f64, n: usize) -> Vec<f64> {
     }
     let step = (b - a) / (n as f64 - 1.0);
     (0..n).map(|i| a + step * i as f64).collect()
+}
+
+/// Local mean and variance of `x` in a `window`-wide neighborhood around
+/// each sample, shrinking at the edges rather than padding — the same
+/// edge convention the `rolling_*` family already uses, and for the same
+/// reason: a padded (clamped-repeat) window has no real variance of its
+/// own, which would bias `remove_noise`'s Wiener estimate toward treating
+/// the edges as pure noise.
+fn local_mean_var(x: &[f64], window: usize) -> (Vec<f64>, Vec<f64>) {
+    let n = x.len();
+    let half = window / 2;
+    let mut means = vec![0.0; n];
+    let mut vars = vec![0.0; n];
+    for i in 0..n {
+        let lo = i.saturating_sub(half);
+        let hi = (i + half + 1).min(n);
+        let w = &x[lo..hi];
+        let m = w.iter().sum::<f64>() / w.len() as f64;
+        let v = w.iter().map(|v| (v - m).powi(2)).sum::<f64>() / w.len() as f64;
+        means[i] = m;
+        vars[i] = v;
+    }
+    (means, vars)
 }
 
 fn map1(v: Value, g: impl Fn(f64) -> f64 + Sync + Send) -> R<Value> {
@@ -43264,6 +43525,37 @@ fn lstm_field(v: &Value, name: &str) -> R<Value> {
             }),
         other => e(format!(
             "lstm: expected a record (a weights record from lstm_init, or an {{h, c}} cell-state pair), found {}",
+            other.type_name()
+        )),
+    }
+}
+
+/// Same lookup as [`record_field`] above, for `profile_end`'s one
+/// argument -- the record `profile_start()` returned. Reads back as
+/// `f64` directly since both of `profile_start`'s fields (`t0`/`mem0`)
+/// are always numbers it wrote itself; a non-`Record` or a record
+/// missing the field means the caller passed something other than a
+/// genuine, unmodified `profile_start()` result.
+fn profile_field(v: &Value, name: &str) -> R<f64> {
+    match v {
+        Value::Record(fields) => fields
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+            .ok_or_else(|| EvalError {
+                msg: format!(
+                    "profile_end: handle is missing field `{name}` -- pass the record profile_start() returned, unmodified"
+                ),
+            })
+            .and_then(|v| match v {
+                Value::Num(n) => Ok(n),
+                other => e(format!(
+                    "profile_end: handle field `{name}` should be a number, found {}",
+                    other.type_name()
+                )),
+            }),
+        other => e(format!(
+            "profile_end: expected the record profile_start() returned, found {}",
             other.type_name()
         )),
     }

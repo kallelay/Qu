@@ -48,7 +48,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
+<div class="example"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
 start = env.<span class="f">reset</span>()
 <span class="f">print</span>(<span class="s">"start state: {start}"</span>)
 
@@ -69,10 +69,7 @@ done = <span class="k">false</span>
 <span class="k">end</span> <span class="k">while</span>
 <span class="f">print</span>(<span class="s">"greedy policy reached the goal in {steps} steps"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>start state: 0
-q_learning reward: early -4 -&gt; late 4.45
-sarsa reward:      early -1.5 -&gt; late 4.6
-greedy policy reached the goal in 6 steps</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p>Q-learning/SARSA (2026-08-25) ---- Follows the SAME <code>Value::Model</code> protocol every other ML estimator in this codebase already uses (see <code>model::ModelHandle</code>'s own doc comment) — no new grammar, <code>env.reset()</code>/<code>env.step(...)</code> reach these through the existing <code>recv.method(args)</code> sugar (<code>eval_call</code>). One deliberate deviation from the textbook Gym-style <code>next_state, reward, done = env.step(action)</code> (env remembers its own current position): every other stateful-looking <code>Model</code> in this codebase (the <code>kalman</code>/<code>particle_filter</code> estimation family's <code>state.update(...)</code>) is immutable and returns a brand-new state rather than mutating itself in place — there is no interior-mutability convention for <code>Model</code> anywhere else to reuse, and inventing one just for this feature would be a bigger, riskier change than tabular RL itself. So <code>gridworld_env(...)</code> is a pure, immutable description of the MDP (grid size, start, goal, rewards) with no live internal position, and <code>step</code> takes the current state explicitly — <code>env.step(state, action)</code> — exactly the same shape as <code>state = state.update(...)</code> for the estimation-theory family. <code>q_learning</code>/<code>sarsa</code> below track "current state" as a plain number in their own training loop, the same way a script driving one episode by hand would. <code>gridworld_env(n, [start=], [goal=], [step_reward=], [goal_reward=])</code> — the one concrete environment this pass validates the interface against: an <code>n x n</code> grid, states indexed row-major <code>0..n*n-1</code>, agent starts at <code>start</code> (default 0, the top-left corner) and must reach <code>goal</code> (default <code>n*n-1</code>, the bottom-right corner); a small negative <code>step_reward</code> (default -1) every move, a large positive <code>goal_reward</code> (default 10) on arrival. Actions are <code>0..3</code> (up/right/down/left — see <code>gridworld_transition</code>); moving off the grid edge is a no-op (the agent stays put), not an error and not a wraparound. Deliberately no walls in this first silently dropped).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

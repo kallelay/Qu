@@ -76,7 +76,7 @@
 <p>1. <a href="#1-core-types--literals">Core types &amp; literals</a> 2. <a href="#2-variables--assignment">Variables &amp; assignment</a> 3. <a href="#3-operators">Operators</a> 4. <a href="#4-control-flow">Control flow</a> 5. <a href="#5-functions">Functions</a> 6. <a href="#6-indexing--slicing">Indexing &amp; slicing</a> 7. <a href="#7-the-model-multi-return-protocol">The Model multi-return protocol</a> 8. <a href="#8-tables">Tables</a> 9. <a href="#9-multiple-dispatch">Multiple dispatch</a> 10. <a href="#10-string-interpolation">String interpolation</a> 11. <a href="#11-comments--%25-cells">Comments &amp; <code>#%%</code> cells</a> 12. <a href="#12-timer-sugar-and-the--reshape-operator"><code>timer.</code> sugar and the <code>-&gt;</code> reshape operator</a> 13. <a href="#13-error-handling">Error handling</a> 14. <a href="#14-unsafe-blocks--continue-past-a-failure"><code>unsafe</code> blocks — continue past a failure</a> 15. <a href="#15-parallel-for-and-the-poolqueue-job-system"><code>parallel for</code> and the pool/queue job system</a> 16. <a href="#16-cast-and-resample_to"><code>cast</code> and <code>resample_to</code></a> 17. <a href="#17-advanced-multiple-dispatch">Advanced multiple dispatch</a> 18. <a href="#18-dsp-builtins--a-signal-processing-tour">DSP builtins — a signal-processing tour</a> 19. <a href="#19-memoize-function--function-result-caching"><code>memoize function</code> — function-result caching</a> 20. <a href="#20-file-io-extensions--touch-streaming-reads-and-memory-mapped-files">File I/O extensions — <code>touch</code>, streaming reads, and memory-mapped files</a> 21. <a href="#21-http_geturl--real-http-get"><code>http_get(url)</code> — real HTTP GET</a> 22. <a href="#22-lazy--deferred-variable-evaluation"><code>lazy</code> — deferred variable evaluation</a> 23. <a href="#23-streamfilestreamurl--unified-polymorphic-streams"><code>StreamFile</code>/<code>StreamURL</code> — unified polymorphic streams</a> 24. <a href="#24-three-new-signal-builtins--interpolate_at-apply-cut">Three new Signal builtins — <code>interpolate_at</code>, <code>apply</code>, <code>cut</code></a> 25. <a href="#25-watch--filevariableurl-change-detection"><code>watch</code> — file/variable/URL change detection</a> 26. <a href="#26-summary-of-mismatches-found">Summary of mismatches found</a></p>
 <hr>
 <h2 id="s35">1. Core types &amp; literals</h2>
-<div class="example hasout"><pre class="hl"><code>x = <span class="n">42</span>
+<div class="example"><pre class="hl"><code>x = <span class="n">42</span>
 y = <span class="n">3.14</span>
 b = <span class="k">true</span>
 s = <span class="s">"hello"</span>
@@ -94,14 +94,7 @@ z = <span class="n">3</span> + <span class="n">4i</span>
 <span class="f">print</span>(<span class="s">"M  = {M}"</span>)
 <span class="f">print</span>(<span class="s">"z  = {z}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x  = 42
-y  = 3.14
-b  = true
-s  = hello
-hi world, x=42
-v  = [1, 2, 3]
-M  = [1, 2; 3, 4]
-z  = 3 + 4i</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>x  = 42
 y  = 3.14
@@ -113,7 +106,7 @@ M  = [1, 2; 3, 4]
 z  = 3 + 4i
 </code></pre>
 <p>Record, List (via <code>split</code>), CVec (via <code>fft</code>), and Signal:</p>
-<div class="example hasout"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
+<div class="example"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
 <span class="f">print</span>(<span class="s">"r = {r}"</span>)
 <span class="f">print</span>(<span class="s">"r.x = {r.x}"</span>)
 
@@ -126,11 +119,7 @@ X = <span class="f">fft</span>([<span class="n">1</span>,<span class="n">2</span
 sig = <span class="f">signal</span>([<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>], <span class="n">100</span>)
 <span class="f">print</span>(<span class="s">"sig = {sig}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>r = {x = 1, y = 2}
-r.x = 1
-parts = ("a", "b", "c")
-X = [10, -2 + 2i, -2, -2 - 2i]
-sig = signal(Fs=100) [1, 2, 3, 4]</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>r = {x = 1, y = 2}
 r.x = 1
@@ -146,13 +135,12 @@ sig = signal(Fs=100) [1, 2, 3, 4]
 <li><code>Signal</code> carries its sample rate; printing shows <code>signal(Fs=100) [...]</code>. Field access: <code>sig.Fs</code>, <code>sig.N</code>, <code>sig.dt</code>, <code>sig.t</code> (all confirmed — see §6).</li>
 </ul>
 <p>CVec/CMat literal syntax (a single complex cell promotes the whole literal):</p>
-<div class="example hasout"><pre class="hl"><code>cv = [<span class="n">1</span>+<span class="n">2i</span>, <span class="n">3</span>-<span class="n">1i</span>, <span class="n">0</span>+<span class="n">1i</span>]
+<div class="example"><pre class="hl"><code>cv = [<span class="n">1</span>+<span class="n">2i</span>, <span class="n">3</span>-<span class="n">1i</span>, <span class="n">0</span>+<span class="n">1i</span>]
 <span class="f">print</span>(<span class="s">"cv = {cv}"</span>)
 cm = [<span class="n">1</span>+<span class="n">1i</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>-<span class="n">2i</span>]
 <span class="f">print</span>(<span class="s">"cm = {cm}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>cv = [1 + 2i, 3 - 1i, 1i]
-cm = [1 + 1i, 2; 3, 4 - 2i]</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>cv = [1 + 2i, 3 - 1i, 1i]
 cm = [1 + 1i, 2; 3, 4 - 2i]
@@ -161,7 +149,7 @@ cm = [1 + 1i, 2; 3, 4 - 2i]
 <hr>
 <h2 id="s82">2. Variables &amp; assignment</h2>
 <p>Indexed assignment, and the <code>@</code> self-mutation prefix:</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
 v[<span class="n">0</span>] = <span class="n">99</span>
 <span class="f">print</span>(<span class="s">"v = {v}"</span>)
 
@@ -173,13 +161,7 @@ df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</s
 @df.<span class="f">drop_row</span>(<span class="n">1</span>)
 <span class="f">print</span>(df)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>v = [99, 20, 30, 40, 50]
-M = [1, 77; 3, 4]
-x   y
--  --
-1  10
-3  30
-4  40</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>v = [99, 20, 30, 40, 50]
 M = [1, 77; 3, 4]
@@ -191,7 +173,7 @@ x   y
 </code></pre>
 <p><code>@expr</code> desugars at parse time to <code>root = expr</code>, where <code>root</code> is the plain-variable root of the chain (<code>@data.drop_row(1)</code> → <code>data = data.drop_row(1)</code>). <code>@(a+b)</code> or <code>@foo()</code> (not rooted in a variable) is a parse-time error naming the problem, per <code>qu-syntax/src/lib.rs:801-817</code>.</p>
 <p>Compound assignment — <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code> all work:</p>
-<div class="example hasout"><pre class="hl"><code>a = <span class="n">5</span>
+<div class="example"><pre class="hl"><code>a = <span class="n">5</span>
 a += <span class="n">3</span>
 <span class="f">print</span>(<span class="s">"a += 3 -&gt; {a}"</span>)
 a -= <span class="n">2</span>
@@ -201,10 +183,7 @@ a *= <span class="n">4</span>
 a /= <span class="n">2</span>
 <span class="f">print</span>(<span class="s">"a /= 2 -&gt; {a}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a += 3 -&gt; 8
-a -= 2 -&gt; 6
-a *= 4 -&gt; 24
-a /= 2 -&gt; 12</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>a += 3 -&gt; 8
 a -= 2 -&gt; 6
@@ -212,10 +191,10 @@ a *= 4 -&gt; 24
 a /= 2 -&gt; 12
 </code></pre>
 <p>Units normalize to SI on construction:</p>
-<div class="example hasout"><pre class="hl"><code>Fs = <span class="n">5</span> kHz
+<div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz
 <span class="f">print</span>(<span class="s">"Fs = {Fs}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Fs = 5000 Hz</pre></div></div>
+</div>
 <pre><code>Fs = 5000
 </code></pre>
 <p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>.*=</code>/<code>./=</code>/<code>^=</code> failing to parse (<code>unexpected Op("=") &gt; in expression</code>) despite the spec documenting them — root cause was two &gt; bugs at once: the lexer's <code>match_operator</code> only ever compared an &gt; operator's first two characters (so a genuine 3-char token like <code>.*=</code> &gt; could never match), and <code>^=</code>/<code>.* =</code>/<code>./=</code> weren't in the <code>OPERATORS</code> &gt; table at all. Both fixed; all three now work, wired through the exact &gt; same compound-assign desugaring <code>+=</code>/<code>-=</code>/<code>*=</code>/<code>/=</code> already used, so &gt; they inherit <code>binop</code>'s real semantics automatically: &gt; <code></code><code>qu &gt; M = [1,2;3,4] &gt; M ^= 2          # real matrix power, not elementwise &gt; print(M)        # [7, 10; 15, 22] &gt; v = [1,2,3] &gt; v .*= [10,20,30] &gt; print(v)        # [10, 40, 90] &gt; </code><code></code> &gt; Verified live — both outputs shown are real.</p>
@@ -224,7 +203,7 @@ a /= 2 -&gt; 12
 <hr>
 <h2 id="s130">3. Operators</h2>
 <p>Matrix vs. elementwise, using <code>A = [1,2;3,4]</code>, <code>B = [5,6;7,8]</code>:</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>,<span class="n">2</span>;<span class="n">3</span>,<span class="n">4</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>,<span class="n">2</span>;<span class="n">3</span>,<span class="n">4</span>]
 B = [<span class="n">5</span>,<span class="n">6</span>;<span class="n">7</span>,<span class="n">8</span>]
 <span class="f">print</span>(<span class="s">"A*B (matrix mult) = {A*B}"</span>)
 <span class="f">print</span>(<span class="s">"A.*B (elementwise) = {A.*B}"</span>)
@@ -244,15 +223,7 @@ w = v |&gt; sum
 s1 = <span class="s">"foo"</span> + <span class="s">"bar"</span>
 <span class="f">print</span>(<span class="s">"concat = {s1}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>A*B (matrix mult) = [19, 22; 43, 50]
-A.*B (elementwise) = [5, 12; 21, 32]
-A/B = [0.2, 0.333333; 0.428571, 0.5]
-A./B (elementwise div) = [0.2, 0.333333; 0.428571, 0.5]
-A' (transpose) = [1, 3; 2, 4]
-A^2 (matrix power) = [7, 10; 15, 22]
-A \ b (solve Ax=b) = [2; 2]
-v |&gt; sum = 6
-concat = foobar</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>A*B (matrix mult) = [19, 22; 43, 50]
 A.*B (elementwise) = [5, 12; 21, 32]
@@ -266,16 +237,16 @@ concat = foobar
 </code></pre>
 <p>&gt; <strong>Notable, verified behavior — </strong><code>/</code> between two matrices is NOT matrix &gt; right-division.<strong> </strong><code>A*B</code> is real matrix multiplication (confirmed: &gt; <code>[1,2;3,4]*[5,6;7,8] = [19,22;43,50]</code>, matches <code>A@B</code>). <code>A^2</code> is real &gt; repeated matmul. But <code>A/B</code> is byte-identical to <code>A./B</code> — both give the pure &gt; elementwise result. This isn't an accident: <code>qu-interp/src/lib.rs:19947</code> &gt; literally reads <code>"/" | "./" =&gt; matrix_ew(a, b, |x, y| x / y)</code>. Only the &gt; <strong>backslash</strong> <code>\</code> does real linear algebra (<code>A \ b</code> solves <code>Ax=b</code> via &gt; least-squares, confirmed above: <code>[2,0;0,4] \ [4;8] = [2;2]</code>, correct). The &gt; spec's operator precedence table (line 724) groups <code>*, /, \</code> together as &gt; one tier distinct from <code>.*, ./, .\</code>, which reads as though <code>/</code> should mirror &gt; <code>*</code>'s "real matrix op" behavior — it does not. Worth deciding whether this &gt; is intended.</p>
 <p>Logical/comparison (whole-value, not elementwise per spec — confirmed):</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"2==2: {2==2}, 2!=3: {2!=3}, true and false: {true and false}, true or false: {true or false}, not true: {not true}"</span>)
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"2==2: {2==2}, 2!=3: {2!=3}, true and false: {true and false}, true or false: {true or false}, not true: {not true}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>2==2: true, 2!=3: true, true and false: false, true or false: true, not true: false</pre></div></div>
+</div>
 <pre><code>2==2: true, 2!=3: true, true and false: false, true or false: true, not true: false
 </code></pre>
 <p>Reshape <code>-&gt;</code> (see §12 for detail) and pipe <code>|&gt;</code> were confirmed working as shown above.</p>
 <hr>
 <h2 id="s162">4. Control flow</h2>
 <p>Plain <code>if</code>/<code>else</code>/<code>end if</code>, <code>while</code>+<code>continue</code>, <code>for</code>+<code>break</code> all work:</p>
-<div class="example hasout"><pre class="hl"><code>x = <span class="n">7</span>
+<div class="example"><pre class="hl"><code>x = <span class="n">7</span>
 <span class="k">if</span> x &gt; <span class="n">10</span>
     <span class="f">print</span>(<span class="s">"big"</span>)
 <span class="k">else</span>
@@ -303,15 +274,7 @@ i = <span class="n">0</span>
     <span class="f">print</span>(<span class="s">"k = {k}"</span>)
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>medium
-i = 0
-i = 1
-i = 2
-i = 4
-k = 0
-k = 1
-k = 2
-k = 3</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>medium
 i = 0
@@ -329,7 +292,7 @@ k = 3
 <hr>
 <h2 id="s197">5. Functions</h2>
 <p>Both the block form and the one-line <code>:=</code> form work, <code>return</code> works, and typed-parameter multiple dispatch works:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">add</span>(a, b)
     <span class="k">return</span> a + b
 <span class="k">end</span> <span class="k">function</span>
 
@@ -349,10 +312,7 @@ k = 3
 <span class="f">print</span>(<span class="f">describe</span>(<span class="n">5</span>))
 <span class="f">print</span>(<span class="f">describe</span>(<span class="s">"hi"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>add(2,3) = 5
-square(5) = 25
-num: 5
-str: hi</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>add(2,3) = 5
 square(5) = 25
@@ -360,7 +320,7 @@ num: 5
 str: hi
 </code></pre>
 <p>Operator-overload functions on tagged records work, but require an explicit <code>__type</code> field — a plain untagged record does NOT dispatch to <code>record&lt;Tag&gt;</code>-typed overloads:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
+<div class="example"><pre class="hl"><code><span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
     <span class="k">return</span> {__type = <span class="s">"Vec2"</span>, x = a.x + b.x, y = a.y + b.y}
 <span class="k">end</span> <span class="k">function</span>
 
@@ -369,7 +329,7 @@ p2 = {__type = <span class="s">"Vec2"</span>, x = <span class="n">10</span>, y =
 sum = p1 + p2
 <span class="f">print</span>(<span class="s">"sum = {sum}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>sum = {__type = "Vec2", x = 11, y = 22}</pre></div></div>
+</div>
 <pre><code>sum = {__type = "Vec2", x = 11, y = 22}
 </code></pre>
 <p>(Omitting <code>__type</code> on the record literals falls through to the built-in numeric <code>+</code> and errors with <code>expected a number, found record</code>.) The <code>record&lt;Tag&gt;</code> match is implemented via <code>record_type_tag</code> in <code>qu-interp/src/lib.rs:2709</code>, which specifically looks for a string field named <code>__type</code> — not a <code>kind</code> field, and not any structural/duck-typed match.</p>
@@ -380,7 +340,7 @@ sum = p1 + p2
 <hr>
 <h2 id="s229">6. Indexing &amp; slicing</h2>
 <p>Zero-based indexing, inclusive slices, <code>end</code>, boolean masks, <code>where</code>, and fancy (integer-vector) indexing — all confirmed working exactly as the spec (§15) describes:</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>, <span class="n">40</span>, <span class="n">50</span>]
 <span class="f">print</span>(<span class="s">"v[0] = {v[0]}"</span>)
 <span class="f">print</span>(<span class="s">"v[1:3] = {v[1:3]}"</span>)
 <span class="f">print</span>(<span class="s">"v[end] = {v[end]}"</span>)
@@ -402,15 +362,7 @@ bins = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">4</s
 r = <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
 <span class="f">print</span>(<span class="s">"0 to 4 = {r}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>v[0] = 10
-v[1:3] = [20, 30, 40]
-v[end] = 50
-mask = [F, F, F, T, T]
-v[mask] = [40, 50]
-after mask assign = [0, 0, 30, 40, 50]
-where v&gt;0 = [2, 3, 4]
-X[bins] (fancy indexing) = [100, 300, 500]
-0 to 4 = [0, 1, 2, 3, 4]</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>v[0] = 10
 v[1:3] = [20, 30]
@@ -424,10 +376,10 @@ X[bins] (fancy indexing) = [100, 300, 500]
 </code></pre>
 <p><code>0 to 4</code> is inclusive on both ends (<code>[0,1,2,3,4]</code>, 5 elements), and so is a bracket slice: <code>v[1:3]</code> returns <code>[20, 30, 40]</code> — indices 1, 2 AND 3. One range convention, everywhere.</p>
 <p><code>range(a, b, step=1)</code> also exists as a builtin and is <strong>inclusive of </strong><code>b</code><strong>, matching </strong><code>to</code> rather than Python's exclusive convention:</p>
-<div class="example hasout"><pre class="hl"><code>r = <span class="f">range</span>(<span class="n">0</span>, <span class="n">5</span>)
+<div class="example"><pre class="hl"><code>r = <span class="f">range</span>(<span class="n">0</span>, <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"range(0,5) = {r}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>range(0,5) = [0, 1, 2, 3, 4, 5]</pre></div></div>
+</div>
 <pre><code>range(0,5) = [0, 1, 2, 3, 4, 5]
 </code></pre>
 <p><code>range(5)</code> alone does <strong>not</strong> mean "0..4" — it's <code>range(start=5, stop=0, step=1)</code> by argument position (<code>qu-interp/src/lib.rs:12721-12730</code>, defaults are <code>a=0, b=0, step=1</code> filled positionally), which walks from 5 toward 0 with a positive step and errors: <code>qu: runtime error: range step points away from its stop value</code>. Always pass at least two arguments.</p>
@@ -435,7 +387,7 @@ X[bins] (fancy indexing) = [100, 300, 500]
 <hr>
 <h2 id="s274">7. The Model multi-return protocol</h2>
 <p>Functions with multiple structured outputs (<code>qr</code>, <code>findpeaks</code>, etc.) return a <code>Value::Model</code>, printed as <code>model(kind) {field1, field2, ...}</code>, with <code>.field</code> access — and the field names are the ones actually listed, not guessed:</p>
-<div class="example hasout"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>M = [<span class="n">4</span>, <span class="n">3</span>; <span class="n">6</span>, <span class="n">3</span>]
 res = <span class="f">qr</span>(M)
 <span class="f">print</span>(res)
 <span class="f">print</span>(<span class="s">"q = {res.q}"</span>)
@@ -447,12 +399,7 @@ pk = <span class="f">findpeaks</span>(x)
 <span class="f">print</span>(<span class="s">"peaks = {pk.peaks}"</span>)
 <span class="f">print</span>(<span class="s">"locations = {pk.locations}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>model(qr) {q = [0.5547, 0.83205; 0.83205, -0.5547], r = [7.211103, 4.160251; 0, 0.83205]}
-q = [0.5547, 0.83205; 0.83205, -0.5547]
-r = [7.211103, 4.160251; 0, 0.83205]
-model(findpeaks) {peaks = [3, 4], locations = [2, 6], prominences = [3, 4], widths = [1.5, 2]}
-peaks = [3, 4]
-locations = [2, 6]</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>model(qr) {q, r}
 q = [0.5547, 0.83205; 0.83205, -0.5547]
@@ -471,22 +418,14 @@ locations = [2, 6]
 <hr>
 <h2 id="s328">8. Tables</h2>
 <p>Construction is via named-column keyword arguments, <code>table(...)</code>/<code>DataFrame(...)</code> — <strong>not</strong> by wrapping a matrix:</p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>])
 <span class="f">print</span>(df)
 <span class="f">print</span>(<span class="s">"nrow = {nrow(df)}"</span>)
 <span class="f">print</span>(<span class="s">"ncol = {ncol(df)}"</span>)
 <span class="f">print</span>(<span class="s">"df.nrows = {df.nrows}"</span>)
 <span class="f">print</span>(<span class="s">"rows(df) = {rows(df)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-nrow = 3
-ncol = 2
-df.nrows = 3
-rows(df) = 3</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>x   y
 -  --
@@ -500,23 +439,14 @@ rows(df) = 3
 </code></pre>
 <p><code>df.nrows</code>/<code>rows(df)</code>/<code>nrow(df)</code> (and the <code>ncol</code>/<code>cols</code>/<code>df.ncols</code> triad) are all confirmed working — these are today's real sugar aliases, added in the same commit as the <code>-&gt;</code> reshape operator (<code>4464d1b</code>).</p>
 <p>CSV round-trip, both the raw builtins and the new <code>table.</code> sugar:</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
+<div class="example"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)
 table.<span class="f">write</span>(df, <span class="s">"data2.csv"</span>)
 df3 = table.<span class="f">load</span>(<span class="s">"data2.csv"</span>)
 <span class="f">print</span>(df3)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-x   y
--  --
-1  10
-2  20
-3  -5</pre></div></div>
+</div>
 <p>Output (both round-trips produce the identical table back):</p>
 <pre><code>x   y
 -  --
@@ -530,7 +460,7 @@ x   y
 3  -5
 </code></pre>
 <p><code>filter</code>, <code>sort_by</code>, <code>group_by_agg</code>:</p>
-<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
+<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
 pos = <span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>)
 <span class="f">print</span>(pos)
 
@@ -541,21 +471,7 @@ g = <span class="f">table</span>(<span class="a">grp</span>=[<span class="n">1</
 agg = <span class="f">group_by_agg</span>(g, <span class="s">"grp"</span>, <span class="s">"v"</span>, <span class="s">"mean"</span>)
 <span class="f">print</span>(agg)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x   y
--  --
-1  10
-2  20
-3  -5
-5   2
- x   y
---  --
- 3  -5
- 5   2
--1   7
- 1  10
- 2  20
-grp  mean_v
-    ... 3 more lines</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>x   y
 -  --
@@ -589,7 +505,7 @@ up by a string label
 <hr>
 <h2 id="s357">9. Multiple dispatch</h2>
 <p>Three overloads of <code>area</code>, resolved by specificity — untyped is the fallback:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">area</span>(x: num)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">area</span>(x: num)
     <span class="k">return</span> x * x
 <span class="k">end</span> <span class="k">function</span>
 
@@ -605,9 +521,7 @@ up by a string label
 <span class="f">print</span>(<span class="s">"area([1,2,3]) = {area([1,2,3])}"</span>)
 <span class="f">print</span>(<span class="s">"area(true) = {area(true)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>area(5) = 25
-area([1,2,3]) = 6
-area(true) = -1</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>area(5) = 25
 area([1,2,3]) = 6
@@ -617,7 +531,7 @@ area(true) = -1
 <hr>
 <h2 id="s397">10. String interpolation</h2>
 <p>Bare expressions, arithmetic, function calls, and <code>{expr:spec}</code>-style formatting all work:</p>
-<div class="example hasout"><pre class="hl"><code>pi_val = <span class="n">3.14159265</span>
+<div class="example"><pre class="hl"><code>pi_val = <span class="n">3.14159265</span>
 <span class="f">print</span>(<span class="s">"pi = {pi_val:.2f}"</span>)
 <span class="f">print</span>(<span class="s">"pi rounded = {pi_val:.0f}"</span>)
 <span class="f">print</span>(<span class="s">"expr = {2+3*4}"</span>)
@@ -625,11 +539,7 @@ area(true) = -1
 v = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
 <span class="f">print</span>(<span class="s">"vec sum = {sum(v):.1f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>pi = 3.14
-pi rounded = 3
-expr = 14
-nested = 5
-vec sum = 6.0</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>pi = 3.14
 pi rounded = 3
@@ -640,7 +550,7 @@ vec sum = 6.0
 <hr>
 <h2 id="s441">11. Comments &amp; <code>#%%</code> cells</h2>
 <p>Line comments (<code>#</code>), trailing comments, and <code>#%%</code> cell markers all work as plain no-ops when running a script normally:</p>
-<div class="example hasout"><pre class="hl"><code><span class="c"># this is a comment</span>
+<div class="example"><pre class="hl"><code><span class="c"># this is a comment</span>
 <span class="c">#%% Cell One</span>
 x = <span class="n">1</span>  <span class="c"># trailing comment</span>
 <span class="f">print</span>(<span class="s">"x = {x}"</span>)
@@ -648,8 +558,7 @@ x = <span class="n">1</span>  <span class="c"># trailing comment</span>
 y = <span class="n">2</span>
 <span class="f">print</span>(<span class="s">"y = {y}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>x = 1
-y = 2</pre></div></div>
+</div>
 <pre><code>x = 1
 y = 2
 </code></pre>
@@ -657,7 +566,7 @@ y = 2
 <hr>
 <h2 id="s502">12. <code>timer.</code> sugar and the <code>-&gt;</code> reshape operator</h2>
 <p>Both added in the same commit (<code>4464d1b</code>, today). <strong></strong><code>timer.start()</code> / <code>timer.elapsed()</code> / <code>timer.stop()</code> are pure sugar for a single GLOBAL <code>tic()</code>/<code>toc()</code> pair — not an object/handle with methods.<strong> This is worth being precise about, since the dotted-call syntax looks object-oriented but isn't:</strong></p>
-<div class="example hasout"><pre class="hl"><code>timer.<span class="f">start</span>()
+<div class="example"><pre class="hl"><code>timer.<span class="f">start</span>()
 acc = <span class="n">0</span>
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">100000</span>
     acc += k
@@ -668,9 +577,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"stop returns: {s}"</span>)
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.001299
-done, acc = 5000050000</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
 stop returns: 0.000972

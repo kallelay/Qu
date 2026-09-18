@@ -44,30 +44,30 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>mb = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>]
+<div class="example"><pre class="hl"><code>mb = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">255</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>]
 binary_img = <span class="f">image_from_matrix</span>(mb)
 grown = <span class="f">imdilate</span>(binary_img, <span class="n">1</span>)
 <span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [16, 0, 0, 9] -- only the two extreme bins are ever used</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[16, 0, 0, 9]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
-<div class="example hasout"><pre class="hl"><code>mg = [<span class="n">10</span>, <span class="n">60</span>, <span class="n">110</span>, <span class="n">160</span>, <span class="n">210</span>; <span class="n">20</span>, <span class="n">70</span>, <span class="n">120</span>, <span class="n">170</span>, <span class="n">220</span>; <span class="n">30</span>, <span class="n">80</span>, <span class="n">130</span>, <span class="n">180</span>, <span class="n">230</span>; <span class="n">40</span>, <span class="n">90</span>, <span class="n">140</span>, <span class="n">190</span>, <span class="n">240</span>; <span class="n">50</span>, <span class="n">100</span>, <span class="n">150</span>, <span class="n">200</span>, <span class="n">250</span>]
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>mg = [<span class="n">10</span>, <span class="n">60</span>, <span class="n">110</span>, <span class="n">160</span>, <span class="n">210</span>; <span class="n">20</span>, <span class="n">70</span>, <span class="n">120</span>, <span class="n">170</span>, <span class="n">220</span>; <span class="n">30</span>, <span class="n">80</span>, <span class="n">130</span>, <span class="n">180</span>, <span class="n">230</span>; <span class="n">40</span>, <span class="n">90</span>, <span class="n">140</span>, <span class="n">190</span>, <span class="n">240</span>; <span class="n">50</span>, <span class="n">100</span>, <span class="n">150</span>, <span class="n">200</span>, <span class="n">250</span>]
 gray_img = <span class="f">image_from_matrix</span>(mg)
 grown = <span class="f">imdilate</span>(gray_img, <span class="n">1</span>)
 <span class="f">print</span>(<span class="f">imhist</span>(grown, <span class="a">n_bins</span>=<span class="n">4</span>))   <span class="c"># [0, 6, 7, 12] -- three separate bins in use, no black survives at all</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 6, 7, 12]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
 img = <span class="f">image_from_matrix</span>(m)
 fixed = <span class="f">imadjust</span>(img, <span class="a">in_low</span>=<span class="n">0.0</span>, <span class="a">in_high</span>=<span class="n">1.0</span>)
 <span class="f">print</span>(<span class="f">imhist</span>(fixed, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [0, 7, 0, 0, 0, 0, 0, 1] -- unchanged, still clustered in one bin</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 7, 0, 0, 0, 0, 0, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example"><pre class="hl"><code>m = [<span class="n">40</span>, <span class="n">42</span>, <span class="n">41</span>, <span class="n">43</span>; <span class="n">44</span>, <span class="n">40</span>, <span class="n">250</span>, <span class="n">41</span>]
 img = <span class="f">image_from_matrix</span>(m)
 auto = <span class="f">imadjust</span>(img)
 <span class="f">print</span>(<span class="f">imhist</span>(auto, <span class="a">n_bins</span>=<span class="n">8</span>))   <span class="c"># [7, 0, 0, 0, 0, 0, 0, 1] -- stretched out to both ends of the range</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[7, 0, 0, 0, 0, 0, 0, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>image_from_matrix(matrix)</code> — builds a grayscale <code>Value::Image</code> directly from a numeric matrix's own values (assumed already in the 0-255 range, clamped/rounded otherwise) — R=G=B per pixel, the same "grayscale is just RGB with equal channels" convention <code>image::Image::to_grayscale</code> uses. The false-color (colormap-mapped) equivalent for arbitrary-range data is <code>imagesc</code>, which pushes a plot <code>Heatmap</code> instead of a real <code>Value::Image</code> — this builtin is for when a real pixel buffer is actually wanted (to <code>save_image</code>/further process), not just to display.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

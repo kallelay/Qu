@@ -46,14 +46,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>
 pure = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">31</span> * t)
 
 clipped = <span class="f">distort</span>(pure, <span class="s">"clip"</span>, <span class="n">0.4</span>)
 soft = <span class="f">distort</span>(pure, <span class="s">"soft"</span>, <span class="n">0.4</span>)
 <span class="f">print</span>(<span class="s">"clip {thd(clipped):.1f} dB, soft {thd(soft):.1f} dB, below the fundamental"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>clip -15.6 dB, soft -9.8 dB, below the fundamental</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>distort(x, "clip", 0.4)</code> — the signal put through a nonlinearity, which is a different animal from noise: distortion is a FUNCTION of the signal, so averaging does nothing at all and the only cure is not to distort.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

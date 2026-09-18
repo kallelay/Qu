@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
      wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
      wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
@@ -59,8 +59,7 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)        
 <span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
 <span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>loss: 0.0027
-dL/dwf: [0.0001, 0; 0.0005, 0; 0.0021, -0.0002]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>lstm_init(input_size, hidden_size, [seed=])</code> — weight initializer, the LSTM sibling of <code>gru_init</code>: same <code>seed=</code> reproducibility convention, same Xavier/Glorot scaling (<code>std = 1/sqrt(fan_in)</code>, fan-in <code>input_size</code> for the <code>W</code>s and <code>hidden_size</code> for the <code>U</code>s), same zero-initialized biases and same "returns plain untracked values, wrap the ones you want trained in <code>param(...)</code> yourself" contract. Twelve fields instead of GRU's nine — four gates (<code>f</code>/<code>i</code>/<code>o</code>/<code>g</code>) instead of three (<code>z</code>/<code>r</code>/<code>h</code>) — <code>wf</code>/<code>uf</code>/<code>bf</code>, <code>wi</code>/<code>ui</code>/<code>bi</code>, <code>wo</code>/<code>uo</code>/<code>bo</code>, <code>wg</code>/<code>ug</code>/<code>bg</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

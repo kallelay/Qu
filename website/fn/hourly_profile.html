@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="c">## periodic_profile: a burst that recurs every 2 seconds, folded onto one cycle</span>
+<div class="example"><pre class="hl"><code><span class="c">## periodic_profile: a burst that recurs every 2 seconds, folded onto one cycle</span>
 fs = <span class="n">200</span>
 n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">1999</span>          <span class="c"># 10 seconds</span>
 t = n / fs
@@ -90,11 +90,7 @@ xmo = <span class="f">sin</span>(<span class="n">2</span>*pi*t_mo/<span class="n
 mop = <span class="f">monthly_profile</span>(xmo, fs_mo, <span class="a">stat</span>=<span class="s">"mean"</span>)
 <span class="f">print</span>(<span class="s">"monthly_profile: {length(mop)} bins, values = {mop}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>periodic_profile bins: 20, spike bin mean = 0.994081, baseline ~ -0.005544
-hourly_profile: 24 bins, quietest hour idx = 17
-minutely_profile: 60 bins, busiest minute idx = 3
-daily_profile: 7 bins (0=day0..6), values = [0.999204, 1.007344, 1.00092, 1.008568, 1.005545, 0.008587, -0.005461]
-monthly_profile: 12 bins, values = [0.258528, 0.701187, 0.950701, 0.941434, 0.711217, 0.260041, -0.255472, -0.69034, ... (12 elements)]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>hourly_profile(x, fs, [stat="std"])</code> — <code>periodic_profile</code> preset: a 24-hour cycle cut into 24 hour-of-day bins.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

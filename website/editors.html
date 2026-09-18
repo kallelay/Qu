@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Editors and tooling for Qu</title>
-<meta name="description" content="Syntax highlighting and editor support for VS Code, Sublime Text and Notepad++, plus Qu Studio.">
+<meta name="description" content="Qu Studio, VS Code notebooks via a real Jupyter kernel, and syntax highlighting for Sublime Text and Notepad++.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -49,10 +49,33 @@
 </div></section>
 
 <section><div class="wrap">
+  <h2>VS Code &mdash; notebooks</h2>
+  <p class="sub">The second most-supported way to use Qu, on the strength of a real
+  Jupyter kernel: not just syntax highlighting, a genuine persistent session.</p>
+  <div class="cards">
+    <div><p class="eyebrow">Included</p><h3>State survives across cells</h3>
+      <p>One interpreter lives for the notebook's session &mdash; a variable set in one
+      cell is visible in the next, the same session model as <code>qu repl</code>.</p></div>
+    <div><p class="eyebrow">Included</p><h3>No system libzmq</h3>
+      <p>Speaks the real Jupyter wire protocol (ZeroMQ, HMAC-signed messages) over a
+      pure-Rust implementation &mdash; nothing else to install.</p></div>
+    <div><p class="eyebrow">Included</p><h3>Figures inline</h3>
+      <p>A plot in a cell renders inline as the cell's output, same as any other
+      Jupyter kernel.</p></div>
+  </div>
+  <div class="note"><p><code>qu-jupyter install</code> registers the kernelspec in the
+  standard Jupyter data directory &mdash; VS Code's Jupyter extension discovers it the
+  same way any other kernel is discovered. Open a <code>.ipynb</code>, pick
+  <strong>Qu</strong> from the kernel picker. The same kernel works in JupyterLab and
+  classic Jupyter too, not just VS Code.</p></div>
+</div></section>
+
+<section><div class="wrap">
   <h2>Editor plugins</h2>
   <p class="sub">Each lives in <code>editors/</code> in the repository. All three give
   syntax highlighting for <code>.qu</code>; the VS&nbsp;Code one also knows the builtin
-  names.</p>
+  names. (For notebooks in VS Code, see the Jupyter kernel above instead &mdash; this
+  is the plain syntax-highlighting-and-run-file extension.)</p>
   <div class="tablewrap"><table>
     <thead><tr><th>Editor</th><th class="mono">Path</th><th>Install</th></tr></thead>
     <tbody>

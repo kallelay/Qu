@@ -50,7 +50,7 @@
 <span class="f">print</span>(<span class="f">hstack</span>((<span class="s">"a"</span>,), (<span class="s">"b"</span>,)))       <span class="c"># expected a number, found list</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example hasout"><pre class="hl"><code>n_per_class = <span class="n">60</span>
+<div class="example"><pre class="hl"><code>n_per_class = <span class="n">60</span>
 c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
 c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
 c1x = <span class="f">normal</span>(<span class="n">4</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">3</span>)
@@ -91,7 +91,7 @@ trained = net.<span class="f">fit</span>(Xc, Y, <span class="a">epochs</span>=<s
 acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
 <span class="f">print</span>(<span class="s">"training accuracy = {acc:.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>training accuracy = 1.0000</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+</div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
 <h2>How it works</h2>
 <p><code>hstack(a, b, ...)</code> / <code>vstack(a, b, ...)</code> — explicit, named equivalents of the bracket-literal block-concatenation magic (<code>[a, b]</code> / <code>[a; b]</code>, see <code>eval_matrix_literal_blocks</code>), for scripts that would rather spell the operation out than rely on <code>[...]</code>'s implicit dispatch — same "also give it a plain function name" precedent as <code>panel</code>/<code>subplot</code>. Both need 2+ arrays; a single argument would make the call redundant.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

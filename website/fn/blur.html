@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]
 img = <span class="f">image_from_matrix</span>(m)
 
 soft = <span class="f">blur</span>(img)
@@ -56,12 +56,7 @@ kernel = [<span class="n">0</span>, -<span class="n">1</span>, <span class="n">0
 custom = <span class="f">imfilter</span>(img, kernel)
 <span class="f">print</span>(soft.width, crisp.width, custom.width)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>5 5 5</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-
-<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<image x="104.06" y="59.84" width="761.94" height="457.16" href="data:image/bmp;base64,Qk1mAAAAAAAAADYAAAAoAAAABQAAAAMAAAABABgAAAAAADAAAAATCwAAEwsAAAAAAAAAAAAAAAAA////AAAA////AAAAAP///wAAAP///wAAAP///wAAAAD///8AAAD///8AAAAA" preserveAspectRatio="none"/>
-<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
-</svg></figure></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>blur(img)</code> / <code>sharpen(img)</code> — the two required convolution filters (3x3 box-average blur, 3x3 unsharp-mask sharpen); see <code>image::Image</code>'s doc comments for the exact kernels. <code>edge_detect(img)</code> — a bonus third (3x3 discrete Laplacian). <code>imfilter(img, kernel)</code> — the generic escape hatch: an arbitrary odd-sized square <code>Matrix</code> kernel, direct 2-D convolution with edge-clamped borders (see <code>image::Image::convolve</code>'s doc comment for why this is a small from-scratch 2-D convolution rather than a forced reuse of <code>qu_core::transforms::conv</code>, which is 1-D only).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

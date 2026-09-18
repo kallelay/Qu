@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>amp = <span class="f">db2mag</span>(-<span class="n">6</span>)     <span class="c"># amplitude ratio for -6 dB</span>
+<div class="example"><pre class="hl"><code>amp = <span class="f">db2mag</span>(-<span class="n">6</span>)     <span class="c"># amplitude ratio for -6 dB</span>
 pow = <span class="f">db2pow</span>(-<span class="n">3</span>)     <span class="c"># power ratio for -3 dB</span>
 <span class="f">print</span>(<span class="s">"db2mag(-6) = {amp}, db2pow(-3) = {pow}"</span>)
 
@@ -57,9 +57,7 @@ w_kaiser = <span class="f">kaiser</span>(<span class="n">9</span>, <span class="
 f = <span class="f">logspace</span>(<span class="n">0</span>, <span class="n">3</span>, <span class="n">4</span>)               <span class="c"># 1, 10, 100, 1000 -- a log-spaced frequency axis</span>
 <span class="f">print</span>(<span class="s">"logspace(0,3,4) = {f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>db2mag(-6) = 0.501187, db2pow(-3) = 0.501187
-hamming[0] = 0.08, blackman[0] = -1.387779e-17, kaiser center = 1
-logspace(0,3,4) = [1, 10, 100, 1000]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>kaiser(n, beta)</code> — <code>w[i] = I0(beta*sqrt(1-((2i/(n-1))-1)^2)) I0(beta)</code>, <code>beta</code> a required second positional argument (not an optional style knob: it fundamentally changes the main-lobe-width/side-lobe-level tradeoff, there's no sane silent default the way <code>duty</code>/<code>carrier</code> are optional elsewhere in this file). Same symmetric (<code>n-1</code>) convention. <code>beta=0</code> makes <code>I0(0)/I0(0) = 1</code> at every sample (a flat all-ones window); the center sample of an odd-length window always has <code>(2i/(n-1))-1 == 0</code>, so its numerator is exactly <code>I0(beta)</code>, giving <code>w[center] == 1.0</code> for any <code>beta</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

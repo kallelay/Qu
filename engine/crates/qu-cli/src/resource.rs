@@ -20,10 +20,13 @@
 //! for a plain OS thread in safe Rust). This was chosen over adding
 //! `Instant::now()` checks inside `qu-interp`'s loop/statement dispatch
 //! for two reasons: it actually covers the native-builtin case the
-//! cooperative approach cannot, and it keeps this feature's entire
-//! implementation inside `qu-cli` — no changes needed to
-//! `qu-interp/src/lib.rs`'s heavily-trafficked, actively-edited execution
-//! path.
+//! cooperative approach cannot, and the watchdog thread itself (this
+//! module) stays entirely inside `qu-cli` — no changes needed to
+//! `qu-interp/src/lib.rs`'s heavily-trafficked, actively-edited
+//! loop/statement dispatch. (The plain RSS *reader* below is shared with
+//! `qu-interp`'s `profile_start`/`profile_end` builtins — see its own doc
+//! comment — but that's a leaf function with no interpreter-loop
+//! involvement, not the watchdog mechanism this note is about.)
 //!
 //! # Honest limitations
 //!
@@ -47,15 +50,11 @@
 //!   alternative, silently letting a runaway script keep going, is
 //!   strictly worse), but worth stating plainly rather than leaving
 //!   readers to assume partial output survives.
-//! - **RSS availability**: `current_rss_bytes` is implemented for Windows
-//!   (this repo's primary dev/test environment) via raw FFI to
-//!   `psapi.dll`'s `GetProcessMemoryInfo` — no new Cargo dependency, in
-//!   keeping with this workspace's default policy of not pulling in a
-//!   crate for something a dozen lines of `extern "system"` covers — and
-//!   for Linux via `/proc/self/status`'s `VmRSS` line. On any other target
-//!   it returns `None`; `--max-memory` on such a target is silently
-//!   unenforceable (never trips) and `--profile`'s peak-RSS line reports
-//!   "unavailable" rather than a fabricated number.
+//! - **RSS availability**: `current_rss_bytes` (re-exported from
+//!   `qu_interp::resource` — see its doc comment for the Windows/Linux
+//!   FFI) returns `None` on any other target; `--max-memory` on such a
+//!   target is silently unenforceable (never trips) and `--profile`'s
+//!   peak-RSS line reports "unavailable" rather than a fabricated number.
 
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -64,71 +63,13 @@ use std::time::{Duration, Instant};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-/// Current process resident-set size (physical memory actually mapped in),
-/// in bytes — see this module's doc comment for platform coverage and
-/// precision.
-#[cfg(windows)]
-pub fn current_rss_bytes() -> Option<u64> {
-    // Manual FFI instead of a crate dependency (`winapi`/`windows-sys`):
-    // this is the only Win32 call `qu-cli` needs, and psapi's
-    // `PROCESS_MEMORY_COUNTERS`/`GetProcessMemoryInfo` ABI has been stable
-    // since Windows XP, so hand-declaring it is low-risk and keeps this
-    // crate's dependency list unchanged.
-    #[repr(C)]
-    struct ProcessMemoryCounters {
-        cb: u32,
-        page_fault_count: u32,
-        peak_working_set_size: usize,
-        working_set_size: usize,
-        quota_peak_paged_pool_usage: usize,
-        quota_paged_pool_usage: usize,
-        quota_peak_non_paged_pool_usage: usize,
-        quota_non_paged_pool_usage: usize,
-        pagefile_usage: usize,
-        peak_pagefile_usage: usize,
-    }
-
-    #[link(name = "psapi")]
-    extern "system" {
-        fn GetProcessMemoryInfo(
-            process: *mut std::ffi::c_void,
-            counters: *mut ProcessMemoryCounters,
-            cb: u32,
-        ) -> i32;
-    }
-    extern "system" {
-        fn GetCurrentProcess() -> *mut std::ffi::c_void;
-    }
-
-    unsafe {
-        let mut pmc: ProcessMemoryCounters = std::mem::zeroed();
-        pmc.cb = std::mem::size_of::<ProcessMemoryCounters>() as u32;
-        let handle = GetCurrentProcess(); // pseudo-handle, no CloseHandle needed
-        if GetProcessMemoryInfo(handle, &mut pmc, pmc.cb) != 0 {
-            Some(pmc.working_set_size as u64)
-        } else {
-            None
-        }
-    }
-}
-
-#[cfg(all(unix, target_os = "linux"))]
-pub fn current_rss_bytes() -> Option<u64> {
-    let status = std::fs::read_to_string("/proc/self/status").ok()?;
-    for line in status.lines() {
-        if let Some(rest) = line.strip_prefix("VmRSS:") {
-            let kb_str = rest.trim().trim_end_matches("kB").trim();
-            let kb: u64 = kb_str.parse().ok()?;
-            return Some(kb * 1024);
-        }
-    }
-    None
-}
-
-#[cfg(not(any(windows, all(unix, target_os = "linux"))))]
-pub fn current_rss_bytes() -> Option<u64> {
-    None
-}
+/// Current process resident-set size, in bytes. The platform FFI used to
+/// live here directly; it now lives in `qu_interp::resource` (shared with
+/// the `profile_start`/`profile_end` builtins) and this is just a
+/// re-export, so both call sites stay in sync automatically instead of
+/// maintaining two copies of the same `psapi.dll`/`/proc/self/status`
+/// code.
+pub use qu_interp::resource::current_rss_bytes;
 
 fn flush_stderr() {
     let _ = std::io::stderr().flush();

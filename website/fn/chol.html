@@ -44,20 +44,19 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">25</span>, <span class="n">15</span>, -<span class="n">5</span>; <span class="n">15</span>, <span class="n">18</span>, <span class="n">0</span>; -<span class="n">5</span>, <span class="n">0</span>, <span class="n">11</span>]
+<div class="example"><pre class="hl"><code>A = [<span class="n">25</span>, <span class="n">15</span>, -<span class="n">5</span>; <span class="n">15</span>, <span class="n">18</span>, <span class="n">0</span>; -<span class="n">5</span>, <span class="n">0</span>, <span class="n">11</span>]
 L = <span class="f">chol</span>(A)
 <span class="f">print</span>(<span class="s">"L * L' == A: {L * L'}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>L * L' == A: [25, 15, -5; 15, 18, 0; -5, 0, 11]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>A = [<span class="n">4</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">3</span>]
 L = <span class="f">chol</span>(A)
 <span class="f">print</span>(L * L.<span class="f">ctranspose</span>())   <span class="c"># reproduces A</span>
 
 r = <span class="f">svd</span>(A)
 <span class="f">print</span>(r.s)   <span class="c"># singular values</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[4, 1; 1, 3]
-[4.618034, 2.381966]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>chol(A)</code> — the lower-triangular factor <code>L</code> of <code>A = L * L^T</code> for a symmetric positive-definite <code>A</code> (a covariance matrix is the common case). Errors clearly (not a NaN-filled result) if <code>A</code> isn't positive-definite — the same discipline <code>inv</code> already applies to a singular matrix.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

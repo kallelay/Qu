@@ -51,7 +51,7 @@ mid = timer.<span class="f">elapsed</span>()       <span class="c"># peek — do
 total = timer.<span class="f">stop</span>()        <span class="c"># same as toc() — also a non-resetting read</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example hasout"><pre class="hl"><code>timer.<span class="f">start</span>()
+<div class="example"><pre class="hl"><code>timer.<span class="f">start</span>()
 acc = <span class="n">0</span>
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">100000</span>
     acc += k
@@ -62,9 +62,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"stop returns: {s}"</span>)
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.001299
-done, acc = 5000050000</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>elapsed(t)</code> — real elapsed seconds so far. A pure read: never stops or resets the timer, callable anytime regardless of running state.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

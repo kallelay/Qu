@@ -55,10 +55,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">5</span>, <span class="n">3</span>, <span class="n">40</span>, <span class="n">6</span>, <span class="n">5</span>, <span class="n">4</span>, <span class="n">3</span>]
 <span class="f">print</span>(<span class="f">medfilt</span>(v, <span class="n">3</span>))   <span class="c"># [3, 5, 6, 6, 5, 4, 4] -- the spike at index 2 is gone</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[3, 5, 6, 6, 5, 4, 4]</pre></div></div>
+</div>
 
 </div>
 <div class="panel">
@@ -71,17 +71,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
+<div class="example"><pre class="hl"><code>m = [<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">255</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>; <span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>,<span class="n">128</span>]
 img = <span class="f">image_from_matrix</span>(m)
 cleaned = <span class="f">medfilt</span>(img, <span class="n">3</span>)
 <span class="f">print</span>(<span class="f">imhist</span>(img, <span class="n">4</span>))       <span class="c"># [0, 0, 24, 1] -- one bright pixel</span>
 <span class="f">print</span>(<span class="f">imhist</span>(cleaned, <span class="n">4</span>))   <span class="c"># [0, 0, 25, 0] -- gone, over a 2-D neighbourhood this time</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 0, 24, 1]
-[0, 0, 25, 0]</pre></div></div>
+</div>
 <p>The paragraph and table above describe the removal tools individually; the example below chains several of them into one cleanup pipeline. First, <code>impulse(n, [index=], [amplitude=])</code> builds the spike to inject in the first place — a plain length-<code>n</code> zero vector with one sample set to <code>amplitude</code> at position <code>index</code>. <code>n</code> is a required positional integer, the output length; <code>index</code> is a named integer sample position, default <code>0</code>; <code>amplitude</code> is a named number, default <code>1</code>. It returns a length-<code>n</code> number vector, and is the natural way to add a single, controlled transient rather than reaching for <code>add_noise</code>'s random placement.</p>
 <p>A clean tone corrupted by both a single spike and a slow linear drift needs two different tools, applied in the right order — a median filter cannot see through a ramp, and a polynomial detrend cannot see through a spike, so the spike must go first:</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">500</span>
 t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
@@ -95,7 +94,7 @@ sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class=
 sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
 <span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>after cleanup: 17.81 dB (savgol), 17.81 dB (smooth)</pre></div></div>
+</div>
 
 </div>
 </div>

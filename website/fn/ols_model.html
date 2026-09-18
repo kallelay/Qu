@@ -49,7 +49,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">8</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
+<div class="example"><pre class="hl"><code>X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>, <span class="n">8</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)
 y = [<span class="n">3.1</span>, <span class="n">5.2</span>, <span class="n">7.1</span>, <span class="n">9.3</span>]
 
 m = <span class="f">ols_model</span>(X, y)          <span class="c"># ordinary least squares, automatic intercept</span>
@@ -57,29 +57,26 @@ m = <span class="f">ols_model</span>(X, y)          <span class="c"># ordinary l
 <span class="f">print</span>(<span class="s">"intercept    {m.intercept:.4f}"</span>)
 <span class="f">print</span>(<span class="s">"R^2          {m.score(X, y):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>coefficients [1.025, 1.025]
-intercept    -3.0500
-R^2          0.9993</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code>m = <span class="f">ols_model</span>(X, y)
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>m = <span class="f">ols_model</span>(X, y)
 <span class="f">print</span>(<span class="f">round</span>(m.coef, <span class="n">3</span>))            <span class="c"># a field, not a method call</span>
 yhat = m.<span class="f">predict</span>(Xnew)
 <span class="f">print</span>(<span class="f">round</span>(m.<span class="f">score</span>(Xnew, ynew), <span class="n">4</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[2, -1.005, 0.497]
-1</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>Xp = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">71</span>)
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>Xp = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">71</span>)
 yp = Xp * [<span class="n">1.0</span>, -<span class="n">1.0</span>] + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">72</span>)
 mp = <span class="f">ols_model</span>(Xp, yp)
 <span class="f">print</span>(<span class="s">"model .predict returns a prediction vector: {round(mp.predict(Xp[0:1, :]), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>model .predict returns a prediction vector: [-1.1, -1.639]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>Xr = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">61</span>)
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>Xr = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">61</span>)
 beta = [<span class="n">1.5</span>, -<span class="n">0.7</span>]
 yr = Xr * beta + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">60</span>, <span class="a">seed</span> = <span class="n">62</span>)
 om = <span class="f">ols_model</span>(Xr, yr)
 <span class="f">print</span>(<span class="s">"regression score is R2: {round(om.score(Xr, yr), 4)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>regression score is R2: 0.999</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p>The model protocol (spec §37.2): a fitted estimator is a <code>Value::Model</code> handle with named read-only fields plus <code>predict</code>/<code>score</code> via method-call sugar. These <code>_model</code>- suffixed constructors sit alongside (not instead of) the pre-existing one-shot <code>ridge</code>/<code>kmeans</code>/<code>pca</code>, since those already have their own tests/docs/notebooks depending on their current return shape. <code>ols_model(X, y)</code> — ordinary least squares with an automatic intercept: <code>X</code>/<code>y</code> are mean-centered, the slope is fit on the centered data, and <code>intercept = mean(y) - colmeans(X)·coef</code> recovers the uncentered line — the standard <code>fit_intercept=True</code> convention, distinct from <code>ridge</code>'s own "no intercept, append a ones column yourself" contract.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

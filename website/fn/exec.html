@@ -51,16 +51,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>r = <span class="f">exec</span>(<span class="s">"echo hello from a program"</span>, <span class="a">shell</span> = <span class="k">true</span>)
+<div class="example"><pre class="hl"><code>r = <span class="f">exec</span>(<span class="s">"echo hello from a program"</span>, <span class="a">shell</span> = <span class="k">true</span>)
 <span class="f">print</span>(<span class="s">"said: {trim(r.stdout)}"</span>)
 <span class="f">print</span>(<span class="s">"success {r.success}, exit code {r.exit_code}"</span>)
 
 failed = <span class="f">exec</span>(<span class="s">"exit 3"</span>, <span class="a">shell</span> = <span class="k">true</span>)
 <span class="f">print</span>(<span class="s">"a failure is data, not an error: success {failed.success}, code {failed.exit_code}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>said: hello from a program
-success true, exit code 0
-a failure is data, not an error: success false, code 3</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>module's own doc comment for why running a program and launching one are two builtins rather than one. Both are on <code>check_sandbox</code>'s deny list, and the single guard at the top of this function is what applies it. Calling it again HERE would deny them always, sandboxed or not -- that guard is the only place <code>self.sandboxed</code> is read.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

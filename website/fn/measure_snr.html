@@ -45,15 +45,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">2047</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
 
 noisy = <span class="f">add_noise</span>(clean, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">3</span>, <span class="a">seed</span> = <span class="n">7</span>)
 <span class="f">print</span>(<span class="s">"asked for 3 dB, measured {measure_snr(clean, noisy):.2f} dB"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>asked for 3 dB, measured 3.00 dB</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 t = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
 
@@ -61,8 +61,8 @@ h = <span class="f">hum</span>(clean, fs, <span class="a">freq</span> = <span cl
 e = <span class="f">emf</span>(clean, fs, <span class="a">carrier</span> = <span class="n">150</span>, <span class="a">snr</span> = <span class="n">6</span>)
 <span class="f">print</span>(<span class="s">"hum {measure_snr(clean, h):.2f} dB, emf {measure_snr(clean, e):.2f} dB"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>hum 6.00 dB, emf 6.00 dB</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
-<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">500</span>
 t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
 clean = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">7</span> * t)
@@ -76,7 +76,7 @@ sg = <span class="f">savgol</span>(flat, <span class="n">11</span>, <span class=
 sm = <span class="f">smooth</span>(flat, <span class="n">11</span>)             <span class="c"># same thing, one word (default method is savgol)</span>
 <span class="f">print</span>(<span class="s">"after cleanup: {measure_snr(clean, sg):.2f} dB (savgol), {measure_snr(clean, sm):.2f} dB (smooth)"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>after cleanup: 17.81 dB (savgol), 17.81 dB (smooth)</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>measure_snr(clean, noisy)</code> — what the SNR actually is, taking the noise as the difference. The loop-closer: it lets "add noise at 3 dB" be checked rather than trusted. Not called <code>snr</code>, which already means the spectral single-argument estimate.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

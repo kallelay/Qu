@@ -46,14 +46,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
+<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
 mid = <span class="f">interpolate_at</span>(sig, <span class="n">0.75</span>)      <span class="c"># interior, halfway between samples 1 and 2</span>
 lo  = <span class="f">interpolate_at</span>(sig, -<span class="n">0.5</span>)      <span class="c"># extrapolated below t=0 via the boundary slope</span>
 hi  = sig.<span class="f">interpolate_at</span>(<span class="n">2.0</span>)        <span class="c"># extrapolated past the last sample</span>
 qs  = sig.<span class="f">interpolate_at</span>([<span class="n">0.0</span>, <span class="n">0.5</span>, <span class="n">1.0</span>], <span class="s">"nearest"</span>)
 <span class="f">print</span>(<span class="s">"mid={mid}, lo={lo}, hi={hi}, qs={qs}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mid=15, lo=-10, hi=40, qs=[0, 10, 20]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], <span class="n">2</span>)     <span class="c"># samples at t = 0, 0.5, 1.0, 1.5s</span>
 mid = <span class="f">interpolate_at</span>(sig, <span class="n">0.75</span>)
 lo = <span class="f">interpolate_at</span>(sig, -<span class="n">0.5</span>)

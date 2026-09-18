@@ -46,14 +46,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>spiky = <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> <span class="n">499</span>) / <span class="n">100</span>)
+<div class="example"><pre class="hl"><code>spiky = <span class="f">sin</span>(<span class="n">2</span> * pi * (<span class="n">0</span> <span class="k">to</span> <span class="n">499</span>) / <span class="n">100</span>)
 spiky[<span class="n">120</span>] = <span class="n">6.0</span>
 spiky[<span class="n">300</span>] = -<span class="n">7.0</span>
 
 r = <span class="f">hampel</span>(spiky, <span class="n">7</span>, <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"replaced {r.replaced} samples of {len(spiky)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>replaced 2 samples of 500</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>hampel(x, window, n_sigma)</code> — replace a sample by the local median only when it lies more than <code>n_sigma</code> robust deviations from it. An outlier remover rather than a smoother: everything the test does not flag is left exactly as it was, which is the difference from <code>medfilt</code>. Returns the cleaned signal and how many samples it touched, because "it removed 3 outliers" and "it rewrote 400 samples" are very different results and should not look the same.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

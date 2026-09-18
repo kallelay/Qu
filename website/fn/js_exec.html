@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>py = <span class="f">python_exec</span>(<span class="s">"result = 1 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"</span>)
+<div class="example"><pre class="hl"><code>py = <span class="f">python_exec</span>(<span class="s">"result = 1 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"</span>)
 <span class="f">print</span>(py.result)                         <span class="c"># 2</span>
 
 py2 = <span class="f">python_exec</span>(<span class="s">"import json\nresult = x * 2\njson.dump(result, open(_qu_output_path, 'w'))"</span>, <span class="a">vars</span>={<span class="a">x</span>=<span class="n">21</span>})
@@ -54,9 +54,7 @@ py2 = <span class="f">python_exec</span>(<span class="s">"import json\nresult = 
 js = <span class="f">js_exec</span>(<span class="s">"const fs = require('fs'); fs.writeFileSync(_qu_output_path, JSON.stringify(1 + 1));"</span>)
 <span class="f">print</span>(js.result)                         <span class="c"># 2</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>2
-42
-2</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>Other inline languages share one implementation -- see deliberately excludes.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

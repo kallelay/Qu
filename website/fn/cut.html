@@ -46,14 +46,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, <span class="n">10</span>)          <span class="c"># 10 samples at 10 Hz, t = 0.0, 0.1, ..., 0.9s</span>
+<div class="example"><pre class="hl"><code>s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, <span class="n">10</span>)          <span class="c"># 10 samples at 10 Hz, t = 0.0, 0.1, ..., 0.9s</span>
 trimmed = <span class="f">cut</span>(s, <span class="n">0.5</span>, <span class="n">100.0</span>)    <span class="c"># end clamps past the signal's duration</span>
 <span class="f">print</span>(<span class="s">"trimmed: {trimmed}"</span>)
 @s.<span class="f">cut</span>(<span class="n">0.2</span>, <span class="n">0.7</span>)                 <span class="c"># self-mutating form: s = cut(s, 0.2, 0.7)</span>
 <span class="f">print</span>(<span class="s">"s after @cut: {s}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>trimmed: signal(Fs=10) [5, 6, 7, 8, 9]
-s after @cut: signal(Fs=10) [2, 3, 4, 5, 6, 7]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <div class="example"><pre class="hl"><code>fs = <span class="n">10</span>
 s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, fs)
 trimmed = <span class="f">cut</span>(s, <span class="n">0.5</span>, <span class="n">100.0</span>)

@@ -49,7 +49,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
+<div class="example"><pre class="hl"><code>env = <span class="f">gridworld_env</span>(<span class="n">4</span>)
 start = env.<span class="f">reset</span>()
 <span class="f">print</span>(<span class="s">"start state: {start}"</span>)
 
@@ -70,10 +70,7 @@ done = <span class="k">false</span>
 <span class="k">end</span> <span class="k">while</span>
 <span class="f">print</span>(<span class="s">"greedy policy reached the goal in {steps} steps"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>start state: 0
-q_learning reward: early -4 -&gt; late 4.45
-sarsa reward:      early -1.5 -&gt; late 4.6
-greedy policy reached the goal in 6 steps</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>q_learning(env, episodes, [alpha=0.1], [gamma=0.9], [epsilon=0.1], [max_steps=], seed=)</code> — off-policy tabular Q-learning (Watkins 1989): the behavior policy is epsilon-greedy, but the update always bootstraps off the GREEDY next action regardless of which action is actually taken next. <code>sarsa(...)</code> (same signature) is the on-policy sibling: the update bootstraps off the SAME action epsilon-greedy actually picked for the next step (so that action, not a resampled one, is what the loop continues with). Both return a <code>Value::Model</code> (kind matches the builtin's own name) with <code>.q_table</code> (an <code>(n_states, n_actions)</code> <code>Mat</code>) and <code>.rewards</code> (a <code>Vec</code>, one total-episode-reward entry per episode — the real correctness signal for a working RL implementation: it should trend upward across training, not just "run without crashing").</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -43,13 +43,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>t = <span class="f">now</span>()
+<div class="example"><pre class="hl"><code>t = <span class="f">now</span>()
 <span class="f">print</span>(t.year)                 <span class="c"># e.g. 2026 -- UTC</span>
 info = <span class="f">sysinfo</span>()
 <span class="f">print</span>(info.logical_cores)     <span class="c"># e.g. 16 -- what to branch on before sizing a pool(n)</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>2026
-16</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>sysinfo()</code> -- the machine this is running on, as a record. <code>sysinfo("text")</code> -- the same thing as a printable block for the head of a benchmark report. Every field is something the OS actually reported; anything it would not tell us is <code>nothing</code> rather than a plausible guess. <code>gpu</code> is the field that matters most for a fair comparison and the easiest to get wrong silently: a GPU-accelerated run measured against a CPU-only baseline is not a language comparison, and <code>gpu</code>/<code>gpu_reason</code> make which one happened impossible to omit by accident.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"name,age\nAlice,30\nBob,25\n"</span>)
+<div class="example"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"name,age\nAlice,30\nBob,25\n"</span>)
 <span class="f">print</span>(<span class="f">xmlify</span>(t))
 <span class="c"># &lt;table&gt;</span>
 <span class="c">#   &lt;columns&gt;</span>
@@ -67,21 +67,7 @@ back = <span class="f">parse_xml</span>(<span class="f">xmlify</span>(t))
 j = <span class="f">csv2json</span>(<span class="s">"product,price\nWidget,9.99\n"</span>)
 <span class="f">print</span>(j)               <span class="c"># [{"product":"Widget","price":9.99}]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>&lt;table&gt;
-  &lt;columns&gt;
-    &lt;column kind="str"&gt;name&lt;/column&gt;
-    &lt;column kind="num"&gt;age&lt;/column&gt;
-  &lt;/columns&gt;
-  &lt;row&gt;
-    &lt;name&gt;Alice&lt;/name&gt;
-    &lt;age&gt;30&lt;/age&gt;
-  &lt;/row&gt;
-  &lt;row&gt;
-    &lt;name&gt;Bob&lt;/name&gt;
-    &lt;age&gt;25&lt;/age&gt;
-  &lt;/row&gt;
-&lt;/table&gt;
-    ... 2 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

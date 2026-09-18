@@ -54,11 +54,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>bounded = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>], <span class="a">lower</span> = [<span class="n">0.0</span>, <span class="n">0.01</span>])
+<div class="example"><pre class="hl"><code>bounded = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<span class="n">1.0</span>, <span class="n">1.0</span>], <span class="a">lower</span> = [<span class="n">0.0</span>, <span class="n">0.01</span>])
 <span class="f">print</span>(<span class="s">"bounded tau {bounded.params[1]:.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>bounded tau 0.3502</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example hasout"><pre class="hl"><code>tau   = <span class="n">0.35</span>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>tau   = <span class="n">0.35</span>
 decay = <span class="n">2.5</span> * <span class="f">exp</span>(<span class="n">0</span> - t / tau) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">2</span>)
 
 <span class="k">function</span> <span class="f">resid</span>(p)
@@ -69,8 +69,7 @@ fit = <span class="f">least_squares</span>(<span class="s">"resid"</span>, [<spa
 <span class="f">print</span>(<span class="s">"amplitude {fit.params[0]:.4f} (true 2.5)"</span>)
 <span class="f">print</span>(<span class="s">"tau       {fit.params[1]:.4f} (true {tau})"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>amplitude 2.4990 (true 2.5)
-tau       0.3502 (true 0.35)</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <h2>How it works</h2>
 <p><code>least_squares(f, x0, [lower=], [upper=], [max_iter=], [tol=])</code> — nonlinear least squares on a RESIDUAL function. <code>f(p)</code> returns the vector to be driven toward zero, not a scalar and not a model evaluated against data. That is the contract <code>curve_fit</code> does not have and the one every fit in this lab needs: a weighting, a Kramers-Kronig penalty or a regularization term is just more entries in the residual. <code>lower=</code>/<code>upper=</code> are box bounds, enforced by clamping every trial point into the box before it is evaluated -- a negative capacitance evaluated once can put NaN through the whole residual, so the bound has to hold at evaluation time, not just at the solution.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

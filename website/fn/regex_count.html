@@ -45,21 +45,17 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"abc123"</span>, <span class="s">"[0-9]+"</span>))     <span class="c"># true</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">regex_match</span>(<span class="s">"abc123"</span>, <span class="s">"[0-9]+"</span>))     <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">regex_count</span>(<span class="s">"a1b22c333"</span>, <span class="s">"[0-9]+"</span>))  <span class="c"># 3</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>true
-3</pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="s">"sensor_1: 12.4, sensor_2: 9.8, sensor_3: 15.0"</span>
+</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example"><pre class="hl"><code>s = <span class="s">"sensor_1: 12.4, sensor_2: 9.8, sensor_3: 15.0"</span>
 <span class="f">print</span>(<span class="f">regex_match</span>(s, <span class="s">"sensor_[0-9]+"</span>))    <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">regex_find</span>(s, <span class="s">"[0-9]+\.[0-9]+"</span>))    <span class="c"># "12.4"</span>
 <span class="f">print</span>(<span class="f">regex_split</span>(s, <span class="s">", *"</span>))              <span class="c"># 3-piece split on each comma</span>
 <span class="f">print</span>(<span class="f">regex_count</span>(s, <span class="s">"sensor_"</span>))          <span class="c"># 3</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>true
-12.4
-("sensor_1: 12.4", "sensor_2: 9.8", "sensor_3: 15.0")
-3</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <div class="example"><pre class="hl"><code><span class="f">figure</span>()
 <span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
 <span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)

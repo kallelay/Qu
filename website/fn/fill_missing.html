@@ -45,19 +45,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
+<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, nan, nan, <span class="n">30</span>]))   <span class="c"># [0, 10, 20, 30]</span>
 <span class="f">print</span>(<span class="f">interpolate_nan</span>([<span class="n">0</span>, <span class="n">10</span>, <span class="n">20</span>, nan]))    <span class="c"># [0, 10, 20, 20] -- holds, does not climb</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">method</span> = <span class="s">"previous"</span>))  <span class="c"># [1, 1, 9]</span>
 <span class="f">print</span>(<span class="f">fill_missing</span>([<span class="n">1</span>, nan, <span class="n">9</span>], <span class="a">value</span> = <span class="n">0</span>))            <span class="c"># [1, 0, 9]</span>
 <span class="f">print</span>(<span class="f">find_missing</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                       <span class="c"># [1]</span>
 <span class="f">print</span>(<span class="f">remove_nan</span>([<span class="n">1</span>, nan, <span class="n">3</span>]))                         <span class="c"># [1, 3]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 10, 20, 30]
-[0, 10, 20, 20]
-[1, 1, 9]
-[1, 0, 9]
-[1]
-[1, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>fill_missing(x, [method="linear"], [value=])</code> — patch the dropouts, keeping the length (and so a <code>Signal</code>'s <code>Fs</code>). <code>method</code>: "linear" (default), "previous"/"ffill", "next"/ "bfill", "nearest", "mean", "median". <code>value=</code> overrides them all with a constant. <code>interpolate_nan(x)</code> is the same thing spelled for the one case that is overwhelmingly the common one -- it IS <code>fill_missing(x, method="linear")</code>, sharing the engine rather than being a second implementation, and is kept as its own name only because that is the operation people go looking for by name. The linear fill deliberately does NOT extrapolate at the ends (a gap with good data on one side only holds the nearest good sample). <code>interp1</code> does extrapolate -- verified, not assumed: <code>interp1([0,1,2,3], [0,10,20,30], 6)</code> is <code>60</code> -- which is why it is not reused here unchanged. The two are answering different questions: <code>interp1</code>'s caller asked for the model's value at a named point outside the data, while here nobody asked for anything and a trailing dropout is being patched so the next stage has something to work with. Extrapolating there turns a dropout into a trend, which is worse than a flat patch precisely because it looks like data.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

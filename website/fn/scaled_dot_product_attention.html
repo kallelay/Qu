@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
 normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
 <span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
 
@@ -70,10 +70,7 @@ weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class
 block_out = <span class="f">transformer_block</span>(q, weights)
 <span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>layer_norm (scale-invariant per row): [-1.224736, 0, 1.224736; -1.224745, 0, 1.224745]
-attention output: [2.872, 3.872; 3.25, 4.25; 2.872, 3.872]
-multi_head_attention with 1 identity head matches plain self-attention: true
-transformer_block: [1, -1; -1, 1; 1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>scaled_dot_product_attention(q, k, v, [mask])</code> — <code>softmax(Q K^T / sqrt(d_k)) V</code> (Vaswani et al. 2017, eq. 1). <code>q</code>/<code>k</code>/<code>v</code> are <code>(seq_len_q, d_k)</code>/<code>(seq_len_k, d_k)</code>/ <code>(seq_len_k, d_v)</code> matrices (or <code>Tensor</code>s wrapping them); an optional 0/1 <code>mask</code> of the raw scores' own <code>(seq_len_q, seq_len_k)</code> shape (<code>1</code> = attend, <code>0</code> = block) is added as a large negative bias BEFORE the softmax — the standard "additive mask" convention, not zeroing probabilities after the fact (which would leave blocked entries still skewing the row's normalization). <code>K^T</code> uses <code>tt</code> (this session's new tracked transpose, so gradient flows back into <code>k</code> too); the two matmuls (<code>Q@K^T</code>, <code>probs@V</code>) reuse <code>tb</code>'s <code>"*"</code>, and so <code>Matrix::matmul</code>'s own existing rayon parallelism above its size threshold — the actual CPU-parallel win for this op. True head-level parallelism (see <code>multi_head_attention</code>) can't extend down into this call too: every tracked op here mutates <code>self.tape</code> behind one shared <code>&amp;mut self</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

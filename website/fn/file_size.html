@@ -44,14 +44,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(f, <span class="s">"run started"</span>)
 <span class="f">write_line</span>(f, <span class="s">"value = "</span> + <span class="f">str</span>(<span class="n">42</span>))
 <span class="f">close</span>(f)
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"log.txt"</span>))    <span class="c"># 23 -- "run started\n" + "value = 42\n"</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>23</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
 <span class="f">write_bit</span>(f, <span class="n">0</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
@@ -67,9 +67,8 @@ b3 = <span class="f">read_bit</span>(g)
 <span class="f">print</span>(<span class="s">"{b0}{b1}{b2}{b3}"</span>)      <span class="c"># 1011</span>
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"flags.bin"</span>))  <span class="c"># 1 -- one byte on disk for 4 bits</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1011
-1</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">20.5</span>)
 <span class="f">write_double</span>(f, <span class="n">21.0</span>)
 <span class="f">write_double</span>(f, <span class="n">19.8</span>)
@@ -85,9 +84,7 @@ vals = <span class="f">read_values</span>(g, <span class="s">"f64"</span>, <span
 whole = <span class="f">read_array</span>(<span class="s">"temps.bin"</span>, <span class="a">type</span>=<span class="s">"f64"</span>)
 <span class="f">print</span>(whole)                             <span class="c"># [20.5, 21, 19.8]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>24
-[20.5, 21, 19.8]
-[20.5, 21, 19.8]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

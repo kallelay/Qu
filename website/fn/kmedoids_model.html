@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+<div class="example"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 kd = <span class="f">kmedoids_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 gm = <span class="f">gmm_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"kmedians label for row 0: {km.predict(G)[0]}"</span>)
@@ -64,13 +64,7 @@ lg = <span class="f">logistic_model</span>(Xc, yc)
 svr = <span class="f">svr_model</span>(X, y)
 <span class="f">print</span>(<span class="s">"svr r2: {round(svr.score(X, y), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>kmedians label for row 0: 1
-kmedoids label for row 0: 1
-gmm log-likelihood: [-448.7, -448.7, -448.7, -448.7]
-gradient boosting r2: 0.953
-svm accuracy:      0.995
-logistic accuracy: 0.995
-svr r2: 0.596</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>kmedoids_model(X, k, [seed=])</code> — PAM (Partitioning Around Medoids). The property that actually distinguishes this from <code>kmeans_model</code>/<code>kmedians_model</code> above: every cluster center (medoid) is an ACTUAL row of <code>X</code>, never a computed average or median — see <code>kmedoids_fit</code>'s own doc comment for the swap procedure. <code>centers</code> holds those real rows (so <code>.predict</code> works exactly like <code>kmeans_model</code>'s nearest-centroid assignment, unchanged, since the "real point" property only matters at fit time); <code>medoid_indices</code> additionally exposes which row of the original <code>X</code> each medoid came from, for scripts (and this pass's own tests) that want to check that property directly rather than re-deriving it.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

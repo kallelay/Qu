@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"wb"</span>)
+<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">0.0</span>)
 <span class="f">write_uint16</span>(f, <span class="n">12</span>)
 <span class="f">write_double</span>(f, <span class="n">0.5</span>)
@@ -66,10 +66,7 @@ tbl = <span class="f">read_structs</span>(h, fields, <span class="n">2</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(tbl))                         <span class="c"># 2</span>
 <span class="f">print</span>(tbl.ch)                            <span class="c"># [12, 15]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>0
-12
-2
-[12, 15]</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>read_struct(f, fields)</code> / <code>read_structs(f, fields, n)</code> -- one binary record, or n of them. <code>fields</code> is a list of <code>(name, type)</code> pairs, which is the layout written down: <code>(("t", "f64"), ("ch", "u16"))</code> reads a ten-byte record and hands back <code>{t = ..., ch = ...}</code>. A file of fixed-size records is the commonest binary format there is -- logger output, a scope's native save, anything with a header struct -- and Qu could only read one by counting bytes by hand. <code>read_structs</code> returns a TABLE, one column per field, rather than a list of records: the reason to read a thousand records is to work on the columns.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

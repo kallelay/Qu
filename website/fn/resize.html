@@ -57,11 +57,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>img = <span class="f">image_new</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="a">r</span>=<span class="n">0</span>, <span class="a">g</span>=<span class="n">0</span>, <span class="a">b</span>=<span class="n">0</span>)
+<div class="example"><pre class="hl"><code>img = <span class="f">image_new</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="a">r</span>=<span class="n">0</span>, <span class="a">g</span>=<span class="n">0</span>, <span class="a">b</span>=<span class="n">0</span>)
 big = <span class="f">resize</span>(img, <span class="n">20</span>, <span class="n">15</span>, <span class="a">method</span>=<span class="s">"bilinear"</span>)
 <span class="f">print</span>(big.width, big.height)   <span class="c"># 20 15</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>20 15</pre></div></div>
+</div>
 <p><strong>Ask an image its dimensions with </strong><code>.width</code> and <code>.height</code>, not with a tuple.<strong> Every call in this chapter that takes a size takes it as width then height — </strong><code>image_new(width, height)</code>, <code>resize(img, width, height)</code>, <code>crop(img, x0, y0, width, height)</code> — and a named accessor cannot be read in the wrong order the way a pair can. <code>img.width</code> means the same thing however the language chooses to order a returned pair, so code written against it does not depend on remembering a convention, and does not change meaning if that convention is ever revisited.</p>
 <p>For completeness: <code>size(img)</code> returns <code>[width, height]</code> — the same order every call above takes — and <code>length(img)</code> returns the pixel count, which has no order to get wrong. There is no worked example of <code>size</code> on an image on this page yet, deliberately: the build that renders these pages runs an engine older than that behaviour, so an example printing it would show you a number the current engine does not produce, over the build's signature. It will be added once the two agree.</p>
 
@@ -78,12 +78,11 @@ big = <span class="f">resize</span>(img, <span class="n">20</span>, <span class=
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example hasout"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
 <span class="f">print</span>(<span class="f">resize</span>(v, <span class="n">5</span>, <span class="a">fill</span>=<span class="n">9</span>))   <span class="c"># [1, 2, 3, 9, 9] -- grown, padded with 9</span>
 <span class="f">print</span>(<span class="f">resize</span>(v, <span class="n">2</span>))           <span class="c"># [1, 2]          -- shrunk, tail dropped</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[1, 2, 3, 9, 9]
-[1, 2]</pre></div></div>
+</div>
 
 </div>
 </div>

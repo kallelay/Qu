@@ -44,24 +44,22 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
+<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">producer</span>() := <span class="f">channel_send</span>(ch, <span class="n">42</span>)
 w = <span class="f">spawn</span>(<span class="s">"producer"</span>)
 value = <span class="f">channel_recv</span>(ch)               <span class="c"># blocks until producer sends</span>
 <span class="f">print</span>(value)                           <span class="c"># 42</span>
 <span class="f">join</span>(w)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>42</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">print</span>(<span class="f">channel_try_recv</span>(ch))            <span class="c"># none -- nothing queued yet</span>
 <span class="f">channel_send</span>(ch, <span class="n">1</span>)
 <span class="f">channel_send</span>(ch, <span class="n">2</span>)
 <span class="f">print</span>(<span class="f">channel_len</span>(ch))                 <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">channel_recv</span>(ch))                <span class="c"># 1 (FIFO)</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>none
-2
-1</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>channel_recv(ch)</code> — blocks until a value is available, then pops and returns it (FIFO).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

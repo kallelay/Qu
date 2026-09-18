@@ -50,12 +50,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
+<div class="example"><pre class="hl"><code>Gs = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">64</span>) + <span class="n">4</span>, <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">65</span>) - <span class="n">4</span>)
 gm = <span class="f">gmm_model</span>(Gs, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"gmm score is total log-likelihood: {round(gm.score(Gs), 2)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>gmm score is total log-likelihood: -127.81</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example hasout"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example"><pre class="hl"><code>km = <span class="f">kmedians_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 kd = <span class="f">kmedoids_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 gm = <span class="f">gmm_model</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 <span class="f">print</span>(<span class="s">"kmedians label for row 0: {km.predict(G)[0]}"</span>)
@@ -73,13 +73,7 @@ lg = <span class="f">logistic_model</span>(Xc, yc)
 svr = <span class="f">svr_model</span>(X, y)
 <span class="f">print</span>(<span class="s">"svr r2: {round(svr.score(X, y), 3)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>kmedians label for row 0: 1
-kmedoids label for row 0: 1
-gmm log-likelihood: [-448.7, -448.7, -448.7, -448.7]
-gradient boosting r2: 0.953
-svm accuracy:      0.995
-logistic accuracy: 0.995
-svr r2: 0.596</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>gmm_model(X, k, [seed=], [max_iter=])</code> — Gaussian Mixture Model fit via Expectation-Maximization. Warm-started from <code>kmeans_fit</code>'s own hard partition (reusing its <code>seed=</code> convention) rather than a separate k-means++/random init, since a k-means solution is already a good starting guess for where the Gaussian components should sit and this avoids keeping a second, independent init scheme in sync. Each EM iteration's total log-likelihood is tracked in <code>.log_likelihood</code> (a real, checkable EM invariant — it never decreases) and the loop stops early once it stops improving, or after <code>max_iter</code> (default 100). <code>.predict (Xnew)</code> is the hard <code>argmax</code>-responsibility cluster assignment; <code>.score(Xnew)</code> is the total log-likelihood of <code>Xnew</code> under the fitted mixture — see <code>gmm_evaluate</code>'s own doc comment for both.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

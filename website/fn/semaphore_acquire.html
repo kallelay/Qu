@@ -43,16 +43,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">semaphore</span>(<span class="n">2</span>)                       <span class="c"># 2 permits available</span>
+<div class="example"><pre class="hl"><code>s = <span class="f">semaphore</span>(<span class="n">2</span>)                       <span class="c"># 2 permits available</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 2</span>
 <span class="f">semaphore_acquire</span>(s)                   <span class="c"># take one</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 1</span>
 <span class="f">semaphore_release</span>(s)                   <span class="c"># give it back</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 2</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>2
-1
-2</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>semaphore_acquire(s)</code> — blocks until a permit is free, then takes it. Unlike the <code>mutex_*</code> family, there's no self-contained atomic operation to offer here (the work done while holding the permit is arbitrary Qu code between the acquire and release calls), so — with no RAII/<code>finally</code> in Qu — releasing on an error path is the caller's job: semaphore_acquire(s) try ...critical work... catch err semaphore_release(s) error(err.message) end semaphore_release(s)</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

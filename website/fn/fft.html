@@ -45,14 +45,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>N = <span class="n">8</span>
+<div class="example"><pre class="hl"><code>N = <span class="n">8</span>
 n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
 x = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">2</span> * n / N)     <span class="c"># a pure tone at bin 2</span>
 X = <span class="f">fft</span>(x, N)
 <span class="f">print</span>(<span class="s">"mag = {abs(X)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>mag = [2.449294e-16, 3.463824e-16, 4, 3.463824e-16, 2.449294e-16, 3.463824e-16, 4, 3.463824e-16]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
 <span class="f">print</span>(<span class="s">"r = {r}"</span>)
 <span class="f">print</span>(<span class="s">"r.x = {r.x}"</span>)
 
@@ -65,11 +65,7 @@ X = <span class="f">fft</span>([<span class="n">1</span>,<span class="n">2</span
 sig = <span class="f">signal</span>([<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>], <span class="n">100</span>)
 <span class="f">print</span>(<span class="s">"sig = {sig}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>r = {x = 1, y = 2}
-r.x = 1
-parts = ("a", "b", "c")
-X = [10, -2 + 2i, -2, -2 - 2i]
-sig = signal(Fs=100) [1, 2, 3, 4]</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example"><pre class="hl"><code>  err = <span class="f">max</span>(<span class="f">abs</span>(<span class="f">fft</span>(x) - <span class="f">dft</span>(x)))   <span class="c"># ~0 to floating precision</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>

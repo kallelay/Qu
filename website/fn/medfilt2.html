@@ -45,14 +45,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
+<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]   <span class="c"># a badly salt-and-peppered checkerboard</span>
 img = <span class="f">image_from_matrix</span>(m)
 
 a = <span class="f">medfilt2</span>(img, <span class="n">3</span>)
 b = <span class="f">median_filter</span>(img, <span class="n">3</span>)      <span class="c"># same filter, other name</span>
 <span class="f">print</span>(<span class="s">"{a.width}x{a.height} cleaned, {b.width}x{b.height} cleaned"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3x3 cleaned, 3x3 cleaned</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>medfilt(x, n)</code> on a vector, <code>medfilt(img, n)</code> on an image. The answer to salt-and-pepper, and the reason is worth knowing: an average is pulled by an outlier in proportion to how far out it is, while a median ignores it entirely as long as fewer than half the window is corrupt. Which is also why it keeps an edge that an average smears -- a step is not an outlier to a median.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

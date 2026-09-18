@@ -45,21 +45,21 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+<div class="example"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
 parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">100</span>
     <span class="f">mutex_add</span>(counter, <span class="n">1</span>)
 <span class="k">end</span> parallel
 <span class="f">print</span>(<span class="s">"total {mutex_get(counter)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>total 100</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
-<div class="example hasout"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+</div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
 parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">100</span>
     <span class="f">mutex_add</span>(counter, <span class="n">1</span>)              <span class="c"># atomic; 100 in, 100 out, no lost updates</span>
 <span class="k">end</span> parallel
 total = <span class="f">mutex_get</span>(counter)
 <span class="f">print</span>(total)                           <span class="c"># 100</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>100</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>mutex_add(m, delta)</code> — atomic read-modify-write: the read-then-write is a SINGLE lock acquisition, unlike <code>mutex_set(m, mutex_get(m) + delta)</code>, which would race (two workers could both read the same starting value before either writes back, losing an update). This is the one operation you actually want for a shared counter/accumulator across <code>parallel for</code> iterations. Returns the new value. No update is ever lost, but which worker's add lands first is real scheduling nondeterminism, and float addition isn't associative — so for non-integer-exact deltas the final value is correct (right up to ordinary float-reordering error) but NOT bit-reproducible run-to-run or across <code>RAYON_NUM_THREADS</code>. reduction-order determinism..." 2026-08-24): the same seeded script's <code>mutex_add</code>-accumulated total differed in its low-order bits across otherwise-identical runs. Contrast with <code>parallel for</code>'s own index-assignment merge (<code>merge_parallel_iteration</code>), which writes to independent slots and so stays bit-identical regardless of scheduling.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

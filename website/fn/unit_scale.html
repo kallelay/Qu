@@ -44,12 +44,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example hasout"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
+<div class="example"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
 x = <span class="n">5</span> * ppm            <span class="c"># 5e-6 -- ordinary arithmetic, works immediately</span>
 y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal-suffix adjacency also works</span>
 <span class="f">print</span>(<span class="f">unit_scale</span>(<span class="s">"ppm"</span>))   <span class="c"># 0.000001 -- reads the declaration back</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1e-6</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <h2>How it works</h2>
 <p><code>unit_scale(name)</code> — the scale factor a <code>unit name = ...</code> declaration registered for <code>name</code> (see <code>Stmt::UnitDecl</code>), introspection for the custom-unit registry the same way <code>unit_family</code> reads the built-in one. Errors, naming the unit, when nothing was ever declared under that name (rather than silently returning e.g. <code>1.0</code>) — a typo'd unit name is exactly the kind of mistake that should surface immediately, not read back as "no scaling".</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
