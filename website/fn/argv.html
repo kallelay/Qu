@@ -43,14 +43,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>args = <span class="f">argv</span>()
+<div class="example hasout"><pre class="hl"><code>args = <span class="f">argv</span>()
 <span class="f">print</span>(<span class="f">length</span>(args))                      <span class="c"># 2 -- "data.csv" and "1000"</span>
 <span class="f">print</span>(args)                              <span class="c"># ("data.csv", "1000")</span>
 
 level = <span class="f">getenv</span>(<span class="s">"QU_LOG"</span>) ?? <span class="s">"info"</span>
 <span class="f">print</span>(level)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>0
+()
+info</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>--- Talking to the outside world ------------------------- Without these a <code>.qu</code> file cannot be told anything: not an input path, not a cutoff frequency, not a run label, and it cannot stamp a result with a date (<code>timer</code>/<code>tic</code>/<code>toc</code> are monotonic, so they measure durations and know nothing about when). That ruled out cron jobs, parameter sweeps, Makefile steps -- every use where something else drives Qu. The 38 ms cold start makes that especially galling: Qu is fast enough to be the thing you call in a loop, and had no way to hear what the loop wanted to say. <code>argv()</code> -- everything after <code>--</code> on the command line: qu run analyse.qu -- data.csv 1000 A list of strings, empty when nothing was passed, so a script can branch on <code>length(argv())</code> without a guard.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

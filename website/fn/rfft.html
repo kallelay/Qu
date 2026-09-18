@@ -44,16 +44,31 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>, <span class="n">1000</span>)     <span class="c"># 1000 samples at 1 kHz, 1 s long</span>
+
+s[<span class="n">3</span>]                <span class="c"># sample 3 — a number</span>
+s[<span class="n">100</span>:<span class="n">200</span>]          <span class="c"># samples 100..=200 — a Signal at the same Fs</span>
+s[<span class="n">0.1</span> s : <span class="n">0.2</span> s]    <span class="c"># 0.1 s to 0.2 s — a Signal at the same Fs</span>
+s[<span class="n">0.5</span> s]            <span class="c"># the sample NEAREST 0.5 s — a number</span>
+s[<span class="n">100</span> ms : <span class="n">200</span> ms]  <span class="c"># identical to s[0.1 s : 0.2 s]; prefixes scale</span>
+
+X = <span class="f">rfft</span>(s)
+X[<span class="n">3</span>]                <span class="c"># bin 3 — a complex number</span>
+X[<span class="n">440</span> Hz]           <span class="c"># the bin nearest 440 Hz — exactly spectrum_at(X, 440)</span>
+X[<span class="n">20</span> Hz : <span class="n">200</span> Hz]   <span class="c"># that band's bins — a complex vector</span>
+X[<span class="n">0.2</span> kHz]          <span class="c"># same bin as X[200 Hz]; prefixes scale here too</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <div class="example"><pre class="hl"><code>  half = <span class="f">rfft</span>(x)               <span class="c"># length floor(N/2)+1</span>
   back = <span class="f">irfft</span>(half, <span class="f">length</span>(x))
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
+<div class="example hasout"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
 freqs    = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spectrum) - <span class="n">1</span>) * fs / <span class="f">len</span>(y)
 peak     = <span class="f">argmax</span>(spectrum)
 <span class="f">print</span>(<span class="s">"largest component at {freqs[peak]:.1f} Hz"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="out"><span class="lbl">output</span><pre>largest component at 50.0 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <div class="example"><pre class="hl"><code>t  = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">500</span>)                  <span class="c"># one second at 500 Hz</span>
 y  = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t) + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">1</span>)
 mag  = <span class="f">abs</span>(<span class="f">rfft</span>(y))                       <span class="c"># 251 bins for 500 samples</span>
@@ -62,26 +77,6 @@ yhat = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n
 losses = <span class="n">1</span> ./ (<span class="n">1</span> <span class="k">to</span> <span class="n">40</span>)                   <span class="c"># a decaying training curve</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">1000</span>
-n = <span class="n">0</span>:<span class="n">1</span>:<span class="n">63</span>
-t = n / fs
-x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t)
-
-X = <span class="f">fft</span>(x)
-xr = <span class="f">idft</span>(X)
-<span class="f">print</span>(<span class="s">"idft roundtrip max err: {max(abs(xr - x))}"</span>)
-
-k100 = <span class="n">100</span> * <span class="f">length</span>(x) / fs        <span class="c"># bin index equivalent to 100 Hz</span>
-bin100 = <span class="f">goertzel</span>(x, k100)
-<span class="f">print</span>(<span class="s">"goertzel magnitude at bin {k100}: {abs(bin100)}"</span>)
-same = <span class="f">goertzel_freq</span>(x, fs, <span class="n">100</span>)   <span class="c"># the Hz-parameterized convenience form</span>
-<span class="f">print</span>(<span class="s">"goertzel_freq agrees: {abs(same - bin100) &lt; 1e-9}"</span>)
-
-half = <span class="f">rfft</span>(x)
-back = <span class="f">irfft</span>(half, <span class="n">64</span>)
-<span class="f">print</span>(<span class="s">"rfft/irfft roundtrip max err: {max(abs(back - x))}"</span>)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>rfft(x, [scaling=])</code> -- <code>scaling=</code> picks the normalisation stamped on the returned <code>Spectrum</code>: <code>"raw"</code> (default, the unnormalised DFT sum), <code>"amplitude"</code> (a bin reads the peak amplitude of the tone at that frequency) or <code>"rms"</code> (that tone's RMS value). Requires a <code>Signal</code> input -- the convention is metadata carried on <code>Value::Spectrum</code>, and a bare <code>CVec</code> has nowhere to record it, so asking for a scaling on plain numbers is refused rather than silently dropped.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

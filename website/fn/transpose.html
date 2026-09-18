@@ -44,13 +44,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
+<div class="example hasout"><pre class="hl"><code>A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 x = <span class="n">5</span>
 <span class="f">print</span>(<span class="s">"val={val(x)}"</span>)
 <span class="f">print</span>(<span class="f">transpose</span>(A))
 <span class="f">print</span>(<span class="s">"mirror={mirror([1, 2, 3])}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="out"><span class="lbl">output</span><pre>val=5
+[1, 4; 2, 5; 3, 6]
+mirror=[3, 2, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>d(transpose(x))/dx</code>: transpose is a linear permutation of elements, so its own vjp is just transposing the upstream adjoint back — reuses the free <code>transpose_value</code> helper every OTHER vjp rule already calls for local derivatives (here it's the WHOLE rule, not just a local factor).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

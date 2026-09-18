@@ -44,14 +44,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>args = <span class="f">argv</span>()
+<div class="example hasout"><pre class="hl"><code>args = <span class="f">argv</span>()
 <span class="f">print</span>(<span class="f">length</span>(args))                      <span class="c"># 2 -- "data.csv" and "1000"</span>
 <span class="f">print</span>(args)                              <span class="c"># ("data.csv", "1000")</span>
 
 level = <span class="f">getenv</span>(<span class="s">"QU_LOG"</span>) ?? <span class="s">"info"</span>
 <span class="f">print</span>(level)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>0
+()
+info</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>getenv(name)</code> -- <code>Nothing</code> when unset rather than "", so an unset variable and one set to the empty string stay distinguishable, and it composes with <code>??</code>: level = getenv("QU_LOG") ?? "info"</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

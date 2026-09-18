@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>runs = <span class="f">table</span>(
+<div class="example hasout"><pre class="hl"><code>runs = <span class="f">table</span>(
     <span class="a">channel</span>  = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>],
     <span class="a">baseline</span> = [<span class="n">0.412</span>, <span class="n">0.508</span>, <span class="n">0.377</span>],
     <span class="a">treated</span>  = [<span class="n">0.240</span>, <span class="n">0.301</span>, <span class="n">0.219</span>]
@@ -55,7 +55,11 @@
 runs = <span class="f">insert_column</span>(runs, <span class="s">"reduction"</span>, <span class="n">1</span> - runs.treated / runs.baseline)
 <span class="f">print</span>(runs)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="out"><span class="lbl">output</span><pre>channel  baseline  treated  reduction
+-------  --------  -------  ---------
+      1     0.412     0.24   0.417476
+      2     0.508    0.301    0.40748
+      3     0.377    0.219   0.419098</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <h2>How it works</h2>
 <p><code>insert_column(t, "name", values, [pos=])</code> (§ table row index, 2026-08-26) — a new <code>Table</code> with a new column inserted at <code>pos</code> (default: appended). <code>values</code> is a <code>Vec</code> for a numeric column or a <code>Value::List</code> of strings for a text column (the same list-of-strings shape <code>column_names_arg</code>/<code>drop</code>'s tuple form already accepts elsewhere), matching the just-fixed <code>df.colname</code> text-column read shape (<code>Value::List</code> of <code>Value::Str</code>) on the way back out.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

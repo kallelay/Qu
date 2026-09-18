@@ -83,7 +83,7 @@
 <tr><td><code>write(fileHandle, s)</code></td><td>Writes the string <code>s</code> verbatim to the already-open file <code>fileHandle</code>; no console output, no newline added.</td></tr>
 </table></div>
 <p>Which form runs is decided entirely by the type of the first argument, not by argument count — passing a <code>fileHandle</code> as the sole argument, or a string as the first of several ordinary values, stays on the console-printing path.</p>
-<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
 <span class="f">print</span>(<span class="s">""</span>)
 f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write</span>(f, <span class="s">"hello file"</span>)
@@ -92,7 +92,8 @@ g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>a 1 b
+hello file</pre></div></div>
 <pre><code>a 1 b
 hello file
 </code></pre>
@@ -132,7 +133,7 @@ total = timer.<span class="f">stop</span>()        <span class="c"># same as toc
 <tr><td><code>grad(loss, wrt=X)</code></td><td>A single gradient value shaped like <code>X</code> — a number for a scalar <code>X</code>, a matrix for a matrix <code>X</code>.</td></tr>
 <tr><td><code>grad(loss, X, Y, ...)</code></td><td>A <code>List</code> of gradient values, one per positional argument, in the same order.</td></tr>
 </table></div>
-<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = <span class="f">track</span>(<span class="n">2.0</span>)
 loss = x * x + y * y
 dloss_dx = <span class="f">grad</span>(loss, <span class="a">wrt</span>=x)          <span class="c"># 2*x = 6</span>
@@ -140,7 +141,8 @@ grads = <span class="f">grad</span>(loss, x, y)              <span class="c"># [
 <span class="f">print</span>(<span class="s">"wrt=x form: {dloss_dx}"</span>)
 <span class="f">print</span>(<span class="s">"positional form: {grads}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>wrt=x form: 6
+positional form: (6, 4)</pre></div></div>
 <pre><code>wrt=x form: 6
 positional form: (6, 4)
 </code></pre>
@@ -158,7 +160,7 @@ positional form: (6, 4)
 <tr><td><code>rand(rows, cols)</code> / <code>randn(rows, cols)</code></td><td>Returns a <code>rows</code>×<code>cols</code> matrix, drawn from the persistent stream.</td></tr>
 <tr><td><code>rand(rows, cols, seed=n)</code></td><td>Draws from a fresh, independent, local stream seeded with <code>n</code> instead — the persistent stream's position is left completely untouched, which is the surprising part.</td></tr>
 </table></div>
-<div class="example"><pre class="hl"><code>a = <span class="f">rand</span>(<span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>a = <span class="f">rand</span>(<span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"shape a: {size(a)}"</span>)
 
 <span class="f">seed</span>(<span class="n">5</span>)
@@ -172,7 +174,8 @@ q2 = <span class="f">rand</span>(<span class="n">2</span>, <span class="n">2</sp
 
 <span class="f">print</span>(<span class="s">"q == q2: {q == q2}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>shape a: [3, 1]
+q == q2: [1, 1; 1, 1]</pre></div></div>
 <pre><code>shape a: [3, 1]
 q == q2: [1, 1; 1, 1]
 </code></pre>
@@ -219,12 +222,12 @@ q == q2: [1, 1; 1, 1]
 </table></div>
 <h3>User-defined units</h3>
 <p><code>unit &lt;name&gt; = &lt;expr&gt;</code> declares a named scale factor, for a physical unit this table doesn't already cover (<code>ppm</code>, a lab-specific calibration constant, ...). <code>unit</code> is contextual, not a reserved word — a plain identifier everywhere else, only parsed as this declaration when it's immediately followed by another bare identifier and then <code>=</code>.</p>
-<div class="example"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
+<div class="example hasout"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
 x = <span class="n">5</span> * ppm            <span class="c"># 5e-6 -- ordinary arithmetic, works immediately</span>
 y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal-suffix adjacency also works</span>
 <span class="f">print</span>(<span class="f">unit_scale</span>(<span class="s">"ppm"</span>))   <span class="c"># 0.000001 -- reads the declaration back</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>1e-6</pre></div></div>
 <p>The grammar already parses <code>&lt;number&gt; &lt;identifier&gt;</code> for any trailing identifier, not just the statically-known spellings in this chapter's table above (that widening — and why a truly unknown unit is a runtime error naming it, not a parse failure — predates user-defined units). <code>unit name = value</code> is what makes a PREVIOUSLY-unknown identifier resolve instead of erroring "unknown unit": it registers <code>name</code> in a runtime table that <code>5 &lt;name&gt;</code> literal adjacency, ordinary <code>*</code> arithmetic, and <code>unit_scale(name)</code> all consult.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -240,30 +243,30 @@ y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal
 <h4>Overloads: <code>tex</code></h4>
 <h4>Case: scalar</h4>
 <p><code>x</code> a real number. Small/large magnitudes get split into <code>\times 10^{n}</code> scientific notation; otherwise it's printed as an ordinary decimal.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">4.7e-8</span>))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">4.7e-8</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>$4.7 \times 10^{-8}$</pre></div></div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Each component is formatted the same way a real scalar would be (including the scientific-notation split when a component is small/large), then joined as <code>re + im i</code>.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">3</span> + <span class="n">4j</span>))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>(<span class="n">3</span> + <span class="n">4j</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>$3 + 4i$</pre></div></div>
 <h4>Case: vector or matrix</h4>
 <p><code>x</code> a <code>Vec</code>/<code>Mat</code>. Returns a <code>bmatrix</code> environment instead of a bare number, with <code>&amp;</code> separating entries.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tex</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>$\begin{bmatrix} 1 &amp; 2 &amp; 3 \end{bmatrix}$</pre></div></div>
 <p><code>printtex</code> follows the exact same three cases — it just prints instead of returning the string.</p>
 <h2 id="s157">Examples</h2>
 <p><code>tic</code>/<code>toc</code> are the quickest way to answer "how long did that take": start the single global stopwatch with <code>tic()</code>, run the code, then read elapsed seconds with <code>toc()</code>. Because <code>toc()</code> is a non-resetting peek, the same <code>tic()</code> can be read multiple times to lap a loop without restarting the clock each iteration. The example below times a million square-root calls and prints the elapsed seconds:</p>
-<div class="example"><pre class="hl"><code><span class="f">tic</span>()
+<div class="example hasout"><pre class="hl"><code><span class="f">tic</span>()
 <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">1000000</span>
     x = <span class="f">sqrt</span>(i)
 <span class="k">end</span>
 elapsed_s = <span class="f">toc</span>()
 <span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>took 0.0153s</pre></div></div>
 <p><code>track</code> and <code>grad</code> are the entry points to Qu's reverse-mode autodiff tape: wrap the inputs you want a derivative with respect to in <code>track</code> (or its alias <code>param</code>), build an ordinary arithmetic expression from them, and then call <code>grad</code> on the result to walk the tape backwards. Here <code>x</code> is tracked, <code>y = x^2 + 2x</code> is computed from it, and <code>grad</code> returns <code>dy/dx</code> evaluated at <code>x = 3</code> (analytically <code>2x + 2 = 8</code>), which is then printed:</p>
 <div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = x * x + <span class="n">2</span> * x

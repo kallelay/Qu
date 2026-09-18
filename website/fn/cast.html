@@ -45,14 +45,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
+<div class="example hasout"><pre class="hl"><code>  n = <span class="f">cast</span>((<span class="s">"1"</span>, <span class="s">"2.5"</span>, <span class="s">"-3"</span>), <span class="s">"num"</span>)
   <span class="f">print</span>(n)                               <span class="c"># [1, 2.5, -3]</span>
   s = <span class="f">cast</span>([<span class="n">1</span>, <span class="n">2.5</span>, -<span class="n">3</span>], <span class="s">"str"</span>)
   <span class="f">print</span>(s)                               <span class="c"># ("1", "2.5", "-3")</span>
   b = <span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>)
   <span class="f">print</span>(b)                               <span class="c"># 42, via method-chain sugar</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>[1, 2.5, -3]
+("1", "2.5", "-3")
+42</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>cast(value, tag)</code> — explicit type conversion between real Qu value kinds, using the SAME closed tag vocabulary (<code>qu_syntax::TYPE_TAGS</code>) typed function parameters already use (<code>num, bool, str, vec, ...</code>) rather than a parallel naming scheme. Deliberately distinct from <code>x as vector(3)</code> (<code>Expr::As</code>/<code>apply_shape_contract</code>), which is a shape *contract* check on an already-typed value, not a type conversion — the two features solve unrelated problems and must not collide. Only the pairings below are wired up (most of the 21×21 possible (source, target) combinations are meaningless, e.g. casting a <code>signal</code> to a <code>worker</code>); anything else is a clear named error, never a silent no-op or a panic. Automatically gets <code>x.cast(tag)</code> method-chain syntax for free via the existing generic <code>recv.method(args) == method(recv, args)</code> sugar (<code>eval_call</code>) — no extra wiring needed here for that.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

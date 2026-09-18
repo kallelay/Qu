@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fifo</span>(<span class="n">3</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fifo</span>(<span class="n">3</span>)
 f.<span class="f">push</span>(<span class="n">1</span>)
 f.<span class="f">push</span>(<span class="n">2</span>)
 f.<span class="f">push</span>(<span class="n">3</span>)
@@ -53,8 +53,10 @@ f.<span class="f">push</span>(<span class="n">4</span>)          <span class="c"
 <span class="f">print</span>(f.<span class="f">pop</span>())      <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">len</span>(f))        <span class="c"># 2</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
+<div class="out"><span class="lbl">output</span><pre>2
+2
+2</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"mm(10)={mm(10)}  cm(1)={cm(1)}  inch(1)={inch(1)}"</span>)   <span class="c"># e.g. figure_size(mm(180), mm(120))</span>
 
 f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_empty={is_empty(f)}"</span>)
@@ -62,7 +64,9 @@ f = <span class="f">fifo</span>(<span class="n">2</span>)
 <span class="f">push</span>(f, <span class="n">2</span>)
 <span class="f">print</span>(<span class="s">"is_full={is_full(f)}"</span>)   <span class="c"># at capacity -- the next push would evict the oldest</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<div class="out"><span class="lbl">output</span><pre>mm(10)=100  cm(1)=100  inch(1)=254
+is_empty=true
+is_full=true</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
 <h2>How it works</h2>
 <p><code>fifo(capacity)</code> (§ data structures pass, 2026-09-01, <code>Value::Fifo</code> is a guarded arm further up this match (see its own comment there, next to <code>queue()</code>'s own unconditional <code>"push"</code>); every other fifo name has no competing meaning anywhere else, so this arm is unconditional.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -82,17 +82,18 @@
 <h4>Overloads: <code>join</code></h4>
 <h4>Case: worker</h4>
 <p><code>w</code> a <code>Worker</code> handle (from <code>spawn</code>). Blocks until that worker finishes, then returns its function's return value, or re-raises whatever error the worker's body raised.</p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">6</span>)
 <span class="f">print</span>(<span class="f">join</span>(w))   <span class="c"># 36</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>36</pre></div></div>
 <h4>Case: list</h4>
 <p><code>list</code> a <code>List</code> of strings, with an optional <code>delimiter</code> (default <code>""</code>). The unrelated collection form — concatenates every element into one string, the inverse of <code>split</code> — selected purely because the first argument isn't a <code>Worker</code> handle.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">join</span>([<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>]))        <span class="c"># "abc"</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">join</span>([<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>]))        <span class="c"># "abc"</span>
 <span class="f">print</span>(<span class="f">join</span>([<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"c"</span>], <span class="s">"-"</span>))   <span class="c"># "a-b-c"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>abc
+a-b-c</pre></div></div>
 <h2 id="s36">Mutexes</h2>
 <p>Genuinely <strong>shared</strong> mutable state — the deliberate opt-in exception to <code>spawn</code>/<code>parallel for</code>'s default share-nothing design. Cloning a <code>Mutex</code> value (e.g. capturing it into a worker's environment snapshot) clones the handle, not the data — every clone still points at the same cell.</p>
 <div class="tablewrap"><table>
@@ -104,50 +105,50 @@ w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n"
 <tr><td><code>mutex_update</code></td><td><code>mutex_update(m, "fnName")</code></td><td>Atomic read-modify-write via an arbitrary user function called with the current value as its one argument — for accumulations <code>mutex_add</code> can't express (a running max, an append-only log). <code>m</code> is a <code>Mutex</code> handle; <code>"fnName"</code> (string) names a one-argument user-defined function whose return value becomes the mutex's new stored value. The lock is held for the whole call, so <code>fnName</code>'s body must not touch this same mutex itself, directly or indirectly — that deadlocks. Returns the new value (whatever <code>fnName</code> returned).</td></tr>
 </table></div>
 <p><code>mutex</code> is the escape hatch from <code>spawn</code>/<code>parallel for</code>'s normal share-nothing isolation: every other worker-facing primitive in this chapter gives each worker its own private copy of the world, but a <code>Mutex</code> handle stays a single shared cell no matter how many workers hold a clone of it. The example below creates one, overwrites it directly with <code>mutex_set</code> (no read involved), then performs an atomic read-modify-write through a user function with <code>mutex_update</code> — the pattern you reach for when the update is more than a simple numeric increment (<code>mutex_add</code> covers that simpler case). The final <code>print</code> shows the value <code>mutex_update</code> left behind:</p>
-<div class="example"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">running_max</span>(current) := <span class="f">max</span>(current, <span class="n">7</span>)
 
 m = <span class="f">mutex</span>(<span class="n">0</span>)
 <span class="f">mutex_set</span>(m, <span class="n">3</span>)                        <span class="c"># overwrite -- no read involved</span>
 <span class="f">mutex_update</span>(m, <span class="s">"running_max"</span>)         <span class="c"># atomic read-modify-write via a user fn</span>
 <span class="f">print</span>(<span class="f">mutex_get</span>(m))                    <span class="c"># 7</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>7</pre></div></div>
 <h2 id="s62">Examples</h2>
 <p>This section walks through four of the chapter's core primitives together, each in the shape you'd actually reach for it in a real script rather than the minimal one-liners in the tables above.</p>
 <p><code>spawn</code> is for offloading one genuinely expensive call onto its own OS thread so the calling script can keep doing other work (here, polling) while it runs, then collect the result with <code>join</code> once it's ready. The example spawns a function, polls <code>worker_done</code> in a tight loop until it reports completion (a real script would normally do useful work in that loop instead of spinning), then blocks on <code>join</code> to retrieve the return value:</p>
-<div class="example"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
+<div class="example hasout"><pre class="hl"><code><span class="f">heavy</span>(n) := n * n
 w = <span class="f">spawn</span>(<span class="s">"heavy"</span>, <span class="n">7</span>)                  <span class="c"># runs on its own OS thread</span>
 <span class="k">while</span> <span class="k">not</span> <span class="f">worker_done</span>(w)               <span class="c"># non-blocking poll; handle stays valid</span>
 <span class="k">end</span> <span class="k">while</span>
 result = <span class="f">join</span>(w)                       <span class="c"># blocks for the result (49)</span>
 <span class="f">print</span>(result)                          <span class="c"># 49</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>49</pre></div></div>
 <p><code>pmap</code> is the tool for the common case of applying the same pure function to every element of a collection and wanting the results back in a vector — feature extraction over a batch of signals, a per-row transform over a dataset — without hand-writing a <code>spawn</code>/<code>join</code> loop yourself. It applies a pure function across a vector using the same share-nothing isolation <code>spawn</code> uses, composing naturally with <code>|&gt;</code>:</p>
-<div class="example"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">extract</span>(x) := x * x
 xs = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
 out = xs |&gt; <span class="f">pmap</span>(<span class="s">"extract"</span>)            <span class="c"># same as pmap(xs, "extract")</span>
 <span class="f">print</span>(out)                             <span class="c"># [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</pre></div></div>
 <p><code>mutex</code> is for the rarer case where parallel workers genuinely need to share one piece of mutable state rather than working on independent data — a running total, a shared cache, an accumulated log — safely, without the lost-update races that reading-then-writing an ordinary shared value from multiple threads would cause. The example runs 100 loop iterations in parallel, each incrementing a shared counter through the atomic <code>mutex_add</code>, and confirms afterward that all 100 increments were actually counted with none lost to a race:</p>
-<div class="example"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
+<div class="example hasout"><pre class="hl"><code>counter = <span class="f">mutex</span>(<span class="n">0</span>)
 parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">1</span> <span class="k">to</span> <span class="n">100</span>
     <span class="f">mutex_add</span>(counter, <span class="n">1</span>)              <span class="c"># atomic; 100 in, 100 out, no lost updates</span>
 <span class="k">end</span> parallel
 total = <span class="f">mutex_get</span>(counter)
 <span class="f">print</span>(total)                           <span class="c"># 100</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>100</pre></div></div>
 <p><code>channel</code> is for handing whole values from one worker to another as they become available, rather than sharing a mutable cell — the natural fit for a producer/consumer pipeline where one side generates results and another consumes them as they arrive. The example spawns a producer that sends a single value, and the main thread's <code>channel_recv</code> blocks until that value shows up:</p>
-<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
+<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">producer</span>() := <span class="f">channel_send</span>(ch, <span class="n">42</span>)
 w = <span class="f">spawn</span>(<span class="s">"producer"</span>)
 value = <span class="f">channel_recv</span>(ch)               <span class="c"># blocks until producer sends</span>
 <span class="f">print</span>(value)                           <span class="c"># 42</span>
 <span class="f">join</span>(w)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>42</pre></div></div>
 <h2 id="s89">Semaphores</h2>
 <p>A counting semaphore, for bounding concurrent access to a limited shared resource (a hardware port, a connection pool, or just an explicit concurrency cap) across <code>spawn</code>/<code>parallel for</code> workers.</p>
 <div class="tablewrap"><table>
@@ -158,14 +159,16 @@ value = <span class="f">channel_recv</span>(ch)               <span class="c"># 
 <tr><td><code>semaphore_available</code></td><td><code>semaphore_available(s)</code></td><td>Non-blocking snapshot of how many permits are free right now on semaphore handle <code>s</code>. Returns an integer — a diagnostic, not a guarantee, since it can change the instant after it's read.</td></tr>
 </table></div>
 <p>A semaphore bounds how many workers may hold a limited resource concurrently — a hardware port, a connection pool, or just an explicit concurrency cap — by handing out a fixed number of permits that <code>semaphore_acquire</code> blocks for and <code>semaphore_release</code> gives back. The example below creates a semaphore with 2 permits, takes one, and returns it, printing <code>semaphore_available</code>'s live count at each step so the acquire/release bookkeeping is visible:</p>
-<div class="example"><pre class="hl"><code>s = <span class="f">semaphore</span>(<span class="n">2</span>)                       <span class="c"># 2 permits available</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">semaphore</span>(<span class="n">2</span>)                       <span class="c"># 2 permits available</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 2</span>
 <span class="f">semaphore_acquire</span>(s)                   <span class="c"># take one</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 1</span>
 <span class="f">semaphore_release</span>(s)                   <span class="c"># give it back</span>
 <span class="f">print</span>(<span class="f">semaphore_available</span>(s))          <span class="c"># 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2
+1
+2</pre></div></div>
 <h2 id="s118">Channels</h2>
 <p>Worker-to-worker message passing: a blocking MPMC queue, the counterpart to <code>mutex</code>'s shared-state model. Cloning a <code>Channel</code> value shares the same underlying queue, the same <code>Arc</code>-sharing convention <code>Mutex</code>/<code>Semaphore</code> already use.</p>
 <div class="tablewrap"><table>
@@ -177,14 +180,16 @@ value = <span class="f">channel_recv</span>(ch)               <span class="c"># 
 <tr><td><code>channel_len</code></td><td><code>channel_len(ch)</code></td><td>How many messages are queued right now on channel <code>ch</code>, without consuming any of them. Returns an integer — a diagnostic/backpressure-aware-producer helper, not needed for ordinary send/recv.</td></tr>
 </table></div>
 <p>A channel is the message-passing counterpart to <code>mutex</code>'s shared-state model: instead of workers reading and writing one shared cell, they hand whole values to each other through a blocking FIFO queue. The example below checks an empty channel with the non-blocking <code>channel_try_recv</code> (getting <code>none</code> back), sends two values, reads the queue depth with <code>channel_len</code>, then drains one value with the blocking <code>channel_recv</code> — printing the result of each step so the FIFO ordering and the empty-queue behavior are both visible:</p>
-<div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>()
+<div class="example hasout"><pre class="hl"><code>ch = <span class="f">channel</span>()
 <span class="f">print</span>(<span class="f">channel_try_recv</span>(ch))            <span class="c"># none -- nothing queued yet</span>
 <span class="f">channel_send</span>(ch, <span class="n">1</span>)
 <span class="f">channel_send</span>(ch, <span class="n">2</span>)
 <span class="f">print</span>(<span class="f">channel_len</span>(ch))                 <span class="c"># 2</span>
 <span class="f">print</span>(<span class="f">channel_recv</span>(ch))                <span class="c"># 1 (FIFO)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>none
+2
+1</pre></div></div>
 <h2 id="s146">Job Queue &amp; Worker Pools</h2>
 <p>A resource-limited worker pool (<code>pool ... with cpu=N ... end pool</code>, or the anonymous <code>pool(n)</code> shorthand), a deferred-job list (<code>queue()</code>), and <code>run &lt;queue&gt; on &lt;pool&gt;</code> to dispatch every queued job across it, collecting an ordered <code>List</code> of results. Distinct from <code>spawn</code>/<code>pmap</code> above in one way: jobs are referenced by function NAME (a string) plus already-evaluated arguments, submitted ahead of time, then all drained together by <code>run</code> — not fired off individually.</p>
 <div class="tablewrap"><table>
@@ -198,24 +203,24 @@ value = <span class="f">channel_recv</span>(ch)               <span class="c"># 
 <h4>Overloads: <code>pool</code></h4>
 <h4>Case: named</h4>
 <p><code>pool &lt;name&gt; with cpu=N ... end pool</code> is a statement, not an expression — it registers a persistent pool under the bare identifier <code>name</code>, so more than one later <code>run ... on name</code> call (or <code>run ... on any</code>) can share the same fixed set of worker threads instead of each spinning up its own.</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 pool workers <span class="k">with</span> cpu=<span class="n">2</span>
 <span class="k">end</span> pool
 q = <span class="f">queue</span>()
 q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
 <span class="f">print</span>(run q on workers)   <span class="c"># (9)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(9)</pre></div></div>
 <h4>Case: anonymous</h4>
 <p><code>pool(n)</code> is an expression — it returns an unregistered <code>Pool</code> handle with <code>n</code> local cpu workers, scoped to whichever single <code>run ... on pool(n)</code> call uses it, with no <code>pool ... end pool</code> registration step at all.</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 q = <span class="f">queue</span>()
 q.<span class="f">push</span>(<span class="s">"square"</span>, <span class="n">3</span>)
 <span class="f">print</span>(run q on <span class="f">pool</span>(<span class="n">2</span>))   <span class="c"># (9)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(9)</pre></div></div>
 <p>A named pool is worth registering when more than one <code>run</code> call — maybe across different stages of a script — should share the same fixed set of worker threads rather than each spinning up its own. The example below defines a pure function, builds a 4-worker pool named <code>workers</code>, queues five calls to it with <code>.push</code>, then drains the whole queue at once with <code>run ... on</code>, printing the resulting list of squares in submission order:</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 
 pool workers <span class="k">with</span> cpu=<span class="n">4</span>
 <span class="k">end</span> pool
@@ -228,9 +233,9 @@ q = <span class="f">queue</span>()
 results = run q on workers
 <span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(0, 1, 4, 9, 16)</pre></div></div>
 <p>The anonymous form skips the <code>pool ... end pool</code> registration entirely -- handy when nothing else needs to share the same workers, since <code>pool(n)</code> can be written directly inline as the target of <code>run ... on</code>:</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 
 q = <span class="f">queue</span>()
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
@@ -240,7 +245,7 @@ q = <span class="f">queue</span>()
 results = run q on <span class="f">pool</span>(<span class="n">2</span>)  <span class="c"># 2 local cpu workers, scoped to this one call</span>
 <span class="f">print</span>(results)              <span class="c"># (0, 1, 4, 9, 16)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>(0, 1, 4, 9, 16)</pre></div></div>
 <h3>Distributed pools: <code>listen_pool</code> and <code>remote=(...)</code></h3>
 <p>A pool's workers don't have to be local threads — <code>remote = (...)</code> names <code>"host:port"</code> addresses of other Qu processes running <code>listen_pool</code>, and <code>run ... on &lt;pool&gt;</code> transparently splits jobs across local <code>cpu</code> workers and those remote listeners, merging every result into the same ordered <code>List</code> either way. This is a real, minimal, working feature — not the larger <code>worker()</code>/<code>cluster()</code>/auto-discovery cluster vision sketched elsewhere in the language reference's distributed-execution chapter; there is no node discovery, no <code>least_loaded</code>/<code>affinity</code> placement policy, and no fault-tolerant rescheduling here, only "name some addresses, dispatch jobs to them by function name, get results back."</p>
 <div class="tablewrap"><table>
@@ -278,14 +283,14 @@ results = run q on workers    <span class="c"># some local, some "remote" — on
 <tr><td><code>http_get</code></td><td><code>http_get(url)</code></td><td><code>url</code> (string, must include the scheme, e.g. <code>"https://example.com/"</code>) is the address to fetch. Issues an HTTP(S) GET request and returns the response body as a string (UTF-8, decoded lossily — the same convention <code>read_all_text</code>/text-mode <code>read_all</code> already use). GET-only in this v1: no custom headers, auth, or POST. A 30-second timeout applies to the whole request (connect + read) — an unreachable host errors clearly rather than hanging forever. A non-2xx response is a clear error naming the actual status code. Returns a <code>Str</code>: the response body. No status code and no headers come back with it — a call that returns at all succeeded, and everything else raised.</td></tr>
 </table></div>
 <p><code>http_get</code> is the quickest way to pull a resource off the web into a string for further processing — parsing JSON out of an API response, scraping a page's text, or just checking that a URL is reachable — without setting up a full streaming connection. The example below fetches a page and prints the length of the body it got back, so the request's success and the size of what came down the wire are both visible:</p>
-<div class="example"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
+<div class="example hasout"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
 <span class="f">print</span>(<span class="f">length</span>(body))            <span class="c"># e.g. 559 -- byte length of the fetched page</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>559</pre></div></div>
 <p><code>StreamURL(url)</code> wraps this same request as a read-only stream object (<code>read_line</code>/<code>read_all</code>/<code>eof</code>/<code>close</code>), polymorphic with <code>StreamFile</code> — see <a href="file-io.html#polymorphic-streams-streamfile--streamurl">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></a>.</p>
 <h3>TCP sockets</h3>
 <p>Reach for raw TCP sockets when <code>http_get</code>'s one-shot GET isn't enough — talking to a non-HTTP service, holding a connection open for more than one exchange, or writing both the client and the server yourself (as the distributed-pool machinery above does internally). The demo below is a self-contained loopback echo server: <code>tcp_listen</code>/<code>tcp_accept</code> on the server side (run on its own worker via <code>spawn</code>, since <code>tcp_accept</code> blocks the calling thread until a client connects), <code>tcp_connect</code> on the client side, <code>tcp_send</code>/<code>tcp_recv</code> to exchange one message, <code>tcp_close</code> to release each connection once done. <code>tcp_listen(0)</code> asks the OS for a free ephemeral port instead of a fixed one, and <code>tcp_port</code> reports which one it actually bound so the client knows where to connect. The final <code>print</code> shows the message coming back exactly as sent, proving the round trip worked:</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">echo_once</span>(listener)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">echo_once</span>(listener)
     conn = <span class="f">tcp_accept</span>(listener)        <span class="c"># blocks for the one client</span>
     msg = <span class="f">tcp_recv</span>(conn)
     <span class="f">tcp_send</span>(conn, msg)
@@ -302,7 +307,7 @@ client = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, 
 <span class="f">tcp_close</span>(client)
 <span class="f">join</span>(w)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>hello</pre></div></div>
 <h2 id="s231">Watches (<code>watch</code>)</h2>
 <p>Three change-detection trigger conditions, registered as a statement (<code>watch ... [do] ... end</code>) and checked only by the <code>pump_watches</code> builtin above — see the Language Tour's own "<code>watch</code> — file/variable/URL change detection" section for the full execution-model discussion (why this is NOT a background process: Qu's interpreter is single-threaded with no event loop, so a <code>watch</code> callback only ever runs during an explicit <code>pump_watches()</code> call, the same cooperative model <code>every</code>/<code>after</code>/<code>at</code> already have via <code>run_for</code>).</p>
 <div class="tablewrap"><table>
@@ -312,7 +317,7 @@ client = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, 
 <tr><td><code>watch url</code></td><td><code>watch url(url, [interval_seconds=]) [do] ... end</code></td><td><code>url</code> (string, must include the scheme). <code>interval_seconds</code> (optional number, default <code>5</code>, real wall-clock seconds) bounds how often this actually fetches over the network. Fires when a fresh <code>http_get</code>-equivalent fetch of <code>url</code>'s response body differs from the last fetch; a <code>pump_watches()</code> call landing before the interval has elapsed is a cheap no-op that doesn't touch the network. The baseline is one real fetch performed at registration time. A statement, no value.</td></tr>
 </table></div>
 <p><code>watch</code> is for noticing when something outside your script's own control flow changes — a config file another process might edit, a variable some other part of a larger script mutates, or a URL whose content might update — without polling it by hand on every loop iteration. Registering a <code>watch</code> costs nothing until you actually call <code>pump_watches()</code>, which checks every registered watch once against its current state. The example below watches a file for a modification-time change: the first <code>pump_watches()</code> call sees no change (the file hasn't been touched since registration) and fires nothing, then <code>touch</code> bumps the file's mtime and the second call detects that and runs the watch's body, incrementing <code>fires</code> — both counts are printed so the before/after difference is visible:</p>
-<div class="example"><pre class="hl"><code>fires = <span class="n">0</span>
+<div class="example hasout"><pre class="hl"><code>fires = <span class="n">0</span>
 watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span class="k">do</span>
     fires = fires + <span class="n">1</span>
 <span class="k">end</span>
@@ -322,7 +327,10 @@ watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span cla
 <span class="f">pump_watches</span>()          <span class="c"># real mtime change -&gt; 1 fired</span>
 <span class="f">print</span>(fires)             <span class="c"># 1</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>· pump_watches(): 0 watch firing(s) across 1 registered watch(es)
+0
+· pump_watches(): 1 watch firing(s) across 1 registered watch(es)
+1</pre></div></div>
 <h2 id="s279">Serial Port I/O</h2>
 <p>Real UART/RS-232/USB-serial device I/O (§ real serial port I/O, 2026-09-01), via the <code>serialport</code> crate — placed in this same chapter as <code>http_get</code>/the TCP socket library above rather than a disconnected new chapter, for the same "nearest existing I/O-flavored home" reasoning. It follows <code>Value::File</code>/<code>Value::TcpConn</code>'s own opaque-handle convention: a constructor returns a live handle, and <code>handle.method(...)</code> sugar makes <code>.read_line()</code>-style calls work with no special-casing.</p>
 <div class="tablewrap"><table>
@@ -336,7 +344,7 @@ watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span cla
 <tr><td><code>.close()</code></td><td><code>close(conn)</code></td><td><code>conn</code> (a <code>Serial</code> handle). Releases the OS handle. Returns <code>none</code>. Idempotent, like <code>Value::File</code>'s own <code>close</code> — calling it again on an already-closed handle is a harmless no-op.</td></tr>
 </table></div>
 <p><code>serial_open</code> plus <code>.read_line()</code> is the everyday pattern for talking to a line-oriented device — a sensor board that streams one text reading per line, a modem, a microcontroller printing debug output. The example below lists whatever serial devices this machine's OS currently reports, opens the first one with a half-second read timeout, and prints whatever line (if any) arrived within that window — <code>line</code> comes back as <code>none</code>, not an error, if nothing showed up in time:</p>
-<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
+<div class="example hasout"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
 conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">500</span>)
 line = <span class="f">read_line</span>(conn)                              <span class="c"># blocks up to 500ms; `none` if nothing arrived</span>
 <span class="k">if</span> line != <span class="k">none</span>
@@ -346,9 +354,9 @@ line = <span class="f">read_line</span>(conn)                              <span
 <span class="k">end</span> <span class="k">if</span>
 <span class="f">close</span>(conn)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>no line arrived within the timeout</pre></div></div>
 <p>For a binary protocol instead of line-oriented text, <code>.read_bytes(n)</code> is the one to reach for: it collects raw bytes rather than splitting on newlines, which matters when a device sends fixed-size frames or non-text payloads. <code>.available()</code> is the non-blocking companion check — how much has already arrived in the OS's input buffer right now, useful for deciding whether a read is even worth attempting before committing to <code>timeout_ms</code>'s wait. The example below checks availability, then attempts to read up to 4 bytes (an honest short read if <code>timeout_ms</code> elapses first), and prints both numbers so the non-blocking check and the actual read result are both visible — this one already guards the no-hardware case explicitly:</p>
-<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
+<div class="example hasout"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
 <span class="k">if</span> <span class="f">length</span>(ports) &gt; <span class="n">0</span>
     conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">200</span>)
     n = <span class="f">available</span>(conn)                        <span class="c"># bytes waiting, non-blocking</span>
@@ -359,7 +367,7 @@ line = <span class="f">read_line</span>(conn)                              <span
     <span class="f">print</span>(<span class="s">"no serial hardware attached"</span>)
 <span class="k">end</span> <span class="k">if</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>available=0, got 0 byte(s)</pre></div></div>
 <p><strong>What does NOT apply to a serial handle, and why.</strong> <code>read_all</code>/<code>eof</code> are deliberately not implemented: both assume a fixed, knowable total length (a file's byte count, or an HTTP response's fully-fetched body) so that "everything remaining" and "have I reached the end" are honest questions — a live serial device has neither, since data arrives whenever the far end sends it, or never. Calling either on a serial handle falls through to the existing <code>Value::File</code> error path, which already reports a clear "expected a file handle ... found serial" rather than a fabricated answer.</p>
 <p><strong>A genuine real-time capture-and-process demo</strong> — <code>catalog/qu_serial_realtime.qu</code> — opens a serial port, reads incoming lines in a bounded loop as they arrive, converts each to a number, and prints a running moving average/min/max after every reading, catching an open failure (no matching device attached) as a clean, expected error rather than a crash. See that script's own header comment for why a live-updating <strong>plot</strong> specifically is out of scope for a <code>qu run</code> script today (Qu's plotting model builds one static figure exported at the end of a run, with no live GUI window to push points into mid-script) and a real-time <strong>console</strong> loop is the honest, actually-achievable version of "process data as it arrives."</p>
 <h2 id="s314">More functions</h2>
@@ -378,12 +386,13 @@ line = <span class="f">read_line</span>(conn)                              <span
 <tr><td><code>read_bytes</code></td><td><code>read_bytes(conn, n)</code></td><td><code>conn</code> (a <code>Serial</code> handle); <code>n</code> (integer, maximum bytes to collect). Blocks up to the handle's <code>timeout_ms</code>, returning a <code>Vec</code> of 0-255 integer values — possibly fewer than <code>n</code> if the timeout elapses first. Use <code>read_line</code> instead when the data is text with a line terminator. Returns a <code>Vec</code> of 0-255 integer values, at most <code>n</code> long and possibly shorter.</td></tr>
 </table></div>
 <p><code>now</code>/<code>sysinfo</code> are the two functions to reach for when a script needs to know about its own environment rather than about the concurrency machinery itself — timestamping output, or deciding how many workers a pool should use based on the machine's actual core count. The example below reads the current UTC year and prints it, then reads how many logical cores this machine reports — exactly the number you'd branch on before calling <code>pool(n)</code> with a sensible <code>n</code>:</p>
-<div class="example"><pre class="hl"><code>t = <span class="f">now</span>()
+<div class="example hasout"><pre class="hl"><code>t = <span class="f">now</span>()
 <span class="f">print</span>(t.year)                 <span class="c"># e.g. 2026 -- UTC</span>
 info = <span class="f">sysinfo</span>()
 <span class="f">print</span>(info.logical_cores)     <span class="c"># e.g. 16 -- what to branch on before sizing a pool(n)</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2026
+16</pre></div></div>
 </main>
 </div>
 <footer><div class="wrap">

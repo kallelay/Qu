@@ -58,14 +58,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xtr = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">53</span>)
+<div class="example hasout"><pre class="hl"><code>Xtr = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">53</span>)
 ytr = Xtr[:, <span class="n">0</span>] * <span class="n">3</span> + Xtr[:, <span class="n">1</span>] * -<span class="n">2</span> + <span class="n">0.1</span> * <span class="f">randn</span>(<span class="n">80</span>, <span class="a">seed</span> = <span class="n">55</span>)
 Xte = <span class="f">randn</span>(<span class="n">20</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">54</span>)
 yte = Xte[:, <span class="n">0</span>] * <span class="n">3</span> + Xte[:, <span class="n">1</span>] * -<span class="n">2</span>
 trm = <span class="f">tree_model</span>(Xtr, ytr, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
 <span class="f">print</span>(<span class="s">"tree_model regression R2 on new data: {round(trm.score(Xte, yte), 3)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>tree_model regression R2 on new data: 0.799</pre></div></div>
 
 </div>
 <div class="panel">
@@ -81,7 +81,7 @@ trm = <span class="f">tree_model</span>(Xtr, ytr, <span class="a">max_depth</spa
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xtrc = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">56</span>)
+<div class="example hasout"><pre class="hl"><code>Xtrc = <span class="f">randn</span>(<span class="n">80</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">56</span>)
 ytrc = <span class="f">zeros</span>(<span class="n">80</span>)
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">79</span>
     <span class="k">if</span> Xtrc[i, <span class="n">0</span>] + Xtrc[i, <span class="n">1</span>] &gt; <span class="n">0</span>
@@ -98,7 +98,7 @@ ytec = <span class="f">zeros</span>(<span class="n">20</span>)
 tcm = <span class="f">tree_model</span>(Xtrc, ytrc, <span class="a">max_depth</span> = <span class="n">4</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
 <span class="f">print</span>(<span class="s">"tree_model classification accuracy on new data: {round(tcm.score(Xtec, ytec), 3)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>tree_model classification accuracy on new data: 0.9</pre></div></div>
 <p><code>random_forest_model</code> takes the same <code>kind=</code> and branches the same way, tree by tree.</p>
 
 </div>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_char</span>(f, <span class="s">"Hello,World"</span>)
 <span class="f">close</span>(f)
 
@@ -61,7 +61,7 @@ rest        = <span class="f">read_all</span>(g)          <span class="c"># "orl
 <span class="f">print</span>(<span class="s">"{first}{next}{chunk} peeked={peeked} next_byte={next_byte} before_comma=\"{before_comma}\" w_byte={w_byte} rest={rest}"</span>)
 <span class="c"># Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>read_char(f)</code> — one character (UTF-8 aware), or <code>Nothing</code> at EOF.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

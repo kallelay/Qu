@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>g = <span class="f">graph</span>()
+<div class="example hasout"><pre class="hl"><code>g = <span class="f">graph</span>()
 g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">4</span>)
 g.<span class="f">add_edge</span>(<span class="s">"A"</span>, <span class="s">"C"</span>, <span class="a">weight</span>=<span class="n">1</span>)
 g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"B"</span>, <span class="a">weight</span>=<span class="n">2</span>)
@@ -52,15 +52,17 @@ g.<span class="f">add_edge</span>(<span class="s">"B"</span>, <span class="s">"D
 g.<span class="f">add_edge</span>(<span class="s">"C"</span>, <span class="s">"D"</span>, <span class="a">weight</span>=<span class="n">8</span>)
 <span class="f">print</span>(g.<span class="f">shortest_path</span>(<span class="s">"A"</span>, <span class="s">"D"</span>))   <span class="c"># 8, via A -&gt; C -&gt; B -&gt; D (1 + 2 + 5)</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>h = <span class="f">graph</span>()
+<div class="out"><span class="lbl">output</span><pre>8</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>h = <span class="f">graph</span>()
 <span class="f">add_node</span>(h, <span class="s">"X"</span>)          <span class="c"># an isolated node, no edges yet</span>
 h.<span class="f">add_edge</span>(<span class="s">"X"</span>, <span class="s">"Y"</span>)
 <span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Y"</span>))   <span class="c"># true</span>
 <span class="f">print</span>(<span class="f">has_edge</span>(h, <span class="s">"X"</span>, <span class="s">"Z"</span>))   <span class="c"># false -- Z isn't even a node</span>
 <span class="f">print</span>(<span class="f">neighbors</span>(h, <span class="s">"X"</span>))       <span class="c"># ("Y")</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>true
+false
+("Y")</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>graph([directed=])</code> (§ data structures pass, 2026-09-01, algorithm, Dijkstra's <code>shortest_path</code>; see that module's own doc comment for the node-id normalization rule and why Dijkstra over plain BFS.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

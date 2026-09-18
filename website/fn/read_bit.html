@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
 <span class="f">write_bit</span>(f, <span class="n">0</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
@@ -60,7 +60,8 @@ b3 = <span class="f">read_bit</span>(g)
 <span class="f">print</span>(<span class="s">"{b0}{b1}{b2}{b3}"</span>)      <span class="c"># 1011</span>
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"flags.bin"</span>))  <span class="c"># 1 -- one byte on disk for 4 bits</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>1011
+1</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>read_bit(f)</code> — one bit (0 or 1) from the current byte, MSB-first (the conventional default — bit 0 of a byte is its 0x80 bit), advancing a sub-byte cursor that only moves to the next byte once all 8 bits are consumed. An EE/embedded- flavored primitive most languages don't have, matching this project's explicitly targeted audience. <code>Nothing</code> at EOF. § real streaming reads (2026-08-31): the underlying byte is read off the stream ONCE (into <code>pending_bit_byte</code>) the first time a bit of it is requested (<code>read_bit_pos == 0</code>), then re-examined from that cached byte for the remaining 7 bits — a forward-only reader can't be re-indexed the way the old whole-file buffer could, so the byte has to be cached somewhere for its own 8-bit lifetime. <code>read_pos</code> intentionally still points AT this byte the whole time (matching the old behavior exactly), only advancing once bit 7 is consumed.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

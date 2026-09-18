@@ -54,12 +54,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xp = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">71</span>)
+<div class="example hasout"><pre class="hl"><code>Xp = <span class="f">randn</span>(<span class="n">30</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">71</span>)
 yp = Xp * [<span class="n">1.0</span>, -<span class="n">1.0</span>] + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">30</span>, <span class="a">seed</span> = <span class="n">72</span>)
 mp = <span class="f">ols_model</span>(Xp, yp)
 <span class="f">print</span>(<span class="s">"model .predict returns a prediction vector: {round(mp.predict(Xp[0:1, :]), 3)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>model .predict returns a prediction vector: [-1.1, -1.639]</pre></div></div>
 
 </div>
 <div class="panel">
@@ -71,13 +71,13 @@ mp = <span class="f">ols_model</span>(Xp, yp)
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>s0 = <span class="f">kalman_init</span>([<span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">1.0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1.0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
+<div class="example hasout"><pre class="hl"><code>s0 = <span class="f">kalman_init</span>([<span class="n">0.0</span>, <span class="n">0.0</span>], [<span class="n">1.0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1.0</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>))
 F = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
 Q = [<span class="n">0.01</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.01</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">2</span>, <span class="n">2</span>)
 s1 = s0.<span class="f">predict</span>(F, Q)
 <span class="f">print</span>(<span class="s">"filter .predict returns a new state Record; its x field: {round(s1.x, 3)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>filter .predict returns a new state Record; its x field: [0, 0]</pre></div></div>
 
 </div>
 </div>

@@ -43,7 +43,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line one"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line two"</span>)
 <span class="f">close</span>(n)
@@ -51,8 +51,9 @@
 <span class="c"># line one</span>
 <span class="c"># line two</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
+<div class="out"><span class="lbl">output</span><pre>line one
+line two</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">write</span>(<span class="s">"a"</span>, <span class="n">1</span>, <span class="s">"b"</span>)
 <span class="f">print</span>(<span class="s">""</span>)
 f = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write</span>(f, <span class="s">"hello file"</span>)
@@ -61,8 +62,9 @@ g = <span class="f">fopen</span>(<span class="s">"scratch_write_demo.txt"</span>
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<div class="out"><span class="lbl">output</span><pre>a 1 b
+hello file</pre></div></div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
     <span class="f">print</span>(<span class="f">read_line</span>(f))
 <span class="k">end</span> <span class="k">for</span>
@@ -72,8 +74,11 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
+<div class="out"><span class="lbl">output</span><pre>run started
+value = 42
+run started
+value = 42</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
 conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">500</span>)
 line = <span class="f">read_line</span>(conn)                              <span class="c"># blocks up to 500ms; `none` if nothing arrived</span>
 <span class="k">if</span> line != <span class="k">none</span>
@@ -83,7 +88,7 @@ line = <span class="f">read_line</span>(conn)                              <span
 <span class="k">end</span> <span class="k">if</span>
 <span class="f">close</span>(conn)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>no line arrived within the timeout</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 </main>
 </div>
 <footer><div class="wrap">

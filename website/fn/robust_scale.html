@@ -44,11 +44,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>raw = [<span class="n">2</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">5</span>, <span class="n">7</span>, <span class="n">900</span>]
+<div class="example hasout"><pre class="hl"><code>raw = [<span class="n">2</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">5</span>, <span class="n">7</span>, <span class="n">900</span>]
 <span class="f">print</span>(<span class="s">"standardize:  {round(standardize(raw), 2)}"</span>)
 <span class="f">print</span>(<span class="s">"robust_scale: {round(robust_scale(raw), 2)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>standardize:  [-0.36, -0.35, -0.35, -0.35, -0.35, -0.35, -0.35, 2.47]
+robust_scale: [-1.67, -0.33, -0.33, -0.33, 0.33, 0.33, 1.67, 597]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>robust_scale(X)</code> — <code>(x - median) / IQR</code>; resistant to outliers unlike <code>standardize</code>, since neither the median nor the IQR moves much when one extreme value is added.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

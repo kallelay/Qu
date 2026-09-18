@@ -44,15 +44,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>wv = <span class="f">param</span>(<span class="n">1.0</span>)
+<div class="example hasout"><pre class="hl"><code>wv = <span class="f">param</span>(<span class="n">1.0</span>)
 bound = <span class="f">sgd</span>(wv, <span class="a">lr</span> = <span class="n">0.1</span>)
 <span class="f">print</span>(<span class="s">"bound optimizer's _params: {bound._params}"</span>)   <span class="c"># [1] -- ready for optimizer_step</span>
 
 recipe = <span class="f">sgd</span>(<span class="a">lr</span> = <span class="n">0.1</span>)
 <span class="f">print</span>(recipe)                                          <span class="c"># model(sgd) {lr} -- no _params yet</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="out"><span class="lbl">output</span><pre>bound optimizer's _params: [1]
+model(sgd) {lr = 0.1}</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example hasout"><pre class="hl"><code>raw = <span class="f">lstm_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wf=<span class="f">param</span>(raw.wf), uf=<span class="f">param</span>(raw.uf), bf=<span class="f">param</span>(raw.bf),
      wi=<span class="f">param</span>(raw.wi), ui=<span class="f">param</span>(raw.ui), bi=<span class="f">param</span>(raw.bi),
      wo=<span class="f">param</span>(raw.wo), uo=<span class="f">param</span>(raw.uo), bo=<span class="f">param</span>(raw.bo),
@@ -65,8 +66,9 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wf)        
 <span class="f">print</span>(<span class="s">"loss: {round(loss, 4)}"</span>)
 <span class="f">print</span>(<span class="s">"dL/dwf: {round(g, 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
+<div class="out"><span class="lbl">output</span><pre>loss: 0.0027
+dL/dwf: [0.0001, 0; 0.0005, 0; 0.0021, -0.0002]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example hasout"><pre class="hl"><code>raw = <span class="f">gru_init</span>(<span class="n">2</span>, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">1</span>)
 w = {wz=<span class="f">param</span>(raw.wz), uz=<span class="f">param</span>(raw.uz), bz=<span class="f">param</span>(raw.bz),
      wr=<span class="f">param</span>(raw.wr), ur=<span class="f">param</span>(raw.ur), br=<span class="f">param</span>(raw.br),
      wh=<span class="f">param</span>(raw.wh), uh=<span class="f">param</span>(raw.uh), bh=<span class="f">param</span>(raw.bh)}
@@ -83,8 +85,10 @@ g = <span class="f">grad</span>(loss, <span class="a">wrt</span> = w.wz)
 h1 = <span class="f">gru_cell</span>([<span class="n">1.0</span>], [<span class="n">1.0</span>], {<span class="a">wz</span>=<span class="n">0.5</span>, <span class="a">uz</span>=<span class="n">0.5</span>, <span class="a">bz</span>=<span class="n">0.0</span>, <span class="a">wr</span>=<span class="n">0.3</span>, <span class="a">ur</span>=<span class="n">0.3</span>, <span class="a">br</span>=<span class="n">0.0</span>, <span class="a">wh</span>=<span class="n">0.2</span>, <span class="a">uh</span>=<span class="n">0.2</span>, <span class="a">bh</span>=<span class="n">0.0</span>})
 <span class="f">print</span>(<span class="s">"gru_cell one step: {round(h1, 4)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+<div class="out"><span class="lbl">output</span><pre>gru_forward last hidden state: [-0.542; -0.0036; -0.0815]
+dL/dwz: [0.2321, -0.0486; -0.0006, 0.0001; -0.0079, 0.0034]
+gru_cell one step: [0.5012]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example hasout"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
 b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
 x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
 z = <span class="f">dense</span>(x, w, b)
@@ -106,7 +110,12 @@ kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n
 <span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
 <span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>relu:    [1, 1.4; 0, 1.25]
+sigmoid: [0.7311, 0.8022; 0.5, 0.7773]
+dL/dw:   [0.2875, 0.12; 0.5749, 0.9128]
+softmax row 0: [0.659, 0.2424, 0.0986]
+dropout output: [2, 2, 0, 0, 2, 0, 2, 0]
+survivors:      4 of 8, each scaled by 1/(1-rate)</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>param(v)</code>/<code>track(v)</code> (§38 autodiff): wraps a plain <code>Num</code>/ <code>Mat</code> (or promotes a <code>Vec</code>, matching <code>to_matrix</code>'s own Vec-as-column convention, so a param's shape is always matmul-ready) as a fresh, untracked-yet root <code>Value::Tensor</code> — a new tape node with no inputs, so <code>grad</code> treats it as a leaf. <code>param</code> and <code>track</code> are the same operation; two names because the spec uses <code>param</code> for trainable weights and <code>track</code> for "differentiate through this too" on an ordinary intermediate value — the distinction is documentation, not mechanism, until optimizers exist to actually read it.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -46,12 +46,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>pts = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">2</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)   <span class="c"># the corners of a square</span>
+<div class="example hasout"><pre class="hl"><code>pts = [<span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">2</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">4</span>, <span class="n">2</span>)   <span class="c"># the corners of a square</span>
 v = <span class="f">voronoi</span>(pts)
 <span class="f">print</span>(<span class="s">"bounded: {v.bounded}"</span>)      <span class="c"># every corner cell is unbounded</span>
 <span class="f">print</span>(<span class="s">"cell 0:  {v.cells[0]}"</span>)     <span class="c"># the one finite vertex: the centre</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>bounded: [0, 0, 0, 0]
+cell 0:  [1, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>voronoi(points)</code> — the Voronoi diagram of an <code>(n,2)</code> point set, built on <code>spade</code>'s Delaunay triangulation (see this crate's <code>Cargo.toml</code> for why <code>spade</code>, not a hand-rolled Fortune's sweep). See <code>voronoi_diagram</code>'s own doc comment for the exact return shape and how unbounded cells are handled.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

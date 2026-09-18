@@ -47,7 +47,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">table</span>(<span class="a">x</span>=[<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,-<span class="n">1</span>,<span class="n">5</span>], <span class="a">y</span>=[<span class="n">10</span>,<span class="n">20</span>,-<span class="n">5</span>,<span class="n">7</span>,<span class="n">2</span>])
 pos = <span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>)
 <span class="f">print</span>(pos)
 
@@ -58,7 +58,21 @@ g = <span class="f">table</span>(<span class="a">grp</span>=[<span class="n">1</
 agg = <span class="f">group_by_agg</span>(g, <span class="s">"grp"</span>, <span class="s">"v"</span>, <span class="s">"mean"</span>)
 <span class="f">print</span>(agg)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>x   y
+-  --
+1  10
+2  20
+3  -5
+5   2
+ x   y
+--  --
+ 3  -5
+ 5   2
+-1   7
+ 1  10
+ 2  20
+grp  mean_v
+    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>group_by_agg(table, "group_col", "value_col", "agg")</code> — the original single-<code>(col,agg)</code> form, unchanged — OR <code>group_by_agg(table, "group_col", [(col1,"agg1"), (col2,"agg2"), ...])</code> — a single call computing every listed <code>(column, aggregate)</code> pair in one pass over the table (<code>Table::group_by_agg_multi</code>; see its doc comment for why that's genuinely one pass, not the single-spec reduction called once per spec). The spec-list argument is a parenthesized <code>Value::List</code> of 2-element <code>Value::List</code> pairs, matching <code>drop</code>'s own "single list argument for several at once" convention (<code>[...]</code> is always a numeric literal in Qu, so a bracketed pair list isn't an option — see <code>drop</code>'s doc comment above).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

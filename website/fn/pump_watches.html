@@ -70,7 +70,7 @@ f2 = <span class="f">pump_watches</span>()      <span class="c"># -&gt; 1</span
 f3 = <span class="f">pump_watches</span>()      <span class="c"># nothing changed since f2's check -&gt; 0</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example"><pre class="hl"><code>fires = <span class="n">0</span>
+<div class="example hasout"><pre class="hl"><code>fires = <span class="n">0</span>
 watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span class="k">do</span>
     fires = fires + <span class="n">1</span>
 <span class="k">end</span>
@@ -80,7 +80,10 @@ watch <span class="f">file</span>(<span class="s">"config.txt"</span>) <span cla
 <span class="f">pump_watches</span>()          <span class="c"># real mtime change -&gt; 1 fired</span>
 <span class="f">print</span>(fires)             <span class="c"># 1</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>· pump_watches(): 0 watch firing(s) across 1 registered watch(es)
+0
+· pump_watches(): 1 watch firing(s) across 1 registered watch(es)
+1</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>pump_watches()</code> (§ watch, 2026-09-01) — checks every registered <code>watch ... end</code> ONE TIME, firing the body of any whose real external condition (a file's mtime, a variable's value, an HTTP response body) has genuinely changed since the last check (or since registration, for the first call). Deliberately a SEPARATE function from <code>run_for</code>, not a mode of it, after investigating reuse first: <code>run_for(duration)</code> drives registered timers across a SIMULATED virtual clock with no real waiting (see its own doc comment) — there is no equivalent "simulated" file mtime, variable value, or HTTP response to fast-forward through, since a watch's condition is real external state that can only be checked for real, right now. Folding watches into <code>run_for</code>'s <code>duration</code>-driven loop would either force every watch check to happen at some fabricated virtual timestamp that means nothing for a filesystem/HTTP check, or silently degrade into "check once at the start," neither of which is honest about what a poll-based watch actually does. <code>pump_watches()</code> instead means exactly what it says: check everything, right now, once — a script drives repeated checking itself (e.g. <code>wait until ... sleep(…) ; pump_watches() ... end until</code>), the same cooperative, explicitly-pumped model <code>run_for</code> already established, just without a duration parameter that would not mean anything here. Snapshots the registered-watch COUNT up front (<code>n = self.watches.len()</code>, matching <code>run_for</code>'s own <code>self.timers.clone()</code> snapshot) so a watch registered by another watch's own body mid-pump is not itself checked until the NEXT <code>pump_watches()</code> call. Returns the number of watches that fired.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

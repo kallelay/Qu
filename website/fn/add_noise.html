@@ -58,7 +58,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
 g = <span class="f">add_noise</span>(x, <span class="s">"gaussian"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
 untouched = <span class="n">0</span>
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
@@ -68,7 +68,7 @@ untouched = <span class="n">0</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(untouched)   <span class="c"># 0 -- every sample was perturbed a little</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>0</pre></div></div>
 
 </div>
 <div class="panel">
@@ -84,7 +84,7 @@ untouched = <span class="n">0</span>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">100</span>)
 sp = <span class="f">add_noise</span>(x, <span class="s">"salt_pepper"</span>, <span class="a">snr</span> = <span class="n">6</span>, <span class="a">seed</span> = <span class="n">1</span>)
 untouched = <span class="n">0</span>
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
@@ -94,7 +94,7 @@ untouched = <span class="n">0</span>
 <span class="k">end</span> <span class="k">for</span>
 <span class="f">print</span>(untouched)   <span class="c"># 184 -- ~8% got slammed to an extreme, the rest untouched</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>184</pre></div></div>
 <p>Pink noise is worth a second look: it dominates at low frequencies, which is why a slow measurement is harder than a fast one and a long integration is not free.</p>
 <p>Works on a vector and on an image alike — every kind is per-sample, so one function covers 1-D and 2-D rather than two that drift apart.</p>
 

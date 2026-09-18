@@ -45,7 +45,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>flags = <span class="f">bitand</span>(<span class="n">12</span>, <span class="n">10</span>)          <span class="c"># 8   -- bits common to both</span>
+<div class="example hasout"><pre class="hl"><code>flags = <span class="f">bitand</span>(<span class="n">12</span>, <span class="n">10</span>)          <span class="c"># 8   -- bits common to both</span>
 <span class="f">print</span>(flags)
 <span class="f">print</span>(<span class="f">bitor</span>(<span class="n">12</span>, <span class="n">10</span>))            <span class="c"># 14</span>
 <span class="f">print</span>(<span class="f">bitxor</span>(<span class="n">12</span>, <span class="n">10</span>))           <span class="c"># 6</span>
@@ -60,7 +60,19 @@
 <span class="f">print</span>(<span class="f">bin2dec</span>(<span class="s">"1010"</span>))          <span class="c"># 10</span>
 <span class="f">print</span>(<span class="f">dec2bin</span>(<span class="n">10</span>))              <span class="c"># "1010"</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>8
+14
+6
+-1
+16
+4
+true
+false
+true
+255
+FF
+10
+1010</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p>Bitwise ops (2026-08-23, Ahmed: "do we have &amp; &amp;&amp; | || xor bitxor bitor or bitand and nand nor"). <code>Value</code> has no separate integer type — everything is <code>f64</code> — so these read each argument as an integer via <code>int_arg</code> (rejecting non-integral input rather than silently truncating it), do the op as <code>i64</code>, and hand back a <code>Num</code>. Deliberately builtins, not new <code>&amp;</code>/<code>|</code>-family operators: <code>and</code>/<code>or</code> already mean logical and/or in Qu, so overloading <code>&amp;</code>/<code>|</code> for bitwise would be ambiguous with no precedent in the grammar; <code>bitand</code>/<code>bitor</code>/<code>bitxor</code> read unambiguously and match MATLAB's own naming for the same idea. <code>|</code> and <code>&amp;</code> themselves are now a clear parse error pointing here (<code>qu-syntax::add_expr</code>) instead of the <code>|</code> runtime error they used to produce.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

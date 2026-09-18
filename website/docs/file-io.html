@@ -106,7 +106,7 @@
 </table></div>
 <p>Three distinct peek functions — matching <code>read_line</code>/<code>read_char</code>/ <code>read_byte</code>'s own three existing granularities one-for-one — rather than a single generic <code>peek()</code>: this codebase already made that same naming choice on the read side (there is no bare <code>read()</code>), and a lone <code>peek()</code> would additionally collide with the unrelated <code>fifo</code> collection's own <code>.peek()</code> method (see <a href="collections-strings.html#data-structures">Data Structures</a>), which answers a completely different question.</p>
 <p>Reach for <code>peek_line</code> whenever a parser needs to look at the next line before deciding whether to actually consume it — a "does this file start with a header row?" check, or a loop that groups lines until it sees one that doesn't belong. The example below opens a three-line log file and shows that <code>peek_line</code> and the following <code>read_line</code> see the identical first line, and only the read cursor moves once a real <code>read_line</code> call happens:</p>
-<div class="example"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
+<div class="example hasout"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
 <span class="c"># log.txt that the chapter does not create until 700 lines further down,</span>
 <span class="c"># so this block failed and was dropped from the page while the build</span>
 <span class="c"># reported success.</span>
@@ -124,9 +124,9 @@ next_line  = <span class="f">read_line</span>(f)          <span class="c"># only
 <span class="f">close</span>(f)
 <span class="c"># a | a | b</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>a | a | b</pre></div></div>
 <p><code>peek_char</code>/<code>peek_byte</code> work the same way at their own granularity — a character peek for text decisions, a byte peek for binary ones — and both compose cleanly with <code>read_until</code>/<code>read_chars</code>/<code>read_byte</code> on the same handle, because every one of these calls shares the same underlying cursor. The example below writes <code>"Hello,World"</code> to a file with no newline, then walks it back with a mix of consuming reads and non-consuming peeks, printing every intermediate value so each call's effect (or lack of one) on the cursor is visible:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_char</span>(f, <span class="s">"Hello,World"</span>)
 <span class="f">close</span>(f)
 
@@ -143,7 +143,7 @@ rest        = <span class="f">read_all</span>(g)          <span class="c"># "orl
 <span class="f">print</span>(<span class="s">"{first}{next}{chunk} peeked={peeked} next_byte={next_byte} before_comma=\"{before_comma}\" w_byte={w_byte} rest={rest}"</span>)
 <span class="c"># Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</pre></div></div>
 <h2 id="s133">Binary I/O</h2>
 <p>Typed reads/writes accept an <code>endian=</code> keyword argument (<code>"little"</code> default, or <code>"big"</code>), implemented with Rust's own <code>from_le_bytes</code>/<code>to_le_bytes</code> (and their <code>_be_</code> counterparts) — no hand-rolled byte shuffling. A typed read returns <code>Nothing</code> if fewer bytes remain than the type needs.</p>
 <div class="tablewrap"><table>
@@ -174,7 +174,7 @@ rest        = <span class="f">read_all</span>(g)          <span class="c"># "orl
 <tr><td><code>write_bin</code></td><td><code>write_bin(f, bytes)</code></td><td>The inverse of <code>read_bin</code>: writes raw bytes to <code>f</code> (file handle, opened writable/appendable). <code>bytes</code> is a <code>Vec</code>/<code>List</code> of numbers, every one of them a whole number in <code>0..=255</code> — anything else errors rather than being truncated into range. Returns <code>Nothing</code>.</td></tr>
 </table></div>
 <p>Reach for <code>write_bit</code>/<code>read_bit</code> when a format is defined at the bit level rather than the byte level — status-flag registers, packed boolean arrays, anything from an instrument or protocol spec that talks about individual bits rather than whole bytes. They pack individual bits into bytes MSB-first; <code>close(f)</code> flushes and zero-pads any partial byte left pending. The example below writes four bits (<code>1,0,1,1</code>), which is not a whole byte, closes the file to force that flush, then reads the same four bits back and confirms only one byte was actually written to disk:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
 <span class="f">write_bit</span>(f, <span class="n">0</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
@@ -190,9 +190,10 @@ b3 = <span class="f">read_bit</span>(g)
 <span class="f">print</span>(<span class="s">"{b0}{b1}{b2}{b3}"</span>)      <span class="c"># 1011</span>
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"flags.bin"</span>))  <span class="c"># 1 -- one byte on disk for 4 bits</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>1011
+1</pre></div></div>
 <p>The other fixed-width types round-trip the same way, each with its own <code>read_*</code>/<code>write_*</code> pair — this is the toolset for reading and writing a binary format with a known, fixed layout: a data-logger capture, a device's native save file, or any interchange format built around fixed-width integers and floats rather than text. The example below writes one value of each width (a signed 16-bit int, an unsigned 16-bit int, an unsigned 32-bit int, and a 64-bit double) back to back, then reads them back in the same order to show the round trip is exact:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_int16</span>(f, -<span class="n">5</span>)
 <span class="f">write_uint16</span>(f, <span class="n">300</span>)
 <span class="f">write_uint32</span>(f, <span class="n">70000</span>)
@@ -207,9 +208,9 @@ d = <span class="f">read_double</span>(g)
 <span class="f">close</span>(g)
 <span class="f">print</span>(<span class="s">"{a} {b} {c} {d}"</span>)       <span class="c"># -5 300 70000 3.14159</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>-5 300 70000 3.14159</pre></div></div>
 <p><code>read_int64</code>/<code>write_int64</code> and their unsigned counterparts round-trip the same way, with one real caveat worth seeing rather than just stating: every <code>Value</code> here is an <code>f64</code>, exact only up to <code>2^53</code>, so a 64-bit integer past that (about 9 quadrillion) comes back rounded, not exact. <code>write_array</code>/<code>read_array</code> are the block versions of the fixed-width functions above — a whole <code>Vec</code> or <code>Mat</code> written or read in one call instead of one element at a time; a <code>Mat</code> is written in its own column-major order, so reading it back needs a <code>reshape</code>/<code>-&gt; (r, c)</code> to recover the original shape (a flat file has no shape of its own):</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"sample64.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_int64</span>(f, -<span class="n">123456789012</span>)
 <span class="f">write_uint64</span>(f, <span class="n">9007199254740993</span>)   <span class="c"># 1 past 2^53 -- the exact-precision edge</span>
 <span class="f">close</span>(f)
@@ -225,7 +226,8 @@ M = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span
 back = <span class="f">read_array</span>(<span class="s">"matrix.bin"</span>, <span class="a">type</span> = <span class="s">"int32"</span>) -&gt; (<span class="n">2</span>, <span class="n">3</span>)
 <span class="f">print</span>(back)                    <span class="c"># [1, 2, 3; 4, 5, 6] -- shape recovered via reshape</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>-123456789012 9007199254740992
+[1, 2, 3; 4, 5, 6]</pre></div></div>
 <h2 id="s163">Compression &amp; Entropy Coding</h2>
 <p>Three from-scratch entropy coders — Huffman, adaptive range coding, and rANS — plus the zlib/DEFLATE decoder <code>read_mat</code> and <code>load_image</code> already carried internally, exposed as script-callable builtins rather than left as an implementation detail only those two readers could reach.</p>
 <p>All four take their input the same way: a <code>Str</code> (its UTF-8 bytes) or a <code>Vec</code> of numbers in <code>0..=255</code>. All four decoders hand bytes back the same way too — a <code>Vec</code> of 0-255 numbers by default, or the decoded text as a <code>Str</code> with <code>as_str = true</code>. An encoder returns a <code>Record</code> rather than a bare byte string because a decoder needs the model as well as the payload; pass the whole record straight back to the matching decoder.</p>
@@ -241,12 +243,13 @@ back = <span class="f">read_array</span>(<span class="s">"matrix.bin"</span>, <s
 <tr><td><code>zlib_decompress</code></td><td><code>zlib_decompress(data, [as_str=false])</code></td><td>Inflates a zlib stream (RFC 1950 wrapper around RFC 1951 DEFLATE): <code>data</code> is a <code>Str</code> or a <code>Vec</code> of 0-255 byte values; <code>as_str</code> (named boolean, default <code>false</code>) asks for text instead of bytes. Errors clearly on a stream it cannot parse rather than returning partial output. Returns a <code>Vec</code> of 0-255 numbers, or the decompressed text as a <code>Str</code> when <code>as_str = true</code>.</td></tr>
 </table></div>
 <p>A round trip through any of the three coders returns exactly what went in:</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"hello hello hello compression world"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"hello hello hello compression world"</span>
 enc = <span class="f">rans_encode</span>(s)
 <span class="f">print</span>(<span class="f">numel</span>(enc.bytes))                    <span class="c"># coded length, in bytes</span>
 <span class="f">print</span>(<span class="f">rans_decode</span>(enc, <span class="a">as_str</span> = <span class="k">true</span>) == s)  <span class="c"># true</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>18
+true</pre></div></div>
 <h2 id="s215">Directories &amp; Paths</h2>
 <p>A script that reads a file usually has to find it first. These are the builtins that answer "where am I", "what is in here" and "which of these files do I actually want" — the last of which is <code>list_files</code>, and it is the one worth reading about.</p>
 <p><code>list_dir</code> and <code>list_files</code> divide the work between them. <code>list_dir</code> gives the bare names inside one directory, files and subdirectories alike, and stops there. <code>list_files</code> takes a whole-path pattern, walks as deep as the pattern tells it to, returns <strong>paths you can open</strong>, and never returns a directory. The second is what you want for <code>"every HTML page under website/"</code>; the first is what you want when you are about to look at each entry and decide.</p>
@@ -296,7 +299,7 @@ list_files("website/**/*.html")       the whole subtree
 <p><strong></strong><code>KB</code>/<code>MB</code>/<code>GB</code> are 1024-based here<strong>, the way a file manager reports a size rather than the 1000-based SI reading. </strong><code>KiB</code>/<code>MiB</code>/<code>GiB</code> are accepted as explicit spellings of those same values. A unit that is not one of these errors, rather than being read as bytes: <code>"&gt;2Mb"</code> is a typo worth hearing about, and answering it as "2 bytes" would give a wrong answer that looks like a right one.</p>
 <p>The filters run in the order that reads the fewest bytes — the name pattern first, which opens nothing; then <code>size=</code>, one metadata call; then <code>contains=</code>, which has to read the file. Pairing <code>contains=</code> with a pattern or a size bound is what keeps a search over a large tree cheap.</p>
 <p>The example below makes its own files first, so it finds the same thing wherever it is run — and note what it does <strong>not</strong> do: print <code>cur_dir()</code>. That would put this machine's absolute path into the page, since the documentation build runs every example and keeps what it printed.</p>
-<div class="example"><pre class="hl"><code><span class="f">mkdir</span>(<span class="s">"list_demo"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">mkdir</span>(<span class="s">"list_demo"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/report.qu"</span>, <span class="s">"print(1)"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/plot.qu"</span>, <span class="s">"print(2)"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/notes.txt"</span>, <span class="s">"the needle is here"</span>)
@@ -313,7 +316,9 @@ carrying = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span
 blank = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span>, <span class="a">size</span> = <span class="s">"0"</span>)
 <span class="f">print</span>(<span class="s">"{length(blank)} empty file"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2 Qu files
+carries the needle: list_demo\notes.txt
+1 empty file</pre></div></div>
 <h2 id="s258">Running Other Programs</h2>
 <p>Qu could already run *code* in another language — <code>python_exec</code>, <code>js_exec</code>, <code>matlab_exec</code> — but not a *program*. That is a strange hole for a language whose own build tooling is written in itself: the shell scripts under <code>tools/</code> exist largely because the Qu program inside each one could not ask git a question.</p>
 <p>Two builtins, because there are two different jobs and one call does not do both well.</p>
@@ -326,14 +331,16 @@ blank = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span>, 
 <p><strong></strong><code>shell</code>'s process id is not always the program's own.<strong> </strong><code>"minimized"</code> and <code>"maximized"</code> have no API reachable from Rust's <code>Command</code>, so they go through <code>cmd /C start /MIN|/MAX</code>, and the id that comes back belongs to that launcher — which exits as soon as it has started the program. <code>"normal"</code> and <code>"hidden"</code> spawn directly and give a real, live id. Worth knowing before you store one.</p>
 <p>On anything other than Windows, <code>"normal"</code> and <code>"hidden"</code> behave (there is no window to hide, so hidden simply means no terminal is borrowed), and <code>"minimized"</code>/<code>"maximized"</code> error rather than being quietly ignored. They are window-manager instructions with no meaning to <code>sh</code>, and accepting them in silence would mean a script that looks portable and is not.</p>
 <p>Both are refused under <code>qu run --sandbox</code>, alongside <code>python_exec</code>, <code>js_exec</code> and <code>matlab_exec</code>. Starting a process is the most capability-bearing thing a script can do, and a sandbox that let one through would not be one.</p>
-<div class="example"><pre class="hl"><code>r = <span class="f">exec</span>(<span class="s">"echo hello from a program"</span>, <span class="a">shell</span> = <span class="k">true</span>)
+<div class="example hasout"><pre class="hl"><code>r = <span class="f">exec</span>(<span class="s">"echo hello from a program"</span>, <span class="a">shell</span> = <span class="k">true</span>)
 <span class="f">print</span>(<span class="s">"said: {trim(r.stdout)}"</span>)
 <span class="f">print</span>(<span class="s">"success {r.success}, exit code {r.exit_code}"</span>)
 
 failed = <span class="f">exec</span>(<span class="s">"exit 3"</span>, <span class="a">shell</span> = <span class="k">true</span>)
 <span class="f">print</span>(<span class="s">"a failure is data, not an error: success {failed.success}, code {failed.exit_code}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>said: hello from a program
+success true, exit code 0
+a failure is data, not an error: success false, code 3</pre></div></div>
 <h2 id="s300">Memory-Mapped Files</h2>
 <p>Read-only, random-access mapping of a file's bytes via the <code>memmap2</code> crate, without loading the file into a <code>Vec</code> up front — useful for jumping around inside a large file (a header at a known offset, a fixed-width record at an arbitrary index) without either an eager full read or a chain of <code>seek</code> calls on a <code>fopen</code> handle. Distinct from <code>Value::File</code>: an <code>mmap</code> handle has no read cursor to advance — every <code>mmap_read</code> call takes an explicit byte range. Writable mapping is out of scope; use <code>fopen</code>/the write builtins above for writing.</p>
 <div class="tablewrap"><table>
@@ -343,7 +350,7 @@ failed = <span class="f">exec</span>(<span class="s">"exit 3"</span>, <span clas
 <tr><td><code>mmap_read</code></td><td><code>mmap_read(m, start, len)</code></td><td>Reads a byte range out of a mapping without moving any cursor. <code>m</code> (mmap handle, from <code>mmap_open</code>) is the mapping to read from. <code>start</code> (number, byte offset from the beginning of the file) and <code>len</code> (number, byte count) select the range. Returns a <code>Vec</code> of <code>len</code> numbers, each 0-255 — the same representation <code>read_bin</code> uses. A range that runs past the end of the file is a <strong>clear error</strong>, not a silent truncation (unlike <code>read_bin</code>'s "graceful partial read" — an <code>mmap</code> handle always knows its own length up front via <code>mmap_len</code>, so a past-EOF range is far more likely a caller bug than an intentional "give me whatever's left").</td></tr>
 </table></div>
 <p>Reach for <code>mmap_open</code>/<code>mmap_read</code> instead of <code>fopen</code>/<code>seek</code>/<code>read_bin</code> when a program needs to jump around inside a large file at arbitrary offsets — a header at a known position, or one record out of a huge array of fixed-width records — without either reading the whole file up front or issuing a <code>seek</code> call for every access. The example below maps a binary file, reads its first 16 bytes as a "header," then reads 64 bytes starting at byte offset <code>5 * 64</code> as if the file were a flat array of 64-byte records, and prints both to show a single mapping serves any number of independent, arbitrary-offset reads:</p>
-<div class="example"><pre class="hl"><code><span class="c"># The file is written here first. Mapping one the repository does not</span>
+<div class="example hasout"><pre class="hl"><code><span class="c"># The file is written here first. Mapping one the repository does not</span>
 <span class="c"># carry would make this block fail, and a block that fails is dropped</span>
 <span class="c"># from the page while the build still reports success.</span>
 <span class="f">write_array</span>(<span class="s">"big_dataset.bin"</span>, <span class="n">0</span> <span class="k">to</span> <span class="n">511</span>, <span class="a">type</span> = <span class="s">"u8"</span>)
@@ -356,7 +363,9 @@ record5 = <span class="f">mmap_read</span>(m, <span class="n">5</span> * <span c
 <span class="f">print</span>(header)
 <span class="f">print</span>(record5)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>512
+[0, 1, 2, 3, 4, 5, 6, 7, ... (16 elements)]
+[255, 255, 255, 255, 255, 255, 255, 255, ... (64 elements)]</pre></div></div>
 <h2 id="s339">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></h2>
 <p><code>StreamFile(path, [mode])</code> and <code>StreamURL(url)</code> (§ StreamFile/StreamURL polymorphic streams, 2026-08-31) are two constructors that produce values exposing the <strong>same</strong> method names — <code>read_line</code>/<code>read_all</code>/<code>eof</code>/<code>close</code> — so code written against "a stream" doesn't need to know or check which concrete kind it was handed:</p>
 <div class="tablewrap"><table>
@@ -370,7 +379,7 @@ record5 = <span class="f">mmap_read</span>(m, <span class="n">5</span> * <span c
 </table></div>
 <p><strong></strong><code>StreamURL</code> is fetch-then-wrap, not incremental network streaming<strong> — a deliberate, investigated choice, not a shortcut. </strong><code>ureq</code>'s response body IS a real <code>Read</code>-implementing stream, but reusing <code>fopen</code>'s exact streaming-reader plumbing against it would require widening <code>FileHandleState</code>'s reader field to a boxed trait object AND handling HTTP responses that have no <code>Content- Length</code> at all (chunked transfer encoding) — a real <code>FileHandleState</code> redesign, not a reasonable extension of it. So <code>StreamURL</code> fetches the whole body up front (exactly what <code>http_get</code> already does) and serves it back through the same method names as a read-only in-memory stream — every method above behaves identically to the file side, just without the "hasn't downloaded yet" state a genuinely incremental reader would have.</p>
 <p>The whole point: one function, written once against the shared method names, works unmodified against either kind. The example below defines a <code>drain</code> function once, using only <code>eof</code>/<code>read_line</code>/<code>close</code>, and calls it against a local file opened with <code>StreamFile</code> and a remote resource opened with <code>StreamURL</code> — neither the function body nor the caller needs to know which kind of stream it was handed:</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line one"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line two"</span>)
 <span class="f">close</span>(n)
@@ -390,7 +399,8 @@ a = <span class="f">drain</span>(<span class="f">StreamFile</span>(<span class="
 b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
 <span class="f">print</span>(<span class="f">length</span>(b) &gt; <span class="n">0</span>)                        <span class="c"># true -- some HTML came back</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>line one|line two|
+true</pre></div></div>
 <h2 id="s428">CSV</h2>
 <p><code>read_csv</code>/<code>write_csv</code> operate directly on a path — no <code>fopen</code> handle involved; they open/read/write the file internally in one call.</p>
 <div class="tablewrap"><table>
@@ -415,7 +425,7 @@ names = xlsx.<span class="f">sheets</span>(<span class="s">"book.xlsx"</span>)  
 <tr><td><code>xlsx.write</code></td><td><code>xlsx.write(path, df, [sheet="Sheet1"])</code></td><td>Writes a <code>Table</code> out as a one-worksheet workbook. <code>path</code> (string) is the destination, overwritten if it exists. <code>df</code> (Table) is the data. <code>sheet</code> (string, optional, positional or <code>sheet=</code>, default <code>"Sheet1"</code>) names the worksheet inside the file. Returns <code>Nothing</code>.</td></tr>
 </table></div>
 <p>A round trip, which is also the way to see what <code>headers=false</code> does — the header row comes back as data under positional column names:</p>
-<div class="example"><pre class="hl"><code><span class="k">import</span> xlsx
+<div class="example hasout"><pre class="hl"><code><span class="k">import</span> xlsx
 
 t = <span class="f">table</span>(<span class="a">city</span> = (<span class="s">"Aachen"</span>, <span class="s">"Bonn"</span>, <span class="s">"Cologne"</span>), <span class="a">pop</span> = (<span class="n">249</span>, <span class="n">331</span>, <span class="n">1087</span>))
 xlsx.<span class="f">write</span>(<span class="s">"cities.xlsx"</span>, t, <span class="a">sheet</span> = <span class="s">"Cities"</span>)
@@ -424,7 +434,18 @@ xlsx.<span class="f">write</span>(<span class="s">"cities.xlsx"</span>, t, <span
 <span class="f">print</span>(xlsx.<span class="f">read</span>(<span class="s">"cities.xlsx"</span>))            <span class="c"># a Table, city/pop</span>
 <span class="f">print</span>(xlsx.<span class="f">read</span>(<span class="s">"cities.xlsx"</span>, <span class="a">headers</span> = <span class="k">false</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>("Cities")
+city      pop
+-------  ----
+Aachen    249
+Bonn      331
+Cologne  1087
+A        B   
+-------  ----
+city     pop 
+Aachen   249 
+Bonn     331 
+Cologne  1087</pre></div></div>
 <h3>Audio: <code>codec</code></h3>
 <p>Both take <code>src</code> as either a path (string) or the file's bytes as a <code>Vec</code> of whole numbers 0-255 — a script that already has the bytes, from a socket or an archive, should not have to write a temporary file to use them, and the two can never be confused because a FLAC stream starts with the bytes <code>fLaC</code>.</p>
 <div class="tablewrap"><table>
@@ -481,22 +502,25 @@ a = codec.<span class="f">decode_flac</span>(<span class="s">"stereo.flac"</span
 <h4>Overloads: <code>parse_json</code></h4>
 <h4>Case: a <code>jsonify</code>/<code>save</code> envelope</h4>
 <p><code>str</code> carries a top-level <code>"type"</code> string field — the tag <code>jsonify</code>/<code>save</code> attach. Returns the exact typed <code>Value</code> that tag names, reconstructed in full, not a generic guess from the JSON's own shape.</p>
-<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 back = <span class="f">parse_json</span>(env)
 <span class="f">print</span>(env)          <span class="c"># {"type":"complex","re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(back))   <span class="c"># complex</span>
 <span class="f">print</span>(back)         <span class="c"># 3 + 4i</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>{"type":"complex","re":3.0,"im":4.0}
+complex
+3 + 4i</pre></div></div>
 <h4>Case: ordinary JSON, no envelope</h4>
 <p><code>str</code> is plain JSON from anywhere else — an HTTP API response, hand-written JSON, or the same envelope with its <code>"type"</code> tag stripped off. Mapped in generically instead: a bare object becomes a record field-for-field, so the identical <code>re</code>/<code>im</code> pair that named a <code>Complex</code> above comes back as a plain record once the tag naming it is gone.</p>
-<div class="example"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
 plain = <span class="f">replace</span>(env, <span class="s">"\"type\":\"complex\","</span>, <span class="s">""</span>)
 v = <span class="f">parse_json</span>(plain)
 <span class="f">print</span>(plain)         <span class="c"># {"re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(v))       <span class="c"># record</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>{"re":3.0,"im":4.0}
+record</pre></div></div>
 <h3>The <code>Value</code>&lt;-&gt;XML mapping</h3>
 <p>XML had no support anywhere in Qu before this (via the <code>quick-xml</code> crate — see <code>engine/crates/qu-interp/Cargo.toml</code>'s own comment for why). Every value serializes to one XML element named after its type (<code>&lt;num&gt;</code>, <code>&lt;vec&gt;</code>, <code>&lt;table&gt;</code>, ...) — the direct analogue of <code>jsonify</code>'s own <code>"type"</code> tag, just moved from a JSON object key to the thing XML tags things with (an element name). A few shapes get a genuinely XML-native structure instead of a mechanical port of the JSON one:</p>
 <ul>
@@ -506,7 +530,7 @@ v = <span class="f">parse_json</span>(plain)
 </ul>
 <p>See <code>engine/crates/qu-interp/src/xml_ops.rs</code>'s own module doc comment for the complete variant-by-variant mapping table.</p>
 <p>The example below builds a small two-row <code>Table</code> from CSV text, converts it to XML with <code>xmlify</code> to show the <code>&lt;columns&gt;</code>/<code>&lt;row&gt;</code> shape described above, parses it back with <code>parse_xml</code> to confirm the round trip preserves the data, and then runs the same CSV text through <code>csv2json</code> — printed here to make the point from the table above concrete: the result is a plain array of row objects, not <code>jsonify</code>'s type-tagged envelope:</p>
-<div class="example"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"name,age\nAlice,30\nBob,25\n"</span>)
+<div class="example hasout"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"name,age\nAlice,30\nBob,25\n"</span>)
 <span class="f">print</span>(<span class="f">xmlify</span>(t))
 <span class="c"># &lt;table&gt;</span>
 <span class="c">#   &lt;columns&gt;</span>
@@ -529,10 +553,24 @@ back = <span class="f">parse_xml</span>(<span class="f">xmlify</span>(t))
 j = <span class="f">csv2json</span>(<span class="s">"product,price\nWidget,9.99\n"</span>)
 <span class="f">print</span>(j)               <span class="c"># [{"product":"Widget","price":9.99}]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>&lt;table&gt;
+  &lt;columns&gt;
+    &lt;column kind="str"&gt;name&lt;/column&gt;
+    &lt;column kind="num"&gt;age&lt;/column&gt;
+  &lt;/columns&gt;
+  &lt;row&gt;
+    &lt;name&gt;Alice&lt;/name&gt;
+    &lt;age&gt;30&lt;/age&gt;
+  &lt;/row&gt;
+  &lt;row&gt;
+    &lt;name&gt;Bob&lt;/name&gt;
+    &lt;age&gt;25&lt;/age&gt;
+  &lt;/row&gt;
+&lt;/table&gt;
+    ... 2 more lines</pre></div></div>
 <p><code>jsonify</code>/<code>parse_json</code> are the JSON side of the same pair <code>csvify</code>/<code>parse_csv</code> and <code>xmlify</code>/<code>parse_xml</code> already show above. Of the pairwise converters not shown elsewhere on this page, <code>json2xml</code>, <code>xml2csv</code>, and <code>csv2xml</code> are each exactly the one-line composition their own table entry says they are; <code>xml2json</code> is the row-object conversion <code>csv2json</code> just demonstrated, applied to XML input instead of CSV:</p>
 <p>The next example chains every converter on this page against the same two-row table, in both directions, to demonstrate that the whole set forms a connected graph — CSV to JSON, JSON back to CSV, CSV to XML and back, JSON to XML and back — and that <code>parse_json</code> at the very end can still recover a real <code>Table</code> even though the JSON it's reading came from <code>xml2json</code>'s row-object shape rather than <code>jsonify</code>'s own envelope:</p>
-<div class="example"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"product,price\nWidget,9.99\nGadget,4.50\n"</span>)
+<div class="example hasout"><pre class="hl"><code>t = <span class="f">parse_csv</span>(<span class="s">"product,price\nWidget,9.99\nGadget,4.50\n"</span>)
 
 csv_text = <span class="f">csvify</span>(t)
 json_text = <span class="f">jsonify</span>(t)
@@ -549,19 +587,27 @@ json_from_xml = <span class="f">xml2json</span>(xml_from_json) <span class="c">#
 parsed = <span class="f">parse_json</span>(json_from_xml)      <span class="c"># parse_json accepts that shape too -- back to a real Table</span>
 <span class="f">print</span>(<span class="f">nrow</span>(parsed))                     <span class="c"># 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>product,price
+Widget,9.99
+Gadget,4.5
+
+product,price
+Widget,9.99
+Gadget,4.5
+
+2</pre></div></div>
 <p>See <code>catalog/qu_format_conversion.qu</code> for a fuller worked demo (JSON/CSV/XML round trips plus two pairwise converters on real sample data, with printed output proving correctness field-by-field).</p>
 <h2 id="s588">Worked examples</h2>
 <p>The most basic file-writing pattern in Qu: open a handle in <code>"w"</code> mode (truncate-or-create), write one line at a time with <code>write_line</code>, and close the handle when done to flush it to disk. This is the shape almost every logging or report-writing script starts from. The example prints <code>file_size</code> afterward just to make the write's effect on disk visible:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(f, <span class="s">"run started"</span>)
 <span class="f">write_line</span>(f, <span class="s">"value = "</span> + <span class="f">str</span>(<span class="n">42</span>))
 <span class="f">close</span>(f)
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"log.txt"</span>))    <span class="c"># 23 -- "run started\n" + "value = 42\n"</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>23</pre></div></div>
 <p>Reading it back: <code>read_line</code> returns <code>Nothing</code> at EOF, but Qu today has neither a source-level <code>nothing</code> literal nor <code>==</code>/<code>!=</code> support for two <code>Str</code> operands (<code>compare</code>'s catch-all falls back to <code>as_num()</code>, which errors on a string — the same pre-existing gap noted next to <code>contains</code>/<code>indexof</code> in <a href="collections-strings.html">Collections, Strings &amp; Data Frames</a>), so an EOF-sentinel-comparison loop isn't expressible yet. For a known number of lines, a bounded loop works cleanly; for an unknown number, <code>read_all</code> is the more honest tool today:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
     <span class="f">print</span>(<span class="f">read_line</span>(f))
 <span class="k">end</span> <span class="k">for</span>
@@ -571,10 +617,13 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>run started
+value = 42
+run started
+value = 42</pre></div></div>
 <p>Reading a whole CSV straight into a <code>Table</code> (no <code>fopen</code> needed) and working with it using the Data Frame builtins from <a href="collections-strings.html">Collections, Strings &amp; Data Frames</a>, then writing a filtered subset back out to a second CSV file:</p>
 <p>The file is written here before it is read, so the example runs anywhere — including a fresh clone. It used to open a <code>measurements.csv</code> that no part of the repository created, which meant the block could not run, and a block that cannot run is dropped from the rendered page <strong>without the build reporting anything</strong>: the page shipped with the example missing and the build said it succeeded.</p>
-<div class="example"><pre class="hl"><code>measurements = <span class="f">table</span>(
+<div class="example hasout"><pre class="hl"><code>measurements = <span class="f">table</span>(
     <span class="a">x</span> = [-<span class="n">1.5</span>, <span class="n">0.5</span>, <span class="n">2.0</span>, -<span class="n">0.25</span>, <span class="n">3.75</span>],
     <span class="a">sensor</span> = [<span class="s">"a"</span>, <span class="s">"b"</span>, <span class="s">"a"</span>, <span class="s">"c"</span>, <span class="s">"b"</span>]
 )
@@ -586,9 +635,23 @@ df = <span class="f">read_csv</span>(<span class="s">"measurements.csv"</span>)
 <span class="f">write_csv</span>(<span class="f">filter</span>(df, df.x &gt; <span class="n">0</span>), <span class="s">"positive_only.csv"</span>)
 <span class="f">print</span>(<span class="f">read_all_text</span>(<span class="s">"positive_only.csv"</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>5
+stat         x
+-----  -------
+count        5
+mean       0.9
+std    2.03562
+min       -1.5
+25%      -0.25
+50%        0.5
+75%          2
+max       3.75
+x,sensor
+0.5,b
+2,a
+    ... 1 more lines</pre></div></div>
 <p>A minimal binary I/O round trip: open a handle in <code>"wb"</code> mode, write a 32-bit integer followed by a 32-bit float, close it, then reopen the same file in <code>"rb"</code> mode and read the two values back in the same order they were written. This is the pattern every other binary example on this page builds on — the typed <code>read_*</code>/<code>write_*</code> pairs only work correctly when the read order matches the write order, since there's no type tag on disk to check against:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"record.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"record.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_int32</span>(f, <span class="n">12345</span>)
 <span class="f">write_float</span>(f, <span class="n">3.5</span>)
 <span class="f">close</span>(f)
@@ -599,9 +662,9 @@ x = <span class="f">read_float</span>(g)
 <span class="f">close</span>(g)
 <span class="f">print</span>(<span class="s">"n = {n}, x = {x}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>n = 12345, x = 3.5</pre></div></div>
 <p><code>read_all_text(path)</code> is the one-call shortcut for "give me this whole file as a string" — no <code>fopen</code>/<code>close</code> pair needed when a script only ever wants to read a file once, in full, such as loading a small config or notes file at startup. The example below writes a two-line file the normal way, then reads the whole thing back in one call:</p>
-<div class="example"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
+<div class="example hasout"><pre class="hl"><code>n = <span class="f">fopen</span>(<span class="s">"notes.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line one"</span>)
 <span class="f">write_line</span>(n, <span class="s">"line two"</span>)
 <span class="f">close</span>(n)
@@ -609,9 +672,10 @@ x = <span class="f">read_float</span>(g)
 <span class="c"># line one</span>
 <span class="c"># line two</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>line one
+line two</pre></div></div>
 <p>When a file holds a run of same-typed numbers rather than one fixed-width record, <code>read_values</code>/<code>read_array</code> read all of them in a single call instead of looping over <code>read_double</code>/<code>read_int32</code>/etc. one value at a time. <code>read_values(f, type, n)</code> reads <code>n</code> values of the given type from an already-open handle (useful mid-stream, alongside other reads on the same file); <code>read_array(path, type=)</code> skips <code>fopen</code> entirely and reads a whole file as one typed array in one call. The example below writes three 64-bit doubles, checks the file's size with <code>file_size</code> before opening anything, then reads the same three numbers back both ways to show they agree:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"temps.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">20.5</span>)
 <span class="f">write_double</span>(f, <span class="n">21.0</span>)
 <span class="f">write_double</span>(f, <span class="n">19.8</span>)
@@ -627,9 +691,11 @@ vals = <span class="f">read_values</span>(g, <span class="s">"f64"</span>, <span
 whole = <span class="f">read_array</span>(<span class="s">"temps.bin"</span>, <span class="a">type</span>=<span class="s">"f64"</span>)
 <span class="f">print</span>(whole)                             <span class="c"># [20.5, 21, 19.8]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>24
+[20.5, 21, 19.8]
+[20.5, 21, 19.8]</pre></div></div>
 <p>A file of fixed-size records — logger output, an instrument's native save format, anything with a repeating struct layout — is read with <code>read_struct</code>/<code>read_structs</code> instead of unpacking each field by hand. <code>fields</code> is a list of <code>(name, type)</code> pairs describing one record's layout, in byte order; <code>read_struct(f, fields)</code> reads exactly one record and returns it as a record value with one field per name, while <code>read_structs(f, fields, n)</code> reads <code>n</code> of them into a <code>Table</code>, one column per field, which is the more useful shape once there are enough records to want to work on them column-wise. The example below writes two <code>(f64, u16)</code> records back to back, then reads first one and then both, column-wise:</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"records.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_double</span>(f, <span class="n">0.0</span>)
 <span class="f">write_uint16</span>(f, <span class="n">12</span>)
 <span class="f">write_double</span>(f, <span class="n">0.5</span>)
@@ -650,7 +716,10 @@ tbl = <span class="f">read_structs</span>(h, fields, <span class="n">2</span>)
 <span class="f">print</span>(<span class="f">nrow</span>(tbl))                         <span class="c"># 2</span>
 <span class="f">print</span>(tbl.ch)                            <span class="c"># [12, 15]</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>0
+12
+2
+[12, 15]</pre></div></div>
 <p>Interop with MATLAB doesn't require a MATLAB installation just to read data it produced: <code>read_mat(path)</code> reads a <code>.mat</code> file directly (via the <code>matfile</code> crate) and hands back every saved variable as a field on one record, named after the variable, so <code>.mat</code> files from a lab instrument or an existing MATLAB pipeline can be consumed without leaving Qu. The example below reads a <code>.mat</code> file containing a single saved variable named <code>temperature</code> and prints its values:</p>
 <p>Not run by the build, and it cannot be: Qu reads MATLAB files but has no writer for them, so this example cannot create its own input the way the CSV one above does. It needs a <code>.mat</code> produced by MATLAB or SciPy.</p>
 <div class="example norun"><pre class="hl"><code>vars = <span class="f">read_mat</span>(<span class="s">"measurements.mat"</span>)
@@ -658,23 +727,26 @@ tbl = <span class="f">read_structs</span>(h, fields, <span class="n">2</span>)
 </code></pre>
 </div>
 <p><code>argv()</code> and <code>getenv(name)</code> are how a Qu script reads its own invocation context — command-line arguments and environment variables — the same information a shell script would get from <code>$1</code>/<code>$2</code> and <code>$MY_VAR</code>. Every argument after a literal <code>--</code> on the command line becomes one element of <code>argv()</code>'s list; <code>getenv</code> reads one named environment variable, coming back as <code>none</code> (Qu's absent-value marker, composing with <code>??</code>) if it isn't set. The example below assumes the script was invoked as <code>qu run analyse.qu -- data.csv 1000</code>:</p>
-<div class="example"><pre class="hl"><code>args = <span class="f">argv</span>()
+<div class="example hasout"><pre class="hl"><code>args = <span class="f">argv</span>()
 <span class="f">print</span>(<span class="f">length</span>(args))                      <span class="c"># 2 -- "data.csv" and "1000"</span>
 <span class="f">print</span>(args)                              <span class="c"># ("data.csv", "1000")</span>
 
 level = <span class="f">getenv</span>(<span class="s">"QU_LOG"</span>) ?? <span class="s">"info"</span>
 <span class="f">print</span>(level)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>0
+()
+info</pre></div></div>
 <p><code>write_report(path)</code> bundles everything a script has printed and plotted so far — printed output, tables, and any figures produced up to that point in execution — into one standalone HTML file with nothing linked from outside it, suitable for emailing or archiving without also shipping a folder of image files. The example below computes a small sum, prints it, then writes and confirms the report file:</p>
-<div class="example"><pre class="hl"><code>x = <span class="n">1</span>:<span class="n">10</span>
+<div class="example hasout"><pre class="hl"><code>x = <span class="n">1</span>:<span class="n">10</span>
 <span class="f">print</span>(<span class="s">"sum = "</span> + <span class="f">str</span>(<span class="f">sum</span>(x)))
 <span class="f">write_report</span>(<span class="s">"summary.html"</span>)
 <span class="f">print</span>(<span class="f">file_exists</span>(<span class="s">"summary.html"</span>))       <span class="c"># true</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>sum = 55
+true</pre></div></div>
 <p>Running another language inline is for the case where a library or routine simply has no Qu equivalent yet: <code>python_exec</code>/<code>js_exec</code>/<code>matlab_exec</code> all share one contract. <code>code</code> (string) is the guest-language source to run. <code>vars=</code> (optional, a Record/Dict) arrives as ordinary variables in the guest — built with Qu's <code>{name=value, ...}</code> record syntax, not JSON-style <code>{"name": value}</code>. An injected output-path variable (<code>_qu_output_path</code> for Python and JavaScript, <code>qu_output_path</code> for MATLAB — see the note above on why that one can't take a leading underscore) is where the guest writes a JSON result, and the call always returns a record of <code>{stdout, stderr, success, exit_code, result}</code>. The example below runs a one-line Python snippet with no injected variables, then a second Python snippet that receives <code>x</code> via <code>vars=</code> and returns a computed result, then the same pattern once in JavaScript:</p>
-<div class="example"><pre class="hl"><code>py = <span class="f">python_exec</span>(<span class="s">"result = 1 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"</span>)
+<div class="example hasout"><pre class="hl"><code>py = <span class="f">python_exec</span>(<span class="s">"result = 1 + 1\nimport json\njson.dump(result, open(_qu_output_path, 'w'))"</span>)
 <span class="f">print</span>(py.result)                         <span class="c"># 2</span>
 
 py2 = <span class="f">python_exec</span>(<span class="s">"import json\nresult = x * 2\njson.dump(result, open(_qu_output_path, 'w'))"</span>, <span class="a">vars</span>={<span class="a">x</span>=<span class="n">21</span>})
@@ -683,7 +755,9 @@ py2 = <span class="f">python_exec</span>(<span class="s">"import json\nresult = 
 js = <span class="f">js_exec</span>(<span class="s">"const fs = require('fs'); fs.writeFileSync(_qu_output_path, JSON.stringify(1 + 1));"</span>)
 <span class="f">print</span>(js.result)                         <span class="c"># 2</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>2
+42
+2</pre></div></div>
 <p><code>matlab_exec</code> follows the exact same contract — <code>matlab_exec(code, [vars=])</code>, same <code>{stdout, stderr, success, exit_code, result}</code> return shape, <code>code</code> writing its result to the injected <code>qu_output_path</code> variable — but actually running it requires a working local MATLAB installation with a valid license, which this environment does not currently have (the license here has expired), so no runnable example is included for it. A failed run does not panic: <code>success</code> comes back <code>false</code> and <code>stderr</code> carries MATLAB's own error text (a license error, in this environment's case), the same "describe the failure, don't crash" contract every other guest-language failure follows.</p>
 <h2 id="s623">More functions</h2>
 <div class="tablewrap"><table>

@@ -45,14 +45,25 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
+<div class="example hasout"><pre class="hl"><code>df = <span class="f">DataFrame</span>(<span class="a">id</span>=[<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], <span class="a">name</span>=[<span class="s">"alu"</span>, <span class="s">"steel"</span>, <span class="s">"brass"</span>])
 <span class="f">print</span>(<span class="f">at</span>(df, <span class="n">1</span>))                              <span class="c"># {id = 2, name = "steel"}</span>
 labeled = <span class="f">index</span>(df, <span class="s">"name"</span>)
 <span class="f">print</span>(labeled)
 grown = <span class="f">insert_row</span>(df, <span class="n">3</span>, {<span class="a">id</span>=<span class="n">4</span>, <span class="a">name</span>=<span class="s">"glass"</span>})
 <span class="f">print</span>(grown)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>{id = 2, name = "steel"}
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+id  name 
+--  -----
+ 1  alu  
+ 2  steel
+ 3  brass
+ 4  glass</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>index by "col"</code> / <code>t.index("col")</code> (§ table row index, 2026-08-26) — designates <code>col</code> as the row lookup key for <code>t[key]</code> from now on (numeric or string, whatever the column holds). <code>t.index()</code> with ZERO arguments resets back to the default auto index — the agreed workaround for "no <code>.index(null)</code>", since Qu has no null/<code>nothing</code> literal to spell that with. Returns a NEW table either way, matching every other Table operation's immutable/functional convention (<code>select</code>/<code>drop</code>/<code>filter</code>/...).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

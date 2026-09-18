@@ -62,12 +62,15 @@ phi = <span class="f">rand</span>(K) * <span class="n">2</span> * pi            
 </section>
 <section class="step">
 <h3>[1] Baseline (unaccelerated) -- loop over tones, vectorized per tone over N</h3>
-<pre class="hl"><code><span class="f">tic</span>()
+<p>`mem_usage()` reports this process's RESIDENT set (pages actually mapped in), not what was merely requested -- `zeros(N)` alone barely moves it (the OS backs a fresh zero-filled allocation with a shared zero page until something writes to it), so the delta below is taken AFTER x is filled with real values, when the pages are genuinely touched and the number means something.</p>
+<pre class="hl"><code>mem0 = <span class="f">mem_usage</span>()
+<span class="f">tic</span>()
 x = <span class="f">zeros</span>(N)
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> K - <span class="n">1</span>
     x = x + A[k] * <span class="f">sin</span>(<span class="n">2</span> * pi * f[k] * t + phi[k])
 <span class="k">end</span> <span class="k">for</span>
 t_baseline = <span class="f">toc</span>()
+mem1 = <span class="f">mem_usage</span>()
 
 <span class="f">print</span>(<span class="s">"[1] baseline loop      : {t_baseline:.4f} s"</span>)
 <span class="f">print</span>(<span class="s">"rms(x)   = {rms(x):.6f}"</span>)
@@ -86,9 +89,22 @@ Phase = <span class="n">2</span> * pi * (T_col * F_row)    <span class="c"># (N,
 Basis = <span class="f">sin</span>(Phase + Phi_row)        <span class="c"># (N,K), phi broadcast across all N rows</span>
 x2    = (Basis * A_col)[:, <span class="n">0</span>]       <span class="c"># (N,K) x (K,1) -&gt; (N,1), flattened to N</span>
 t_vectorized = <span class="f">toc</span>()
+mem2 = <span class="f">mem_usage</span>()
 
 <span class="f">print</span>(<span class="s">"[2] full vectorization : {t_vectorized:.4f} s  ({t_baseline / t_vectorized:.2f}x vs [1])"</span>)
 <span class="f">print</span>(<span class="s">"max|x - x2| = {max(abs(x - x2)):.3e}  (both methods, same signal)"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Speed AND memory, side by side -- timing alone hides the tradeoff</h3>
+<p>[1] holds only N-length arrays (x, t, and one tone's worth of scratch per iteration): O(N) memory. [2] builds an explicit (N,K) `Basis` matrix -- N=1,500,000 x K=51 doubles, ~612 MB -- to buy its speedup: O(N*K) memory. Faster is not automatically lighter; here it is the opposite, and only measuring both numbers shows that.</p>
+<pre class="hl"><code>mb1 = (mem1 - mem0) / <span class="n">1e6</span>
+mb2 = (mem2 - mem1) / <span class="n">1e6</span>
+basis_mb = <span class="f">numel</span>(Basis) * <span class="n">8</span> / <span class="n">1e6</span>
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"           time (s)   RSS delta (MB)"</span>)
+<span class="f">print</span>(<span class="s">"[1] baseline    {t_baseline:8.4f}   {mb1:8.1f}"</span>)
+<span class="f">print</span>(<span class="s">"[2] vectorized  {t_vectorized:8.4f}   {mb2:8.1f}   ({basis_mb:.0f} MB is Basis alone)"</span>)
 </code></pre>
 </section>
 <section class="step">
@@ -105,11 +121,15 @@ show plot
 </section>
 <h2>Results</h2>
 <div class="out"><span class="lbl">printed</span><pre>N = 1500000 samples, K = 51 tones, Fs = 5000 Hz, duration = 300 s
-[1] baseline loop      : 0.9472 s
+[1] baseline loop      : 0.8786 s
 rms(x)   = 0.707099
 crest(x) = 4.6611
-[2] full vectorization : 0.4867 s  (1.95x vs [1])
-max|x - x2| = 3.441e-10  (both methods, same signal)</pre></div>
+[2] full vectorization : 0.4854 s  (1.81x vs [1])
+max|x - x2| = 3.441e-10  (both methods, same signal)
+
+           time (s)   RSS delta (MB)
+[1] baseline    0.88   12.12
+[2] vectorized  0.49   1250.54   (612 MB is Basis alone)</pre></div>
 <figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
 
 <rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
@@ -270,12 +290,21 @@ phi = <span class="f">rand</span>(K) * <span class="n">2</span> * pi            
 <span class="f">print</span>(<span class="s">"N = {N} samples, K = {K} tones, Fs = {Fs} Hz, duration = {duration} s"</span>)
 
 <span class="c">#%% [1] Baseline (unaccelerated) -- loop over tones, vectorized per tone over N</span>
+<span class="c">#</span>
+<span class="c"># `mem_usage()` reports this process's RESIDENT set (pages actually</span>
+<span class="c"># mapped in), not what was merely requested -- `zeros(N)` alone barely</span>
+<span class="c"># moves it (the OS backs a fresh zero-filled allocation with a shared</span>
+<span class="c"># zero page until something writes to it), so the delta below is taken</span>
+<span class="c"># AFTER x is filled with real values, when the pages are genuinely</span>
+<span class="c"># touched and the number means something.</span>
+mem0 = <span class="f">mem_usage</span>()
 <span class="f">tic</span>()
 x = <span class="f">zeros</span>(N)
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> K - <span class="n">1</span>
     x = x + A[k] * <span class="f">sin</span>(<span class="n">2</span> * pi * f[k] * t + phi[k])
 <span class="k">end</span> <span class="k">for</span>
 t_baseline = <span class="f">toc</span>()
+mem1 = <span class="f">mem_usage</span>()
 
 <span class="f">print</span>(<span class="s">"[1] baseline loop      : {t_baseline:.4f} s"</span>)
 <span class="f">print</span>(<span class="s">"rms(x)   = {rms(x):.6f}"</span>)
@@ -292,9 +321,25 @@ Phase = <span class="n">2</span> * pi * (T_col * F_row)    <span class="c"># (N,
 Basis = <span class="f">sin</span>(Phase + Phi_row)        <span class="c"># (N,K), phi broadcast across all N rows</span>
 x2    = (Basis * A_col)[:, <span class="n">0</span>]       <span class="c"># (N,K) x (K,1) -&gt; (N,1), flattened to N</span>
 t_vectorized = <span class="f">toc</span>()
+mem2 = <span class="f">mem_usage</span>()
 
 <span class="f">print</span>(<span class="s">"[2] full vectorization : {t_vectorized:.4f} s  ({t_baseline / t_vectorized:.2f}x vs [1])"</span>)
 <span class="f">print</span>(<span class="s">"max|x - x2| = {max(abs(x - x2)):.3e}  (both methods, same signal)"</span>)
+
+<span class="c">#%% Speed AND memory, side by side -- timing alone hides the tradeoff</span>
+<span class="c">#</span>
+<span class="c"># [1] holds only N-length arrays (x, t, and one tone's worth of scratch</span>
+<span class="c"># per iteration): O(N) memory. [2] builds an explicit (N,K) `Basis`</span>
+<span class="c"># matrix -- N=1,500,000 x K=51 doubles, ~612 MB -- to buy its speedup:</span>
+<span class="c"># O(N*K) memory. Faster is not automatically lighter; here it is the</span>
+<span class="c"># opposite, and only measuring both numbers shows that.</span>
+mb1 = (mem1 - mem0) / <span class="n">1e6</span>
+mb2 = (mem2 - mem1) / <span class="n">1e6</span>
+basis_mb = <span class="f">numel</span>(Basis) * <span class="n">8</span> / <span class="n">1e6</span>
+<span class="f">print</span>(<span class="s">""</span>)
+<span class="f">print</span>(<span class="s">"           time (s)   RSS delta (MB)"</span>)
+<span class="f">print</span>(<span class="s">"[1] baseline    {t_baseline:8.4f}   {mb1:8.1f}"</span>)
+<span class="f">print</span>(<span class="s">"[2] vectorized  {t_vectorized:8.4f}   {mb2:8.1f}   ({basis_mb:.0f} MB is Basis alone)"</span>)
 
 <span class="c">#%% Plot (first 0.05 s only -- 1.5M points is too dense to eyeball otherwise)</span>
 n_show = <span class="f">round</span>(<span class="n">0.05</span> * Fs)

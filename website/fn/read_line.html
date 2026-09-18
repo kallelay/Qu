@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"r"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1</span>
     <span class="f">print</span>(<span class="f">read_line</span>(f))
 <span class="k">end</span> <span class="k">for</span>
@@ -54,8 +54,11 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 <span class="f">print</span>(<span class="f">read_all</span>(g))
 <span class="f">close</span>(g)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
+<div class="out"><span class="lbl">output</span><pre>run started
+value = 42
+run started
+value = 42</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example hasout"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()                              <span class="c"># e.g. ["COM3"], or [] with no hardware attached</span>
 conn = <span class="f">serial_open</span>(ports[<span class="n">0</span>], <span class="n">9600</span>, <span class="a">timeout_ms</span>=<span class="n">500</span>)
 line = <span class="f">read_line</span>(conn)                              <span class="c"># blocks up to 500ms; `none` if nothing arrived</span>
 <span class="k">if</span> line != <span class="k">none</span>
@@ -65,8 +68,8 @@ line = <span class="f">read_line</span>(conn)                              <span
 <span class="k">end</span> <span class="k">if</span>
 <span class="f">close</span>(conn)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
-<div class="example"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
+<div class="out"><span class="lbl">output</span><pre>no line arrived within the timeout</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="c"># The three-line file this reads is written here. It used to open a</span>
 <span class="c"># log.txt that the chapter does not create until 700 lines further down,</span>
 <span class="c"># so this block failed and was dropped from the page while the build</span>
 <span class="c"># reported success.</span>
@@ -84,7 +87,7 @@ next_line  = <span class="f">read_line</span>(f)          <span class="c"># only
 <span class="f">close</span>(f)
 <span class="c"># a | a | b</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>a | a | b</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example norun"><pre class="hl"><code>ports = <span class="f">serial_ports</span>()
 <span class="f">print</span>(<span class="s">"found {length(ports)} port(s): {ports}"</span>)
 

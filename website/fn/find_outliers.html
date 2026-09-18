@@ -45,7 +45,22 @@
 </td><td><span class="ionone">not documented yet</span></td><td>The <strong>indices</strong> of the samples a criterion flags, as a number vector (same shape of answer as <code>find_peaks</code>).</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/noise.html">Noise</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>y = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">100</span>]
+<span class="f">print</span>(<span class="f">find_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))      <span class="c"># [10]</span>
+<span class="f">print</span>(<span class="f">remove_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))    <span class="c"># the 100 is gone</span>
+<span class="f">print</span>(<span class="f">replace_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>)[<span class="n">10</span>])  <span class="c"># 2 -- patched in place</span>
+
+drift = <span class="n">0</span> <span class="k">to</span> <span class="n">40</span>
+drift[<span class="n">20</span>] = drift[<span class="n">20</span>] + <span class="n">30</span>
+<span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"hampel"</span>, <span class="a">window</span> = <span class="n">7</span>))  <span class="c"># [20]</span>
+<span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"zscore"</span>))              <span class="c"># [] -- global test cannot see it</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[10]
+[1, 2, 3, 2, 1, 2, 3, 2, 1, 2]
+2
+[20]
+[]</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>find_outliers</code>/<code>remove_outliers</code>/<code>replace_outliers(x, [method="zscore"], [threshold=], [window=7], [fill_method="linear"], [value=])</code> — one function per ANSWER (which samples / drop them / patch them), one <code>method=</code> kwarg for the criterion, following <code>smooth</code>'s own shape rather than growing a function per variant. "zscore"           |x-mean|/std      &gt; threshold (3) "modified_zscore"  0.6745|x-med|/MAD &gt; threshold (3.5) "iqr"              outside Q1/Q3 +- threshold*IQR (1.5) "hampel"           the local, windowed test -- <code>hampel</code>'s own criterion, shared with it rather than reimplemented. The default threshold is per-method on purpose: 3 sigma, 3.5 modified-z and 1.5 IQR are the conventional cutoffs for three DIFFERENT scales, and one shared number would silently make two of the three mean something nobody intends. <code>window=</code> is read only by <code>method="hampel"</code>, the only criterion that has a window -- passing it to the others is an unread kwarg and errors, rather than being accepted and ignored. There is deliberately no count in the return value: the "how many" question is <code>length(find_outliers(...))</code>, which is the same number and available before committing to a transform, and that keeps the two transforms chainable (<code>x.remove_outliers().fft()</code>) instead of returning a record the next call cannot take.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

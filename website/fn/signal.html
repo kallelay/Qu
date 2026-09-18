@@ -45,29 +45,30 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>], <span class="n">100</span>)
+<div class="example hasout"><pre class="hl"><code>sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>], <span class="n">100</span>)
 <span class="f">print</span>(<span class="f">threshold</span>(sig, <span class="n">4</span>))   <span class="c"># signal(Fs=100) [0, 1, 0, 1]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
-<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+<div class="out"><span class="lbl">output</span><pre>signal(Fs=100) [0, 1, 0, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
 sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
 s = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
 <span class="f">print</span>(<span class="s">"signal: {s}"</span>)   <span class="c"># signal: signal(Fs=8) [2, 4, 6, 8]</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+<div class="out"><span class="lbl">output</span><pre>signal: signal(Fs=8) [2, 4, 6, 8]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
 sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
 out = sig.<span class="f">apply</span>(<span class="s">"double"</span>)     <span class="c"># same Fs, genuinely transformed</span>
 <span class="f">print</span>(<span class="s">"apply(double): {out}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<div class="example"><pre class="hl"><code>s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, <span class="n">10</span>)          <span class="c"># 10 samples at 10 Hz, t = 0.0, 0.1, ..., 0.9s</span>
+<div class="out"><span class="lbl">output</span><pre>apply(double): signal(Fs=8) [2, 4, 6, 8]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">signal</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">9</span>, <span class="n">10</span>)          <span class="c"># 10 samples at 10 Hz, t = 0.0, 0.1, ..., 0.9s</span>
 trimmed = <span class="f">cut</span>(s, <span class="n">0.5</span>, <span class="n">100.0</span>)    <span class="c"># end clamps past the signal's duration</span>
 <span class="f">print</span>(<span class="s">"trimmed: {trimmed}"</span>)
 @s.<span class="f">cut</span>(<span class="n">0.2</span>, <span class="n">0.7</span>)                 <span class="c"># self-mutating form: s = cut(s, 0.2, 0.7)</span>
 <span class="f">print</span>(<span class="s">"s after @cut: {s}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>trimmed: signal(Fs=10) [5, 6, 7, 8, 9]
+s after @cut: signal(Fs=10) [2, 3, 4, 5, 6, 7]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p>Â§41.2 sampled-signal constructor/destructor. <code>signal(data, Fs)</code> (canonical spelling) and <code>Signal(data, Fs)</code> (capitalized alias) both work; <code>array(x)</code>/<code>Array(x)</code> unwraps back to a plain vector (a no-op on anything that already is one).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

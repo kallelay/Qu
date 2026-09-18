@@ -46,14 +46,17 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, World!"</span>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"Hello, World!"</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>))          <span class="c"># "World!" — to the end</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">0</span>, <span class="n">5</span>))       <span class="c"># "Hello" — bounded</span>
 <span class="f">print</span>(<span class="f">substr</span>(s, <span class="n">7</span>, <span class="n">100</span>))     <span class="c"># "World!" — clamped, not an error</span>
 <span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">5</span>))          <span class="c"># "World" — mid is substr under another name</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
+<div class="out"><span class="lbl">output</span><pre>World!
+Hello
+World!
+World</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>s = <span class="s">"Hello, Qu World!"</span>
 <span class="f">print</span>(<span class="f">mid</span>(s, <span class="n">7</span>, <span class="n">2</span>))          <span class="c"># "Qu"</span>
 <span class="f">print</span>(<span class="f">left</span>(s, <span class="n">5</span>))            <span class="c"># "Hello"</span>
 <span class="f">print</span>(<span class="f">right</span>(s, <span class="n">6</span>))           <span class="c"># "World!"</span>
@@ -70,7 +73,21 @@
 <span class="f">print</span>(<span class="f">compare</span>(<span class="s">"apple"</span>, <span class="s">"banana"</span>)) <span class="c"># -1</span>
 <span class="f">print</span>(<span class="f">asc</span>(<span class="s">"A"</span>))              <span class="c"># 65</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>Qu
+Hello
+World!
+cba
+shout
+SHOUT
+shout
+MIX
+mix
+Ada lovelace
+padded
+padded|
+ab...
+-1
+    ... 1 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p>All index/length arguments below are 0-based (matching every other index in this codebase) and unicode-aware: built on <code>.chars()</code>, never a raw byte slice, so a multi-byte UTF-8 string indexes by character, not by byte (a naive byte slice would panic or corrupt on non-ASCII input). <code>substr(s, start[, length])</code> / <code>mid(s, start, length)</code> — plain aliases of the same implementation: MATLAB has no <code>mid</code> at all (that's a BASIC/Excel convention), and since Qu already indexes 0-based everywhere (unlike BASIC/Excel's 1-based <code>MID$</code>), there is no real semantic difference to preserve — <code>mid</code> exists purely for discoverability by BASIC/Excel habit. <code>start</code> must be within <code>[0, char_count]</code> (<code>== char_count</code> is the valid "nothing left" case, matching the empty-slice-at-the-end convention <code>s[n:]</code> uses elsewhere); <code>length</code> is clamped to whatever is actually available rather than erroring — asking for more than what's left (<code>substr(s, 0, 1000)</code> to mean "the rest") is a common, harmless overshoot, unlike a genuinely out-of-range <code>start</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

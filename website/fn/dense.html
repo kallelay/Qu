@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
+<div class="example hasout"><pre class="hl"><code>w = <span class="f">param</span>([<span class="n">0.5</span>, -<span class="n">0.3</span>; <span class="n">0.2</span>, <span class="n">0.8</span>])
 b = <span class="f">param</span>([<span class="n">0.1</span>, -<span class="n">0.1</span>])
 x = [<span class="n">1.0</span>, <span class="n">2.0</span>; -<span class="n">0.5</span>, <span class="n">1.5</span>]      <span class="c"># two examples, two features each</span>
 z = <span class="f">dense</span>(x, w, b)
@@ -68,7 +68,12 @@ kept = <span class="f">dropout</span>(<span class="f">ones</span>(<span class="n
 <span class="f">print</span>(<span class="s">"dropout output: {kept}"</span>)
 <span class="f">print</span>(<span class="s">"survivors:      {sum(kept &gt; 0)} of 8, each scaled by 1/(1-rate)"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>relu:    [1, 1.4; 0, 1.25]
+sigmoid: [0.7311, 0.8022; 0.5, 0.7773]
+dL/dw:   [0.2875, 0.12; 0.5749, 0.9128]
+softmax row 0: [0.659, 0.2424, 0.0986]
+dropout output: [2, 2, 0, 0, 2, 0, 2, 0]
+survivors:      4 of 8, each scaled by 1/(1-rate)</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 </main>
 </div>
 <footer><div class="wrap">

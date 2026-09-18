@@ -50,7 +50,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">zeros</span>(<span class="n">500</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">zeros</span>(<span class="n">500</span>)
 x[<span class="n">0</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">21</span>)
 x[<span class="n">1</span>] = <span class="f">randn</span>(<span class="a">seed</span> = <span class="n">22</span>)
 <span class="k">for</span> t = <span class="n">2</span> <span class="k">to</span> <span class="n">499</span>
@@ -66,7 +66,316 @@ future = m.<span class="f">predict</span>(<span class="n">30</span>)
 <span class="f">legend</span>()
 <span class="f">title</span>(<span class="s">"AR(2), 30 steps ahead"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>generating: [0.6, -0.3]
+recovered:  [0.489, -0.153]
+· plot: figure 4 (40 points)
+· plot: figure 5 (30 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="488.66" x2="866.00" y2="488.66" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="488.66" x2="104.06" y2="488.66" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="494.33" font-size="16.2" text-anchor="end" fill="#4d4d4d">-6</text>
+<line x1="104.06" y1="425.09" x2="866.00" y2="425.09" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="425.09" x2="104.06" y2="425.09" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="430.76" font-size="16.2" text-anchor="end" fill="#4d4d4d">-4</text>
+<line x1="104.06" y1="361.51" x2="866.00" y2="361.51" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="361.51" x2="104.06" y2="361.51" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="367.18" font-size="16.2" text-anchor="end" fill="#4d4d4d">-2</text>
+<line x1="104.06" y1="297.94" x2="866.00" y2="297.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="297.94" x2="104.06" y2="297.94" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="303.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="234.36" x2="866.00" y2="234.36" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="234.36" x2="104.06" y2="234.36" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="240.03" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
+<line x1="104.06" y1="170.79" x2="866.00" y2="170.79" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="170.79" x2="104.06" y2="170.79" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="176.46" font-size="16.2" text-anchor="end" fill="#4d4d4d">4</text>
+<line x1="104.06" y1="107.22" x2="866.00" y2="107.22" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="107.22" x2="104.06" y2="107.22" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="112.89" font-size="16.2" text-anchor="end" fill="#4d4d4d">6</text>
+<line x1="142.60" y1="48.00" x2="142.60" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="142.60" y1="528.84" x2="142.60" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="142.60" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="207.70" y1="48.00" x2="207.70" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="207.70" y1="528.84" x2="207.70" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="207.70" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="272.80" y1="48.00" x2="272.80" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="272.80" y1="528.84" x2="272.80" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="272.80" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="337.90" y1="48.00" x2="337.90" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="337.90" y1="528.84" x2="337.90" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="337.90" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">150</text>
+<line x1="403.00" y1="48.00" x2="403.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="403.00" y1="528.84" x2="403.00" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="403.00" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="468.11" y1="48.00" x2="468.11" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="468.11" y1="528.84" x2="468.11" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="468.11" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">250</text>
+<line x1="533.21" y1="48.00" x2="533.21" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="533.21" y1="528.84" x2="533.21" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.21" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">300</text>
+<line x1="598.31" y1="48.00" x2="598.31" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="598.31" y1="528.84" x2="598.31" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="598.31" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">350</text>
+<line x1="663.41" y1="48.00" x2="663.41" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="663.41" y1="528.84" x2="663.41" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="663.41" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="728.51" y1="48.00" x2="728.51" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="728.51" y1="528.84" x2="728.51" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="728.51" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">450</text>
+<line x1="793.61" y1="48.00" x2="793.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="793.61" y1="528.84" x2="793.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="793.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">500</text>
+<line x1="858.71" y1="48.00" x2="858.71" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="858.71" y1="528.84" x2="858.71" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="858.71" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">550</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<circle cx="141.22" cy="324.20" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.058, y=-0.826</title></circle>
+<circle cx="143.38" cy="277.72" r="4.05" fill="none" stroke="#4169e199"><title>x=0.594, y=0.636</title></circle>
+<circle cx="143.75" cy="256.45" r="4.05" fill="none" stroke="#4169e199"><title>x=0.88, y=1.305</title></circle>
+<circle cx="142.11" cy="313.50" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.379, y=-0.489</title></circle>
+<circle cx="142.80" cy="259.33" r="4.05" fill="none" stroke="#4169e199"><title>x=0.152, y=1.215</title></circle>
+<circle cx="144.43" cy="273.96" r="4.05" fill="none" stroke="#4169e199"><title>x=1.407, y=0.754</title></circle>
+<circle cx="142.90" cy="327.88" r="4.05" fill="none" stroke="#4169e199"><title>x=0.231, y=-0.942</title></circle>
+<circle cx="140.92" cy="301.74" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.291, y=-0.12</title></circle>
+<circle cx="142.49" cy="317.86" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.085, y=-0.627</title></circle>
+<circle cx="143.00" cy="301.14" r="4.05" fill="none" stroke="#4169e199"><title>x=0.304, y=-0.101</title></circle>
+<circle cx="142.65" cy="297.80" r="4.05" fill="none" stroke="#4169e199"><title>x=0.037, y=0.004</title></circle>
+<circle cx="141.68" cy="311.58" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.705, y=-0.429</title></circle>
+<circle cx="142.92" cy="315.69" r="4.05" fill="none" stroke="#4169e199"><title>x=0.241, y=-0.559</title></circle>
+<circle cx="141.84" cy="335.05" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.582, y=-1.167</title></circle>
+<circle cx="142.24" cy="319.72" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.277, y=-0.685</title></circle>
+<circle cx="140.47" cy="340.60" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.636, y=-1.342</title></circle>
+<circle cx="141.48" cy="323.33" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.865, y=-0.799</title></circle>
+<circle cx="142.77" cy="297.03" r="4.05" fill="none" stroke="#4169e199"><title>x=0.131, y=0.029</title></circle>
+<circle cx="140.54" cy="354.29" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.581, y=-1.773</title></circle>
+<circle cx="139.94" cy="365.03" r="4.05" fill="none" stroke="#4169e199"><title>x=-2.048, y=-2.111</title></circle>
+<circle cx="146.44" cy="224.18" r="4.05" fill="none" stroke="#4169e199"><title>x=2.947, y=2.32</title></circle>
+<circle cx="142.01" cy="357.55" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.456, y=-1.875</title></circle>
+<circle cx="143.78" cy="294.85" r="4.05" fill="none" stroke="#4169e199"><title>x=0.908, y=0.097</title></circle>
+<circle cx="143.71" cy="262.98" r="4.05" fill="none" stroke="#4169e199"><title>x=0.85, y=1.1</title></circle>
+<circle cx="143.28" cy="296.92" r="4.05" fill="none" stroke="#4169e199"><title>x=0.517, y=0.032</title></circle>
+<circle cx="142.61" cy="290.11" r="4.05" fill="none" stroke="#4169e199"><title>x=0.003, y=0.246</title></circle>
+<circle cx="142.34" cy="291.21" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.201, y=0.212</title></circle>
+<circle cx="143.21" cy="300.30" r="4.05" fill="none" stroke="#4169e199"><title>x=0.466, y=-0.074</title></circle>
+<circle cx="143.16" cy="263.11" r="4.05" fill="none" stroke="#4169e199"><title>x=0.426, y=1.096</title></circle>
+<circle cx="142.52" cy="303.16" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.066, y=-0.164</title></circle>
+<circle cx="143.93" cy="265.23" r="4.05" fill="none" stroke="#4169e199"><title>x=1.021, y=1.029</title></circle>
+<circle cx="142.75" cy="296.82" r="4.05" fill="none" stroke="#4169e199"><title>x=0.113, y=0.035</title></circle>
+<circle cx="141.30" cy="313.66" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.998, y=-0.494</title></circle>
+<circle cx="142.52" cy="329.45" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.066, y=-0.991</title></circle>
+<circle cx="146.28" cy="274.72" r="4.05" fill="none" stroke="#4169e199"><title>x=2.823, y=0.731</title></circle>
+<circle cx="142.54" cy="321.65" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.046, y=-0.746</title></circle>
+<circle cx="142.56" cy="326.54" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.029, y=-0.9</title></circle>
+<circle cx="142.56" cy="291.70" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.031, y=0.196</title></circle>
+<circle cx="141.80" cy="280.79" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.616, y=0.539</title></circle>
+<circle cx="140.85" cy="307.90" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.349, y=-0.313</title></circle>
+<circle cx="141.19" cy="350.38" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.085, y=-1.65</title></circle>
+<circle cx="140.71" cy="349.05" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.452, y=-1.608</title></circle>
+<circle cx="143.87" cy="270.39" r="4.05" fill="none" stroke="#4169e199"><title>x=0.973, y=0.867</title></circle>
+<circle cx="143.56" cy="290.23" r="4.05" fill="none" stroke="#4169e199"><title>x=0.737, y=0.242</title></circle>
+<circle cx="142.36" cy="283.06" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.185, y=0.468</title></circle>
+<circle cx="144.13" cy="250.73" r="4.05" fill="none" stroke="#4169e199"><title>x=1.175, y=1.485</title></circle>
+<circle cx="140.21" cy="324.08" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.836, y=-0.822</title></circle>
+<circle cx="142.40" cy="300.36" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.157, y=-0.076</title></circle>
+<circle cx="143.13" cy="288.17" r="4.05" fill="none" stroke="#4169e199"><title>x=0.407, y=0.307</title></circle>
+<circle cx="140.83" cy="330.42" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.365, y=-1.022</title></circle>
+<circle cx="141.50" cy="261.60" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.847, y=1.143</title></circle>
+<circle cx="141.61" cy="297.26" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.762, y=0.021</title></circle>
+<circle cx="141.24" cy="314.01" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.044, y=-0.505</title></circle>
+<circle cx="143.22" cy="262.24" r="4.05" fill="none" stroke="#4169e199"><title>x=0.478, y=1.123</title></circle>
+<circle cx="143.01" cy="301.17" r="4.05" fill="none" stroke="#4169e199"><title>x=0.316, y=-0.102</title></circle>
+<circle cx="143.86" cy="271.71" r="4.05" fill="none" stroke="#4169e199"><title>x=0.965, y=0.825</title></circle>
+<circle cx="141.62" cy="328.35" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.751, y=-0.957</title></circle>
+<circle cx="141.32" cy="298.99" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.988, y=-0.033</title></circle>
+<circle cx="141.01" cy="310.19" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.22, y=-0.385</title></circle>
+<circle cx="141.72" cy="311.66" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.681, y=-0.432</title></circle>
+<circle cx="141.79" cy="289.79" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.621, y=0.256</title></circle>
+<circle cx="143.80" cy="274.30" r="4.05" fill="none" stroke="#4169e199"><title>x=0.918, y=0.744</title></circle>
+<circle cx="144.14" cy="313.11" r="4.05" fill="none" stroke="#4169e199"><title>x=1.182, y=-0.477</title></circle>
+<circle cx="142.55" cy="284.43" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.039, y=0.425</title></circle>
+<circle cx="143.36" cy="298.92" r="4.05" fill="none" stroke="#4169e199"><title>x=0.585, y=-0.031</title></circle>
+<circle cx="142.99" cy="314.96" r="4.05" fill="none" stroke="#4169e199"><title>x=0.297, y=-0.535</title></circle>
+<circle cx="142.75" cy="309.29" r="4.05" fill="none" stroke="#4169e199"><title>x=0.112, y=-0.357</title></circle>
+<circle cx="142.65" cy="272.50" r="4.05" fill="none" stroke="#4169e199"><title>x=0.039, y=0.8</title></circle>
+<circle cx="142.81" cy="291.55" r="4.05" fill="none" stroke="#4169e199"><title>x=0.16, y=0.201</title></circle>
+<circle cx="144.24" cy="328.29" r="4.05" fill="none" stroke="#4169e199"><title>x=1.261, y=-0.955</title></circle>
+<circle cx="143.84" cy="290.37" r="4.05" fill="none" stroke="#4169e199"><title>x=0.95, y=0.238</title></circle>
+<circle cx="142.59" cy="285.43" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.013, y=0.393</title></circle>
+<circle cx="140.55" cy="308.86" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.577, y=-0.343</title></circle>
+<circle cx="141.73" cy="301.13" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.67, y=-0.101</title></circle>
+<circle cx="141.78" cy="339.33" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.631, y=-1.302</title></circle>
+<circle cx="141.51" cy="328.12" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.84, y=-0.949</title></circle>
+<circle cx="144.80" cy="266.46" r="4.05" fill="none" stroke="#4169e199"><title>x=1.692, y=0.99</title></circle>
+<circle cx="143.11" cy="282.90" r="4.05" fill="none" stroke="#4169e199"><title>x=0.389, y=0.473</title></circle>
+<circle cx="142.26" cy="314.13" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.261, y=-0.509</title></circle>
+<circle cx="141.96" cy="298.99" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.491, y=-0.033</title></circle>
+<circle cx="143.43" cy="272.33" r="4.05" fill="none" stroke="#4169e199"><title>x=0.634, y=0.806</title></circle>
+<circle cx="142.16" cy="278.17" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.342, y=0.622</title></circle>
+<circle cx="140.42" cy="349.76" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.674, y=-1.63</title></circle>
+<circle cx="142.65" cy="304.39" r="4.05" fill="none" stroke="#4169e199"><title>x=0.039, y=-0.203</title></circle>
+<circle cx="142.83" cy="319.82" r="4.05" fill="none" stroke="#4169e199"><title>x=0.175, y=-0.688</title></circle>
+<circle cx="142.87" cy="288.62" r="4.05" fill="none" stroke="#4169e199"><title>x=0.206, y=0.293</title></circle>
+<circle cx="144.43" cy="266.35" r="4.05" fill="none" stroke="#4169e199"><title>x=1.405, y=0.994</title></circle>
+<circle cx="141.76" cy="319.31" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.644, y=-0.672</title></circle>
+<circle cx="141.79" cy="320.19" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.623, y=-0.7</title></circle>
+<circle cx="144.64" cy="285.74" r="4.05" fill="none" stroke="#4169e199"><title>x=1.569, y=0.384</title></circle>
+<circle cx="141.91" cy="302.82" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.533, y=-0.154</title></circle>
+<circle cx="143.49" cy="298.37" r="4.05" fill="none" stroke="#4169e199"><title>x=0.682, y=-0.014</title></circle>
+<circle cx="144.02" cy="262.02" r="4.05" fill="none" stroke="#4169e199"><title>x=1.089, y=1.13</title></circle>
+<circle cx="143.05" cy="266.65" r="4.05" fill="none" stroke="#4169e199"><title>x=0.342, y=0.984</title></circle>
+<circle cx="144.11" cy="266.44" r="4.05" fill="none" stroke="#4169e199"><title>x=1.161, y=0.991</title></circle>
+<circle cx="142.30" cy="288.76" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.232, y=0.289</title></circle>
+<circle cx="141.81" cy="321.36" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.607, y=-0.737</title></circle>
+<circle cx="142.99" cy="295.73" r="4.05" fill="none" stroke="#4169e199"><title>x=0.295, y=0.07</title></circle>
+<circle cx="142.96" cy="290.00" r="4.05" fill="none" stroke="#4169e199"><title>x=0.275, y=0.25</title></circle>
+<circle cx="141.12" cy="312.43" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.141, y=-0.456</title></circle>
+<circle cx="143.20" cy="280.32" r="4.05" fill="none" stroke="#4169e199"><title>x=0.461, y=0.554</title></circle>
+<circle cx="141.73" cy="326.75" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.671, y=-0.906</title></circle>
+<circle cx="143.27" cy="261.24" r="4.05" fill="none" stroke="#4169e199"><title>x=0.513, y=1.154</title></circle>
+<circle cx="143.25" cy="305.06" r="4.05" fill="none" stroke="#4169e199"><title>x=0.499, y=-0.224</title></circle>
+<circle cx="144.88" cy="251.10" r="4.05" fill="none" stroke="#4169e199"><title>x=1.753, y=1.474</title></circle>
+<circle cx="142.74" cy="278.54" r="4.05" fill="none" stroke="#4169e199"><title>x=0.103, y=0.61</title></circle>
+<circle cx="142.15" cy="289.75" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.351, y=0.258</title></circle>
+<circle cx="143.32" cy="323.00" r="4.05" fill="none" stroke="#4169e199"><title>x=0.553, y=-0.788</title></circle>
+<circle cx="142.99" cy="269.21" r="4.05" fill="none" stroke="#4169e199"><title>x=0.298, y=0.904</title></circle>
+<circle cx="143.22" cy="271.15" r="4.05" fill="none" stroke="#4169e199"><title>x=0.472, y=0.843</title></circle>
+<circle cx="141.38" cy="327.78" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.94, y=-0.939</title></circle>
+<circle cx="141.22" cy="349.73" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.062, y=-1.629</title></circle>
+<circle cx="143.21" cy="272.33" r="4.05" fill="none" stroke="#4169e199"><title>x=0.467, y=0.806</title></circle>
+<circle cx="141.75" cy="332.38" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.653, y=-1.083</title></circle>
+<circle cx="144.13" cy="261.40" r="4.05" fill="none" stroke="#4169e199"><title>x=1.172, y=1.15</title></circle>
+<circle cx="142.87" cy="293.18" r="4.05" fill="none" stroke="#4169e199"><title>x=0.206, y=0.15</title></circle>
+<circle cx="141.20" cy="324.21" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.077, y=-0.827</title></circle>
+<circle cx="142.80" cy="329.30" r="4.05" fill="none" stroke="#4169e199"><title>x=0.153, y=-0.987</title></circle>
+<circle cx="142.87" cy="283.98" r="4.05" fill="none" stroke="#4169e199"><title>x=0.202, y=0.439</title></circle>
+<circle cx="142.62" cy="310.19" r="4.05" fill="none" stroke="#4169e199"><title>x=0.011, y=-0.385</title></circle>
+<circle cx="141.73" cy="297.03" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.67, y=0.029</title></circle>
+<circle cx="144.38" cy="281.98" r="4.05" fill="none" stroke="#4169e199"><title>x=1.367, y=0.502</title></circle>
+<circle cx="143.85" cy="281.05" r="4.05" fill="none" stroke="#4169e199"><title>x=0.955, y=0.531</title></circle>
+<circle cx="143.06" cy="290.39" r="4.05" fill="none" stroke="#4169e199"><title>x=0.352, y=0.238</title></circle>
+<circle cx="144.61" cy="275.59" r="4.05" fill="none" stroke="#4169e199"><title>x=1.543, y=0.703</title></circle>
+<circle cx="141.26" cy="313.02" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.029, y=-0.474</title></circle>
+<circle cx="142.74" cy="281.78" r="4.05" fill="none" stroke="#4169e199"><title>x=0.104, y=0.508</title></circle>
+<circle cx="143.74" cy="304.57" r="4.05" fill="none" stroke="#4169e199"><title>x=0.877, y=-0.209</title></circle>
+<circle cx="140.82" cy="359.01" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.366, y=-1.921</title></circle>
+<circle cx="140.54" cy="334.48" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.583, y=-1.15</title></circle>
+<circle cx="144.88" cy="269.28" r="4.05" fill="none" stroke="#4169e199"><title>x=1.748, y=0.901</title></circle>
+<circle cx="143.07" cy="280.03" r="4.05" fill="none" stroke="#4169e199"><title>x=0.359, y=0.563</title></circle>
+<circle cx="143.00" cy="298.01" r="4.05" fill="none" stroke="#4169e199"><title>x=0.309, y=-0.002</title></circle>
+<circle cx="144.32" cy="236.62" r="4.05" fill="none" stroke="#4169e199"><title>x=1.322, y=1.929</title></circle>
+<circle cx="141.86" cy="323.05" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.57, y=-0.79</title></circle>
+<circle cx="141.49" cy="293.89" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.857, y=0.127</title></circle>
+<circle cx="142.83" cy="309.70" r="4.05" fill="none" stroke="#4169e199"><title>x=0.177, y=-0.37</title></circle>
+<circle cx="141.09" cy="347.62" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.161, y=-1.563</title></circle>
+<circle cx="143.09" cy="257.22" r="4.05" fill="none" stroke="#4169e199"><title>x=0.371, y=1.281</title></circle>
+<circle cx="141.55" cy="342.11" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.811, y=-1.39</title></circle>
+<circle cx="142.82" cy="263.31" r="4.05" fill="none" stroke="#4169e199"><title>x=0.168, y=1.089</title></circle>
+<circle cx="141.82" cy="271.77" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.599, y=0.823</title></circle>
+<circle cx="142.01" cy="331.87" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.452, y=-1.067</title></circle>
+<circle cx="140.99" cy="340.65" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.241, y=-1.344</title></circle>
+<circle cx="141.68" cy="320.82" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.711, y=-0.72</title></circle>
+<circle cx="142.30" cy="314.80" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.233, y=-0.53</title></circle>
+<circle cx="142.15" cy="273.75" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.344, y=0.761</title></circle>
+<circle cx="144.10" cy="289.37" r="4.05" fill="none" stroke="#4169e199"><title>x=1.152, y=0.27</title></circle>
+<circle cx="143.89" cy="269.47" r="4.05" fill="none" stroke="#4169e199"><title>x=0.989, y=0.896</title></circle>
+<circle cx="143.00" cy="276.64" r="4.05" fill="none" stroke="#4169e199"><title>x=0.308, y=0.67</title></circle>
+<circle cx="140.19" cy="352.70" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.851, y=-1.723</title></circle>
+<circle cx="143.73" cy="268.50" r="4.05" fill="none" stroke="#4169e199"><title>x=0.866, y=0.926</title></circle>
+<circle cx="141.84" cy="287.78" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.586, y=0.32</title></circle>
+<circle cx="142.34" cy="322.09" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.204, y=-0.76</title></circle>
+<circle cx="144.71" cy="238.71" r="4.05" fill="none" stroke="#4169e199"><title>x=1.617, y=1.863</title></circle>
+<circle cx="141.43" cy="332.75" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.897, y=-1.095</title></circle>
+<circle cx="144.39" cy="294.17" r="4.05" fill="none" stroke="#4169e199"><title>x=1.375, y=0.119</title></circle>
+<circle cx="142.64" cy="268.97" r="4.05" fill="none" stroke="#4169e199"><title>x=0.027, y=0.911</title></circle>
+<circle cx="142.25" cy="328.38" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.268, y=-0.958</title></circle>
+<circle cx="141.85" cy="316.40" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.58, y=-0.581</title></circle>
+<circle cx="144.25" cy="290.89" r="4.05" fill="none" stroke="#4169e199"><title>x=1.263, y=0.222</title></circle>
+<circle cx="142.63" cy="294.46" r="4.05" fill="none" stroke="#4169e199"><title>x=0.021, y=0.109</title></circle>
+<circle cx="142.90" cy="319.04" r="4.05" fill="none" stroke="#4169e199"><title>x=0.228, y=-0.664</title></circle>
+<circle cx="142.60" cy="306.20" r="4.05" fill="none" stroke="#4169e199"><title>x=0.002, y=-0.26</title></circle>
+<circle cx="142.21" cy="290.39" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.301, y=0.237</title></circle>
+<circle cx="143.44" cy="270.50" r="4.05" fill="none" stroke="#4169e199"><title>x=0.646, y=0.863</title></circle>
+<circle cx="142.96" cy="330.93" r="4.05" fill="none" stroke="#4169e199"><title>x=0.272, y=-1.038</title></circle>
+<circle cx="142.04" cy="319.73" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.432, y=-0.686</title></circle>
+<circle cx="142.44" cy="259.14" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.123, y=1.22</title></circle>
+<circle cx="143.70" cy="260.98" r="4.05" fill="none" stroke="#4169e199"><title>x=0.844, y=1.163</title></circle>
+<circle cx="140.99" cy="334.71" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.237, y=-1.157</title></circle>
+<circle cx="145.21" cy="261.97" r="4.05" fill="none" stroke="#4169e199"><title>x=2, y=1.132</title></circle>
+<circle cx="141.51" cy="288.11" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.836, y=0.309</title></circle>
+<circle cx="142.17" cy="321.38" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.332, y=-0.738</title></circle>
+<circle cx="142.82" cy="291.64" r="4.05" fill="none" stroke="#4169e199"><title>x=0.17, y=0.198</title></circle>
+<circle cx="142.18" cy="279.28" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.327, y=0.587</title></circle>
+<circle cx="140.34" cy="333.89" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.737, y=-1.131</title></circle>
+<circle cx="142.53" cy="270.07" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.054, y=0.877</title></circle>
+<circle cx="143.01" cy="274.09" r="4.05" fill="none" stroke="#4169e199"><title>x=0.317, y=0.75</title></circle>
+<circle cx="140.77" cy="358.48" r="4.05" fill="none" stroke="#4169e199"><title>x=-1.406, y=-1.905</title></circle>
+<circle cx="142.65" cy="295.02" r="4.05" fill="none" stroke="#4169e199"><title>x=0.04, y=0.092</title></circle>
+<circle cx="144.50" cy="270.02" r="4.05" fill="none" stroke="#4169e199"><title>x=1.456, y=0.878</title></circle>
+<circle cx="143.09" cy="266.62" r="4.05" fill="none" stroke="#4169e199"><title>x=0.373, y=0.985</title></circle>
+<circle cx="141.41" cy="315.45" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.912, y=-0.551</title></circle>
+<circle cx="142.47" cy="296.61" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.104, y=0.042</title></circle>
+<circle cx="143.06" cy="280.48" r="4.05" fill="none" stroke="#4169e199"><title>x=0.349, y=0.549</title></circle>
+<circle cx="144.03" cy="290.31" r="4.05" fill="none" stroke="#4169e199"><title>x=1.098, y=0.24</title></circle>
+<circle cx="143.37" cy="298.30" r="4.05" fill="none" stroke="#4169e199"><title>x=0.588, y=-0.011</title></circle>
+<circle cx="142.39" cy="325.07" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.164, y=-0.854</title></circle>
+<circle cx="142.91" cy="319.53" r="4.05" fill="none" stroke="#4169e199"><title>x=0.235, y=-0.679</title></circle>
+<circle cx="141.67" cy="293.53" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.713, y=0.139</title></circle>
+<circle cx="142.93" cy="310.78" r="4.05" fill="none" stroke="#4169e199"><title>x=0.252, y=-0.404</title></circle>
+<circle cx="142.56" cy="306.88" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.029, y=-0.281</title></circle>
+<circle cx="141.32" cy="323.93" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.988, y=-0.818</title></circle>
+<circle cx="142.89" cy="329.42" r="4.05" fill="none" stroke="#4169e199"><title>x=0.223, y=-0.99</title></circle>
+<circle cx="141.83" cy="271.26" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.591, y=0.839</title></circle>
+<circle cx="142.13" cy="300.73" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.36, y=-0.088</title></circle>
+<circle cx="142.59" cy="302.90" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.006, y=-0.156</title></circle>
+<circle cx="142.53" cy="302.97" r="4.05" fill="none" stroke="#4169e199"><title>x=-0.054, y=-0.158</title></circle>
+<circle cx="143.44" cy="301.48" r="4.05" fill="none" stroke="#4169e199"><title>x=0.644, y=-0.111</title></circle>
+<circle cx="138.70" cy="425.67" r="4.05" fill="none" stroke="#94a3b8"><title>x=-3, y=-4.018</title></circle>
+<circle cx="139.02" cy="500.98" r="4.05" fill="none" stroke="#94a3b8"><title>x=-2.75, y=-6.388</title></circle>
+<circle cx="139.35" cy="465.19" r="4.05" fill="none" stroke="#94a3b8"><title>x=-2.5, y=-5.262</title></circle>
+<circle cx="139.67" cy="288.61" r="4.05" fill="none" stroke="#94a3b8"><title>x=-2.25, y=0.293</title></circle>
+<circle cx="140.00" cy="247.50" r="4.05" fill="none" stroke="#94a3b8"><title>x=-2, y=1.587</title></circle>
+<circle cx="140.32" cy="259.99" r="4.05" fill="none" stroke="#94a3b8"><title>x=-1.75, y=1.194</title></circle>
+<circle cx="140.65" cy="239.79" r="4.05" fill="none" stroke="#94a3b8"><title>x=-1.5, y=1.829</title></circle>
+<circle cx="140.97" cy="211.50" r="4.05" fill="none" stroke="#94a3b8"><title>x=-1.25, y=2.719</title></circle>
+<circle cx="141.30" cy="302.54" r="4.05" fill="none" stroke="#94a3b8"><title>x=-1, y=-0.145</title></circle>
+<circle cx="141.63" cy="273.19" r="4.05" fill="none" stroke="#94a3b8"><title>x=-0.75, y=0.779</title></circle>
+<circle cx="141.95" cy="324.54" r="4.05" fill="none" stroke="#94a3b8"><title>x=-0.5, y=-0.837</title></circle>
+<circle cx="142.28" cy="231.17" r="4.05" fill="none" stroke="#94a3b8"><title>x=-0.25, y=2.101</title></circle>
+<circle cx="142.60" cy="285.92" r="4.05" fill="none" stroke="#94a3b8"><title>x=0, y=0.378</title></circle>
+<circle cx="142.93" cy="261.43" r="4.05" fill="none" stroke="#94a3b8"><title>x=0.25, y=1.148</title></circle>
+<circle cx="143.25" cy="265.54" r="4.05" fill="none" stroke="#94a3b8"><title>x=0.5, y=1.019</title></circle>
+<circle cx="143.58" cy="424.39" r="4.05" fill="none" stroke="#94a3b8"><title>x=0.75, y=-3.978</title></circle>
+<circle cx="143.90" cy="416.53" r="4.05" fill="none" stroke="#94a3b8"><title>x=1, y=-3.731</title></circle>
+<circle cx="144.23" cy="304.00" r="4.05" fill="none" stroke="#94a3b8"><title>x=1.25, y=-0.191</title></circle>
+<circle cx="144.56" cy="335.37" r="4.05" fill="none" stroke="#94a3b8"><title>x=1.5, y=-1.178</title></circle>
+<circle cx="144.88" cy="378.98" r="4.05" fill="none" stroke="#94a3b8"><title>x=1.75, y=-2.55</title></circle>
+<circle cx="145.21" cy="312.32" r="4.05" fill="none" stroke="#94a3b8"><title>x=2, y=-0.452</title></circle>
+<circle cx="145.53" cy="149.91" r="4.05" fill="none" stroke="#94a3b8"><title>x=2.25, y=4.657</title></circle>
+<circle cx="145.86" cy="279.16" r="4.05" fill="none" stroke="#94a3b8"><title>x=2.5, y=0.591</title></circle>
+<circle cx="146.18" cy="125.71" r="4.05" fill="none" stroke="#94a3b8"><title>x=2.75, y=5.418</title></circle>
+<circle cx="146.51" cy="80.95" r="4.05" fill="none" stroke="#94a3b8"><title>x=3, y=6.826</title></circle>
+<polyline points="138.70,506.99 139.02,430.91 139.35,370.24 139.67,323.56 140.00,289.46 140.32,266.53 140.65,253.34 140.97,248.49 141.30,250.56 141.63,258.13 141.95,269.79 142.28,284.12 142.60,299.71 142.93,315.15 143.25,329.01 143.58,339.88 143.90,346.36 144.23,347.01 144.56,340.44 144.88,325.21 145.21,299.93 145.53,263.16 145.86,213.51 146.18,149.54 146.51,69.86" fill="none" stroke="#4169e1" stroke-width="2"/>
+<polyline points="741.53,295.20 742.83,305.65 744.13,300.39 745.43,295.52 746.74,296.89 748.04,294.39 749.34,298.87 750.64,301.86 751.94,301.49 753.25,298.79 754.55,300.90 755.85,304.85 757.15,300.97 758.45,296.40 759.76,298.27 761.06,301.83 762.36,295.19 763.66,296.92 764.96,293.56 766.27,300.09 767.57,299.09 768.87,295.20 770.17,295.75 771.47,294.58 772.78,298.69 774.08,297.90 775.38,302.05 776.68,297.96 777.98,295.22 779.29,295.75 780.59,302.65 781.89,301.78 783.19,300.21 784.49,299.10 785.80,295.60 787.10,296.43 788.40,297.22 789.70,300.25 791.00,297.68 792.31,299.91" fill="none" stroke="#0f172a" stroke-width="1.5"/>
+<polyline points="793.61,299.03 794.91,298.27 796.21,298.02 797.51,298.02 798.82,298.06 800.12,298.08 801.42,298.08 802.72,298.08 804.02,298.08 805.33,298.08 806.63,298.08 807.93,298.08 809.23,298.08 810.53,298.08 811.84,298.08 813.14,298.08 814.44,298.08 815.74,298.08 817.04,298.08 818.35,298.08 819.65,298.08 820.95,298.08 822.25,298.08 823.55,298.08 824.86,298.08 826.16,298.08 827.46,298.08 828.76,298.08 830.06,298.08 831.37,298.08" fill="none" stroke="#e11d48" stroke-width="2"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">AR(2), 30 steps ahead</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">a</text>
+<text x="65.90" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 65.90 288.42)">b</text>
+<rect x="731.05" y="56.00" width="126.95" height="114.92" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<circle cx="752.57" cy="77.01" r="4.429687499999999" fill="none" stroke="#94a3b8"/>
+<text x="772.82" y="80.51" font-size="16.2" text-anchor="start" fill="#222">measured</text>
+<line x1="739.91" y1="101.31" x2="765.22" y2="101.31" stroke="#4169e1" stroke-width="2.2"/>
+<text x="772.82" y="104.81" font-size="16.2" text-anchor="start" fill="#222">cubic fit</text>
+<line x1="739.91" y1="125.61" x2="765.22" y2="125.61" stroke="#0f172a" stroke-width="2.2"/>
+<text x="772.82" y="129.11" font-size="16.2" text-anchor="start" fill="#222">measured</text>
+<line x1="739.91" y1="149.91" x2="765.22" y2="149.91" stroke="#e11d48" stroke-width="2.2"/>
+<text x="772.82" y="153.41" font-size="16.2" text-anchor="start" fill="#222">forecast</text>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>ar_model(x, order)</code> — classical AR(p) autoregressive time-series model, fit via the Yule-Walker equations rather than a fresh lagged-design-matrix least-squares fit: solves the <code>(order, order)</code> symmetric Toeplitz system built directly from <code>x</code>'s own autocorrelation (reusing the existing <code>acf</code> free function — <code>acf</code>'s already-normalized <code>rho[k]</code> values are exactly what the Yule-Walker normal equations are stated in terms of, so there was real solver code here to reuse rather than reinvent, per this task's own framing). Returns a <code>kind="ar"</code> model — see <code>ar_fit_model</code>'s own doc comment for the fitted fields and the equations themselves, and the <code>"predict"</code> builtin arm below for <code>.predict(n_ahead)</code> (a forecast horizon, NOT a regression <code>Xnew</code> — an AR model forecasts its own future from its own fitted history, it has no "new X" to evaluate against, so this is special-cased there exactly like <code>q_learning</code>/ <code>kalman</code>'s own non-regression <code>predict</code> meanings are).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

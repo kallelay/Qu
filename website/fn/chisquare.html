@@ -47,10 +47,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">chisquare</span>(<span class="n">4</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">chisquare</span>(<span class="n">4</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"sample mean: {mean(x)}"</span>)   <span class="c"># converges to k=4, the distribution's own mean</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>sample mean: 4.108075</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>chisquare(k, ...)</code> — sum of <code>k</code> squared standard-normal draws, the direct construction of chi-square with <code>k</code> degrees of freedom; see <code>Rng::chi_square</code>'s doc comment.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

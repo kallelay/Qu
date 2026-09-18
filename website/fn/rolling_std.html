@@ -43,7 +43,17 @@
 </td><td><span class="ionone">not documented yet</span></td><td>Same shape/type rules as <code>rolling_mean</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/noise.html">Noise</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="f">rolling_mean</span>(x, <span class="n">3</span>))   <span class="c"># [1.5, 2, 3, 4, 4.5] -- ends over 2 samples, not 3</span>
+<span class="f">print</span>(<span class="f">rolling_min</span>(x, <span class="n">3</span>))    <span class="c"># [1, 1, 2, 3, 4]</span>
+<span class="f">print</span>(<span class="f">rolling_std</span>(x, <span class="n">3</span>))    <span class="c"># [0.707107, 1, 1, 1, 0.707107]</span>
+<span class="f">print</span>(<span class="f">std</span>([<span class="n">1</span>, <span class="n">2</span>]))          <span class="c"># 0.707107 -- the same number the edge reports</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[1.5, 2, 3, 4, 4.5]
+[1, 1, 2, 3, 4]
+[0.707107, 1, 1, 1, 0.707107]
+0.707107</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 <h2>How it works</h2>
 <p><code>rolling_mean</code>/<code>rolling_rms</code>/<code>rolling_std</code>/<code>rolling_min</code>/ <code>rolling_max(x, [window=5])</code> — a statistic over a sliding window: drift removal before an FFT, a moving-RMS trigger level, a moving min/max envelope. Centred on each sample over an ODD window, same as every other windowed function in this engine (<code>medfilt</code>, <code>savgol</code>, <code>smooth</code>, <code>hampel</code>) and refusing an even one for the same reason -- an even window has no middle sample and which way it rounds changes the answer. The edges are where these deliberately DIVERGE from the smoothers above, and it is worth stating why rather than leaving it to be discovered. <code>medfilt</code>/<code>moving_average</code> pad (reflect/clamp) because a filter must emit a sample for every input sample and has to invent the neighbours it does not have. These are statistics, not filters: padding would answer "what was the spread of the data here" with fabricated data, and for <code>rolling_std</code> it does not just add edge error, it biases the answer toward zero (a clamped repeat has no variance), reporting the signal as quietest exactly where least is known about it. So the window SHRINKS at the edges instead -- MATLAB's <code>movmean</code>/<code>movstd</code> default and pandas' <code>min_periods=1</code> -- and every returned value is the statistic of real samples only. See <code>numeric::noise</code>'s own section comment for the full argument. A <code>Signal</code> comes back a <code>Signal</code> at the same <code>Fs</code>: the output is the same length and each sample still lines up with the input instant it was centred on, so the rate is still true.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

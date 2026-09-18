@@ -58,13 +58,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xk = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+<div class="example hasout"><pre class="hl"><code>Xk = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
 yk = [<span class="n">10.0</span>, <span class="n">12.0</span>, <span class="n">30.0</span>, <span class="n">32.0</span>]
 knr = <span class="f">knn_model</span>(Xk, yk, <span class="n">2</span>, <span class="a">kind</span> = <span class="s">"regression"</span>)
 q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"knn_model regression predict(1.5): {knr.predict(q)}"</span>)   <span class="c"># mean of the 2 nearest y's</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>knn_model regression predict(1.5): [21]</pre></div></div>
 
 </div>
 <div class="panel">
@@ -80,13 +80,13 @@ q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matri
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">Written for this form and run by the build -- the output below is what the engine actually produced.</p>
-<div class="example"><pre class="hl"><code>Xkc = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
+<div class="example hasout"><pre class="hl"><code>Xkc = [<span class="n">0.0</span>; <span class="n">1.0</span>; <span class="n">2.0</span>; <span class="n">3.0</span>]
 ykc = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
 knc = <span class="f">knn_model</span>(Xkc, ykc, <span class="n">3</span>, <span class="a">kind</span> = <span class="s">"classification"</span>)
 q = [<span class="n">1.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"knn_model classification predict(1.5): {knc.predict(q)}"</span>)   <span class="c"># majority vote among 3 nearest labels</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>knn_model classification predict(1.5): [0]</pre></div></div>
 
 </div>
 </div>

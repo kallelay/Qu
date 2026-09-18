@@ -44,7 +44,13 @@
 </td><td>Returns the SAME length as <code>x</code>, shifted later by <code>n</code> with the vacated head zero-filled and whatever runs off the end dropped. A negative <code>n</code> advances instead (drops from the head, zero-pads the tail); <code>abs(n) &gt;= length(x)</code> is all zeros rather than an error. A <code>Signal</code> keeps its <code>Fs</code> — moving samples along the time axis does not change how fast they were taken.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<span class="f">print</span>(<span class="s">"{delay(v, 2)}"</span>)     <span class="c"># [0, 0, 1, 2, 3]</span>
+<span class="f">print</span>(<span class="s">"{delay(v, -2)}"</span>)    <span class="c"># [3, 4, 5, 0, 0]</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[0, 0, 1, 2, 3]
+[3, 4, 5, 0, 0]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>delay(x, n)</code> — shift <code>x</code> later along its own time axis by <code>n</code> samples, zero-filling the vacated head and dropping whatever falls off the end, so the result is the SAME length as the input. That is what a fixed-size buffer actually does, and keeping the length is what lets <code>x + delay(x, 4)</code> (a comb/echo, the obvious first use) line up at all — a version that returned a longer vector could not be added to its own input without the caller trimming it first. A negative <code>n</code> advances instead (drops from the head, zero-pads the tail), and <code>|n| &gt;= length(x)</code> is all zeros rather than an error: shifting a buffer clear out of its own window has a perfectly well-defined answer. A <code>Signal</code> keeps its <code>fs</code> — moving samples along the time axis does not change how fast they were taken.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -46,7 +46,22 @@
 </td><td>Returns a <strong>plain vector, shorter than the input, even from a </strong><code>Signal</code><strong> — the surviving samples are no longer evenly spaced, so the old </strong><code>Fs</code> would be a lie (the same call <code>interpolate_at</code> makes, for the same reason). Use <code>replace_outliers</code> when the rate must survive.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/noise.html">Noise</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>y = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">100</span>]
+<span class="f">print</span>(<span class="f">find_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))      <span class="c"># [10]</span>
+<span class="f">print</span>(<span class="f">remove_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>))    <span class="c"># the 100 is gone</span>
+<span class="f">print</span>(<span class="f">replace_outliers</span>(y, <span class="a">method</span> = <span class="s">"modified_zscore"</span>)[<span class="n">10</span>])  <span class="c"># 2 -- patched in place</span>
+
+drift = <span class="n">0</span> <span class="k">to</span> <span class="n">40</span>
+drift[<span class="n">20</span>] = drift[<span class="n">20</span>] + <span class="n">30</span>
+<span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"hampel"</span>, <span class="a">window</span> = <span class="n">7</span>))  <span class="c"># [20]</span>
+<span class="f">print</span>(<span class="f">find_outliers</span>(drift, <span class="a">method</span> = <span class="s">"zscore"</span>))              <span class="c"># [] -- global test cannot see it</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[10]
+[1, 2, 3, 2, 1, 2, 3, 2, 1, 2]
+2
+[20]
+[]</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
 </main>
 </div>
 <footer><div class="wrap">

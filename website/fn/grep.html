@@ -46,11 +46,12 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">tail</span>(<span class="s">"abcdefgh"</span>, <span class="n">3</span>))    <span class="c"># "fgh"</span>
 log = <span class="s">"INFO start\nERROR disk full\nINFO retry\nERROR timeout"</span>
 <span class="f">print</span>(<span class="f">grep</span>(log, <span class="s">"ERROR"</span>))     <span class="c"># ("ERROR disk full", "ERROR timeout")</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>fgh
+("ERROR disk full", "ERROR timeout")</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <h2>How it works</h2>
 <p><code>grep(s, pattern)</code> — the LINES that match, which is what the tool of that name does and therefore what the word means. <code>regex_find_all</code> is the one that returns the matches themselves.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -44,7 +44,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"flags.bin"</span>, <span class="s">"wb"</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
 <span class="f">write_bit</span>(f, <span class="n">0</span>)
 <span class="f">write_bit</span>(f, <span class="n">1</span>)
@@ -60,7 +60,8 @@ b3 = <span class="f">read_bit</span>(g)
 <span class="f">print</span>(<span class="s">"{b0}{b1}{b2}{b3}"</span>)      <span class="c"># 1011</span>
 <span class="f">print</span>(<span class="f">file_size</span>(<span class="s">"flags.bin"</span>))  <span class="c"># 1 -- one byte on disk for 4 bits</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>1011
+1</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>write_bit(f, b)</code> — one bit (0 or 1), MSB-first, accumulated into a pending byte and flushed to the file every 8 bits (<code>close(f)</code> flushes any final partial byte, zero-padded).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

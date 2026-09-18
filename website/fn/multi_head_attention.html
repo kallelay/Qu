@@ -46,7 +46,7 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1.0</span>, <span class="n">2.0</span>, <span class="n">3.0</span>; <span class="n">10.0</span>, <span class="n">20.0</span>, <span class="n">30.0</span>]
 normed = <span class="f">layer_norm</span>(x, [<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>])
 <span class="f">print</span>(<span class="s">"layer_norm (scale-invariant per row): {normed}"</span>)
 
@@ -69,7 +69,10 @@ weights = {heads = (head,), ln1_gamma = [<span class="n">1.0</span>, <span class
 block_out = <span class="f">transformer_block</span>(q, weights)
 <span class="f">print</span>(<span class="s">"transformer_block: {round(block_out, 3)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="out"><span class="lbl">output</span><pre>layer_norm (scale-invariant per row): [-1.224736, 0, 1.224736; -1.224745, 0, 1.224745]
+attention output: [2.872, 3.872; 3.25, 4.25; 2.872, 3.872]
+multi_head_attention with 1 identity head matches plain self-attention: true
+transformer_block: [1, -1; -1, 1; 1, -1]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 <h2>How it works</h2>
 <p><code>multi_head_attention(x, weights, n_heads, [mask])</code> — splits into <code>n_heads</code> independent heads, each with its own <code>wq</code>/ <code>wk</code>/<code>wv</code>/<code>wo</code> projections, and combines them. <code>weights</code> is a <code>Value::List</code> of exactly <code>n_heads</code> <code>Value::Record</code>s, each <code>{wq, wk, wv, wo}</code>: <code>wq</code>/<code>wk</code>/<code>wv</code> are <code>(d_model, d_head)</code> (<code>x @ wq</code> projects <code>x</code>'s <code>(seq_len, d_model)</code> down to this head's own <code>(seq_len, d_head)</code> q/k/v), and <code>wo</code> is <code>(d_head, d_model)</code> — this head's own ROW-BLOCK slice of the usual combined output projection. Concatenating the heads' <code>(seq_len, d_head)</code> outputs and multiplying by one big <code>(n_heads*d_head, d_model)</code> <code>Wo</code> is the textbook formulation, but it needs a <code>concat</code> tracked primitive nothing else here needs (<code>TapeEntry</code> only carries two input slots, so a variadic concat was never on the table anyway). Splitting <code>Wo</code> into per-head row blocks (<code>wo</code> above) and SUMMING <code>attn_head @ wo_head</code> instead is the identical computation by the standard block-matmul identity (<code>[A1 A2] @ [B1; B2] == A1@B1 + A2@B2</code>) — so this needs only <code>tb</code>'s existing <code>"*"</code>/<code>"+"</code>, no new primitive and no new <code>tensor_vjp</code> rule. CPU parallelism: heads run in a sequential Rust <code>for</code> loop, not a <code>rayon</code> fan-out, because every iteration mutates <code>self.tape</code> (<code>&amp;mut self</code>) — racing multiple heads across threads against one shared, non-atomic <code>Vec&lt;TapeEntry&gt;</code> would corrupt node numbering, the same constraint <code>gru_forward</code>'s own doc comment documents for timesteps. The actual parallel win is one level down: each head's own <code>Q@K^T</code>/<code>probs@V</code> matmuls already run on <code>qu-core</code>'s rayon thread pool once they cross <code>Matrix::PARALLEL_MATMUL_THRESHOLD</code>, same as every other tracked matmul in this interpreter.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

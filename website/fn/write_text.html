@@ -56,7 +56,7 @@ bytes = <span class="f">write_text</span>(out_path, <span class="s">"hello from 
 <span class="f">print</span>(<span class="f">read_all_text</span>(path))   <span class="c"># "first line\nsecond line\n"</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code><span class="f">mkdir</span>(<span class="s">"list_demo"</span>)
+<div class="example hasout"><pre class="hl"><code><span class="f">mkdir</span>(<span class="s">"list_demo"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/report.qu"</span>, <span class="s">"print(1)"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/plot.qu"</span>, <span class="s">"print(2)"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/notes.txt"</span>, <span class="s">"the needle is here"</span>)
@@ -73,7 +73,9 @@ carrying = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span
 blank = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span>, <span class="a">size</span> = <span class="s">"0"</span>)
 <span class="f">print</span>(<span class="s">"{length(blank)} empty file"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
+<div class="out"><span class="lbl">output</span><pre>2 Qu files
+carries the needle: list_demo\notes.txt
+1 empty file</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p><code>write_text(path, s)</code> / <code>append_text(path, s)</code> — the writing counterparts of <code>read_all_text</code>, which existed alone. Saving a string should not need three calls and a handle. <code>append_all(path, s)</code> is <code>append_text</code> under the name that pairs with <code>read_all_text</code>: whole file in, whole string out, no handle. Two spellings rather than a rename, since <code>append_text</code> is already in scripts.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
