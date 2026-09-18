@@ -15,7 +15,17 @@ candle-nn = "0.11"
 # `quantized_llama::ModelWeights` -- the actual GGUF-quantized Llama-family
 # forward pass this crate drives.
 candle-transformers = "0.11"
-tokenizers = "0.20"
+# `default-features = false` drops `esaxx_fast` (on by default upstream),
+# which pulls in `esaxx-rs`'s C++ build (`esaxx-rs/cpp`) purely for
+# UnigramTrainer's suffix-array construction -- this crate only loads and
+# runs a pretrained tokenizer (`tokenizers::Tokenizer`, see below), never
+# trains one, so esaxx_fast is dead weight here. Musl cross-compilation
+# has no `x86_64-linux-musl-g++` on the release runner (musl-tools only
+# installs the C compiler, musl-gcc); esaxx-rs without `cpp` needs none.
+# Keeping `onig`/`progressbar`, the other two upstream defaults, since
+# `onig` affects actual pretokenizer *behavior* (not just training speed)
+# and `progressbar` is a real (if cosmetic) download-progress feature.
+tokenizers = { version = "0.20", default-features = false, features = ["onig", "progressbar"] }
 # Sync-only (`ureq`-backed) HF Hub client, for the one file this crate DOES
 # hand to it -- the big LFS-tracked `.gguf` blob, which downloads fine
 # through hf-hub's normal metadata/redirect path (LFS files redirect to a
