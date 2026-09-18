@@ -10,6 +10,18 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-18
+
+Dependabot security fixes (26 of 32 alerts, all criticals), the
+linux-x86_64-static (musl) release build fixed for real (vendored
+OpenSSL, then a second musl-only C++ toolchain gap in `tokenizers`),
+Node.js 20->22 in CI (20 is past end-of-life), a Windows-runner npm
+install fix, and the macos-x86_64 leg dropped from the release matrix
+(the hosted runner never got scheduled, not a build problem). Also
+covers everything that had accumulated under `[Unreleased]` through
+v0.2.2/v0.2.3, retitled here since those tags shipped without a
+changelog update.
+
 ### Breaking
 
 - **Assignment inside a function now binds locally.** It used to bind to
