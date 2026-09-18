@@ -456,6 +456,22 @@ pub struct Conversion {
     pub snr_ideal_db: f64,
 }
 
+/// One converter code, in the signal's own units: `(vmax - vmin) / 2^bits`.
+///
+/// Pulled out as its own function so the converter *simulator* ([`adc`])
+/// and the converter *detector* ([`crate::diagnostics::saturation`]) cannot
+/// drift into two slightly different converters. The divisor is `2^bits`,
+/// the number of codes — not `2^bits - 1`, which is the off-by-one that
+/// puts every reading half an LSB out.
+///
+/// The code geometry that follows from it: codes run `0 ..= 2^bits - 1`, so
+/// the bottom code is `vmin` and the **top code is `vmax - lsb`**, not
+/// `vmax`. A saturation check that looks for samples at `vmax` finds none,
+/// ever.
+pub fn code_step(bits: u32, vmin: f64, vmax: f64) -> f64 {
+    (vmax - vmin) / 2f64.powi(bits as i32)
+}
+
 /// Quantise a signal the way an instrument does: a reference range and a
 /// word length, not a step size.
 ///
@@ -504,7 +520,7 @@ pub fn adc(
         )));
     }
     let levels = 2f64.powi(bits as i32);
-    let lsb = (vmax - vmin) / levels;
+    let lsb = code_step(bits, vmin, vmax);
     let mut rng = Rng::new(seed);
     let mut clipped = 0usize;
 
@@ -982,6 +998,35 @@ pub fn hampel(
     window: usize,
     n_sigma: f64,
 ) -> Result<(Vec<f64>, usize), NoiseError> {
+    let (flagged, local_median) = hampel_flags(x, window, n_sigma)?;
+    let mut out = x.to_vec();
+    let mut replaced = 0usize;
+    for i in 0..x.len() {
+        if flagged[i] {
+            out[i] = local_median[i];
+            replaced += 1;
+        }
+    }
+    Ok((out, replaced))
+}
+
+/// The Hampel *test*, without the replacement: which samples the criterion
+/// flags, and the local median each was compared against.
+///
+/// Split out of `hampel` so `find_outliers`/`remove_outliers`/
+/// `replace_outliers` can offer `method="hampel"` without a second copy of
+/// the test drifting away from this one -- `hampel` above is now a thin
+/// caller of it, so the two cannot disagree about what an outlier is.
+///
+/// Returns `(flagged, local_median)`, both length-N. Unlike the global
+/// criteria in `outlier_flags`, this one is *local*: it compares each
+/// sample against a window centred on it, so it flags a spike riding on a
+/// baseline that itself drifts far further than the spike does.
+pub fn hampel_flags(
+    x: &[f64],
+    window: usize,
+    n_sigma: f64,
+) -> Result<(Vec<bool>, Vec<f64>), NoiseError> {
     if x.is_empty() {
         return Err(NoiseError::Empty);
     }
@@ -994,12 +1039,12 @@ pub fn hampel(
     }
     if !(n_sigma > 0.0) {
         return Err(NoiseError::BadParameter(format!(
-            "hampel: n_sigma must be positive, found {n_sigma}"
+            "n_sigma must be positive, found {n_sigma}"
         )));
     }
     let half = (window / 2) as isize;
-    let mut out = x.to_vec();
-    let mut replaced = 0usize;
+    let mut flagged = vec![false; x.len()];
+    let mut medians = vec![0.0; x.len()];
     let mut buf = Vec::with_capacity(window);
     for i in 0..x.len() {
         buf.clear();
@@ -1013,12 +1058,10 @@ pub fn hampel(
         dev.sort_by(f64::total_cmp);
         let mad = dev[dev.len() / 2];
         let sigma = 1.4826 * mad;
-        if sigma > 0.0 && (x[i] - med).abs() > n_sigma * sigma {
-            out[i] = med;
-            replaced += 1;
-        }
+        medians[i] = med;
+        flagged[i] = sigma > 0.0 && (x[i] - med).abs() > n_sigma * sigma;
     }
-    Ok((out, replaced))
+    Ok((flagged, medians))
 }
 
 /// Remove a least-squares polynomial trend.
@@ -1090,6 +1133,427 @@ pub fn detrend(x: &[f64], order: usize) -> Result<Vec<f64>, NoiseError> {
         .zip(&t)
         .map(|(y, v)| y - (0..m).map(|p| c[p] * v.powi(p as i32)).sum::<f64>())
         .collect())
+}
+
+// ── rolling statistics ─────────────────────────────────────────────────
+//
+// A rolling statistic and a smoothing filter look alike and are not the
+// same thing, and the difference decides the edge convention.
+//
+// `medfilt`/`savgol`/`moving_average` above are FILTERS: they answer "what
+// does this signal look like with the noise taken out", and they pad at the
+// edges (reflect, or clamp) because a filter has to produce an output for
+// every input sample and padding is the least-bad way to invent the
+// neighbours it does not have.
+//
+// These are STATISTICS: they answer "what was the mean/spread/range of the
+// data actually in this window". Padding would answer that question with
+// fabricated samples, and for the spread statistics it does not merely add
+// a little edge error -- it biases them the wrong way, hard. Clamping
+// repeats the endpoint, and repeated identical values have zero variance,
+// so a clamp-padded `rolling_std` reports the signal getting *quieter* at
+// exactly the two places nothing is known about it. Reflecting is no better
+// (a mirrored sample is perfectly correlated with its original).
+//
+// So the window SHRINKS at the edges: near an endpoint the statistic is
+// taken over however much of the window actually overlaps the data, and
+// nothing is invented. This is MATLAB's `movmean`/`movstd`/`movmin`/
+// `movmax` default (`Endpoints="shrink"`) and pandas' `min_periods=1`, i.e.
+// the convention the rolling-statistic family has everywhere else, and the
+// deliberate, documented divergence from the filters just above.
+//
+// The guarantee this buys, and the one the tests check: for every index i,
+// `rolling_<stat>(x, w)[i]` is exactly `<stat>` of the sub-slice of `x` that
+// the window covers -- including the shrunken ones. There is no index at
+// which the answer is a statistic of something other than real data.
+//
+// The window must be odd, same as every other windowed function in this
+// file and for the same reason: an even window has no centre sample, and
+// which way it rounds changes the answer.
+
+/// The half-open sub-slice of `x` that a `window`-wide window centred on
+/// `i` actually covers, shrunk at the edges rather than padded.
+fn window_slice(x: &[f64], i: usize, half: usize) -> &[f64] {
+    let lo = i.saturating_sub(half);
+    let hi = (i + half + 1).min(x.len());
+    &x[lo..hi]
+}
+
+/// Shared validation for the rolling family; returns the window's half-width.
+fn check_rolling(x: &[f64], window: usize) -> Result<usize, NoiseError> {
+    if x.is_empty() {
+        return Err(NoiseError::Empty);
+    }
+    if window == 0 || window % 2 == 0 {
+        return Err(NoiseError::BadWindow {
+            window,
+            len: x.len(),
+            why: "the window must be odd, so it is centred on a sample",
+        });
+    }
+    Ok(window / 2)
+}
+
+/// Rolling mean over a centred, odd window; the window shrinks at the edges.
+pub fn rolling_mean(x: &[f64], window: usize) -> Result<Vec<f64>, NoiseError> {
+    let half = check_rolling(x, window)?;
+    Ok((0..x.len())
+        .map(|i| {
+            let w = window_slice(x, i, half);
+            w.iter().sum::<f64>() / w.len() as f64
+        })
+        .collect())
+}
+
+/// Rolling root-mean-square over a centred, odd window.
+///
+/// Note this is the RMS of the samples themselves, *not* of their deviation
+/// from the local mean -- a moving-RMS trigger level wants the signal's
+/// actual magnitude, DC included. Subtract the baseline first (`detrend`)
+/// if the AC part is what is wanted; `rolling_std` is the already-centred
+/// counterpart.
+pub fn rolling_rms(x: &[f64], window: usize) -> Result<Vec<f64>, NoiseError> {
+    let half = check_rolling(x, window)?;
+    Ok((0..x.len())
+        .map(|i| {
+            let w = window_slice(x, i, half);
+            (w.iter().map(|v| v * v).sum::<f64>() / w.len() as f64).sqrt()
+        })
+        .collect())
+}
+
+/// Rolling standard deviation over a centred, odd window.
+///
+/// The SAMPLE (N-1, unbiased) deviation, matching the engine's own `std`/
+/// `var` rather than the population form, so `rolling_std(x, w)[i]` and
+/// `std(<that window>)` agree exactly -- which is a property a script can
+/// check, and would quietly not hold if this used N.
+///
+/// A window that covers a single sample yields `0.0`, not NaN, again
+/// because that is what `std` of one sample already returns here.
+pub fn rolling_std(x: &[f64], window: usize) -> Result<Vec<f64>, NoiseError> {
+    let half = check_rolling(x, window)?;
+    Ok((0..x.len())
+        .map(|i| {
+            let w = window_slice(x, i, half);
+            if w.len() < 2 {
+                return 0.0;
+            }
+            let m = w.iter().sum::<f64>() / w.len() as f64;
+            (w.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / (w.len() as f64 - 1.0)).sqrt()
+        })
+        .collect())
+}
+
+/// Rolling minimum over a centred, odd window.
+pub fn rolling_min(x: &[f64], window: usize) -> Result<Vec<f64>, NoiseError> {
+    let half = check_rolling(x, window)?;
+    Ok((0..x.len())
+        .map(|i| window_slice(x, i, half).iter().copied().fold(f64::INFINITY, f64::min))
+        .collect())
+}
+
+/// Rolling maximum over a centred, odd window.
+pub fn rolling_max(x: &[f64], window: usize) -> Result<Vec<f64>, NoiseError> {
+    let half = check_rolling(x, window)?;
+    Ok((0..x.len())
+        .map(|i| {
+            window_slice(x, i, half)
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max)
+        })
+        .collect())
+}
+
+// ── outliers ───────────────────────────────────────────────────────────
+
+/// Median of a slice, by the usual "lower of the two middles for an even
+/// count" order-statistic convention used elsewhere in this file.
+fn median_of(sorted: &[f64]) -> f64 {
+    sorted[sorted.len() / 2]
+}
+
+fn sorted_copy(x: &[f64]) -> Vec<f64> {
+    let mut v = x.to_vec();
+    v.sort_by(f64::total_cmp);
+    v
+}
+
+/// A quantile by linear interpolation between order statistics (the
+/// "type 7"/`numpy.percentile` default), so Q1/Q3 of a short vector are not
+/// pinned to whichever sample happens to sit nearest the index.
+fn quantile_of(sorted: &[f64], q: f64) -> f64 {
+    if sorted.is_empty() {
+        return f64::NAN;
+    }
+    if sorted.len() == 1 {
+        return sorted[0];
+    }
+    let pos = q.clamp(0.0, 1.0) * (sorted.len() - 1) as f64;
+    let lo = pos.floor() as usize;
+    let hi = pos.ceil() as usize;
+    if lo == hi {
+        return sorted[lo];
+    }
+    sorted[lo] + (pos - lo as f64) * (sorted[hi] - sorted[lo])
+}
+
+/// The threshold that `method` means when the caller did not name one.
+///
+/// Deliberately per-method rather than one shared number: 3 sigma, 3.5
+/// modified-z and 1.5 IQR are the conventional cutoffs for three *different*
+/// scales, and forcing them to share a default would silently make two of
+/// the three mean something nobody intends.
+pub fn default_outlier_threshold(method: &str) -> f64 {
+    match method {
+        "modified_zscore" | "modified_z" | "mzscore" => 3.5,
+        "iqr" | "tukey" => 1.5,
+        // zscore, hampel
+        _ => 3.0,
+    }
+}
+
+/// Which samples of `x` a global outlier criterion flags.
+///
+/// `method` is one of:
+///
+/// - `"zscore"` — `|x - mean| / std > threshold`. The textbook test, and
+///   the one to distrust on dirty data: the outlier is itself in the mean
+///   and the deviation it is being measured against, so a big enough spike
+///   inflates `std` until it stops looking like a spike (the masking
+///   effect). Fine for a handful of mild outliers, wrong for a stuck
+///   channel reading 1e6.
+///
+///   It also has a HARD CEILING that catches people out and is worth
+///   stating: over N samples no z-score can exceed `(N-1)/sqrt(N)`, because
+///   a single sample can only be so far from a mean it is itself part of.
+///   At the default threshold of 3 that means **fewer than 11 samples can
+///   never produce an outlier at all** (`9/sqrt(10) = 2.85 < 3`), and at 11
+///   the maximum possible score is `3.015` — so a short record answers
+///   "no outliers" by arithmetic rather than by evidence. The robust
+///   criteria have no such ceiling. Measured, not derived from memory:
+///   an 11-sample vector with one value of 100 scores exactly 3.0.
+/// - `"modified_zscore"` — `0.6745 * |x - median| / MAD > threshold`
+///   (Iglewicz & Hoaglin). Same idea on robust estimators, so a spike
+///   cannot hide itself. `0.6745` is the constant that makes MAD estimate
+///   the standard deviation for Gaussian data.
+/// - `"iqr"` — outside `[Q1 - k*IQR, Q3 + k*IQR]` (Tukey's fences). Makes
+///   no distributional assumption at all; the one to reach for on skewed
+///   data, where both z-scores over-flag the long tail.
+///
+/// `"hampel"` is handled by `hampel_flags` instead, because it is a LOCAL
+/// test (a window) rather than a global one and needs a window parameter
+/// these three do not have.
+///
+/// A NaN sample is never flagged here: a missing sample is not an outlier,
+/// it is a missing sample, and conflating the two would have
+/// `remove_outliers` quietly double as a NaN filter. `find_missing`/
+/// `remove_nan` are the functions for that.
+pub fn outlier_flags(
+    x: &[f64],
+    method: &str,
+    threshold: f64,
+) -> Result<Vec<bool>, NoiseError> {
+    if x.is_empty() {
+        return Err(NoiseError::Empty);
+    }
+    if !(threshold > 0.0) {
+        return Err(NoiseError::BadParameter(format!(
+            "threshold must be positive, found {threshold}"
+        )));
+    }
+    // Only the finite samples define the criterion; a NaN would poison a
+    // mean or a sort and make every sample look like an outlier.
+    let finite: Vec<f64> = x.iter().copied().filter(|v| v.is_finite()).collect();
+    if finite.is_empty() {
+        return Ok(vec![false; x.len()]);
+    }
+    match method {
+        "zscore" | "z" | "std" => {
+            let n = finite.len() as f64;
+            let mean = finite.iter().sum::<f64>() / n;
+            let sd = if finite.len() < 2 {
+                0.0
+            } else {
+                (finite.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / (n - 1.0)).sqrt()
+            };
+            // A constant vector has sd 0 and no outliers -- without this
+            // guard every sample divides 0/0 and comes back NaN > t, i.e.
+            // false, which is the right answer by luck rather than by
+            // design. Said out loud so it stays the right answer.
+            if sd == 0.0 {
+                return Ok(vec![false; x.len()]);
+            }
+            Ok(x.iter().map(|v| v.is_finite() && (v - mean).abs() / sd > threshold).collect())
+        }
+        "modified_zscore" | "modified_z" | "mzscore" => {
+            let sorted = sorted_copy(&finite);
+            let med = median_of(&sorted);
+            let dev = sorted_copy(&finite.iter().map(|v| (v - med).abs()).collect::<Vec<_>>());
+            let mad = median_of(&dev);
+            if mad == 0.0 {
+                // More than half the samples are identical, so MAD is 0 and
+                // the criterion is undefined rather than "everything else is
+                // an outlier". Fall back to the mean absolute deviation,
+                // which is what Iglewicz & Hoaglin themselves prescribe for
+                // this case, rather than flagging the whole vector.
+                let mean_ad = finite.iter().map(|v| (v - med).abs()).sum::<f64>()
+                    / finite.len() as f64;
+                if mean_ad == 0.0 {
+                    return Ok(vec![false; x.len()]);
+                }
+                return Ok(x
+                    .iter()
+                    .map(|v| v.is_finite() && (v - med).abs() / (1.253314 * mean_ad) > threshold)
+                    .collect());
+            }
+            Ok(x.iter()
+                .map(|v| v.is_finite() && 0.6745 * (v - med).abs() / mad > threshold)
+                .collect())
+        }
+        "iqr" | "tukey" => {
+            let sorted = sorted_copy(&finite);
+            let q1 = quantile_of(&sorted, 0.25);
+            let q3 = quantile_of(&sorted, 0.75);
+            let iqr = q3 - q1;
+            if iqr == 0.0 {
+                return Ok(vec![false; x.len()]);
+            }
+            let lo = q1 - threshold * iqr;
+            let hi = q3 + threshold * iqr;
+            Ok(x.iter().map(|v| v.is_finite() && (*v < lo || *v > hi)).collect())
+        }
+        other => Err(NoiseError::BadParameter(format!(
+            "`{other}` is not an outlier method -- zscore, modified_zscore, iqr, hampel"
+        ))),
+    }
+}
+
+// ── missing samples ────────────────────────────────────────────────────
+
+/// Fill every non-finite sample of `x` by linear interpolation between the
+/// nearest finite samples on either side.
+///
+/// A gap with finite data on only one side (i.e. one that runs off the
+/// start or the end of the record) is filled by HOLDING that one neighbour,
+/// not by extrapolating the last interior slope. `interp1` extrapolates,
+/// deliberately and documented; this one does not, because the two cases
+/// are not the same question. `interp1`'s caller asked for a value at a
+/// named point outside the data and gets the model's honest opinion; here
+/// nobody asked for anything -- a trailing dropout is being patched so the
+/// downstream FFT has something to chew on, and inventing a ramp that keeps
+/// climbing off the end of a record is how a dropout turns into a trend.
+///
+/// Returns `(filled, n_filled)`. Returns every sample NaN untouched if there
+/// is no finite sample at all to interpolate from.
+pub fn interpolate_missing(x: &[f64]) -> (Vec<f64>, usize) {
+    let mut out = x.to_vec();
+    let finite: Vec<usize> = (0..x.len()).filter(|&i| x[i].is_finite()).collect();
+    if finite.is_empty() {
+        return (out, 0);
+    }
+    let mut filled = 0usize;
+    for i in 0..x.len() {
+        if x[i].is_finite() {
+            continue;
+        }
+        // Nearest finite index on each side.
+        let before = finite.partition_point(|&j| j < i);
+        let lo = if before == 0 { None } else { Some(finite[before - 1]) };
+        let hi = finite.get(before).copied();
+        out[i] = match (lo, hi) {
+            (Some(a), Some(b)) => {
+                let t = (i - a) as f64 / (b - a) as f64;
+                x[a] + t * (x[b] - x[a])
+            }
+            (Some(a), None) => x[a],
+            (None, Some(b)) => x[b],
+            (None, None) => unreachable!("finite is non-empty"),
+        };
+        filled += 1;
+    }
+    (out, filled)
+}
+
+/// Fill every non-finite sample of `x` by the named strategy.
+///
+/// `method`:
+/// - `"linear"` — `interpolate_missing` above (the default).
+/// - `"previous"`/`"ffill"` — hold the last finite sample forward. A leading
+///   gap, which has no previous sample, falls back to the first finite one.
+/// - `"next"`/`"bfill"` — take the next finite sample backward, symmetric.
+/// - `"nearest"` — whichever finite neighbour is closer (ties go to the
+///   earlier one, so the result does not depend on parity).
+/// - `"mean"`/`"median"` — the statistic of the finite samples. Flat, and
+///   honest about being flat: it will not fabricate a trend across a gap,
+///   which is what makes it the safe choice when the gap is long relative
+///   to the signal's own timescale and linear interpolation would be
+///   drawing a line through nothing.
+///
+/// Returns `(filled, n_filled)`.
+pub fn fill_missing(x: &[f64], method: &str) -> Result<(Vec<f64>, usize), NoiseError> {
+    if x.is_empty() {
+        return Err(NoiseError::Empty);
+    }
+    let finite: Vec<usize> = (0..x.len()).filter(|&i| x[i].is_finite()).collect();
+    match method {
+        "linear" | "interp" => return Ok(interpolate_missing(x)),
+        "previous" | "ffill" | "hold" | "next" | "bfill" | "nearest" | "mean" | "median" => {}
+        other => {
+            return Err(NoiseError::BadParameter(format!(
+                "`{other}` is not a fill method -- linear, previous, next, nearest, mean, median"
+            )))
+        }
+    }
+    let mut out = x.to_vec();
+    if finite.is_empty() {
+        return Ok((out, 0));
+    }
+    let constant = match method {
+        "mean" => Some(finite.iter().map(|&i| x[i]).sum::<f64>() / finite.len() as f64),
+        "median" => {
+            let sorted = sorted_copy(&finite.iter().map(|&i| x[i]).collect::<Vec<_>>());
+            Some(median_of(&sorted))
+        }
+        _ => None,
+    };
+    let mut filled = 0usize;
+    for i in 0..x.len() {
+        if x[i].is_finite() {
+            continue;
+        }
+        if let Some(c) = constant {
+            out[i] = c;
+            filled += 1;
+            continue;
+        }
+        let before = finite.partition_point(|&j| j < i);
+        let lo = if before == 0 { None } else { Some(finite[before - 1]) };
+        let hi = finite.get(before).copied();
+        out[i] = match method {
+            // A leading gap has no previous sample; falling back to the next
+            // one is the only alternative to leaving a NaN behind, and a
+            // "fill" that leaves NaNs is a trap for whatever runs next.
+            "previous" | "ffill" | "hold" => x[lo.or(hi).expect("finite is non-empty")],
+            "next" | "bfill" => x[hi.or(lo).expect("finite is non-empty")],
+            "nearest" => match (lo, hi) {
+                (Some(a), Some(b)) => {
+                    if i - a <= b - i {
+                        x[a]
+                    } else {
+                        x[b]
+                    }
+                }
+                (Some(a), None) => x[a],
+                (None, Some(b)) => x[b],
+                (None, None) => unreachable!("finite is non-empty"),
+            },
+            _ => unreachable!("checked above"),
+        };
+        filled += 1;
+    }
+    Ok((out, filled))
 }
 
 #[cfg(test)]
@@ -1410,5 +1874,286 @@ mod tests {
         };
         assert!(err(&fixed) < err(&noisy) / 3.0,
                 "median2 {} should be far better than {}", err(&fixed), err(&noisy));
+    }
+
+    // ── rolling statistics ─────────────────────────────────────────────
+
+    /// The headline guarantee, stated as a test rather than a comment: at
+    /// EVERY index -- interior and shrunken-edge alike -- the answer is the
+    /// statistic of the real sub-slice the window covers, with nothing
+    /// invented. If a future edit swaps the shrink for padding, this fails
+    /// at index 0 immediately rather than producing plausible numbers.
+    #[test]
+    fn every_rolling_value_is_the_statistic_of_the_window_it_actually_covers() {
+        let x = [3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
+        let w = 5usize;
+        let half = w / 2;
+        let rm = rolling_mean(&x, w).unwrap();
+        let rr = rolling_rms(&x, w).unwrap();
+        let rs = rolling_std(&x, w).unwrap();
+        let rmin = rolling_min(&x, w).unwrap();
+        let rmax = rolling_max(&x, w).unwrap();
+        for i in 0..x.len() {
+            let lo = i.saturating_sub(half);
+            let hi = (i + half + 1).min(x.len());
+            let win = &x[lo..hi];
+            let n = win.len() as f64;
+            let mean = win.iter().sum::<f64>() / n;
+            assert!((rm[i] - mean).abs() < 1e-12, "mean at {i}: {} vs {mean}", rm[i]);
+            let rms = (win.iter().map(|v| v * v).sum::<f64>() / n).sqrt();
+            assert!((rr[i] - rms).abs() < 1e-12, "rms at {i}: {} vs {rms}", rr[i]);
+            let sd = if win.len() < 2 {
+                0.0
+            } else {
+                (win.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+            };
+            assert!((rs[i] - sd).abs() < 1e-12, "std at {i}: {} vs {sd}", rs[i]);
+            let lo_v = win.iter().copied().fold(f64::INFINITY, f64::min);
+            let hi_v = win.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            assert_eq!(rmin[i], lo_v, "min at {i}");
+            assert_eq!(rmax[i], hi_v, "max at {i}");
+        }
+    }
+
+    /// The specific bias the shrink convention exists to avoid. On a signal
+    /// with constant spread everywhere, a clamp- or reflect-padded
+    /// rolling_std would report the edges as markedly quieter than the
+    /// middle, because a repeated (or mirrored) sample carries no variance.
+    /// Shrinking keeps the edge estimate in the same ballpark as the
+    /// interior -- noisier, since it is built on fewer samples, but not
+    /// biased toward zero.
+    #[test]
+    fn rolling_std_does_not_collapse_at_the_edges() {
+        // Alternating +-1: every window of odd width has real spread.
+        let x: Vec<f64> = (0..41).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let rs = rolling_std(&x, 5).unwrap();
+        let interior = rs[20];
+        assert!(interior > 0.5, "sanity: interior spread {interior}");
+        // With a clamp-pad, rs[0] would be built from [x0,x0,x0,x1,x2] and
+        // come out well under the interior value. Shrinking gives the std of
+        // [x0,x1,x2], which is the same order of magnitude.
+        assert!(
+            rs[0] > 0.5 * interior,
+            "edge std {} collapsed against interior {interior} -- padding crept back in",
+            rs[0]
+        );
+        assert!(rs[x.len() - 1] > 0.5 * interior, "trailing edge {}", rs[x.len() - 1]);
+    }
+
+    #[test]
+    fn a_rolling_window_must_be_odd_like_every_other_window_here() {
+        assert!(rolling_mean(&[1.0, 2.0, 3.0], 4).is_err());
+        assert!(rolling_mean(&[1.0, 2.0, 3.0], 0).is_err());
+        assert!(rolling_mean(&[], 3).is_err());
+        // A window longer than the data is fine -- it just shrinks to the
+        // whole vector at every index, which is the whole-vector statistic.
+        let all = rolling_mean(&[1.0, 2.0, 3.0], 101).unwrap();
+        assert!(all.iter().all(|v| (v - 2.0).abs() < 1e-12), "{all:?}");
+    }
+
+    // ── outliers ───────────────────────────────────────────────────────
+
+    /// The masking effect, made concrete: this is the reason the default is
+    /// not simply "zscore, always". One gross outlier inflates the very
+    /// standard deviation it is measured against, so the plain z-score
+    /// misses it while the two robust criteria do not.
+    /// The masking effect, made concrete: this is the reason the default is
+    /// not simply "zscore, always".
+    ///
+    /// THREE outliers, not one, because one is not enough to demonstrate it
+    /// -- a lone gross outlier drives the z-score to its ceiling of
+    /// `(N-1)/sqrt(N)`, which for N=21 is 4.36 and clears the threshold
+    /// easily. It takes a few of them to inflate `std` enough that each
+    /// hides behind the others: here each scores 2.39, so the plain
+    /// criterion reports a clean vector. Both robust criteria see all three.
+    #[test]
+    fn several_gross_outliers_mask_each_other_from_the_plain_zscore() {
+        let mut x: Vec<f64> = (0..18).map(|i| (i % 3) as f64).collect();
+        x.extend([10_000.0, 10_000.0, 10_000.0]);
+        let z = outlier_flags(&x, "zscore", 3.0).unwrap();
+        assert_eq!(
+            z.iter().filter(|f| **f).count(),
+            0,
+            "the plain z-score is expected to be masked here -- that is the point"
+        );
+        for m in ["modified_zscore", "iqr"] {
+            let f = outlier_flags(&x, m, default_outlier_threshold(m)).unwrap();
+            assert!(f[18] && f[19] && f[20], "{m} must catch all three");
+            assert_eq!(f.iter().filter(|v| **v).count(), 3, "{m}: and only those three");
+        }
+    }
+
+    /// The z-score's hard ceiling, pinned so the doc comment above cannot
+    /// drift from the arithmetic. Over N samples no z-score can exceed
+    /// `(N-1)/sqrt(N)`, so at the default threshold of 3 a short record
+    /// answers "no outliers" no matter how gross the outlier is. This is a
+    /// property of the criterion, not a bug -- but it is exactly the kind of
+    /// silent "nothing found" that should be written down somewhere.
+    #[test]
+    fn the_plain_zscore_cannot_flag_anything_in_a_short_record() {
+        for n in 3..=10usize {
+            // A baseline with real spread, so the robust criteria are on
+            // their ordinary path rather than the degenerate MAD-is-zero
+            // one, and one enormous sample at the end.
+            let mut x: Vec<f64> = (0..n).map(|i| (i % 3) as f64).collect();
+            x[n - 1] = 1e9; // as gross as it gets
+            let f = outlier_flags(&x, "zscore", 3.0).unwrap();
+            assert_eq!(
+                f.iter().filter(|v| **v).count(),
+                0,
+                "n={n}: a z-score over {n} samples caps at {:.3}, below 3",
+                (n as f64 - 1.0) / (n as f64).sqrt()
+            );
+            // The robust criteria have no such ceiling and do catch it.
+            let mz = outlier_flags(&x, "modified_zscore", 3.5).unwrap();
+            assert!(mz[n - 1], "n={n}: modified z-score must still catch 1e9");
+        }
+    }
+
+    /// A second, narrower ceiling, found the same way as the first (by a
+    /// test failing that had no business failing) and recorded because it is
+    /// genuinely surprising: the modified z-score's DEGENERATE path has a
+    /// finite-sample ceiling of its own.
+    ///
+    /// When over half the window is identical, MAD is 0 and the criterion
+    /// falls back to `1.253314 * mean absolute deviation`. On a vector of
+    /// N-1 identical samples plus one outlier, that mean deviation is itself
+    /// proportional to the outlier, and the score collapses to `N/1.2533`
+    /// no matter how extreme the outlier is -- so it clears 3.5 only from
+    /// N=5 up. On a baseline with any spread at all MAD is non-zero, the
+    /// fallback never runs, and none of this applies; that is the case the
+    /// test above covers.
+    #[test]
+    fn the_modified_zscore_fallback_has_a_ceiling_of_its_own_on_a_flat_baseline() {
+        for n in 3..=8usize {
+            let mut x = vec![0.0; n];
+            x[n - 1] = 1e9;
+            let caught = outlier_flags(&x, "modified_zscore", 3.5).unwrap()[n - 1];
+            let score = n as f64 / 1.253314;
+            assert_eq!(
+                caught,
+                score > 3.5,
+                "n={n}: flat-baseline fallback scores {score:.3} against 3.5"
+            );
+        }
+    }
+
+    #[test]
+    fn a_clean_vector_has_no_outliers_under_any_criterion() {
+        let x: Vec<f64> = (0..50).map(|i| (i as f64 * 0.1).sin()).collect();
+        for m in ["zscore", "modified_zscore", "iqr"] {
+            let f = outlier_flags(&x, m, default_outlier_threshold(m)).unwrap();
+            assert_eq!(f.iter().filter(|v| **v).count(), 0, "{m} flagged a clean sine");
+        }
+        // A constant vector has no spread and so no outliers -- not
+        // "everything is an outlier", which a 0/0 would otherwise produce.
+        let flat = vec![7.0; 10];
+        for m in ["zscore", "modified_zscore", "iqr"] {
+            let f = outlier_flags(&flat, m, default_outlier_threshold(m)).unwrap();
+            assert_eq!(f.iter().filter(|v| **v).count(), 0, "{m} flagged a constant vector");
+        }
+    }
+
+    /// A NaN is a missing sample, not an outlier. Conflating them would make
+    /// `remove_outliers` quietly double as a NaN filter and hide dropouts.
+    #[test]
+    fn a_nan_is_never_reported_as_an_outlier() {
+        let x = [1.0, 2.0, f64::NAN, 3.0, 2.0, 1.0, 500.0];
+        for m in ["zscore", "modified_zscore", "iqr"] {
+            let f = outlier_flags(&x, m, default_outlier_threshold(m)).unwrap();
+            assert!(!f[2], "{m} flagged the NaN");
+        }
+    }
+
+    #[test]
+    fn an_unknown_outlier_method_names_the_ones_that_exist() {
+        let err = outlier_flags(&[1.0, 2.0], "three_sigma", 3.0).unwrap_err().to_string();
+        assert!(err.contains("zscore"), "{err}");
+        assert!(err.contains("iqr"), "{err}");
+    }
+
+    /// `hampel` is now a caller of `hampel_flags`, so the two can never
+    /// disagree about which samples are outliers. Checked rather than
+    /// assumed, because the split is exactly the kind of refactor that
+    /// silently changes one side.
+    #[test]
+    fn hampel_and_hampel_flags_agree_sample_for_sample() {
+        let mut x: Vec<f64> = (0..60).map(|i| (i as f64 * 0.2).sin()).collect();
+        x[17] = 9.0;
+        x[42] = -9.0;
+        let (cleaned, n) = hampel(&x, 7, 3.0).unwrap();
+        let (flags, meds) = hampel_flags(&x, 7, 3.0).unwrap();
+        assert_eq!(n, flags.iter().filter(|f| **f).count());
+        assert!(flags[17] && flags[42], "both spikes must be flagged");
+        for i in 0..x.len() {
+            let want = if flags[i] { meds[i] } else { x[i] };
+            assert_eq!(cleaned[i], want, "disagreement at {i}");
+        }
+    }
+
+    /// The case the local Hampel test exists for and the global ones cannot
+    /// do: a small spike riding on a baseline that itself travels much
+    /// further than the spike does. Globally the spike is unremarkable.
+    #[test]
+    fn hampel_catches_a_spike_on_a_drifting_baseline_that_global_tests_miss() {
+        let mut x: Vec<f64> = (0..200).map(|i| i as f64).collect();
+        x[100] += 30.0; // tiny next to the 0..200 range the baseline covers
+        let (flags, _) = hampel_flags(&x, 7, 3.0).unwrap();
+        assert!(flags[100], "the local test must see the step");
+        let z = outlier_flags(&x, "zscore", 3.0).unwrap();
+        assert!(!z[100], "the global test is expected to miss it -- that is the point");
+    }
+
+    // ── missing samples ────────────────────────────────────────────────
+
+    #[test]
+    fn linear_interpolation_fills_an_interior_gap_exactly() {
+        let x = [0.0, f64::NAN, f64::NAN, 30.0];
+        let (out, n) = interpolate_missing(&x);
+        assert_eq!(n, 2);
+        assert!((out[1] - 10.0).abs() < 1e-12, "{out:?}");
+        assert!((out[2] - 20.0).abs() < 1e-12, "{out:?}");
+        assert!(out.iter().all(|v| v.is_finite()));
+    }
+
+    /// A gap at the end has finite data on one side only. Holding the last
+    /// good sample is deliberate: extrapolating the interior slope turns a
+    /// dropout into a trend, which is worse than a flat patch because it
+    /// looks like data.
+    #[test]
+    fn an_edge_gap_holds_the_nearest_sample_instead_of_extrapolating() {
+        let x = [f64::NAN, 5.0, 6.0, 7.0, f64::NAN, f64::NAN];
+        let (out, n) = interpolate_missing(&x);
+        assert_eq!(n, 3);
+        assert_eq!(out[0], 5.0, "leading gap holds the first good sample");
+        assert_eq!(out[4], 7.0, "trailing gap holds the last good sample");
+        assert_eq!(out[5], 7.0, "and does not keep climbing at 1/sample");
+    }
+
+    #[test]
+    fn an_all_nan_vector_is_left_alone_rather_than_invented() {
+        let x = [f64::NAN; 4];
+        let (out, n) = interpolate_missing(&x);
+        assert_eq!(n, 0);
+        assert!(out.iter().all(|v| v.is_nan()), "{out:?}");
+    }
+
+    #[test]
+    fn each_fill_method_does_what_its_name_says() {
+        let x = [1.0, f64::NAN, 9.0];
+        assert_eq!(fill_missing(&x, "previous").unwrap().0[1], 1.0);
+        assert_eq!(fill_missing(&x, "next").unwrap().0[1], 9.0);
+        assert_eq!(fill_missing(&x, "linear").unwrap().0[1], 5.0);
+        assert_eq!(fill_missing(&x, "mean").unwrap().0[1], 5.0);
+        // A leading gap has no previous sample; "previous" falls back rather
+        // than leaving a NaN behind for the next stage to trip over.
+        let lead = [f64::NAN, 2.0, 3.0];
+        assert_eq!(fill_missing(&lead, "previous").unwrap().0[0], 2.0);
+        // "nearest" breaks a tie toward the earlier sample, so the answer
+        // does not depend on the gap's parity.
+        let tie = [0.0, f64::NAN, 100.0];
+        assert_eq!(fill_missing(&tie, "nearest").unwrap().0[1], 0.0);
+        let err = fill_missing(&x, "spline").unwrap_err().to_string();
+        assert!(err.contains("linear"), "{err}");
     }
 }

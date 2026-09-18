@@ -282,6 +282,171 @@ clip         0.4    -25.6 dB
 | `detrend` | `detrend(x, [order=1])` | Subtracts a least-squares polynomial trend from `x`, a length-N number vector. `order` is an optional positional integer: `0` removes the mean, `1` (default) a linear drift, `2` a quadratic bow. Returns a length-N vector. For baseline wander. |
 | `measure_snr` | `measure_snr(clean, noisy)` | Computes the achieved signal-to-noise ratio by treating `noisy - clean` as the noise. `clean` and `noisy` are two length-N number vectors of equal length. Returns a single number, in dB. Closing the loop. |
 
+`detrend` above is already the whole baseline-and-trend story: `order=0`
+removes a constant offset, `order=1` a linear drift, `order=2` and up a
+polynomial bow. There is deliberately **no** separate `remove_baseline` or
+`trend` builtin — they would be `detrend` under other names, and a second
+spelling of one operation is a thing to keep in step forever rather than a
+feature. Likewise there is no `hampel_filter`: `hampel` above *is* it, and
+its criterion is also reachable as `method="hampel"` on the outlier family
+below, sharing one implementation rather than two that can drift apart.
+
+## Rolling statistics
+
+| Function | Signature | For |
+|---|---|---|
+| `rolling_mean` | `rolling_mean(x, [window=5])` | Mean over a window centred on each sample. `x` is a length-N number vector or a `Signal`; `window` is an odd integer, positional or named, default `5`. Returns the same length and the same type — a `Signal` keeps its `Fs`. |
+| `rolling_rms` | `rolling_rms(x, [window=5])` | Root-mean-square over a centred window — a moving level, e.g. for an RMS trigger threshold. This is the RMS of the samples themselves, DC included, **not** of their deviation from the local mean; `detrend` first if the AC part is what you want, or use `rolling_std`, which is the already-centred counterpart. Same shape/type rules as `rolling_mean`. |
+| `rolling_std` | `rolling_std(x, [window=5])` | Sample (N-1, unbiased) standard deviation over a centred window, matching `std`/`var` exactly, so `rolling_std(x, w)[i]` equals `std` of that window — a property you can check. A window covering a single sample yields `0`, as `std` of one sample already does. Same shape/type rules as `rolling_mean`. |
+| `rolling_min` | `rolling_min(x, [window=5])` | Minimum over a centred window. Same shape/type rules as `rolling_mean`. |
+| `rolling_max` | `rolling_max(x, [window=5])` | Maximum over a centred window. Same shape/type rules as `rolling_mean`. |
+
+The window is **odd and centred**, the same rule as `medfilt`/`savgol`/
+`smooth`/`hampel` above and refused the same way if it is even — an even
+window has no middle sample and which way it rounds changes the answer. A
+window longer than the data is fine: it simply covers the whole vector at
+every index.
+
+At the edges these **deliberately differ** from the smoothers above, and
+the difference is the point rather than an inconsistency. `medfilt` and
+`moving_average` *pad* (reflect, or clamp) because a filter must emit one
+sample per input sample and has to invent the neighbours it does not have.
+A rolling statistic is not a filter: it answers "what was the mean/spread/
+range of the data actually here", and padding would answer that with
+fabricated samples. For `rolling_std` padding does not merely add a little
+edge error, it biases the answer the wrong way — a clamped repeat has zero
+variance, so a padded `rolling_std` reports the signal as *quietest* at
+exactly the two places least is known about it. So the window **shrinks**
+at the edges instead (MATLAB's `movmean`/`movstd` default, pandas'
+`min_periods=1`), and every value returned is the statistic of real samples
+only.
+
+```qu
+x = [1, 2, 3, 4, 5]
+print(rolling_mean(x, 3))   # [1.5, 2, 3, 4, 4.5] -- ends over 2 samples, not 3
+print(rolling_min(x, 3))    # [1, 1, 2, 3, 4]
+print(rolling_std(x, 3))    # [0.707107, 1, 1, 1, 0.707107]
+print(std([1, 2]))          # 0.707107 -- the same number the edge reports
+```
+
+## Outliers
+
+| Function | Signature | For |
+|---|---|---|
+| `find_outliers` | `find_outliers(x, [method="zscore"], [threshold=], [window=7])` | The **indices** of the samples a criterion flags, as a number vector (same shape of answer as `find_peaks`). `x` is a length-N number vector or `Signal`. `method` is a named string: `"zscore"`, `"modified_zscore"`, `"iqr"`, `"hampel"`. `threshold` (alias `n_sigma`) is a named number, defaulting per method — see below. `window` is a named odd integer, default `7`, read **only** by `method="hampel"`; passing it to the others is an unread-keyword error rather than silently ignored. |
+| `remove_outliers` | `remove_outliers(x, [method=], [threshold=], [window=])` | The same criterion, with the flagged samples dropped. Returns a **plain vector, shorter than the input, even from a `Signal`** — the surviving samples are no longer evenly spaced, so the old `Fs` would be a lie (the same call `interpolate_at` makes, for the same reason). Use `replace_outliers` when the rate must survive. |
+| `replace_outliers` | `replace_outliers(x, [method=], [threshold=], [window=], [fill_method="linear"], [value=])` | The same criterion, with the flagged samples patched in place. Length-preserving, so a `Signal` keeps its `Fs`. `fill_method` is a named string taking `fill_missing`'s own method set plus `"nan"` (mark them missing and stop, leaving the decision to you); `value` is a named number that overrides it with a constant. Samples that were *already* missing stay missing — this replaces outliers, not dropouts. **The keyword is `fill_method=`, not `fill=`**: `fill` is a plotting colour keyword engine-wide, so `fill="median"` would be rejected as a colour name. |
+
+The criteria, and why there is more than one:
+
+| `method` | Test | Default `threshold` |
+|---|---|---|
+| `"zscore"` | `\|x - mean\| / std > threshold` | `3` |
+| `"modified_zscore"` | `0.6745 · \|x - median\| / MAD > threshold` (Iglewicz & Hoaglin) | `3.5` |
+| `"iqr"` | outside `[Q1 - threshold·IQR, Q3 + threshold·IQR]` (Tukey's fences) | `1.5` |
+| `"hampel"` | `\|x - local median\| > threshold · 1.4826 · local MAD` over `window` | `3` |
+
+The default threshold is **per method on purpose**: 3 sigma, 3.5 modified-z
+and 1.5 IQR are the conventional cutoffs for three different scales, and one
+shared number would silently make two of the three mean something nobody
+intends.
+
+Two things about `"zscore"` (the default, because it is what people expect
+to find) are worth knowing before trusting a quiet answer from it:
+
+- **It masks its own outliers.** The spike is part of the mean and the
+  deviation it is measured against, so a big enough one inflates `std` until
+  it no longer looks like a spike. The two robust criteria do not have this
+  problem.
+- **It has a hard ceiling.** Over N samples no z-score can exceed
+  `(N-1)/√N`. At the default threshold of 3 that means **a record of fewer
+  than 11 samples can never report an outlier at all**, however gross —
+  `9/√10 = 2.85`. A short record answering "none" is arithmetic, not
+  evidence. The robust criteria have no ceiling.
+
+`"hampel"` is the only *local* criterion: it compares each sample against a
+window around it rather than against the whole record, which is what lets it
+catch a spike riding on a baseline that itself travels much further than the
+spike does — a case the three global tests cannot see by construction. It
+shares its implementation with the `hampel` builtin above, so the two can
+never disagree about what an outlier is.
+
+It inherits one caveat from `hampel`, worth knowing before reading a quiet
+answer as a clean signal: **on a perfectly flat local baseline it flags
+nothing.** If over half the window holds identical values the local MAD is
+exactly zero, so the threshold is zero and nothing can exceed it. Whether
+that should be special-cased is an open question for whoever owns the noise
+builtins — it is deliberately not settled here (see the note on
+`hampel_replaces_an_outlier_against_a_varying_baseline` in the engine's own
+tests). `"modified_zscore"` does handle the degenerate case, falling back to
+the mean absolute deviation, so it is the one to reach for on a held or
+heavily quantised channel. That fallback has a small-sample ceiling of its
+own, though: on a flat baseline of N samples plus one outlier it scores
+`N/1.2533` regardless of how extreme the outlier is, clearing the default
+3.5 only from N=5 up.
+
+There is no count in any return value. `length(find_outliers(...))` is the
+count, it is available *before* committing to a transform, and leaving it out
+keeps the transforms chainable (`x.remove_outliers().fft()`) instead of
+returning a record the next call cannot take.
+
+```qu
+y = [1, 2, 3, 2, 1, 2, 3, 2, 1, 2, 100]
+print(find_outliers(y, method = "modified_zscore"))      # [10]
+print(remove_outliers(y, method = "modified_zscore"))    # the 100 is gone
+print(replace_outliers(y, method = "modified_zscore")[10])  # 2 -- patched in place
+
+drift = 0 to 40
+drift[20] = drift[20] + 30
+print(find_outliers(drift, method = "hampel", window = 7))  # [20]
+print(find_outliers(drift, method = "zscore"))              # [] -- global test cannot see it
+```
+
+## Missing samples
+
+| Function | Signature | For |
+|---|---|---|
+| `find_missing` | `find_missing(x)` | The **indices** of the missing samples, as a number vector. `x` is a length-N number vector or `Signal`. |
+| `remove_nan` | `remove_nan(x)` | `x` with the missing samples dropped. Returns a **plain vector even from a `Signal`**, same reasoning as `remove_outliers`: what is left is no longer uniformly sampled. |
+| `fill_missing` | `fill_missing(x, [method="linear"], [value=])` | `x` with the missing samples patched, same length, so a `Signal` keeps its `Fs`. `method` is a named string: `"linear"` (default), `"previous"`/`"ffill"`, `"next"`/`"bfill"`, `"nearest"`, `"mean"`, `"median"`. `value` is a named number overriding all of them with a constant. |
+| `interpolate_nan` | `interpolate_nan(x)` | Exactly `fill_missing(x, method="linear")` — the same engine, not a second implementation — kept under its own name because that is the operation people go looking for by name. |
+
+**"Missing" means not finite — NaN *or* ±Inf**, not NaN alone. An infinity
+poisons a mean exactly as thoroughly as a NaN does and a saturated channel
+can produce either, so treating only NaN as missing would leave the other to
+be discovered downstream. `remove_nan` keeps its familiar name and removes
+both.
+
+This family exists because one dropout costs the whole record otherwise —
+every numeric builtin here propagates NaN faithfully, as it should:
+
+```qu
+print(detrend([1, 2, nan, 4], 0))   # [NaN, NaN, NaN, NaN]
+```
+
+The `"linear"` fill deliberately does **not extrapolate**. A gap with good
+data on one side only — one that runs off the start or the end of the record
+— holds that nearest good sample instead. `interp1` *does* extrapolate
+(`interp1([0,1,2,3], [0,10,20,30], 6)` is `60`), which is why it is not
+reused here unchanged: the two are answering different questions. `interp1`'s
+caller asked for the model's value at a named point outside the data and gets
+its honest opinion. Here nobody asked for anything — a trailing dropout is
+being patched so the next stage has something to work with, and extrapolating
+turns that dropout into a trend, which is worse than a flat patch precisely
+because it looks like data.
+
+```qu
+print(interpolate_nan([0, nan, nan, 30]))   # [0, 10, 20, 30]
+print(interpolate_nan([0, 10, 20, nan]))    # [0, 10, 20, 20] -- holds, does not climb
+print(fill_missing([1, nan, 9], method = "previous"))  # [1, 1, 9]
+print(fill_missing([1, nan, 9], value = 0))            # [1, 0, 9]
+print(find_missing([1, nan, 3]))                       # [1]
+print(remove_nan([1, nan, 3]))                         # [1, 3]
+```
+
+There is no `isnan` builtin; `x != x` is the elementwise missing-sample mask
+if you want one, and `find_missing` is the indexed form.
+
 #### Overloads: `medfilt`
 
 #### Case: vector
@@ -419,7 +584,7 @@ so `n_sigma` means what it says.
 
 | Function | Signature | Description |
 |---|---|---|
-| `adc` | `adc(x, [bits=12], [vmin=], [vmax=], [dither=false], [seed=])` | Quantises `x` (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside `[vmin, vmax]` **clips** instead of being quantised as if the range were infinite. `bits` (positional or named integer, at least 1, default `12`) fixes the code count `2^bits`; `vmin`/`vmax` (named numbers) default to `-peak`/`+peak` of `x` itself; `dither` (named boolean, default `false`) adds two-LSB peak-to-peak TPDF noise before quantising, with `seed` (named integer) the RNG seed it uses. See the section above for the full field-by-field discussion. Returns a `Record` with fields `x` (a length-N `Vec`, the quantised signal), `lsb` (a `Num`, `(vmax - vmin) / 2^bits`), `clipped` (a `Num`, how many samples fell outside the range), `snr_ideal` (a `Num`, dB), `vmin` (a `Num`, the low end of the range actually used), `vmax` (a `Num`, the high end) and `bits` (a `Num`, the word length actually used). |
+| `adc` | `adc(x, [bits=12], [full_scale=]\|[vmin=], [vmax=], [dither=false], [seed=])` | Quantises `x` (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside `[vmin, vmax]` **clips** instead of being quantised as if the range were infinite. This is also the engine's quantization *simulator*: the design doc's `quantize(bits:)` and `simulateADC(bits:, fullScale:)` are this one function, not two more. `bits` (positional or named integer, at least 1, default `12`) fixes the code count `2^bits`; `vmin`/`vmax` (named numbers) default to `-peak`/`+peak` of `x` itself; `full_scale=` (named positive number) is the symmetric shorthand for `vmin=-full_scale, vmax=+full_scale`, sharing the word `dbfs`/`is_clipped`/`detect_saturation` use for the same quantity — giving it *together with* `vmin=` or `vmax=` is an error, not a precedence rule, the same way `add_noise` refuses `snr=` and `amplitude=` together. `dither` (named boolean, default `false`) adds two-LSB peak-to-peak TPDF noise before quantising, with `seed` (named integer) the RNG seed it uses. See the section above for the full field-by-field discussion. Returns a `Record` with fields `x` (a length-N `Vec`, the quantised signal), `lsb` (a `Num`, `(vmax - vmin) / 2^bits`), `clipped` (a `Num`, how many samples fell outside the range), `snr_ideal` (a `Num`, dB), `vmin` (a `Num`, the low end of the range actually used), `vmax` (a `Num`, the high end) and `bits` (a `Num`, the word length actually used). |
 | `add_noise` | `add_noise(x, kind, [snr=], [amplitude=], [seed=])` | Adds noise of the named `kind` (a string — see the kinds table near the top of this chapter) to `x`, a length-N number vector or an `Image` (noise is added per-pixel, per-channel). `snr` (named number, dB) or `amplitude` (named number, raw units) sets the level — give one or the other, never both; with neither, defaults to 20 dB. `seed` is a named integer for a reproducible draw, default `1`. Returns a value the same shape as `x`. |
 | `distort` | `distort(x, kind, [amount=0.3])` | Put the signal through a nonlinearity: `clip`, `soft`, `crossover`, `harmonic`, `quantize`. See the dedicated table and signature above for the full parameter breakdown. Returns a plain length-N `Vec` — a `Signal` argument comes back as a bare vector, so re-wrap it with `signal(...)` if you need the sample rate. |
 | `medfilt2`, `median_filter` | `medfilt2(x, [window=3])` | Synonyms for `medfilt` at the Qu level: `x` is a length-N number vector or an `Image`, `window` an optional positional/named odd integer, default `3`. On a plain vector the result is identical to `medfilt(x, window)` (a 1-D median); the two-dimensional median — over a `window`×`window` square, channel by channel, not separable, so the median of medians is never substituted for the real thing — only happens when `x` is an `Image`, since the image itself carries its own width and height. Returns a value the same shape as `x`. |

@@ -351,12 +351,24 @@ pub enum SpectrumNorm {
     /// Unnormalised forward-transform output: bin `k` is the raw DFT sum,
     /// so a length-`N` record of a unit-amplitude tone reads `N/2`.
     RawTransform,
+    /// One-sided bin `k` reads the peak amplitude of the tone at that bin:
+    /// a unit-amplitude sine lands on a single bin at `1.0`. DC and (for
+    /// even `N`) Nyquist keep the raw `1/N` factor since they have no
+    /// mirror bin to fold in; every other bin gets `2/N`.
+    Amplitude,
+    /// Same folding as `Amplitude`, further divided by `sqrt(2)` on every
+    /// bin except DC/Nyquist, so a sine's bin reads its RMS value rather
+    /// than its peak -- the number a true-RMS meter would show for that
+    /// single tone in isolation.
+    Rms,
 }
 
 impl SpectrumNorm {
     pub(crate) fn name(self) -> &'static str {
         match self {
             SpectrumNorm::RawTransform => "raw_transform",
+            SpectrumNorm::Amplitude => "amplitude",
+            SpectrumNorm::Rms => "rms",
         }
     }
 
@@ -367,6 +379,8 @@ impl SpectrumNorm {
     pub(crate) fn from_name(s: &str) -> Option<Self> {
         match s {
             "raw_transform" => Some(SpectrumNorm::RawTransform),
+            "amplitude" => Some(SpectrumNorm::Amplitude),
+            "rms" => Some(SpectrumNorm::Rms),
             _ => None,
         }
     }
@@ -4263,6 +4277,317 @@ fn sel_to_vec(s: Sel) -> Vec<usize> {
     match s {
         Sel::Scalar(i) => vec![i],
         Sel::Many(v) => v,
+    }
+}
+
+/// One index position with its expressions ALREADY EVALUATED, but not yet
+/// interpreted as positions (§ unit-aware indexing, 2026-09-18).
+///
+/// This split exists for exactly one reason: `Value::Signal` and
+/// `Value::Spectrum` cannot know what an index MEANS until they have seen
+/// the value, because the unit tag on it is what decides. `s[100]` is a
+/// sample; `s[0.5 s]` is an instant. Both are `Idx::Expr` and are
+/// indistinguishable before evaluation.
+///
+/// Peeking by evaluating, deciding, then evaluating again would be wrong,
+/// not merely slow: `s[next_cursor()]` would advance the cursor twice.
+/// So evaluation happens once, here, and the two interpretations then read
+/// the same already-computed values -- the plain one through
+/// [`sel_from_values`], the unit-aware one through `eval_index`'s own
+/// `Signal`/`Spectrum` arms.
+enum EvaluatedIdx {
+    Expr(Value),
+    Slice {
+        lo: Option<Value>,
+        hi: Option<Value>,
+        step: Option<Value>,
+    },
+}
+
+/// Turn already-evaluated index positions into a [`Sel`] -- the ordinary,
+/// unit-blind, "these are positions in a buffer of length `len`" reading
+/// that every container in the language has always had.
+///
+/// Extracted verbatim from what used to be `resolve_sel_inner`'s body; the
+/// only change is that the values arrive pre-computed rather than being
+/// evaluated in place. Its conventions are therefore unchanged, and are the
+/// conventions the new unit-aware paths were matched against rather than
+/// allowed to diverge from.
+fn sel_from_values(idx: EvaluatedIdx, len: usize) -> R<Sel> {
+    match idx {
+        EvaluatedIdx::Expr(v) => match v {
+            Value::Mask(mask) => {
+                if mask.len() != len {
+                    return e(format!(
+                        "mask length {} does not match dimension length {len}",
+                        mask.len()
+                    ));
+                }
+                Ok(Sel::Many(numeric::selection::where_indices(&mask)))
+            }
+            Value::Vec(sel) => Ok(Sel::Many(sel.iter().map(|x| *x as usize).collect())),
+            other => Ok(Sel::Scalar(
+                other.as_index().map_err(|m| EvalError { msg: m })?,
+            )),
+        },
+        EvaluatedIdx::Slice { lo, hi, step } => {
+            let lo = match lo {
+                Some(v) => v.as_index().map_err(|m| EvalError { msg: m })?,
+                None => 0,
+            };
+            // Both ends are INCLUSIVE, like every other range in the
+            // language. `a:b` produced `[a..=b]` as a value and
+            // `[a..b)` as an index, so `k = 0:2` then `v[k]` gave three
+            // elements while `v[0:2]` gave two -- the same expression
+            // answering differently depending on whether it was stored
+            // first. One of the two had to move, and `to`, `a:s:b` and
+            // the `0:2` value form were all already inclusive.
+            //
+            // An omitted `hi` still means "to the end", which is now
+            // the last index rather than one past it.
+            let hi = match hi {
+                Some(v) => v.as_index().map_err(|m| EvalError { msg: m })?,
+                None => len.saturating_sub(1),
+            };
+            let st = match step {
+                Some(v) => {
+                    let s = v.as_num().map_err(|m| EvalError { msg: m })?;
+                    if s <= 0.0 {
+                        return e("slice step must be positive in M2");
+                    }
+                    s as usize
+                }
+                None => 1,
+            };
+            // INCLUSIVE of `hi`: `v[1:3]` is elements 1, 2 AND 3.
+            //
+            // This reverses the half-open rule the spec argued for in
+            // §34.C.3 ("keep both -- `to` enumerates, `a:b` bounds").
+            // That verdict bought Python's partition identity
+            // (`a[0:k] ++ a[k:N] == a`) at a price the debate did not
+            // price correctly: the two spellings of ONE span disagreed.
+            //
+            //     r = 0 to 2   ->  [0, 1, 2]
+            //     v[r]         ->  three elements
+            //     v[0:2]       ->  two
+            //
+            // A language cannot hold both of those and claim its
+            // indexing is learnable. `to` is inclusive and is not
+            // moving, so the bracket form is what had to give.
+            //
+            // It also repairs `end`, which was quietly lying. `v[end]`
+            // is the last element, but half-open `v[1:end]` STOPPED
+            // short of it -- a slice naming `end` did not reach the
+            // end. Now it does.
+            //
+            // An empty selection is still expressible, by a stop below
+            // the start: `v[1:0]` yields nothing, because the loop's
+            // first test fails. `v[0:0]` is now one element, not zero.
+            let mut p = Vec::new();
+            let mut i = lo;
+            while i <= hi && i < len {
+                p.push(i);
+                i += st;
+            }
+            Ok(Sel::Many(p))
+        }
+    }
+}
+
+/// The axis an index bound names, when it carries a unit that says so
+/// (§ unit-aware indexing, 2026-09-18).
+///
+/// Only two dimensions can appear on the axis of a `Signal`/`Spectrum`, and
+/// they are the two this enum holds. Anything else -- a plain number, a
+/// mask, an index vector, a `5 V` -- is NOT an axis coordinate and is left
+/// to [`sel_from_values`]'s ordinary positional reading (a `5 V` index then
+/// fails there, as a nonsensical index should, rather than being given a
+/// special meaning here).
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum AxisCoord {
+    /// seconds, SI-normalised (`500 ms` arrives here as `0.5`)
+    Time(f64),
+    /// hertz, SI-normalised (`20 kHz` arrives here as `20000`)
+    Freq(f64),
+}
+
+impl AxisCoord {
+    fn magnitude(self) -> f64 {
+        match self {
+            AxisCoord::Time(t) => t,
+            AxisCoord::Freq(f) => f,
+        }
+    }
+    fn unit_name(self) -> &'static str {
+        match self {
+            AxisCoord::Time(_) => "s",
+            AxisCoord::Freq(_) => "Hz",
+        }
+    }
+}
+
+/// Classify one evaluated index bound by its SI DIMENSION, never by its
+/// spelling -- so `ms`, `s` and a `1/f`-derived time all land on
+/// `Time` without a prefix table of this function's own, and the magnitude
+/// is already SI-normalised by the time it gets here (see `Expr::Unit`'s
+/// evaluation, which stores the SI magnitude and keeps the spelling only
+/// for display).
+///
+/// `UnitTag::Temp` deliberately returns `None`: an affine temperature is
+/// not an axis coordinate, and letting it fall through to the positional
+/// reading means it is refused by `as_num` the same way it is everywhere
+/// else, rather than being silently reinterpreted here.
+fn axis_coord(v: &Value) -> Option<AxisCoord> {
+    let Value::Unit(n, UnitTag::Dim(d, _)) = v else {
+        return None;
+    };
+    match name_for_dim(*d) {
+        Some("s") => Some(AxisCoord::Time(*n)),
+        Some("Hz") => Some(AxisCoord::Freq(*n)),
+        _ => None,
+    }
+}
+
+/// The unit-aware reading of one whole index position, once every bound in
+/// it has been classified.
+///
+/// `Positional` means "no bound carried a time or a frequency", which is the
+/// pre-2026-09-18 behaviour and stays byte-for-byte what it was.
+enum AxisIdx {
+    Positional(EvaluatedIdx),
+    Single(AxisCoord),
+    /// `None` on a side means the bound was omitted (`s[: 1.2 s]`), which
+    /// reads as "from the start" / "to the end" exactly as it does for a
+    /// positional slice.
+    Range(Option<AxisCoord>, Option<AxisCoord>),
+}
+
+/// Decide whether an index position is an axis coordinate or an ordinary
+/// position, and refuse the mixtures that cannot mean anything.
+///
+/// A slice with a unit on ONE side only (`s[0 : 1.2 s]`) is an ERROR rather
+/// than a guess. Both available readings are defensible -- "sample 0 to
+/// 1.2 s" and "0 s to 1.2 s" -- which is exactly why the engine must not
+/// pick one silently; the two differ by a factor of Fs, the single most
+/// expensive off-by-a-rate mistake in DSP code and the one
+/// `docs/design/toolkit-signal.md` §0 is written against.
+///
+/// A slice mixing a time bound with a frequency bound is refused for the
+/// same reason, one level up.
+fn classify_axis_idx(idx: EvaluatedIdx) -> R<AxisIdx> {
+    match idx {
+        EvaluatedIdx::Expr(v) => match axis_coord(&v) {
+            Some(c) => Ok(AxisIdx::Single(c)),
+            None => Ok(AxisIdx::Positional(EvaluatedIdx::Expr(v))),
+        },
+        EvaluatedIdx::Slice { lo, hi, step } => {
+            let lc = lo.as_ref().and_then(axis_coord);
+            let hc = hi.as_ref().and_then(axis_coord);
+            if lc.is_none() && hc.is_none() {
+                return Ok(AxisIdx::Positional(EvaluatedIdx::Slice { lo, hi, step }));
+            }
+            // From here on at least one side is an axis coordinate, so the
+            // whole slice is an axis slice and every part of it is held to
+            // that standard.
+            if let (Some(a), Some(b)) = (lc, hc) {
+                if std::mem::discriminant(&a) != std::mem::discriminant(&b) {
+                    return e(format!(
+                        "a slice cannot mix a time bound and a frequency bound \
+                         (`{} {}` : `{} {}`) -- both ends must name the same axis",
+                        a.magnitude(),
+                        a.unit_name(),
+                        b.magnitude(),
+                        b.unit_name()
+                    ));
+                }
+            }
+            let named = lc.or(hc).expect("at least one side is an axis coordinate");
+            for (side, bound, coord) in [("start", &lo, lc), ("stop", &hi, hc)] {
+                if coord.is_none() && bound.is_some() {
+                    return e(format!(
+                        "this slice's {side} bound has no unit, but the other end is in \
+                         `{}` -- write both ends in `{}` (they differ by a factor of the \
+                         sample rate, which is not a difference to guess at), or write \
+                         both as plain {} indices",
+                        named.unit_name(),
+                        named.unit_name(),
+                        match named {
+                            AxisCoord::Time(_) => "sample",
+                            AxisCoord::Freq(_) => "bin",
+                        }
+                    ));
+                }
+            }
+            if step.is_some() {
+                return e(format!(
+                    "a `{}` slice takes no step -- a step counts samples/bins, which is \
+                     a different axis from the one the bounds are written on. Slice \
+                     positionally if you need a step, or `resample`/`decimate` first",
+                    named.unit_name()
+                ));
+            }
+            Ok(AxisIdx::Range(lc, hc))
+        }
+    }
+}
+
+/// The sample span a `[t0, t1]` time window selects out of a signal, shared
+/// by the `cut`/`signal_slice_time` builtin and by `s[t0 s : t1 s]`
+/// bracket slicing (§ unit-aware indexing, 2026-09-18) so the two spellings
+/// of one operation cannot drift apart.
+///
+/// Conventions, all inherited from the builtin that had them first:
+/// both ends INCLUSIVE; `i = round(t * Fs)`, the exact inverse of `sig.t`'s
+/// `i / Fs`; a `t1` past the signal's duration CLAMPS to the last sample,
+/// matching the way a positional slice's `hi` clamps; a negative `t0` or a
+/// `t1 < t0` is an error rather than a silently empty result, because a
+/// negative or inverted time window is far more likely a typo than an
+/// intentional empty cut.
+///
+/// `ctx` prefixes the error messages so the caller's own spelling is what
+/// the reader sees named.
+fn signal_time_span(xs: &[f64], fs: f64, t0: f64, t1: f64, ctx: &str) -> R<Vec<f64>> {
+    if t0 < 0.0 {
+        return e(format!("{ctx}: t0 ({t0}) must be non-negative"));
+    }
+    if t1 < t0 {
+        return e(format!("{ctx}: t1 ({t1}) must be >= t0 ({t0})"));
+    }
+    let n = xs.len();
+    let i0 = (t0 * fs).round() as usize;
+    // A stop past the last sample clamps rather than erroring,
+    // the same way a slice's does.
+    let hi = ((t1 * fs).round() as usize).min(n.saturating_sub(1));
+    Ok(if n == 0 || i0 > hi {
+        // A window starting past the end of the signal selects
+        // nothing. Without this, `n == 0` would index an empty
+        // vector at `0..=0`.
+        Vec::new()
+    } else {
+        xs[i0..=hi].to_vec()
+    })
+}
+
+/// The bin a frequency lands in, shared by `spectrum_at`/`band_power`/
+/// `band_zero` and by `spec[f Hz]` bracket indexing (§ unit-aware indexing,
+/// 2026-09-18).
+///
+/// NEAREST bin (`round`), not the containing one, and CLAMPED to the
+/// spectrum's own range at both ends -- a frequency above the last bin
+/// answers with the last bin rather than erroring, which is the convention
+/// `spectrum_at` shipped with and which the bracket sugar therefore keeps
+/// rather than inventing a stricter one for the same operation under a
+/// different spelling.
+///
+/// `df` is `Fs / n` with `n` the ORIGINAL TIME-DOMAIN length, never the
+/// spectrum's own length -- see `Value::Spectrum`'s doc comment for why
+/// that distinction is the whole reason `n` is stored.
+fn spectrum_bin_of(hz: f64, df: f64, len: usize) -> usize {
+    let k = (hz / df).round();
+    if k < 0.0 {
+        0
+    } else {
+        (k as usize).min(len.saturating_sub(1))
     }
 }
 
@@ -10327,95 +10652,50 @@ impl Interp {
     /// expression(s) sees this dimension's length. See
     /// `index_len_stack`'s own doc comment for why this is a stack.
     fn resolve_sel(&mut self, idx: &Idx, len: usize) -> R<Sel> {
+        let ev = self.eval_idx(idx, len)?;
+        sel_from_values(ev, len)
+    }
+
+    /// Evaluate an index position's expressions WITHOUT interpreting them.
+    ///
+    /// Split out of `resolve_sel` (§ unit-aware indexing, 2026-09-18) so
+    /// that `Value::Signal`/`Value::Spectrum` can look at the unit tag on a
+    /// bound before deciding whether it names a position or an instant --
+    /// see [`EvaluatedIdx`] for why that cannot be done by evaluating twice.
+    ///
+    /// Pushes `len` onto `index_len_stack` for the duration of this one
+    /// index (popped via the `result` binding below so every exit path --
+    /// including an early `?` return -- still pops), so any
+    /// `end`/`last`/`middle` inside the index expression(s) sees this
+    /// dimension's length. See `index_len_stack`'s own doc comment for why
+    /// this is a stack.
+    fn eval_idx(&mut self, idx: &Idx, len: usize) -> R<EvaluatedIdx> {
         self.index_len_stack.push(len);
-        let result = self.resolve_sel_inner(idx, len);
+        let result = self.eval_idx_inner(idx);
         self.index_len_stack.pop();
         result
     }
 
-    fn resolve_sel_inner(&mut self, idx: &Idx, len: usize) -> R<Sel> {
+    fn eval_idx_inner(&mut self, idx: &Idx) -> R<EvaluatedIdx> {
         match idx {
-            Idx::Expr(ex) => match self.eval(ex)? {
-                Value::Mask(mask) => {
-                    if mask.len() != len {
-                        return e(format!(
-                            "mask length {} does not match dimension length {len}",
-                            mask.len()
-                        ));
-                    }
-                    Ok(Sel::Many(numeric::selection::where_indices(&mask)))
-                }
-                Value::Vec(sel) => Ok(Sel::Many(sel.iter().map(|x| *x as usize).collect())),
-                other => Ok(Sel::Scalar(
-                    other.as_index().map_err(|m| EvalError { msg: m })?,
-                )),
-            },
+            Idx::Expr(ex) => Ok(EvaluatedIdx::Expr(self.eval(ex)?)),
             Idx::Slice { lo, hi, step } => {
+                // Evaluated left to right, once each, in source order --
+                // the order they were already evaluated in before this
+                // split, which matters for a bound with a side effect.
                 let lo = match lo {
-                    Some(ex) => self
-                        .eval(ex)?
-                        .as_index()
-                        .map_err(|m| EvalError { msg: m })?,
-                    None => 0,
+                    Some(ex) => Some(self.eval(ex)?),
+                    None => None,
                 };
-                // Both ends are INCLUSIVE, like every other range in the
-                // language. `a:b` produced `[a..=b]` as a value and
-                // `[a..b)` as an index, so `k = 0:2` then `v[k]` gave three
-                // elements while `v[0:2]` gave two -- the same expression
-                // answering differently depending on whether it was stored
-                // first. One of the two had to move, and `to`, `a:s:b` and
-                // the `0:2` value form were all already inclusive.
-                //
-                // An omitted `hi` still means "to the end", which is now
-                // the last index rather than one past it.
                 let hi = match hi {
-                    Some(ex) => self
-                        .eval(ex)?
-                        .as_index()
-                        .map_err(|m| EvalError { msg: m })?,
-                    None => len.saturating_sub(1),
+                    Some(ex) => Some(self.eval(ex)?),
+                    None => None,
                 };
-                let st = match step {
-                    Some(ex) => {
-                        let s = self.eval(ex)?.as_num().map_err(|m| EvalError { msg: m })?;
-                        if s <= 0.0 {
-                            return e("slice step must be positive in M2");
-                        }
-                        s as usize
-                    }
-                    None => 1,
+                let step = match step {
+                    Some(ex) => Some(self.eval(ex)?),
+                    None => None,
                 };
-                // INCLUSIVE of `hi`: `v[1:3]` is elements 1, 2 AND 3.
-                //
-                // This reverses the half-open rule the spec argued for in
-                // §34.C.3 ("keep both -- `to` enumerates, `a:b` bounds").
-                // That verdict bought Python's partition identity
-                // (`a[0:k] ++ a[k:N] == a`) at a price the debate did not
-                // price correctly: the two spellings of ONE span disagreed.
-                //
-                //     r = 0 to 2   ->  [0, 1, 2]
-                //     v[r]         ->  three elements
-                //     v[0:2]       ->  two
-                //
-                // A language cannot hold both of those and claim its
-                // indexing is learnable. `to` is inclusive and is not
-                // moving, so the bracket form is what had to give.
-                //
-                // It also repairs `end`, which was quietly lying. `v[end]`
-                // is the last element, but half-open `v[1:end]` STOPPED
-                // short of it -- a slice naming `end` did not reach the
-                // end. Now it does.
-                //
-                // An empty selection is still expressible, by a stop below
-                // the start: `v[1:0]` yields nothing, because the loop's
-                // first test fails. `v[0:0]` is now one element, not zero.
-                let mut p = Vec::new();
-                let mut i = lo;
-                while i <= hi && i < len {
-                    p.push(i);
-                    i += st;
-                }
-                Ok(Sel::Many(p))
+                Ok(EvaluatedIdx::Slice { lo, hi, step })
             }
         }
     }
@@ -10444,18 +10724,211 @@ impl Interp {
                 if indices.len() != 1 {
                     return e("a signal takes a single index");
                 }
-                match self.resolve_sel(&indices[0], xs.len())? {
-                    // a single sample has no sampling contract of its own.
-                    Sel::Scalar(i) => xs.get(i).copied().map(Value::Num).ok_or_else(|| EvalError {
-                        msg: format!("index {i} out of bounds (len {})", xs.len()),
-                    }),
-                    // a sub-sequence is still a signal, at the same Fs.
-                    Sel::Many(idxs) => {
-                        let out =
-                            numeric::selection::gather(&xs, &idxs).map_err(|se| EvalError {
-                                msg: se.to_string(),
-                            })?;
+                // § unit-aware indexing (2026-09-18). A `Signal` is the one
+                // real value in this language that carries its own axis, so
+                // it is the one place where an index can be written in the
+                // axis's units instead of in buffer positions:
+                //
+                //     s[100 : 200]       samples, exactly as before
+                //     s[0.5 s : 1.2 s]   an instant-to-instant window
+                //     s[0.5 s]           the sample nearest that instant
+                //
+                // This is not only new expressiveness -- it closes a SILENT
+                // wrong answer that was live until today. `as_num` unwraps a
+                // `Dim`-tagged quantity to its bare SI magnitude, so
+                // `s[1 s : 2 s]` on a 1 kHz signal did not error: it
+                // selected samples 1 and 2, two of the 1001 it plainly
+                // asks for, with nothing anywhere saying so. (Measured on
+                // the pre-change binary: `len` 2.) A fractional time
+                // happened to be caught -- `s[0.5 s]` failed with "index
+                // must be a non-negative integer, got 0.5" -- but only by
+                // the accident of 0.5 not being a whole number, which is
+                // the worst kind of guard: it fires on the example you
+                // try first and not on the one in the script.
+                let ev = self.eval_idx(&indices[0], xs.len())?;
+                match classify_axis_idx(ev)? {
+                    AxisIdx::Positional(ev) => match sel_from_values(ev, xs.len())? {
+                        // a single sample has no sampling contract of its own.
+                        Sel::Scalar(i) => {
+                            xs.get(i).copied().map(Value::Num).ok_or_else(|| EvalError {
+                                msg: format!("index {i} out of bounds (len {})", xs.len()),
+                            })
+                        }
+                        // a sub-sequence is still a signal, at the same Fs.
+                        Sel::Many(idxs) => {
+                            let out =
+                                numeric::selection::gather(&xs, &idxs).map_err(|se| EvalError {
+                                    msg: se.to_string(),
+                                })?;
+                            Ok(Value::Signal(out.into(), fs))
+                        }
+                    },
+                    // `s[440 Hz]` -- a signal has no frequency axis to
+                    // index. Naming the transform is the useful half of
+                    // this error: the user is one call away from the value
+                    // they asked for.
+                    AxisIdx::Single(AxisCoord::Freq(hz))
+                    | AxisIdx::Range(Some(AxisCoord::Freq(hz)), _)
+                    | AxisIdx::Range(None, Some(AxisCoord::Freq(hz))) => e(format!(
+                        "a signal is indexed in samples or in seconds, not in Hz (`{hz} Hz`) \
+                         -- it has no frequency axis. Take `rfft(sig)` first; a spectrum \
+                         does, and indexes in Hz."
+                    )),
+                    // `s[0.5 s]` -- the ONE sample nearest that instant, so
+                    // a `Num`, matching what the positional `s[3]` above
+                    // returns for the same "one position" shape. Out of
+                    // range ERRORS rather than clamping, also matching
+                    // `s[3]`: a scalar lookup has one right answer or none,
+                    // and clamping would hand back the last sample as if it
+                    // were the one asked for. (A time RANGE clamps, because
+                    // a range asking for more than exists still has a
+                    // well-defined intersection -- that asymmetry is
+                    // inherited from positional indexing, not invented
+                    // here.)
+                    AxisIdx::Single(AxisCoord::Time(t)) => {
+                        if t < 0.0 {
+                            return e(format!("time index ({t} s) must be non-negative"));
+                        }
+                        let i = (t * fs).round() as usize;
+                        xs.get(i).copied().map(Value::Num).ok_or_else(|| EvalError {
+                            msg: format!(
+                                "time {t} s is sample {i}, past the end of this signal \
+                                 ({} samples at Fs = {fs} Hz, {} s long)",
+                                xs.len(),
+                                xs.len() as f64 / fs
+                            ),
+                        })
+                    }
+                    // `s[t0 s : t1 s]` -- the same operation as
+                    // `cut(s, t0, t1)`, through the same helper, so the two
+                    // spellings cannot drift. An omitted end reads as the
+                    // start of the signal / its full duration, exactly as an
+                    // omitted positional bound reads as 0 / the last index.
+                    //
+                    // Result is a `Signal` at the SAME Fs: a window over a
+                    // signal is still that signal's samples at that signal's
+                    // rate. It deliberately does NOT carry a t0 offset,
+                    // because `Value::Signal` has none to carry -- see the
+                    // commit message; the design doc's `t0` field does not
+                    // exist in the engine today and faking it here would be
+                    // an axis that lies.
+                    AxisIdx::Range(lo, hi) => {
+                        let t0 = match lo {
+                            Some(AxisCoord::Time(t)) => t,
+                            _ => 0.0,
+                        };
+                        let t1 = match hi {
+                            Some(AxisCoord::Time(t)) => t,
+                            // "to the end" -- the last sample's own instant,
+                            // `(n-1)/Fs`, which `signal_time_span` then
+                            // rounds straight back to index `n-1`.
+                            _ => (xs.len().saturating_sub(1)) as f64 / fs,
+                        };
+                        let out = signal_time_span(&xs, fs, t0, t1, "time slice")?;
                         Ok(Value::Signal(out.into(), fs))
+                    }
+                }
+            }
+            // § unit-aware indexing (2026-09-18). A `Spectrum` could not be
+            // indexed AT ALL before today -- `spec[3]` was "cannot index a
+            // spectrum", despite the value being a complex vector plus an
+            // axis and despite `spectrum_at` already existing to do exactly
+            // the Hz lookup. Both readings are added at once, because adding
+            // only the positional one would make `spec[440]` mean bin 440
+            // and quietly train the habit that `spec[440 Hz]` was going to
+            // have to break.
+            //
+            //     spec[3]                bin 3
+            //     spec[3 : 10]           bins 3..=10
+            //     spec[440 Hz]           the bin nearest 440 Hz
+            //     spec[20 Hz : 20 kHz]   that band's bins
+            //
+            // A frequency RANGE returns a plain `CVec`, NOT a `Spectrum`.
+            // That is this change's one genuinely debatable call, and it is
+            // taken straight from the reasoning already written above the
+            // `spectrum_at`/`band_power`/`band_zero` arm, which refused a
+            // band-slicing verb for precisely this reason: "Slicing bins
+            // would leave bin 0 of the result no longer at DC, silently
+            // invalidating `.freq` -- an axis that lies is worse than no
+            // axis." A `Spectrum` whose bin 0 is 20 Hz would make `.freq`,
+            // `spectrum_at` and `band_power` all answer confidently and
+            // wrongly on the result. A `CVec` has no axis to be wrong
+            // about, which is the honest shape for "these bins", and is
+            // what that same comment already points people at ("`.mag`/
+            // `.freq` return plain vectors that can be sliced safely").
+            Value::Spectrum(xs, fs, n, _norm) => {
+                if indices.len() != 1 {
+                    return e("a spectrum takes a single index");
+                }
+                let ev = self.eval_idx(&indices[0], xs.len())?;
+                match classify_axis_idx(ev)? {
+                    AxisIdx::Positional(ev) => match sel_from_values(ev, xs.len())? {
+                        Sel::Scalar(i) => {
+                            xs.get(i).copied().map(Value::Complex).ok_or_else(|| EvalError {
+                                msg: format!("bin {i} out of bounds (len {})", xs.len()),
+                            })
+                        }
+                        Sel::Many(idxs) => {
+                            let mut out = Vec::with_capacity(idxs.len());
+                            for i in idxs {
+                                out.push(*xs.get(i).ok_or_else(|| EvalError {
+                                    msg: format!("bin {i} out of bounds (len {})", xs.len()),
+                                })?);
+                            }
+                            Ok(Value::CVec(Arc::new(out)))
+                        }
+                    },
+                    AxisIdx::Single(AxisCoord::Time(t))
+                    | AxisIdx::Range(Some(AxisCoord::Time(t)), _)
+                    | AxisIdx::Range(None, Some(AxisCoord::Time(t))) => e(format!(
+                        "a spectrum is indexed in bins or in Hz, not in seconds (`{t} s`) \
+                         -- it has no time axis. `ifft`/`irfft` takes you back to one."
+                    )),
+                    // Both Hz readings go through `spectrum_bin_of`, the
+                    // same helper `spectrum_at`/`band_power`/`band_zero`
+                    // now call -- so `spec[440 Hz]` and
+                    // `spectrum_at(spec, 440)` are the same bin by
+                    // construction, not by two roundings that happen to
+                    // agree today.
+                    other => {
+                        if n == 0 || xs.is_empty() {
+                            return e("this spectrum is empty (transform length 0)");
+                        }
+                        let df = fs / n as f64;
+                        let len = xs.len();
+                        match other {
+                            AxisIdx::Single(AxisCoord::Freq(hz)) => {
+                                Ok(Value::Complex(xs[spectrum_bin_of(hz, df, len)]))
+                            }
+                            AxisIdx::Range(lo, hi) => {
+                                let f0 = match lo {
+                                    Some(AxisCoord::Freq(f)) => f,
+                                    _ => 0.0,
+                                };
+                                let f1 = match hi {
+                                    Some(AxisCoord::Freq(f)) => f,
+                                    // "to the end" -- the last bin's own
+                                    // centre frequency.
+                                    _ => (len.saturating_sub(1)) as f64 * df,
+                                };
+                                if f1 < f0 {
+                                    return e(format!(
+                                        "band: f1 ({f1} Hz) must be >= f0 ({f0} Hz)"
+                                    ));
+                                }
+                                let k0 = spectrum_bin_of(f0, df, len);
+                                let k1 = spectrum_bin_of(f1, df, len);
+                                Ok(Value::CVec(Arc::new(xs[k0..=k1].to_vec())))
+                            }
+                            // `Positional` and the time cases are handled
+                            // above; listing them is what makes this arm
+                            // total without a `_ => unreachable!()` that a
+                            // later variant could quietly fall into.
+                            AxisIdx::Positional(_)
+                            | AxisIdx::Single(AxisCoord::Time(_)) => unreachable!(
+                                "positional and time readings are handled by the arms above"
+                            ),
+                        }
                     }
                 }
             }
@@ -12039,8 +12512,11 @@ impl Interp {
     /// `n` (default: the input length); any length works (power-of-two uses the
     /// fast radix-2 kernel, anything else dispatches to Bluestein). Routes to
     /// the shared `qu_core` kernel so native and WASM agree.
-    fn eval_fft(&mut self, args: &[Value], inverse: bool) -> R<Value> {
+    fn eval_fft(&mut self, args: &[Value], inverse: bool, style: &[(String, Value)]) -> R<Value> {
         let src = arg0(args)?;
+        if inverse {
+            reject_scaled_spectrum("ifft", src)?;
+        }
         // §41.2: a forward transform of a `Signal` yields a `Spectrum` that
         // already knows its frequency axis. A plain vector has no rate to
         // carry and still yields a bare `CVec`, so every existing script is
@@ -12050,6 +12526,39 @@ impl Interp {
             (false, Value::Signal(_, fs)) => Some(*fs),
             _ => None,
         };
+        // `scaling=` on the FORWARD, full (two-sided) transform: the same
+        // `Amplitude`/`Rms` conventions `rfft` offers, and the same
+        // `spectrum_norm_factor` math -- it already generalises correctly
+        // to a full spectrum's mirror bins (`k > n/2`), since the factor
+        // only depends on whether a bin is DC/Nyquist or not, never on
+        // which side of the mirror it sits. The reading differs from
+        // `rfft`'s one-sided case, though, and that difference is real, not
+        // a formula quirk: `rfft` DISCARDS the negative-frequency half and
+        // doubles to compensate, so one physical tone occupies exactly one
+        // scaled bin. `fft` KEEPS both halves, so the same doubling means a
+        // real tone's TWO conjugate bins each independently read its full
+        // peak amplitude (not half) -- correct per bin, but summing both
+        // (or integrating a band across the mirror) double-counts that
+        // tone's energy. Reach for `rfft` instead when the total matters.
+        let scaling = if !inverse { style_str(style, "scaling") } else { None };
+        let norm = match scaling.as_deref() {
+            None => SpectrumNorm::RawTransform,
+            Some("raw") | Some("raw_transform") => SpectrumNorm::RawTransform,
+            Some("amplitude") => SpectrumNorm::Amplitude,
+            Some("rms") => SpectrumNorm::Rms,
+            Some(other) => {
+                return e(format!(
+                    "fft: unknown scaling {other:?} -- expected \"raw\", \"amplitude\" or \"rms\""
+                ))
+            }
+        };
+        if scaling.is_some() && rate.is_none() {
+            return e(
+                "fft: scaling= needs a Signal input so the convention travels with the \
+                 result -- wrap x in signal(x, fs) first"
+                    .to_string(),
+            );
+        }
         // Real-input fast path (§ fft on real data, 2026-09-10): FORWARD
         // only, and only when `src` carries no complex part at all -- the
         // same three arms `as_complex_flat` treats as "already complex"
@@ -12077,9 +12586,9 @@ impl Interp {
             let half = numeric::rfft_real(&real_samples).map_err(|ne| EvalError {
                 msg: ne.to_string(),
             })?;
-            let full = mirror_half_spectrum(&half, n);
+            let full = apply_spectrum_norm(mirror_half_spectrum(&half, n), n, norm);
             return Ok(match rate {
-                Some(fs) => Value::Spectrum(Arc::new(full), fs, n, SpectrumNorm::RawTransform),
+                Some(fs) => Value::Spectrum(Arc::new(full), fs, n, norm),
                 None => Value::CVec(Arc::new(full)),
             });
         }
@@ -12099,7 +12608,8 @@ impl Interp {
         Ok(match rate {
             Some(fs) => {
                 let n = out.len();
-                Value::Spectrum(Arc::new(out), fs, n, SpectrumNorm::RawTransform)
+                let out = apply_spectrum_norm(out, n, norm);
+                Value::Spectrum(Arc::new(out), fs, n, norm)
             }
             None => Value::CVec(Arc::new(out)),
         })
@@ -13281,7 +13791,25 @@ impl Interp {
                     // passed through unchanged, so reduce_axis reduces
                     // with the SAME q the caller wrote rather than a
                     // hardcoded 0.5.
-                    return reduce_axis(f, m, axis.unwrap(), args.get(1));
+                    //
+                    // This path bypasses `call_builtin`'s own keyword-read
+                    // tracking entirely (it never calls `dispatch_builtin`),
+                    // so `on_invalid=` -- read inside `reduce_axis` via
+                    // `style_entry` like any other keyword -- would
+                    // otherwise never be checked against what the caller
+                    // actually supplied. A `StyleFrame` here closes that
+                    // gap: an unread keyword on `mean(M, axis=0, bogus=1)`
+                    // is refused the same way it already is off the axis
+                    // path.
+                    let keys: Vec<String> = style.iter().map(|(k, _)| k.clone()).collect();
+                    let kw = StyleFrame::push();
+                    let out = reduce_axis(f, m, axis.unwrap(), args.get(1), &style);
+                    let read = kw.keys_read();
+                    drop(kw);
+                    if out.is_ok() && !keys.is_empty() {
+                        reject_unread_kwargs(f, &keys, &read)?;
+                    }
+                    return out;
                 }
                 // NOT a matrix, so `reduce_axis` -- which is where "axis
                 // must be 0 or 1" is checked -- is never reached. Before
@@ -18990,15 +19518,41 @@ self.eval_grad(loss, wrt)
             // `sum` is complex-aware: a `CVec` reduces to a `Complex` instead
             // of erroring through the real-only `to_vec` coercion below --
             // DSP idioms like a DFT bin (`sum(x .* twiddle_factors)`) need it.
+            // `on_invalid=` (default `"propagate"`, today's behavior
+            // unchanged) — see `OnInvalid`'s doc comment for the three
+            // values and `apply_on_invalid`/`arg_extremum_on_invalid` for
+            // where each reduction below applies it.
             "sum" => match arg0(&args)? {
-                Value::CVec(xs) => Ok(Value::Complex(
-                    xs.iter().fold(Complex64::real(0.0), |acc, c| acc.add(*c)),
-                )),
-                other => Ok(Value::Num(to_vec(other)?.iter().sum())),
+                Value::CVec(xs) => match parse_on_invalid("sum", &style)? {
+                    OnInvalid::Propagate => Ok(Value::Complex(
+                        xs.iter().fold(Complex64::real(0.0), |acc, c| acc.add(*c)),
+                    )),
+                    OnInvalid::Error => {
+                        if let Some((i, kind)) = first_invalid_complex(&xs) {
+                            return e(format!(
+                                "sum: input contains {kind} at index {i} -- pass \
+                                 on_invalid=\"ignore\" to skip invalid values, or \
+                                 on_invalid=\"propagate\" to allow them through"
+                            ));
+                        }
+                        Ok(Value::Complex(
+                            xs.iter().fold(Complex64::real(0.0), |acc, c| acc.add(*c)),
+                        ))
+                    }
+                    OnInvalid::Ignore => Ok(Value::Complex(
+                        xs.iter()
+                            .filter(|c| c.re.is_finite() && c.im.is_finite())
+                            .fold(Complex64::real(0.0), |acc, c| acc.add(*c)),
+                    )),
+                },
+                other => {
+                    let xs = apply_on_invalid("sum", to_cow(other)?, &style)?;
+                    Ok(Value::Num(xs.iter().sum()))
+                }
             },
             "prod" => Ok(Value::Num(to_vec(arg0(&args)?)?.iter().product())),
             "mean" => {
-                let xs = to_cow(arg0(&args)?)?;
+                let xs = apply_on_invalid("mean", to_cow(arg0(&args)?)?, &style)?;
                 if xs.is_empty() {
                     return e("mean of empty vector");
                 }
@@ -19009,14 +19563,14 @@ self.eval_grad(loss, wrt)
                 if arg_all(&args).len() >= 2 {
                     self.binop_ew_named(f64::max, arg_all(&args)[0].clone(), arg_all(&args)[1].clone())
                 } else {
-                    reduce_cmp(&args, f64::max)
+                    reduce_cmp("max", &args, &style, f64::max)
                 }
             }
             "min" => {
                 if arg_all(&args).len() >= 2 {
                     self.binop_ew_named(f64::min, arg_all(&args)[0].clone(), arg_all(&args)[1].clone())
                 } else {
-                    reduce_cmp(&args, f64::min)
+                    reduce_cmp("min", &args, &style, f64::min)
                 }
             }
             // `argmin(x)`/`argmax(x)` — the 0-based index of the
@@ -19025,24 +19579,24 @@ self.eval_grad(loss, wrt)
             // `min`/`max`'s own "return the value" one.
             "argmin" => {
                 let xs = to_cow(arg0(&args)?)?;
-                arg_extremum(&xs, f64::lt).map(|i| Value::Num(i as f64))
+                arg_extremum_on_invalid("argmin", &xs, f64::lt, &style).map(|i| Value::Num(i as f64))
             }
             "argmax" => {
                 let xs = to_cow(arg0(&args)?)?;
-                arg_extremum(&xs, f64::gt).map(|i| Value::Num(i as f64))
+                arg_extremum_on_invalid("argmax", &xs, f64::gt, &style).map(|i| Value::Num(i as f64))
             }
             // `median(x)` — the middle order statistic (average of the two
             // middle elements for an even-length `x`, the standard
             // convention).
             "median" => {
-                let xs = to_cow(arg0(&args)?)?;
+                let xs = apply_on_invalid("median", to_cow(arg0(&args)?)?, &style)?;
                 Ok(Value::Num(median_of(&xs)?))
             }
             // `quantile(x, q)` — linear interpolation between the two
             // nearest order statistics (NumPy's default `interpolation=
             // "linear"`), `q` in `[0, 1]`.
             "quantile" => {
-                let xs = to_cow(arg0(&args)?)?;
+                let xs = apply_on_invalid("quantile", to_cow(arg0(&args)?)?, &style)?;
                 let q = arg_get(&args, 1).and_then(|v| v.as_num().ok()).unwrap_or(0.5);
                 Ok(Value::Num(quantile_of(&xs, q)?))
             }
@@ -19112,13 +19666,13 @@ self.eval_grad(loss, wrt)
                 self.binop_ew_named(f64::min, low, hi)
             }
             "std" => {
-                let xs = to_cow(arg0(&args)?)?;
+                let xs = apply_on_invalid("std", to_cow(arg0(&args)?)?, &style)?;
                 Ok(Value::Num(std_dev(&xs)))
             }
             // `var(x)` — sample variance, same N-1 (unbiased) denominator as
             // `std`, so `var(x) == std(x)^2` always holds.
             "var" => {
-                let xs = to_cow(arg0(&args)?)?;
+                let xs = apply_on_invalid("var", to_cow(arg0(&args)?)?, &style)?;
                 Ok(Value::Num(variance(&xs)))
             }
             // Feature scaling, one-shot verbs — fit-and-apply in one call,
@@ -19251,6 +19805,254 @@ self.eval_grad(loss, wrt)
                 }
                 let ms = xs.iter().map(|x| x * x).sum::<f64>() / xs.len() as f64;
                 Ok(Value::Num(ms.sqrt()))
+            }
+            // `peak(x)` -- `max(abs(x))`, named separately from `rms`
+            // because `crest_factor` below is defined as their ratio and
+            // reads better spelled out than as two nested calls.
+            "peak" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("peak of empty vector");
+                }
+                Ok(Value::Num(xs.iter().fold(0.0f64, |m, &x| m.max(x.abs()))))
+            }
+            // `crest_factor(x)` = `peak(x) / rms(x)`, a dimensionless
+            // ratio (a sine's is `sqrt(2)`) -- the same quantity
+            // `sinad_estimate(bits, crest_factor)` already takes as its
+            // second argument.
+            "crest_factor" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("crest_factor of empty vector");
+                }
+                let ms = xs.iter().map(|x| x * x).sum::<f64>() / xs.len() as f64;
+                let rms = ms.sqrt();
+                let peak = xs.iter().fold(0.0f64, |m, &x| m.max(x.abs()));
+                if rms <= 0.0 {
+                    return e("crest_factor: rms is zero -- the signal is silent");
+                }
+                Ok(Value::Num(peak / rms))
+            }
+            // `dbfs(x, [full_scale=1.0])` -- peak level relative to full
+            // scale, `20*log10(peak(abs(x)) / full_scale)`. An uncalibrated
+            // digital signal can answer in dBFS with no physical unit
+            // attached; anything past that (dB SPL, dB relative to a
+            // sensitivity) needs a calibration this engine does not carry
+            // yet, so `dbfs` stops exactly where that would start.
+            "dbfs" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("dbfs of empty vector");
+                }
+                let full_scale = style_num(&style, "full_scale").unwrap_or(1.0);
+                if !(full_scale > 0.0) {
+                    return e("dbfs: full_scale must be positive");
+                }
+                let peak = xs.iter().fold(0.0f64, |m, &x| m.max(x.abs()));
+                Ok(Value::Num(20.0 * (peak / full_scale).max(1e-300).log10()))
+            }
+
+            // ----------------------------------------- measurement diagnostics
+            //
+            // `is_clipped(x, [threshold=], [full_scale=], [tol=],
+            // [min_run=])` -> true/false, and `find_clipping(x, ...)` ->
+            // where. Same detection, two shapes, one parameter resolver
+            // (`clip_params`) so they cannot disagree.
+            //
+            // The test is a FLAT RUN at an extreme, not a threshold
+            // crossing. "Any sample within x% of full scale" fires on every
+            // healthy recording that uses its headroom -- a sine sampled
+            // near its peak legitimately touches the top of its range, and
+            // some sample is always the largest. What a clipped record has
+            // and an unclipped one does not is several CONSECUTIVE samples
+            // holding the same value: the converter emitting one code over
+            // and over because the input went where it could not follow.
+            // Consecutive samples of a real sine near its peak differ by
+            // about `A*2*pi^2/N^2` for N samples per cycle, so equality
+            // separates the two without having to guess full scale.
+            //
+            // That is what makes the threshold default (the record's own
+            // largest magnitude) safe rather than a silent guess: on its
+            // own it flags nothing, it only picks the level the run test is
+            // applied at. Pass `full_scale=` when the converter's range is
+            // known -- then a flat run part-way up the range, which is a
+            // limiter rather than the converter, is correctly NOT reported.
+            //
+            // This catches HARD clipping. Soft/analogue saturation rounds
+            // the shoulder instead of flattening it and needs an explicit
+            // `threshold=` with a looser `tol=`; `min_run=1` degrades the
+            // whole thing to the plain threshold test for a caller who
+            // really wants that.
+            "is_clipped" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("is_clipped: the record is empty");
+                }
+                let (threshold, tol, min_run) = clip_params(&style, &xs, "is_clipped")?;
+                let r = numeric::diagnostics::find_clipping(&xs, threshold, tol, min_run);
+                Ok(Value::Bool(!r.runs.is_empty()))
+            }
+            // Returns a `Value::Model`, the named-field multi-return this
+            // engine already uses for `findpeaks`/`qr`/`svd` -- Qu has no
+            // tuple unpacking, and clipping is never one number.
+            //
+            // `threshold`/`tol`/`min_run` are echoed back on purpose: when
+            // the threshold was inferred from the record, a caller reading
+            // only `starts` has no way to know what level the answer is
+            // relative to.
+            "find_clipping" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("find_clipping: the record is empty");
+                }
+                let (threshold, tol, min_run) = clip_params(&style, &xs, "find_clipping")?;
+                let r = numeric::diagnostics::find_clipping(&xs, threshold, tol, min_run);
+                let starts: Vec<f64> = r.runs.iter().map(|c| c.start as f64).collect();
+                let ends: Vec<f64> = r.runs.iter().map(|c| c.end() as f64).collect();
+                let lengths: Vec<f64> = r.runs.iter().map(|c| c.len as f64).collect();
+                let values: Vec<f64> = r.runs.iter().map(|c| c.value).collect();
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "find_clipping",
+                    vec![
+                        ("count".to_string(), Value::Num(r.runs.len() as f64)),
+                        ("starts".to_string(), Value::Vec(Arc::new(starts))),
+                        // Inclusive, like the rest of Qu's ranges.
+                        ("ends".to_string(), Value::Vec(Arc::new(ends))),
+                        ("lengths".to_string(), Value::Vec(Arc::new(lengths))),
+                        // Signed, so the positive rail is distinguishable
+                        // from the negative one.
+                        ("values".to_string(), Value::Vec(Arc::new(values))),
+                        ("samples".to_string(), Value::Num(r.samples as f64)),
+                        (
+                            "fraction".to_string(),
+                            Value::Num(r.samples as f64 / xs.len() as f64),
+                        ),
+                        ("threshold".to_string(), Value::Num(r.threshold)),
+                        ("tol".to_string(), Value::Num(r.tol)),
+                        ("min_run".to_string(), Value::Num(r.min_run as f64)),
+                    ],
+                ))))
+            }
+            // `detect_saturation(x, adc_bits, [full_scale=])` -- the same
+            // question for a converter whose range is KNOWN rather than
+            // guessed, and deliberately a different test: no flat run is
+            // required, because when the rail is a number you were handed,
+            // a single sample sitting on it is already evidence and
+            // demanding a run would lose exactly the short excursions that
+            // matter most.
+            //
+            // The code geometry comes from `numeric::noise::code_step`, the
+            // same one `adc` quantises with, so the detector and the
+            // simulator cannot drift into two slightly different
+            // converters. The consequence worth knowing: codes run
+            // `0 ..= 2^bits - 1`, so the top code is `full_scale - lsb`,
+            // NOT `full_scale`. A check that looks for samples at exactly
+            // `full_scale` finds none, ever.
+            //
+            // `full_scale` defaults to 1.0 -- the stated convention `dbfs`
+            // already set, not a value read off the data. Inferring the
+            // range from the record would make the answer trivially "yes"
+            // for every record, since the largest sample is always at the
+            // largest sample.
+            "detect_saturation" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.is_empty() {
+                    return e("detect_saturation: the record is empty");
+                }
+                let bits = style_num(&style, "adc_bits")
+                    .or_else(|| style_num(&style, "bits"))
+                    .or_else(|| arg_get(&args, 1).and_then(|v| v.as_num().ok()))
+                    .ok_or_else(|| EvalError {
+                        msg: "detect_saturation(x, adc_bits, [full_scale=]) needs the converter's \
+                              word length -- there is no rail to check against without it"
+                            .into(),
+                    })?;
+                if !(1.0..=32.0).contains(&bits) || bits.fract() != 0.0 {
+                    return e(format!(
+                        "detect_saturation: adc_bits must be a whole number from 1 to 32, \
+                         found {bits}"
+                    ));
+                }
+                let full_scale = style_num(&style, "full_scale").unwrap_or(1.0);
+                if !(full_scale > 0.0) {
+                    return e(format!(
+                        "detect_saturation: full_scale must be positive, found {full_scale}"
+                    ));
+                }
+                // Symmetric about zero. Signal-processing records are
+                // bipolar by default -- an AC-coupled measurement, a
+                // waveform, anything with a mean near zero -- and a
+                // unipolar `[0, full_scale]` reading of such a record would
+                // report the entire negative half as railed. Pass
+                // `full_scale=` with an offset-removed signal for the
+                // unipolar case.
+                let (vmin, vmax) = (-full_scale, full_scale);
+                let r = numeric::diagnostics::saturation(&xs, bits as u32, vmin, vmax);
+                Ok(Value::Record(Arc::new(vec![
+                    ("saturated".into(), Value::Bool(r.saturated())),
+                    ("high".into(), Value::Num(r.high as f64)),
+                    ("low".into(), Value::Num(r.low as f64)),
+                    ("total".into(), Value::Num((r.high + r.low) as f64)),
+                    ("fraction".into(), Value::Num(r.fraction)),
+                    ("lsb".into(), Value::Num(r.lsb)),
+                    ("vmin".into(), Value::Num(r.vmin)),
+                    ("vmax".into(), Value::Num(r.vmax)),
+                    ("top_code".into(), Value::Num(r.top_code)),
+                    ("bits".into(), Value::Num(bits)),
+                ])))
+            }
+            // `verify_signal(x)` -- structural sanity before any semantic
+            // diagnostic above is worth running. Named `verify_signal`
+            // rather than `verify` because a bare `verify` says nothing
+            // about what it verifies, and this engine already has file- and
+            // hash-shaped things that would want the name.
+            //
+            // Deliberately narrow: it answers "are these samples a usable
+            // record", not "is this signal any good". NaN is called out
+            // separately from infinity because they fail differently -- a
+            // single NaN makes a mean, an FFT or a filter return NaN
+            // THROUGHOUT, not just at that position, which is how one bad
+            // sample becomes a whole bad analysis with nothing to show for
+            // it. A constant record is reported as constant and is NOT an
+            // error: a DC measurement is a real thing, and a stuck channel
+            // is for the caller to judge.
+            //
+            // Given a `Signal`, the sample rate is checked too and the
+            // implied duration reported, since a rate of zero or NaN
+            // silently poisons every frequency axis derived from it.
+            "verify_signal" => {
+                let v = arg0(&args)?;
+                let xs = to_cow(v)?;
+                let r = numeric::diagnostics::verify(&xs);
+                let mut issues: Vec<Value> =
+                    r.issues.iter().map(|s| Value::Str(s.clone())).collect();
+                let mut fields: Vec<(String, Value)> = vec![
+                    ("n".into(), Value::Num(r.n as f64)),
+                    ("nan".into(), Value::Num(r.nan as f64)),
+                    ("inf".into(), Value::Num(r.inf as f64)),
+                    ("finite".into(), Value::Bool(r.nan == 0 && r.inf == 0)),
+                    ("constant".into(), Value::Bool(r.constant)),
+                ];
+                if let Value::Signal(_, rate) = v {
+                    if !rate.is_finite() || *rate <= 0.0 {
+                        issues.push(Value::Str(format!(
+                            "the sample rate is {rate} -- every frequency axis derived from this \
+                             signal is meaningless"
+                        )));
+                    }
+                    fields.push(("rate".into(), Value::Num(*rate)));
+                    fields.push((
+                        "duration".into(),
+                        Value::Num(if rate.is_finite() && *rate > 0.0 {
+                            r.n as f64 / rate
+                        } else {
+                            f64::NAN
+                        }),
+                    ));
+                }
+                fields.push(("ok".into(), Value::Bool(issues.is_empty())));
+                fields.push(("issues".into(), Value::List(Arc::new(issues))));
+                Ok(Value::Record(Arc::new(fields)))
             }
             "length" | "numel" | "len" => Ok(Value::Num(value_len(arg0(&args)?) as f64)),
             "norm" => {
@@ -19902,7 +20704,7 @@ self.eval_grad(loss, wrt)
                     ));
                 }
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
-                let window = periodic_analysis_window(&window_name, nperseg, &style)?;
+                let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
                 numeric::transforms::coherence(&xs, &ys, fs, nperseg, noverlap, &window)
                     .map(|v| Value::Vec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: format!("spectral_coherence: {ne}") })
@@ -19968,9 +20770,35 @@ self.eval_grad(loss, wrt)
                 // symmetric about zero -- the case where nothing clips, so
                 // the first run shows quantisation alone. Narrow it to see
                 // what a real range does.
+                //
+                // `full_scale=` is the symmetric shorthand: `full_scale=2`
+                // means `vmin=-2, vmax=2`. It exists because that is the
+                // word `dbfs`, `is_clipped` and `detect_saturation` all use
+                // for the same quantity, and because the design doc's
+                // `quantize(bits:)`/`simulateADC(bits:, fullScale:)` are
+                // this function under other names -- adding them as
+                // separate builtins would have been the "two that drift
+                // apart" this comment opens by warning about. Giving both
+                // `full_scale=` and a `vmin=`/`vmax=` is an error rather
+                // than a precedence rule, the same way `add_noise` refuses
+                // `snr=` and `amplitude=` together.
                 let peak = x.iter().fold(0.0f64, |m, v| m.max(v.abs())).max(1e-12);
-                let vmin = style_num(&style, "vmin").unwrap_or(-peak);
-                let vmax = style_num(&style, "vmax").unwrap_or(peak);
+                let full_scale = style_num(&style, "full_scale");
+                if let Some(fs) = full_scale {
+                    if style_entry(&style, "vmin").is_some() || style_entry(&style, "vmax").is_some()
+                    {
+                        return e(
+                            "adc: give `full_scale=` or `vmin=`/`vmax=`, not both -- they are two \
+                             ways of setting the same reference range and they would disagree"
+                                .to_string(),
+                        );
+                    }
+                    if !(fs > 0.0) {
+                        return e(format!("adc: full_scale must be positive, found {fs}"));
+                    }
+                }
+                let vmin = full_scale.map(|fs| -fs).or_else(|| style_num(&style, "vmin")).unwrap_or(-peak);
+                let vmax = full_scale.or_else(|| style_num(&style, "vmax")).unwrap_or(peak);
                 let dither = matches!(style_entry(&style, "dither"), Some((_, Value::Bool(true))));
                 mark_style_read("dither");
                 let sd = style_num(&style, "seed").map(|v| v as u64).unwrap_or(seed.unwrap_or(1));
@@ -20203,6 +21031,236 @@ self.eval_grad(loss, wrt)
                 numeric::noise::detrend(&x, order)
                     .map(|v| Value::Vec(Arc::new(v)))
                     .map_err(|err| EvalError { msg: format!("detrend: {err}") })
+            }
+            // `rolling_mean`/`rolling_rms`/`rolling_std`/`rolling_min`/
+            // `rolling_max(x, [window=5])` — a statistic over a sliding
+            // window: drift removal before an FFT, a moving-RMS trigger
+            // level, a moving min/max envelope.
+            //
+            // Centred on each sample over an ODD window, same as every
+            // other windowed function in this engine (`medfilt`, `savgol`,
+            // `smooth`, `hampel`) and refusing an even one for the same
+            // reason -- an even window has no middle sample and which way
+            // it rounds changes the answer.
+            //
+            // The edges are where these deliberately DIVERGE from the
+            // smoothers above, and it is worth stating why rather than
+            // leaving it to be discovered. `medfilt`/`moving_average` pad
+            // (reflect/clamp) because a filter must emit a sample for every
+            // input sample and has to invent the neighbours it does not
+            // have. These are statistics, not filters: padding would answer
+            // "what was the spread of the data here" with fabricated data,
+            // and for `rolling_std` it does not just add edge error, it
+            // biases the answer toward zero (a clamped repeat has no
+            // variance), reporting the signal as quietest exactly where
+            // least is known about it. So the window SHRINKS at the edges
+            // instead -- MATLAB's `movmean`/`movstd` default and pandas'
+            // `min_periods=1` -- and every returned value is the statistic
+            // of real samples only. See `numeric::noise`'s own section
+            // comment for the full argument.
+            //
+            // A `Signal` comes back a `Signal` at the same `Fs`: the output
+            // is the same length and each sample still lines up with the
+            // input instant it was centred on, so the rate is still true.
+            "rolling_mean" | "rolling_rms" | "rolling_std" | "rolling_min" | "rolling_max" => {
+                let input = arg0(&args)?;
+                let xs = to_cow(input)?;
+                let window = rolling_window(&args, &style, 5)?;
+                let out = match f {
+                    "rolling_mean" => numeric::noise::rolling_mean(&xs, window),
+                    "rolling_rms" => numeric::noise::rolling_rms(&xs, window),
+                    "rolling_std" => numeric::noise::rolling_std(&xs, window),
+                    "rolling_min" => numeric::noise::rolling_min(&xs, window),
+                    _ => numeric::noise::rolling_max(&xs, window),
+                };
+                out.map(|v| same_rate_as(input, v))
+                    .map_err(|err| EvalError { msg: format!("{f}: {err}") })
+            }
+            // `find_outliers`/`remove_outliers`/`replace_outliers(x,
+            // [method="zscore"], [threshold=], [window=7],
+            // [fill_method="linear"], [value=])` — one function per ANSWER
+            // (which samples / drop them / patch them), one `method=` kwarg
+            // for the criterion, following `smooth`'s own shape rather than
+            // growing a function per variant.
+            //
+            //   "zscore"           |x-mean|/std      > threshold (3)
+            //   "modified_zscore"  0.6745|x-med|/MAD > threshold (3.5)
+            //   "iqr"              outside Q1/Q3 +- threshold*IQR (1.5)
+            //   "hampel"           the local, windowed test -- `hampel`'s
+            //                      own criterion, shared with it rather
+            //                      than reimplemented.
+            //
+            // The default threshold is per-method on purpose: 3 sigma, 3.5
+            // modified-z and 1.5 IQR are the conventional cutoffs for three
+            // DIFFERENT scales, and one shared number would silently make
+            // two of the three mean something nobody intends.
+            //
+            // `window=` is read only by `method="hampel"`, the only
+            // criterion that has a window -- passing it to the others is an
+            // unread kwarg and errors, rather than being accepted and
+            // ignored.
+            //
+            // There is deliberately no count in the return value: the
+            // "how many" question is `length(find_outliers(...))`, which is
+            // the same number and available before committing to a
+            // transform, and that keeps the two transforms chainable
+            // (`x.remove_outliers().fft()`) instead of returning a record
+            // the next call cannot take.
+            "find_outliers" | "remove_outliers" | "replace_outliers" => {
+                let input = arg0(&args)?;
+                let xs = to_cow(input)?;
+                let method = style_str(&style, "method").unwrap_or_else(|| "zscore".to_string());
+                let threshold = style_num(&style, "threshold")
+                    .or_else(|| style_num(&style, "n_sigma"))
+                    .unwrap_or_else(|| numeric::noise::default_outlier_threshold(&method));
+                let flags = if matches!(method.as_str(), "hampel" | "local") {
+                    let window = rolling_window(&args, &style, 7)?;
+                    numeric::noise::hampel_flags(&xs, window, threshold).map(|(fl, _)| fl)
+                } else {
+                    numeric::noise::outlier_flags(&xs, &method, threshold)
+                }
+                .map_err(|err| EvalError { msg: format!("{f}: {err}") })?;
+                match f {
+                    "find_outliers" => Ok(Value::Vec(Arc::new(
+                        (0..xs.len()).filter(|&i| flags[i]).map(|i| i as f64).collect(),
+                    ))),
+                    // Dropping samples returns a plain `Vec` even from a
+                    // `Signal`, and that is not an oversight: a `Signal` is
+                    // a promise of uniform sampling at a known `Fs`, and a
+                    // record with samples removed is no longer uniformly
+                    // sampled, so there is no honest `Fs` left to attach.
+                    // Exactly `interpolate_at`'s existing reasoning. Reach
+                    // for `replace_outliers` when the rate must survive.
+                    "remove_outliers" => Ok(Value::Vec(Arc::new(
+                        (0..xs.len()).filter(|&i| !flags[i]).map(|i| xs[i]).collect(),
+                    ))),
+                    _ => {
+                        // `fill_method=`, not `fill=`: `fill` is one of
+                        // `COLOR_KEYS`, so `style_str` would resolve it as a
+                        // colour and `fill="median"` would come back as
+                        // "`median` is not a colour". Found by running it.
+                        let fill = style_str(&style, "fill_method")
+                            .unwrap_or_else(|| "linear".to_string());
+                        let constant = style_num(&style, "value");
+                        // The patch is done by punching the flagged samples
+                        // out to NaN and handing the result to the SAME fill
+                        // engine `fill_missing` uses -- an outlier and a
+                        // dropout are the same problem once the bad sample
+                        // is identified, and two fill implementations would
+                        // eventually disagree about what "linear" means.
+                        let mut work: Vec<f64> = xs.to_vec();
+                        for i in 0..work.len() {
+                            if flags[i] {
+                                work[i] = f64::NAN;
+                            }
+                        }
+                        let mut filled = match constant {
+                            Some(c) => {
+                                let mut w = work.clone();
+                                for i in 0..w.len() {
+                                    if flags[i] {
+                                        w[i] = c;
+                                    }
+                                }
+                                w
+                            }
+                            // `fill="nan"` marks the outliers as missing and
+                            // stops there, which is the honest option when
+                            // the right patch is a judgement call: the gaps
+                            // are then `find_missing`'s problem.
+                            None if fill == "nan" || fill == "none" => work.clone(),
+                            None => numeric::noise::fill_missing(&work, &fill)
+                                .map_err(|err| EvalError { msg: format!("{f}: {err}") })?
+                                .0,
+                        };
+                        // Samples that were ALREADY missing stay missing.
+                        // Without this they would be swept up by the fill
+                        // above and `replace_outliers` would quietly double
+                        // as a dropout filler -- a different operation, with
+                        // a different function, that the caller did not ask
+                        // for here.
+                        for i in 0..filled.len() {
+                            if !xs[i].is_finite() && !flags[i] {
+                                filled[i] = xs[i];
+                            }
+                        }
+                        Ok(same_rate_as(input, filled))
+                    }
+                }
+            }
+            // `find_missing`/`remove_nan`/`fill_missing`/`interpolate_nan` —
+            // dropouts, which real DAQ data has and which nothing else in
+            // the engine had an answer for: `detrend([1, 2, nan, 4], 0)` is
+            // four NaNs, and every spectral builtin behaves the same way, so
+            // one dropout costs the whole record until it is dealt with.
+            //
+            // "Missing" means NOT FINITE -- NaN or +-Inf, not just NaN. An
+            // infinity poisons a mean exactly as thoroughly as a NaN does
+            // and a saturated channel can produce either, so treating only
+            // NaN as missing would leave the other one to be discovered
+            // downstream. `remove_nan` keeps its familiar name and removes
+            // both; the book says so out loud.
+            //
+            // As with the outlier family there is no count in the return
+            // value: `length(find_missing(x))` is the count, and these stay
+            // chainable.
+            "find_missing" | "remove_nan" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if f == "find_missing" {
+                    return Ok(Value::Vec(Arc::new(
+                        (0..xs.len())
+                            .filter(|&i| !xs[i].is_finite())
+                            .map(|i| i as f64)
+                            .collect(),
+                    )));
+                }
+                // Plain `Vec` from a `Signal`, same reasoning as
+                // `remove_outliers` above: the surviving samples are no
+                // longer evenly spaced, so the old `Fs` would be a lie.
+                Ok(Value::Vec(Arc::new(
+                    xs.iter().copied().filter(|v| v.is_finite()).collect(),
+                )))
+            }
+            // `fill_missing(x, [method="linear"], [value=])` — patch the
+            // dropouts, keeping the length (and so a `Signal`'s `Fs`).
+            //
+            // `method`: "linear" (default), "previous"/"ffill", "next"/
+            // "bfill", "nearest", "mean", "median". `value=` overrides them
+            // all with a constant.
+            //
+            // `interpolate_nan(x)` is the same thing spelled for the one
+            // case that is overwhelmingly the common one -- it IS
+            // `fill_missing(x, method="linear")`, sharing the engine rather
+            // than being a second implementation, and is kept as its own
+            // name only because that is the operation people go looking for
+            // by name.
+            //
+            // The linear fill deliberately does NOT extrapolate at the ends
+            // (a gap with good data on one side only holds the nearest good
+            // sample). `interp1` does extrapolate -- verified, not assumed:
+            // `interp1([0,1,2,3], [0,10,20,30], 6)` is `60` -- which is why
+            // it is not reused here unchanged. The two are answering
+            // different questions: `interp1`'s caller asked for the model's
+            // value at a named point outside the data, while here nobody
+            // asked for anything and a trailing dropout is being patched so
+            // the next stage has something to work with. Extrapolating
+            // there turns a dropout into a trend, which is worse than a flat
+            // patch precisely because it looks like data.
+            "fill_missing" | "interpolate_nan" => {
+                let input = arg0(&args)?;
+                let xs = to_cow(input)?;
+                let filled = if f == "interpolate_nan" {
+                    numeric::noise::interpolate_missing(&xs).0
+                } else if let Some(c) = style_num(&style, "value") {
+                    xs.iter().map(|v| if v.is_finite() { *v } else { c }).collect()
+                } else {
+                    let method =
+                        style_str(&style, "method").unwrap_or_else(|| "linear".to_string());
+                    numeric::noise::fill_missing(&xs, &method)
+                        .map_err(|err| EvalError { msg: format!("{f}: {err}") })?
+                        .0
+                };
+                Ok(same_rate_as(input, filled))
             }
             // `measure_snr(clean, noisy)` — what the SNR actually is,
             // taking the noise as the difference. The loop-closer: it lets
@@ -21594,8 +22652,8 @@ self.eval_grad(loss, wrt)
 
             // DFT: `fft(x)` or `fft(x, n)` (zero-pads/truncates to n samples).
             // `fftc` is an explicit-complex alias of `fft` (same function).
-            "fft" | "fftc" => self.eval_fft(arg_all(&args), false),
-            "ifft" => self.eval_fft(arg_all(&args), true),
+            "fft" | "fftc" => self.eval_fft(arg_all(&args), false, &style),
+            "ifft" => self.eval_fft(arg_all(&args), true, &style),
 
             // Real-optimized half-spectrum FFT (NumPy/MATLAB `rfft`/`irfft`
             // convention: a real signal's spectrum is Hermitian-symmetric, so
@@ -21615,7 +22673,7 @@ self.eval_grad(loss, wrt)
             // record that is not exactly coherent. It defaults to 0 because
             // widening hides close-in noise inside the signal and flatters
             // the answer; that has to be the caller's decision.
-            "sinad" | "enob" | "thd" | "sfdr" | "snr" => {
+            "sinad" | "enob" | "thd" | "thd_n" | "sfdr" | "snr" => {
                 let x = to_vec(arg0(&args)?)?;
                 let leak = style_num(&style, "leak").unwrap_or(0.0).max(0.0) as usize;
                 let r = if let Some((_, tv)) = style_entry(&style, "tones").or_else(|| style_entry(&style, "freqs")) {
@@ -21652,6 +22710,13 @@ self.eval_grad(loss, wrt)
                         Some(v) => Value::Num(v),
                         None => Value::Num(f64::NEG_INFINITY),
                     },
+                    // THD+N: harmonics AND noise together, against the
+                    // signal -- exactly what `noise_power` already totals
+                    // (everything outside the excitation bins, harmonics
+                    // included), so this is `sinad_db` with the sign
+                    // flipped rather than a second measurement. Same sign
+                    // convention as `thd`: more negative is better.
+                    "thd_n" => Value::Num(-r.sinad_db),
                     _ => Value::Record(Arc::new(vec![
                         ("sinad".into(), Value::Num(r.sinad_db)),
                         ("enob".into(), Value::Num(r.enob)),
@@ -21694,6 +22759,15 @@ self.eval_grad(loss, wrt)
                     db
                 }))
             }
+            // `rfft(x, [scaling=])` -- `scaling=` picks the normalisation
+            // stamped on the returned `Spectrum`: `"raw"` (default, the
+            // unnormalised DFT sum), `"amplitude"` (a bin reads the peak
+            // amplitude of the tone at that frequency) or `"rms"` (that
+            // tone's RMS value). Requires a `Signal` input -- the
+            // convention is metadata carried on `Value::Spectrum`, and a
+            // bare `CVec` has nowhere to record it, so asking for a
+            // scaling on plain numbers is refused rather than silently
+            // dropped.
             "rfft" => {
                 // §41.2, as in `eval_fft`: a `Signal` input carries `Fs`, so
                 // the half-spectrum can carry the frequency axis with it. The
@@ -21703,12 +22777,34 @@ self.eval_grad(loss, wrt)
                     Value::Signal(_, fs) => Some(*fs),
                     _ => None,
                 };
+                let scaling = style_str(&style, "scaling");
+                let norm = match scaling.as_deref() {
+                    None => SpectrumNorm::RawTransform,
+                    Some("raw") | Some("raw_transform") => SpectrumNorm::RawTransform,
+                    Some("amplitude") => SpectrumNorm::Amplitude,
+                    Some("rms") => SpectrumNorm::Rms,
+                    Some(other) => {
+                        return e(format!(
+                            "rfft: unknown scaling {other:?} -- expected \"raw\", \"amplitude\" or \"rms\""
+                        ))
+                    }
+                };
+                if scaling.is_some() && rate.is_none() {
+                    return e(
+                        "rfft: scaling= needs a Signal input so the convention travels with \
+                         the result -- wrap x in signal(x, fs) first"
+                            .to_string(),
+                    );
+                }
                 let xs = to_cow(arg0(&args)?)?;
                 let n = xs.len();
                 numeric::transforms::rfft(&xs)
-                    .map(|v| match rate {
-                        Some(fs) => Value::Spectrum(Arc::new(v), fs, n, SpectrumNorm::RawTransform),
-                        None => Value::CVec(Arc::new(v)),
+                    .map(|v| {
+                        let v = apply_spectrum_norm(v, n, norm);
+                        match rate {
+                            Some(fs) => Value::Spectrum(Arc::new(v), fs, n, norm),
+                            None => Value::CVec(Arc::new(v)),
+                        }
                     })
                     .map_err(|ne| EvalError { msg: ne.to_string() })
             }
@@ -21717,6 +22813,7 @@ self.eval_grad(loss, wrt)
             // length alone (both even and odd `n` can share a half-length).
             // `fftr` is an alias ("the real-valued inverse fft").
             "irfft" | "fftr" => {
+                reject_scaled_spectrum(f, arg0(&args)?)?;
                 let half = arg0(&args)?
                     .as_complex_flat()
                     .map_err(|m| EvalError { msg: m })?;
@@ -21728,6 +22825,41 @@ self.eval_grad(loss, wrt)
                 numeric::transforms::irfft(&half, n)
                     .map(|v| Value::Vec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: ne.to_string() })
+            }
+
+            // `dominant_frequency(x, [fs])` / `estimate_frequency(x, [fs])`
+            // -- the Hz of the largest non-DC bin in `x`'s one-sided
+            // spectrum, the cheapest of the estimators
+            // `toolkit-signal.md` §6 names (zero-crossing, FFT
+            // interpolation, phase regression, least squares, and
+            // super-resolution methods for closely-spaced tones are not
+            // implemented here; this is the FFT-bin estimator only, with
+            // the bin's own resolution `fs/N` as its error bound). `fs` is
+            // read off a `Signal` input the same way `welch`/`rfft` do,
+            // or passed explicitly; a bare vector with no rate returns a
+            // normalized frequency in cycles/sample.
+            "dominant_frequency" | "estimate_frequency" => {
+                let xs = to_cow(arg0(&args)?)?;
+                if xs.len() < 4 {
+                    return e(format!("{f}: need at least 4 samples"));
+                }
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    Some(1.0),
+                )?;
+                let half = numeric::rfft_real(&xs).map_err(|ne| EvalError { msg: ne.to_string() })?;
+                let n = xs.len();
+                let (bin, _) = half
+                    .iter()
+                    .enumerate()
+                    .skip(1)
+                    .map(|(k, c)| (k, c.re * c.re + c.im * c.im))
+                    .fold((1usize, f64::NEG_INFINITY), |(bi, bv), (k, v)| {
+                        if v > bv { (k, v) } else { (bi, bv) }
+                    });
+                Ok(Value::Num(bin as f64 * fs / n as f64))
             }
 
             // `dft(x)`/`idft(X)` -- the direct, textbook O(nÂ²) transform
@@ -21742,6 +22874,7 @@ self.eval_grad(loss, wrt)
                     .map_err(|ne| EvalError { msg: ne.to_string() })
             }
             "idft" => {
+                reject_scaled_spectrum("idft", arg0(&args)?)?;
                 let xs = arg0(&args)?.as_complex_flat().map_err(|m| EvalError { msg: m })?;
                 numeric::transforms::idft(&xs)
                     .map(|v| Value::CVec(Arc::new(v)))
@@ -21751,20 +22884,38 @@ self.eval_grad(loss, wrt)
             // O(n), the standard tool for checking a handful of specific
             // frequencies without paying for a whole FFT. `k` need not be
             // an integer: this evaluates the DFT at an arbitrary frequency
-            // point between the FFT's own grid bins (a "K-point DFT"), not
-            // just a fast way to recover an on-grid one.
+            // point between the FFT's own grid bins, not just a fast way to
+            // recover an on-grid one. `k` may also be a vector of bins,
+            // evaluating each independently and returning a `CVec` -- the
+            // K-point DFT this is named for: K arbitrary points in O(n*K),
+            // instead of every one of a full N-point `fft`'s bins whether
+            // wanted or not.
             "goertzel" => {
                 let xs = to_cow(arg0(&args)?)?;
-                let k = arg_get(&args, 1).ok_or_else(|| EvalError {
-                    msg: "goertzel(x, k) needs a bin index as its second argument".into(),
-                })?.as_num().map_err(|msg| EvalError { msg })?;
-                numeric::transforms::goertzel(&xs, k)
-                    .map(Value::Complex)
-                    .map_err(|ne| EvalError { msg: ne.to_string() })
+                let karg = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "goertzel(x, k) needs a bin index (or a vector of them) as its second argument".into(),
+                })?;
+                if let Ok(k) = karg.as_num() {
+                    numeric::transforms::goertzel(&xs, k)
+                        .map(Value::Complex)
+                        .map_err(|ne| EvalError { msg: ne.to_string() })
+                } else {
+                    let ks = to_vec(karg)?;
+                    let mut out = Vec::with_capacity(ks.len());
+                    for k in ks {
+                        out.push(
+                            numeric::transforms::goertzel(&xs, k)
+                                .map_err(|ne| EvalError { msg: ne.to_string() })?,
+                        );
+                    }
+                    Ok(Value::CVec(Arc::new(out)))
+                }
             }
             // `goertzel_freq(x, fs, freq)` -- `goertzel` parameterized by a
             // real frequency in Hz rather than a raw bin index, the common
-            // case (a known tone frequency at a fixed sample rate).
+            // case (a known tone frequency at a fixed sample rate). `freq`
+            // may also be a vector of frequencies, same K-point-DFT
+            // batching as `goertzel` above, returning a `CVec`.
             "goertzel_freq" => {
                 let xs = to_cow(arg0(&args)?)?;
                 // `fs` stays REQUIRED here, unlike `welch`/`periodogram`:
@@ -21776,12 +22927,24 @@ self.eval_grad(loss, wrt)
                     msg: "goertzel_freq(x, fs, freq) needs 3 arguments".into(),
                 })?.as_num().map_err(|msg| EvalError { msg })?;
                 let fs = resolve_fs(f, arg0(&args)?, Some(given), None)?;
-                let freq = arg_get(&args, 2).ok_or_else(|| EvalError {
+                let freqarg = arg_get(&args, 2).ok_or_else(|| EvalError {
                     msg: "goertzel_freq(x, fs, freq) needs 3 arguments".into(),
-                })?.as_num().map_err(|msg| EvalError { msg })?;
-                numeric::transforms::goertzel_freq(&xs, fs, freq)
-                    .map(Value::Complex)
-                    .map_err(|ne| EvalError { msg: ne.to_string() })
+                })?;
+                if let Ok(freq) = freqarg.as_num() {
+                    numeric::transforms::goertzel_freq(&xs, fs, freq)
+                        .map(Value::Complex)
+                        .map_err(|ne| EvalError { msg: ne.to_string() })
+                } else {
+                    let freqs = to_vec(freqarg)?;
+                    let mut out = Vec::with_capacity(freqs.len());
+                    for freq in freqs {
+                        out.push(
+                            numeric::transforms::goertzel_freq(&xs, fs, freq)
+                                .map_err(|ne| EvalError { msg: ne.to_string() })?,
+                        );
+                    }
+                    Ok(Value::CVec(Arc::new(out)))
+                }
             }
             // `vanicek(t, x, freqs)` — Vanicek's Least-Squares Spectral
             // Analysis: a power spectrum at the requested `freqs`, valid
@@ -21934,6 +23097,371 @@ self.eval_grad(loss, wrt)
                     ],
                 ))))
             }
+
+            // =========================================================
+            // Oscilloscope-style pulse and edge measurements
+            // (`toolkit-signal.md` §6 "Events", §8 "pulse measurements")
+            //
+            // Two layers, and the split between them is the thing to
+            // know before reading any individual arm:
+            //
+            //   * LOCATORS -- `find_trigger`, `find_zero_crossings`,
+            //     `find_edges`, `find_pulses` -- answer "where", and
+            //     return integer SAMPLE INDICES into `x`, exactly as
+            //     `find_peaks` above does. An index is an index whether
+            //     or not the input carries a sample rate.
+            //
+            //   * MEASUREMENTS -- `rise_time`, `fall_time`,
+            //     `pulse_width`, `pulse_period`, `pulse_frequency`,
+            //     `duty_cycle`, `overshoot`, `undershoot` -- answer "how
+            //     long" / "how much", interpolate BETWEEN samples the way
+            //     a scope does, and report in SECONDS when the input is a
+            //     `Signal` carrying a rate, samples otherwise.
+            //
+            // All of it is built on one crossing definition
+            // (`numeric::transforms::find_trigger`) rather than five
+            // re-derivations of "did it cross"; see that function's doc
+            // comment for why "exactly at the level" counts as high.
+            // =========================================================
+
+            // `find_trigger(x, level, [edge="rising"])` -- the sample
+            // indices at which `x` crosses `level`. `edge` is
+            // `"rising"` (default), `"falling"`, or `"both"`. This is
+            // the primitive the rest of the cluster is built on.
+            //
+            // `level` is positional and REQUIRED, deliberately: a
+            // trigger level is the entire content of the question being
+            // asked, and defaulting it (to the midpoint, say) would let
+            // `find_trigger(x)` return a confident answer about a level
+            // the caller never chose. The derived functions below, whose
+            // subject is the pulse train rather than the level, do
+            // default it.
+            "find_trigger" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = match arg_get(&args, 1) {
+                    Some(v) => v.as_num().map_err(|msg| EvalError { msg })?,
+                    None => match style_num(&style, "level") {
+                        Some(l) => l,
+                        None => {
+                            return e(format!(
+                                "{f}(x, level) needs a trigger level -- pass one positionally or as level="
+                            ));
+                        }
+                    },
+                };
+                let edge = edge_kwarg(f, &style, numeric::transforms::Edge::Rising)?;
+                let idx = numeric::transforms::find_trigger(&xs, level, edge);
+                Ok(Value::Vec(Arc::new(idx.into_iter().map(|i| i as f64).collect())))
+            }
+
+            // `find_zero_crossings(x, [edge="both"])` -- `find_trigger`
+            // at level zero.
+            //
+            // The default is BOTH directions, which is the conventional
+            // reading of "zero crossing" and not merely the permissive
+            // choice: the zero-crossing RATE (this document's own §6
+            // `zcr`, and the standard speech/audio feature) counts every
+            // sign change, so `len(find_zero_crossings(x))` has to be
+            // that count to be worth anything. Defaulting to `"rising"`
+            // -- which would have matched `find_trigger`'s own default --
+            // would halve it silently, and a halved rate is exactly the
+            // believable-looking wrong number that is hard to catch.
+            // `edge=` still restricts it when a single direction is what
+            // was wanted.
+            "find_zero_crossings" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let edge = edge_kwarg(f, &style, numeric::transforms::Edge::Both)?;
+                let idx = numeric::transforms::find_trigger(&xs, 0.0, edge);
+                Ok(Value::Vec(Arc::new(idx.into_iter().map(|i| i as f64).collect())))
+            }
+
+            // `find_edges(x, [level=], [hysteresis=])` -- rising AND
+            // falling edges together, as a `Model` with parallel fields
+            // `indices` (integer sample indices), `directions` (+1 for a
+            // rising edge, -1 for a falling one), `positions` (the
+            // interpolated sub-sample crossing points), and the two
+            // convenience splits `rising`/`falling`.
+            //
+            // `level` defaults to the signal's own midpoint,
+            // `(min+max)/2` -- the right default for the digital-ish
+            // signals this is for, and the one thing about a logic
+            // waveform that can be inferred without guessing.
+            //
+            // `hysteresis` defaults to 0, i.e. a plain single-threshold
+            // detector, which is `find_trigger` run in both directions.
+            // Hysteresis is offered rather than imposed: a Schmitt
+            // scheme is the right tool for a noisy analog edge, but
+            // making it the DEFAULT would mean every caller silently got
+            // a detector with a band whose width the engine chose, and on
+            // a clean signal it changes nothing while making the
+            // behaviour harder to predict. Passing `hysteresis=` opts in;
+            // the measured positions stay at `level` either way, so
+            // switching it on to reject glitches does not move the
+            // numbers it is protecting.
+            "find_edges" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = threshold_kwarg(f, &style, &xs)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let set = numeric::transforms::find_edges(&xs, level, hyst);
+                let rising: Vec<f64> = set
+                    .indices
+                    .iter()
+                    .zip(set.rising.iter())
+                    .filter(|(_, &r)| r)
+                    .map(|(&i, _)| i as f64)
+                    .collect();
+                let falling: Vec<f64> = set
+                    .indices
+                    .iter()
+                    .zip(set.rising.iter())
+                    .filter(|(_, &r)| !r)
+                    .map(|(&i, _)| i as f64)
+                    .collect();
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "edges",
+                    vec![
+                        (
+                            "indices".to_string(),
+                            Value::Vec(Arc::new(set.indices.iter().map(|&i| i as f64).collect())),
+                        ),
+                        (
+                            "directions".to_string(),
+                            Value::Vec(Arc::new(
+                                set.rising.iter().map(|&r| if r { 1.0 } else { -1.0 }).collect(),
+                            )),
+                        ),
+                        ("positions".to_string(), Value::Vec(Arc::new(set.positions.clone()))),
+                        ("rising".to_string(), Value::Vec(Arc::new(rising))),
+                        ("falling".to_string(), Value::Vec(Arc::new(falling))),
+                        ("count".to_string(), Value::Num(set.indices.len() as f64)),
+                    ],
+                ))))
+            }
+
+            // `find_pulses(x, [level=], [hysteresis=],
+            // [polarity="positive"])` -- consecutive opposite-going edge
+            // pairs, as a `Model` with parallel fields `starts`, `stops`
+            // and `widths`, plus a scalar `count`. Field names are plural
+            // to match `findpeaks`'s own `peaks`/`locations`/
+            // `prominences`/`widths` convention; `stops` rather than the
+            // obvious `ends` because `end` is a Qu keyword and a field
+            // spelled that way would be awkward to reach.
+            //
+            // UNITS, because this record deliberately mixes them:
+            // `starts`/`stops` are integer sample INDICES (they index
+            // into `x`), while `widths` are TIMES -- seconds for a
+            // `Signal`, samples otherwise -- measured between the
+            // interpolated crossings. The alternative, widths in whole
+            // samples, would make `mean(p.widths)` disagree with
+            // `pulse_width(x)` on the same input, which is a worse trap
+            // than a documented mixed record.
+            //
+            // A partial pulse at either end of the record -- already high
+            // when capture started, or still high when it stopped -- has
+            // only one of its two edges and is NOT reported. Its width is
+            // genuinely unknown and a truncated one would look fine.
+            "find_pulses" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = threshold_kwarg(f, &style, &xs)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let positive = polarity_kwarg(f, &style)?;
+                let dt = sample_period(arg0(&args)?);
+                let pulses = numeric::transforms::find_pulses(&xs, level, hyst, positive);
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "pulses",
+                    vec![
+                        (
+                            "starts".to_string(),
+                            Value::Vec(Arc::new(pulses.iter().map(|p| p.start as f64).collect())),
+                        ),
+                        (
+                            "stops".to_string(),
+                            Value::Vec(Arc::new(pulses.iter().map(|p| p.end as f64).collect())),
+                        ),
+                        (
+                            "widths".to_string(),
+                            Value::Vec(Arc::new(pulses.iter().map(|p| p.width * dt).collect())),
+                        ),
+                        ("count".to_string(), Value::Num(pulses.len() as f64)),
+                    ],
+                ))))
+            }
+
+            // `rise_time(x, [low=0.1], [high=0.9], [base=], [top=])` /
+            // `fall_time(...)` -- the 10%-90% transition time of the
+            // first complete rising (resp. falling) transition in `x`, in
+            // seconds for a `Signal` and samples otherwise.
+            //
+            // `low`/`high` are FRACTIONS of the step, not levels, so the
+            // 20%-80% convention some standards use is `low=0.2,
+            // high=0.8`. `base`/`top` override the levels the step is
+            // taken to run between; they default to `x`'s own min and
+            // max, which is exactly predictable but wrong in one
+            // specific, common case -- a step that RINGS puts its
+            // overshoot peak in `max`, dragging the 90% level above the
+            // settled top and reporting a rise time that is too long.
+            // Pass `top=` (the settled value) when the step overshoots.
+            // That caveat is stated rather than defended against,
+            // because every automatic top-detection scheme has its own
+            // surprising case and a silently-clever default here is
+            // worse than a stated assumption.
+            "rise_time" | "fall_time" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let (dbase, dtop) = numeric::transforms::rise_fall_levels(&xs)
+                    .ok_or_else(|| EvalError { msg: format!("{f}: no finite samples") })?;
+                let base = style_num(&style, "base").unwrap_or(dbase);
+                let top = style_num(&style, "top").unwrap_or(dtop);
+                let low = style_num(&style, "low").unwrap_or(0.1);
+                let high = style_num(&style, "high").unwrap_or(0.9);
+                if !(0.0..=1.0).contains(&low) || !(0.0..=1.0).contains(&high) || low >= high {
+                    return e(format!(
+                        "{f}: low={low} and high={high} must be fractions of the step with low < high \
+                         (the 10%-90% default is low=0.1, high=0.9) -- these look like levels, not fractions"
+                    ));
+                }
+                if top == base {
+                    return e(format!("{f}: the signal has no step to measure (base and top are both {base})"));
+                }
+                let dt = sample_period(arg0(&args)?);
+                let r = if f == "rise_time" {
+                    numeric::transforms::rise_time(&xs, base, top, low, high)
+                } else {
+                    numeric::transforms::fall_time(&xs, base, top, low, high)
+                };
+                match r {
+                    Some(v) => Ok(Value::Num(v * dt)),
+                    None => e(format!(
+                        "{f}: no complete {} transition between {:.6} and {:.6} -- the record may start or \
+                         end mid-edge, or base=/top= may not bracket the step",
+                        if f == "rise_time" { "rising" } else { "falling" },
+                        base + low * (top - base),
+                        base + high * (top - base)
+                    )),
+                }
+            }
+
+            // `pulse_width(x, [level=], [hysteresis=],
+            // [polarity="positive"])` -- the MEAN width of the complete
+            // pulses in `x`, in seconds for a `Signal` and samples
+            // otherwise. Equal by construction to `mean(find_pulses(x,
+            // ...).widths)`, because it is the same computation.
+            "pulse_width" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = threshold_kwarg(f, &style, &xs)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let positive = polarity_kwarg(f, &style)?;
+                let dt = sample_period(arg0(&args)?);
+                match numeric::transforms::mean_pulse_width(&xs, level, hyst, positive) {
+                    Some(w) => Ok(Value::Num(w * dt)),
+                    None => e(format!(
+                        "{f}: no complete pulse at level {level} -- a pulse needs both of its edges inside \
+                         the record, and a signal already high at sample 0 is missing its rising one"
+                    )),
+                }
+            }
+
+            // `duty_cycle(x, [level=], [hysteresis=])` -- mean high time
+            // over mean period.
+            //
+            // Returns a FRACTION in [0, 1], NOT a percentage, even though
+            // a scope's front panel says "50%". The reason is that this
+            // number's job is to be multiplied: `duty_cycle(x) *
+            // pulse_period(x)` is the high time, and that identity is
+            // silently wrong by 100x if this returns 50. `overshoot`/
+            // `undershoot` below DO return percent, for the opposite
+            // reason -- those are read, not composed, and "0.05
+            // overshoot" reads as 0.05%. Both are stated in the book
+            // table; the asymmetry is deliberate, not an oversight.
+            "duty_cycle" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = threshold_kwarg(f, &style, &xs)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                match numeric::transforms::duty_cycle(&xs, level, hyst) {
+                    Some(d) => Ok(Value::Num(d)),
+                    None => e(format!(
+                        "{f}: need at least one complete pulse and two rising edges at level {level} \
+                         to form a duty cycle"
+                    )),
+                }
+            }
+
+            // `pulse_period(x, [level=], [hysteresis=])` /
+            // `pulse_frequency(x, [level=], [hysteresis=])` -- the mean
+            // interval between successive rising crossings, and its
+            // reciprocal. Seconds and Hz for a `Signal`; samples and
+            // cycles/sample otherwise.
+            //
+            // NAMING, since this is the one real collision risk in the
+            // cluster. `dominant_frequency`/`estimate_frequency` already
+            // exist a few hundred lines above and answer a DIFFERENT
+            // question by a different method: they take the largest bin
+            // of the FFT magnitude spectrum. This one counts edges in the
+            // time domain. On a square wave they agree; on anything with
+            // a strong harmonic, a DC-ish drift, or a burst that is not
+            // periodic over the whole record, they do not, and the
+            // failure is silent because both return a plausible Hz. So
+            // the bare name `frequency` (which `toolkit-signal.md` §8
+            // spells) is deliberately NOT taken -- it would be the name a
+            // caller reaches for by habit while wanting either one, with
+            // nothing at the call site to say which they got. `pulse_`
+            // says "edge-based, on a pulse train" in the name itself, and
+            // `pulse_period` carries the same prefix for symmetry rather
+            // than taking the equally-generic bare `period`.
+            "pulse_period" | "pulse_frequency" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let level = threshold_kwarg(f, &style, &xs)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let dt = sample_period(arg0(&args)?);
+                match numeric::transforms::pulse_period(&xs, level, hyst) {
+                    Some(p) if p > 0.0 => Ok(Value::Num(if f == "pulse_period" {
+                        p * dt
+                    } else {
+                        1.0 / (p * dt)
+                    })),
+                    _ => e(format!(
+                        "{f}: need at least two rising crossings of level {level} -- the record does not \
+                         contain a full cycle"
+                    )),
+                }
+            }
+
+            // `overshoot(x, [settle_level=], [initial_level=],
+            // [settle_frac=0.1])` / `undershoot(...)` -- step-response
+            // overshoot and undershoot, each as a PERCENT of the step's
+            // own size.
+            //
+            // Overshoot is how far the response travels past its settled
+            // value in the direction the step was going; undershoot is
+            // how far it backs up past where it STARTED (the pre-shoot),
+            // which is MATLAB `stepinfo`'s convention. Both clamp at
+            // zero. A falling step works the same way with min and max
+            // exchanged.
+            //
+            // The settled and initial levels default to the mean of the
+            // last and first `settle_frac` of the record (10%, at least
+            // one sample each) rather than to the single end samples,
+            // which would put the whole measurement at the mercy of one
+            // noisy point. Override either explicitly when the record
+            // does not settle inside its own tail.
+            "overshoot" | "undershoot" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let frac = style_num(&style, "settle_frac").unwrap_or(0.1);
+                if !(0.0..=1.0).contains(&frac) || frac <= 0.0 {
+                    return e(format!("{f}: settle_frac={frac} must be a fraction in (0, 1]"));
+                }
+                let (dinit, dsettle) = numeric::transforms::settled_levels(&xs, frac)
+                    .ok_or_else(|| EvalError { msg: format!("{f}: no finite samples") })?;
+                let initial = style_num(&style, "initial_level").unwrap_or(dinit);
+                let settled = style_num(&style, "settle_level").unwrap_or(dsettle);
+                match numeric::transforms::step_shoot(&xs, initial, settled) {
+                    Some((over, under)) => Ok(Value::Num(if f == "overshoot" { over } else { under })),
+                    None => e(format!(
+                        "{f}: the record does not contain a step -- it starts at {initial} and settles at \
+                         {settled}, so there is no step size to be a percentage of. Pass initial_level= / \
+                         settle_level= if the step is not bracketed by the record's own ends"
+                    )),
+                }
+            }
             // dB conversions — MATLAB's own naming (`mag2db`/`db2mag` for
             // amplitude/voltage ratios, `pow2db`/`db2pow` for power
             // ratios), chosen deliberately over a single ambiguous `db(x)`
@@ -21963,6 +23491,91 @@ self.eval_grad(loss, wrt)
             // quantities that are already a power/energy ratio (W, W/Hz,
             // |X|^2, ...).
             "db_power" => map1(arg0(&args)?.clone(), |x| 10.0 * x.log10()),
+            // `gain(x, db)` — scale a signal by a decibel amount,
+            // `x * 10^(db/20)`. The AMPLITUDE/field-quantity convention,
+            // the same factor of 20 `db2mag` above uses and deliberately
+            // not the power one: a fader is the thing people reach for
+            // `gain` for, and a `gain` that quietly halved the dB scale
+            // would be wrong by 2x in dB for every one of them. (`db` vs.
+            // `db_power` immediately above is the same distinction, spelled
+            // out there at more length.)
+            //
+            // Shape-preserving through `map1`, like every other elementwise
+            // numeric builtin: a `Signal` comes back a `Signal` at the SAME
+            // `fs` — changing a level does not touch the time axis — a
+            // `Vec` stays a `Vec`, a `Mat` stays a `Mat`, a bare number
+            // just scales.
+            //
+            // `gain(x, -3 dB)` needs no special handling here. `dB` is a
+            // registered dimensionless unit passing through at factor 1.0
+            // (see `apply_unit`), so a `-3 dB` literal reaches this arm
+            // already as `-3` — probed 2026-09-18, `type(-3 dB)` is
+            // `number`. The amount is also nameable (`gain(x, db = -3)`)
+            // via the usual positional-or-named path, so the `[db=]` in the
+            // chapter is true rather than aspirational.
+            "gain" => {
+                let x = arg0(&args)?.clone();
+                if args.len() < 2 && style_entry(&style, "db").is_none() {
+                    return e(
+                        "gain(x, db) needs a decibel amount -- `gain(x, -3)`, \
+                         `gain(x, -3 dB)` or `gain(x, db = -3)`",
+                    );
+                }
+                let db = positional_or_named_num(&args, 1, &style, "db", 0.0, "gain")?;
+                let factor = 10f64.powf(db / 20.0);
+                map1(x, move |v| v * factor)
+            }
+            // `delay(x, n)` — shift `x` later along its own time axis by
+            // `n` samples, zero-filling the vacated head and dropping
+            // whatever falls off the end, so the result is the SAME length
+            // as the input. That is what a fixed-size buffer actually does,
+            // and keeping the length is what lets `x + delay(x, 4)` (a
+            // comb/echo, the obvious first use) line up at all — a version
+            // that returned a longer vector could not be added to its own
+            // input without the caller trimming it first.
+            //
+            // A negative `n` advances instead (drops from the head,
+            // zero-pads the tail), and `|n| >= length(x)` is all zeros
+            // rather than an error: shifting a buffer clear out of its own
+            // window has a perfectly well-defined answer.
+            //
+            // A `Signal` keeps its `fs` — moving samples along the time
+            // axis does not change how fast they were taken.
+            "delay" => {
+                let x = arg0(&args)?.clone();
+                if matches!(x, Value::Mat(_)) {
+                    return e(
+                        "delay: expected a signal or vector, found a matrix -- which axis a \
+                         matrix should shift along is not something this can guess",
+                    );
+                }
+                if args.len() < 2 && style_entry(&style, "samples").is_none() {
+                    return e(
+                        "delay(x, n) needs a shift in samples -- `delay(x, 4)` or \
+                         `delay(x, samples = 4)`",
+                    );
+                }
+                let n_f = positional_or_named_num(&args, 1, &style, "samples", 0.0, "delay")?;
+                if n_f.fract() != 0.0 {
+                    return e(format!(
+                        "delay: the shift must be a whole number of samples, found {n_f}"
+                    ));
+                }
+                let xs = to_cow(&x)?.into_owned();
+                let len = xs.len();
+                let n = n_f as i64;
+                let mut out = vec![0.0; len];
+                for (i, slot) in out.iter_mut().enumerate() {
+                    let src = i as i64 - n;
+                    if src >= 0 && (src as usize) < len {
+                        *slot = xs[src as usize];
+                    }
+                }
+                Ok(match &x {
+                    Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+                    _ => Value::Vec(Arc::new(out)),
+                })
+            }
             // `unit_scale(name)` — the scale factor a `unit name = ...`
             // declaration registered for `name` (see `Stmt::UnitDecl`),
             // introspection for the custom-unit registry the same way
@@ -23598,6 +25211,129 @@ self.eval_grad(loss, wrt)
                 self.figures += 1;
                 Ok(Value::Nothing)
             }
+            // `block_process(x, f, [block=256])` — cut `x` into
+            // consecutive blocks of `block` samples, call `f` once per
+            // block, and concatenate what comes back. The OFFLINE half of
+            // `docs/design/toolkit-signal.md` §5's "streaming is the same
+            // code" idea: write a per-block algorithm once, run it over a
+            // whole signal without hand-rolling the chunking loop and its
+            // off-by-one at the last, short block.
+            //
+            // WHY NOT THE SPEC'S OWN SHAPE. §5 writes it as
+            // `proc = processor(block: 256) { |x| ... }` then `y = proc(s)`.
+            // Two things are wrong with taking that literally. The trailing
+            // `{ |x| ... }` block-with-pipe-params is not Qu syntax at all
+            // (§17.2's lambdas are `(x) := e`, `x => e`, `function ... end`).
+            // More importantly `proc(s)` CALLS A VALUE THAT IS NOT A
+            // FUNCTION, and Qu does not do that today — probed 2026-09-18
+            // against this binary, calling a Model or a List lands in
+            // "unknown function `st`", the plain undefined-name path. Making
+            // it work would mean deciding the open "does Qu grow general
+            // object/method dispatch, or does everything stay flat
+            // functions?" question, and that is Ahmed's call, not a call
+            // this builtin gets to make on the way past. So: the flat
+            // function form, which delivers the same capability, invents no
+            // syntax, and is a thin wrapper away from the object form if
+            // that question is ever settled the other way.
+            //
+            // The collection comes first, so `|>` and `x.block_process(f)`
+            // both compose — `callable_pair` is the same shared resolver
+            // `map`/`pmap`/`filter` use, so a function VALUE or the NAME of
+            // a user function both work and the opposite argument order
+            // still runs with their usual once-per-run notice.
+            //
+            // STATE — READ THIS BEFORE REACHING FOR IT AS A FILTER. `f` is
+            // called on each block with NOTHING threaded between calls, so
+            // an algorithm needing history across a block boundary (a
+            // running IIR's biquad state, overlap-add reconstruction) does
+            // NOT behave like its streaming self here: it restarts at every
+            // boundary, which shows up as block-edge artifacts. That is a
+            // real limitation and deliberately not papered over. Qu's
+            // existing answer for per-sample filter state is the explicit
+            // `state = filter_next(state, x)` threading pair directly
+            // below; a block-level equivalent would need a state-threading
+            // protocol, and inventing one unilaterally is the same kind of
+            // unasked-for design decision as the object-call question
+            // above. What this IS right for: per-block work independent of
+            // history — blockwise FFT/RMS metering, level detection, gain,
+            // any pure elementwise map.
+            //
+            // THE RATE OF THE RESULT. If `f` returns as many samples as it
+            // was handed, the output has the input's length and a `Signal`
+            // keeps its `fs`. If `f` reduces each block to ONE number (the
+            // metering case) the result is genuinely sampled at
+            // `fs / block`, and it comes back tagged that way rather than
+            // carrying the original rate — a metering series labelled at
+            // the input's `fs` is exactly §0's "an axis that was kept in
+            // the programmer's head". Any other output length has no rate
+            // this can name, so it comes back a plain `Vec` instead of a
+            // `Signal` whose `fs` would be a guess.
+            "block_process" => {
+                if args.len() < 2 {
+                    return e(
+                        "block_process(x, f, [block=256]) needs a signal and a function",
+                    );
+                }
+                let (fn_name, data_idx) =
+                    collections::callable_pair(self, &args, 0, 1, "block_process", "applied per block")?;
+                let x = arg_get(&args, data_idx)
+                    .ok_or_else(|| EvalError {
+                        msg: "block_process(x, f, [block=256]) needs a signal and a function".into(),
+                    })?
+                    .clone();
+                if matches!(x, Value::Mat(_)) {
+                    return e(
+                        "block_process: expected a signal or vector, found a matrix -- blocking \
+                         one would have to flatten it column-major and the result could not be \
+                         reshaped back, so it is refused rather than silently flattened",
+                    );
+                }
+                let fs = match &x {
+                    Value::Signal(_, fs) => Some(*fs),
+                    _ => None,
+                };
+                let xs = to_cow(&x)?.into_owned();
+                if xs.is_empty() {
+                    return e("block_process: the signal is empty");
+                }
+                let block_f =
+                    positional_or_named_num(&args, 2, &style, "block", 256.0, "block_process")?;
+                if !(block_f >= 1.0) || block_f.fract() != 0.0 {
+                    return e(format!(
+                        "block_process: block must be a positive whole number of samples, found {block_f}"
+                    ));
+                }
+                let block = block_f as usize;
+                let n_blocks = xs.len().div_ceil(block);
+                let mut out: Vec<f64> = Vec::with_capacity(xs.len());
+                for chunk in xs.chunks(block) {
+                    // Each block is handed over as the same KIND of thing
+                    // `x` is: a block of a `Signal` is itself a `Signal` at
+                    // the same `fs`, so a per-block `f` that calls
+                    // `fft`/`welch`/`rms` can read the rate off its own
+                    // argument instead of being told it again through a
+                    // captured variable. The last block is short whenever
+                    // the length is not a multiple of `block`, and is
+                    // passed as-is rather than zero-padded: padding would
+                    // silently invent samples the caller never had.
+                    let arg = match fs {
+                        Some(fs) => Value::Signal(Arc::new(chunk.to_vec()), fs),
+                        None => Value::Vec(Arc::new(chunk.to_vec())),
+                    };
+                    let got = self.apply(&fn_name, vec![arg], Vec::new())?;
+                    let got_xs = to_cow(&got).map_err(|err| EvalError {
+                        msg: format!("block_process: `{fn_name}` must return numbers -- {}", err.msg),
+                    })?;
+                    out.extend_from_slice(&got_xs);
+                }
+                Ok(match fs {
+                    Some(fs) if out.len() == xs.len() => Value::Signal(Arc::new(out), fs),
+                    Some(fs) if out.len() == n_blocks && n_blocks != xs.len() => {
+                        Value::Signal(Arc::new(out), fs / block as f64)
+                    }
+                    _ => Value::Vec(Arc::new(out)),
+                })
+            }
             // The streaming (sample-at-a-time) filtering pair, for
             // real-time/serial-fed data where a whole array isn't
             // available up front: `state = filter_init(filt)` then
@@ -24334,7 +26070,7 @@ self.eval_grad(loss, wrt)
                     ));
                 }
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
-                let window = periodic_analysis_window(&window_name, nperseg, &style)?;
+                let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
                 numeric::transforms::welch(&xs, fs, nperseg, noverlap, &window)
                     .map(|v| Value::Vec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: format!("welch: {ne}") })
@@ -24357,10 +26093,202 @@ self.eval_grad(loss, wrt)
                     return e("periodogram: input signal is empty");
                 }
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
-                let window = periodic_analysis_window(&window_name, xs.len(), &style)?;
+                let window = periodic_analysis_window(f, &window_name, xs.len(), &style)?;
                 numeric::transforms::periodogram(&xs, fs, &window)
                     .map(|v| Value::Vec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: format!("periodogram: {ne}") })
+            }
+            // `spectrum(x, [fs], [window="hann"], [scaling="amplitude"])` —
+            // `toolkit-signal.md` §2's windowed amplitude/RMS spectrum:
+            // taper the record, transform it, and return a `Spectrum` whose
+            // bins read a physical amplitude.
+            //
+            // WHAT THIS ADDS OVER `rfft(sig, scaling=)`, which already
+            // exists and already stamps the same three conventions: a
+            // window. `rfft` transforms exactly the samples it is handed —
+            // it takes no `window=` argument — so today the taper is the
+            // caller's own `x .* hann(N)` by hand, and that hand-written
+            // form is where the bug below gets introduced.
+            //
+            // THE WINDOW GAIN DECISION (the reason this is not three lines).
+            // Tapering multiplies the record by `w`, and a bin-aligned tone
+            // of amplitude `A` then transforms to `(A/2)*e^(j*phi)*sum(w)`.
+            // `apply_spectrum_norm`'s `Amplitude` factor of `2/n` turns that
+            // into `A * (sum(w)/n)` — `A` times the window's COHERENT GAIN,
+            // which for a Hann window is 0.5. A user who windowed by hand
+            // and read the peak would see half the amplitude they put in,
+            // with a plausible-looking number and nothing announcing the
+            // factor. `toolkit-signal.md` §2 states the contract this has
+            // to meet in one line: "Window gain ... is applied by the
+            // chosen scaling, not left as an exercise."
+            //
+            // So the analysis window is normalised to UNIT COHERENT GAIN
+            // (`mean(w) == 1`) before it is applied, unconditionally —
+            // not only when `scaling=` asks for amplitude. One rule that
+            // always holds beats a rule whose meaning depends on another
+            // keyword: a caller comparing two `spectrum()` calls that
+            // differ only in `scaling=` gets results that differ only by
+            // the documented `1/sqrt(2)`, not by a window factor as well.
+            // Verified numerically, not by argument — see
+            // `windowed_spectrum_reads_true_amplitude` below.
+            //
+            // WHAT COHERENT-GAIN COMPENSATION DOES *NOT* FIX, stated here
+            // because a half-true correction is the more dangerous kind:
+            // it makes a discrete TONE's peak bin read true. It does not
+            // make a BROADBAND level read true — noise spread across bins
+            // is governed by the window's noise-equivalent bandwidth
+            // (`sum(w^2)`, not `sum(w)`), which is a different factor
+            // (1.5 for Hann). `psd` below is the estimator scaled for
+            // that, and it is what a caller integrating power over a band
+            // should be using.
+            //
+            // WHY `scaling="raw"` IS REFUSED HERE rather than passed
+            // through. `Value::Spectrum` carries no window field —
+            // `SpectrumNorm`'s own doc comment explains why it deliberately
+            // does not, and adding one is a real change across every
+            // producer, not something to smuggle in here. A raw-scaled
+            // windowed spectrum is exactly the value that loss hurts:
+            // `band_power` accepts `raw_transform` bins and applies
+            // Parseval to them, so it would return a number biased by the
+            // window's noise bandwidth, silently, from a taper it cannot
+            // see. `Amplitude`/`Rms` are already refused by `band_power`'s
+            // own exhaustive match, so restricting this producer to those
+            // two closes the hole with the mechanism that is already
+            // there. A caller who genuinely wants the unnormalised DFT of
+            // a tapered record still has `rfft(signal(x .* hann(n), fs))`,
+            // which says what it did.
+            "spectrum" => {
+                let xs = to_cow(arg0(&args)?)?;
+                // A rate is REQUIRED (no `default`): the return type is a
+                // `Spectrum`, whose whole point is carrying a frequency
+                // axis, and defaulting to 1 would hand back an axis in
+                // cycles/sample labelled `.Fs` — the exact mislabelling
+                // `resolve_fs`'s own doc comment was written about.
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    None,
+                )?;
+                if xs.is_empty() {
+                    return e("spectrum: input signal is empty");
+                }
+                let n = xs.len();
+                let norm = match style_str(&style, "scaling").as_deref() {
+                    None | Some("amplitude") => SpectrumNorm::Amplitude,
+                    Some("rms") => SpectrumNorm::Rms,
+                    Some("raw") | Some("raw_transform") => {
+                        return e(
+                            "spectrum: scaling=\"raw\" is not available here -- a windowed \
+                             spectrum cannot record which window it was tapered with, and \
+                             raw bins are the ones `band_power` would then integrate as if \
+                             it had not been. Use rfft(sig) for the unwindowed raw \
+                             transform, or rfft(signal(x .* hann(n), fs)) to window it \
+                             yourself and own the gain."
+                                .to_string(),
+                        )
+                    }
+                    Some(other) => {
+                        return e(format!(
+                            "spectrum: unknown scaling {other:?} -- expected \"amplitude\" \
+                             or \"rms\""
+                        ))
+                    }
+                };
+                let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
+                let window = periodic_analysis_window(f, &window_name, n, &style)?;
+                let coherent_gain = window.iter().sum::<f64>() / n as f64;
+                if !coherent_gain.is_finite() || coherent_gain <= 1e-12 {
+                    return e(format!(
+                        "spectrum: window `{window_name}` has coherent gain \
+                         {coherent_gain} -- it sums to (near) zero, so compensating for \
+                         it would divide by it. No amplitude can be read through such a \
+                         window."
+                    ));
+                }
+                let windowed: Vec<f64> =
+                    xs.iter().zip(window.iter()).map(|(x, w)| x * (w / coherent_gain)).collect();
+                numeric::transforms::rfft(&windowed)
+                    .map(|v| Value::Spectrum(Arc::new(apply_spectrum_norm(v, n, norm)), fs, n, norm))
+                    .map_err(|ne| EvalError { msg: format!("spectrum: {ne}") })
+            }
+            // `psd(x, [fs], [window="hann"], [nfft=min(256,len(x))],
+            // [overlap=0.5])` — `toolkit-signal.md` §2's Welch PSD, which
+            // is `welch` above under the spec's own parameter spelling.
+            // Deliberately the SAME code path (`numeric::transforms::welch`
+            // called directly, not the `welch` builtin re-dispatched), so
+            // the two cannot drift: `psd(x, fs)` and `welch(x, fs)` return
+            // bit-identical vectors, and the defaults below are chosen to
+            // keep that true (`nfft` defaults to `welch`'s own `nperseg`
+            // default, and `overlap=0.5` lands exactly on its `nperseg/2`).
+            //
+            // `overlap` is a FRACTION (0.5 = 50%), where `welch`'s
+            // `noverlap` is an absolute sample count. Both spellings stay:
+            // `welch` is SciPy's, and a reader porting a SciPy script
+            // should not have to convert; `overlap` is the spec's, and is
+            // the one that does not silently change meaning when `nfft`
+            // changes. `nfft` means the segment length, matching
+            // `spectrogram`/`stft`'s own `nfft` in this codebase (NOT a
+            // zero-padded transform length, which is what the name means
+            // in SciPy — flagged here because the collision is real and a
+            // reader who assumes SciPy's meaning gets a resolution they
+            // did not ask for).
+            //
+            // NO UNITS ON THE RESULT, despite `toolkit-signal.md` §2
+            // claiming "`P.unit` really is `V^2/Hz`". Returns a plain
+            // `Value::Vec`, exactly as `welch` does. The units feature
+            // this repo actually has is simple named scalars (`unit ppm =
+            // 1e-6`); there is no derived/compound unit algebra for a
+            // per-hertz density, and `Value::Spectrum` is not it either —
+            // its `SpectrumNorm` enumerates the three conventions that make
+            // sense for a scaled DFT bin, not a density. Stamping a unit
+            // the engine cannot then propagate would be a label, not a
+            // guarantee. The scaling is documented instead, and the axis
+            // is `linspace(0, fs/2, length(p))` as for `welch`.
+            "psd" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    None,
+                )?;
+                if xs.is_empty() {
+                    return e("psd: input signal is empty");
+                }
+                let nperseg = style_num(&style, "nfft")
+                    .map(|v| v as usize)
+                    .unwrap_or_else(|| xs.len().min(256));
+                if nperseg == 0 || nperseg > xs.len() {
+                    return e(format!(
+                        "psd: nfft ({nperseg}) must be between 1 and the signal length ({})",
+                        xs.len()
+                    ));
+                }
+                let overlap = style_num(&style, "overlap").unwrap_or(0.5);
+                // Written as a range test rather than `overlap < 0 ||
+                // overlap >= 1` so that a NaN (from a computed ratio with
+                // a zero denominator) is rejected here too, instead of
+                // sailing through both comparisons and being cast to 0.
+                if !(0.0..1.0).contains(&overlap) {
+                    return e(format!(
+                        "psd: overlap ({overlap}) is a FRACTION of the segment and must be \
+                         in [0, 1) -- pass 0.5 for 50%. (`welch`'s noverlap= is the \
+                         absolute sample count.)"
+                    ));
+                }
+                let noverlap = (overlap * nperseg as f64).round() as usize;
+                if noverlap >= nperseg {
+                    return e(format!(
+                        "psd: overlap ({overlap}) rounds to {noverlap} of {nperseg} samples, \
+                         leaving no advance between segments"
+                    ));
+                }
+                let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
+                let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
+                numeric::transforms::welch(&xs, fs, nperseg, noverlap, &window)
+                    .map(|v| Value::Vec(Arc::new(v)))
+                    .map_err(|ne| EvalError { msg: format!("psd: {ne}") })
             }
             // `csd(x, y, fs, [nperseg=], [noverlap=], [window="hann"])` —
             // cross-spectral density `Pxy` of `x` and `y`, Welch's method,
@@ -24404,7 +26332,7 @@ self.eval_grad(loss, wrt)
                     ));
                 }
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
-                let window = periodic_analysis_window(&window_name, nperseg, &style)?;
+                let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
                 numeric::transforms::csd(&xs, &ys, fs, nperseg, noverlap, &window)
                     .map(|v| Value::CVec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: format!("csd: {ne}") })
@@ -24439,13 +26367,25 @@ self.eval_grad(loss, wrt)
             // friendlier public name — deliberately NOT a second, separately
             // maintained implementation: a time-based trim only has one
             // sane boundary convention already established in this
-            // codebase (half-open `[t_start, t_end)`, exactly matching
-            // `x[a:b]`'s own half-open/0-based slice convention, chosen
-            // over `to`'s inclusive convention because `to` builds an
-            // explicit list of endpoints while slicing has always meant
-            // half-open here), so both names share this one match arm and
-            // its error messages via `f` (the matched name) rather than
-            // inventing a third convention or forking the logic. Boundary
+            // codebase (INCLUSIVE `[t_start, t_end]`, matching `x[a:b]`'s
+            // own inclusive slice convention and `to`'s), so both names
+            // share this one match arm and its error messages via `f` (the
+            // matched name) rather than inventing a third convention or
+            // forking the logic.
+            //
+            // That parenthesis used to say HALF-OPEN, and said so for long
+            // enough that `book/src/stdlib/signal-processing.md` copied it
+            // ("the one range in the language that excludes its upper
+            // end") and `help("cut")` inherited it from the book. The arm's
+            // own inner comment below had already recorded the change to
+            // inclusive; this outer one was never updated to match, so the
+            // file contradicted itself and the docs followed the wrong
+            // half. Measured on the built binary before correcting it:
+            // `cut(signal(0 to 9, 10), 0.2, 0.7)` is six samples, 2..=7 --
+            // inclusive. Both spellings corrected 2026-09-18, alongside the
+            // extraction of `signal_time_span`, which now makes the bracket
+            // form `s[t0 s : t1 s]` a THIRD spelling sharing this body.
+            // Boundary
             // handling: `t_start`/`t_end` round to the nearest sample via
             // the signal's own `Fs` (`i = round(t*Fs)`, the exact inverse of
             // `sig.t`'s `i/Fs`); `t_end` past the signal's actual duration
@@ -24468,12 +26408,6 @@ self.eval_grad(loss, wrt)
                 let t1 = arg_get(&args, 2).ok_or_else(|| EvalError {
                     msg: format!("{f}(sig, t0, t1) needs 3 arguments"),
                 })?.as_num().map_err(|msg| EvalError { msg })?;
-                if t0 < 0.0 {
-                    return e(format!("{f}: t0 ({t0}) must be non-negative"));
-                }
-                if t1 < t0 {
-                    return e(format!("{f}: t1 ({t1}) must be >= t0 ({t0})"));
-                }
                 // INCLUSIVE of the end instant, matching `x[a:b]`.
                 //
                 // This was half-open, justified at the time by matching
@@ -24484,19 +26418,14 @@ self.eval_grad(loss, wrt)
                 // share no sample and now share the one at t = 1. That is
                 // the price of `cut(s, 0.2, 0.7)` containing the sample AT
                 // 0.7, which is what the call plainly says it does.
-                let n = xs.len();
-                let i0 = (t0 * fs).round() as usize;
-                // A stop past the last sample clamps rather than erroring,
-                // the same way a slice's does.
-                let hi = ((t1 * fs).round() as usize).min(n.saturating_sub(1));
-                let out = if n == 0 || i0 > hi {
-                    // A window starting past the end of the signal selects
-                    // nothing. Without this, `n == 0` would index an empty
-                    // vector at `0..=0`.
-                    Vec::new()
-                } else {
-                    xs[i0..=hi].to_vec()
-                };
+                //
+                // The span itself now lives in `signal_time_span`, shared
+                // with `s[t0 s : t1 s]` bracket slicing (§ unit-aware
+                // indexing, 2026-09-18) -- the same argument this arm
+                // already makes for `cut` and `signal_slice_time` sharing
+                // one body, extended to the third spelling of the same
+                // operation.
+                let out = signal_time_span(&xs, fs, t0, t1, f)?;
                 Ok(Value::Signal(out.into(), fs))
             }
             // §41.2, frequency side -- the twin of `signal_slice_time` above:
@@ -24509,6 +26438,58 @@ self.eval_grad(loss, wrt)
             // silently invalidating `.freq` -- an axis that lies is worse than
             // no axis. `band_zero` keeps the full axis intact, and `.mag`/
             // `.freq` return plain vectors that can be sliced safely.
+            // `spectrum_normalize(X, [scaling="amplitude"])` /
+            // `spectrum_unnormalize(X)` -- convert a `Spectrum`'s bins
+            // between `SpectrumNorm` conventions after the fact, rather
+            // than only at `fft`/`rfft(..., scaling=)` time. Useful for
+            // normalizing a spectrum that already went through
+            // `band_zero` or another raw-bin operation, and required
+            // before `ifft`/`irfft`/`band_power` will accept a spectrum
+            // that came out of `scaling=` (they refuse a non-raw one
+            // rather than silently treat scaled bins as the unnormalised
+            // DFT sum -- see `reject_scaled_spectrum`).
+            "spectrum_normalize" => {
+                let (xs, fs, n, norm) = match arg0(&args)? {
+                    Value::Spectrum(xs, fs, n, norm) => (xs.clone(), *fs, *n, *norm),
+                    other => return e(format!(
+                        "spectrum_normalize expects a spectrum (the result of `fft`/`rfft` on \
+                         a Signal), found {} -- tag the samples with `signal(x, fs)` first",
+                        other.type_name()
+                    )),
+                };
+                let scaling = style_str(&style, "scaling").unwrap_or_else(|| "amplitude".to_string());
+                let target = match scaling.as_str() {
+                    "amplitude" => SpectrumNorm::Amplitude,
+                    "rms" => SpectrumNorm::Rms,
+                    other => return e(format!(
+                        "spectrum_normalize: unknown scaling {other:?} -- expected \"amplitude\" or \"rms\""
+                    )),
+                };
+                if norm != SpectrumNorm::RawTransform {
+                    return e(format!(
+                        "spectrum_normalize: X is already \"{}\"-scaled -- call \
+                         spectrum_unnormalize(X) first if you want a different scaling",
+                        norm.name()
+                    ));
+                }
+                let out = apply_spectrum_norm(xs.as_ref().clone(), n, target);
+                Ok(Value::Spectrum(Arc::new(out), fs, n, target))
+            }
+            "spectrum_unnormalize" => {
+                let (xs, fs, n, norm) = match arg0(&args)? {
+                    Value::Spectrum(xs, fs, n, norm) => (xs.clone(), *fs, *n, *norm),
+                    other => return e(format!(
+                        "spectrum_unnormalize expects a spectrum (the result of `fft`/`rfft` on \
+                         a Signal), found {} -- tag the samples with `signal(x, fs)` first",
+                        other.type_name()
+                    )),
+                };
+                if norm == SpectrumNorm::RawTransform {
+                    return e("spectrum_unnormalize: X is already raw_transform-scaled".to_string());
+                }
+                let out = unapply_spectrum_norm(xs.as_ref().clone(), n, norm);
+                Ok(Value::Spectrum(Arc::new(out), fs, n, SpectrumNorm::RawTransform))
+            }
             "spectrum_at" | "band_power" | "band_zero" => {
                 let (xs, fs, n, norm) = match arg0(&args)? {
                     Value::Spectrum(xs, fs, n, norm) => (xs.clone(), *fs, *n, *norm),
@@ -24529,10 +26510,10 @@ self.eval_grad(loss, wrt)
                 // positive-frequency bins of a real signal's spectrum is the
                 // classic way to get a complex result back out of `ifft`.
                 let is_half = len == n / 2 + 1 && len != n;
-                let bin_of = |hz: f64| -> usize {
-                    let k = (hz / df).round();
-                    if k < 0.0 { 0 } else { (k as usize).min(len.saturating_sub(1)) }
-                };
+                // Shared with `spec[f Hz]` bracket indexing (§ unit-aware
+                // indexing, 2026-09-18) via `spectrum_bin_of`, so the sugar
+                // and the builtin round to the same bin by construction.
+                let bin_of = |hz: f64| -> usize { spectrum_bin_of(hz, df, len) };
                 if f == "spectrum_at" {
                     let hz = arg_get(&args, 1).ok_or_else(|| EvalError {
                         msg: format!("{f}(X, freq) needs a frequency in Hz"),
@@ -24556,8 +26537,26 @@ self.eval_grad(loss, wrt)
                     // convention is checked rather than assumed. Exhaustive
                     // on purpose: adding a `SpectrumNorm` variant must stop
                     // the compiler HERE and make someone decide.
+                    //
+                    // `Amplitude`/`Rms` decided: refused rather than
+                    // reimplemented. Their bins already carry a physical
+                    // amplitude, so recovering a Parseval power from them
+                    // needs a different formula (and DC/Nyquist need
+                    // different treatment than the rest of the band) --
+                    // real work that is out of scope here. Erring is the
+                    // honest answer until that formula exists; a plausible
+                    // number computed from the wrong premise would be worse
+                    // than refusing.
                     match norm {
                         SpectrumNorm::RawTransform => {}
+                        SpectrumNorm::Amplitude | SpectrumNorm::Rms => {
+                            return e(format!(
+                                "{f}: not implemented yet for a {}-scaled spectrum -- only \
+                                 raw_transform bins are supported today. Take rfft(sig) \
+                                 without scaling= if you need band_power.",
+                                norm.name()
+                            ));
+                        }
                     }
                     // Parseval on the selected bins. A full spectrum counts
                     // each conjugate pair once here for the same reason
@@ -33103,6 +35102,91 @@ fn values_equal(a: &Value, b: &Value) -> bool {
 /// unchanged in behavior (still always returns an owned `Vec`, so none of
 /// its ~250 existing call sites need to change) — it's now just this plus
 /// `.into_owned()`.
+/// The `RawTransform -> norm` multiplier for one-sided bin `k` of an
+/// `n`-sample (TIME-domain length) transform.
+///
+/// Folding a two-sided spectrum's negative-frequency half onto its
+/// positive half doubles every bin except DC and (for even `n`) Nyquist,
+/// which have no distinct mirror to fold in -- so those two keep the raw
+/// `1/n` factor while every other bin gets `2/n`. `Rms` divides that
+/// further by `sqrt(2)`, the peak-to-RMS ratio of a sinusoid, on the same
+/// bins that got the `2/n` fold (DC/Nyquist are already non-oscillating,
+/// so their RMS equals their amplitude). `RawTransform` is `1.0` everywhere
+/// -- the identity, so callers don't need to special-case it.
+fn spectrum_norm_factor(k: usize, n: usize, norm: SpectrumNorm) -> f64 {
+    if norm == SpectrumNorm::RawTransform || n == 0 {
+        return 1.0;
+    }
+    let nyquist_bin = if n % 2 == 0 { Some(n / 2) } else { None };
+    let is_edge = k == 0 || Some(k) == nyquist_bin;
+    let amp_factor = if is_edge { 1.0 / n as f64 } else { 2.0 / n as f64 };
+    match norm {
+        SpectrumNorm::Amplitude => amp_factor,
+        SpectrumNorm::Rms if is_edge => amp_factor,
+        SpectrumNorm::Rms => amp_factor / std::f64::consts::SQRT_2,
+        SpectrumNorm::RawTransform => unreachable!(),
+    }
+}
+
+/// Rescale a one-sided (`rfft`-shaped, DC-to-Nyquist) half-spectrum from
+/// `SpectrumNorm::RawTransform` into `Amplitude` or `Rms`.
+///
+/// `n` is the TIME-domain length the half-spectrum was taken from (needed
+/// to know where Nyquist falls and because the raw DFT sum scales with it,
+/// not with the half-spectrum's own, shorter length).
+fn apply_spectrum_norm(v: Vec<Complex64>, n: usize, norm: SpectrumNorm) -> Vec<Complex64> {
+    if norm == SpectrumNorm::RawTransform || n == 0 {
+        return v;
+    }
+    v.into_iter()
+        .enumerate()
+        .map(|(k, c)| {
+            let factor = spectrum_norm_factor(k, n, norm);
+            Complex64 { re: c.re * factor, im: c.im * factor }
+        })
+        .collect()
+}
+
+/// Undo `apply_spectrum_norm`: divide `Amplitude`/`Rms` bins back down to
+/// `RawTransform`'s unnormalised DFT sum, the representation every inverse
+/// transform (`ifft`/`irfft`) and every consumer that reads bins by
+/// Parseval's theorem (`band_power`) actually expects.
+fn unapply_spectrum_norm(v: Vec<Complex64>, n: usize, norm: SpectrumNorm) -> Vec<Complex64> {
+    if norm == SpectrumNorm::RawTransform || n == 0 {
+        return v;
+    }
+    v.into_iter()
+        .enumerate()
+        .map(|(k, c)| {
+            let factor = spectrum_norm_factor(k, n, norm);
+            Complex64 { re: c.re / factor, im: c.im / factor }
+        })
+        .collect()
+}
+
+/// Refuse an inverse transform (or anything else that needs the raw DFT
+/// sum) on a `Spectrum` that isn't `RawTransform`-scaled. `X.mag`/`X.phase`
+/// on an `Amplitude`/`Rms` spectrum are still meaningful on their own terms
+/// (that's the whole point of the scaling), but feeding those SCALED bins
+/// into `ifft`/`irfft` as if they were the unnormalised DFT sum would
+/// silently reconstruct the wrong signal -- smaller by exactly the folding
+/// factor this file's `spectrum_norm_factor` applies, with no error to
+/// notice it by. Call `spectrum_unnormalize(X)` first.
+fn reject_scaled_spectrum(f: &str, v: &Value) -> R<()> {
+    if let Value::Spectrum(_, _, _, norm) = v {
+        if *norm != SpectrumNorm::RawTransform {
+            return Err(EvalError {
+                msg: format!(
+                    "{f}: this spectrum is \"{}\"-scaled, not the raw transform output an \
+                     inverse transform needs -- call spectrum_unnormalize(X) first",
+                    norm.name()
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// The sample rate a spectral producer should use, given what it was handed
 /// and what it was told (§41.2).
 ///
@@ -33124,6 +35208,78 @@ fn values_equal(a: &Value, b: &Value) -> bool {
 ///  * Signal + no rate (or a matching one) -> the signal's own `Fs`.
 ///  * not a Signal -> the explicit rate, else `default` if the builtin has
 ///    one, else an error naming what is missing.
+/// Seconds per sample for the pulse/edge MEASUREMENT builtins, from the
+/// rate a `Signal` carries with it — and `1.0` for anything else, so the
+/// same measurement comes back in samples when there is no rate to
+/// convert with.
+///
+/// Deliberately much lighter than `resolve_fs` below, and not a
+/// substitute for it. `resolve_fs` exists to reconcile a rate the caller
+/// passed against a rate the value carries, and to REFUSE when a builtin
+/// needs a rate and has none. Rise time and pulse width need no such
+/// thing: "6.4 samples" is a complete, correct answer, and a rate only
+/// changes the unit it is quoted in. So there is no `fs=` argument to
+/// disagree with, and nothing here can fail.
+///
+/// A non-positive or non-finite rate falls back to samples rather than
+/// producing an infinite or negative duration.
+fn sample_period(v: &Value) -> f64 {
+    match v {
+        Value::Tensor(t) => sample_period(&t.value),
+        Value::Signal(_, fs) if fs.is_finite() && *fs > 0.0 => 1.0 / *fs,
+        _ => 1.0,
+    }
+}
+
+/// The `edge=` keyword shared by `find_trigger`/`find_zero_crossings`.
+/// Spellings beyond the three canonical ones are accepted because
+/// "rise"/"fall" and "positive"/"negative" are both in common scope
+/// usage and rejecting them buys nothing.
+fn edge_kwarg(
+    f: &str,
+    style: &[(String, Value)],
+    default: numeric::transforms::Edge,
+) -> R<numeric::transforms::Edge> {
+    use numeric::transforms::Edge;
+    match style_str(style, "edge").as_deref() {
+        None => Ok(default),
+        Some("rising" | "rise" | "up" | "positive" | "pos") => Ok(Edge::Rising),
+        Some("falling" | "fall" | "down" | "negative" | "neg") => Ok(Edge::Falling),
+        Some("both" | "any" | "either") => Ok(Edge::Both),
+        Some(other) => e(format!(
+            "{f}: unknown edge `{other}`, expected \"rising\", \"falling\", or \"both\""
+        )),
+    }
+}
+
+/// The `level=`/`threshold=` keyword shared by the pulse-train builtins,
+/// defaulting to the signal's own midpoint. Both spellings are accepted
+/// because `find_trigger`'s positional parameter is called `level` while
+/// a digitizing threshold is universally called a threshold; a caller
+/// moving between the two should not have to remember which.
+fn threshold_kwarg(f: &str, style: &[(String, Value)], xs: &[f64]) -> R<f64> {
+    match style_num(style, "level").or_else(|| style_num(style, "threshold")) {
+        Some(l) => Ok(l),
+        None => numeric::transforms::midpoint_level(xs).ok_or_else(|| EvalError {
+            msg: format!(
+                "{f}: no finite samples to take a midpoint threshold from -- pass level= explicitly"
+            ),
+        }),
+    }
+}
+
+/// The `polarity=` keyword: `"positive"` (default) pairs each rising
+/// edge with the next falling one, `"negative"` the other way round.
+fn polarity_kwarg(f: &str, style: &[(String, Value)]) -> R<bool> {
+    match style_str(style, "polarity").as_deref() {
+        None | Some("positive" | "pos" | "high" | "+") => Ok(true),
+        Some("negative" | "neg" | "low" | "-") => Ok(false),
+        Some(other) => e(format!(
+            "{f}: unknown polarity `{other}`, expected \"positive\" or \"negative\""
+        )),
+    }
+}
+
 fn resolve_fs(f: &str, src: &Value, explicit: Option<f64>, default: Option<f64>) -> R<f64> {
     let carried = match src {
         Value::Signal(_, fs) => Some(*fs),
@@ -33148,6 +35304,44 @@ fn resolve_fs(f: &str, src: &Value, explicit: Option<f64>, default: Option<f64>)
                  `signal(x, fs)` so the rate travels with them"
             ),
         }),
+    }
+}
+
+/// Re-wrap a same-length, sample-aligned result the way its input came in.
+///
+/// A `Signal` is a promise of uniform sampling at a known `Fs`. An operation
+/// that returns one value per input sample, still lined up with the instant
+/// it came from -- a rolling statistic, an outlier patch, a dropout fill --
+/// keeps that promise, so it keeps the `Signal` and the rate. An operation
+/// that REMOVES samples does not, and those deliberately return a plain
+/// `Vec` instead rather than re-attaching an `Fs` that is no longer true
+/// (see `remove_outliers`/`remove_nan`, and `interpolate_at`, which made the
+/// same call for the same reason).
+fn same_rate_as(input: &Value, out: Vec<f64>) -> Value {
+    match input {
+        Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+        _ => Value::Vec(Arc::new(out)),
+    }
+}
+
+/// The window for a windowed builtin: positional argument 1, else a
+/// `window=` keyword, else the given default.
+///
+/// Both spellings because both already exist in the wild here -- `medfilt`/
+/// `savgol` take it positionally, and `smooth`'s documented signature calls
+/// it "named/positional". Accepting only one would make the other an unread
+/// kwarg error for no reason a caller could guess.
+fn rolling_window(args: &[Value], style: &[(String, Value)], default: usize) -> R<usize> {
+    if let Some(v) = arg_get(args, 1) {
+        return v.as_index().map_err(|msg| EvalError { msg });
+    }
+    match style_num(style, "window") {
+        Some(w) if w >= 0.0 => Ok(w as usize),
+        // A negative window is not a rounding question, it is a mistake;
+        // handing 0 to the validator below gets the real "must be odd"
+        // message rather than a wrapped-around enormous usize.
+        Some(_) => Ok(0),
+        None => Ok(default),
     }
 }
 
@@ -33208,6 +35402,62 @@ fn to_cow(v: &Value) -> R<Cow<'_, [f64]>> {
 
 fn to_vec(v: &Value) -> R<Vec<f64>> {
     to_cow(v).map(Cow::into_owned)
+}
+
+/// Settle the three parameters `is_clipped`/`find_clipping` share, in one
+/// place so the boolean and the index-returning form cannot disagree about
+/// what counts as clipping.
+///
+/// The threshold is taken from `threshold=`, then `full_scale=` (the same
+/// word `dbfs` uses for the same quantity), and only then inferred from the
+/// record's own largest magnitude. That last fallback is safe *because*
+/// detection is run-based: "the biggest sample in the record" flags nothing
+/// on its own, it only says which level the flat-run test is applied at.
+/// See `qu_core::diagnostics` for why a flat run rather than a bare
+/// threshold crossing is the honest signal.
+fn clip_params(style: &[(String, Value)], xs: &[f64], f: &str) -> R<(f64, f64, usize)> {
+    let inferred = xs.iter().filter(|v| v.is_finite()).fold(0.0f64, |m, &v| m.max(v.abs()));
+    let threshold = match style_num(style, "threshold").or_else(|| style_num(style, "full_scale")) {
+        Some(t) => {
+            if !(t > 0.0) {
+                return e(format!("{f}: threshold must be positive, found {t}"));
+            }
+            t
+        }
+        None => {
+            if !(inferred > 0.0) {
+                return e(format!(
+                    "{f}: every sample is zero (or non-finite), so there is no level to test \
+                     against -- pass threshold= or full_scale= if you know the converter's range"
+                ));
+            }
+            inferred
+        }
+    };
+    // "Equal", scaled to the level being tested. True hard clipping repeats
+    // a value exactly; the slack is here for a threshold that arrived
+    // through arithmetic, not to admit a gently curving peak.
+    let tol = match style_num(style, "tol") {
+        Some(t) => {
+            if !(t >= 0.0) {
+                return e(format!("{f}: tol must not be negative, found {t}"));
+            }
+            t
+        }
+        None => 1e-9 * threshold,
+    };
+    let min_run = match style_num(style, "min_run") {
+        Some(r) => {
+            if !(r >= 1.0) || r.fract() != 0.0 {
+                return e(format!(
+                    "{f}: min_run must be a whole number of at least 1, found {r}"
+                ));
+            }
+            r as usize
+        }
+        None => 3,
+    };
+    Ok((threshold, tol, min_run))
 }
 
 /// Reads argument `idx` as a raw byte buffer — a `Str`'s UTF-8 bytes, or a
@@ -33938,9 +36188,15 @@ const NO_KWARG_BUILTINS: &[&str] = &[
     "asinh", "acosh", "atanh", "floor", "ceil", "round", "trunc", "sign", "fract",
     "deg2rad", "rad2deg", "hypot", "gamma", "lgamma", "erf", "erfc",
     // reductions and order statistics
-    "sum", "prod", "mean", "median", "mode", "std", "var", "rms", "max", "min",
-    "argmax", "argmin", "cumsum", "cumprod", "diff", "range", "iqr", "skewness",
-    "kurtosis", "percentile", "quantile",
+    //
+    // `sum`/`mean`/`min`/`max`/`std`/`var`/`median`/`quantile`/`argmin`/
+    // `argmax` are deliberately ABSENT here (§ `on_invalid=`, 2026-09-18):
+    // they now read a real keyword, so listing them would reject
+    // `mean(x, on_invalid="ignore")` as "mean takes no keyword arguments",
+    // which stopped being true.
+    "prod", "mode", "rms",
+    "cumsum", "cumprod", "diff", "range", "iqr", "skewness",
+    "kurtosis", "percentile",
     // shape and sequence
     "length", "size", "numel", "reshape", "transpose", "flip", "fliplr", "flipud",
     "unique", "reverse", "zeros", "ones", "eye", "linspace", "logspace",
@@ -34282,18 +36538,20 @@ fn reject_unknown_kwargs(f: &str, style: &[(String, Value)]) -> R<()> {
     if style.is_empty() || !NO_KWARG_BUILTINS.contains(&f) {
         return Ok(());
     }
-    // What this builtin genuinely accepts. `mean` is in BOTH
+    // What this builtin genuinely accepts. `prod` is in BOTH
     // `NO_KWARG_BUILTINS` and `AXIS_HONOURING`, which is not a
     // contradiction -- `axis=` is lifted out by the call machinery before
     // the builtin sees it (see `ALWAYS_ACCEPTED_KEYS`) -- but it did make
-    // this message lie. `mean(v, axsi=0)` said "mean takes no keyword
-    // arguments" while `mean(m, axis=1)` worked in the next line. The
-    // rejection was right and the stated reason was false, which is worse
-    // than a vague message: it sends the reader off to un-learn something
-    // true.
+    // this message lie for `mean` before `on_invalid=` gave it a real
+    // keyword to read (it has since been taken out of this list; `prod`
+    // has not, and still shows the same shape). `prod(v, axsi=0)` said
+    // "prod takes no keyword arguments" while `prod(m, axis=1)` worked in
+    // the next line. The rejection was right and the stated reason was
+    // false, which is worse than a vague message: it sends the reader off
+    // to un-learn something true.
     //
     // `seed=` is deliberately NOT listed. It is machinery the call path
-    // consumes for RNG builtins, not a parameter of `mean`, and naming it
+    // consumes for RNG builtins, not a parameter of these, and naming it
     // here would trade one false claim for another.
     let accepted: Vec<&str> = if AXIS_HONOURING.contains(&f) { vec!["axis"] } else { Vec::new() };
     for (key, _) in style {
@@ -34563,7 +36821,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "asin", "asinh", "astar_mrmr", "at", "atan", "atanh", "available",
     "avgpool2d", "band_power", "band_zero", "bar", "basin_hopping", "beeswarm",
     "before", "before_last", "bin2dec", "binomial", "bitand", "bitcmp",
-    "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "blur",
+    "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "block_process", "blur",
     "blur_backdrop", "bode_magnitude", "bode_phase", "box", "boxplot",
     "bubble", "builtins", "butter", "bwareaopen", "bwlabel", "capacitor",
     "capitalize", "capture", "cast", "cat", "cbrt", "cd", "ceil", "channel",
@@ -34574,25 +36832,27 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "compile", "complex", "cond", "confusion_matrix", "conj", "contains",
     "contour", "contourf", "conv", "conv1d", "conv2d", "copy_file", "corr", "corr_heatmap",
     "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov",
-    "cpe", "create_file", "crop", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml",
+    "cpe", "create_file", "crest_factor", "crop", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml",
     "csvify", "ctranspose", "cumsum", "cur_dir", "curve_fit", "cut",
-    "cv_stability", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbscan", "dct",
-    "dec2bin", "dec2hex", "delta_e", "dense", "dense_layer", "describe", "det",
-    "detrend", "device_used", "dft", "diag", "dict", "diff", "dir",
-    "dir_exists", "disp", "distinct", "distort", "div", "donut", "dot",
-    "double_buffer", "drop", "drop_row", "dropout", "dropout_layer", "dwt",
+    "cv_stability", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct",
+    "dec2bin", "dec2hex", "delay", "delta_e", "dense", "dense_layer", "describe", "det",
+    "detect_saturation", "detrend", "device_used", "dft", "diag", "dict", "diff", "dir",
+    "dir_exists", "disp", "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
+    "double_buffer", "drop", "drop_row", "dropout", "dropout_layer", "duty_cycle", "dwt",
     "ecdf", "echo", "eda", "edge_detect", "eig", "elapsed", "elediv", "elemul",
     "elepow", "ellip", "ellipse", "emd", "emf", "ends_with", "energy", "enob",
     "enob_estimate", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
-    "estimate", "estimate_complexity", "exec", "exp", "exp2", "explain",
-    "explore", "expm1", "exponential", "eye", "f1", "fft", "fftc", "fftr",
+    "estimate", "estimate_complexity", "estimate_frequency", "exec", "exp", "exp2", "explain",
+    "explore", "expm1", "exponential", "eye", "f1", "fall_time", "fft", "fftc", "fftr",
     "fifo", "figure", "figure_background", "figure_size", "file_exists",
-    "file_size", "fill_between", "filter", "filter_ba", "filter_init",
-    "filter_next", "filtfilt", "find", "find_peaks", "findpeaks", "fir1",
+    "file_size", "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
+    "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_missing",
+    "find_outliers", "find_peaks", "find_pulses", "find_trigger",
+    "find_zero_crossings", "findpeaks", "fir1",
     "firls", "first", "fit", "fit_scaler", "flatten", "flip", "fliplr",
     "flipud", "floor", "fold", "fontfamily", "fontsize", "fopen",
     "foreground_mask", "format", "forward", "freqz", "fvtool", "fzero",
-    "gamma", "generate", "gerischer", "get", "getenv", "glob", "gmm_model",
+    "gain", "gamma", "generate", "gerischer", "get", "getenv", "glob", "gmm_model",
     "goertzel", "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
@@ -34607,8 +36867,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "imopen", "impedance", "impedance_from_reflection", "impulse", "imrotate",
     "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "index",
     "index_of", "indexof", "inductor", "input", "insert", "insert_column",
-    "insert_row", "interp1", "interp2", "interpolate_at", "inv",
-    "inverse_transform", "iqr", "irfft", "is_empty", "is_full", "is_stable",
+    "insert_row", "interp1", "interp2", "interpolate_at", "interpolate_nan", "inv",
+    "inverse_transform", "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_stable",
     "items", "join", "js_exec", "json2csv", "json2xml", "jsonify", "k_fold",
     "kaiser", "kalman_init", "kapur_threshold", "keys", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
@@ -34631,17 +36891,18 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "naive_bayes_model", "nand", "ncol", "neighbors", "nesterov_sgd", "newton",
     "nnls", "nor", "norm", "normal", "normalize", "normpdf", "now", "nrow",
     "numel", "nyquist", "ols_model", "ones", "ones_like", "optimizer_step",
-    "or", "ord", "otsu", "otsu_threshold", "pad_left", "pad_right", "palette",
+    "or", "ord", "otsu", "otsu_threshold", "overshoot", "pad_left", "pad_right", "palette",
     "panel", "parallel", "param", "parse_as", "parse_csv", "parse_json",
     "parse_xml", "particle_filter", "particle_filter_init", "pause", "pca",
-    "pca_components", "pca_explained_variance", "pca_model", "peek",
+    "pca_components", "pca_explained_variance", "pca_model", "peak", "peek",
     "peek_byte", "peek_char", "peek_line", "percentile", "periodic_profile",
     "periodogram", "permutation_importance", "phase", "pie", "pinv",
     "pipeline", "plot", "pmap", "point", "poisson", "polarplot", "poles",
     "polyfit", "polygon", "polyval", "pool", "pop", "pop_back", "pop_front",
     "porous", "pow", "pow2db", "preciseTimer", "precision", "predict", "print",
     "printtex", "prod", "profile_stats", "profiling_mode", "progress",
-    "proper", "pt", "pump_watches", "push", "push_back", "push_front", "pwd",
+    "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
+    "pump_watches", "push", "push_back", "push_front", "pwd",
     "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qr", "quantile",
     "quantile_normalize", "queue", "quick_mlp", "raincloud", "rand", "randi",
     "randn", "random_forest_model", "random_walk", "range", "range_decode",
@@ -34654,11 +36915,15 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "real", "recall", "rect", "rectangle", "reduce", "reflection_coefficient",
     "regex_count", "regex_find", "regex_find_all", "regex_groups",
     "regex_match", "regex_replace", "regex_split", "regionprops", "relu",
-    "remove", "remove_dir", "remove_file", "remove_small_blobs", "rename_file", "repeat_str", "replace", "resample_to",
+    "remove", "remove_dir", "remove_file", "remove_nan", "remove_outliers",
+    "remove_small_blobs", "rename_file", "repeat_str", "replace",
+    "replace_outliers", "resample_to",
     "reset", "reshape", "resistor", "resize", "restart", "return_loss",
     "reverse", "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model",
-    "right", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms",
-    "rmse", "rmsprop", "robust_scale", "rot90", "round", "row_mean", "row_sum",
+    "right", "rise_time", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms",
+    "rmse", "rmsprop", "robust_scale", "rolling_max", "rolling_mean",
+    "rolling_min", "rolling_rms", "rolling_std",
+    "rot90", "round", "row_mean", "row_sum",
     "rows", "rtrim", "run_for", "sandbox_mode", "sarsa", "save", "save_all",
     "save_image", "save_model", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score",
@@ -34671,22 +36936,23 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness", "sleep",
     "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter",
     "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
-    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum_at", "spiderplot",
+    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
+    "spectrum_normalize", "spectrum_unnormalize", "spiderplot",
     "splineplot", "split", "sqrt", "square", "stackbar", "stair", "stamp",
     "standardize", "start", "starts_with", "stationary", "std", "ste", "stem",
     "step", "stft", "stop", "stop_grad", "str", "stratified_split", "subplot",
     "substr", "subtract", "sum", "svd", "svm_model", "svr_model", "swap",
     "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset",
     "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen", "tcp_port",
-    "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "theme", "threshold",
+    "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n", "theme", "threshold",
     "tic", "timer", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk",
     "to_float", "to_hsl", "to_hsv", "to_int", "to_lab", "to_rgb", "to_vec",
     "toc", "tolower", "touch", "toupper", "trace", "track", "train_loop",
     "train_test_split", "train_val_test_split", "transform",
     "transformer_block", "transpose", "tree_model", "triangle", "trim", "tsne",
     "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number",
-    "ui_select", "ui_slider", "ui_text", "uniform", "unique", "unit_scale", "update",
-    "upper", "val", "values", "vanicek", "var", "violin", "viterbi", "vline",
+    "ui_select", "ui_slider", "ui_text", "undershoot", "uniform", "unique", "unit_scale", "update",
+    "upper", "val", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
     "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
     "warburg_short", "warn", "waterfall", "welch", "where", "worker_done",
     "write", "write_array", "write_bin", "write_bit", "write_byte",
@@ -34699,7 +36965,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "zip", "zlib_decompress", "zoom_inset",
 ];
 
-fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>) -> R<Value> {
+fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &[(String, Value)]) -> R<Value> {
     let idx_err = |se: qu_core::matrix::ShapeError| EvalError {
         msg: se.to_string(),
     };
@@ -34713,6 +36979,26 @@ fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>) -> R<Val
             None => e(format!("{f}: needs a quantile argument (0..1) alongside `axis=`")),
         }
     };
+    // `on_invalid=` belongs to the ten reductions it was added for.
+    // `prod`/`argmedian`/`argquantile` reach this function too (they are
+    // also in `AXIS_HONOURING`) but are out of scope here -- so this must
+    // not even LOOK at `style` for them: looking marks `on_invalid` as
+    // "read" (see `style_entry`) and would let e.g. `prod(M, axis=0,
+    // on_invalid="ignore")` through silently accepted and silently
+    // ignored, the exact failure `on_invalid=` exists to prevent
+    // elsewhere. Read once, outside the per-group loop, and replayed with
+    // `apply_on_invalid_mode` per row/column below -- so "ignore" drops
+    // NaN/Inf WITHIN each row/column independently, rather than across the
+    // whole matrix.
+    let on_invalid = if matches!(
+        f,
+        "sum" | "mean" | "std" | "var" | "median" | "quantile" | "max" | "min" | "argmax" | "argmin"
+    ) {
+        Some(parse_on_invalid(f, style)?)
+    } else {
+        None
+    };
+    let mode = on_invalid.unwrap_or(OnInvalid::Propagate);
     // gather the vectors being reduced: axis 0 -> each column; axis 1 -> each row
     let groups: Vec<Vec<f64>> = match axis {
         0 => (0..m.cols())
@@ -34727,18 +37013,21 @@ fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>) -> R<Val
         .iter()
         .map(|g| -> R<f64> {
             Ok(match f {
-            "sum" => g.iter().sum(),
+            "sum" => apply_on_invalid_mode(f, g, mode)?.iter().sum(),
             "prod" => g.iter().product(),
-            "mean" => g.iter().sum::<f64>() / g.len().max(1) as f64,
-            "std" => std_dev(g),
+            "mean" => {
+                let g = apply_on_invalid_mode(f, g, mode)?;
+                g.iter().sum::<f64>() / g.len().max(1) as f64
+            }
             // `var` and `median` were reachable from the dispatch arm's
             // list and absent from this one, which is the pairing that
             // makes the `_ => NAN` below dangerous: a name added there and
             // forgotten here returns a vector of NaNs rather than an error.
             // `var` is `std` squared here for the same reason the chapter
             // states that invariant -- one definition, not two.
-            "var" => variance(g),
-            "median" => median_of(g)?,
+            "std" => std_dev(&apply_on_invalid_mode(f, g, mode)?),
+            "var" => variance(&apply_on_invalid_mode(f, g, mode)?),
+            "median" => median_of(&apply_on_invalid_mode(f, g, mode)?)?,
             // Found by Ahmed asking "check argmedian / argquantile" after
             // the first pass: `quantile`/`argquantile`/`argmedian` were
             // outside the original five and had the identical gap --
@@ -34746,22 +37035,72 @@ fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>) -> R<Val
             // `quantile_of` so a per-axis quantile can never define "0.5
             // of a column" differently from what `quantile(x, 0.5)` means
             // for a plain vector.
-            "quantile" => quantile_of(g, q()?)?,
+            "quantile" => quantile_of(&apply_on_invalid_mode(f, g, mode)?, q()?)?,
             "argmedian" => arg_order_statistic(g, 0.5, true)? as f64,
             "argquantile" => arg_order_statistic(g, q()?, false)? as f64,
-            "max" => g.iter().copied().fold(f64::NEG_INFINITY, f64::max),
-            "min" => g.iter().copied().fold(f64::INFINITY, f64::min),
+            "max" => apply_on_invalid_mode(f, g, mode)?
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max),
+            "min" => apply_on_invalid_mode(f, g, mode)?
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min),
             // Index of the extremum WITHIN the row or column, which is
-            // what "argmax along an axis" means everywhere else.
+            // what "argmax along an axis" means everywhere else --
+            // `on_invalid="ignore"` must still land on a position in the
+            // ORIGINAL row/column, not a filtered one, same reasoning as
+            // `arg_extremum_on_invalid`'s flat-array version. `propagate`
+            // (the default) is untouched from before this feature existed,
+            // including its pre-existing quirk: unlike the flat
+            // `arg_extremum`, this inline per-axis scan does NOT skip a
+            // leading NaN, so a NaN at the start of a row/column can pin
+            // the result to index 0 -- that is "exactly today's behavior",
+            // which is what `propagate` promises to preserve.
             "argmax" | "argmin" => {
                 let better = |a: f64, b: f64| if f == "argmax" { a > b } else { a < b };
-                let mut best = 0usize;
-                for (i, v) in g.iter().enumerate() {
-                    if better(*v, g[best]) {
-                        best = i;
+                match mode {
+                    OnInvalid::Ignore => {
+                        let mut best: Option<usize> = None;
+                        for (i, v) in g.iter().enumerate() {
+                            if !v.is_finite() {
+                                continue;
+                            }
+                            best = match best {
+                                Some(b) if !better(*v, g[b]) => Some(b),
+                                _ => Some(i),
+                            };
+                        }
+                        match best {
+                            Some(b) => b as f64,
+                            None => {
+                                return e(format!(
+                                    "{f}: every element in this row/column is NaN or Inf -- \
+                                     nothing left after on_invalid=\"ignore\""
+                                ))
+                            }
+                        }
+                    }
+                    OnInvalid::Error => {
+                        check_no_invalid(f, g)?;
+                        let mut best = 0usize;
+                        for (i, v) in g.iter().enumerate() {
+                            if better(*v, g[best]) {
+                                best = i;
+                            }
+                        }
+                        best as f64
+                    }
+                    OnInvalid::Propagate => {
+                        let mut best = 0usize;
+                        for (i, v) in g.iter().enumerate() {
+                            if better(*v, g[best]) {
+                                best = i;
+                            }
+                        }
+                        best as f64
                     }
                 }
-                best as f64
             }
             // Was `_ => f64::NAN`. A caller that reached here with a name
             // this function does not reduce got a vector of NaNs and no
@@ -35043,13 +37382,13 @@ fn make_filled(args: &[Value], value: f64) -> Value {
     }
 }
 
-fn reduce_cmp(args: &[Value], f: fn(f64, f64) -> f64) -> R<Value> {
+fn reduce_cmp(name: &str, args: &[Value], style: &[(String, Value)], f: fn(f64, f64) -> f64) -> R<Value> {
     mark_all_args_read();
-    let xs = to_vec(arg0(args)?)?;
+    let xs = apply_on_invalid(name, to_cow(arg0(args)?)?, style)?;
     if xs.is_empty() {
         return e("reduction of empty vector");
     }
-    Ok(Value::Num(xs.into_iter().reduce(f).unwrap()))
+    Ok(Value::Num(xs.iter().copied().reduce(f).unwrap()))
 }
 
 /// The index of the first element for which `better(candidate, current)`
@@ -35082,6 +37421,169 @@ fn arg_extremum(xs: &[f64], better: fn(&f64, &f64) -> bool) -> R<usize> {
         };
     }
     Ok(best.unwrap_or(0))
+}
+
+// ── `on_invalid=` (§ reduction NaN/Inf handling) ────────────────────────
+//
+// R's `na.rm=` for `mean`/`min`/`max`/`sum`/`std`/`var`/`median`/
+// `quantile`/`argmin`/`argmax` -- the one place a NaN or Inf can corrupt a
+// result without the language ever saying so, which is exactly the
+// "silence is the worst failure" problem `style_entry`'s unread-keyword
+// check and a shape mismatch already refuse elsewhere, just for invalid
+// DATA instead of a bad call.
+//
+// Every one of the ten reductions funnels its input through
+// `apply_on_invalid`/`arg_extremum_on_invalid` below (or, on a `Mat` under
+// `axis=`, through the equivalent handling inside `reduce_axis`) rather
+// than each reimplementing the three modes -- one place to get the
+// "ignore" n-adjustment and the "error" message right, not ten.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OnInvalid {
+    /// `on_invalid="propagate"` — the default, and exactly the behavior
+    /// every one of these ten reductions had before this keyword existed:
+    /// a NaN/Inf in the input flows through untouched, whatever that
+    /// reduction's own arithmetic (or, for `argmin`/`argmax`, its existing
+    /// NaN-skipping scan) then does with it.
+    Propagate,
+    /// `on_invalid="ignore"` — every NaN and Inf element is dropped before
+    /// the reduction runs (R's `na.rm=TRUE`, extended to Inf too). For
+    /// `mean`/`std`/`var` this also shrinks the effective `n`: each of
+    /// them measures the length of the already-filtered slice it is
+    /// handed, not the original input.
+    Ignore,
+    /// `on_invalid="error"` — any NaN or Inf anywhere in the input raises,
+    /// naming what was found and at what index, rather than silently
+    /// returning a NaN/Inf result.
+    Error,
+}
+
+/// Reads `on_invalid=` for one of the ten reductions above (default
+/// `"propagate"`). Goes through `style_str`, so a call that supplies it is
+/// marked "read" even when the value is invalid -- an unrecognized value
+/// is this function's own error, not an "unknown keyword" one.
+fn parse_on_invalid(f: &str, style: &[(String, Value)]) -> R<OnInvalid> {
+    match style_str(style, "on_invalid").as_deref() {
+        None | Some("propagate") => Ok(OnInvalid::Propagate),
+        Some("ignore") => Ok(OnInvalid::Ignore),
+        Some("error") => Ok(OnInvalid::Error),
+        Some(other) => e(format!(
+            "{f}: on_invalid=\"{other}\" is not recognized -- use \"propagate\" (default, \
+             NaN/Inf flows through untouched), \"ignore\" (drop NaN/Inf before reducing), or \
+             \"error\" (raise if any NaN/Inf is present)"
+        )),
+    }
+}
+
+/// The first NaN or Inf in `xs`, by index -- `on_invalid="error"`'s check.
+fn first_invalid(xs: &[f64]) -> Option<(usize, &'static str)> {
+    xs.iter().enumerate().find_map(|(i, x)| {
+        if x.is_nan() {
+            Some((i, "NaN"))
+        } else if x.is_infinite() {
+            Some((i, "Inf"))
+        } else {
+            None
+        }
+    })
+}
+
+/// The `Complex` counterpart of `first_invalid`, for `sum`'s `CVec` path --
+/// a NaN/Inf in either the real or the imaginary part counts.
+fn first_invalid_complex(xs: &[Complex64]) -> Option<(usize, &'static str)> {
+    xs.iter().enumerate().find_map(|(i, c)| {
+        if c.re.is_nan() || c.im.is_nan() {
+            Some((i, "NaN"))
+        } else if c.re.is_infinite() || c.im.is_infinite() {
+            Some((i, "Inf"))
+        } else {
+            None
+        }
+    })
+}
+
+fn check_no_invalid(f: &str, xs: &[f64]) -> R<()> {
+    match first_invalid(xs) {
+        None => Ok(()),
+        Some((i, kind)) => e(format!(
+            "{f}: input contains {kind} at index {i} -- pass on_invalid=\"ignore\" to skip \
+             invalid values, or on_invalid=\"propagate\" to allow them through"
+        )),
+    }
+}
+
+/// Applies an already-decided `OnInvalid` mode to `xs` -- the per-group
+/// version `reduce_axis` uses (so a mode read once from `style` outside the
+/// per-row/column loop can be replayed inside it without re-reading
+/// `style` -- and re-marking `on_invalid` "read" -- once per row/column).
+fn apply_on_invalid_mode<'a>(f: &str, xs: &'a [f64], mode: OnInvalid) -> R<Cow<'a, [f64]>> {
+    match mode {
+        OnInvalid::Propagate => Ok(Cow::Borrowed(xs)),
+        OnInvalid::Error => {
+            check_no_invalid(f, xs)?;
+            Ok(Cow::Borrowed(xs))
+        }
+        OnInvalid::Ignore => Ok(Cow::Owned(xs.iter().copied().filter(|v| v.is_finite()).collect())),
+    }
+}
+
+/// Applies `on_invalid=` (read from `style`) ahead of an ordinary
+/// (non-axis, non-index-returning) reduction over `xs`: `"propagate"`
+/// passes it through unchanged, `"error"` checks it and passes it through,
+/// `"ignore"` drops every non-finite entry. `mean`/`std`/`var` end up
+/// dividing by the count of the REMAINING valid elements under
+/// `"ignore"` for free, because each of them measures `xs.len()` on
+/// whatever this returns, after filtering, not the original input.
+fn apply_on_invalid<'a>(f: &str, xs: Cow<'a, [f64]>, style: &[(String, Value)]) -> R<Cow<'a, [f64]>> {
+    let mode = parse_on_invalid(f, style)?;
+    match mode {
+        OnInvalid::Propagate => Ok(xs),
+        OnInvalid::Error => {
+            check_no_invalid(f, &xs)?;
+            Ok(xs)
+        }
+        OnInvalid::Ignore => Ok(Cow::Owned(xs.iter().copied().filter(|v| v.is_finite()).collect())),
+    }
+}
+
+/// `argmin`/`argmax` under `on_invalid=`. Unlike `apply_on_invalid`, this
+/// cannot simply filter `xs` first and hand the result to `arg_extremum`:
+/// the returned index must refer to the position in the ORIGINAL array, so
+/// a caller can use it to index back into their own data, even once
+/// `"ignore"` has skipped some entries.
+fn arg_extremum_on_invalid(
+    f: &str,
+    xs: &[f64],
+    better: fn(&f64, &f64) -> bool,
+    style: &[(String, Value)],
+) -> R<usize> {
+    if xs.is_empty() {
+        return e("reduction of empty vector");
+    }
+    match parse_on_invalid(f, style)? {
+        OnInvalid::Propagate => arg_extremum(xs, better),
+        OnInvalid::Error => {
+            check_no_invalid(f, xs)?;
+            arg_extremum(xs, better)
+        }
+        OnInvalid::Ignore => {
+            let mut best: Option<usize> = None;
+            for (i, x) in xs.iter().enumerate() {
+                if !x.is_finite() {
+                    continue;
+                }
+                best = match best {
+                    Some(b) if !better(x, &xs[b]) => Some(b),
+                    _ => Some(i),
+                };
+            }
+            best.ok_or_else(|| EvalError {
+                msg: format!(
+                    "{f}: every element is NaN or Inf -- nothing left after \
+                     on_invalid=\"ignore\""
+                ),
+            })
+        }
+    }
 }
 
 /// The permutation that would sort `xs` ascending — `median`/`quantile`'s
@@ -35248,9 +37750,30 @@ fn kaiser_window(n: usize, beta: f64) -> Vec<f64> {
 /// is `n`, so its first `n` samples are exactly `a0 - a1*cos(2*pi*i/n) +
 /// ...`, matching `qu_core::transforms::hann_window`'s own periodic
 /// definition bin-for-bin).
-fn periodic_analysis_window(name: &str, n: usize, style: &[(String, Value)]) -> R<Vec<f64>> {
+/// `who` is the calling builtin's own name, so the error message names the
+/// function the user actually typed. It used to be the hardcoded string
+/// `"welch/periodogram"`, which was already only two of the four callers
+/// and is now two of six -- a message that names a function the caller did
+/// not call sends them to read the wrong documentation.
+///
+/// `"rectangular"`/`"boxcar"`/`"none"` is an all-ones window: no taper at
+/// all. Previously this was an error, which left a caller who wanted the
+/// un-tapered transform with no spelling for it (SciPy accepts `"boxcar"`
+/// for exactly this). It matters most for `spectrum` below, where it is
+/// the setting that makes the result agree bin-for-bin with a plain
+/// `rfft(sig, scaling=)` -- i.e. the check that the windowing plumbing
+/// does not quietly alter a spectrum nobody asked to have tapered.
+fn periodic_analysis_window(
+    who: &str,
+    name: &str,
+    n: usize,
+    style: &[(String, Value)],
+) -> R<Vec<f64>> {
     if n == 0 {
         return Ok(Vec::new());
+    }
+    if name == "rectangular" || name == "boxcar" || name == "none" {
+        return Ok(vec![1.0; n]);
     }
     if n == 1 {
         return Ok(vec![1.0]);
@@ -35261,13 +37784,14 @@ fn periodic_analysis_window(name: &str, n: usize, style: &[(String, Value)]) -> 
         "blackman" => raised_cosine_window(n + 1, 0.42, 0.5, 0.08),
         "kaiser" => {
             let beta = style_num(style, "beta").ok_or_else(|| EvalError {
-                msg: "welch/periodogram: window=\"kaiser\" needs a beta= argument".into(),
+                msg: format!("{who}: window=\"kaiser\" needs a beta= argument"),
             })?;
             kaiser_window(n + 1, beta)
         }
         other => {
             return e(format!(
-                "welch/periodogram: unknown window `{other}`, expected \"hann\", \"hamming\", \"blackman\", or \"kaiser\""
+                "{who}: unknown window `{other}`, expected \"hann\", \"hamming\", \
+                 \"blackman\", \"kaiser\", or \"rectangular\""
             ))
         }
     };
@@ -40045,9 +42569,10 @@ fn json_to_value(j: &serde_json::Value) -> R<Value> {
             // silently reading a future `density` spectrum back as raw
             // transform output is exactly the wrong answer this tag exists
             // to prevent.
-            let norm = match field(j, "norm")?.as_str() {
-                Some("raw_transform") => SpectrumNorm::RawTransform,
-                other => {
+            let norm = match field(j, "norm")?.as_str().and_then(SpectrumNorm::from_name) {
+                Some(n) => n,
+                None => {
+                    let other = field(j, "norm")?.as_str();
                     return e(format!(
                         "load: spectrum has an unknown normalisation {other:?} -- \
                          written by a newer Qu than this one"
@@ -49553,6 +52078,168 @@ bits = quiet.enob - loud.enob";
         );
     }
 
+    /// The property that makes `block_process` worth having at all: for a
+    /// function with no history, chunking must be INVISIBLE. Run at 1000
+    /// samples with a block of 256 on purpose -- 1000 is not a multiple of
+    /// 256, so the last block is short (232) and every off-by-one in the
+    /// chunking loop (dropping the tail, re-running the last full block,
+    /// zero-padding the short one) shows up as a nonzero difference here.
+    ///
+    /// Compared against the SAME operation applied to the whole signal
+    /// rather than against a stored golden vector: a golden vector agrees
+    /// with a chunking bug as happily as with correct chunking, whereas
+    /// this cannot be satisfied except by reassembling exactly the input.
+    #[test]
+    fn block_process_is_invisible_for_a_stateless_function() {
+        let it = run("n = 0 to 999
+x = sin(2 * pi * 7 .* (n / 1000))
+dbl = (b) := 2 .* b
+short_last = max(abs(block_process(x, dbl, block = 256) - 2 .* x))
+divides    = max(abs(block_process(x, dbl, block = 250) - 2 .* x))
+one_block  = max(abs(block_process(x, dbl, block = 4096) - 2 .* x))
+per_sample = max(abs(block_process(x, dbl, block = 1) - 2 .* x))
+defaulted  = max(abs(block_process(x, dbl) - 2 .* x))
+len_out    = length(block_process(x, dbl, block = 256))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("len_out"), 1000.0, "blocking must not change the length");
+        for case in ["short_last", "divides", "one_block", "per_sample", "defaulted"] {
+            assert_eq!(
+                num(case),
+                0.0,
+                "{case}: a stateless function applied blockwise must equal it applied whole, \
+                 to the last bit -- there is no arithmetic here to lose precision to"
+            );
+        }
+    }
+
+    /// One number per block is a DECIMATION, and the result's rate is
+    /// `fs / block` -- not the input's `fs`. Pinned because handing back a
+    /// metering series still labelled 1000 Hz would be precisely the class
+    /// of bug the `Signal` type exists to prevent, and it is invisible
+    /// until someone plots the thing against a time axis.
+    #[test]
+    fn block_process_meters_at_the_decimated_rate() {
+        let it = run("n = 0 to 999
+s = signal(sin(2 * pi * 7 .* (n / 1000)), 1000)
+m = block_process(s, (b) := rms(b), block = 250)
+blocks = length(m)
+rate = m.Fs
+kept = block_process(s, (b) := 2 .* b, block = 250).Fs");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("blocks"), 4.0, "1000 samples in blocks of 250 is 4 blocks");
+        assert_eq!(
+            num("rate"),
+            4.0,
+            "one value per 250-sample block at 1000 Hz IS sampled at 4 Hz"
+        );
+        assert_eq!(
+            num("kept"),
+            1000.0,
+            "a length-preserving block function must leave the rate alone"
+        );
+    }
+
+    /// The limitation, pinned so it cannot be quietly lost.
+    ///
+    /// `block_process` threads NOTHING between blocks, so a filter applied
+    /// per block restarts at every boundary and does not equal the same
+    /// filter applied to the whole signal. This asserts the difference is
+    /// LARGE (not merely nonzero): it is a real signal-level artifact,
+    /// about 1.1 on a unit-amplitude input, not a rounding wobble someone
+    /// could dismiss. If a future change adds state threading and makes
+    /// this pass by matching the whole-signal result, this test should be
+    /// rewritten deliberately rather than deleted in passing -- the shape
+    /// of the answer would have changed.
+    #[test]
+    fn block_process_does_not_carry_filter_state_across_blocks() {
+        let it = run("n = 0 to 999
+x = sin(2 * pi * 7 .* (n / 1000)) + 0.25 .* cos(2 * pi * 61 .* (n / 1000))
+lp = butter(4, \"low\", 80, 1000)
+d = max(abs(block_process(x, (b) := sosfilt(lp, b), block = 256) - sosfilt(lp, x)))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert!(
+            num("d") > 0.1,
+            "a stateful filter run blockwise MUST differ substantially from the same filter \
+             run whole -- `block_process` carries no state across boundaries and must not \
+             appear to. Got {}, which is small enough to suggest state is being threaded \
+             after all (or that the filter stopped doing anything)",
+            num("d")
+        );
+    }
+
+    /// `gain` is the amplitude convention (20, not 10): -6 dB is a factor
+    /// of 0.5012, and the two conventions differ by 2x in dB, so a test
+    /// that only checked "smaller" would pass against the wrong one.
+    /// -6 and +6 are checked together because a sign error survives either
+    /// one alone.
+    #[test]
+    fn gain_uses_the_amplitude_decibel_convention() {
+        let it = run("x = [1, -2, 3]
+down = gain(x, -6)[0]
+up = gain(x, 6)[0]
+unit_literal = gain(x, -6 dB)[0]
+named = gain(x, db = -6)[0]
+zero = max(abs(gain(x, 0) - x))
+keeps_rate = gain(signal([1, 2, 3], 8000), -6).Fs");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        // 10^(-6/20) = 0.5011872336272722, NOT 10^(-6/10) = 0.2511886.
+        assert!(
+            (num("down") - 0.501_187_233_627_272_2).abs() < 1e-12,
+            "-6 dB on an amplitude is 10^(-6/20) = 0.50119, got {}",
+            num("down")
+        );
+        assert!(
+            (num("up") - 1.995_262_314_968_880_2).abs() < 1e-12,
+            "+6 dB on an amplitude is 10^(6/20) = 1.99526, got {}",
+            num("up")
+        );
+        assert_eq!(num("unit_literal"), num("down"), "`-6 dB` must equal `-6`");
+        assert_eq!(num("named"), num("down"), "`db = -6` must equal `-6`");
+        assert_eq!(num("zero"), 0.0, "0 dB is exactly unity gain");
+        assert_eq!(num("keeps_rate"), 8000.0, "a level change must not touch fs");
+    }
+
+    /// `delay` keeps the length and zero-fills, in both directions. The
+    /// negative case is here because "shift" implementations that index
+    /// with an unsigned type look correct for positive `n` and wrap or
+    /// panic for negative.
+    #[test]
+    fn delay_shifts_both_ways_and_keeps_the_length() {
+        let it = run("v = [1, 2, 3, 4, 5]
+fwd = delay(v, 2)
+back = delay(v, -2)
+same = max(abs(delay(v, 0) - v))
+past_end = max(abs(delay(v, 99)))
+n = length(delay(v, 2))
+keeps_rate = delay(signal(v, 8000), 1).Fs");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        let vecof = |name: &str| match it.get(name) {
+            Some(Value::Vec(xs)) => xs.to_vec(),
+            other => panic!("expected a vector for {name}, got {other:?}"),
+        };
+        assert_eq!(vecof("fwd"), vec![0.0, 0.0, 1.0, 2.0, 3.0], "delay by 2");
+        assert_eq!(vecof("back"), vec![3.0, 4.0, 5.0, 0.0, 0.0], "advance by 2");
+        assert_eq!(num("same"), 0.0, "a zero shift is the identity");
+        assert_eq!(num("past_end"), 0.0, "shifting clear past the end is all zeros");
+        assert_eq!(num("n"), 5.0, "the length is preserved");
+        assert_eq!(num("keeps_rate"), 8000.0, "a shift must not touch fs");
+    }
+
     /// `filter_ba`/`lfilter`, `medfilt` and `savgol` had no test naming
     /// them. Each is pinned here by a property the mathematics REQUIRES,
     /// not by a value the implementation happened to produce -- a golden
@@ -49648,6 +52335,240 @@ out = r.x");
             ),
             other => panic!("expected a Vec for out, got {other:?}"),
         }
+    }
+
+    /// The rolling family's edge convention, at the interpreter boundary.
+    ///
+    /// Every value is the statistic of the window it actually covers, and at
+    /// the ends that window is SHORTER rather than padded -- so `[1..5]`
+    /// with window 3 opens on the mean of `[1, 2]`, not on a mean that has
+    /// had a repeated or mirrored `1` mixed into it. Checked against `std`
+    /// itself at the edge, which is the guarantee worth having: the two
+    /// cannot drift apart without this failing.
+    #[test]
+    fn a_rolling_statistic_shrinks_its_window_at_the_edges_instead_of_padding() {
+        let it = run("x = [1, 2, 3, 4, 5]
+m = rolling_mean(x, 3)
+s = rolling_std(x, 3)
+lo = rolling_min(x, 3)
+hi = rolling_max(x, 3)
+edge = std([1, 2])");
+        assert_eq!(vec_of(&it, "m"), vec![1.5, 2.0, 3.0, 4.0, 4.5]);
+        assert_eq!(vec_of(&it, "lo"), vec![1.0, 1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(vec_of(&it, "hi"), vec![2.0, 3.0, 4.0, 5.0, 5.0]);
+        let s = vec_of(&it, "s");
+        let edge = num(&it, "edge");
+        assert!(
+            (s[0] - edge).abs() < 1e-12,
+            "the first rolling_std must BE std of the 2-sample window it covers: {} vs {edge}",
+            s[0]
+        );
+        // A clamp-pad would put a third, repeated `1` in that window and
+        // drag this well below `edge`. Stated as its own assertion so the
+        // reason the number is what it is does not get lost.
+        assert!(s[0] > 0.7 && s[0] < 0.71, "got {}", s[0]);
+    }
+
+    /// An even window is refused rather than rounded, exactly as `medfilt`/
+    /// `savgol`/`smooth` refuse one, because which way it rounds changes the
+    /// answer.
+    #[test]
+    fn a_rolling_window_must_be_odd() {
+        let err = run_err("y = rolling_mean([1, 2, 3, 4, 5], 4)").to_string();
+        assert!(err.contains("odd"), "{err}");
+        assert!(err.contains("rolling_mean"), "{err}");
+    }
+
+    /// Whether an operation keeps a `Signal`'s `Fs` is decided by ONE rule,
+    /// and both halves of it are pinned here.
+    ///
+    /// Length-preserving and sample-aligned (a rolling statistic, a dropout
+    /// fill) keeps the promise a `Signal` makes -- uniform sampling at a
+    /// known rate -- so it stays a `Signal`. Dropping samples breaks it: what
+    /// is left is not evenly spaced, so re-attaching the old `Fs` would be a
+    /// lie and the result comes back a plain `Vec`. Same call
+    /// `interpolate_at` already made, for the same reason.
+    #[test]
+    fn keeping_the_sample_rate_tracks_whether_the_length_survives() {
+        let it = run("s = signal([1, 2, 3, 4, 5], 100)
+kept = rolling_mean(s, 3)
+sn = signal([1, nan, 3], 100)
+filled = fill_missing(sn)
+dropped = remove_nan(sn)
+culled = remove_outliers(s, method = \"iqr\")");
+        for name in ["kept", "filled"] {
+            match it.get(name) {
+                Some(Value::Signal(_, fs)) => assert!(
+                    (fs - 100.0).abs() < 1e-9,
+                    "{name} kept the Signal but lost the rate: {fs}"
+                ),
+                other => panic!("{name} should still be a Signal, got {other:?}"),
+            }
+        }
+        for name in ["dropped", "culled"] {
+            assert!(
+                matches!(it.get(name), Some(Value::Vec(_))),
+                "{name} removes samples, so it must NOT claim a sample rate; got {:?}",
+                it.get(name)
+            );
+        }
+    }
+
+    /// The outlier family is one criterion behind three answers, so the three
+    /// must agree about which samples are outliers.
+    #[test]
+    fn the_three_outlier_verbs_agree_on_what_an_outlier_is() {
+        let it = run("y = [1, 2, 3, 2, 1, 2, 3, 2, 1, 2, 100]
+idx = find_outliers(y, method = \"modified_zscore\")
+kept = remove_outliers(y, method = \"modified_zscore\")
+fixed = replace_outliers(y, method = \"modified_zscore\")
+n = length(y)");
+        assert_eq!(vec_of(&it, "idx"), vec![10.0], "only the 100 is an outlier");
+        assert_eq!(vec_of(&it, "kept").len(), 10, "remove drops exactly that one");
+        let fixed = vec_of(&it, "fixed");
+        assert_eq!(fixed.len(), num(&it, "n") as usize, "replace keeps the length");
+        // Index 10 is the last sample, so the linear fill has good data on
+        // one side only and HOLDS the nearest good value rather than
+        // extrapolating the local slope off the end of the record.
+        assert_eq!(fixed[10], 2.0, "expected the held neighbour, got {}", fixed[10]);
+        assert_eq!(&fixed[0..3], &[1.0, 2.0, 3.0], "untouched samples stay untouched");
+    }
+
+    /// `find_outliers`'s own defence of its default: `method="zscore"` is
+    /// what people reach for, and on a record with several gross outliers it
+    /// reports nothing, because each inflates the deviation the others are
+    /// measured against. The robust criteria see all of them. Pinned at this
+    /// layer too, not just in `qu-core`, because this is the answer a script
+    /// actually gets.
+    #[test]
+    fn the_default_zscore_criterion_can_be_masked_where_the_robust_ones_are_not() {
+        let it = run("y = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 10000, 10000, 10000]
+z = find_outliers(y, method = \"zscore\")
+mz = find_outliers(y, method = \"modified_zscore\")
+iq = find_outliers(y, method = \"iqr\")");
+        assert!(vec_of(&it, "z").is_empty(), "the plain z-score is masked here");
+        assert_eq!(vec_of(&it, "mz"), vec![18.0, 19.0, 20.0]);
+        assert_eq!(vec_of(&it, "iq"), vec![18.0, 19.0, 20.0]);
+    }
+
+    /// `window=` belongs to `method="hampel"` alone, and passing it to a
+    /// criterion that has no window is an error rather than a silently
+    /// ignored keyword -- the engine's standing rule for unread kwargs, which
+    /// is worth pinning here because it is what tells a caller that
+    /// `find_outliers(x, method="zscore", window=7)` is not doing what the
+    /// spelling suggests.
+    #[test]
+    fn a_window_is_only_meaningful_for_the_local_outlier_criterion() {
+        let it = run("d = 0 to 40
+d[20] = d[20] + 30
+nearby = find_outliers(d, method = \"hampel\", window = 7)
+whole = find_outliers(d, method = \"zscore\")");
+        assert_eq!(
+            vec_of(&it, "nearby"),
+            vec![20.0],
+            "the local test sees a spike on a ramp that travels much further"
+        );
+        assert!(
+            vec_of(&it, "whole").is_empty(),
+            "and the global one cannot, by construction -- that is why both exist"
+        );
+        let err = run_err("bad = find_outliers([1, 2, 3], method = \"zscore\", window = 7)")
+            .to_string();
+        assert!(err.contains("window"), "{err}");
+    }
+
+    /// The fill strategy is spelled `fill_method=`, NOT `fill=`, and this
+    /// test exists because the obvious name is taken: `fill` is in
+    /// `COLOR_KEYS`, so `style_str` resolves it as a colour and `fill=
+    /// "median"` came back as "`median` is not a colour" while that was the
+    /// keyword. Found by running it, not by reading the list.
+    ///
+    /// With the keyword renamed, `fill=` is now never read here at all, so
+    /// the unread-keyword check catches it first and says so -- naming
+    /// `fill_method` in the suggestion list, which is a better answer than
+    /// the colour error ever was. That is what this pins: a caller reaching
+    /// for the obvious name is told the real one, not told about colours.
+    #[test]
+    fn the_outlier_fill_strategy_avoids_the_colour_keyword() {
+        let it = run("y = [1, 2, 3, 2, 1, 2, 3, 2, 1, 2, 100]
+med = replace_outliers(y, method = \"iqr\", fill_method = \"median\")
+zero = replace_outliers(y, method = \"iqr\", value = 0)
+marked = replace_outliers(y, method = \"iqr\", fill_method = \"nan\")");
+        assert_eq!(vec_of(&it, "med")[10], 2.0);
+        assert_eq!(vec_of(&it, "zero")[10], 0.0);
+        assert!(vec_of(&it, "marked")[10].is_nan(), "fill_method=nan marks it missing");
+        let err = run_err("bad = replace_outliers([1, 2, 100], method = \"iqr\", fill = \"median\")")
+            .to_string();
+        assert!(
+            err.contains("fill_method"),
+            "reaching for `fill=` must point at the real keyword, got: {err}"
+        );
+        assert!(
+            !err.contains("colour") && !err.contains("color"),
+            "and must NOT surface the colour machinery, got: {err}"
+        );
+    }
+
+    /// `replace_outliers` replaces outliers. A sample that was ALREADY
+    /// missing is a different problem with a different function, and must
+    /// come back still missing -- otherwise this quietly doubles as a dropout
+    /// filler and hides exactly the thing `find_missing` exists to report.
+    #[test]
+    fn replacing_outliers_does_not_quietly_fill_pre_existing_dropouts() {
+        let it = run("mixed = [1, 2, nan, 2, 1, 2, 3, 2, 1, 2, 100]
+out = replace_outliers(mixed, method = \"modified_zscore\")
+still = find_missing(out)");
+        let out = vec_of(&it, "out");
+        assert!(out[2].is_nan(), "the pre-existing gap must survive, got {}", out[2]);
+        assert!((out[10] - 2.0).abs() < 1e-9, "the outlier must be patched, got {}", out[10]);
+        assert_eq!(vec_of(&it, "still"), vec![2.0], "and still be reported as missing");
+    }
+
+    /// The missing-sample family, including the one decision in it that is
+    /// not obvious: a gap at the EDGE holds its nearest good sample instead
+    /// of extrapolating.
+    ///
+    /// `interp1` extrapolates, deliberately and documented, and the contrast
+    /// is asserted here rather than described -- the same record run through
+    /// both gives 20 and 30. They are answering different questions:
+    /// `interp1`'s caller named a point outside the data and wants the
+    /// model's opinion, while here a dropout is being patched so the next
+    /// stage has something to work with, and a ramp that keeps climbing off
+    /// the end of a record is how a dropout becomes a trend.
+    #[test]
+    fn filling_an_edge_gap_holds_where_interp1_would_extrapolate() {
+        let it = run("x = [0, 10, 20, nan]
+held = interpolate_nan(x)
+extrapolated = interp1([0, 1, 2], [0, 10, 20], 3)
+interior = interpolate_nan([0, nan, nan, 30])
+idx = find_missing([1, nan, 3])
+kept = remove_nan([1, nan, 3])
+back = fill_missing([1, nan, 9], method = \"previous\")
+fwd = fill_missing([1, nan, 9], method = \"next\")
+flat = fill_missing([1, nan, 9], value = 0)");
+        assert_eq!(vec_of(&it, "held")[3], 20.0, "the edge gap holds");
+        assert_eq!(num(&it, "extrapolated"), 30.0, "interp1 climbs -- the contrast");
+        assert_eq!(vec_of(&it, "interior"), vec![0.0, 10.0, 20.0, 30.0]);
+        assert_eq!(vec_of(&it, "idx"), vec![1.0]);
+        assert_eq!(vec_of(&it, "kept"), vec![1.0, 3.0]);
+        assert_eq!(vec_of(&it, "back"), vec![1.0, 1.0, 9.0]);
+        assert_eq!(vec_of(&it, "fwd"), vec![1.0, 9.0, 9.0]);
+        assert_eq!(vec_of(&it, "flat"), vec![1.0, 0.0, 9.0]);
+    }
+
+    /// "Missing" means NOT FINITE, so an infinity counts too. A saturated
+    /// channel can produce either, and an Inf poisons a mean exactly as
+    /// thoroughly as a NaN -- treating only NaN as missing would leave the
+    /// other one to be discovered downstream.
+    #[test]
+    fn an_infinity_counts_as_a_missing_sample_the_same_as_a_nan() {
+        let it = run("x = [1, 2, 1/0, 4]
+idx = find_missing(x)
+kept = remove_nan(x)
+filled = interpolate_nan(x)");
+        assert_eq!(vec_of(&it, "idx"), vec![2.0], "the Inf is reported missing");
+        assert_eq!(vec_of(&it, "kept"), vec![1.0, 2.0, 4.0]);
+        assert_eq!(vec_of(&it, "filled"), vec![1.0, 2.0, 3.0, 4.0]);
     }
 
     /// `coherence` is the mutual coherence of a sensing matrix -- the
@@ -58423,6 +61344,129 @@ end for");
         assert!(err.msg.contains("noverlap"), "got: {}", err.msg);
     }
 
+    /// The check `spectrum`'s own comment promises. A tapered record's peak
+    /// bin reads `A * mean(window)` unless the coherent gain is divided
+    /// back out; for Hann that factor is 0.5, so an uncompensated
+    /// implementation reads 1.5 here and this test separates the two
+    /// answers by 2x rather than by a tolerance.
+    ///
+    /// The tone is bin-aligned on purpose (64 * fs/N is exactly bin 64),
+    /// so nothing here is measuring scalloping loss instead of gain.
+    #[test]
+    fn windowed_spectrum_reads_true_amplitude() {
+        let it = run(
+            "fs = 1000\n\
+             n = 1024\n\
+             k = 0 to n-1\n\
+             x = 3*cos(2*pi*64*k/n + 0.7)\n\
+             s = signal(x, fs)\n\
+             a_hann = max(spectrum(s, window=\"hann\").mag)\n\
+             a_rect = max(spectrum(s, window=\"rectangular\").mag)\n\
+             a_hamm = max(spectrum(s, window=\"hamming\").mag)\n\
+             a_black = max(spectrum(s, window=\"blackman\").mag)\n\
+             r_hann = max(spectrum(s, window=\"hann\", scaling=\"rms\").mag)",
+        );
+        let peak = |name: &str| -> f64 {
+            match it.get(name) {
+                Some(Value::Num(v)) => *v,
+                other => panic!("{name} is {other:?}"),
+            }
+        };
+        for w in ["a_hann", "a_rect", "a_hamm", "a_black"] {
+            assert!(
+                (peak(w) - 3.0).abs() < 1e-9,
+                "{w} read {} for an amplitude-3 tone -- window gain is not compensated",
+                peak(w)
+            );
+        }
+        assert!(
+            (peak("r_hann") - 3.0 / std::f64::consts::SQRT_2).abs() < 1e-9,
+            "rms scaling read {}, expected 3/sqrt(2)",
+            peak("r_hann")
+        );
+    }
+
+    /// A rectangular window is no taper, so `spectrum` must agree with the
+    /// existing `rfft(sig, scaling=)` bin for bin. This is what says the
+    /// windowing and gain-compensation plumbing does not perturb a
+    /// spectrum nobody asked to have tapered.
+    #[test]
+    fn rectangular_windowed_spectrum_equals_plain_rfft() {
+        let it = run(
+            "fs = 800\n\
+             n = 512\n\
+             k = 0 to n-1\n\
+             x = 2*sin(2*pi*32*k/n) + 0.5*cos(2*pi*100*k/n)\n\
+             s = signal(x, fs)\n\
+             a = spectrum(s, window=\"rectangular\", scaling=\"amplitude\").mag\n\
+             b = rfft(s, scaling=\"amplitude\").mag",
+        );
+        let (a, b) = (vec_of(&it, "a"), vec_of(&it, "b"));
+        assert_eq!(a.len(), 257, "512/2+1 one-sided bins");
+        assert_eq!(a.len(), b.len());
+        for (i, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+            assert!((x - y).abs() < 1e-12, "bin {i}: spectrum {x} vs rfft {y}");
+        }
+    }
+
+    /// `spectrum` refuses `scaling="raw"` rather than handing `band_power`
+    /// raw bins from a taper it cannot see. See the arm's own comment.
+    #[test]
+    fn spectrum_refuses_raw_scaling_and_requires_a_rate() {
+        let mut it = Interp::new();
+        let err = it
+            .run("s = signal(1 to 64, 100)\nX = spectrum(s, scaling=\"raw\")")
+            .unwrap_err();
+        assert!(err.msg.contains("raw"), "got: {}", err.msg);
+        let mut it = Interp::new();
+        let err = it.run("X = spectrum(1 to 64)").unwrap_err();
+        assert!(err.msg.contains("sample rate"), "got: {}", err.msg);
+    }
+
+    /// `psd` is `welch` under the spec's parameter spelling and must stay
+    /// bit-identical to it, defaults included -- that is the whole reason
+    /// it calls the same `numeric::transforms::welch` rather than
+    /// re-deriving anything. `overlap` is a FRACTION where `noverlap` is a
+    /// sample count, which is the one conversion that could drift.
+    #[test]
+    fn psd_is_welch_under_the_specs_parameter_spelling() {
+        let it = run(
+            "fs = 1000\n\
+             n = 4096\n\
+             k = 0 to n-1\n\
+             x = sin(2*pi*123*k/fs) + 0.3*randn(n, seed=7)\n\
+             p_def = psd(x, fs)\n\
+             w_def = welch(x, fs)\n\
+             p_q = psd(x, fs, nfft=512, overlap=0.25)\n\
+             w_q = welch(x, fs, nperseg=512, noverlap=128)\n\
+             p_0 = psd(x, fs, nfft=256, overlap=0, window=\"blackman\")\n\
+             w_0 = welch(x, fs, nperseg=256, noverlap=0, window=\"blackman\")",
+        );
+        for (pn, wn, len) in [("p_def", "w_def", 129), ("p_q", "w_q", 257), ("p_0", "w_0", 129)] {
+            let (p, w) = (vec_of(&it, pn), vec_of(&it, wn));
+            assert_eq!(p.len(), len, "{pn} bin count");
+            assert_eq!(p.len(), w.len());
+            for (i, (a, b)) in p.iter().zip(w.iter()).enumerate() {
+                assert_eq!(a, b, "{pn} vs {wn} diverge at bin {i}");
+            }
+        }
+    }
+
+    #[test]
+    fn psd_rejects_an_overlap_outside_the_unit_interval() {
+        for bad in ["1.5", "1", "-0.1"] {
+            let mut it = Interp::new();
+            let err = it
+                .run(&format!("x = 1 to 100\np = psd(x, 10, nfft=32, overlap={bad})"))
+                .unwrap_err();
+            assert!(
+                err.msg.contains("overlap"),
+                "overlap={bad} should be refused, got: {}",
+                err.msg
+            );
+        }
+    }
+
     #[test]
     fn signal_slice_time_converts_seconds_to_the_expected_sample_indices() {
         // fs=100 -> sample i is at time i/100; slicing [0.5s, 1.5s] gives
@@ -59453,6 +62497,261 @@ end for");
         assert_eq!(vec_of(&it, "c"), vec![6.0, 7.0, 8.0, 9.0]);
     }
 
+    // ---- § unit-aware indexing (2026-09-18): `s[t0 s : t1 s]`, `X[f Hz]` ----
+
+    #[test]
+    fn a_unit_tagged_signal_index_used_to_silently_mean_samples() {
+        // The defect this feature closes, pinned so it cannot come back.
+        // `as_num` unwraps a `Dim`-tagged quantity to its bare SI magnitude,
+        // so before today `s[1 s : 2 s]` on a 10 Hz signal quietly selected
+        // samples 1 and 2 -- two of the eleven it plainly asks for -- and
+        // nothing anywhere said so. It must now be a time window.
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             w = s[0.1 s : 0.3 s]",
+        );
+        assert_eq!(
+            vec_of(&it, "w"),
+            vec![1.0, 2.0, 3.0],
+            "0.1 s .. 0.3 s at 10 Hz is samples 1..=3, not samples 0.1..=0.3"
+        );
+    }
+
+    #[test]
+    fn a_signal_time_slice_is_the_same_operation_as_cut() {
+        // Both spellings go through `signal_time_span`, so this is really
+        // asserting that the shared helper is actually shared -- a
+        // regression here means one of the two grew its own copy.
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             bracket = s[0.2 s : 0.7 s]\n\
+             verb = cut(s, 0.2, 0.7)",
+        );
+        assert_eq!(vec_of(&it, "bracket"), vec_of(&it, "verb"));
+        assert_eq!(vec_of(&it, "bracket"), vec![2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
+    }
+
+    #[test]
+    fn a_signal_time_slice_reads_si_prefixes_off_the_unit_system() {
+        // No prefix parsing of this feature's own: `Expr::Unit` already
+        // SI-normalises, so `200 ms` and `0.2 s` are the same f64 long
+        // before indexing sees either.
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             a = s[200 ms : 700 ms]\n\
+             b = s[0.2 s : 0.7 s]",
+        );
+        assert_eq!(vec_of(&it, "a"), vec_of(&it, "b"));
+    }
+
+    #[test]
+    fn a_signal_time_slice_keeps_the_signals_own_fs() {
+        let it = run(
+            "s = signal(0 to 99, 250)\n\
+             w = s[0.1 s : 0.2 s]\n\
+             rate = w.Fs",
+        );
+        assert!(
+            matches!(it.get("rate"), Some(Value::Num(n)) if (*n - 250.0).abs() < 1e-9),
+            "a window over a signal is still that signal's samples at that signal's rate"
+        );
+    }
+
+    #[test]
+    fn a_single_time_index_is_the_nearest_sample_and_errors_past_the_end() {
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             a = s[0.5 s]\n\
+             b = s[0.54 s]\n\
+             c = s[0.56 s]",
+        );
+        // round(t*Fs), the same rounding `cut` and `sig.t` use.
+        for (name, want) in [("a", 5.0), ("b", 5.0), ("c", 6.0)] {
+            assert!(
+                matches!(it.get(name), Some(Value::Num(n)) if (*n - want).abs() < 1e-9),
+                "{name} should be sample {want}"
+            );
+        }
+        // A scalar lookup has one right answer or none -- it errors rather
+        // than clamping, exactly as the positional `s[99]` does. (A time
+        // RANGE clamps; that asymmetry is inherited from positional
+        // indexing, not invented here.)
+        let err = run_err("s = signal(0 to 9, 10)\nx = s[5 s]");
+        assert!(
+            err.msg.contains("past the end"),
+            "expected a past-the-end error, got: {}",
+            err.msg
+        );
+    }
+
+    #[test]
+    fn plain_sample_indexing_of_a_signal_is_untouched() {
+        // The load-bearing "did this break what already worked" test.
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             one = s[3]\n\
+             many = s[2:5]\n\
+             clamped = s[8:1000]\n\
+             stepped = s[0:2:6]\n\
+             last = s[end]",
+        );
+        assert!(matches!(it.get("one"), Some(Value::Num(n)) if (*n - 3.0).abs() < 1e-9));
+        assert_eq!(vec_of(&it, "many"), vec![2.0, 3.0, 4.0, 5.0]);
+        assert_eq!(vec_of(&it, "clamped"), vec![8.0, 9.0]);
+        assert_eq!(vec_of(&it, "stepped"), vec![0.0, 2.0, 4.0, 6.0]);
+        assert!(matches!(it.get("last"), Some(Value::Num(n)) if (*n - 9.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn a_half_united_slice_is_refused_rather_than_guessed() {
+        // The two readings of `s[0 : 0.2 s]` differ by a factor of Fs.
+        // Picking one silently is the exact bug class the axis-carrying
+        // types exist to prevent, so neither is picked.
+        for src in [
+            "s = signal(0 to 9, 10)\nx = s[0 : 0.2 s]",
+            "s = signal(0 to 9, 10)\nx = s[0.1 s : 5]",
+        ] {
+            let err = run_err(src);
+            assert!(
+                err.msg.contains("no unit"),
+                "expected a mixed-bound refusal, got: {}",
+                err.msg
+            );
+        }
+    }
+
+    #[test]
+    fn a_signal_refuses_a_frequency_index_and_a_spectrum_refuses_a_time_one() {
+        // Each type refuses the OTHER domain's unit by name, and points at
+        // the transform that would make the request meaningful.
+        let a = run_err("s = signal(0 to 9, 10)\nx = s[440 Hz]");
+        assert!(a.msg.contains("not in Hz"), "got: {}", a.msg);
+        assert!(a.msg.contains("rfft"), "the error should name the way across: {}", a.msg);
+
+        let b = run_err("s = signal(0 to 9, 10)\nX = rfft(s)\nx = X[0.5 s]");
+        assert!(b.msg.contains("not in seconds"), "got: {}", b.msg);
+    }
+
+    #[test]
+    fn a_united_slice_takes_no_step() {
+        let err = run_err("s = signal(0 to 9, 10)\nx = s[0.1 s : 2 : 0.5 s]");
+        assert!(err.msg.contains("no step"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn an_open_ended_time_slice_reads_as_start_of_signal_and_full_duration() {
+        let it = run(
+            "s = signal(0 to 9, 10)\n\
+             head = s[: 0.3 s]\n\
+             tail = s[0.7 s :]",
+        );
+        assert_eq!(vec_of(&it, "head"), vec![0.0, 1.0, 2.0, 3.0]);
+        assert_eq!(vec_of(&it, "tail"), vec![7.0, 8.0, 9.0]);
+    }
+
+    #[test]
+    fn a_spectrum_hz_index_is_the_same_bin_spectrum_at_returns() {
+        // Both call `spectrum_bin_of`, so the sugar and the builtin agree by
+        // construction rather than by two roundings that happen to match.
+        let it = run(
+            "sig = signal(sine(100.0, 1000.0, 1000), 1000.0)\n\
+             X = rfft(sig)\n\
+             sugar = imag(X[100 Hz])\n\
+             verb = imag(spectrum_at(X, 100))\n\
+             prefixed = imag(X[0.1 kHz])\n\
+             positional = imag(X[100])",
+        );
+        let get = |n: &str| match it.get(n) {
+            Some(Value::Num(v)) => *v,
+            other => panic!("{n} is not a number: {other:?}"),
+        };
+        assert!((get("sugar") - get("verb")).abs() < 1e-9);
+        assert!((get("prefixed") - get("verb")).abs() < 1e-9);
+        assert!((get("positional") - get("verb")).abs() < 1e-9);
+        // And it is actually the tone's bin, not just self-consistently zero.
+        assert!(get("verb").abs() > 100.0, "the 100 Hz bin should hold the tone");
+    }
+
+    #[test]
+    fn a_spectrum_band_returns_bins_without_an_axis_to_lie_about() {
+        // Deliberately a `CVec`, not a `Spectrum`: bin 0 of the result is
+        // 20 Hz, so a `Spectrum` wrapper would make `.freq`/`spectrum_at`/
+        // `band_power` answer confidently and wrongly on it. Same reasoning
+        // the `band_power`/`band_zero` arm already gives for refusing a
+        // band-slicing verb.
+        let it = run(
+            "sig = signal(sine(100.0, 1000.0, 1000), 1000.0)\n\
+             X = rfft(sig)\n\
+             band = X[20 Hz : 200 Hz]\n\
+             n = len(band)",
+        );
+        assert!(
+            matches!(it.get("band"), Some(Value::CVec(_))),
+            "a band must not claim to be a spectrum: {:?}",
+            it.get("band")
+        );
+        assert!(
+            matches!(it.get("n"), Some(Value::Num(v)) if (*v - 181.0).abs() < 1e-9),
+            "bins 20..=200 inclusive at df = 1 Hz is 181 bins"
+        );
+    }
+
+    #[test]
+    fn a_spectrum_frequency_past_nyquist_clamps_like_spectrum_at_does() {
+        let it = run(
+            "sig = signal(sine(100.0, 1000.0, 1000), 1000.0)\n\
+             X = rfft(sig)\n\
+             a = imag(X[20 kHz])\n\
+             b = imag(X[500])",
+        );
+        let get = |n: &str| match it.get(n) {
+            Some(Value::Num(v)) => *v,
+            other => panic!("{n} is not a number: {other:?}"),
+        };
+        assert!((get("a") - get("b")).abs() < 1e-12, "should clamp to the last bin");
+    }
+
+    #[test]
+    fn a_spectrum_could_not_be_indexed_at_all_before_and_now_indexes_by_bin() {
+        // `spec[3]` was "cannot index a spectrum" until today. Positional
+        // bin access is added alongside the Hz reading rather than after it,
+        // so `spec[440]` never gets a chance to train the habit that
+        // `spec[440 Hz]` would then have to break.
+        let it = run(
+            "sig = signal(0 to 7, 8)\n\
+             X = rfft(sig)\n\
+             one = real(X[0])\n\
+             n = len(X[1:3])",
+        );
+        assert!(matches!(it.get("one"), Some(Value::Num(v)) if (*v - 28.0).abs() < 1e-9));
+        assert!(matches!(it.get("n"), Some(Value::Num(v)) if (*v - 3.0).abs() < 1e-9));
+        let err = run_err("sig = signal(0 to 7, 8)\nX = rfft(sig)\nx = X[999]");
+        assert!(err.msg.contains("out of bounds"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn indexing_evaluates_each_bound_exactly_once() {
+        // The reason `eval_idx`/`sel_from_values` were split apart rather
+        // than the unit check being done by evaluating, peeking and
+        // evaluating again: a bound with a side effect must not fire twice.
+        let it = run(
+            "calls = 0\n\
+             function bump()\n\
+                 global calls\n\
+                 calls = calls + 1\n\
+                 return 2\n\
+             end function\n\
+             s = signal(0 to 9, 10)\n\
+             x = s[bump()]\n\
+             y = s[bump() : 5]",
+        );
+        assert!(
+            matches!(it.get("calls"), Some(Value::Num(v)) if (*v - 2.0).abs() < 1e-9),
+            "two bounds were written, so `bump` must have run exactly twice: {:?}",
+            it.get("calls")
+        );
+    }
+
     #[test]
     fn cut_selects_nothing_when_it_starts_past_the_end_of_the_signal() {
         // `i0 > hi`, and on an empty signal `hi` would otherwise be a
@@ -60048,24 +63347,29 @@ end for");
 
     #[test]
     fn a_builtin_that_reads_axis_does_not_claim_it_reads_nothing() {
-        // `mean(v, axsi=0)` said "mean takes no keyword arguments" --
-        // while `mean(m, axis=1)` worked in the very next line. The
+        // `prod(v, axsi=0)` said "prod takes no keyword arguments" --
+        // while `prod(m, axis=1)` worked in the very next line. The
         // rejection was correct and the stated REASON was false, which is
         // worse than a vague message: it sends the reader off to
-        // un-learn something true. `mean` is in both NO_KWARG_BUILTINS
+        // un-learn something true. `prod` is in both NO_KWARG_BUILTINS
         // and AXIS_HONOURING, and `axis=` reaches it through
         // ALWAYS_ACCEPTED_KEYS, so the message could disagree with the
         // behaviour without either list being wrong on its own.
-        let msg = run_err("mean([1,2,3], axsi=0)").msg;
+        //
+        // (`mean` used to be this test's example, before `on_invalid=`
+        // gave it a real keyword and took it out of NO_KWARG_BUILTINS --
+        // see `an_on_invalid_typo_is_rejected_with_a_near_miss_hint` below
+        // for its own version of this check.)
+        let msg = run_err("prod([1,2,3], axsi=0)").msg;
         assert!(
             !msg.contains("takes no keyword arguments"),
-            "mean does read axis= -- the false claim is back: {msg}"
+            "prod does read axis= -- the false claim is back: {msg}"
         );
         assert!(msg.contains("did you mean `axis=`"), "a near-miss should say so: {msg}");
 
         // A keyword that is not a near-miss still gets told what IS read.
-        let msg = run_err("mean([1,2,3], colour=1)").msg;
-        assert!(msg.contains("mean reads axis"), "{msg}");
+        let msg = run_err("prod([1,2,3], colour=1)").msg;
+        assert!(msg.contains("prod reads axis"), "{msg}");
         assert!(!msg.contains("takes no keyword arguments"), "{msg}");
 
         // And a builtin that genuinely reads none still says so -- the
@@ -72894,13 +76198,231 @@ s = jsonify(Z)");
         // AXIS_HONOURING this guard exists to avoid.
         let half = Value::Num(0.5);
         for f in AXIS_HONOURING {
-            let got = reduce_axis(f, &m, 0, Some(&half));
+            let got = reduce_axis(f, &m, 0, Some(&half), &[]);
             assert!(
                 got.is_ok(),
                 "`{f}` is in AXIS_HONOURING but reduce_axis has no rule for it: {:?}",
                 got.err().map(|e| e.msg)
             );
         }
+    }
+
+    // ---- `on_invalid=` (§ reduction NaN/Inf handling, 2026-09-18) ----
+    //
+    // `x = [1, 2, nan, 4, inf]` is the shared fixture below: one NaN, one
+    // Inf, three ordinary values (1, 2, 4). `"propagate"` (the default) is
+    // pinned to TODAY's actual behavior first, not to what would be
+    // "nicer" -- some of these are themselves surprising (`median`
+    // returns 4, not NaN; `argmax` happily lands on `inf`) precisely
+    // because `total_cmp`/IEEE `min`/`max`/the existing NaN-skipping
+    // `argmin`/`argmax` scan already had their own NaN/Inf behavior before
+    // this feature existed, and `"propagate"` promises to leave every one
+    // of them exactly alone.
+
+    #[test]
+    fn mean_on_invalid_propagate_matches_todays_behavior() {
+        let it = run("x = [1, 2, nan, 4, inf]\ny = mean(x)");
+        assert!(num(&it, "y").is_nan(), "propagate must still be NaN: {}", num(&it, "y"));
+    }
+
+    #[test]
+    fn mean_on_invalid_ignore_uses_the_filtered_count() {
+        // mean([1, 2, 4]) = 7/3, NOT 7/5 -- the n-adjustment is the part
+        // most likely to be silently wrong.
+        let it = run("x = [1, 2, nan, 4, inf]\ny = mean(x, on_invalid=\"ignore\")");
+        assert!((num(&it, "y") - 7.0 / 3.0).abs() < 1e-9, "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn mean_on_invalid_error_raises_naming_nan() {
+        let msg = run_err("x = [1, 2, nan, 4, inf]\ny = mean(x, on_invalid=\"error\")").msg;
+        assert!(msg.contains("NaN"), "{msg}");
+        assert!(msg.contains("mean"), "{msg}");
+    }
+
+    #[test]
+    fn mean_on_invalid_error_does_not_raise_on_clean_input() {
+        let it = run("x = [1, 2, 3]\ny = mean(x, on_invalid=\"error\")");
+        assert!((num(&it, "y") - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn sum_on_invalid_ignore_drops_nan_and_inf() {
+        let it = run("x = [1, 2, nan, 4, inf]\ny = sum(x, on_invalid=\"ignore\")");
+        assert!((num(&it, "y") - 7.0).abs() < 1e-9, "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn sum_on_invalid_propagate_matches_todays_behavior() {
+        let it = run("x = [1, 2, nan, 4, inf]\ny = sum(x)");
+        assert!(num(&it, "y").is_nan());
+    }
+
+    #[test]
+    fn std_and_var_on_invalid_ignore_share_the_reduced_n() {
+        // var([1,2,4]) = 7/3, std = sqrt(7/3) -- var(x) == std(x)^2 must
+        // still hold after on_invalid="ignore" filters the same way for
+        // both.
+        let it = run(
+            "x = [1, 2, nan, 4, inf]\nv = var(x, on_invalid=\"ignore\")\ns = std(x, on_invalid=\"ignore\")",
+        );
+        assert!((num(&it, "v") - 7.0 / 3.0).abs() < 1e-9, "{}", num(&it, "v"));
+        assert!((num(&it, "s") - (7.0f64 / 3.0).sqrt()).abs() < 1e-9, "{}", num(&it, "s"));
+    }
+
+    #[test]
+    fn std_and_var_on_invalid_propagate_match_todays_behavior() {
+        let it = run("x = [1, 2, nan, 4, inf]\nv = var(x)\ns = std(x)");
+        assert!(num(&it, "v").is_nan());
+        assert!(num(&it, "s").is_nan());
+    }
+
+    #[test]
+    fn min_and_max_on_invalid_ignore_skip_nan_and_inf() {
+        let it = run(
+            "x = [1, 2, nan, 4, inf]\nlo = min(x, on_invalid=\"ignore\")\nhi = max(x, on_invalid=\"ignore\")",
+        );
+        assert!((num(&it, "lo") - 1.0).abs() < 1e-9);
+        assert!((num(&it, "hi") - 4.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn min_and_max_on_invalid_propagate_match_todays_behavior() {
+        // `min`/`max` reduce with `f64::min`/`f64::max`, which follow IEEE
+        // minNum/maxNum and simply ignore a NaN operand -- so today's
+        // "propagate" answer is the real min/max of the finite+Inf values,
+        // NOT NaN.
+        let it = run("x = [1, 2, nan, 4, inf]\nlo = min(x)\nhi = max(x)");
+        assert!((num(&it, "lo") - 1.0).abs() < 1e-9, "{}", num(&it, "lo"));
+        assert!(num(&it, "hi").is_infinite() && num(&it, "hi") > 0.0, "{}", num(&it, "hi"));
+    }
+
+    #[test]
+    fn median_on_invalid_ignore_uses_only_valid_elements() {
+        let it = run("x = [1, 2, nan, 4, inf]\ny = median(x, on_invalid=\"ignore\")");
+        assert!((num(&it, "y") - 2.0).abs() < 1e-9, "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn median_on_invalid_propagate_matches_todays_behavior() {
+        // `median` sorts with `f64::total_cmp`, which places a positive
+        // NaN strictly after +Inf -- so today's (odd-length, 5-element)
+        // "propagate" answer is 4, the middle of the sorted [1, 2, 4, inf,
+        // nan], NOT NaN itself.
+        let it = run("x = [1, 2, nan, 4, inf]\ny = median(x)");
+        assert!((num(&it, "y") - 4.0).abs() < 1e-9, "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn quantile_on_invalid_ignore_interpolates_over_valid_elements() {
+        // quantile([1,2,4], 0.75): pos = 0.75*2 = 1.5, between sorted[1]=2
+        // and sorted[2]=4 -> 3.0.
+        let it = run("x = [1, 2, nan, 4, inf]\ny = quantile(x, 0.75, on_invalid=\"ignore\")");
+        assert!((num(&it, "y") - 3.0).abs() < 1e-9, "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn quantile_on_invalid_propagate_matches_todays_behavior() {
+        // sorted = [1, 2, 4, inf, nan] (n=5); pos = 0.75*4 = 3.0 lands
+        // exactly on sorted[3] = inf, so the interpolation is
+        // `inf*(1-0) + sorted[4]*0` -- and `sorted[4]` here is `inf`, not
+        // `nan` (`hi = ceil(pos) = 3`, not 4), so this is really
+        // `inf*1.0 + inf*0.0`. `inf*0.0` is `NaN` under IEEE 754, not
+        // `0.0`, so the actual existing answer is `NaN` -- surprising, but
+        // that is what "propagate" promises to preserve unchanged.
+        let it = run("x = [1, 2, nan, 4, inf]\ny = quantile(x, 0.75)");
+        assert!(num(&it, "y").is_nan(), "{}", num(&it, "y"));
+    }
+
+    #[test]
+    fn argmin_and_argmax_on_invalid_ignore_return_original_array_indices() {
+        // Among the valid elements {index 0: 1, index 1: 2, index 3: 4},
+        // the min is at index 0 and the max at index 3 -- positions in the
+        // ORIGINAL 5-element array, not a filtered 3-element one, so a
+        // caller can index straight back into `x`.
+        let it = run(
+            "x = [1, 2, nan, 4, inf]\nlo = argmin(x, on_invalid=\"ignore\")\nhi = argmax(x, on_invalid=\"ignore\")",
+        );
+        assert!((num(&it, "lo") - 0.0).abs() < 1e-9, "{}", num(&it, "lo"));
+        assert!((num(&it, "hi") - 3.0).abs() < 1e-9, "{}", num(&it, "hi"));
+    }
+
+    #[test]
+    fn argmin_and_argmax_on_invalid_propagate_match_todays_behavior() {
+        // `argmin`/`argmax`'s existing NaN-skipping scan already treats a
+        // NaN as if absent (that predates `on_invalid=` entirely -- see
+        // `arg_extremum`'s own doc comment), but Inf is a perfectly valid
+        // comparable value: argmax legitimately lands on it.
+        let it = run("x = [1, 2, nan, 4, inf]\nlo = argmin(x)\nhi = argmax(x)");
+        assert!((num(&it, "lo") - 0.0).abs() < 1e-9, "{}", num(&it, "lo"));
+        assert!((num(&it, "hi") - 4.0).abs() < 1e-9, "{}", num(&it, "hi"));
+    }
+
+    #[test]
+    fn argmin_on_invalid_error_names_nan_and_index() {
+        let msg = run_err("x = [1, 2, nan, 4, inf]\ny = argmin(x, on_invalid=\"error\")").msg;
+        assert!(msg.contains("NaN"), "{msg}");
+        assert!(msg.contains("index 2"), "{msg}");
+    }
+
+    #[test]
+    fn on_invalid_rejects_an_unrecognized_value() {
+        let msg = run_err("x = [1, 2, 3]\ny = mean(x, on_invalid=\"skip\")").msg;
+        assert!(msg.contains("on_invalid"), "{msg}");
+        assert!(msg.contains("skip"), "{msg}");
+    }
+
+    #[test]
+    fn mat_axis_reduction_with_on_invalid_ignore_is_per_row_or_column() {
+        // M = [[1, nan], [3, 4]] -- the NaN is in row 0 / column 1 only.
+        // `axis=0` (per column) must shrink JUST column 1's n; `axis=1`
+        // (per row) must shrink JUST row 0's n. Neither reduction may leak
+        // into the other row/column -- pinning that is the whole point of
+        // `apply_on_invalid_mode` being called once per group inside
+        // `reduce_axis`, not once for the whole matrix.
+        let it = run(
+            "m = [1, nan; 3, 4]\ncol_means = mean(m, axis=0, on_invalid=\"ignore\")\nrow_means = mean(m, axis=1, on_invalid=\"ignore\")",
+        );
+        let cols = vec_of(&it, "col_means");
+        assert_eq!(cols.len(), 2);
+        assert!((cols[0] - 2.0).abs() < 1e-9, "{cols:?}");
+        assert!((cols[1] - 4.0).abs() < 1e-9, "{cols:?}");
+        let rows = vec_of(&it, "row_means");
+        assert_eq!(rows.len(), 2);
+        assert!((rows[0] - 1.0).abs() < 1e-9, "{rows:?}");
+        assert!((rows[1] - 3.5).abs() < 1e-9, "{rows:?}");
+    }
+
+    #[test]
+    fn mat_axis_reduction_with_on_invalid_rejects_a_bogus_keyword() {
+        // The axis path bypasses `call_builtin`'s own keyword-read
+        // tracking (see `reduce_axis`'s call site's comment) -- this pins
+        // that the `StyleFrame` wrapper added there actually closes the
+        // gap, not just that `on_invalid=` itself works.
+        let msg = run_err("m = [1, 2; 3, 4]\ny = mean(m, axis=0, bogus=1)").msg;
+        assert!(msg.contains("bogus"), "{msg}");
+    }
+
+    #[test]
+    fn complex_sum_on_invalid_error_flags_a_nan_in_the_imaginary_part() {
+        let msg =
+            run_err("z = [complex(1, 2), complex(3, nan)]\ny = sum(z, on_invalid=\"error\")").msg;
+        assert!(msg.contains("NaN"), "{msg}");
+        assert!(msg.contains("sum"), "{msg}");
+    }
+
+    #[test]
+    fn complex_sum_on_invalid_ignore_drops_the_bad_element() {
+        let it = run("z = [complex(1, 2), complex(3, nan)]\ny = sum(z, on_invalid=\"ignore\")");
+        let c = cplx(&it, "y");
+        assert!((c.re - 1.0).abs() < 1e-9 && (c.im - 2.0).abs() < 1e-9, "{c:?}");
+    }
+
+    #[test]
+    fn complex_sum_on_invalid_propagate_matches_todays_behavior() {
+        let it = run("z = [complex(1, 2), complex(3, nan)]\ny = sum(z)");
+        let c = cplx(&it, "y");
+        assert!(c.im.is_nan(), "{c:?}");
     }
 
     /// `quantile`/`argquantile`/`argmedian` are the fourth occurrence of

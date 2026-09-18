@@ -1563,9 +1563,6 @@ softmax(x)                # gradient of logsumexp; a probability vector
 max(x) + log(n)`), and `smoothmax` sharpens toward the true maximum as `beta`
 grows. Because the crest factor `max|x|/rms(x)` is non-differentiable at the
 peak, `smoothmax(abs(x), beta)` gives a differentiable surrogate whose gradient
-<!-- private:begin -->
-is a `softmax`-weighted sum — the basis of gradient-based crest-factor reduction.
-<!-- private:end -->
 
 Linear algebra (required — these are load-bearing for real numerical work and are
 guaranteed, not optional):

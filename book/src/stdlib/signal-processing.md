@@ -24,8 +24,8 @@ print("signal length: {length(signal)}, lp sections: {shape(lp.sos)[0]}")
 | `irfft` | `irfft(half_spectrum, n)` | Inverse of `rfft`. `half_spectrum` is a length-`floor(n/2)+1` complex vector (`CVec`); `n` (required number), the real output length, can't be recovered from the half-spectrum's length alone (even and odd `n` can share a half-length). Returns a length-`n` real vector. (`fftr` is a deprecated second name for this — see below.) |
 | `dft` | `dft(x)` | `x` is a length-N real or complex vector. Returns a length-N `CVec`. The direct, textbook O(n²) transform, kept as an independent reference implementation to validate `fft` against and as the definitional basis `goertzel` specializes. |
 | `idft` | `idft(X)` | `X` is a length-N complex vector (`CVec`). Returns a length-N `CVec`. Inverse of `dft`, same O(n²) direct implementation. |
-| `goertzel` | `goertzel(x, k)` | `x` is a length-N real vector; `k` (number) is the bin index to evaluate — need not be an integer (evaluates the DFT at an arbitrary point between the FFT's grid bins, a "K-point DFT"). Returns a single complex scalar, the DFT value at bin `k` in O(n) — the standard tool for checking a handful of specific frequencies without paying for a whole FFT. |
-| `goertzel_freq` | `goertzel_freq(x, fs, freq)` | `x` is a length-N real vector; `fs` (number, Hz) is the sample rate; `freq` (number, Hz) is the frequency to evaluate. Returns a single complex scalar. `goertzel` parameterized by a real frequency rather than a raw bin index — the common case of checking a known tone frequency at a fixed sample rate. |
+| `goertzel` | `goertzel(x, k)` | `x` is a length-N real vector; `k` is the bin index to evaluate (a number, need not be an integer — evaluates the DFT at an arbitrary point between the FFT's grid bins) or a length-K vector of bins. Returns a single complex scalar for a scalar `k`, or a length-K `CVec` for a vector — the K-point DFT this is named for: K arbitrary points in O(n·K), each independently, instead of every bin of a full N-point `fft` whether wanted or not. The standard tool for checking a handful of specific frequencies without paying for a whole FFT. |
+| `goertzel_freq` | `goertzel_freq(x, fs, freq)` | `x` is a length-N real vector; `fs` (number, Hz) is the sample rate; `freq` is the frequency to evaluate (a number, Hz) or a length-K vector of frequencies. Returns a single complex scalar or a length-K `CVec`, same batching as `goertzel` above. `goertzel` parameterized by real frequencies rather than raw bin indices — the common case of checking one or several known tone frequencies at a fixed sample rate. |
 | `vanicek` | `vanicek(t, x, freqs)` | `t` is a length-N vector of sample times (need not be uniformly spaced); `x` is the matching length-N vector of samples; `freqs` is a length-M vector of frequencies (Hz) to evaluate. Returns a length-M real vector, the power spectrum at each requested frequency — Vanicek's Least-Squares Spectral Analysis, valid for unevenly-sampled `(t, x)` where `fft`/`dft`/`goertzel` (which all assume uniform sampling) don't apply. |
 | `dct` | `dct(x)` | `x` is a length-N real vector. Returns a length-N real vector. Orthonormal DCT-II (MATLAB `dct` / `scipy.fft.dct(norm='ortho')` convention). |
 | `idct` | `idct(X)` | `X` is a length-N real vector of DCT coefficients. Returns a length-N real vector. Orthonormal DCT-III, the exact inverse of `dct` (round-trips exactly since the basis is orthonormal). |
@@ -74,6 +74,7 @@ print("valid ({length(v)}): {v}")    # valid (2): [6, 9]
 | `pow2db` | `pow2db(x)` | `x`: a number or vector (power ratio). Returns the same shape: `10*log10(x)`. POWER-domain convention. |
 | `db_power` | `db_power(x)` | Alias of `pow2db(x)` above (`10*log10(x)`, power convention) — the bare SciPy/general-DSP-flavored spelling. |
 | `db2pow` | `db2pow(db)` | `db`: a number or vector (decibel value). Returns the same shape: `10^(db/10)` — inverse of `pow2db`/`db_power`. |
+| `gain` | `gain(x, db)` | `x`: a number, vector, matrix or `Signal`; `db`: a number of decibels, also nameable (`gain(x, db = -3)`) and accepting a `dB`-suffixed literal (`gain(x, -3 dB)`, since `dB` passes through dimensionless). Returns the same shape as `x`, scaled by `10^(db/20)` — the AMPLITUDE convention, the same factor of 20 as `db2mag`. A `Signal` keeps its `Fs`: changing a level does not touch the time axis. |
 
 `mag2db`/`db2mag`/`pow2db`/`db2pow` are the canonical, MATLAB-derived names; `db`/`db_power` are aliases for callers coming from plain-SciPy/DSP habit who reach for a bare `db()` first. Whether a ratio is a power or an amplitude changes the factor of 10 vs. 20 — `db`/`mag2db` are for field quantities (V, A, Pa, ...), `db_power`/`pow2db` are for quantities already a power/energy ratio (W, W/Hz, `|X|^2`, ...). Getting this backwards is the classic dB mixup.
 
@@ -83,8 +84,10 @@ print("valid ({length(v)}): {v}")    # valid (2): [6, 9]
 |---|---|---|
 | `spectrogram` | `spectrogram(x, [nfft=256], [hop=nfft/2], [fs=1])` | `x`: a length-N real vector or `Signal`. `nfft`/`hop` (optional numbers): STFT frame size and hop, as in `stft`. `fs` (optional number, Hz): scales row ticks to Hz and column ticks to seconds. **If `x` is a `Signal`, its own `Fs` is used and `fs` need not be passed**; passing one that disagrees with the signal's rate is an error rather than a silent relabelling (see *Which rate is used*, below). The default of `1` applies only to a plain vector, which carries no rate. Renders a heatmap of `stft(x, nfft, hop)`'s magnitude, restricted to the positive-frequency half (`nfft/2+1` rows), in dB (floored at -120dB); frequency increases upward (row 0 = Nyquist). Draws **and** returns: the surface would otherwise be unreachable, with no way to read a level off it or hand it to Qu Studio's Interactive Mode. Returns a `Record` with fields `db` (an `(nfft/2+1, frames)` `Mat` of dB magnitudes, row 0 = DC — the honest axis order, the opposite of the drawn picture's), `freq` (a length-`nfft/2+1` `Vec`, Hz) and `time` (a length-`frames` `Vec`, seconds). |
 | `spectral_entropy` | `spectral_entropy(x, [nfft=256], [hop=nfft/2])` | `x`: a length-N real vector. `nfft`/`hop` (optional numbers): STFT frame size/hop as in `stft`. Returns a vector of length `num_frames` (one value per STFT frame), each the Shannon entropy of that frame's normalized power spectrum, scaled to `[0, 1]`: low when energy concentrates in a few bins (a clean tone), high when spread across many (broadband noise). |
+| `spectrum` | `spectrum(x, [fs], [window="hann"], [scaling="amplitude"])` | `x`: a length-N real vector or `Signal`; `fs` (number, Hz) — **required**, either passed or carried by a `Signal` (the result is a `spectrum`, whose point is its frequency axis; there is no default rate to mislabel it with). `window` (optional string: `"hann"` (default), `"hamming"`, `"blackman"`, `"kaiser"` (needs `beta=`), or `"rectangular"`/`"boxcar"`/`"none"` for no taper): the analysis window applied to the record before transforming. `scaling` (optional string: `"amplitude"` (default) or `"rms"`): the convention stamped on `X.norm`. Returns a `spectrum` of `floor(N/2)+1` one-sided bins (DC to Nyquist). **The window is normalised to unit coherent gain (`mean(w) == 1`) before it is applied**, so a bin-aligned tone of amplitude `A` reads exactly `A` (`A/sqrt(2)` under `"rms"`) — an uncompensated Hann taper would read `A/2`. This is what `spectrum` adds over `rfft(sig, scaling=)`, which applies no window at all; `window="rectangular"` makes the two agree bin for bin. Compensation is applied uniformly, not only when `scaling="amplitude"`, so two calls differing only in `scaling=` differ only by the documented `1/sqrt(2)`. **It corrects a discrete tone's peak, not a broadband level** — noise spread across bins is governed by the window's noise-equivalent bandwidth (`sum(w^2)`, 1.5 for Hann), which is what `psd`/`welch` are scaled for; integrate power with those, not this. `scaling="raw"` is deliberately refused: a `spectrum` carries no window field, so raw bins would be exactly what `band_power` integrates as if the record had not been tapered — use `rfft(sig)` for the unwindowed raw transform. |
 | `welch` | `welch(x, fs, [nperseg=min(256,len(x))], [noverlap=nperseg/2], [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz): sample rate. `nperseg` (optional number): samples per segment; `noverlap` (optional number): overlap between segments; `window` (optional string, e.g. `"hann"`/`"hamming"`/`"blackman"`): window applied to each segment. Returns a length-`nperseg/2 + 1` real vector, the one-sided PSD (DC to Nyquist) in SciPy's `"density"` scaling — Welch's method segments `x` into overlapping windowed frames and averages their squared-magnitude spectra. Pair with `linspace(0, fs/2, length(psd))` for the frequency axis. |
 | `periodogram` | `periodogram(x, fs, [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz); `window` (optional string). Returns a length-`N/2 + 1` real vector, same scaling as `welch`. The simplest PSD estimate — `welch`'s one-segment (`nperseg=length(x)`, `noverlap=0`), no-averaging special case. |
+| `psd` | `psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])` | `x`: a length-N real vector or `Signal`; `fs` (number, Hz) — required, or carried by a `Signal`. `nfft` (optional number): the **segment length** — the same meaning `spectrogram`/`stft` give `nfft` in this engine, *not* SciPy's zero-padded transform length. `overlap` (optional number): segment overlap as a **fraction** in `[0, 1)` — `0.5` is 50%, where `welch`'s `noverlap=` is an absolute sample count. `window` (optional string, as for `welch`). Returns a length-`nfft/2 + 1` real vector, the one-sided Welch PSD in SciPy's `"density"` scaling, exactly as `welch` does — literally the same code path, so `psd(x, fs)` and `welch(x, fs)` are bit-identical and the defaults are chosen to keep that true. Pair with `linspace(0, fs/2, length(p))` for the frequency axis. **The result carries no units.** `toolkit-signal.md` §2 sketches a `P.unit` of `V^2/Hz`; the engine has no derived/compound unit algebra to propagate one with (`unit ppm = 1e-6` declares simple named scalars), so this returns a plain vector and documents the scaling rather than stamping a label it cannot enforce. |
 | `csd` | `csd(x, y, fs, [nperseg=min(256,len(x),len(y))], [noverlap=nperseg/2], [window="hann"])` | `x`/`y`: equal-length real vectors; `fs` (number, Hz). Returns a length-`nperseg/2 + 1` complex vector (`CVec`), the one-sided cross-spectral density `Pxy` — Welch's method, sharing `welch`'s own framing/windowing/averaging exactly, so it lines up bin-for-bin with `welch(x, ...)`/`welch(y, ...)`. `abs(csd(x, y, fs))` is cross-power magnitude, `angle(csd(x, y, fs))` is phase. |
 | `spectral_coherence` | `spectral_coherence(x, y, fs, [nperseg=], [noverlap=], [window="hann"])` | `x`/`y`: equal-length real vectors; `fs` (number, Hz). Returns a length-`nperseg/2 + 1` real vector, the magnitude-squared coherence `\|Pxy\|^2 / (Pxx*Pyy)` in `[0, 1]` — `1` at a frequency where `y` is an exact linear/time-invariant function of `x`'s content there. Unrelated to `coherence(A)` (see the Compressed Sensing chapter) — the largest inner product between two different normalised columns of a compressed-sensing matrix — which is a different, pre-existing function under its own name. |
 | `nyquist` | `nyquist(Z, [color=], [label=], [marker="o"])` | `Z`: a length-N complex vector (`CVec`, the impedance spectrum). `color`/`label`/`marker` (optional strings): plot styling. The standard EIS plot: `Re(Z)` on x, `-Im(Z)` on y (the impedance-spectroscopy sign convention every EIS instrument uses, so capacitive/inductive behavior plots in the upper half-plane). Returns `Nothing` — this call is made for the figure it draws. |
@@ -213,6 +216,19 @@ print("bandpass taps: {length(bp.b)}")   # bandpass taps: 21
 | `filtfilt` | `filtfilt(filt, x)` | `filt`: a `Model` (kind `"filter"`); `x`: a length-N vector or `Signal`. Returns a same-length vector or `Signal`, same `Fs`-preserving convention as `sosfilt`. Zero-phase filtering (forward, then backward): doubles the effective order but cancels phase distortion entirely — the standard offline-analysis choice. |
 | `filter_init` | `filter_init(filt)` | `filt`: a `Model` (kind `"filter"`). Returns a `Model` (kind `"filter_state"`) holding fresh all-zero streaming state for sample-at-a-time filtering: field is an `(n_sections, 2)` biquad-state matrix for an IIR (`sos`) filter, or a length-`(len(b)-1)` all-zero delay vector for an FIR (`b`) filter. |
 | `filter_next` | `filter_next(state, x)` | `state`: a `Model` (kind `"filter_state"`, from `filter_init` or a prior `filter_next`); `x`: a single number (one new sample). Returns a new `"filter_state"` `Model` (field `y`, a number, holds the filtered output). Use as `state = filter_next(state, next_sample)` in a loop, reading `state.y` each time — the real-time/serial-fed-data counterpart to `sosfilt`/`filtfilt`. |
+| `block_process` | `block_process(x, f, [block=256])` | `x`: a vector or `Signal`; `f`: a function (a value or the name of a user function) called once per block; `block`: block length in samples, positional or named, default 256. Cuts `x` into consecutive blocks, calls `f` on each, and concatenates the results. The last block is short when the length is not a multiple of `block` — passed as-is, never zero-padded. A block of a `Signal` is itself a `Signal` at the same `Fs`, so `f` can read the rate off its own argument. **Carries no state between blocks** — see the note below. |
+
+`block_process` is the offline half of "write the algorithm once, run it block by block". For a function with no history it is exactly equivalent to applying that function to the whole signal — `block_process(x, (b) := 2 .* b, block = 256)` on a 1000-sample `x` reassembles `2 .* x` to the bit, short final block and all.
+
+**It does not thread state across block boundaries, and that is a real limit, not a rounding detail.** A filter applied per block restarts at every boundary: `block_process(x, (b) := sosfilt(lp, b), block = 256)` differs from `sosfilt(lp, x)` by about 1.1 on a unit-amplitude signal — block-edge artifacts, not noise. Use it for per-block work that is independent of history (blockwise FFT or RMS metering, level detection, gain, any pure elementwise map). For genuinely stateful filtering, the sample-at-a-time `filter_init`/`filter_next` pair above is what carries state, explicitly.
+
+**The rate of the result.** If `f` returns as many samples as it was handed, a `Signal` keeps its `Fs`. If `f` reduces each block to one number — the metering case — the result is genuinely sampled at `Fs / block` and is tagged that way, so a metering series plots against the right time axis instead of the input's rate. Any other output length has no rate that can be named, so it comes back as a plain vector rather than a `Signal` carrying a guess.
+
+```qu
+s     = signal(sin(2 * pi * 7 .* ((0 to 999) / 1000)), 1000)
+level = block_process(s, (b) := rms(b), block = 250)
+print("{length(level)} blocks at {level.Fs} Hz")   # 4 blocks at 4 Hz
+```
 
 #### Overloads: `sosfilt`
 
@@ -501,10 +517,19 @@ print("apply(double): {out}")
 
 | Function | Signature | Description |
 |---|---|---|
-| `cut` | `cut(sig, t_start, t_end)` | `sig`: a length-N `Signal`; `t_start`, `t_end`: numbers (seconds, `t_start` >= 0 and `t_end` >= `t_start`). Returns a new `Signal` at the SAME `Fs`, shorter than `sig`. Trims `sig` to the time range `[t_start, t_end)` — half-open in TIME, the one range in the language that excludes its upper end: `t_end` is a floating-point instant, not an index, so "does it land exactly on a sample" has no reliable answer. Index slicing (`x[a:b]`) includes both ends. `t_start`/`t_end` round to the nearest sample via `sig`'s own `Fs` (`i = round(t*Fs)`, the exact inverse of `sig.t`'s `i/Fs`). A negative `t_start` or `t_end < t_start` is a clear error; `t_end` past `sig`'s actual duration clamps to the last sample rather than erroring (matching ordinary slice `hi`-clamping, e.g. `x[0:1000]` on a 10-element vector). Composes with the `@` self-mutation prefix like any other method chain: `@s.cut(1.0, 2.0)` needs no special-casing — it's an ordinary function under the hood. `cut` is a friendlier public name for exactly `signal_slice_time`'s own implementation (both names share one code path, so they can never silently diverge). |
+| `cut` | `cut(sig, t_start, t_end)` | `sig`: a length-N `Signal`; `t_start`, `t_end`: numbers (seconds, `t_start` >= 0 and `t_end` >= `t_start`). Returns a new `Signal` at the SAME `Fs`, shorter than `sig`. Trims `sig` to the time range `[t_start, t_end]` — INCLUSIVE of both ends, like every other range in the language, so `cut(s, 0.2, 0.7)` contains the sample AT 0.7. (The documented cost: abutting cuts no longer tile — `cut(s, 0, 1)` and `cut(s, 1, 2)` share the sample at `t = 1`. Step the second window's start on by one sample to partition.) `t_start`/`t_end` round to the nearest sample via `sig`'s own `Fs` (`i = round(t*Fs)`, the exact inverse of `sig.t`'s `i/Fs`). A negative `t_start` or `t_end < t_start` is a clear error; `t_end` past `sig`'s actual duration clamps to the last sample rather than erroring (matching ordinary slice `hi`-clamping, e.g. `x[0:1000]` on a 10-element vector). Composes with the `@` self-mutation prefix like any other method chain: `@s.cut(1.0, 2.0)` needs no special-casing — it's an ordinary function under the hood. `cut`, `signal_slice_time` and the bracket form `sig[t_start s : t_end s]` are three spellings of ONE implementation (they share `signal_time_span`, so they can never silently diverge). |
 | `signal_slice_time` | `signal_slice_time(sig, t0, t1)` | `sig`: a length-N `Signal`; `t0`, `t1`: numbers (seconds). Returns a new `Signal` at the same `Fs`. The original name for the same operation as `cut` above — kept as a working alias, not deprecated. |
+| `delay` | `delay(x, n)` | `x`: a vector or `Signal`; `n`: a whole number of samples, positional or named (`delay(x, samples = 4)`). Returns the SAME length as `x`, shifted later by `n` with the vacated head zero-filled and whatever runs off the end dropped. A negative `n` advances instead (drops from the head, zero-pads the tail); `abs(n) >= length(x)` is all zeros rather than an error. A `Signal` keeps its `Fs` — moving samples along the time axis does not change how fast they were taken. |
 
-`cut` is how you trim a `Signal` down to a time window of interest — say, the settling portion after a step, or a single cycle of a periodic waveform — without doing the sample-index arithmetic (`round(t*Fs)`) yourself. The example below trims a 10-sample, 10 Hz signal to `[0.5, 100.0)` seconds (the far end clamps to the last real sample rather than erroring), then uses the self-mutating `@s.cut(...)` form to trim `s` itself in place.
+`delay` keeps the length on purpose: that is what a fixed-size buffer does, and it is what lets `x + delay(x, n)` — a comb or a single echo, the obvious first use — line up without the caller trimming anything first.
+
+```qu
+v = [1, 2, 3, 4, 5]
+print("{delay(v, 2)}")     # [0, 0, 1, 2, 3]
+print("{delay(v, -2)}")    # [3, 4, 5, 0, 0]
+```
+
+`cut` is how you trim a `Signal` down to a time window of interest — say, the settling portion after a step, or a single cycle of a periodic waveform — without doing the sample-index arithmetic (`round(t*Fs)`) yourself. The example below trims a 10-sample, 10 Hz signal to `[0.5, 100.0]` seconds (the far end clamps to the last real sample rather than erroring), then uses the self-mutating `@s.cut(...)` form to trim `s` itself in place.
 
 ```qu
 s = signal(0 to 9, 10)          # 10 samples at 10 Hz, t = 0.0, 0.1, ..., 0.9s
@@ -513,6 +538,60 @@ print("trimmed: {trimmed}")
 @s.cut(0.2, 0.7)                 # self-mutating form: s = cut(s, 0.2, 0.7)
 print("s after @cut: {s}")
 ```
+
+### Indexing by time and frequency
+
+A `Signal` and a `spectrum` both carry their own axis, so both can be indexed
+in the axis's own units instead of in buffer positions. The unit on the index
+is what chooses the reading — there is no separate function to remember and no
+mode to set:
+
+```qu
+s = signal(0 to 999, 1000)     # 1000 samples at 1 kHz, 1 s long
+
+s[3]                # sample 3 — a number
+s[100:200]          # samples 100..=200 — a Signal at the same Fs
+s[0.1 s : 0.2 s]    # 0.1 s to 0.2 s — a Signal at the same Fs
+s[0.5 s]            # the sample NEAREST 0.5 s — a number
+s[100 ms : 200 ms]  # identical to s[0.1 s : 0.2 s]; prefixes scale
+
+X = rfft(s)
+X[3]                # bin 3 — a complex number
+X[440 Hz]           # the bin nearest 440 Hz — exactly spectrum_at(X, 440)
+X[20 Hz : 200 Hz]   # that band's bins — a complex vector
+X[0.2 kHz]          # same bin as X[200 Hz]; prefixes scale here too
+```
+
+(`X[20 Hz : 20 kHz]` is the usual audio-band spelling, but this `X` only
+reaches 500 Hz — its Nyquist — so the upper end would clamp there. A
+frequency past the last bin answers with the last bin rather than erroring,
+which is the convention `spectrum_at` already had.)
+
+The rules, and why each one is what it is:
+
+| Case | Result |
+|---|---|
+| `s[a:b]`, no units | Unchanged from before: sample positions, both ends inclusive, `b` past the end clamps. |
+| `s[t0 s : t1 s]` | A `Signal` at the same `Fs` — exactly `cut(s, t0, t1)`, through the same code. |
+| `s[t s]` | The single nearest sample, `round(t*Fs)`. Past the end **errors** rather than clamping, matching what `s[999999]` does: a scalar lookup has one right answer or none. A time *range* still clamps, matching what a positional range does. |
+| `s[: t1 s]` / `s[t0 s :]` | The omitted end reads as the start of the signal / its full duration, exactly as an omitted positional bound reads as `0` / the last index. |
+| `X[f Hz]` | The nearest bin, clamped at both ends — the same bin, through the same helper, that `spectrum_at(X, f)` returns. |
+| `X[f0 Hz : f1 Hz]` | A **complex vector** of that band's bins, *not* a `spectrum`. See below. |
+| `s[440 Hz]`, `X[0.5 s]` | An error naming the transform that would make the request meaningful. A signal has no frequency axis; a spectrum has no time axis. |
+| `s[0 : 0.2 s]` | An error. The two readings differ by a factor of `Fs`, so neither is guessed. |
+| `s[t0 s : n : t1 s]` | An error: a step counts samples, which is a different axis from the one the bounds are written on. |
+
+A frequency band returns a plain complex vector rather than a `spectrum` on
+purpose. Bin 0 of `X[20 Hz : 200 Hz]` is 20 Hz, not DC — so a `spectrum`
+wrapper around it would make `.freq`, `spectrum_at` and `band_power` all
+answer confidently and wrongly. This is the same reason `band_zero` zeroes a
+band in place instead of slicing one out: an axis that lies is worse than no
+axis, and a complex vector has no axis to be wrong about.
+
+Before this existed, a unit-tagged index was not an error — it was a *silent*
+one. A unit-tagged number unwraps to its bare SI magnitude in most contexts,
+so `s[1 s : 2 s]` on a 1 kHz signal selected samples 1 and 2: two of the 1001
+it plainly asks for, with nothing anywhere saying so.
 
 ### Which rate is used
 
@@ -559,23 +638,39 @@ before: a vector carries no rate, so there is nothing to propagate.
 | `X.freq` | `Vec` | The frequency axis in Hz, one entry per bin (`k*Fs/N`) — computed, never hand-built. |
 | `X.mag` | `Vec` | Bin magnitudes, `sqrt(re^2+im^2)`. A plain vector, so it can be sliced freely. |
 | `X.phase` | `Vec` | Bin phases in radians, `atan2(im, re)`, in `(-pi, pi]`. |
-| `X.norm` | string | How the producer normalised these bins. `"raw_transform"` for `fft`/`rfft`: bin `k` is the unnormalised DFT sum, so a unit-amplitude tone in an `N`-sample record reads `N/2`. Read-only — stamped at construction, never passed in. |
+| `X.norm` | string | How the producer normalised these bins: `"raw_transform"` (default, `fft`/`rfft`) — bin `k` is the unnormalised DFT sum, so a unit-amplitude tone in an `N`-sample record reads `N/2`; `"amplitude"` (`rfft(sig, scaling="amplitude")`, and `spectrum`'s default) — a bin reads the peak amplitude of the tone at that frequency, so a unit-amplitude tone's bin reads `1.0`; `"rms"` (`rfft(sig, scaling="rms")` or `spectrum(sig, scaling="rms")`) — that tone's RMS value instead (`amplitude / sqrt(2)`). `"amplitude"`/`"rms"` fold the negative-frequency half onto the one-sided bins returned by `rfft`, so DC and (for even `N`) Nyquist — which have no distinct mirror — keep the `1/N` factor while every other bin gets the folded `2/N` (further `/sqrt(2)` for `"rms"`). Read-only — stamped at construction, never passed in. |
 
 `X.norm` exists because `band_power` is only correct for one convention: it
 reads raw bins and divides by `N^2`. Handed an already-normalised power
 density it would return a plausible number computed from the wrong premise,
-so it checks the tag rather than assuming. There is one convention today
-because `fft`/`rfft` are the only producers; the tag is what makes a second
-producer (a PSD estimator returning a spectrum) a visible difference at
-runtime rather than an invisible assumption baked into every script written
-before it landed. The analysis window and its ENBW are deliberately *not*
-recorded: `fft` takes no window argument, so it cannot honestly claim one.
+so it checks the tag rather than assuming — `band_power` refuses an
+`"amplitude"`/`"rms"` spectrum today rather than guess at the right formula
+for it (`spectrum_unnormalize(X)` first, or take `rfft(sig)` with no
+`scaling=` in the first place). `band_zero` is unaffected by the
+convention — it clears bins to zero regardless of what they're scaled to,
+checked directly against the `"band_zero" =>` match arm, which has no norm
+guard at all — and preserves `X`'s norm on the result. `ifft`/`irfft`
+refuse a non-`raw_transform` spectrum the same way `band_power` does: those
+scaled bins are not the unnormalised DFT sum an inverse transform needs,
+and silently treating them as if they were would reconstruct a signal
+smaller by exactly the folding factor, with nothing to notice it by. The
+tag is what makes a second producer (a scaled spectrum, or eventually a PSD
+estimator returning one) a visible difference at runtime rather than an
+invisible assumption baked into every script written before it landed. The
+analysis window and its ENBW are deliberately *not* recorded on a raw `fft`
+result: `fft` takes no window argument, so it cannot honestly claim one.
+`spectrum` *does* apply one and still cannot record it, which is why it
+refuses `scaling="raw"` — see its row above; the taper it applies is
+normalised to unit coherent gain, so the `"amplitude"`/`"rms"` bins it
+returns mean what they say without needing the window to travel with them.
 
 | Function | Signature | Description |
 |---|---|---|
 | `spectrum_at` | `spectrum_at(X, freq)` | `X`: a `spectrum`; `freq`: a number (Hz). Returns the single complex bin nearest that physical frequency (`round(freq/df)`, clamped to the available bins) — addressing the spectrum in Hz instead of by index. |
-| `band_power` | `band_power(X, f0, f1)` | `X`: a `spectrum`; `f0`, `f1`: numbers (Hz, `f1 >= f0`). Returns the power in that frequency band by Parseval, normalised by `N^2` so a tone of amplitude `A` reads `A^2/2`. On a full spectrum each conjugate pair is counted once, since the pair is one physical tone. |
-| `band_zero` | `band_zero(X, f0, f1)` | `X`: a `spectrum`; `f0`, `f1`: numbers (Hz, `f1 >= f0`). Returns a new `spectrum` at the same `Fs` and `N` with that band cleared — an ideal brick-wall notch. On a full spectrum it **also clears each bin's conjugate partner** (`N-k`), which is what keeps the inverse transform real; clearing only the positive-frequency half is the classic way to get a silently complex signal back out of `ifft`. |
+| `band_power` | `band_power(X, f0, f1)` | `X`: a `raw_transform`-scaled `spectrum`; `f0`, `f1`: numbers (Hz, `f1 >= f0`). Returns the power in that frequency band by Parseval, normalised by `N^2` so a tone of amplitude `A` reads `A^2/2`. On a full spectrum each conjugate pair is counted once, since the pair is one physical tone. Refuses an `"amplitude"`/`"rms"`-scaled `X` today — call `spectrum_unnormalize(X)` first. |
+| `band_zero` | `band_zero(X, f0, f1)` | `X`: a `spectrum`; `f0`, `f1`: numbers (Hz, `f1 >= f0`). Returns a new `spectrum` at the same `Fs`, `N` and scaling with that band cleared — an ideal brick-wall notch. On a full spectrum it **also clears each bin's conjugate partner** (`N-k`), which is what keeps the inverse transform real; clearing only the positive-frequency half is the classic way to get a silently complex signal back out of `ifft`. |
+| `spectrum_normalize` | `spectrum_normalize(X, [scaling="amplitude"])` | `X`: a `raw_transform`-scaled `spectrum`; `scaling=` (optional string, `"amplitude"` or `"rms"`). Returns a new `spectrum` with that convention applied — the same conversion `fft`/`rfft(..., scaling=)` do at transform time, usable afterward on a spectrum that already went through `band_zero` or another raw-bin operation. Errors if `X` is already normalised — `spectrum_unnormalize(X)` first if you want a different scaling. |
+| `spectrum_unnormalize` | `spectrum_unnormalize(X)` | `X`: an `"amplitude"`/`"rms"`-scaled `spectrum`. Returns a new `raw_transform`-scaled `spectrum` — the exact inverse of `spectrum_normalize`/`scaling=`. Required before `ifft`/`irfft`/`band_power`, which all refuse a non-`raw_transform` spectrum rather than silently treat scaled bins as the unnormalised DFT sum. |
 
 There is deliberately **no "slice a band out of a spectrum" verb.** Slicing bins
 would leave bin 0 of the result no longer at DC, so `.freq` would quietly start
@@ -599,7 +694,7 @@ print("residual imaginary part: {max(abs(imag(clean)))}")   # ~1e-16, still real
 
 ### Windows (design *and* generation)
 
-`hann`, `hamming`, `blackman`, and `kaiser` are used in two distinct places in the interpreter: as **generator functions** callable directly by name (below, returning the window samples as a plain `Vec`), and internally as the **window option** for `fir1(..., window="hamming")`, `welch(..., window="hann")`, and `periodogram(..., window="hann")` (passed as a style-argument string, not called as a function). Both call sites share the same underlying `raised_cosine_window`/`kaiser_window` Rust implementations.
+`hann`, `hamming`, `blackman`, and `kaiser` are used in two distinct places in the interpreter: as **generator functions** callable directly by name (below, returning the window samples as a plain `Vec`), and internally as the **window option** for `fir1(..., window="hamming")` and for every spectral estimator that tapers a segment — `welch`, `periodogram`, `csd`, `spectral_coherence`, `spectrum`, and `psd`, all spelled `window="hann"` (passed as a style-argument string, not called as a function). Both call sites share the same underlying `raised_cosine_window`/`kaiser_window` Rust implementations. The estimators additionally accept `window="rectangular"` (aliases `"boxcar"`, `"none"`) for an all-ones window — no taper — which has no generator-function counterpart because `ones(n)` already is one. Note the generators are **symmetric** (`sym=True`, right for FIR design) while the estimators build the **periodic** (`sym=False`) form of the same window, which is the convention spectral analysis wants; they therefore differ by one sample's worth of phase and are not interchangeable by hand.
 
 | Function | Signature | Description |
 |---|---|---|
@@ -1078,14 +1173,16 @@ not its forward partner but an alias for `irfft`, the inverse.
 
 | Function | Signature | Description |
 |---|---|---|
-| `fft` | `fft(x)` | `x`: a length-N real or complex vector. Returns a length-N complex vector (`CVec`), the discrete Fourier transform. `abs` gives magnitude, `angle` phase. |
-| `rfft`, `fftc` | `rfft(x)` | `x`: a length-N real vector (`rfft`) or real/complex vector (`fftc`). `rfft` returns a length-`floor(N/2)+1` complex vector, the one-sided half-spectrum; `fftc` returns a length-N complex vector, the full spectrum. `rfft` is about twice as fast on real data since it only computes the non-redundant half. Returns a `CVec`: length `floor(N/2)+1` from `rfft`, length N from `fftc`. |
+| `fft` | `fft(x, [scaling=])` | `x`: a length-N real or complex vector. `scaling=` (optional string: `"raw"`, the default, `"amplitude"` or `"rms"`), same conventions as `rfft` below, requires `x` to be a `Signal`. On the FULL (two-sided) spectrum this returns, a real tone occupies TWO conjugate-symmetric bins, and scaling makes each of them independently read the tone's full peak amplitude (or RMS) rather than half of it — correct per bin, but summing both (or integrating a band across the mirror) double-counts that tone's energy. Use `rfft` instead when a total is what you want. Returns a length-N complex vector (`CVec`, plain `x`) or `spectrum` (`Signal` `x`), the discrete Fourier transform. `abs` gives magnitude, `angle` phase. |
+| `rfft`, `fftc` | `rfft(x, [scaling=])` | `x`: a length-N real vector (`rfft`) or real/complex vector (`fftc`). `rfft` returns a length-`floor(N/2)+1` complex vector, the one-sided half-spectrum; `fftc` returns a length-N complex vector, the full spectrum. `rfft` is about twice as fast on real data since it only computes the non-redundant half. `scaling=` (optional string: `"raw"`, the default, `"amplitude"` or `"rms"`) picks the normalisation stamped on the result's `X.norm` — see *Frequency-Based Addressing* below — and requires `x` to be a `Signal` (the convention is metadata on `Value::Spectrum`; a bare `CVec` has nowhere to record it). Returns a `CVec` (plain vector `x`) or a `spectrum` (`Signal` `x`): length `floor(N/2)+1` from `rfft`, length N from `fftc`. |
 | `irfft` | `irfft(X, n)` | `X`: a length-`floor(n/2)+1` complex vector (a one-sided spectrum); `n`: a number, the required real output length. Returns a length-`n` real vector. Back from a one-sided spectrum to a real signal — `n` is needed because a one-sided spectrum cannot say whether the original length was odd or even. (`fftr` is a deprecated second name for this — see above.) |
 | `fftr` | `fftr(X, n)` | **Deprecated — use `irfft`.** The same function under a name that reads as `rfft`'s forward partner; it is actually `rfft`'s inverse, so the pair reads backwards. Still works, and warns once per run. Returns a length-`n` real `Vec` — the inverse transform of the half-spectrum `X`, exactly what `irfft(X, n)` returns. |
 | `thd` | `thd(x)` | `x`: a length-N real vector (the sampled record). Returns a single number, dB below the fundamental. Total harmonic distortion — every non-fundamental component counts, so a two-tone signal reads as distorted. See the full form under [ADC signal-quality metrics](#adc-signal-quality-metrics-thd-snr-sinad-sfdr-enob) above for the `tones=`/`freqs=`/`bins=`/`fs=`/`leak=` keyword options shared by this whole family. |
+| `thd_n` | `thd_n(x, ...)` | `x`: a length-N real vector, same optional keywords as `thd` above. Returns a single number, dB below the fundamental: harmonics *and* noise together against the signal (`-sinad_db`, the same `noise_power` `sinad` already totals over every non-excitation bin) rather than harmonics alone. Same sign convention as `thd` — more negative is better. |
 | `snr`, `sinad`, `sfdr` | `snr(x, [tones=\|freqs=], [fs=\|rate=], [bins=], [leak=0])` | `x`: a length-N real vector. With no excitation named, the largest non-DC FFT bin is taken as the fundamental (the single-tone case); `tones=`/`freqs=` (a vector, Hz, needs `fs=`/`rate=` too) or `bins=` (a vector of integer bin indices) names a multisine's tone set explicitly — treating a multisine as one tone counts every other tone as noise and reads tens of dB low. `leak=` (optional number, default 0) widens each named tone by that many bins on each side, for a record that isn't exactly bin-coherent. `snr`/`sfdr` each return a single number (dB); `sinad(x)` (no distinguishing suffix) instead returns the whole breakdown as a record with fields `sinad`, `enob`, `snr`, `thd`, `sfdr` (numbers), `bins` (a vector of the fundamental's bin indices), `signal_power`, `noise_power` (numbers). Returns a scalar `Num` in dB for `snr` and `sfdr`; `sinad` returns that eight-field `Record` instead. |
 | `enob`, `enob_estimate` | `enob(x, [tones=\|freqs=], [fs=\|rate=], [bins=], [leak=0])` | `x`: a length-N real vector, same optional keywords as `snr` above. Returns a single number, bits — effective number of bits, inverting `6.02·bits + 1.76` on the measured SINAD. What a converter actually delivers, as opposed to what its datasheet says. `enob_estimate(bits, crest_factor)` is the separate closed-form estimator, documented in the next row. Returns a scalar `Num`, in bits. |
 | `sinad_estimate`, `enob_estimate` | `sinad_estimate(bits, crest_factor)` | `bits`: a number, the converter resolution; `crest_factor`: a number, the signal's peak-to-RMS ratio (e.g. `sqrt(2)` for a sine wave) — both required positional scalars, **not** a data record. Returns a single number: `sinad_estimate` in dB, `enob_estimate` in bits. Closed-form estimate of the SINAD/ENOB an ideal `bits`-resolution converter would show for a signal of the given `crest_factor`, with no record needed — the theoretical curve the measured `sinad(x)`/`enob(x)` above are checked against. |
+| `dominant_frequency`, `estimate_frequency` | `dominant_frequency(x, [fs])` | `x`: a length-N real vector or `Signal`; `fs` (optional number, Hz) is read off a `Signal` input the same way `welch`/`rfft` do, or passed explicitly — a plain vector with neither returns a normalized frequency in cycles/sample instead of Hz. Returns a single number: the frequency of the largest non-DC bin in `x`'s one-sided spectrum, accurate to the bin's own resolution `fs/N`. The cheapest of the estimators a full sine-fit or phase-regression method would improve on; both names are the same function. |
 | `acf` | `acf(x, [max_lag=])` | `x`: a length-N real vector. `max_lag` (optional number, default `min(40, N-1)`, R's own `acf()` default): highest lag to compute. Returns a vector of length `max_lag+1` (lag 0 through `max_lag`), the autocorrelation function. The first lag at which it falls below `1/e` is the usual correlation-time estimate. |
 | `hurst_exponent` | `hurst_exponent(x)` | `x`: a length-N real vector. Returns a single number: 0.5 is a random walk, above that persistent, below it mean-reverting — long-range dependence. |
 | `periodic_profile` | `periodic_profile(x, fs, period_seconds, n_bins, [stat="std"])` | `x`: a length-N real vector; `fs`: a number (Hz); `period_seconds`: a number, the cycle length to fold onto; `n_bins`: a number (integer), bins per cycle; `stat` (optional string: `"mean"`, `"std"`, `"var"`, `"hurst"`, or `"sad"`). Returns a length-`n_bins` real vector, one summary statistic per bin. Fold a long record onto one cycle and summarise each bin — the way to see whether a disturbance keeps time with something. |
@@ -1093,6 +1190,138 @@ not its forward partner but an alias for `irfft`, the inverse.
 | `hourly_profile` | `hourly_profile(x, fs, [stat="std"])` | `x`: a length-N real vector; `fs`: a number (Hz); `stat` (optional string). Returns a length-24 real vector, one bin per hour-of-day. A daily rhythm shows up here as a shape, where a spectrum would only give it a peak. |
 | `daily_profile` | `daily_profile(x, fs, [stat="std"])` | `x`: a length-N real vector; `fs`: a number (Hz); `stat` (optional string). Returns a length-7 real vector, one bin per day-of-week -- so a weekday-against-weekend difference separates out. |
 | `monthly_profile` | `monthly_profile(x, fs, [stat="std"])` | `x`: a length-N real vector; `fs`: a number (Hz); `stat` (optional string). Returns a length-12 real vector, one bin per equal-width twelfth of a Julian year. Equal width, not calendar months: the language has no calendar type, and bins of unequal length would not be comparable anyway. |
+
+## Measurement Diagnostics
+
+Is this recording trustworthy *before* it is analysed at all. A clipped
+record still has a spectrum, a mean and a THD figure — every one of them
+wrong, and not one of them says so.
+
+### Why clipping detection looks for flat runs, not a threshold
+
+The obvious test — "does any sample reach the maximum?" — fires on every
+signal ever recorded, because *some* sample is always the largest one.
+Tightened to "within a few percent of full scale" it still fires on any
+healthy recording that uses its headroom, which is exactly the well-made
+recording you least want flagged. A sine sampled near its peak legitimately
+touches the top of its range.
+
+What a clipped record has and an unclipped one does not is a **flat run**:
+several consecutive samples holding the *same* value at an extreme — the
+converter emitting one code over and over because the input went somewhere
+it could not follow. Consecutive samples of a real sine near its peak differ
+by roughly `A·2π²/N²` for `N` samples per cycle, so requiring equality
+separates the two cases without having to guess where full scale was.
+
+That is what makes the `threshold` default — the record's own largest
+magnitude — safe rather than a silent guess: on its own it flags nothing, it
+only picks the level the run test is applied at. Pass `full_scale=` when the
+converter's range is known; a flat run part-way up the range is then
+correctly *not* reported, because that is a limiter, not the converter.
+
+Two limits, stated rather than hidden:
+
+- This catches **hard** clipping. Soft/analogue saturation rounds the
+  shoulder over instead of flattening it and will not produce exactly equal
+  samples — catch it with an explicit `threshold=` and a looser `tol=`.
+- A heavily oversampled record that has **already been quantised** can hold
+  the same code for several consecutive samples near its peak without being
+  clipped, once the per-sample change near the peak falls below one LSB.
+  Raise `min_run` past the expected dwell, or pass the converter's real
+  `threshold=`. There is no way to tell the two apart from the samples alone.
+
+`detect_saturation` is the case where the converter is *known* rather than
+guessed, and it deliberately uses a different test: no run is required,
+because when the rail is a number you were handed, a single sample sitting
+on it is already evidence, and demanding a run would lose exactly the short
+excursions that matter most. Its code geometry comes from the same place
+`adc` quantises with, so the detector and the simulator cannot drift into
+two slightly different converters. The consequence worth knowing: codes run
+`0 ..= 2^bits - 1`, so the **top code is `full_scale - lsb`, not
+`full_scale`** — a check that looks for samples at exactly `full_scale`
+finds none, ever.
+
+### Quantization simulation lives in `adc`
+
+There is no separate `quantize`/`simulate_adc`. [`adc`](./noise.md) already
+takes a word length and a reference range, optionally dithers, and reports
+how much clipped — a second function over the same arithmetic would be the
+two-that-drift-apart this section exists to avoid. `adc(x, bits,
+full_scale=)` is the symmetric spelling, sharing the word `dbfs`,
+`is_clipped` and `detect_saturation` all use for the same quantity; `vmin=`/
+`vmax=` remains available for an asymmetric or offset range. Giving both is
+an error, not a precedence rule.
+
+| Function | Signature | Description |
+|---|---|---|
+| `is_clipped` | `is_clipped(x, [threshold=], [full_scale=], [tol=], [min_run=3])` | `x`: a length-N real vector, `Mat` or `Signal`. Returns a `Bool`: does `x` contain a flat run at an extreme. `threshold=`/`full_scale=` (optional numbers, interchangeable spellings, must be positive) set the magnitude a sample must reach to be a candidate; with neither, the record's own largest magnitude is used — safe because detection is run-based, see above. `tol=` (optional number, default `1e-9 × threshold`) is how nearly equal consecutive samples must be; raise it for soft saturation. `min_run=` (optional whole number ≥ 1, default `3`) is how many consecutive samples make a run — `min_run=1` degrades this to the plain "any sample at or beyond the threshold" test. Errors on an empty record, and on an all-zero record with no explicit threshold (there is no level to test against). |
+| `find_clipping` | `find_clipping(x, [threshold=], [full_scale=], [tol=], [min_run=3])` | Same detection as `is_clipped`, same keywords, but returns *where*. Returns a `Model` of kind `"find_clipping"` (the named-field multi-return `findpeaks`/`qr`/`svd` already use, since Qu has no tuple unpacking) with fields `count` (a `Num`, how many runs), `starts`, `ends` (`Vec`s of run bounds, **inclusive** at both ends like every Qu range), `lengths` (a `Vec`), `values` (a `Vec`, the level each run is held at — **signed**, so the positive rail is distinguishable from the negative one), `samples` (a `Num`, total samples inside runs), `fraction` (a `Num`, `samples / N`), and `threshold`, `tol`, `min_run` (`Num`s, echoing back the parameters actually used — when the threshold was inferred, a caller reading only `starts` has no way to know what level the answer is relative to). |
+| `detect_saturation` | `detect_saturation(x, adc_bits, [full_scale=1.0])` | `x`: a length-N real vector, `Mat` or `Signal`; `adc_bits`: a whole number 1–32, positional or as `adc_bits=`/`bits=` — required, since there is no rail to check against without it. Has `x` hit the rails of an `adc_bits`-bit converter: the clipping question for a converter whose range is *known* rather than inferred, so no flat run is required and a single sample sitting on a rail already counts. `full_scale=` (optional number, default `1.0`, must be positive) sets a range symmetric about zero, `[-full_scale, +full_scale]`: signal-processing records are bipolar by default, and a unipolar reading would report the entire negative half as railed. The default is the stated convention `dbfs` already set, **not** a value read off the data — inferring the range from the record would make the answer trivially "yes" for every record. Returns a `Record` with fields `saturated` (a `Bool`), `high`, `low`, `total` (`Num`s, samples on the top rail, the bottom rail, and either), `fraction` (a `Num`, `total / N`), `lsb`, `vmin`, `vmax`, `top_code` (`Num`s, the code geometry used — note `top_code = vmax - lsb`), and `bits` (a `Num`). Errors on an empty record. |
+| `verify_signal` | `verify_signal(x)` | `x`: a real vector, `Mat` or `Signal`. Structural sanity before any of the semantic diagnostics above is worth running — deliberately narrow: it answers "are these samples a usable record", not "is this signal any good". Returns a `Record` with fields `n` (a `Num`, sample count), `nan`, `inf` (`Num`s, counts — called out separately because a single NaN makes a mean, an FFT or a filter return NaN *throughout*, not just at that position), `finite` (a `Bool`), `constant` (a `Bool`, every sample equal — reported, but **not** an error: a DC measurement is a real thing and a stuck channel is the caller's judgement), `ok` (a `Bool`) and `issues` (a `List` of strings naming what is wrong, empty when `ok`). Given a `Signal`, two more fields — `rate` and `duration` (`Num`s) — and a rate that is zero, negative or non-finite becomes an issue, since every frequency axis derived from it would be meaningless. Named `verify_signal` rather than `verify` because a bare `verify` says nothing about what it verifies. |
+
+Not implemented, deliberately: **`check_aliasing`**. From a single record at
+one sample rate, an aliased component is mathematically *indistinguishable*
+from a genuine in-band one — that is the sampling theorem, not a gap in the
+implementation. A component folded down from `0.6·fs` and a real tone at
+`0.4·fs` produce identical samples, and no test applied to those samples can
+separate them. Any single-record "aliasing check" is therefore a heuristic
+about spectral shape (energy piling up near `fs/2`), which flags legitimately
+broadband content — noise, square waves, transients, step responses — as
+readily as it flags real aliasing. Rather than ship a confident-looking
+guess, this is left out; the honest checks are `check_leakage`-style
+coherence analysis against a *known* excitation, or an oversampled reference
+capture, neither of which is a property of one record.
+## Pulse and Edge Measurements
+
+Oscilloscope-style measurements on a pulse train or a step response: where
+the signal crosses a level, where its edges and pulses are, and the standard
+timing numbers read off them.
+
+Two layers, and the difference between them is the thing to know before
+reading any row below:
+
+- **Locators** — `find_trigger`, `find_zero_crossings`, `find_edges`,
+  `find_pulses` — answer *where*, and return integer **sample indices** into
+  `x`, exactly as `find_peaks` does. An index is an index whether or not the
+  input carries a sample rate.
+- **Measurements** — `rise_time`, `fall_time`, `pulse_width`,
+  `pulse_period`, `pulse_frequency`, `duty_cycle`, `overshoot`,
+  `undershoot` — answer *how long* or *how much*, interpolate **between**
+  samples the way a scope does, and report in **seconds** when the input is a
+  `Signal` carrying a rate and in **samples** otherwise. There is no `fs=`
+  argument on any of them: a rate only changes the unit the answer is quoted
+  in, never whether it can be computed.
+
+All of it is built on one crossing definition, `find_trigger`. A crossing is
+defined on the boolean state `x[i] >= level`, so "exactly at the level"
+counts as high — which guarantees that rising and falling crossings strictly
+**alternate**, the property `find_pulses` relies on to pair them.
+
+Two unit conventions worth reading twice, because they differ on purpose:
+`duty_cycle` returns a **fraction** in `[0, 1]`, so that
+`duty_cycle(x) * pulse_period(x)` is the high time; `overshoot`/`undershoot`
+return a **percent**, because those numbers are read rather than composed and
+`0.05` would be taken for 0.05%.
+
+`pulse_frequency` is an **edge-counting** measurement and is deliberately not
+called `frequency`: `dominant_frequency`/`estimate_frequency` above answer a
+different question by a different method (the largest bin of the magnitude
+spectrum). On a clean square wave they agree; on a signal with a strong
+harmonic, a drift, or a burst that is not periodic across the whole record,
+they do not, and both return a plausible number.
+
+| Function | Signature | Parameters and return |
+|---|---|---|
+| `find_trigger` | `find_trigger(x, level, [edge="rising"])` | `x`: a length-N real vector or `Signal`; `level`: a number, the trigger level — positional and **required** (defaulting it would let `find_trigger(x)` answer confidently about a level the caller never chose), though `level=` is accepted as a keyword too. `edge` (optional string): `"rising"` (default), `"falling"`, or `"both"`; `"rise"`/`"fall"`/`"up"`/`"down"`/`"positive"`/`"negative"`/`"any"`/`"either"` are accepted spellings. Returns a vector of 0-indexed integer sample indices, one per crossing, each being the **first sample of the new state** — a rising crossing at `i` means `x[i-1] < level <= x[i]`. A transition involving a `NaN` is skipped rather than reported, so a dropout does not manufacture a pair of edges. |
+| `find_zero_crossings` | `find_zero_crossings(x, [edge="both"])` | `x`: a length-N real vector or `Signal`; `edge` (optional string) as above. `find_trigger` at level zero. The default is **both** directions, unlike `find_trigger`'s own default: the zero-crossing rate is a count of every sign change, so `len(find_zero_crossings(x))` has to be that count to be worth anything, and a `"rising"` default would silently halve it. Returns a vector of 0-indexed integer sample indices. |
+| `find_edges` | `find_edges(x, [level=], [threshold=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; `level=`/`threshold=` (optional number, same thing under two names) defaults to the signal's own midpoint `(min+max)/2`; `hysteresis` (optional number, default `0`): with `0` this is a plain single-threshold detector, i.e. `find_trigger` run in both directions; with a positive value it is a Schmitt trigger requiring `level + hysteresis/2` to call high and `level - hysteresis/2` to call low, so noise on a slow edge yields one edge rather than a burst. The reported positions are taken at `level` either way, so switching hysteresis on to reject glitches does not move the measurements it protects. Returns a `Model` (kind `"edges"`) with fields `indices` (a vector of integer sample indices), `directions` (a vector, `+1` rising / `-1` falling, parallel to `indices`), `positions` (a vector of interpolated sub-sample crossing points), `rising` and `falling` (the two index splits), and `count` (a number). |
+| `find_pulses` | `find_pulses(x, [level=], [hysteresis=0], [polarity="positive"])` | `x`: a length-N real vector or `Signal`; `level`/`hysteresis` as for `find_edges`; `polarity` (optional string): `"positive"` (default) pairs each rising edge with the next falling one, `"negative"` the reverse. Returns a `Model` (kind `"pulses"`) with fields `starts`, `stops` (vectors of integer sample **indices** — `stops`, not `ends`, because `end` is a Qu keyword), `widths` (a vector of **times**: seconds for a `Signal`, samples otherwise, measured between the interpolated crossings so that `mean(p.widths)` equals `pulse_width(x)` exactly), and `count` (a number). A partial pulse at either end of the record — already high when capture started, or still high when it stopped — has only one of its two edges and is **not** reported; its width is genuinely unknown. |
+| `rise_time`, `fall_time` | `rise_time(x, [low=0.1], [high=0.9], [base=], [top=])` | `x`: a length-N real vector or `Signal`. `low`/`high` (optional numbers, defaults `0.1`/`0.9`) are **fractions of the step, not levels**, so the 20%–80% convention is `low=0.2, high=0.8`. `base`/`top` (optional numbers) are the levels the step runs between, defaulting to `x`'s own min and max. Returns a single number: the transition time of the first complete rising (resp. falling) transition, in seconds for a `Signal` and samples otherwise, with both endpoints linearly interpolated between samples. Errors rather than guessing when the record holds no complete transition. **Caveat, and it is a common case:** on a step that *rings*, the automatic `top` is the overshoot peak rather than the settled value, which drags the 90% level up and reports a rise time that is too long — pass `top=` explicitly when the step overshoots. |
+| `pulse_width` | `pulse_width(x, [level=], [hysteresis=0], [polarity="positive"])` | `x`: a length-N real vector or `Signal`; keywords as for `find_pulses`. Returns a single number: the **mean** width of the complete pulses, in seconds for a `Signal` and samples otherwise. Equal by construction to `mean(find_pulses(x, ...).widths)`. |
+| `duty_cycle` | `duty_cycle(x, [level=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; keywords as for `find_edges`. Returns a single number: mean high time over mean period, as a **fraction in `[0, 1]`, not a percentage** — multiply by 100 for the figure a scope's front panel shows. The fraction is the composable form: `duty_cycle(x) * pulse_period(x)` is the high time. |
+| `pulse_period`, `pulse_frequency` | `pulse_period(x, [level=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; keywords as for `find_edges`. Returns a single number: the mean interval between successive rising crossings (`pulse_period`) or its reciprocal (`pulse_frequency`) — seconds and Hz for a `Signal`, samples and cycles/sample otherwise. Errors when the record holds fewer than two rising crossings, i.e. not a full cycle. These are **edge-counting** measurements; `dominant_frequency`/`estimate_frequency` above are spectral estimators answering a different question — see the note before this table. |
+| `overshoot`, `undershoot` | `overshoot(x, [settle_level=], [initial_level=], [settle_frac=0.1])` | `x`: a length-N real vector or `Signal`. `settle_level`/`initial_level` (optional numbers) default to the mean of the last and first `settle_frac` of the record (10%, at least one sample each — a mean rather than the single end samples, so one noisy point cannot carry the whole measurement). Returns a single number, a **percent** of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going, `undershoot` how far it backs up *past where it started* (the pre-shoot), which is MATLAB `stepinfo`'s convention. Both clamp at zero. A falling step works the same way with min and max exchanged. Errors when the record contains no step to be a percentage of. |
+
 ## Reflection and Matching
 
 How much of a wave a load sends back, and the quantities engineers quote for

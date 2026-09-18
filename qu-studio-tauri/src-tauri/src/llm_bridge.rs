@@ -1,45 +1,49 @@
-//! Tauri-side bridge to `qu-llm` (feature `llm`, off by default -- see
-//! `Cargo.toml`'s own comment) for two QuStudio UI features: the mascot
-//! chat panel (`llm_chat`) and inline-completion autocomplete
-//! (`llm_complete`). Entirely separate from `qu-interp`'s own
-//! `llm_load(...)`/`.generate(...)` script builtins (`llm_bridge.rs` in
-//! that crate) -- this module never touches `qu-interp` or its `Value`
-//! type at all, it drives `qu_llm::LlmModel` directly.
+//! Tauri-side bridge for QuStudio's "AI Assist" features -- the mascot chat
+//! panel (`llm_chat`), inline-completion autocomplete (`llm_complete`),
+//! "Fix with AI" (`llm_fix_error`), and "Generate/Transform" (`llm_transform_code`)
+//! -- plus the hosted-provider settings commands (`get_llm_provider_config`,
+//! `set_llm_provider_config`, `test_llm_provider`). Entirely separate from
+//! `qu-interp`'s own `llm_load(...)`/`.generate(...)` script builtins
+//! (`llm_bridge.rs` in that crate) -- this module never touches `qu-interp`
+//! or its `Value` type at all.
+//!
+//! **Provider abstraction (added on top of the original local-only
+//! design).** All four AI-feature commands used to talk directly to
+//! `qu_llm::LlmModel`. They now build a backend-agnostic
+//! `llm_providers::GenRequest` (system prompt + user message + max_tokens,
+//! same Qu-syntax-priming discipline as before -- see `QU_SYNTAX_PRIMER`
+//! below, now folded into `system` instead of a hand-formatted Zephyr
+//! string) and hand it to `dispatch_with_settings`, which picks the
+//! backend the user configured (Local/OpenAI/Anthropic -- see
+//! `llm_providers::ProviderKind`) and falls back to the local model on any
+//! hosted-provider failure (network error, bad key, rate limit -- see that
+//! function's own doc comment). `llm_providers.rs` owns the actual
+//! `LlmProvider` trait and its three implementations; this module only
+//! orchestrates.
 //!
 //! **Why this whole module compiles either way, `llm` feature on or off.**
 //! `tauri::generate_handler!` in `main.rs` is a plain macro-rules-style
 //! list of command names with no support for a per-item `#[cfg(...)]`
 //! (confirmed by actually trying it: `error: expected identifier`) -- every
 //! name listed there must exist under every build config `main.rs` itself
-//! builds under. So `llm_chat`/`llm_complete` are always defined, and the
-//! feature gate lives INSIDE their bodies instead: with `llm` off, both
-//! just return a friendly "not built with this feature" `Err`, never
-//! touching `qu_llm` (which isn't even a resolvable crate in that build --
-//! it's an optional dependency, so `#[cfg(feature = "llm")] use qu_llm...`
-//! is the only place its name appears at all).
+//! builds under. So `llm_chat`/`llm_complete`/etc. are always defined; the
+//! `llm` feature gate now lives inside `run_local` (see below) instead of
+//! inside each command body, since a hosted-provider call needs no local
+//! model at all and should keep working in a build without `llm`.
 //!
-//! **Lazy, one-instance-per-process loading.** Nothing here loads the
-//! model at app startup (`LlmState::default()` is just an empty
-//! `Mutex<None>`, managed in `main.rs` unconditionally since it's free) --
-//! the first `llm_chat` or `llm_complete` call in an `llm`-enabled build
-//! pays the real load cost (parsing the ~669MB GGUF file into `candle`
-//! tensors); every call after that reuses the same warm `Arc<LlmModel>`
-//! from `tauri::State`. This matches the brief's explicit requirement:
-//! normal QuStudio startup must stay fast for users who never touch the
-//! mascot or autocomplete.
-//!
-//! **Why the outer `Mutex` guard is dropped before `generate` runs.**
-//! `get_or_load_model` only holds `LlmState`'s own lock long enough to
-//! either return the already-loaded `Arc` or load-and-cache a new one --
-//! the guard goes out of scope the instant this function returns, well
-//! before the caller invokes `model.generate(...)`. `LlmModel::generate`
-//! has its OWN internal `Mutex` around the candle weights/KV-cache (see
-//! `qu-llm`'s own doc comment on that field), so two overlapping
-//! `llm_chat`/`llm_complete` calls just serialize on that inner lock
-//! instead of blocking each other out here on a completely unrelated
-//! "is the model loaded yet" check.
-use serde::Deserialize;
+//! **Lazy, one-instance-per-process loading.** Unchanged from before this
+//! module gained hosted providers: nothing here loads the local model at
+//! app startup (`LlmState::default()` is just an empty `Mutex<None>`,
+//! managed in `main.rs` unconditionally since it's free) -- the first call
+//! that actually reaches `run_local` (either because Local is the
+//! configured provider, or because a hosted call failed and this is the
+//! fallback) pays the real load cost (parsing the ~669MB GGUF file into
+//! `candle` tensors); every call after that reuses the same warm
+//! `Arc<LlmModel>` from `tauri::State`.
+use serde::{Deserialize, Serialize};
 use tauri::State;
+
+use crate::llm_providers::{self, GenRequest, LlmProvider, ProviderKind};
 
 #[cfg(feature = "llm")]
 use std::sync::{Arc, Mutex};
@@ -47,21 +51,14 @@ use std::sync::{Arc, Mutex};
 /// Lives in `tauri::State` (see `main.rs`'s `.manage(LlmState::default())`)
 /// -- managed unconditionally (it's an empty `Mutex` either way) but its
 /// `model` field only exists, and is only ever populated, in an
-/// `llm`-enabled build. `None` until the first real `llm_chat`/
-/// `llm_complete` call.
+/// `llm`-enabled build. `None` until the first call that actually needs
+/// the local model (see `run_local`).
 #[derive(Default)]
 pub struct LlmState {
     #[cfg(feature = "llm")]
     model: Mutex<Option<Arc<qu_llm::LlmModel>>>,
 }
 
-/// Returns the already-loaded model, or loads the default known model
-/// (`qu_llm::load("")` -- TinyLlama-1.1B-Chat-v1.0, see that function's own
-/// doc comment) and caches it in `state` first. The load itself (first call
-/// only) can take real time -- parsing the GGUF file and building
-/// `candle`'s tensors -- so this is deliberately NOT called from app
-/// startup, only from inside a Tauri command a user action actually
-/// triggered.
 #[cfg(feature = "llm")]
 fn get_or_load_model(state: &LlmState) -> Result<Arc<qu_llm::LlmModel>, String> {
     let mut guard = state
@@ -77,29 +74,48 @@ fn get_or_load_model(state: &LlmState) -> Result<Arc<qu_llm::LlmModel>, String> 
     Ok(arc)
 }
 
-/// Compact, concrete primer on Qu's REAL syntax, injected into every
-/// chat-style system prompt (mascot chat, fix-error, transform/generate).
-/// TinyLlama-Chat has seen vastly more Python/MATLAB/Julia in training than
-/// Qu, so left unprimed it confidently produces plausible-looking code in
-/// THOSE languages' syntax instead -- e.g. 1-indexing, `end`-less
-/// indentation blocks, tuple-unpacking `[a, b] = f(x)`. Every line below is
-/// a real, verified-working Qu construct, pulled from `catalog/*.qu`
-/// (`qu_peak_finding.qu`, `qu_multiple_dispatch.qu`, `qu_qr_svd.qu`) and
-/// confirmed directly against `qu-syntax`/`qu-interp` source and their own
-/// test suite for the two easy-to-misremember operators (`|>`, `@`) rather
-/// than written from memory -- an initial guess that `@` was a
-/// self-mutating *method-call* prefix (`@sort()`) was wrong; it's actually
-/// a whole-statement "reassign the root variable" desugar, confirmed at
-/// `qu-syntax/src/lib.rs`'s statement parser and exercised in
-/// `qu-interp/tests/acceptance.rs`.
-///
-/// Deliberately short: this is a CPU-only, greedy 1.1B model where prompt
-/// *processing* time scales with token count same as generation does (see
-/// this module's own top-level doc comment) -- a page of prose here would
-/// slow down every single mascot/fix/transform call, not just make them
-/// more correct. A handful of real, dense examples beats a long abstract
-/// description at the same token cost.
+/// Runs a `GenRequest` against the local candle model, loading it first if
+/// needed. The ONE place the `llm` feature gate lives now -- every other
+/// function in this module (including the four command handlers) compiles
+/// and runs identically either way; only this function's body differs.
 #[cfg(feature = "llm")]
+fn run_local(state: &LlmState, req: &GenRequest) -> Result<String, String> {
+    let model = get_or_load_model(state)?;
+    let provider = llm_providers::LocalProvider { model: &model };
+    provider.generate(req)
+}
+
+#[cfg(not(feature = "llm"))]
+fn run_local(_state: &LlmState, _req: &GenRequest) -> Result<String, String> {
+    let _ = _state;
+    Err("the local model needs a build with the `llm` Cargo feature enabled \
+         (`cargo tauri dev --features llm`) -- this build doesn't have it."
+        .to_string())
+}
+
+/// Compact, concrete primer on Qu's REAL syntax, injected into every
+/// system prompt (mascot chat, fix-error, transform/generate) for every
+/// backend, local or hosted. TinyLlama-Chat has seen vastly more
+/// Python/MATLAB/Julia in training than Qu, so left unprimed it confidently
+/// produces plausible-looking code in THOSE languages' syntax instead --
+/// e.g. 1-indexing, `end`-less indentation blocks, tuple-unpacking
+/// `[a, b] = f(x)`. Hosted frontier models know MUCH less about Qu specifically
+/// than about mainstream languages too (it's not a widely-known language),
+/// so the same priming discipline matters for them as well -- this constant
+/// is shared by every backend rather than being a local-model-only
+/// workaround. Every line below is a real, verified-working Qu construct,
+/// pulled from `catalog/*.qu` (`qu_peak_finding.qu`,
+/// `qu_multiple_dispatch.qu`, `qu_qr_svd.qu`) and confirmed directly
+/// against `qu-syntax`/`qu-interp` source and their own test suite for the
+/// two easy-to-misremember operators (`|>`, `@`) rather than written from
+/// memory.
+///
+/// Deliberately short: on the local CPU-only greedy model prompt
+/// *processing* time scales with token count same as generation does, so a
+/// page of prose here would slow down every single call, not just make it
+/// more correct -- and on hosted providers, every token is also literal
+/// billed cost. A handful of real, dense examples beats a long abstract
+/// description at the same cost either way.
 const QU_SYNTAX_PRIMER: &str = "\
 Real Qu syntax (distinct from MATLAB/Python/Julia -- follow exactly):
 - 0-indexed arrays: x[0] is the first element; x[0:5] is a 0-based slice.
@@ -119,17 +135,133 @@ Real Qu syntax (distinct from MATLAB/Python/Julia -- follow exactly):
 - A lone `#%%` marks a runnable cell boundary, like a Jupyter cell.
 ";
 
-/// Builds the TinyLlama-Chat prompt (its own Zephyr-style chat template --
-/// `<|system|>`/`<|user|>`/`<|assistant|>` turns separated by `</s>`; this
-/// is the exact format `TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF`'s model
-/// card documents, not a guess) for the mascot chat feature. `context`, when
-/// present, is folded into the system turn as extra grounding -- e.g. the
-/// current editor buffer and/or the last error message, per the brief's
-/// "basic awareness of context that's cheap to provide" scope (deliberately
-/// NOT a RAG pipeline: just the obviously relevant text, capped so a whole
-/// large file doesn't blow up prompt-processing time on a CPU-only model).
-#[cfg(feature = "llm")]
-fn build_chat_prompt(question: &str, context: Option<&str>) -> String {
+/// Cap on how much of `context`/`prefix` (current buffer + last error,
+/// already concatenated by the frontend -- see `App.tsx`'s
+/// `buildMascotContext`) gets folded into a prompt, or sent to a hosted
+/// API. Keeps the TAIL, not the head: the shape of a Qu script that errors,
+/// and of a Qu error message itself, both put the actually-relevant line
+/// near the end.
+const CONTEXT_CHAR_BUDGET: usize = 2000;
+
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        return s.to_string();
+    }
+    let skip = char_count - max_chars;
+    format!("...(truncated)...{}", s.chars().skip(skip).collect::<String>())
+}
+
+const CHAT_MAX_TOKENS: usize = 200;
+
+/// Every AI-feature command's actual return type -- what backend answered,
+/// not just the text. Making the fallback visible (per the brief's "make
+/// the fallback visible to the user, not silent") means the frontend can
+/// show something like "answered by OpenAI" or "OpenAI failed, answered by
+/// Local model instead" rather than the user having no idea their hosted
+/// call silently didn't happen.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmAnswer {
+    pub text: String,
+    /// Human-readable backend name, e.g. `"OpenAI"`, `"Anthropic"`,
+    /// `"Local (TinyLlama)"` -- see `ProviderKind::label`.
+    pub backend: String,
+    /// True when the configured provider failed and this answer actually
+    /// came from the local-model fallback instead.
+    pub fell_back: bool,
+    /// Set only when `fell_back` is true (or provider selection itself hit
+    /// a snag) -- a short, user-facing explanation, e.g. "OpenAI failed
+    /// (HTTP 401: ...); used the local model instead."
+    pub note: Option<String>,
+}
+
+/// Resolves the saved provider settings and runs `req` through whichever
+/// provider is configured, falling back to the local model on any hosted-
+/// provider failure. Takes `ProviderSettings` directly (not an `AppHandle`)
+/// so it's callable from a plain unit test without any real Tauri runtime
+/// -- `dispatch` (below) is the thin `AppHandle`-resolving wrapper the
+/// actual commands call.
+///
+/// Fallback only ever goes hosted-provider -> local, never local -> hosted
+/// (a local failure, e.g. a corrupt GGUF cache, has nothing a hosted
+/// fallback could safely improvise -- and falling back TO a network call
+/// the user never opted into would violate "Qu Studio should keep working
+/// offline" from the other direction). If the configured provider IS Local
+/// and it fails, that error is returned as-is.
+fn dispatch_with_settings(
+    state: &LlmState,
+    settings: &llm_providers::ProviderSettings,
+    req: GenRequest,
+) -> Result<LlmAnswer, String> {
+    let chosen = settings.provider;
+
+    let primary: Result<String, String> = match chosen {
+        ProviderKind::Local => run_local(state, &req),
+        ProviderKind::Openai => match settings.openai_api_key.as_deref() {
+            Some(key) if !key.is_empty() => {
+                let provider = llm_providers::OpenAiProvider {
+                    api_key: key.to_string(),
+                    model: settings.openai_model.clone(),
+                };
+                provider.generate(&req)
+            }
+            _ => Err("OpenAI is selected in AI Provider settings but no API key is saved yet.".to_string()),
+        },
+        ProviderKind::Anthropic => match settings.anthropic_api_key.as_deref() {
+            Some(key) if !key.is_empty() => {
+                let provider = llm_providers::AnthropicProvider {
+                    api_key: key.to_string(),
+                    model: settings.anthropic_model.clone(),
+                };
+                provider.generate(&req)
+            }
+            _ => Err("Anthropic is selected in AI Provider settings but no API key is saved yet.".to_string()),
+        },
+    };
+
+    match primary {
+        Ok(text) => Ok(LlmAnswer { text, backend: chosen.label().to_string(), fell_back: false, note: None }),
+        Err(primary_err) if chosen == ProviderKind::Local => Err(primary_err),
+        Err(primary_err) => match run_local(state, &req) {
+            Ok(text) => Ok(LlmAnswer {
+                text,
+                backend: ProviderKind::Local.label().to_string(),
+                fell_back: true,
+                note: Some(format!("{} failed ({primary_err}); used the local model instead.", chosen.label())),
+            }),
+            Err(local_err) => Err(format!(
+                "{} failed: {primary_err}. Local fallback also failed: {local_err}",
+                chosen.label()
+            )),
+        },
+    }
+}
+
+/// Resolves the app-config directory, loads the saved provider settings,
+/// and calls `dispatch_with_settings`. A missing/unresolvable config dir
+/// degrades to "behave as Local" (same defaulting `ProviderSettings`
+/// itself already does for a missing file) rather than hard-erroring --
+/// consistent with this whole feature's "never break a working local-only
+/// install" design goal.
+fn dispatch(app: &tauri::AppHandle, state: &LlmState, req: GenRequest) -> Result<LlmAnswer, String> {
+    let settings = match app.path_resolver().app_config_dir() {
+        Some(dir) => llm_providers::load_settings(&dir),
+        None => llm_providers::ProviderSettings::default(),
+    };
+    dispatch_with_settings(state, &settings, req)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LlmChatRequest {
+    pub prompt: String,
+    /// Already-assembled context string (current buffer + last error, or
+    /// either alone) -- see `App.tsx`'s `buildMascotContext`. `None`/empty
+    /// when there's nothing relevant yet.
+    pub context: Option<String>,
+}
+
+fn chat_system_prompt(context: Option<&str>) -> String {
     let mut system = format!(
         "You are Qu-bot, the friendly built-in mascot assistant for Qu Studio, an IDE for the \
          Qu scientific scripting language (a MATLAB/Julia-like language for signal processing, \
@@ -147,265 +279,118 @@ fn build_chat_prompt(question: &str, context: Option<&str>) -> String {
             system.push_str(&truncate_chars(trimmed, CONTEXT_CHAR_BUDGET));
         }
     }
-    format!("<|system|>\n{system}</s>\n<|user|>\n{question}</s>\n<|assistant|>\n")
-}
-
-/// Cap on how much of `context`/`prefix` (current buffer + last error,
-/// already concatenated by the frontend -- see `App.tsx`'s
-/// `buildMascotContext`) gets folded into a prompt. This is a CPU-only,
-/// greedy-decoding 1.1B model: prompt *processing* time scales with token
-/// count same as generation does, so handing it an entire multi-thousand-
-/// line file would make every mascot question/completion slow regardless
-/// of how short the answer is. A few thousand characters is enough to cover
-/// "why did this small script fail" without that blowup -- keeps the TAIL,
-/// not the head: the shape of a Qu script that errors, and of a Qu error
-/// message itself, both put the actually-relevant line near the end.
-#[cfg(feature = "llm")]
-const CONTEXT_CHAR_BUDGET: usize = 2000;
-
-#[cfg(feature = "llm")]
-fn truncate_chars(s: &str, max_chars: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_chars {
-        return s.to_string();
-    }
-    let skip = char_count - max_chars;
-    format!("...(truncated)...{}", s.chars().skip(skip).collect::<String>())
-}
-
-/// Chat responses get a real budget -- a mascot reply is meant to be a
-/// short paragraph, not one line. Still deliberately far short of
-/// "unbounded": see this module's own doc comment / IMPL.md for the
-/// measured tokens/sec this is based on.
-#[cfg(feature = "llm")]
-const CHAT_MAX_TOKENS: usize = 200;
-
-// `#[allow(dead_code)]` on both fields: in a build WITHOUT `llm`, `llm_chat`
-// never reads either field (see its `not(feature = "llm")` branch below) --
-// that's correct, expected behavior for that build, not a real bug to warn
-// about.
-#[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(not(feature = "llm"), allow(dead_code))]
-pub struct LlmChatRequest {
-    pub prompt: String,
-    /// Already-assembled context string (current buffer + last error, or
-    /// either alone) -- see `App.tsx`'s `buildMascotContext`. `None`/empty
-    /// when there's nothing relevant yet (e.g. no run has happened).
-    pub context: Option<String>,
+    system
 }
 
 /// `llm_chat(request: { prompt, context })` -- the mascot chat panel's one
-/// command. Loads the model on first call (see `get_or_load_model`), then
-/// runs one greedy completion of the Zephyr-style chat prompt built by
-/// `build_chat_prompt`. Errors (model failed to load, generation failed,
-/// or this build simply doesn't have the `llm` feature) come back as
+/// command. Routes through `dispatch`: whichever provider is configured
+/// (default Local) answers, with an automatic local fallback on hosted
+/// failure. Errors (no provider reachable at all) come back as
 /// `Err(String)`, which Tauri surfaces to the JS side as a rejected
-/// promise -- the frontend shows this as a mascot error bubble rather than
-/// a silent failure.
+/// promise -- the frontend shows this as a mascot error bubble.
 #[tauri::command]
-pub fn llm_chat(request: LlmChatRequest, state: State<LlmState>) -> Result<String, String> {
-    chat_with_state(&state, request)
+pub fn llm_chat(
+    request: LlmChatRequest,
+    app: tauri::AppHandle,
+    state: State<LlmState>,
+) -> Result<LlmAnswer, String> {
+    let system = chat_system_prompt(request.context.as_deref());
+    let user = request.prompt.clone();
+    dispatch(&app, &state, GenRequest { system, user, max_tokens: CHAT_MAX_TOKENS, local_raw_prompt: None })
 }
 
-/// The actual `llm_chat` logic, factored out from the `#[tauri::command]`
-/// wrapper above so it can be exercised by a real test (see
-/// `real_chat_produces_a_coherent_reply` below) without needing to
-/// construct a real `tauri::State` -- `&LlmState` is all this needs, and a
-/// plain `LlmState::default()` is one to make. The command wrapper itself
-/// is trivial argument/return marshaling on top of this, already exercised
-/// implicitly by every other command in this crate using the same
-/// `#[tauri::command]` macro.
-fn chat_with_state(state: &LlmState, request: LlmChatRequest) -> Result<String, String> {
-    #[cfg(feature = "llm")]
-    {
-        let model = get_or_load_model(state)?;
-        let prompt = build_chat_prompt(&request.prompt, request.context.as_deref());
-        let reply = model.generate(&prompt, CHAT_MAX_TOKENS)?;
-        Ok(reply.trim().to_string())
-    }
-    #[cfg(not(feature = "llm"))]
-    {
-        let _ = (request, state);
-        Err("Qu Studio's mascot needs a build with the `llm` Cargo feature enabled \
-             (`cargo tauri dev --features llm`) -- this build doesn't have it."
-            .to_string())
-    }
-}
-
-/// Inline-completion `max_tokens` cap, independent of whatever the caller
-/// asks for. A completion is a few tokens or one line, never a paragraph --
-/// see the brief's explicit "keep max_tokens small for completions
-/// specifically" scope. Also directly protects editor latency: on a
-/// CPU-only greedy model every extra token is roughly another fixed
-/// per-token cost (see this module's own doc comment for the measured
-/// figure), and ghost text arriving well after the user kept typing is
-/// worse than a shorter, faster suggestion.
-#[cfg(feature = "llm")]
 const COMPLETE_MAX_TOKENS_CAP: usize = 32;
-#[cfg(feature = "llm")]
 const COMPLETE_DEFAULT_MAX_TOKENS: usize = 16;
 
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(not(feature = "llm"), allow(dead_code))]
 pub struct LlmCompleteRequest {
     pub prefix: String,
     pub max_tokens: Option<usize>,
 }
 
 /// `llm_complete(request: { prefix, max_tokens? })` -- Monaco's inline
-/// ghost-text provider (see `CodeEditor.tsx`'s
-/// `registerInlineCompletionsProvider`) calls this with the code before the
-/// cursor as a raw completion prompt (no chat template -- this is plain
-/// code continuation, not a conversation turn). `max_tokens` is clamped to
-/// `COMPLETE_MAX_TOKENS_CAP` regardless of what the frontend passes, since
-/// this is the one call site latency work built around most closely.
+/// ghost-text provider calls this with the code before the cursor. The
+/// LOCAL backend still gets the exact pre-existing behavior (a raw prefix
+/// continuation, no chat template -- see `GenRequest::local_raw_prompt`);
+/// a hosted backend, which has no raw-continuation endpoint, gets a short
+/// "continue this code" system/user pair instead. `max_tokens` is clamped
+/// to `COMPLETE_MAX_TOKENS_CAP` regardless of what the frontend passes.
 #[tauri::command]
-pub fn llm_complete(request: LlmCompleteRequest, state: State<LlmState>) -> Result<String, String> {
-    complete_with_state(&state, request)
+pub fn llm_complete(
+    request: LlmCompleteRequest,
+    app: tauri::AppHandle,
+    state: State<LlmState>,
+) -> Result<LlmAnswer, String> {
+    let max_tokens = request
+        .max_tokens
+        .unwrap_or(COMPLETE_DEFAULT_MAX_TOKENS)
+        .min(COMPLETE_MAX_TOKENS_CAP)
+        .max(1);
+    let prefix = truncate_chars(&request.prefix, CONTEXT_CHAR_BUDGET);
+    let system = format!(
+        "You are completing Qu code inside Qu Studio.\n\n{QU_SYNTAX_PRIMER}\n\
+         Continue the code below with a short, syntactically valid continuation. Reply with \
+         ONLY the continuation text (no repetition of the prefix, no explanation, no markdown \
+         fences)."
+    );
+    let user = format!("Continue this Qu code:\n{prefix}");
+    dispatch(
+        &app,
+        &state,
+        GenRequest { system, user, max_tokens, local_raw_prompt: Some(prefix) },
+    )
 }
 
-/// The actual `llm_complete` logic -- see `chat_with_state`'s own doc
-/// comment for why this is factored out from the `#[tauri::command]`
-/// wrapper (testability without a real `tauri::State`).
-fn complete_with_state(state: &LlmState, request: LlmCompleteRequest) -> Result<String, String> {
-    #[cfg(feature = "llm")]
-    {
-        let model = get_or_load_model(state)?;
-        let max_tokens = request
-            .max_tokens
-            .unwrap_or(COMPLETE_DEFAULT_MAX_TOKENS)
-            .min(COMPLETE_MAX_TOKENS_CAP)
-            .max(1);
-        // Prefix-only completion (v1, per the brief) -- the tail of the
-        // buffer before the cursor is the prompt, no fill-in-middle suffix
-        // handling. Same tail-truncation as the chat prompt, for the same
-        // reason: prompt-processing time scales with input token count on
-        // this CPU-only model, and the END of the prefix (right before the
-        // cursor) is what actually matters for a completion.
-        let prefix = truncate_chars(&request.prefix, CONTEXT_CHAR_BUDGET);
-        let completion = model.generate(&prefix, max_tokens)?;
-        Ok(completion)
-    }
-    #[cfg(not(feature = "llm"))]
-    {
-        let _ = (request, state);
-        Err("Qu Studio's inline autocomplete needs a build with the `llm` Cargo feature \
-             enabled (`cargo tauri dev --features llm`) -- this build doesn't have it."
-            .to_string())
-    }
-}
-
-/// "Fix this error" gets more headroom than a chat reply -- the output IS
-/// the replacement script, not prose, so it needs to be long enough to
-/// cover a whole small Qu script (the catalog examples this primer itself
-/// quotes run 20-50 lines). Still bounded, same CPU-only-latency reasoning
-/// as every other budget in this module.
-#[cfg(feature = "llm")]
 const FIX_MAX_TOKENS: usize = 256;
-#[cfg(feature = "llm")]
 const TRANSFORM_MAX_TOKENS: usize = 256;
-/// Error messages are short; take the TAIL when truncating (same rationale
-/// as `CONTEXT_CHAR_BUDGET`'s own doc comment -- Qu's own error format puts
-/// the actually-useful line near the end), just with a smaller budget since
-/// there's usually nowhere near this much error text to begin with.
-#[cfg(feature = "llm")]
 const FIX_ERROR_CHAR_BUDGET: usize = 600;
 
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(not(feature = "llm"), allow(dead_code))]
 pub struct LlmFixErrorRequest {
-    /// The full current editor buffer -- the script that produced `error`.
     pub code: String,
-    /// The exact error text from that run (`ExecuteResponse.error` /
-    /// `executionState.error` in `App.tsx`, i.e. the CURRENT run's error,
-    /// not a stale one from an earlier edit -- see `App.tsx`'s own
-    /// `executeCode`, which clears `executionState.error` back to `null`
-    /// the instant a new run starts).
     pub error: String,
 }
 
-/// Builds the fix-error prompt: primer + "here's the script and the exact
-/// error, reply with ONLY the corrected script." Told explicitly not to
-/// wrap the reply in markdown fences or add commentary, since this output
-/// goes straight into a diff-preview the user applies to their buffer --
-/// chatty wrapping around the code would otherwise need to be stripped
-/// before it's usable as a replacement script (see `strip_code_fence`,
-/// kept as a defensive second layer since a small chat-tuned model doesn't
-/// reliably follow "no markdown" instructions 100% of the time).
-#[cfg(feature = "llm")]
-fn build_fix_prompt(code: &str, error: &str) -> String {
-    let system = format!(
+fn fix_system_prompt() -> String {
+    format!(
         "You are a Qu code-fixing assistant inside Qu Studio, an IDE for the Qu scientific \
          scripting language.\n\n{QU_SYNTAX_PRIMER}\n\
          The user's script below failed with the error shown. Reply with ONLY the corrected, \
          complete Qu script that fixes it -- no explanation, no restating the error, no \
          markdown code fences, no commentary before or after the code."
-    );
-    let user = format!(
-        "Script:\n{}\n\nError:\n{}",
-        truncate_chars(code.trim(), CONTEXT_CHAR_BUDGET),
-        truncate_chars(error.trim(), FIX_ERROR_CHAR_BUDGET)
-    );
-    format!("<|system|>\n{system}</s>\n<|user|>\n{user}</s>\n<|assistant|>\n")
+    )
 }
 
 /// `llm_fix_error(request: { code, error })` -- the "Fix with AI" button's
-/// command, triggered from the inline error banner `App.tsx` shows next to
-/// a failed run. Returns the model's best guess at a corrected FULL script
-/// (not a diff/patch -- the frontend diffs it against the current buffer
-/// itself for the review-before-apply UI, see `AiDiffModal`). Never applied
-/// automatically: this is exactly the "destructive if wrong" action the
-/// brief calls out, so the caller is expected to show it for review first.
+/// command. Returns the model's best guess at a corrected FULL script (not
+/// a diff/patch -- the frontend diffs it against the current buffer itself
+/// for the review-before-apply UI). Never applied automatically.
 #[tauri::command]
-pub fn llm_fix_error(request: LlmFixErrorRequest, state: State<LlmState>) -> Result<String, String> {
-    fix_error_with_state(&state, request)
-}
-
-fn fix_error_with_state(state: &LlmState, request: LlmFixErrorRequest) -> Result<String, String> {
-    #[cfg(feature = "llm")]
-    {
-        let model = get_or_load_model(state)?;
-        let prompt = build_fix_prompt(&request.code, &request.error);
-        let reply = model.generate(&prompt, FIX_MAX_TOKENS)?;
-        Ok(strip_code_fence(&reply))
-    }
-    #[cfg(not(feature = "llm"))]
-    {
-        let _ = (request, state);
-        Err("Qu Studio's AI fix needs a build with the `llm` Cargo feature enabled \
-             (`cargo tauri dev --features llm`) -- this build doesn't have it."
-            .to_string())
-    }
+pub fn llm_fix_error(
+    request: LlmFixErrorRequest,
+    app: tauri::AppHandle,
+    state: State<LlmState>,
+) -> Result<LlmAnswer, String> {
+    let system = fix_system_prompt();
+    let user = format!(
+        "Script:\n{}\n\nError:\n{}",
+        truncate_chars(request.code.trim(), CONTEXT_CHAR_BUDGET),
+        truncate_chars(request.error.trim(), FIX_ERROR_CHAR_BUDGET)
+    );
+    let mut answer = dispatch(&app, &state, GenRequest { system, user, max_tokens: FIX_MAX_TOKENS, local_raw_prompt: None })?;
+    answer.text = strip_code_fence(&answer.text);
+    Ok(answer)
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(not(feature = "llm"), allow(dead_code))]
 pub struct LlmTransformRequest {
-    /// What the user wants done, in plain English -- e.g. "vectorize this
-    /// loop" or "add error handling" (transform mode), or "plot a damped
-    /// sine wave" (generate mode, see `selection` below).
     pub instruction: String,
-    /// The current whole-buffer text, for context (existing variable names,
-    /// style) -- optional since a brand-new/empty buffer has none.
     pub code: Option<String>,
-    /// The user's current Monaco selection, exactly as read from the editor
-    /// (see `CodeEditor.tsx`'s `onSelectionChange`) -- `None`/empty means
-    /// "generate new code from scratch" (Task 3a) rather than "rewrite this
-    /// selection" (Task 3b).
     pub selection: Option<String>,
 }
 
-/// Builds the transform-or-generate prompt. Two modes, same shape as
-/// `LlmTransformRequest.selection`'s own doc comment: with a selection,
-/// asks for a rewrite of just that snippet; without one, asks for brand-new
-/// code from the instruction alone. Both modes end with the same "ONLY the
-/// code" instruction as `build_fix_prompt`, for the same reason (this
-/// output is meant to go straight into a diff-preview/insert, not be read
-/// as prose first).
-#[cfg(feature = "llm")]
-fn build_transform_prompt(instruction: &str, code_context: Option<&str>, selection: Option<&str>) -> String {
-    let has_selection = selection.map(|s| !s.trim().is_empty()).unwrap_or(false);
-    let system = if has_selection {
+fn transform_system_prompt(has_selection: bool) -> String {
+    if has_selection {
         format!(
             "You are a Qu code-transformation assistant inside Qu Studio, an IDE for the Qu \
              scientific scripting language.\n\n{QU_SYNTAX_PRIMER}\n\
@@ -420,8 +405,11 @@ fn build_transform_prompt(instruction: &str, code_context: Option<&str>, selecti
              The user describes Qu code they want written. Reply with ONLY the new Qu code -- \
              no explanation, no markdown code fences, no commentary before or after the code."
         )
-    };
+    }
+}
 
+fn build_transform_user(instruction: &str, code_context: Option<&str>, selection: Option<&str>) -> String {
+    let has_selection = selection.map(|s| !s.trim().is_empty()).unwrap_or(false);
     let mut user = String::new();
     if let Some(ctx) = code_context {
         let trimmed = ctx.trim();
@@ -438,55 +426,46 @@ fn build_transform_prompt(instruction: &str, code_context: Option<&str>, selecti
     }
     user.push_str("Instruction: ");
     user.push_str(instruction.trim());
-
-    format!("<|system|>\n{system}</s>\n<|user|>\n{user}</s>\n<|assistant|>\n")
+    user
 }
 
 /// `llm_transform_code(request: { instruction, code, selection })` -- the
-/// "Generate/Transform" button's one command, covering both Task 3 modes
+/// "Generate/Transform" button's one command, covering both modes
 /// (selection present -> rewrite it; absent -> generate new code). Same
-/// review-before-apply contract as `llm_fix_error`: this returns a
-/// SUGGESTION string, never touches the caller's actual buffer itself.
+/// review-before-apply contract as `llm_fix_error`.
 #[tauri::command]
-pub fn llm_transform_code(request: LlmTransformRequest, state: State<LlmState>) -> Result<String, String> {
-    transform_with_state(&state, request)
-}
-
-fn transform_with_state(state: &LlmState, request: LlmTransformRequest) -> Result<String, String> {
-    #[cfg(feature = "llm")]
-    {
-        let model = get_or_load_model(state)?;
-        let prompt = build_transform_prompt(
-            &request.instruction,
-            request.code.as_deref(),
-            request.selection.as_deref(),
-        );
-        let reply = model.generate(&prompt, TRANSFORM_MAX_TOKENS)?;
-        Ok(strip_code_fence(&reply))
-    }
-    #[cfg(not(feature = "llm"))]
-    {
-        let _ = (request, state);
-        Err("Qu Studio's AI generate/transform needs a build with the `llm` Cargo feature \
-             enabled (`cargo tauri dev --features llm`) -- this build doesn't have it."
-            .to_string())
-    }
+pub fn llm_transform_code(
+    request: LlmTransformRequest,
+    app: tauri::AppHandle,
+    state: State<LlmState>,
+) -> Result<LlmAnswer, String> {
+    let has_selection = request.selection.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+    let system = transform_system_prompt(has_selection);
+    let user = build_transform_user(&request.instruction, request.code.as_deref(), request.selection.as_deref());
+    let mut answer = dispatch(
+        &app,
+        &state,
+        GenRequest { system, user, max_tokens: TRANSFORM_MAX_TOKENS, local_raw_prompt: None },
+    )?;
+    answer.text = strip_code_fence(&answer.text);
+    Ok(answer)
 }
 
 /// Extracts just the code from a model reply, defensively, on top of the
-/// "no markdown fences, no commentary" prompt instruction. NOT a "strip
-/// fences off the whole-reply wrapper" guess -- that was tried first and
-/// turned out wrong against a REAL reply (see IMPL.md's dated entry):
-/// `real_fix_error_suggests_a_correction` came back as
+/// "no markdown fences, no commentary" prompt instruction -- see the
+/// original implementation's own note (kept verbatim below) on why a
+/// simple "strip fences off the whole reply" guess was wrong against a
+/// real reply.
+///
+/// NOT a "strip fences off the whole-reply wrapper" guess -- that was
+/// tried first and turned out wrong against a REAL reply:
 /// `"Here's the corrected Qu script that fixes the error:\n\n\`\`\`\nx = \
 /// [1, 2, 3]\nprint(length(x))\n\`\`\`\n\nThis script defines..."` -- prose
 /// BEFORE the fence and prose AFTER it, not just a bare fenced-whole-reply.
 /// So this scans for the first fence-opening line (\`\`\` or \`\`\`qu) and
 /// the NEXT fence-closing line after it, and keeps only what's strictly
-/// between them, discarding surrounding commentary either side. Falls back
-/// to the trimmed whole reply when there's no fence pair at all (the model
-/// DID follow the "no fences" instruction that time).
-#[cfg(feature = "llm")]
+/// between them. Falls back to the trimmed whole reply when there's no
+/// fence pair at all.
 fn strip_code_fence(s: &str) -> String {
     let trimmed = s.trim();
     let lines: Vec<&str> = trimmed.lines().collect();
@@ -499,42 +478,113 @@ fn strip_code_fence(s: &str) -> String {
     trimmed.to_string()
 }
 
+// ---------------------------------------------------------------------
+// Provider settings commands
+// ---------------------------------------------------------------------
+
+fn config_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path_resolver()
+        .app_config_dir()
+        .ok_or_else(|| "could not resolve the app config directory for this platform".to_string())
+}
+
+/// `get_llm_provider_config()` -- the settings panel's initial load. Never
+/// returns the real API keys, only whether one is saved (see
+/// `llm_providers::PublicProviderSettings`).
+#[tauri::command]
+pub fn get_llm_provider_config(app: tauri::AppHandle) -> Result<llm_providers::PublicProviderSettings, String> {
+    let dir = config_dir(&app)?;
+    let settings = llm_providers::load_settings(&dir);
+    Ok((&settings).into())
+}
+
+/// `set_llm_provider_config(update)` -- saves the selected provider, model
+/// names, and (optionally) new API keys. See
+/// `llm_providers::ProviderSettingsUpdate`'s own doc comment for the
+/// "`None` keeps, `Some(\"\")` clears" key semantics. Returns the same
+/// redacted DTO `get_llm_provider_config` does, so the settings panel can
+/// refresh its "key saved?" indicator from the response instead of a
+/// second round-trip.
+#[tauri::command]
+pub fn set_llm_provider_config(
+    update: llm_providers::ProviderSettingsUpdate,
+    app: tauri::AppHandle,
+) -> Result<llm_providers::PublicProviderSettings, String> {
+    let dir = config_dir(&app)?;
+    let settings = llm_providers::apply_update(&dir, update)?;
+    Ok((&settings).into())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TestLlmProviderRequest {
+    pub provider: ProviderKind,
+    /// The key to test. The settings panel sends whatever's currently in
+    /// the password field -- which may not be saved yet -- so "Test
+    /// connection" can validate a key BEFORE the user commits to saving
+    /// it. `None`/empty falls back to whatever's already saved for that
+    /// provider, so re-testing an already-saved key without re-pasting it
+    /// also works.
+    pub api_key: Option<String>,
+    pub model: Option<String>,
+}
+
+/// `test_llm_provider(request: { provider, api_key?, model? })` -- the
+/// settings panel's "Test connection" button. Makes ONE real, cheap call
+/// (5 max_tokens, a one-word expected reply) to confirm a key actually
+/// works before the user saves it. `Local` always "succeeds" without a
+/// network call -- there's nothing to test, and the button should still
+/// make sense when Local is selected (a no-op success rather than a
+/// disabled/hidden case the frontend would need to special-case).
+#[tauri::command]
+pub fn test_llm_provider(request: TestLlmProviderRequest, app: tauri::AppHandle) -> Result<(), String> {
+    match request.provider {
+        ProviderKind::Local => Ok(()),
+        ProviderKind::Openai => {
+            let dir = config_dir(&app)?;
+            let saved = llm_providers::load_settings(&dir);
+            let key = request
+                .api_key
+                .filter(|k| !k.is_empty())
+                .or(saved.openai_api_key)
+                .ok_or_else(|| "no OpenAI API key to test -- paste one first".to_string())?;
+            let model = request.model.filter(|m| !m.is_empty()).unwrap_or(saved.openai_model);
+            llm_providers::openai_test_connection(&key, &model)
+        }
+        ProviderKind::Anthropic => {
+            let dir = config_dir(&app)?;
+            let saved = llm_providers::load_settings(&dir);
+            let key = request
+                .api_key
+                .filter(|k| !k.is_empty())
+                .or(saved.anthropic_api_key)
+                .ok_or_else(|| "no Anthropic API key to test -- paste one first".to_string())?;
+            let model = request.model.filter(|m| !m.is_empty()).unwrap_or(saved.anthropic_model);
+            llm_providers::anthropic_test_connection(&key, &model)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use llm_providers::ProviderSettings;
 
-    /// Exercises ONLY the `llm`-off error path -- no model, no network,
-    /// stays in the default `cargo test` run. Mirrors `qu-llm`'s own
-    /// "cheap, hermetic tests in the default suite; real generation is
-    /// `#[ignore]`d" split.
+    fn local_settings() -> ProviderSettings {
+        ProviderSettings::default()
+    }
+
+    /// Exercises ONLY the local, `llm`-off error path -- no model, no
+    /// network. Mirrors `qu-llm`'s own "cheap, hermetic tests in the
+    /// default suite; real generation is `#[ignore]`d" split.
     #[cfg(not(feature = "llm"))]
     #[test]
     fn chat_without_llm_feature_returns_a_clear_error() {
         let state = LlmState::default();
-        let err = chat_with_state(&state, LlmChatRequest { prompt: "hi".into(), context: None }).unwrap_err();
+        let req = GenRequest { system: "s".into(), user: "hi".into(), max_tokens: 8, local_raw_prompt: None };
+        let err = dispatch_with_settings(&state, &local_settings(), req).unwrap_err();
         assert!(err.contains("llm"), "got: {err}");
     }
 
-    /// Same `llm`-off error-path coverage as `chat_without_llm_feature_returns_a_clear_error`,
-    /// for the two newer commands.
-    #[cfg(not(feature = "llm"))]
-    #[test]
-    fn fix_error_without_llm_feature_returns_a_clear_error() {
-        let state = LlmState::default();
-        let err = fix_error_with_state(
-            &state,
-            LlmFixErrorRequest { code: "x = 1".into(), error: "boom".into() },
-        )
-        .unwrap_err();
-        assert!(err.contains("llm"), "got: {err}");
-    }
-
-    /// Locks in `strip_code_fence`'s handling of the EXACT reply shape a
-    /// real `real_fix_error_suggests_a_correction` run actually produced
-    /// (see that function's own doc comment) -- prose before the fence,
-    /// prose after it, no full-reply wrapping. A hermetic, no-model test:
-    /// this is pure string logic, doesn't need `--ignored`.
-    #[cfg(feature = "llm")]
     #[test]
     fn strip_code_fence_extracts_code_between_prose() {
         let reply = "Here's the corrected Qu script that fixes the error:\n\n\
@@ -543,175 +593,70 @@ mod tests {
         assert_eq!(strip_code_fence(reply), "x = [1, 2, 3]\nprint(length(x))");
     }
 
-    #[cfg(feature = "llm")]
     #[test]
     fn strip_code_fence_passes_through_a_fence_free_reply() {
         assert_eq!(strip_code_fence("x = [1, 2, 3]\nprint(length(x))"), "x = [1, 2, 3]\nprint(length(x))");
     }
 
-    #[cfg(feature = "llm")]
     #[test]
     fn strip_code_fence_handles_a_language_tagged_fence() {
         let reply = "```qu\ny = sum(x)\n```";
         assert_eq!(strip_code_fence(reply), "y = sum(x)");
     }
 
+    /// A provider selected with no saved key must error clearly, not panic
+    /// or silently fall back without telling the caller why (fallback IS
+    /// still attempted -- see the next test -- this one covers the
+    /// no-fallback-available case, i.e. an `llm`-off build).
     #[cfg(not(feature = "llm"))]
     #[test]
-    fn transform_without_llm_feature_returns_a_clear_error() {
+    fn openai_selected_without_key_and_no_local_fallback_available_errors_clearly() {
         let state = LlmState::default();
-        let err = transform_with_state(
-            &state,
-            LlmTransformRequest { instruction: "do it".into(), code: None, selection: None },
-        )
-        .unwrap_err();
-        assert!(err.contains("llm"), "got: {err}");
+        let mut settings = local_settings();
+        settings.provider = ProviderKind::Openai;
+        let req = GenRequest { system: "s".into(), user: "hi".into(), max_tokens: 8, local_raw_prompt: None };
+        let err = dispatch_with_settings(&state, &settings, req).unwrap_err();
+        assert!(err.contains("OpenAI"), "got: {err}");
+        assert!(err.contains("Local fallback also failed"), "got: {err}");
     }
 
-    /// Real, end-to-end, non-mocked exercise of the EXACT logic
-    /// `llm_chat`'s `#[tauri::command]` wrapper calls -- loads the real
-    /// TinyLlama model (from the local Hugging Face cache; downloads it on
-    /// a machine that doesn't have it yet) and runs real CPU inference.
-    /// `#[ignore]`d for the same reason `qu-llm`/`qu-interp`'s own real-
-    /// generation tests are: not appropriate for a default `cargo test` run
-    /// on a machine/CI sandbox with no model cached. Run by hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture real_chat_produces_a_coherent_reply
-    #[cfg(feature = "llm")]
+    /// Same shape for Anthropic.
+    #[cfg(not(feature = "llm"))]
     #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn real_chat_produces_a_coherent_reply() {
+    fn anthropic_selected_without_key_and_no_local_fallback_available_errors_clearly() {
         let state = LlmState::default();
-        let reply = chat_with_state(
-            &state,
-            LlmChatRequest {
-                prompt: "In one short sentence, what is a Fourier transform?".to_string(),
-                context: None,
-            },
-        )
-        .expect("chat_with_state should succeed with a real model");
-        println!("real mascot chat reply: {reply:?}");
-        assert!(!reply.trim().is_empty(), "expected a non-empty reply, got: {reply:?}");
+        let mut settings = local_settings();
+        settings.provider = ProviderKind::Anthropic;
+        let req = GenRequest { system: "s".into(), user: "hi".into(), max_tokens: 8, local_raw_prompt: None };
+        let err = dispatch_with_settings(&state, &settings, req).unwrap_err();
+        assert!(err.contains("Anthropic"), "got: {err}");
     }
 
-    /// Same real, non-mocked exercise for `llm_complete`'s underlying
-    /// logic. Run by hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture real_complete_continues_qu_code
+    /// The fallback path, exercised for real: point `provider` at a hosted
+    /// backend with an obviously-invalid key so the HTTP call fails fast
+    /// with a 401 (still a REAL network call -- this is intentionally not
+    /// mocked, since the fallback wiring itself is what's under test, not
+    /// OpenAI's response shape which `llm_providers`'s own tests already
+    /// cover against fixtures). Requires network access and is skipped in
+    /// the default `cargo test` run.
+    ///   cargo test -p qu-studio -- --ignored --nocapture fallback_to_local
     #[cfg(feature = "llm")]
     #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn real_complete_continues_qu_code() {
+    #[ignore = "makes a real network call to OpenAI with a deliberately invalid key, then loads the real local model as the fallback"]
+    fn fallback_to_local_on_hosted_failure_real() {
         let state = LlmState::default();
-        let completion = complete_with_state(
-            &state,
-            LlmCompleteRequest {
-                prefix: "x = [1, 2, 3, 4, 5]\ny = sum(x)\nprint(".to_string(),
-                max_tokens: Some(12),
-            },
-        )
-        .expect("complete_with_state should succeed with a real model");
-        println!("real inline completion: {completion:?}");
-        assert!(!completion.trim().is_empty(), "expected a non-empty completion, got: {completion:?}");
-    }
-
-    /// Real, non-mocked exercise of `llm_fix_error`'s underlying logic on a
-    /// script with a deliberate, obvious bug (wrong builtin name). Run by
-    /// hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture real_fix_error_suggests_a_correction
-    #[cfg(feature = "llm")]
-    #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn real_fix_error_suggests_a_correction() {
-        let state = LlmState::default();
-        let fixed = fix_error_with_state(
-            &state,
-            LlmFixErrorRequest {
-                code: "x = [1, 2, 3]\nprint(lenght(x))".to_string(),
-                error: "unknown function `lenght` (did you mean `length`?)".to_string(),
-            },
-        )
-        .expect("fix_error_with_state should succeed with a real model");
-        println!("real fix-error suggestion: {fixed:?}");
-        assert!(!fixed.trim().is_empty(), "expected a non-empty suggestion, got: {fixed:?}");
-    }
-
-    /// Real, non-mocked exercise of `llm_transform_code`'s underlying logic
-    /// in "transform a selection" mode. Run by hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture real_transform_rewrites_a_selection
-    #[cfg(feature = "llm")]
-    #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn real_transform_rewrites_a_selection() {
-        let state = LlmState::default();
-        let result = transform_with_state(
-            &state,
-            LlmTransformRequest {
-                instruction: "add a comment above this line explaining what it does".to_string(),
-                code: Some("x = [1, 2, 3]\ny = sum(x)".to_string()),
-                selection: Some("y = sum(x)".to_string()),
-            },
-        )
-        .expect("transform_with_state should succeed with a real model");
-        println!("real transform suggestion: {result:?}");
-        assert!(!result.trim().is_empty(), "expected a non-empty suggestion, got: {result:?}");
-    }
-
-    /// Real, non-mocked exercise of `llm_transform_code`'s underlying logic
-    /// in "generate from scratch" mode (no selection). Run by hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture real_transform_generates_new_code
-    #[cfg(feature = "llm")]
-    #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn real_transform_generates_new_code() {
-        let state = LlmState::default();
-        let result = transform_with_state(
-            &state,
-            LlmTransformRequest {
-                instruction: "create a vector of 10 zeros".to_string(),
-                code: None,
-                selection: None,
-            },
-        )
-        .expect("transform_with_state should succeed with a real model");
-        println!("real generate suggestion: {result:?}");
-        assert!(!result.trim().is_empty(), "expected a non-empty suggestion, got: {result:?}");
-    }
-
-    /// Verifies the chat prompt's conciseness instruction actually changes
-    /// real model output, rather than assuming a sentence added to the
-    /// prompt worked. Generates the SAME question through the OLD prompt
-    /// shape (primer, no "be concise" instruction) and the CURRENT
-    /// `build_chat_prompt` (primer + conciseness instruction) with the same
-    /// `max_tokens` budget, and prints both so a human/reviewing agent can
-    /// compare them directly. Run by hand with:
-    ///   cargo test -p qu-studio --features llm -- --ignored --nocapture conciseness_instruction_changes_real_output
-    #[cfg(feature = "llm")]
-    #[test]
-    #[ignore = "downloads/loads a real ~669MB model and runs real CPU inference; run manually"]
-    fn conciseness_instruction_changes_real_output() {
-        let model = qu_llm::load("").expect("model should load");
-        let question = "What does the |> operator do in Qu?";
-
-        let verbose_system = format!(
-            "You are Qu-bot, the friendly built-in mascot assistant for Qu Studio, an IDE for \
-             the Qu scientific scripting language (a MATLAB/Julia-like language for signal \
-             processing, linear algebra, and machine learning).\n\n{QU_SYNTAX_PRIMER}\n\
-             Answer the user's question directly and concisely.",
-        );
-        let verbose_prompt =
-            format!("<|system|>\n{verbose_system}</s>\n<|user|>\n{question}</s>\n<|assistant|>\n");
-        let verbose_reply =
-            model.generate(&verbose_prompt, CHAT_MAX_TOKENS).expect("verbose generate should succeed");
-
-        let concise_prompt = build_chat_prompt(question, None);
-        let concise_reply =
-            model.generate(&concise_prompt, CHAT_MAX_TOKENS).expect("concise generate should succeed");
-
-        println!("=== WITHOUT explicit conciseness instruction ===\n{verbose_reply}");
-        println!("=== WITH explicit conciseness instruction ===\n{concise_reply}");
-        println!(
-            "lengths: without={} chars, with={} chars",
-            verbose_reply.trim().chars().count(),
-            concise_reply.trim().chars().count()
-        );
+        let mut settings = local_settings();
+        settings.provider = ProviderKind::Openai;
+        settings.openai_api_key = Some("sk-deliberately-invalid-for-this-test".to_string());
+        let req = GenRequest {
+            system: "You are a helpful assistant.".into(),
+            user: "Say hi in one word.".into(),
+            max_tokens: 8,
+            local_raw_prompt: None,
+        };
+        let answer = dispatch_with_settings(&state, &settings, req).expect("local fallback should succeed");
+        assert!(answer.fell_back, "expected fell_back=true, got {answer:?}");
+        assert_eq!(answer.backend, "Local (TinyLlama)");
+        assert!(answer.note.as_deref().unwrap_or("").contains("OpenAI failed"));
     }
 }

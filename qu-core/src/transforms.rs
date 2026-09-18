@@ -1055,6 +1055,353 @@ fn select_by_peak_distance(candidates: &[usize], x: &[f64], dist: usize) -> Vec<
     accepted
 }
 
+// =====================================================================
+// Oscilloscope-style pulse and edge measurements
+// (`docs/design/toolkit-signal.md` §6 "Events", §8 "pulse measurements")
+//
+// Everything below is built on ONE primitive, `find_trigger`, so that
+// "where does this signal cross a level" has exactly one definition in
+// the engine rather than five subtly different ones. The measurement
+// layer (`rise_time`, `pulse_period`, ...) adds sub-sample linear
+// interpolation on top of the integer indices the locator layer reports;
+// see `crossing_position`.
+// =====================================================================
+
+/// Which way a threshold crossing goes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Edge {
+    Rising,
+    Falling,
+    Both,
+}
+
+/// Sample indices where `x` crosses `level` in the requested direction.
+///
+/// The crossing is defined on the BOOLEAN state `x[i] >= level`, and the
+/// index reported is the first sample of the new state — so a rising
+/// crossing at `i` means `x[i-1] < level <= x[i]`, and a falling one
+/// means `x[i-1] >= level > x[i]`.
+///
+/// Treating "exactly at the level" as belonging to the HIGH side is not
+/// cosmetic: because the state is a single boolean, rising and falling
+/// crossings are guaranteed to strictly ALTERNATE, which is what lets
+/// `find_pulses` pair them without a re-scan and without ever emitting a
+/// pulse whose end precedes its start. The symmetric-looking alternative
+/// (`prev < level && cur >= level` for rising, `prev > level && cur <=
+/// level` for falling) loses that property: a sample landing exactly ON
+/// the level produces a rising crossing with no matching falling one.
+///
+/// A transition involving a NaN is skipped rather than reported. NaN
+/// compares false against everything, so it would otherwise read as
+/// "low" and manufacture a pair of edges out of a dropout — inventing
+/// pulses where the record merely has missing samples.
+pub fn find_trigger(x: &[f64], level: f64, edge: Edge) -> Vec<usize> {
+    let mut out = Vec::new();
+    for i in 1..x.len() {
+        if x[i - 1].is_nan() || x[i].is_nan() {
+            continue;
+        }
+        let was_high = x[i - 1] >= level;
+        let is_high = x[i] >= level;
+        if was_high == is_high {
+            continue;
+        }
+        let wanted = match edge {
+            Edge::Rising => is_high,
+            Edge::Falling => !is_high,
+            Edge::Both => true,
+        };
+        if wanted {
+            out.push(i);
+        }
+    }
+    out
+}
+
+/// The sub-sample position, in fractional samples, at which the segment
+/// ending at index `i` crosses `level` — linear interpolation between
+/// `x[i-1]` and `x[i]`, the same thing a scope does when it reports a
+/// time between two samples.
+///
+/// Returns `i` itself when there is no segment to interpolate over
+/// (`i == 0`) or when the two samples are equal (a vertical step gives
+/// no information about where inside the interval the crossing fell).
+pub fn crossing_position(x: &[f64], i: usize, level: f64) -> f64 {
+    if i == 0 || i >= x.len() {
+        return i as f64;
+    }
+    let (a, b) = (x[i - 1], x[i]);
+    let denom = b - a;
+    if !denom.is_finite() || denom.abs() < 1e-300 {
+        return i as f64;
+    }
+    (i - 1) as f64 + (level - a) / denom
+}
+
+/// Walk an already-detected rising crossing back to where the signal
+/// actually passed `level`, and interpolate there.
+///
+/// Without hysteresis this is a no-op: the detected index already IS the
+/// mid-threshold crossing. It matters when `find_edges` used a Schmitt
+/// scheme, where the edge is reported at the far (high) threshold — the
+/// measurement must still be taken at the nominal threshold, or every
+/// width and period would carry the hysteresis band's own slew time.
+fn refine_rising(x: &[f64], i: usize, level: f64) -> f64 {
+    let mut j = i;
+    while j > 0 && x[j - 1] >= level {
+        j -= 1;
+    }
+    crossing_position(x, j, level)
+}
+
+fn refine_falling(x: &[f64], i: usize, level: f64) -> f64 {
+    let mut j = i;
+    while j > 0 && x[j - 1] < level {
+        j -= 1;
+    }
+    crossing_position(x, j, level)
+}
+
+/// Midpoint of `x`'s range, `(min + max) / 2` over the finite samples —
+/// the default threshold when a caller does not name one. `None` when
+/// there is no finite sample to work from.
+pub fn midpoint_level(x: &[f64]) -> Option<f64> {
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &v in x.iter().filter(|v| v.is_finite()) {
+        lo = lo.min(v);
+        hi = hi.max(v);
+    }
+    if lo > hi { None } else { Some((lo + hi) / 2.0) }
+}
+
+/// A detected set of edges: integer sample indices, their directions,
+/// and each one's interpolated sub-sample position at the NOMINAL
+/// threshold.
+pub struct EdgeSet {
+    pub indices: Vec<usize>,
+    pub rising: Vec<bool>,
+    pub positions: Vec<f64>,
+}
+
+/// Rising and falling edges of `x` about `threshold`.
+///
+/// With `hysteresis <= 0` this is exactly `find_trigger(.., Edge::Both)`.
+/// With a positive `hysteresis` it is a Schmitt trigger: the signal must
+/// reach `threshold + hysteresis/2` to be called high and fall to
+/// `threshold - hysteresis/2` to be called low, so noise riding on a slow
+/// edge produces one edge instead of a burst of them. The reported
+/// POSITIONS are still taken at `threshold` either way (see
+/// `refine_rising`), so turning hysteresis on to reject glitches does not
+/// move the measurements it is protecting.
+pub fn find_edges(x: &[f64], threshold: f64, hysteresis: f64) -> EdgeSet {
+    let mut set = EdgeSet { indices: Vec::new(), rising: Vec::new(), positions: Vec::new() };
+    if hysteresis <= 0.0 || !hysteresis.is_finite() {
+        for i in find_trigger(x, threshold, Edge::Both) {
+            let up = x[i] >= threshold;
+            set.indices.push(i);
+            set.rising.push(up);
+            set.positions
+                .push(if up { refine_rising(x, i, threshold) } else { refine_falling(x, i, threshold) });
+        }
+        return set;
+    }
+
+    let hi = threshold + hysteresis / 2.0;
+    let lo = threshold - hysteresis / 2.0;
+    // Seed the state from the first finite sample, so a record that
+    // starts high does not report a spurious first rising edge.
+    let mut state = match x.iter().find(|v| !v.is_nan()) {
+        Some(&v) => v >= threshold,
+        None => return set,
+    };
+    for (i, &v) in x.iter().enumerate() {
+        if v.is_nan() {
+            continue;
+        }
+        if !state && v >= hi {
+            state = true;
+            set.indices.push(i);
+            set.rising.push(true);
+            set.positions.push(refine_rising(x, i, threshold));
+        } else if state && v <= lo {
+            state = false;
+            set.indices.push(i);
+            set.rising.push(false);
+            set.positions.push(refine_falling(x, i, threshold));
+        }
+    }
+    set
+}
+
+/// A pulse: a rising edge and the next falling one (or the reverse, for
+/// `positive == false`), with the width measured between their
+/// interpolated positions.
+pub struct Pulse {
+    pub start: usize,
+    pub end: usize,
+    pub width: f64,
+}
+
+/// Pairs of consecutive opposite-going edges.
+///
+/// A partial pulse at either end of the record — a signal that is
+/// already high when capture starts, or still high when it stops — has
+/// only one of its two edges present and is therefore NOT reported. That
+/// is deliberate: its width is unknown, and reporting a truncated one is
+/// the kind of believable-but-wrong number this codebase keeps getting
+/// bitten by.
+pub fn find_pulses(x: &[f64], threshold: f64, hysteresis: f64, positive: bool) -> Vec<Pulse> {
+    let set = find_edges(x, threshold, hysteresis);
+    let mut out = Vec::new();
+    for k in 0..set.indices.len().saturating_sub(1) {
+        if set.rising[k] == positive && set.rising[k + 1] != positive {
+            out.push(Pulse {
+                start: set.indices[k],
+                end: set.indices[k + 1],
+                width: set.positions[k + 1] - set.positions[k],
+            });
+        }
+    }
+    out
+}
+
+/// Mean interval, in samples, between successive rising crossings of
+/// `level` — the pulse train's period. `None` when fewer than two rising
+/// crossings exist, i.e. when the record does not contain a full cycle.
+pub fn pulse_period(x: &[f64], level: f64, hysteresis: f64) -> Option<f64> {
+    let set = find_edges(x, level, hysteresis);
+    let ups: Vec<f64> = set
+        .positions
+        .iter()
+        .zip(set.rising.iter())
+        .filter(|(_, &r)| r)
+        .map(|(&p, _)| p)
+        .collect();
+    if ups.len() < 2 {
+        return None;
+    }
+    // Mean of the consecutive differences telescopes to the span over
+    // the gap count -- computed that way so a long record does not
+    // accumulate rounding across every individual difference.
+    Some((ups[ups.len() - 1] - ups[0]) / (ups.len() - 1) as f64)
+}
+
+/// Mean width, in samples, of the pulses of the requested polarity.
+pub fn mean_pulse_width(x: &[f64], level: f64, hysteresis: f64, positive: bool) -> Option<f64> {
+    let pulses = find_pulses(x, level, hysteresis, positive);
+    if pulses.is_empty() {
+        return None;
+    }
+    Some(pulses.iter().map(|p| p.width).sum::<f64>() / pulses.len() as f64)
+}
+
+/// Duty cycle as a FRACTION in `[0, 1]`: mean high time over mean period.
+pub fn duty_cycle(x: &[f64], level: f64, hysteresis: f64) -> Option<f64> {
+    let width = mean_pulse_width(x, level, hysteresis, true)?;
+    let period = pulse_period(x, level, hysteresis)?;
+    if !period.is_finite() || period == 0.0 {
+        return None;
+    }
+    Some(width / period)
+}
+
+/// 10%–90% (or `low`–`high`) transition time of the first complete
+/// rising transition in `x`, in fractional samples.
+///
+/// `base`/`top` are the levels the transition runs between. The caller
+/// supplies them; `rise_fall_levels` below computes the default pair.
+///
+/// The transition located is: the FIRST rising crossing of the high
+/// level, paired with the LAST rising crossing of the low level at or
+/// before it. Pairing backwards from the high crossing (rather than
+/// forwards from the first low crossing) is what makes this correct on a
+/// signal that wanders across the low level a few times before finally
+/// committing to the transition — it measures the edge that actually
+/// arrived, not the first hesitation.
+pub fn rise_time(x: &[f64], base: f64, top: f64, low: f64, high: f64) -> Option<f64> {
+    let span = top - base;
+    let (lo_lvl, hi_lvl) = (base + low * span, base + high * span);
+    let hi_idx = *find_trigger(x, hi_lvl, Edge::Rising).first()?;
+    let lo_idx = *find_trigger(x, lo_lvl, Edge::Rising).iter().filter(|&&i| i <= hi_idx).next_back()?;
+    Some(crossing_position(x, hi_idx, hi_lvl) - crossing_position(x, lo_idx, lo_lvl))
+}
+
+/// The mirror of `rise_time`: the first complete FALLING transition,
+/// from the high level down to the low one.
+pub fn fall_time(x: &[f64], base: f64, top: f64, low: f64, high: f64) -> Option<f64> {
+    let span = top - base;
+    let (lo_lvl, hi_lvl) = (base + low * span, base + high * span);
+    let lo_idx = *find_trigger(x, lo_lvl, Edge::Falling).first()?;
+    let hi_idx = *find_trigger(x, hi_lvl, Edge::Falling).iter().filter(|&&i| i <= lo_idx).next_back()?;
+    Some(crossing_position(x, lo_idx, lo_lvl) - crossing_position(x, hi_idx, hi_lvl))
+}
+
+/// Default `(base, top)` for a rise/fall measurement: the signal's own
+/// min and max over its finite samples.
+///
+/// This is the predictable choice, not the clever one, and it has a real
+/// failure mode worth stating: on a step that RINGS, the max is the
+/// overshoot peak rather than the settled top, which drags the 90% level
+/// up and reports a rise time that is too long. Pass `base=`/`top=`
+/// explicitly (or the settled value from `overshoot`'s own reckoning)
+/// when the step overshoots.
+pub fn rise_fall_levels(x: &[f64]) -> Option<(f64, f64)> {
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &v in x.iter().filter(|v| v.is_finite()) {
+        lo = lo.min(v);
+        hi = hi.max(v);
+    }
+    if lo > hi { None } else { Some((lo, hi)) }
+}
+
+/// Mean of the first / last `frac` of the finite samples (at least one
+/// sample each) — the default "initial level" and "settled level" of a
+/// step response.
+pub fn settled_levels(x: &[f64], frac: f64) -> Option<(f64, f64)> {
+    let finite: Vec<f64> = x.iter().copied().filter(|v| v.is_finite()).collect();
+    if finite.is_empty() {
+        return None;
+    }
+    let k = ((finite.len() as f64 * frac).round() as usize).clamp(1, finite.len());
+    let head = finite[..k].iter().sum::<f64>() / k as f64;
+    let tail = finite[finite.len() - k..].iter().sum::<f64>() / k as f64;
+    Some((head, tail))
+}
+
+/// Step-response overshoot and undershoot, each as a PERCENT of the
+/// step's own size `|final - initial|`.
+///
+/// Overshoot is how far the response travels PAST its settled value, in
+/// the direction the step was going; undershoot is how far it backs up
+/// past where it STARTED (the pre-shoot / recoil), which is the
+/// convention MATLAB's `stepinfo` uses. Both are clamped at zero — a
+/// response that never exceeds either bound has 0% of that quantity, not
+/// a negative amount of it. Works for a falling step as well as a rising
+/// one: the roles of min and max swap with the sign of the step.
+///
+/// `None` when the step has no size to be a percentage of.
+pub fn step_shoot(x: &[f64], initial: f64, settled: f64) -> Option<(f64, f64)> {
+    let span = settled - initial;
+    if !span.is_finite() || span == 0.0 {
+        return None;
+    }
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &v in x.iter().filter(|v| v.is_finite()) {
+        lo = lo.min(v);
+        hi = hi.max(v);
+    }
+    if lo > hi {
+        return None;
+    }
+    let (beyond_settled, beyond_initial) =
+        if span > 0.0 { (hi - settled, initial - lo) } else { (settled - lo, hi - initial) };
+    let mag = span.abs();
+    Some((100.0 * (beyond_settled / mag).max(0.0), 100.0 * (beyond_initial / mag).max(0.0)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2061,5 +2408,140 @@ mod tests {
             "expected coherence near 1 at {freq} Hz, got {}",
             coh[bin]
         );
+    }
+
+    // --- pulse / edge measurements -----------------------------------
+
+    /// A 0/1 pulse train: period 10 samples, high for the first 3 of
+    /// every 10. Every expected number below is worked out by hand from
+    /// this shape, not read back off the implementation.
+    fn pulse_train() -> Vec<f64> {
+        (0..50).map(|i| if i % 10 < 3 { 1.0 } else { 0.0 }).collect()
+    }
+
+    /// A step from 0 to 1 along a straight ramp of exactly 8 intervals
+    /// (slope 1/8 per sample), with flat tails either side.
+    fn ramp_step() -> Vec<f64> {
+        let mut v = vec![0.0, 0.0, 0.0];
+        for k in 0..=8 {
+            v.push(k as f64 / 8.0);
+        }
+        v.extend_from_slice(&[1.0, 1.0, 1.0]);
+        v
+    }
+
+    #[test]
+    fn trigger_reports_the_first_sample_of_the_new_state() {
+        let x = pulse_train();
+        // Rising: x[9]=0, x[10]=1 -> index 10. The run that is already
+        // high at sample 0 has no predecessor, so it is not an edge.
+        assert_eq!(find_trigger(&x, 0.5, Edge::Rising), vec![10, 20, 30, 40]);
+        // Falling: x[2]=1, x[3]=0 -> index 3.
+        assert_eq!(find_trigger(&x, 0.5, Edge::Falling), vec![3, 13, 23, 33, 43]);
+        let both = find_trigger(&x, 0.5, Edge::Both);
+        assert_eq!(both, vec![3, 10, 13, 20, 23, 30, 33, 40, 43]);
+    }
+
+    #[test]
+    fn rising_and_falling_crossings_strictly_alternate() {
+        // The property `find_pulses` relies on, checked on a signal that
+        // deliberately sits exactly ON the level (the case the symmetric
+        // definition gets wrong).
+        let x = [0.0, 0.5, 0.0, 0.5, 0.5, 0.0];
+        let set = find_edges(&x, 0.5, 0.0);
+        assert_eq!(set.indices, vec![1, 2, 3, 5]);
+        assert_eq!(set.rising, vec![true, false, true, false]);
+    }
+
+    #[test]
+    fn trigger_does_not_invent_edges_across_a_nan_dropout() {
+        let x = [1.0, 1.0, f64::NAN, 1.0, 1.0];
+        assert!(find_trigger(&x, 0.5, Edge::Both).is_empty());
+    }
+
+    #[test]
+    fn crossings_interpolate_between_samples() {
+        let x = pulse_train();
+        // Between x[9]=0 and x[10]=1 the half-way level falls at 9.5.
+        close(crossing_position(&x, 10, 0.5), 9.5, 1e-12);
+        // Between x[2]=1 and x[3]=0, likewise at 2.5.
+        close(crossing_position(&x, 3, 0.5), 2.5, 1e-12);
+    }
+
+    #[test]
+    fn period_width_and_duty_come_back_exact_on_a_known_train() {
+        let x = pulse_train();
+        close(pulse_period(&x, 0.5, 0.0).unwrap(), 10.0, 1e-12);
+        close(mean_pulse_width(&x, 0.5, 0.0, true).unwrap(), 3.0, 1e-12);
+        close(duty_cycle(&x, 0.5, 0.0).unwrap(), 0.3, 1e-12);
+        // Four complete pulses -- the high run at the very start of the
+        // record is truncated and deliberately not reported.
+        let pulses = find_pulses(&x, 0.5, 0.0, true);
+        assert_eq!(pulses.len(), 4);
+        assert_eq!(pulses[0].start, 10);
+        assert_eq!(pulses[0].end, 13);
+        close(pulses[0].width, 3.0, 1e-12);
+    }
+
+    #[test]
+    fn rise_time_of_a_known_ramp_is_the_ramp_slope() {
+        let x = ramp_step();
+        let (base, top) = rise_fall_levels(&x).unwrap();
+        close(base, 0.0, 1e-12);
+        close(top, 1.0, 1e-12);
+        // 10%->90% is 0.8 of a unit span climbed at 1/8 per sample: 6.4
+        // samples, and the two interpolated crossings are 3.8 and 10.2.
+        close(rise_time(&x, base, top, 0.1, 0.9).unwrap(), 6.4, 1e-12);
+    }
+
+    #[test]
+    fn fall_time_mirrors_rise_time_on_the_reversed_ramp() {
+        let mut x = ramp_step();
+        x.reverse();
+        let (base, top) = rise_fall_levels(&x).unwrap();
+        close(fall_time(&x, base, top, 0.1, 0.9).unwrap(), 6.4, 1e-12);
+    }
+
+    #[test]
+    fn hysteresis_rejects_a_glitch_without_moving_the_measurement() {
+        // A clean edge at the same place, once with a noise spike that
+        // pokes back across the threshold mid-transition.
+        let clean = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+        let glitchy = [0.0, 0.0, 0.0, 1.0, 0.45, 1.0, 1.0, 1.0];
+        assert_eq!(find_edges(&glitchy, 0.5, 0.0).indices.len(), 3); // up, down, up
+        let hyst = find_edges(&glitchy, 0.5, 0.4);
+        assert_eq!(hyst.indices.len(), 1); // the 0.45 dip never reaches lo=0.3
+        assert!(hyst.rising[0]);
+        // ...and the position is still the mid-threshold crossing, the
+        // same one the clean signal reports.
+        close(hyst.positions[0], find_edges(&clean, 0.5, 0.0).positions[0], 1e-12);
+    }
+
+    #[test]
+    fn overshoot_and_undershoot_are_percentages_of_the_step() {
+        // Settles at 1.0, peaks at 1.2, dips to -0.1 before rising.
+        let x = [0.0, 0.0, -0.1, 0.0, 1.2, 1.05, 1.0, 1.0, 1.0, 1.0];
+        let (initial, settled) = settled_levels(&x, 0.1).unwrap();
+        close(initial, 0.0, 1e-12);
+        close(settled, 1.0, 1e-12);
+        let (over, under) = step_shoot(&x, initial, settled).unwrap();
+        close(over, 20.0, 1e-12); // (1.2 - 1.0) / 1.0
+        close(under, 10.0, 1e-12); // (0.0 - -0.1) / 1.0
+    }
+
+    #[test]
+    fn a_falling_step_overshoots_downward() {
+        let x = [1.0, 1.0, 1.0, -0.2, 0.0, 0.0, 0.0, 0.0];
+        let (initial, settled) = settled_levels(&x, 0.125).unwrap();
+        let (over, under) = step_shoot(&x, initial, settled).unwrap();
+        close(over, 20.0, 1e-12); // travelled 0.2 past the settled 0.0
+        close(under, 0.0, 1e-12); // never went above where it started
+    }
+
+    #[test]
+    fn a_record_without_a_full_cycle_reports_nothing_rather_than_guessing() {
+        let x = [0.0, 0.0, 1.0, 1.0, 1.0];
+        assert!(pulse_period(&x, 0.5, 0.0).is_none());
+        assert!(mean_pulse_width(&x, 0.5, 0.0, true).is_none());
     }
 }

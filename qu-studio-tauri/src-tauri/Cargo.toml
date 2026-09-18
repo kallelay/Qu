@@ -17,7 +17,7 @@
 
 [package]
 name = "qu-studio"
-version = "0.2.1"
+version = "0.2.2"
 description = "Qu Studio - Modern IDE for the Qu scientific scripting language"
 authors = ["Qu Language Team"]
 license = "Apache-2.0"
@@ -36,6 +36,15 @@ log = "0.4"
 # `ExecuteResponse.plots` -- see `execute_code`/`collect_plot_outputs`.
 base64 = "0.22"
 serialport = "4"
+# Hosted "AI Assist" providers (OpenAI/Anthropic, see `llm_providers.rs`'s
+# own module doc comment for the full reasoning) -- sync, no async runtime,
+# matches this crate's existing all-sync `#[tauri::command]` style. Reuses
+# `qu-llm`'s own HTTP-client choice rather than adding `reqwest` as a
+# second stack (see `llm_providers.rs`). Deliberately NOT gated behind the
+# `llm` feature: unlike the local candle/GGUF path, a hosted-provider call
+# needs no local model weight at all, so a build without `llm` should still
+# be able to use OpenAI/Anthropic (it just has no local fallback to offer).
+ureq = { version = "2", features = ["json"] }
 
 # Qu engine crates - workspace members
 qu-core = { path = "../../qu-core" }

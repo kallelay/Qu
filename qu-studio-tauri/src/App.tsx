@@ -42,7 +42,45 @@ import { InteractiveModePanel } from './InteractiveModePanel';
 import { LiveSerialPlotPanel } from './LiveSerialPlotPanel';
 import { GuiDesignerPanel } from './GuiDesignerPanel';
 import { DspWorkbenchPanel } from './DspWorkbenchPanel';
+import { LlmProviderSettings } from './LlmProviderSettings';
 import { groupCatalog, catalogTitle, CATEGORY_ICON, type CatalogCategory } from './catalogMeta';
+
+/** Small self-dismissing banner naming which AI Assist backend answered the
+ *  last request -- see the brief's "make the fallback visible to the user,
+ *  not silent" requirement. Lives bottom-right, out of the way of the
+ *  mascot (bottom area too, but the mascot manages its own position) and
+ *  the editor. A plain fallback gets a short display; a FAILED-and-fell-
+ *  back note gets longer, since that's the case the user actually needs to
+ *  notice and maybe act on (e.g. go fix a bad key in AI Provider Settings). */
+const LlmBackendToast: React.FC<{
+  note: { backend: string; fellBack: boolean; note?: string };
+  onDone: () => void;
+  theme: 'light' | 'dark';
+}> = ({ note, onDone, theme }) => {
+  useEffect(() => {
+    const timer = setTimeout(onDone, note.fellBack ? 6000 : 2500);
+    return () => clearTimeout(timer);
+  }, [note, onDone]);
+
+  const dark = theme === 'dark';
+  return (
+    <div
+      className={cn(
+        'fixed bottom-4 right-4 z-[80] max-w-xs rounded-lg border px-3 py-2 text-xs shadow-lg',
+        note.fellBack
+          ? dark
+            ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+            : 'bg-amber-50 border-amber-300 text-amber-800'
+          : dark
+          ? 'bg-[#161615] border-[#2c2c2a] text-[#898781]'
+          : 'bg-white border-[#e1e0d9] text-[#898781]'
+      )}
+    >
+      <div className="font-medium">{note.fellBack ? `Fell back to ${note.backend}` : `Answered by ${note.backend}`}</div>
+      {note.note && <div className="mt-0.5">{note.note}</div>}
+    </div>
+  );
+};
 
 
 // How often the active file is re-checked against disk while the Studio
@@ -884,6 +922,15 @@ function App() {
   // "Open Mascot" command to pop the mascot chat panel open externally
   // (see Mascot's own `openRequest` prop doc comment).
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  // AI Provider Settings modal (Local/OpenAI/Anthropic + API keys) -- see
+  // `LlmProviderSettings.tsx`. Opened from the command palette's
+  // "AI Provider Settings" entry.
+  const [llmSettingsOpen, setLlmSettingsOpen] = useState(false);
+  // Last backend that actually answered an AI Assist request, and whether
+  // it was a fallback (see `llm_bridge.rs`'s `LlmAnswer`) -- surfaced as a
+  // toast so a hosted-provider failure is visible, not silent, even though
+  // the feature keeps working via the local fallback.
+  const [lastLlmBackendNote, setLastLlmBackendNote] = useState<{ backend: string; fellBack: boolean; note?: string } | null>(null);
   // `undefined` (not e.g. 0) until the first real request -- Mascot's own
   // `openRequest` prop treats `undefined` as "no request yet" and any
   // defined value as one, so starting at a concrete number would pop the
@@ -1095,13 +1142,24 @@ function App() {
     return parts.length > 0 ? parts.join('\n\n') : null;
   }, [code, lastError]);
 
+  // Every AI Assist command now returns `{ text, backend, fellBack, note }`
+  // (see `llm_bridge.rs`'s `LlmAnswer`) instead of a bare string, so the
+  // frontend can show which backend actually answered -- this helper
+  // records that into `lastLlmBackendNote` for the fallback banner, and
+  // returns just the text for callers that only need the reply itself.
+  const noteLlmAnswer = useCallback((answer: { backend: string; fellBack: boolean; note?: string | null }) => {
+    setLastLlmBackendNote({ backend: answer.backend, fellBack: answer.fellBack, note: answer.note ?? undefined });
+  }, []);
+
   const llmChat = useCallback(
     async (question: string): Promise<string> => {
-      return invoke<string>('llm_chat', {
+      const answer = await invoke<{ text: string; backend: string; fellBack: boolean; note?: string | null }>('llm_chat', {
         request: { prompt: question, context: buildMascotContext() },
       });
+      noteLlmAnswer(answer);
+      return answer.text;
     },
-    [buildMascotContext]
+    [buildMascotContext, noteLlmAnswer]
   );
 
   // Inline-completion bridge for CodeEditor's `onInlineComplete` (see that
@@ -1109,11 +1167,17 @@ function App() {
   // `llm_bridge.rs`'s own `COMPLETE_DEFAULT_MAX_TOKENS`, spelt out here
   // rather than omitted so this call site states its own intent (a short,
   // one-line-ish completion, not a paragraph) instead of silently
-  // depending on the Rust side's current default.
+  // depending on the Rust side's current default. Deliberately does NOT
+  // call `noteLlmAnswer` -- ghost-text fires on every keystroke pause, so
+  // surfacing a fallback banner for every single completion would be much
+  // noisier than useful; the chat/fix/transform call sites (much lower
+  // frequency, and each one is a deliberate user action) are where that
+  // visibility actually matters.
   const llmComplete = useCallback(async (prefixCode: string): Promise<string> => {
-    return invoke<string>('llm_complete', {
+    const answer = await invoke<{ text: string; backend: string; fellBack: boolean; note?: string | null }>('llm_complete', {
       request: { prefix: prefixCode, max_tokens: 16 },
     });
+    return answer.text;
   }, []);
 
   // "Fix with AI" -- triggered from the inline error banner (rendered only
@@ -1140,11 +1204,14 @@ function App() {
       error: null,
       applyRange: null,
     });
-    invoke<string>('llm_fix_error', { request: { code: originalCode, error: currentError } })
-      .then((fixed) => {
+    invoke<{ text: string; backend: string; fellBack: boolean; note?: string | null }>('llm_fix_error', {
+      request: { code: originalCode, error: currentError },
+    })
+      .then((answer) => {
+        noteLlmAnswer(answer);
         setAiReview((prev) =>
           prev && prev.applyRange === null && prev.title === 'Fix with AI'
-            ? { ...prev, suggested: fixed, loading: false }
+            ? { ...prev, suggested: answer.text, loading: false }
             : prev
         );
       })
@@ -1155,7 +1222,7 @@ function App() {
             : prev
         );
       });
-  }, [code, executionState.error]);
+  }, [code, executionState.error, noteLlmAnswer]);
 
   // "AI Assist" -- Task 3's generate/transform button. With a live
   // selection captured (see `onSelectionChange` below), this transforms
@@ -1179,16 +1246,17 @@ function App() {
       error: null,
       applyRange: activeSelection ? activeSelection.range : null,
     });
-    invoke<string>('llm_transform_code', {
+    invoke<{ text: string; backend: string; fellBack: boolean; note?: string | null }>('llm_transform_code', {
       request: {
         instruction,
         code: code.trim() ? code : null,
         selection: activeSelection ? activeSelection.text : null,
       },
     })
-      .then((result) => {
+      .then((answer) => {
+        noteLlmAnswer(answer);
         setAiReview((prev) =>
-          prev && prev.loading && prev.title === reviewTitle ? { ...prev, suggested: result, loading: false } : prev
+          prev && prev.loading && prev.title === reviewTitle ? { ...prev, suggested: answer.text, loading: false } : prev
         );
       })
       .catch((err: any) => {
@@ -1198,7 +1266,7 @@ function App() {
             : prev
         );
       });
-  }, [aiInstruction, selection, code]);
+  }, [aiInstruction, selection, code, noteLlmAnswer]);
 
   // Apply step, shared by both AI review flows. A fix or a from-scratch
   // generate has `applyRange === null`: a fix replaces the WHOLE buffer
@@ -1911,6 +1979,11 @@ function App() {
       id: 'ai-assist', label: selection ? 'Transform Selection with AI' : 'Generate Code with AI',
       icon: <Wand2 size={16} />, category: 'AI', action: () => setAiPromptOpen(true),
     },
+    {
+      id: 'ai-provider-settings', label: 'AI Provider Settings',
+      description: 'Pick Local/OpenAI/Anthropic for AI Assist and save an API key',
+      icon: <Settings size={16} />, category: 'AI', action: () => setLlmSettingsOpen(true),
+    },
   ], [handleSave, activeFileId, closeTabWithGuard, cycleActiveFile, code, resolvedTheme, toggleTheme, selection]);
 
   return (
@@ -2501,6 +2574,24 @@ function App() {
       </div>
 
       <Mascot onAsk={llmChat} theme={resolvedTheme as 'light' | 'dark'} openRequest={mascotOpenToken} />
+
+      <LlmProviderSettings
+        open={llmSettingsOpen}
+        onClose={() => setLlmSettingsOpen(false)}
+        theme={resolvedTheme as 'light' | 'dark'}
+        invoke={invoke}
+      />
+
+      {/* Visible fallback indicator (brief: "make the fallback visible to
+          the user, not silent") -- a small dismissible toast-like banner
+          naming whichever backend actually answered the last AI Assist
+          request, shown a beat longer when it was a fallback (the user
+          needs time to notice "OpenAI failed" is actionable, not just
+          "answered by Local"). Auto-clears itself so it never becomes a
+          permanent fixture the user has to consciously dismiss. */}
+      {lastLlmBackendNote && (
+        <LlmBackendToast note={lastLlmBackendNote} onDone={() => setLastLlmBackendNote(null)} theme={resolvedTheme as 'light' | 'dark'} />
+      )}
 
       <CommandPalette
         commands={paletteCommands}

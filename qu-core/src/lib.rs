@@ -25,6 +25,10 @@ pub mod cmatrix;
 /// a sensing matrix is any good. See the module doc for how to choose.
 pub mod cs;
 pub mod decompose;
+/// Measurement diagnostics — clipping, converter saturation and structural
+/// integrity. Cheap checks on whether a record is worth analysing at all,
+/// as opposed to metrics computed from one that is.
+pub mod diagnostics;
 pub mod eis;
 pub mod estimation;
 pub mod filter;

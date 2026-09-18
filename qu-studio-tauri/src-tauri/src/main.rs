@@ -7,13 +7,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
+mod llm_providers;
 mod llm_bridge;
 mod gui_bridge;
 use gui_bridge::{gui_start, gui_event, gui_stop, gui_snapshot};
 mod serial_protocol;
 mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
-use llm_bridge::{llm_chat, llm_complete, llm_fix_error, llm_transform_code};
+use llm_bridge::{
+    llm_chat, llm_complete, llm_fix_error, llm_transform_code, get_llm_provider_config,
+    set_llm_provider_config, test_llm_provider,
+};
 
 #[cfg(windows)]
 const QU_EXE_NAME: &str = "qu.exe";
@@ -1180,6 +1184,9 @@ fn main() {
             llm_complete,
             llm_fix_error,
             llm_transform_code,
+            get_llm_provider_config,
+            set_llm_provider_config,
+            test_llm_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

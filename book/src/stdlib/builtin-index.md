@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**885 builtins, 881 described.** The rest are
+**896 builtins, 892 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -172,10 +172,12 @@ program, and a misspelled call suggests the nearest match.
 | [`cov`](../fn/cov.html) | Sample covariance between two length-`N` numeric vectors `x` and `y`, `N-1` denominator — the same convention `var` and `std` use | [Statistics & ML](statistics-ml.md) |
 | [`cpe`](../fn/cpe.html) | `1/(Q (jw)^n)` — constant-phase element | [Signal processing](signal-processing.md) |
 | [`create_file`](../fn/create_file.html) | `make_file` with a collision policy: `"error"` (default) refuses if `path` already exists, `"overwrite"` truncates it like `make_file` does unconditionally, `"skip"` does nothing and.. | [File I/O](file-io.md) |
+| [`crest_factor`](../fn/crest_factor.html) | `peak(x) / rms(x)`, a dimensionless ratio (a sine wave's is `sqrt(2)` ≈ 1.414) — the same quantity `sinad_estimate(bits, crest_factor)` takes as its second argument | [Core maths](core-math.md) |
 | [`crop`](../fn/crop.html) | Extracts that sub-rectangle. Returns a new `Image` of exactly `width` x `height` pixels | [Images](images.md) |
 | [`cs_guarantee`](../fn/cs_guarantee.html) | Returns a single number: the largest sparsity level that the matrix's coherence alone can *prove* recoverable | [Noise](noise.md) |
 | [`cs_recover`](../fn/cs_recover.html) | Compressed-sensing reconstruction of a sparse vector `x` from an M×N sensing matrix `A` and a length-M measurement vector `y` | [Noise](noise.md) |
 | [`csch`](../fn/csch.html) | The other three hyperbolics: `coth(x) = cosh(x)/sinh(x)`, `sech(x) = 1/cosh(x)`, `csch(x) = 1/sinh(x)` | [Core maths](core-math.md) |
+| [`csd`](../fn/csd.html) | Returns a length-`nperseg/2 + 1` complex vector (`CVec`), the one-sided cross-spectral density `Pxy` — Welch's method, sharing `welch`'s own framing/windowing/averaging exactly, so it lines.. | [Signal processing](signal-processing.md) |
 | [`csv2json`](../fn/csv2json.html) | Not `jsonify(parse_csv(str))` — it emits a plain JSON array of one flat `{"col": value, ...}` object per row (the natural shape for feeding to another JSON-consuming tool), rather than.. | [File I/O](file-io.md) |
 | [`csv2xml`](../fn/csv2xml.html) | `str` (string, CSV text) is converted to XML: exactly `xmlify(parse_csv(str))`. Returns a string | [File I/O](file-io.md) |
 | [`csvify`](../fn/csvify.html) | Converts `table` (Table) to CSV text — exactly `write_csv`'s own formatting (`Table::to_csv`), just returned as a string instead of written to a file | [File I/O](file-io.md) |
@@ -191,8 +193,11 @@ program, and a misspelled call suggests the nearest match.
 | | | |
 |---|---|---|
 | [`daily_profile`](../fn/daily_profile.html) | Returns a length-7 real vector, one bin per day-of-week -- so a weekday-against-weekend difference separates out | [Signal processing](signal-processing.md) |
+| [`db`](../fn/db.html) | Alias of `mag2db(x)` above (`20*log10(x)`, amplitude convention) — the bare SciPy/general-DSP-flavored spelling | [Signal processing](signal-processing.md) |
 | [`db2mag`](../fn/db2mag.html) | Returns the same shape: `10^(db/20)` — inverse of `mag2db` | [Signal processing](signal-processing.md) |
-| [`db2pow`](../fn/db2pow.html) | Returns the same shape: `10^(db/10)` — inverse of `pow2db` | [Signal processing](signal-processing.md) |
+| [`db2pow`](../fn/db2pow.html) | Returns the same shape: `10^(db/10)` — inverse of `pow2db`/`db_power` | [Signal processing](signal-processing.md) |
+| [`db_power`](../fn/db_power.html) | Alias of `pow2db(x)` above (`10*log10(x)`, power convention) — the bare SciPy/general-DSP-flavored spelling | [Signal processing](signal-processing.md) |
+| [`dbfs`](../fn/dbfs.html) | Peak level relative to full scale: `20*log10(peak(abs(x)) / full_scale)` | [Core maths](core-math.md) |
 | [`dbscan`](../fn/dbscan.html) | Density-based clustering on an `N`-row, `D`-column data matrix `X`: a number `eps` (the neighbourhood radius, in `X`'s own units) and an integer `min_samples` (the minimum neighbourhood.. | [Statistics & ML](statistics-ml.md) |
 | [`dct`](../fn/dct.html) | Returns a length-N real vector | [Signal processing](signal-processing.md) |
 | [`dec2bin`](../fn/dec2bin.html) | Returns a `Str` of `0`/`1` digits, no prefix | [Collections & strings](collections-strings.md) |
@@ -214,6 +219,7 @@ program, and a misspelled call suggests the nearest match.
 | [`distinct`](../fn/distinct.html) | Returns the same type: the unique values, in the order they first appear — which `unique` does not promise, since it sorts | [Collections & strings](collections-strings.md) |
 | [`distort`](../fn/distort.html) | Put the signal through a nonlinearity: `clip`, `soft`, `crossover`, `harmonic`, `quantize` | [Noise](noise.md) |
 | [`div`](../fn/div.html) | The operators as named functions, so an operation can be passed where a name is what you can pass | [Core maths](core-math.md) |
+| [`dominant_frequency`](../fn/dominant_frequency.html) | Returns a single number: the frequency of the largest non-DC bin in `x`'s one-sided spectrum, accurate to the bin's own resolution `fs/N` | [Signal processing](signal-processing.md) |
 | [`donut`](../fn/donut.html) | Pie chart with a hollow center | [Plotting](plotting.md) |
 | [`dot`](../fn/dot.html) | Dot product of two equal-length vectors `a`, `b` (each a `Vec`; a length mismatch errors) | [Core maths](core-math.md) |
 | [`double_buffer`](../fn/double_buffer.html) | Returns a `double_buffer` handle; front AND back both start equal to `initial` | [Collections & strings](collections-strings.md) |
@@ -252,6 +258,7 @@ program, and a misspelled call suggests the nearest match.
 | [`errorbar`](../fn/errorbar.html) | Draws one capped whisker plus a marker per sample: `x`, `y`, `yerr` are equal-length numeric Vecs, `yerr` the (symmetric) half-height of each whisker in data units | [Plotting](plotting.md) |
 | [`estimate`](../fn/estimate.html) | Estimation-family only: reads a point estimate off a filter state Record `state` with no arguments | [Statistics & ML](statistics-ml.md) |
 | [`estimate_complexity`](../fn/estimate_complexity.html) | Takes two same-length numeric vectors/lists: `sizes` (the problem sizes swept over) and `times` (the matching elapsed times in seconds, e.g. from `toc()` at each size) — at least 3 matching.. | [REPL & diagnostics](repl-diagnostics.md) |
+| [`estimate_frequency`](../fn/estimate_frequency.html) | Returns a single number: the frequency of the largest non-DC bin in `x`'s one-sided spectrum, accurate to the bin's own resolution `fs/N` | [Signal processing](signal-processing.md) |
 | [`exec`](../fn/exec.html) | Runs `program` (a `Str`) and waits, capturing what it printed | [File I/O](file-io.md) |
 | [`exp`](../fn/exp.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
 | [`exp2`](../fn/exp2.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
@@ -282,7 +289,7 @@ program, and a misspelled call suggests the nearest match.
 | [`filter_next`](../fn/filter_next.html) | Returns a new `"filter_state"` `Model` (field `y`, a number, holds the filtered output) | [Signal processing](signal-processing.md) |
 | [`filtfilt`](../fn/filtfilt.html) | Returns a same-length vector or `Signal`, same `Fs`-preserving convention as `sosfilt` | [Signal processing](signal-processing.md) |
 | [`find`](../fn/find.html) | One argument: identical to `where(mask)` — the indices where a boolean `mask` is true, as a `Vec` | [Core maths](core-math.md) |
-| [`find_peaks`](../fn/find_peaks.html) | Returns a vector of 0-indexed integer indices into `x`, one per surviving local maximum | [Signal processing](signal-processing.md) |
+| [`find_peaks`](../fn/find_peaks.html) | Kwarg names match SciPy; the original `min_height`/`min_distance`/`min_prominence` names are still accepted as aliases | [Signal processing](signal-processing.md) |
 | [`findpeaks`](../fn/findpeaks.html) | MATLAB-style `[peaks, locations] = findpeaks(x, ...)` | [Signal processing](signal-processing.md) |
 | [`fir1`](../fn/fir1.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
 | [`firls`](../fn/firls.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
@@ -605,6 +612,7 @@ program, and a misspelled call suggests the nearest match.
 | [`pca_components`](../fn/pca_components.html) | Fits the same PCA as `pca` on `X` and `k`, returning the `(k, D)` loading matrix instead — each row is a unit-length direction in the original `D`-dimensional feature space | [Statistics & ML](statistics-ml.md) |
 | [`pca_explained_variance`](../fn/pca_explained_variance.html) | Fits the same PCA as `pca` on `X` and `k`, returning a length-`k` vector giving the fraction of the total variance in `X` that each kept component carries, in decreasing order | [Statistics & ML](statistics-ml.md) |
 | [`pca_model`](../fn/pca_model.html) | PCA as a reusable handle: fits the top `k` principal components on an `N`-row, `D`-column matrix `X`, so `.predict(Xnew)` projects new rows onto the same fitted components instead of.. | [Statistics & ML](statistics-ml.md) |
+| [`peak`](../fn/peak.html) | `max(abs(x))` over every element of `x` — a scalar, `Vec`, or `Mat`/`Signal`, flattened | [Core maths](core-math.md) |
 | [`peek`](../fn/peek.html) | On a `fifo` handle `q`: `push(q, x)` adds `x` at the back (returns `Nothing`); `pop(q)` removes and returns the front element; `peek(q)` looks at it without removing | [Collections & strings](collections-strings.md) |
 | [`peek_byte`](../fn/peek_byte.html) | Looks at the next raw byte of `f` (file handle, opened readable) without consuming it | [File I/O](file-io.md) |
 | [`peek_char`](../fn/peek_char.html) | Looks at the next character of `f` (file handle, opened readable) without consuming it | [File I/O](file-io.md) |
@@ -637,7 +645,7 @@ program, and a misspelled call suggests the nearest match.
 | [`predict`](../fn/predict.html) | Applies a fitted model Record `model` to a new `M`-row (same `D` columns as it was fitted on) matrix or vector `Xnew` | [Statistics & ML](statistics-ml.md) |
 | [`print`](../fn/print.html) | Writes its arguments, space-separated, and a newline, to stdout | [Collections & strings](collections-strings.md) |
 | [`printtex`](../fn/printtex.html) | Same conversion as `tex(x)` on value `x` (number, Vec, Mat, or complex), but prints it directly instead of returning a string | [Plotting](plotting.md) |
-| [`prod`](../fn/prod.html) | Sum / product of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal` (real; `sum` additionally accepts a `CVec`/`CMat` and returns a `Complex` in that case) | [Core maths](core-math.md) |
+| [`prod`](../fn/prod.html) | Product of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal`, real only (unlike `sum`, does not accept a `CVec`/`CMat`) | [Core maths](core-math.md) |
 | [`profile_stats`](../fn/profile_stats.html) | `profiling_mode` takes one argument, a boolean (`true` to start recording, `false` to stop), and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`profiling_mode`](../fn/profiling_mode.html) | `profiling_mode` takes one argument, a boolean (`true` to start recording, `false` to stop), and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`progress`](../fn/progress.html) | A tqdm-style progress bar, called once per loop iteration: `i` is the 0-based index (`0` through `n - 1`), `n` is the total count | [REPL & diagnostics](repl-diagnostics.md) |
@@ -831,6 +839,7 @@ program, and a misspelled call suggests the nearest match.
 | [`sort_by`](../fn/sort_by.html) | Returns a `Table` sorted by that one column | [Collections & strings](collections-strings.md) |
 | [`sosfilt`](../fn/sosfilt.html) | Returns a same-length vector or `Signal` (keeping `x`'s own `Fs` on the way out, when `x` is a `Signal`) | [Signal processing](signal-processing.md) |
 | [`spawn`](../fn/spawn.html) | Runs an already-defined user function on `rayon`'s global thread pool (the `Worker` abstraction) | [Concurrency](concurrency.md) |
+| [`spectral_coherence`](../fn/spectral_coherence.html) | Returns a length-`nperseg/2 + 1` real vector, the magnitude-squared coherence `\|Pxy\|^2 / (Pxx*Pyy)` in `[0, 1]` — `1` at a frequency where `y` is an exact linear/time-invariant function.. | [Signal processing](signal-processing.md) |
 | [`spectral_entropy`](../fn/spectral_entropy.html) | Returns a vector of length `num_frames` (one value per STFT frame), each the Shannon entropy of that frame's normalized power spectrum, scaled to `[0, 1]`: low when energy concentrates in a.. | [Signal processing](signal-processing.md) |
 | [`spectrogram`](../fn/spectrogram.html) | If `x` is a `Signal`, its own `Fs` is used and `fs` need not be passed; passing one that disagrees with the signal's rate is an error rather than a silent relabelling (see *Which rate is.. | [Signal processing](signal-processing.md) |
 | [`spectrum_at`](../fn/spectrum_at.html) | Returns the single complex bin nearest that physical frequency (`round(freq/df)`, clamped to the available bins) — addressing the spectrum in Hz instead of by index | [Signal processing](signal-processing.md) |
@@ -858,7 +867,7 @@ program, and a misspelled call suggests the nearest match.
 | [`subplot`](../fn/subplot.html) | Selects cell `k` (integer, 1-based, row-major) of a `rows`-by-`cols` (integers) grid as the target for further drawing | [Plotting](plotting.md) |
 | [`substr`](../fn/substr.html) | Plain aliases of the same implementation (`mid` exists purely for BASIC/Excel discoverability) | [Collections & strings](collections-strings.md) |
 | [`subtract`](../fn/subtract.html) | The operators as named functions, so an operation can be passed where a name is what you can pass | [Core maths](core-math.md) |
-| [`sum`](../fn/sum.html) | Sum / product of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal` (real; `sum` additionally accepts a `CVec`/`CMat` and returns a `Complex` in that case) | [Core maths](core-math.md) |
+| [`sum`](../fn/sum.html) | Sum of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal` (real; additionally accepts a `CVec`/`CMat` and returns a `Complex` in that case) | [Core maths](core-math.md) |
 | [`svd`](../fn/svd.html) | Thin SVD of `A` (`r×c` `Mat` or `CMat`), `A = U·diag(s)·Vᵀ` | [Core maths](core-math.md) |
 | [`svm_model`](../fn/svm_model.html) | Binary-classification support-vector machine by simplified SMO on an `N`-row, `D`-column `X` and a length-`N` target `y` that must take exactly two distinct values (no one-vs-rest wrapper) | [Statistics & ML](statistics-ml.md) |
 | [`svr_model`](../fn/svr_model.html) | Support-vector regression on an `N`-row, `D`-column `X` and a length-`N` numeric target `y` | [Statistics & ML](statistics-ml.md) |
@@ -887,6 +896,7 @@ program, and a misspelled call suggests the nearest match.
 | [`tex`](../fn/tex.html) | Not figure export — converts a single Qu value `x` (number, Vec, Mat, or complex) to a LaTeX math-mode string (e.g. a matrix becomes a `bmatrix` environment) and returns it as a string | [Plotting](plotting.md) |
 | [`text`](../fn/text.html) | Plain text label `text` (string) placed at `(x, y)` (numbers, data units), no marker dot | [Plotting](plotting.md) |
 | [`thd`](../fn/thd.html) | Returns a single number, dB below the fundamental | [Signal processing](signal-processing.md) |
+| [`thd_n`](../fn/thd_n.html) | Returns a single number, dB below the fundamental: harmonics *and* noise together against the signal (`-sinad_db`, the same `noise_power` `sinad` already totals over every non-excitation.. | [Signal processing](signal-processing.md) |
 | [`theme`](../fn/theme.html) | Sets the whole-figure visual theme from `name` (string): one of `"default"`, `"publication"`, `"bw"`, `"minimal"`, `"grey"`, `"classic"` | [Plotting](plotting.md) |
 | [`threshold`](../fn/threshold.html) | Elementwise binary threshold, general-purpose (not image-specific) | [Images](images.md) |
 | [`tic`](../fn/tic.html) | Starts (or restarts) the single global stopwatch | [REPL & diagnostics](repl-diagnostics.md) |
@@ -934,6 +944,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ui_text`](../fn/ui_text.html) | Declares a free-text field, labeled `label` (string) | [Plotting](plotting.md) |
 | [`uniform`](../fn/uniform.html) | Draws from the uniform distribution on `[a, b)`, two numbers `a < b`, with the same `rows`/`cols`/`seed=` shape as `rand` | [Statistics & ML](statistics-ml.md) |
 | [`unique`](../fn/unique.html) | Returns a `Vec`: a sorted, de-duplicated copy | [Collections & strings](collections-strings.md) |
+| [`unit_scale`](../fn/unit_scale.html) | Returns the scale factor a `unit name = ...` declaration registered, or errors naming `name` if nothing was ever declared under it | [REPL & diagnostics](repl-diagnostics.md) |
 | [`update`](../fn/update.html) | Estimation-family only: the measurement-update half of a filter, called on a state Record `state` with filter-specific arguments (an observation matrix/function, a measurement vector, and a.. | [Statistics & ML](statistics-ml.md) |
 | [`upper`](../fn/upper.html) | Unicode-aware uppercase conversion | [Collections & strings](collections-strings.md) |
 

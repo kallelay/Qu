@@ -170,23 +170,14 @@ private/Qu8/
 # untracked Qu8 tree here is one broad `git add` away from four mirrors.
 private/Qu8/
 
-# Secret-pattern defensive exclusions, added 2026-09-18 after the
-# ".gitignore has no explicit secret-pattern entries" hardening gap
-# flagged earlier tonight was left open too long -- became actively
-# relevant once the LLM provider integration started handling real
-# API keys. A clean secret-history audit today doesn't prevent one
-# landing tomorrow; these patterns are defense in depth, not a
-# replacement for never committing a real key in the first place.
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*_key
-*_secret
-*_token
-credentials.json
-credentials.*.json
-secrets.json
-*.p12
-*.pfx
+# Hosted LLM provider settings (OpenAI/Anthropic API keys) -- see
+# `qu-studio-tauri/src-tauri/src/llm_providers.rs`'s own module doc comment.
+# These ALWAYS live under Tauri's `app_config_dir()` (e.g.
+# `%APPDATA%\com.qu.studio\` on Windows), never anywhere under this repo, so
+# this entry should never actually match anything -- it exists purely as a
+# defensive second layer in case a future change (a dev script, a test
+# fixture, a debugging session) ever writes one of these files somewhere
+# inside the tree by mistake.
+llm_provider_settings.json
+**/llm_provider_settings.json
+*.qu-llm-key*
