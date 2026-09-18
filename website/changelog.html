@@ -32,6 +32,10 @@
 <p class="sub">Notable changes to Qu. Dates are when the work landed, not when it was released.</p>
 <p class="sub">The format follows <a href="https://keepachangelog.com/">Keep a Changelog</a>, and versions follow <a href="https://semver.org/">semantic versioning</a> once 1.0 is reached; before that, minor versions may break things, and breaking changes are called out.</p>
 <h2 style="margin-top:44px">[Unreleased]</h2>
+<h2 style="margin-top:44px">[0.3.0] - 2026-09-18</h2>
+<p class="sub">Signal toolkit expansion, scoped to what actually shipped (see <code>docs/design/toolkit-signal.md</code>'s "v0.3.0 status" note for the full shipped-vs-deferred breakdown): diagnostics and integrity checks (<code>is_clipped</code>/<code>find_clipping</code>/<code>detect_saturation</code>/<code>verify_signal</code>), rolling statistics, pulse/edge metrics, missing-sample and outlier handling, <code>wrap()</code>/<code>remove_noise()</code>, and a <code>mem_usage()</code> builtin plus a <code>profile_start()</code>/<code>profile_end()</code> region profiler for comparing methods on memory as well as speed. <code>qu repl &lt;file.qu&gt;</code> (run a script, keep its session alive) and a real Jupyter kernel (<code>qu-jupyter</code>, notebooks in VS Code/JupyterLab with persistent state across cells) round out the run/REPL story. Qu Studio's Run button is now backed by a persistent kernel session instead of a one-shot subprocess per click. Protocol decoders, audio file I/O, calibration, and transfer-function/impedance measurement (§8/§9/§10/§11 of the signal-toolkit spec) remain unstarted and are deferred to the next version.</p>
+<h2 style="margin-top:44px">[0.2.4] - 2026-09-18</h2>
+<p class="sub">Dependabot security fixes (26 of 32 alerts, all criticals), the linux-x86_64-static (musl) release build fixed for real (vendored OpenSSL, then a second musl-only C++ toolchain gap in <code>tokenizers</code>), Node.js 20-&gt;22 in CI (20 is past end-of-life), a Windows-runner npm install fix, and the macos-x86_64 leg dropped from the release matrix (the hosted runner never got scheduled, not a build problem). Also covers everything that had accumulated under <code>[Unreleased]</code> through v0.2.2/v0.2.3, retitled here since those tags shipped without a changelog update.</p>
 <h3 style="font-family:var(--serif);font-size:19px;margin:34px 0 10px">Breaking</h3>
 <ul>
   <li><strong>Assignment inside a function now binds locally.</strong> It used to bind to the module-level variable of that name whenever one existed, so a helper using ordinary names for its own bookkeeping silently overwrote the caller's. Reads still fall through to the enclosing scope; write <code>global name</code> to write through. Measured across 157 scripts: one needed a one-line change.</li>
@@ -108,7 +112,7 @@
 </div></section>
 
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp; <a href="docs.html">Docs</a></div>
 </div></footer>
 <script src="assets/site.js"></script>

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0%20%2F%20CC--BY--SA--4.0-blue"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-informational">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-informational">
   <img alt="Tests" src="https://img.shields.io/badge/tests-~2%2C200%20passing-brightgreen">
 </p>
 
@@ -190,13 +190,13 @@ language is organised against.
 
 ## Status
 
-Version 0.2.1, and honest about what that means: one implementation, a
+Version 0.3.0, and honest about what that means: one implementation, a
 small number of users, and a specification that is ahead of the engine in
 places. The numerical core is checked against reference implementations —
 several ports reproduce NumPy, SciPy and MATLAB results exactly — and the
-test suite runs to some 2,200 cases. It is being used for real work; it
-has not yet been used for *your* real work, and that is the difference
-between 0.x and 1.0.
+test suite runs to several thousand cases. It is being used for real
+work; it has not yet been used for *your* real work, and that is the
+difference between 0.x and 1.0.
 
 ## Credits
 

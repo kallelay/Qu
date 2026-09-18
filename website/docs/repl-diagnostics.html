@@ -269,7 +269,7 @@ y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal
 elapsed_s = <span class="f">toc</span>()
 <span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>took 0.0139s</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>took 0.0078s</pre></div></div>
 <p><code>track</code> and <code>grad</code> are the entry points to Qu's reverse-mode autodiff tape: wrap the inputs you want a derivative with respect to in <code>track</code> (or its alias <code>param</code>), build an ordinary arithmetic expression from them, and then call <code>grad</code> on the result to walk the tape backwards. Here <code>x</code> is tracked, <code>y = x^2 + 2x</code> is computed from it, and <code>grad</code> returns <code>dy/dx</code> evaluated at <code>x = 3</code> (analytically <code>2x + 2 = 8</code>), which is then printed:</p>
 <div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = x * x + <span class="n">2</span> * x
@@ -393,7 +393,7 @@ p = <span class="f">gpu_probe_info</span>()
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

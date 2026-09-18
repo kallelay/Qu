@@ -12,10 +12,26 @@ changes are called out.
 
 ## [0.3.0] - 2026-09-18
 
-Version bump only -- no new content over v0.2.4/v0.2.5 below. Folds
-the Qu Studio installer fix (a corrupted `esbuild` lockfile entry that
-failed every platform's build) in under one version number, ahead of
-the first public release.
+Signal toolkit expansion, scoped to what actually shipped (see
+`docs/design/toolkit-signal.md`'s "v0.3.0 status" note for the full
+shipped-vs-deferred breakdown): diagnostics and integrity checks
+(`is_clipped`/`find_clipping`/`detect_saturation`/`verify_signal`),
+rolling statistics, pulse/edge metrics, missing-sample and outlier
+handling, `wrap()`/`remove_noise()`, and a `mem_usage()` builtin plus a
+`profile_start()`/`profile_end()` region profiler for comparing methods
+on memory as well as speed. `qu repl <file.qu>` (run a script, keep its
+session alive) and a real Jupyter kernel (`qu-jupyter`, notebooks in VS
+Code/JupyterLab with persistent state across cells) round out the
+run/REPL story. Qu Studio's Run button is now backed by a persistent
+kernel session instead of a one-shot subprocess per click. Protocol
+decoders, audio file I/O, calibration, and transfer-function/impedance
+measurement (§8/§9/§10/§11 of the signal-toolkit spec) remain unstarted
+and are deferred to the next version.
+
+Also folds v0.2.4 and v0.2.5 under this one number ahead of the first
+public release, per Ahmed's own instruction -- v0.2.5 was only the Qu
+Studio installer fix (a corrupted `esbuild` lockfile entry that failed
+every platform's build).
 
 ## [0.2.4] - 2026-09-18
 
