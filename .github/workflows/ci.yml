@@ -82,9 +82,15 @@ jobs:
           cache: "npm"
           cache-dependency-path: qu-studio-tauri/package-lock.json
 
+      # Explicit two-step install, `--ignore-scripts` on the second -- see
+      # release.yml's studio job for why (a nested-npm-under-load failure
+      # on Windows; same postinstall exists here too, matching for
+      # consistency even though this job runs on ubuntu-latest).
       - name: Install
-        working-directory: qu-studio-tauri
-        run: npm ci
+        shell: bash
+        run: |
+          npm ci --prefix qu-ui-components
+          npm ci --prefix qu-studio-tauri --ignore-scripts
 
       - name: Typecheck
         working-directory: qu-studio-tauri
