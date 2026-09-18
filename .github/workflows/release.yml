@@ -100,22 +100,19 @@ jobs:
             archive: tar
             allow-failure: true
 
+          # macos-x86_64 (Intel, os: macos-13) dropped 2026-09-18 -- it was
+          # already allow-failure (the leg that sat queued 9+ hours and
+          # never started a single job, macOS runners billing at 10x normal
+          # Actions minutes) and wasn't saving anything by staying in the
+          # matrix: every attempt, successful or not, still spent shared
+          # account-level quota that was blocking other verification work
+          # the same night. macos-arm64 below covers Apple Silicon; Ahmed's
+          # call to drop official Intel-Mac release builds rather than keep
+          # paying for a leg that wasn't reliably running anyway.
           - name: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
             archive: tar
-
-          # allow-failure: macos-arm64 above already covers modern Apple
-          # Silicon; this Intel leg is the one that sat queued for 3+
-          # hours (see the job-level timeout-minutes comment) -- with
-          # the timeout now in place it will fail cleanly instead of
-          # hanging, but it still shouldn't be allowed to block
-          # publish/studio the way it did before either fix landed.
-          - name: macos-x86_64
-            os: macos-13
-            target: x86_64-apple-darwin
-            archive: tar
-            allow-failure: true
 
     steps:
       - uses: actions/checkout@v4
