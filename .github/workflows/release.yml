@@ -21,6 +21,20 @@ name: Release
 #   Android       Same reasoning, minus the store restriction. A Termux
 #                 build of the Linux aarch64 binary works today for anyone
 #                 who wants it.
+#
+#   macOS Intel   Dropped 2026-09-18. The `macos-13` hosted runner never
+#                 got scheduled -- not slow, just never assigned a runner,
+#                 across every release run since 2026-09-17 (both the
+#                 3+-hour queue incident and every attempt after). Because
+#                 `publish`/`studio` both `needs: build`, and a matrix job
+#                 only finishes once every leg reaches a terminal state, a
+#                 permanently-queued leg blocked the entire pipeline --
+#                 that's why no release had ever published. `allow-failure`
+#                 and `timeout-minutes` don't help a leg that never leaves
+#                 `queued`: the timeout clock only starts once a job is
+#                 actually running. Apple Silicon (`macos-arm64` below)
+#                 covers current Macs; revisit Intel with a paid/larger
+#                 runner if there's real demand.
 
 on:
   push:
@@ -44,14 +58,11 @@ jobs:
     # Reads matrix.allow-failure per entry -- see the linux-x86_64-static
     # comment below for why one leg needs this and the others don't.
     continue-on-error: ${{ matrix.allow-failure || false }}
-    # A real incident, not a hypothetical: macos-x86_64 sat QUEUED for
-    # 3+ hours on 2026-09-17 (GitHub's shared macOS runner pool, likely
-    # exhausted minutes -- macOS is billed at 10x normal Actions
-    # minutes and that night had heavy usage). Without a timeout, a
-    # stuck-queued leg blocks `publish`/`studio` forever, not just
-    # slowly. 40 min covers every leg's real build time with margin
-    # (the slowest so far, windows-x86_64, took ~17 min) without
-    # letting one stuck runner hang the whole pipeline indefinitely.
+    # Safety net for a leg that starts running but hangs or runs long --
+    # NOT a fix for a leg stuck in `queued` (see the macOS Intel note up
+    # top for why that distinction mattered here). 40 min covers every
+    # leg's real build time with margin (the slowest so far,
+    # windows-x86_64, took ~17 min).
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -104,18 +115,6 @@ jobs:
             os: macos-14
             target: aarch64-apple-darwin
             archive: tar
-
-          # allow-failure: macos-arm64 above already covers modern Apple
-          # Silicon; this Intel leg is the one that sat queued for 3+
-          # hours (see the job-level timeout-minutes comment) -- with
-          # the timeout now in place it will fail cleanly instead of
-          # hanging, but it still shouldn't be allowed to block
-          # publish/studio the way it did before either fix landed.
-          - name: macos-x86_64
-            os: macos-13
-            target: x86_64-apple-darwin
-            archive: tar
-            allow-failure: true
 
     steps:
       - uses: actions/checkout@v4
