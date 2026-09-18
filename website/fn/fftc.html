@@ -30,17 +30,19 @@
 <h1>fftc</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>rfft(x)</code></pre>
-<p class="fnnote">Input: x &middot; Output: result</p>
+<pre class="fnsig">result = <code>rfft(x, [scaling=])</code></pre>
+<p class="fnnote">Input: x, scaling &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code>: a length-N real vector (<code>rfft</code>) or real/complex vector (<code>fftc</code>). <code>rfft</code> returns a length-<code>floor(N/2)+1</code> complex vector, the one-sided half-spectrum; <code>fftc</code> returns a length-N complex vector, the full spectrum. <code>rfft</code> is about twice as fast on real data since it only computes the non-redundant half.</p>
+<p><code>x</code>: a length-N real vector (<code>rfft</code>) or real/complex vector (<code>fftc</code>). <code>rfft</code> returns a length-<code>floor(N/2)+1</code> complex vector, the one-sided half-spectrum; <code>fftc</code> returns a length-N complex vector, the full spectrum. <code>rfft</code> is about twice as fast on real data since it only computes the non-redundant half. <code>scaling=</code> (optional string: <code>"raw"</code>, the default, <code>"amplitude"</code> or <code>"rms"</code>) picks the normalisation stamped on the result's <code>X.norm</code> — see *Frequency-Based Addressing* below — and requires <code>x</code> to be a <code>Signal</code> (the convention is metadata on <code>Value::Spectrum</code>; a bare <code>CVec</code> has nowhere to record it).</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = rfft(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">CVec</span></div>
-</td><td>Returns a <code>CVec</code>: length <code>floor(N/2)+1</code> from <code>rfft</code>, length N from <code>fftc</code>.</td></tr>
+<tr><td class="iocode"><code>result = rfft(x, [scaling=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector (<code>rfft</code>) or real/complex vector (<code>fftc</code>).</span></div>
+<div class="ioitem"><code>scaling</code> <span class="iotype">string or Signal, optional</span><span class="iodesc"><code>scaling=</code> (optional string: <code>"raw"</code>, the default, <code>"amplitude"</code> or <code>"rms"</code>) picks the normalisation stamped on the result's <code>X.norm</code> — see *Frequency-Based Addressing* below — and requires <code>x</code> to be a <code>Signal</code> (the convention is metadata on <code>Value::Spectrum</code>.</span></div>
+</td><td><div class="ioitem"><code>CVec</code> <span class="iotype">vector</span><span class="iodesc">plain vector <code>x</code></span></div>
+<div class="ioitem"><code>spectrum</code> <span class="iotype">Signal</span><span class="iodesc"><code>Signal</code> <code>x</code></span></div>
+</td><td>Returns a <code>CVec</code> (plain vector <code>x</code>) or a <code>spectrum</code> (<code>Signal</code> <code>x</code>): length <code>floor(N/2)+1</code> from <code>rfft</code>, length N from <code>fftc</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -66,7 +68,7 @@ peaks = <span class="f">find_peaks</span>(mag, <span class="a">min_height</span>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

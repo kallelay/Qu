@@ -52,7 +52,11 @@ xr = ifft(X, N)
 recon_err = max(abs(real(xr) - x))
 print("recon err  = {recon_err:.2e}")
 
-plot(freq, mag)
+# A DFT is a discrete spectrum -- one magnitude per bin, nothing in
+# between them -- so `stem` (each bin its own vertical line + marker) is
+# the honest picture; a connected `plot` implies energy between bins
+# that was never computed.
+stem(freq, mag)
 xlabel("Frequency (Hz)")
 ylabel("|X(f)|")
 title("Two-tone amplitude spectrum")

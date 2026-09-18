@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>find_trigger — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>find_trigger</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>find_trigger(x, level, [edge="rising"])</code></pre>
+<p class="fnnote">Input: x, level, edge &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; <code>level</code>: a number, the trigger level — positional and <strong>required</strong> (defaulting it would let <code>find_trigger(x)</code> answer confidently about a level the caller never chose), though <code>level=</code> is accepted as a keyword too. <code>edge</code> (optional string): <code>"rising"</code> (default), <code>"falling"</code>, or <code>"both"</code>; <code>"rise"</code>/<code>"fall"</code>/<code>"up"</code>/<code>"down"</code>/<code>"positive"</code>/<code>"negative"</code>/<code>"any"</code>/<code>"either"</code> are accepted spellings.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = find_trigger(x, level, [edge="rising"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">number</span><span class="iodesc"><code>level</code>: a number, the trigger level — positional and <strong>required</strong> (defaulting it would let <code>find_trigger(x)</code> answer confidently about a level the caller never chose), though <code>level=</code> is accepted as a keyword too.</span></div>
+<div class="ioitem"><code>edge</code> <span class="iotype">string, optional (default <code>"rising"</code>)</span><span class="iodesc"><code>edge</code> (optional string): <code>"rising"</code> (default), <code>"falling"</code>, or <code>"both"</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a vector of 0-indexed integer sample indices, one per crossing, each being the <strong>first sample of the new state</strong> — a rising crossing at <code>i</code> means <code>x[i-1] &lt; level &lt;= x[i]</code>. A transition involving a <code>NaN</code> is skipped rather than reported, so a dropout does not manufacture a pair of edges.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>find_trigger(x, level, [edge="rising"])</code> -- the sample indices at which <code>x</code> crosses <code>level</code>. <code>edge</code> is <code>"rising"</code> (default), <code>"falling"</code>, or <code>"both"</code>. This is the primitive the rest of the cluster is built on. <code>level</code> is positional and REQUIRED, deliberately: a trigger level is the entire content of the question being asked, and defaulting it (to the midpoint, say) would let <code>find_trigger(x)</code> return a confident answer about a level the caller never chose. The derived functions below, whose subject is the pulse train rather than the level, do default it.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

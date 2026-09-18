@@ -93,29 +93,29 @@ Matches the hand-derived expectation: only the center point has a bounded cell.
 Exactly 1 of 7 points has a bounded Voronoi cell, as expected for a hull of 6 + 1 interior point.</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_voronoi_diagram.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_voronoi_diagram.qu -- the Voronoi diagram of a small, hand-chosen 2-D</span>
-<span class="c"># point set, built on a real Delaunay triangulation (the `spade` crate),</span>
-<span class="c"># checked against a hand-derivable geometric fact rather than just printed.</span>
-<span class="c">#</span>
-<span class="c"># Hand-derivable fact used as the check: a point's Voronoi cell is BOUNDED</span>
-<span class="c"># (a closed polygon) only if that point is strictly interior to the</span>
-<span class="c"># convex hull of the whole point set -- every point ON the convex hull</span>
-<span class="c"># always has an unbounded cell (it borders the "outside" of the point</span>
-<span class="c"># set, which no other point ever claims). Here the point set is a square</span>
-<span class="c"># of 4 corners plus 2 edge midpoints (all 6 on the convex hull) plus 1</span>
-<span class="c"># point at the exact center (strictly interior) -- so exactly ONE of the</span>
-<span class="c"># 7 points, the center, should come back bounded.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   voronoi(points)          -- kind="voronoi" model: points/cells/bounded</span>
-<span class="c">#   model.cells[i]           -- (m_i, 2) matrix of that cell's finite</span>
-<span class="c">#                                vertices, in order</span>
-<span class="c">#   model.bounded            -- 0/1 flag per point</span>
+<pre class="hl"><code><span class="c"># qu_voronoi_diagram.qu -- the Voronoi diagram of a small, hand-chosen 2-D</span>
+<span class="c"># point set, built on a real Delaunay triangulation (the `spade` crate),</span>
+<span class="c"># checked against a hand-derivable geometric fact rather than just printed.</span>
+<span class="c">#</span>
+<span class="c"># Hand-derivable fact used as the check: a point's Voronoi cell is BOUNDED</span>
+<span class="c"># (a closed polygon) only if that point is strictly interior to the</span>
+<span class="c"># convex hull of the whole point set -- every point ON the convex hull</span>
+<span class="c"># always has an unbounded cell (it borders the "outside" of the point</span>
+<span class="c"># set, which no other point ever claims). Here the point set is a square</span>
+<span class="c"># of 4 corners plus 2 edge midpoints (all 6 on the convex hull) plus 1</span>
+<span class="c"># point at the exact center (strictly interior) -- so exactly ONE of the</span>
+<span class="c"># 7 points, the center, should come back bounded.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   voronoi(points)          -- kind="voronoi" model: points/cells/bounded</span>
+<span class="c">#   model.cells[i]           -- (m_i, 2) matrix of that cell's finite</span>
+<span class="c">#                                vertices, in order</span>
+<span class="c">#   model.bounded            -- 0/1 flag per point</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% 7 points: 4 square corners + 2 edge midpoints (all on the hull) + 1</span>
-<span class="c"># center point (strictly interior).</span>
+<span class="c">#%% 7 points: 4 square corners + 2 edge midpoints (all on the hull) + 1</span>
+<span class="c"># center point (strictly interior).</span>
 pts = [<span class="n">0</span>, <span class="n">0</span>; <span class="n">10</span>, <span class="n">0</span>; <span class="n">10</span>, <span class="n">10</span>; <span class="n">0</span>, <span class="n">10</span>; <span class="n">5</span>, <span class="n">0</span>; <span class="n">5</span>, <span class="n">10</span>; <span class="n">5</span>, <span class="n">5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">7</span>, <span class="n">2</span>)
 labels = (<span class="s">"corner (0,0)"</span>, <span class="s">"corner (10,0)"</span>, <span class="s">"corner (10,10)"</span>, <span class="s">"corner (0,10)"</span>,
           <span class="s">"edge mid (5,0)"</span>, <span class="s">"edge mid (5,10)"</span>, <span class="s">"center (5,5)"</span>)
@@ -132,8 +132,8 @@ v = <span class="f">voronoi</span>(pts)
 <span class="f">print</span>(<span class="s">"center cell's finite vertices (a closed hexagon around (5,5)):"</span>)
 <span class="f">print</span>(v.cells[<span class="n">6</span>])
 
-<span class="c">#%% Hand-derived check: exactly one point (the center, index 6) is</span>
-<span class="c"># interior to the hull, so it must be the ONLY bounded cell.</span>
+<span class="c">#%% Hand-derived check: exactly one point (the center, index 6) is</span>
+<span class="c"># interior to the hull, so it must be the ONLY bounded cell.</span>
 expected_bounded = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>]
 <span class="k">if</span> <span class="f">sum</span>(<span class="f">abs</span>(v.bounded - expected_bounded)) &lt; <span class="n">1e-9</span> <span class="k">then</span>
     <span class="f">print</span>(<span class="s">"Matches the hand-derived expectation: only the center point has a bounded cell."</span>)

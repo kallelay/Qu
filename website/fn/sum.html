@@ -30,12 +30,12 @@
 <h1>sum</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
-<pre class="fnsig">result = <code>sum(x)</code></pre>
-<p class="fnnote">Input: x &middot; Output: result</p>
+<pre class="fnsig">result = <code>sum(x, [on_invalid=])</code></pre>
+<p class="fnnote">Input: x, on_invalid &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Sum / product of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code> (real; <code>sum</code> additionally accepts a <code>CVec</code>/<code>CMat</code> and returns a <code>Complex</code> in that case). With no other argument, reduces to one scalar <code>Num</code> (or <code>Complex</code>). On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a <code>Vec</code> of length <code>cols</code> (<code>axis=0</code>) or <code>rows</code> (<code>axis=1</code>).</p>
+<p>Sum of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code> (real; additionally accepts a <code>CVec</code>/<code>CMat</code> and returns a <code>Complex</code> in that case). With no other argument, reduces to one scalar <code>Num</code> (or <code>Complex</code>). On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a <code>Vec</code> of length <code>cols</code> (<code>axis=0</code>) or <code>rows</code> (<code>axis=1</code>). <code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro) controls NaN/Inf handling, including for a <code>CVec</code>'s complex elements — a NaN/Inf in either the real or the imaginary part counts.</p>
 <h2>Overloads</h2>
-<p class="ioacross"><code>x</code> can be scalar, Vec, Mat, Signal, CVec, or CMat.</p>
+<p class="ioacross"><code>x</code> can be scalar, Vec, Mat, Signal, CVec, or CMat; <code>on_invalid</code> can be scalar, Vec, Mat, Signal, CVec, or CMat.</p>
 <p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
 <div class="typetabs">
 <input type="radio" name="typetab" id="tt-sum-0" checked>
@@ -48,7 +48,8 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = sum(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = sum(x, [on_invalid=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iodesc"><code>x</code> a real scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>.</span></div>
+<div class="ioitem"><code>on_invalid</code> <span class="iotype">scalar, Vec, Mat, or Signal, optional</span><span class="iodesc"><code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro) controls NaN/Inf handling, including for a <code>CVec</code>'s complex elements — a NaN/Inf in either the real or the imaginary part counts.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
 </td><td>Returns a real scalar <code>Num</code>.</td></tr>
 </table></div>
@@ -62,7 +63,8 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = sum(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">CVec or CMat</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = sum(x, [on_invalid=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">CVec or CMat</span><span class="iodesc"><code>x</code> a <code>CVec</code> or <code>CMat</code>.</span></div>
+<div class="ioitem"><code>on_invalid</code> <span class="iotype">CVec or CMat, optional</span><span class="iodesc"><code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro) controls NaN/Inf handling, including for a <code>CVec</code>'s complex elements — a NaN/Inf in either the real or the imaginary part counts.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Complex, scalar, or Num</span></div>
 </td><td>Returns a <code>Complex</code> scalar instead of a <code>Num</code> — the one reduction in this table that changes its own return *type* based on its input, rather than just its shape.</td></tr>
 </table></div>
@@ -76,14 +78,12 @@
 </div>
 </div>
 <h2>How it works</h2>
-<p>reductions <code>sum</code> is complex-aware: a <code>CVec</code> reduces to a <code>Complex</code> instead of erroring through the real-only <code>to_vec</code> coercion below -- DSP idioms like a DFT bin (<code>sum(x .* twiddle_factors)</code>) need it.</p>
+<p>reductions <code>sum</code> is complex-aware: a <code>CVec</code> reduces to a <code>Complex</code> instead of erroring through the real-only <code>to_vec</code> coercion below -- DSP idioms like a DFT bin (<code>sum(x .* twiddle_factors)</code>) need it. <code>on_invalid=</code> (default <code>"propagate"</code>, today's behavior unchanged) — see <code>OnInvalid</code>'s doc comment for the three values and <code>apply_on_invalid</code>/<code>arg_extremum_on_invalid</code> for where each reduction below applies it.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
-<h2>See also</h2>
-<p><a href="prod.html"><code>prod</code></a> &mdash; documented in the same entry.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

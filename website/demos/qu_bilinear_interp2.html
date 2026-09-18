@@ -81,60 +81,60 @@ interp2 (nearest)  at off-grid (1.5, 0.5) = 0  (bilinear gave 0.75 -- different 
 bilinear != nearest: true</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_bilinear_interp2.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_bilinear_interp2.qu -- 2D grid interpolation with `interp2`.</span>
-<span class="c">#</span>
-<span class="c"># `interp2(x, y, Z, xq, yq, [method="bilinear"|"nearest"])` (commit</span>
-<span class="c"># 5bc6c19) is the 2D sibling of `interp1`: `x` (length ncols) are the</span>
-<span class="c"># grid's COLUMN coordinates, `y` (length nrows) its ROW coordinates, and</span>
-<span class="c"># `Z` is an (nrows, ncols) matrix with `Z[i, j]` the value at</span>
-<span class="c"># `(y[i], x[j])` -- `Matrix::get(row, col)`'s ordinary indexing, matching</span>
-<span class="c"># every other grid-shaped builtin in this codebase (`heatmap`,</span>
-<span class="c"># `matrix_row`, ...), not a transposed axis order. This demo builds a</span>
-<span class="c"># coarse grid of the bilinear function `f(x, y) = x * y` (chosen because</span>
-<span class="c"># bilinear interpolation reproduces it EXACTLY inside any cell -- so the</span>
-<span class="c"># "off-grid" check below can be hand-verified to machine precision, not</span>
-<span class="c"># just "plausible looking"), queries it at an exact grid point (must match</span>
-<span class="c"># Z exactly, zero interpolation error), then at an off-grid point, and</span>
-<span class="c"># finally compares "bilinear" against "nearest" at that SAME off-grid point</span>
-<span class="c"># to show the two methods genuinely disagree.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   interp2(x, y, Z, xq, yq, [method]) -- bilinear (default) or nearest-neighbor</span>
-<span class="c">#   Matrix literal [..;..] construction / rows()/cols()</span>
+<pre class="hl"><code><span class="c"># qu_bilinear_interp2.qu -- 2D grid interpolation with `interp2`.</span>
+<span class="c">#</span>
+<span class="c"># `interp2(x, y, Z, xq, yq, [method="bilinear"|"nearest"])` (commit</span>
+<span class="c"># 5bc6c19) is the 2D sibling of `interp1`: `x` (length ncols) are the</span>
+<span class="c"># grid's COLUMN coordinates, `y` (length nrows) its ROW coordinates, and</span>
+<span class="c"># `Z` is an (nrows, ncols) matrix with `Z[i, j]` the value at</span>
+<span class="c"># `(y[i], x[j])` -- `Matrix::get(row, col)`'s ordinary indexing, matching</span>
+<span class="c"># every other grid-shaped builtin in this codebase (`heatmap`,</span>
+<span class="c"># `matrix_row`, ...), not a transposed axis order. This demo builds a</span>
+<span class="c"># coarse grid of the bilinear function `f(x, y) = x * y` (chosen because</span>
+<span class="c"># bilinear interpolation reproduces it EXACTLY inside any cell -- so the</span>
+<span class="c"># "off-grid" check below can be hand-verified to machine precision, not</span>
+<span class="c"># just "plausible looking"), queries it at an exact grid point (must match</span>
+<span class="c"># Z exactly, zero interpolation error), then at an off-grid point, and</span>
+<span class="c"># finally compares "bilinear" against "nearest" at that SAME off-grid point</span>
+<span class="c"># to show the two methods genuinely disagree.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   interp2(x, y, Z, xq, yq, [method]) -- bilinear (default) or nearest-neighbor</span>
+<span class="c">#   Matrix literal [..;..] construction / rows()/cols()</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% A coarse 4x3 grid of f(x, y) = x * y</span>
-x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]      <span class="c"># 4 column coordinates</span>
-y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]         <span class="c"># 3 row coordinates</span>
+<span class="c">#%% A coarse 4x3 grid of f(x, y) = x * y</span>
+x = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]      <span class="c"># 4 column coordinates</span>
+y = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]         <span class="c"># 3 row coordinates</span>
 
-<span class="c"># Z[i, j] = x[j] * y[i]  (row i &lt;-&gt; y[i], col j &lt;-&gt; x[j])</span>
+<span class="c"># Z[i, j] = x[j] * y[i]  (row i &lt;-&gt; y[i], col j &lt;-&gt; x[j])</span>
 Z = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">0</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">6</span>]
 <span class="f">print</span>(<span class="s">"grid: x={x}, y={y}, Z is {rows(Z)}x{cols(Z)}"</span>)
 
-<span class="c">#%% 1) Exact grid point: (xq, yq) = (2, 1) must reproduce Z exactly</span>
+<span class="c">#%% 1) Exact grid point: (xq, yq) = (2, 1) must reproduce Z exactly</span>
 exact_val = <span class="f">interp2</span>(x, y, Z, <span class="n">2</span>, <span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"interp2 at exact grid point (x=2, y=1) = {exact_val}  (Z[row=1,col=2] = {Z[1, 2]}, expect identical, 0 error)"</span>)
 <span class="f">print</span>(<span class="s">"error vs Z = {abs(exact_val - Z[1, 2]):.2e}"</span>)
 
-<span class="c">#%% 2) Off-grid point: (xq, yq) = (1.5, 0.5), bracketed by cell</span>
-<span class="c">#      x in [1, 2] (tx=0.5), y in [0, 1] (ty=0.5).</span>
-<span class="c"># Hand-computed bilinear average of the 4 surrounding corners:</span>
-<span class="c">#   z00 = Z(y=0,x=1) = 0*1 = 0      z01 = Z(y=0,x=2) = 0*2 = 0</span>
-<span class="c">#   z10 = Z(y=1,x=1) = 1*1 = 1      z11 = Z(y=1,x=2) = 1*2 = 2</span>
-<span class="c">#   top    = z00 + tx*(z01 - z00) = 0 + 0.5*(0 - 0)  = 0</span>
-<span class="c">#   bottom = z10 + tx*(z11 - z10) = 1 + 0.5*(2 - 1)  = 1.5</span>
-<span class="c">#   result = top + ty*(bottom - top) = 0 + 0.5*(1.5 - 0) = 0.75</span>
-<span class="c"># (matches f(1.5, 0.5) = 1.5*0.5 = 0.75 exactly, as expected for a bilinear f)</span>
+<span class="c">#%% 2) Off-grid point: (xq, yq) = (1.5, 0.5), bracketed by cell</span>
+<span class="c">#      x in [1, 2] (tx=0.5), y in [0, 1] (ty=0.5).</span>
+<span class="c"># Hand-computed bilinear average of the 4 surrounding corners:</span>
+<span class="c">#   z00 = Z(y=0,x=1) = 0*1 = 0      z01 = Z(y=0,x=2) = 0*2 = 0</span>
+<span class="c">#   z10 = Z(y=1,x=1) = 1*1 = 1      z11 = Z(y=1,x=2) = 1*2 = 2</span>
+<span class="c">#   top    = z00 + tx*(z01 - z00) = 0 + 0.5*(0 - 0)  = 0</span>
+<span class="c">#   bottom = z10 + tx*(z11 - z10) = 1 + 0.5*(2 - 1)  = 1.5</span>
+<span class="c">#   result = top + ty*(bottom - top) = 0 + 0.5*(1.5 - 0) = 0.75</span>
+<span class="c"># (matches f(1.5, 0.5) = 1.5*0.5 = 0.75 exactly, as expected for a bilinear f)</span>
 bilinear_val = <span class="f">interp2</span>(x, y, Z, <span class="n">1.5</span>, <span class="n">0.5</span>)
 hand_computed = <span class="n">0.75</span>
 <span class="f">print</span>(<span class="s">"interp2 (bilinear) at off-grid (1.5, 0.5) = {bilinear_val}  (hand-computed = {hand_computed})"</span>)
 <span class="f">print</span>(<span class="s">"error vs hand-computed = {abs(bilinear_val - hand_computed):.2e}"</span>)
 
-<span class="c">#%% 3) Same off-grid point, "nearest" method -- genuinely different answer.</span>
-<span class="c"># Nearest x to 1.5 is a tie (1 and 2 both 0.5 away) -&gt; first candidate x=1</span>
-<span class="c"># wins; nearest y to 0.5 is likewise a tie -&gt; y=0 wins. So nearest picks</span>
-<span class="c"># corner (y=0, x=1) = Z[0,1] = 0, NOT the bilinear average of 0.75.</span>
+<span class="c">#%% 3) Same off-grid point, "nearest" method -- genuinely different answer.</span>
+<span class="c"># Nearest x to 1.5 is a tie (1 and 2 both 0.5 away) -&gt; first candidate x=1</span>
+<span class="c"># wins; nearest y to 0.5 is likewise a tie -&gt; y=0 wins. So nearest picks</span>
+<span class="c"># corner (y=0, x=1) = Z[0,1] = 0, NOT the bilinear average of 0.75.</span>
 nearest_val = <span class="f">interp2</span>(x, y, Z, <span class="n">1.5</span>, <span class="n">0.5</span>, <span class="s">"nearest"</span>)
 <span class="f">print</span>(<span class="s">"interp2 (nearest)  at off-grid (1.5, 0.5) = {nearest_val}  (bilinear gave {bilinear_val} -- different answers)"</span>)
 <span class="f">print</span>(<span class="s">"bilinear != nearest: {bilinear_val != nearest_val}"</span>)

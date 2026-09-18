@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>delay — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>delay</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>delay(x, n)</code></pre>
+<p class="fnnote">Input: x, n &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a vector or <code>Signal</code>; <code>n</code>: a whole number of samples, positional or named (<code>delay(x, samples = 4)</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = delay(x, n)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: a whole number of samples, positional or named (<code>delay(x, samples = 4)</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
+</td><td>Returns the SAME length as <code>x</code>, shifted later by <code>n</code> with the vacated head zero-filled and whatever runs off the end dropped. A negative <code>n</code> advances instead (drops from the head, zero-pads the tail); <code>abs(n) &gt;= length(x)</code> is all zeros rather than an error. A <code>Signal</code> keeps its <code>Fs</code> — moving samples along the time axis does not change how fast they were taken.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>delay(x, n)</code> — shift <code>x</code> later along its own time axis by <code>n</code> samples, zero-filling the vacated head and dropping whatever falls off the end, so the result is the SAME length as the input. That is what a fixed-size buffer actually does, and keeping the length is what lets <code>x + delay(x, 4)</code> (a comb/echo, the obvious first use) line up at all — a version that returned a longer vector could not be added to its own input without the caller trimming it first. A negative <code>n</code> advances instead (drops from the head, zero-pads the tail), and <code>|n| &gt;= length(x)</code> is all zeros rather than an error: shifting a buffer clear out of its own window has a perfectly well-defined answer. A <code>Signal</code> keeps its <code>fs</code> — moving samples along the time axis does not change how fast they were taken.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

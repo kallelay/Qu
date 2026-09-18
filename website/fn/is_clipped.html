@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>is_clipped — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>is_clipped</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>is_clipped(x, [threshold=], [full_scale=], [tol=], [min_run=3])</code></pre>
+<p class="fnnote">Input: x, threshold, full_scale, tol, min_run &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector, <code>Mat</code> or <code>Signal</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = is_clipped(x, [threshold=], [full_scale=], [tol=], [min_run=3])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector, Mat, or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector, <code>Mat</code> or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>threshold</code> <span class="iotype">number, optional</span><span class="iodesc"><code>threshold=</code>/<code>full_scale=</code> (optional numbers, interchangeable spellings, must be positive) set the magnitude a sample must reach to be a candidate.</span></div>
+<div class="ioitem"><code>full_scale</code> <span class="iotype">number, optional</span><span class="iodesc"><code>threshold=</code>/<code>full_scale=</code> (optional numbers, interchangeable spellings, must be positive) set the magnitude a sample must reach to be a candidate.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional</span><span class="iodesc"><code>tol=</code> (optional number, default <code>1e-9 × threshold</code>) is how nearly equal consecutive samples must be.</span></div>
+<div class="ioitem"><code>min_run</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iodesc"><code>min_run=</code> (optional whole number ≥ 1, default <code>3</code>) is how many consecutive samples make a run — <code>min_run=1</code> degrades this to the plain "any sample at or beyond the threshold" test.</span></div>
+</td><td><div class="ioitem"><code>full_scale=</code> <span class="iotype">number</span><span class="iodesc">optional numbers, interchangeable spellings, must be positive</span></div>
+<div class="ioitem"><code>tol=</code> <span class="iotype">number</span><span class="iodesc">optional number, default <code>1e-9 × threshold</code></span></div>
+<div class="ioitem"><code>min_run=</code> <span class="iotype">number</span><span class="iodesc">optional whole number ≥ 1, default <code>3</code></span></div>
+</td><td>Returns a <code>Bool</code>: does <code>x</code> contain a flat run at an extreme. <code>threshold=</code>/<code>full_scale=</code> (optional numbers, interchangeable spellings, must be positive) set the magnitude a sample must reach to be a candidate; with neither, the record's own largest magnitude is used — safe because detection is run-based, see above. <code>tol=</code> (optional number, default <code>1e-9 × threshold</code>) is how nearly equal consecutive samples must be; raise it for soft saturation. <code>min_run=</code> (optional whole number ≥ 1, default <code>3</code>) is how many consecutive samples make a run — <code>min_run=1</code> degrades this to the plain "any sample at or beyond the threshold" test. Errors on an empty record, and on an all-zero record with no explicit threshold (there is no level to test against).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>is_clipped(x, [threshold=], [full_scale=], [tol=], [min_run=])</code> -&gt; true/false, and <code>find_clipping(x, ...)</code> -&gt; where. Same detection, two shapes, one parameter resolver (<code>clip_params</code>) so they cannot disagree. The test is a FLAT RUN at an extreme, not a threshold crossing. "Any sample within x% of full scale" fires on every healthy recording that uses its headroom -- a sine sampled near its peak legitimately touches the top of its range, and some sample is always the largest. What a clipped record has and an unclipped one does not is several CONSECUTIVE samples holding the same value: the converter emitting one code over and over because the input went where it could not follow. Consecutive samples of a real sine near its peak differ by about <code>A*2*pi^2/N^2</code> for N samples per cycle, so equality separates the two without having to guess full scale. That is what makes the threshold default (the record's own largest magnitude) safe rather than a silent guess: on its own it flags nothing, it only picks the level the run test is applied at. Pass <code>full_scale=</code> when the converter's range is known -- then a flat run part-way up the range, which is a limiter rather than the converter, is correctly NOT reported. This catches HARD clipping. Soft/analogue saturation rounds the shoulder instead of flattening it and needs an explicit <code>threshold=</code> with a looser <code>tol=</code>; <code>min_run=1</code> degrades the whole thing to the plain threshold test for a caller who really wants that.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

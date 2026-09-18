@@ -110,35 +110,35 @@ semaphore held the line: true
 semaphore released everything back: true</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_mutex_semaphore.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_mutex_semaphore.qu -- shared mutable state across real worker threads.</span>
-<span class="c">#</span>
-<span class="c"># Every other concurrency demo in this catalog (qu_distributed_pool.qu,</span>
-<span class="c"># qu_tcp_echo.qu) uses `spawn`/`pool`/`queue`'s default SHARE-NOTHING model:</span>
-<span class="c"># each worker gets its own snapshot of the environment, and results come</span>
-<span class="c"># back through the queue's return values, not shared variables. `mutex`</span>
-<span class="c"># and `semaphore` are the deliberate, explicit opt-out of that default --</span>
-<span class="c"># real shared, lockable state for when a script genuinely needs it (a</span>
-<span class="c"># running counter, a bounded-concurrency resource). Cloning a `Value::Mutex`</span>
-<span class="c"># clones the `Arc`, not the data, so even though each queued job runs</span>
-<span class="c"># against its own snapshotted environment, the mutex/semaphore CELL itself</span>
-<span class="c"># is still the one, real, shared cell every job's snapshot points at.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   mutex(v) / mutex_get(m) / mutex_set(m, v)</span>
-<span class="c">#   mutex_add(m, delta)         -- atomic read-modify-write (no lost updates)</span>
-<span class="c">#   mutex_update(m, "fnName")   -- atomic read-modify-write via a user function</span>
-<span class="c">#   semaphore(n)                -- n permits, bounds concurrent access</span>
-<span class="c">#   semaphore_acquire(s) / semaphore_release(s) / semaphore_available(s)</span>
+<pre class="hl"><code><span class="c"># qu_mutex_semaphore.qu -- shared mutable state across real worker threads.</span>
+<span class="c">#</span>
+<span class="c"># Every other concurrency demo in this catalog (qu_distributed_pool.qu,</span>
+<span class="c"># qu_tcp_echo.qu) uses `spawn`/`pool`/`queue`'s default SHARE-NOTHING model:</span>
+<span class="c"># each worker gets its own snapshot of the environment, and results come</span>
+<span class="c"># back through the queue's return values, not shared variables. `mutex`</span>
+<span class="c"># and `semaphore` are the deliberate, explicit opt-out of that default --</span>
+<span class="c"># real shared, lockable state for when a script genuinely needs it (a</span>
+<span class="c"># running counter, a bounded-concurrency resource). Cloning a `Value::Mutex`</span>
+<span class="c"># clones the `Arc`, not the data, so even though each queued job runs</span>
+<span class="c"># against its own snapshotted environment, the mutex/semaphore CELL itself</span>
+<span class="c"># is still the one, real, shared cell every job's snapshot points at.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   mutex(v) / mutex_get(m) / mutex_set(m, v)</span>
+<span class="c">#   mutex_add(m, delta)         -- atomic read-modify-write (no lost updates)</span>
+<span class="c">#   mutex_update(m, "fnName")   -- atomic read-modify-write via a user function</span>
+<span class="c">#   semaphore(n)                -- n permits, bounds concurrent access</span>
+<span class="c">#   semaphore_acquire(s) / semaphore_release(s) / semaphore_available(s)</span>
 
 <span class="k">backend</span> auto
 
 pool workers <span class="k">with</span> cpu = <span class="n">4</span>
 <span class="k">end</span> pool
 
-<span class="c">#%% mutex_add: a shared counter incremented by many concurrent jobs.</span>
-<span class="c"># The whole point of `mutex_add` over `mutex_set(m, mutex_get(m) + 1)`:</span>
-<span class="c"># the read-then-write is a SINGLE lock acquisition, so concurrent</span>
-<span class="c"># increments can never race and lose an update.</span>
+<span class="c">#%% mutex_add: a shared counter incremented by many concurrent jobs.</span>
+<span class="c"># The whole point of `mutex_add` over `mutex_set(m, mutex_get(m) + 1)`:</span>
+<span class="c"># the read-then-write is a SINGLE lock acquisition, so concurrent</span>
+<span class="c"># increments can never race and lose an update.</span>
 counter = <span class="f">mutex</span>(<span class="n">0</span>)
 
 <span class="k">function</span> <span class="f">bump</span>(m)
@@ -157,10 +157,10 @@ final_count = <span class="f">mutex_get</span>(counter)
 <span class="f">print</span>(<span class="s">"mutex_add: {N} concurrent increments -&gt; counter = {final_count}"</span>)
 <span class="f">print</span>(<span class="s">"no lost updates: {final_count == N}"</span>)
 
-<span class="c">#%% semaphore: bound concurrent access to a simulated limited resource (a</span>
-<span class="c"># hardware port, a connection-pool slot). 2 permits means at most 2 jobs</span>
-<span class="c"># are ever "inside" the critical section at once -- verified below by a</span>
-<span class="c"># mutex-protected high-water-mark counter, not just assumed.</span>
+<span class="c">#%% semaphore: bound concurrent access to a simulated limited resource (a</span>
+<span class="c"># hardware port, a connection-pool slot). 2 permits means at most 2 jobs</span>
+<span class="c"># are ever "inside" the critical section at once -- verified below by a</span>
+<span class="c"># mutex-protected high-water-mark counter, not just assumed.</span>
 active = <span class="f">mutex</span>(<span class="n">0</span>)
 peak = <span class="f">mutex</span>(<span class="n">0</span>)
 pool_permits = <span class="f">semaphore</span>(<span class="n">2</span>)

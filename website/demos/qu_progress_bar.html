@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qu_progress_bar — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Uncategorised</p>
+<h1>qu_progress_bar</h1>
+<p class="lede">a tqdm-style progress indicator for a long loop.</p>
+<p class="srcpath">catalog/qu_progress_bar.qu</p>
+<p>`progress(i, n)` -- called once per iteration, `i` 0-based and less than `n` -- draws a bar, percent, rate and ETA, and redraws in place (carriage return, not a new line each time). Deliberately a plain builtin next to `tic`/`toc`, not new loop syntax: `for i = 0 to n - 1` is the ordinary Qu idiom, and this is the ordinary way to watch it.</p>
+<h2>How it works</h2>
+<section class="step">
+<h3>A loop with real (if artificial) work per iteration, so the bar has</h3>
+<p>something to measure. sleep() stands in for the actual computation -- swap it for whatever the loop is really doing.</p>
+<pre class="hl"><code>n = <span class="n">40</span>
+total = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+    total = total + <span class="f">sqrt</span>(i + <span class="n">1.0</span>)
+    <span class="f">sleep</span>(<span class="n">50</span>)   <span class="c"># milliseconds, not seconds -- sleep() takes ms</span>
+    <span class="f">progress</span>(i, n)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"done: sum of sqrt(1..{n}) = {total:.4f}"</span>)
+</code></pre>
+</section>
+<section class="step">
+<h3>Calling it from the wrong range is a common off-by-one -- shown here</h3>
+<p>as the error it actually produces, not silently accepted.</p>
+<pre class="hl"><code><span class="k">try</span>
+    <span class="f">progress</span>(n, n)
+<span class="k">catch</span> e
+    <span class="f">print</span>(<span class="s">"expected error calling progress(n, n) instead of progress(n - 1, n): {e.message}"</span>)
+<span class="k">end</span>
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>[#-----------------------------]   2% (1/40) 0.0/s eta 0.0s[##----------------------------]   8% (3/40) 29.8/s eta 1.2s[####--------------------------]  12% (5/40) 24.9/s eta 1.4s[#####-------------------------]  18% (7/40) 23.2/s eta 1.4s[#######-----------------------]  22% (9/40) 22.4/s eta 1.4s[########----------------------]  28% (11/40) 21.9/s eta 1.3s[##########--------------------]  32% (13/40) 21.6/s eta 1.3s[###########-------------------]  38% (15/40) 21.3/s eta 1.2s[#############-----------------]  42% (17/40) 21.1/s eta 1.1s[##############----------------]  48% (19/40) 21.0/s eta 1.0s[################--------------]  52% (21/40) 20.9/s eta 0.9s[#################-------------]  57% (23/40) 20.8/s eta 0.8s[###################-----------]  62% (25/40) 20.7/s eta 0.7s[####################----------]  68% (27/40) 20.6/s eta 0.6s[######################--------]  72% (29/40) 20.6/s eta 0.5s[#######################-------]  78% (31/40) 20.5/s eta 0.4s[#########################-----]  82% (33/40) 20.5/s eta 0.3s[##########################----]  88% (35/40) 20.4/s eta 0.2s[############################--]  92% (37/40) 20.4/s eta 0.1s[#############################-]  98% (39/40) 20.4/s eta 0.0s[##############################] 100% (40/40) 20.3/s eta 0.0s
+done: sum of sqrt(1..40) = 171.6158
+expected error calling progress(n, n) instead of progress(n - 1, n): progress: i must be 0-based and less than n (0..39), got 40 -- `for i = 0 to n - 1 ... progress(i, n) ...` is the idiom, not `1 to n`</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_progress_bar.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_progress_bar.qu -- a tqdm-style progress indicator for a long loop.</span>
+<span class="c">#</span>
+<span class="c"># `progress(i, n)` -- called once per iteration, `i` 0-based and less</span>
+<span class="c"># than `n` -- draws a bar, percent, rate and ETA, and redraws in place</span>
+<span class="c"># (carriage return, not a new line each time). Deliberately a plain</span>
+<span class="c"># builtin next to `tic`/`toc`, not new loop syntax: `for i = 0 to n - 1`</span>
+<span class="c"># is the ordinary Qu idiom, and this is the ordinary way to watch it.</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A loop with real (if artificial) work per iteration, so the bar has</span>
+<span class="c"># something to measure. sleep() stands in for the actual computation --</span>
+<span class="c"># swap it for whatever the loop is really doing.</span>
+n = <span class="n">40</span>
+total = <span class="n">0.0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+    total = total + <span class="f">sqrt</span>(i + <span class="n">1.0</span>)
+    <span class="f">sleep</span>(<span class="n">50</span>)   <span class="c"># milliseconds, not seconds -- sleep() takes ms</span>
+    <span class="f">progress</span>(i, n)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"done: sum of sqrt(1..{n}) = {total:.4f}"</span>)
+
+<span class="c">#%% Calling it from the wrong range is a common off-by-one -- shown here</span>
+<span class="c"># as the error it actually produces, not silently accepted.</span>
+<span class="k">try</span>
+    <span class="f">progress</span>(n, n)
+<span class="k">catch</span> e
+    <span class="f">print</span>(<span class="s">"expected error calling progress(n, n) instead of progress(n - 1, n): {e.message}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

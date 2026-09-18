@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>psd — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>psd</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])</code></pre>
+<p class="fnnote">Input: x, fs, window, nfft, overlap &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; <code>fs</code> (number, Hz) — required, or carried by a <code>Signal</code>. <code>nfft</code> (optional number): the <strong>segment length</strong> — the same meaning <code>spectrogram</code>/<code>stft</code> give <code>nfft</code> in this engine, *not* SciPy's zero-padded transform length. <code>overlap</code> (optional number): segment overlap as a <strong>fraction</strong> in <code>[0, 1)</code> — <code>0.5</code> is 50%, where <code>welch</code>'s <code>noverlap=</code> is an absolute sample count. <code>window</code> (optional string, as for <code>welch</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number or Signal, optional</span><span class="iodesc"><code>fs</code> (number, Hz) — required, or carried by a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">string, optional (default <code>"hann"</code>)</span><span class="iodesc"><code>window</code> (optional string, as for <code>welch</code>).</span></div>
+<div class="ioitem"><code>nfft</code> <span class="iotype">number, optional (default <code>min(256,len(x))</code>)</span><span class="iodesc"><code>nfft</code> (optional number): the <strong>segment length</strong> — the same meaning <code>spectrogram</code>/<code>stft</code> give <code>nfft</code> in this engine, *not* SciPy's zero-padded transform length.</span></div>
+<div class="ioitem"><code>overlap</code> <span class="iotype">number, optional (default <code>0.5</code>)</span><span class="iodesc"><code>overlap</code> (optional number): segment overlap as a <strong>fraction</strong> in <code>[0, 1)</code> — <code>0.5</code> is 50%, where <code>welch</code>'s <code>noverlap=</code> is an absolute sample count.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector or scalar</span></div>
+</td><td>Returns a length-<code>nfft/2 + 1</code> real vector, the one-sided Welch PSD in SciPy's <code>"density"</code> scaling, exactly as <code>welch</code> does — literally the same code path, so <code>psd(x, fs)</code> and <code>welch(x, fs)</code> are bit-identical and the defaults are chosen to keep that true. Pair with <code>linspace(0, fs/2, length(p))</code> for the frequency axis. <strong>The result carries no units.</strong> <code>toolkit-signal.md</code> §2 sketches a <code>P.unit</code> of <code>V^2/Hz</code>; the engine has no derived/compound unit algebra to propagate one with (<code>unit ppm = 1e-6</code> declares simple named scalars), so this returns a plain vector and documents the scaling rather than stamping a label it cannot enforce.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])</code> — <code>toolkit-signal.md</code> §2's Welch PSD, which is <code>welch</code> above under the spec's own parameter spelling. Deliberately the SAME code path (<code>numeric::transforms::welch</code> called directly, not the <code>welch</code> builtin re-dispatched), so the two cannot drift: <code>psd(x, fs)</code> and <code>welch(x, fs)</code> return bit-identical vectors, and the defaults below are chosen to keep that true (<code>nfft</code> defaults to <code>welch</code>'s own <code>nperseg</code> default, and <code>overlap=0.5</code> lands exactly on its <code>nperseg/2</code>). <code>overlap</code> is a FRACTION (0.5 = 50%), where <code>welch</code>'s <code>noverlap</code> is an absolute sample count. Both spellings stay: <code>welch</code> is SciPy's, and a reader porting a SciPy script should not have to convert; <code>overlap</code> is the spec's, and is the one that does not silently change meaning when <code>nfft</code> changes. <code>nfft</code> means the segment length, matching <code>spectrogram</code>/<code>stft</code>'s own <code>nfft</code> in this codebase (NOT a zero-padded transform length, which is what the name means in SciPy — flagged here because the collision is real and a reader who assumes SciPy's meaning gets a resolution they did not ask for). NO UNITS ON THE RESULT, despite <code>toolkit-signal.md</code> §2 claiming "<code>P.unit</code> really is <code>V^2/Hz</code>". Returns a plain <code>Value::Vec</code>, exactly as <code>welch</code> does. The units feature this repo actually has is simple named scalars (<code>unit ppm = 1e-6</code>); there is no derived/compound unit algebra for a per-hertz density, and <code>Value::Spectrum</code> is not it either — its <code>SpectrumNorm</code> enumerates the three conventions that make sense for a scaled DFT bin, not a density. Stamping a unit the engine cannot then propagate would be a label, not a guarantee. The scaling is documented instead, and the axis is <code>linspace(0, fs/2, length(p))</code> as for <code>welch</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

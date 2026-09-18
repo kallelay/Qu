@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**896 builtins, 892 described.** The rest are
+**932 builtins, 928 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -83,7 +83,7 @@ program, and a misspelled call suggests the nearest match.
 | | | |
 |---|---|---|
 | [`band_power`](../fn/band_power.html) | Returns the power in that frequency band by Parseval, normalised by `N^2` so a tone of amplitude `A` reads `A^2/2` | [Signal processing](signal-processing.md) |
-| [`band_zero`](../fn/band_zero.html) | Returns a new `spectrum` at the same `Fs` and `N` with that band cleared — an ideal brick-wall notch | [Signal processing](signal-processing.md) |
+| [`band_zero`](../fn/band_zero.html) | Returns a new `spectrum` at the same `Fs`, `N` and scaling with that band cleared — an ideal brick-wall notch | [Signal processing](signal-processing.md) |
 | [`bar`](../fn/bar.html) | Bar chart: `x` (Vec of numbers or strings, category positions/labels) and `y` (Vec of numbers, bar heights) must be equal length | [Plotting](plotting.md) |
 | [`basin_hopping`](../fn/basin_hopping.html) | Returns a `Model` (kind `"minimize"`, same fields as `minimize`) | [Signal processing](signal-processing.md) |
 | [`beeswarm`](../fn/beeswarm.html) | Every sample drawn, nudged sideways only as far as it must be to clear its neighbours, so the WIDTH is the count | [Plotting](plotting.md) |
@@ -98,6 +98,7 @@ program, and a misspelled call suggests the nearest match.
 | [`bitxor`](../fn/bitxor.html) | Returns a `number`: the bitwise XOR | [Collections & strings](collections-strings.md) |
 | [`blackman`](../fn/blackman.html) | Returns a length-`n` real vector | [Signal processing](signal-processing.md) |
 | [`blob_stats`](../fn/blob_stats.html) | Per-region area, centroid and bounding box, from a labelled image (identical operation to `regionprops` above) | [Images](images.md) |
+| [`block_process`](../fn/block_process.html) | Cuts `x` into consecutive blocks, calls `f` on each, and concatenates the results | [Signal processing](signal-processing.md) |
 | [`blur`](../fn/blur.html) | Applies a fixed 3x3 box-average blur kernel | [Images](images.md) |
 | [`blur_backdrop`](../fn/blur_backdrop.html) | Figure-level (not per-panel) depth-of-field effect: `(x0,y0)`–`(x1,y1)` (numbers, fractions `0..1` of the whole rendered canvas) name the rectangle that stays sharp; everything else is.. | [Plotting](plotting.md) |
 | [`bode_magnitude`](../fn/bode_magnitude.html) | Magnitude half of a Bode plot: `20*log10(\|Z\|)` vs. log-scaled frequency | [Signal processing](signal-processing.md) |
@@ -202,11 +203,13 @@ program, and a misspelled call suggests the nearest match.
 | [`dct`](../fn/dct.html) | Returns a length-N real vector | [Signal processing](signal-processing.md) |
 | [`dec2bin`](../fn/dec2bin.html) | Returns a `Str` of `0`/`1` digits, no prefix | [Collections & strings](collections-strings.md) |
 | [`dec2hex`](../fn/dec2hex.html) | Returns a `Str`: uppercase hex digits, no prefix | [Collections & strings](collections-strings.md) |
+| [`delay`](../fn/delay.html) | Returns the SAME length as `x`, shifted later by `n` with the vacated head zero-filled and whatever runs off the end dropped | [Signal processing](signal-processing.md) |
 | [`delta_e`](../fn/delta_e.html) | Compares colours `a` and `b` (each any accepted colour string) in CIE76 Lab space and returns a single number: the perceptual distance | [Plotting](plotting.md) |
 | [`dense`](../fn/dense.html) | One fully-connected layer on an `N`-row, `D`-column input matrix `x`, a `(D, H)` weight matrix `w`, and a length-`H` bias vector `b`: computes `x * w + b`, broadcasting `b` over every row | [Statistics & ML](statistics-ml.md) |
 | [`dense_layer`](../fn/dense_layer.html) | Builds one unfitted dense-layer spec: `in_dim`/`out_dim` (positive integers) the layer's input and output widths, `activation` a string, `"relu"` or `"none"` (default `"none"`, a bare.. | [Statistics & ML](statistics-ml.md) |
 | [`describe`](../fn/describe.html) | Pandas-style `describe()`: returns a `Table` with one row per summary statistic (`count`, `mean`, `std`, `min`, `25%`, `50%`, `75%`, `max`) and one column per NUMERIC column of `df` (text.. | [Collections & strings](collections-strings.md) |
 | [`det`](../fn/det.html) | Determinant of a square `Mat` or `CMat`, via LU decomposition | [Core maths](core-math.md) |
+| [`detect_saturation`](../fn/detect_saturation.html) | Has `x` hit the rails of an `adc_bits`-bit converter: the clipping question for a converter whose range is *known* rather than inferred, so no flat run is required and a single sample.. | [Signal processing](signal-processing.md) |
 | [`detrend`](../fn/detrend.html) | Subtracts a least-squares polynomial trend from `x`, a length-N number vector | [Noise](noise.md) |
 | [`device_used`](../fn/device_used.html) | Returns a struct-like value with two fields: `.device` (a string, e.g. `"cpu"` or a GPU device name) and `.gpu_dispatches` (a number, the count of operations actually dispatched to the GPU) | [REPL & diagnostics](repl-diagnostics.md) |
 | [`dft`](../fn/dft.html) | Returns a length-N `CVec`. The direct, textbook O(n²) transform, kept as an independent reference implementation to validate `fft` against and as the definitional basis `goertzel`.. | [Signal processing](signal-processing.md) |
@@ -227,6 +230,7 @@ program, and a misspelled call suggests the nearest match.
 | [`drop_row`](../fn/drop_row.html) | Returns a `Table` without those rows, by position | [Collections & strings](collections-strings.md) |
 | [`dropout`](../fn/dropout.html) | Zeroes a random share of the entries of `x` (a vector or matrix of any shape) at probability `rate` (a number in `[0, 1)`), and scales the surviving entries up by `1 / (1 - rate)`, so the.. | [Statistics & ML](statistics-ml.md) |
 | [`dropout_layer`](../fn/dropout_layer.html) | Builds one unfitted dropout-layer spec for use inside a `sequential` stack: `rate` a number in `[0, 1)`, the fraction of activations to zero during training | [Statistics & ML](statistics-ml.md) |
+| [`duty_cycle`](../fn/duty_cycle.html) | Returns a single number: mean high time over mean period, as a fraction in `[0, 1]`, not a percentage — multiply by 100 for the figure a scope's front panel shows | [Signal processing](signal-processing.md) |
 | [`dwt`](../fn/dwt.html) | Returns a `(2, N/2)` matrix — row 0 is the approximation band, row 1 is the detail band (Qu has no multi-return) | [Signal processing](signal-processing.md) |
 
 ## E
@@ -273,7 +277,8 @@ program, and a misspelled call suggests the nearest match.
 | | | |
 |---|---|---|
 | [`f1`](../fn/f1.html) | Classification metrics on a length-`N` vector of true labels `actual` and a length-`N` vector of predicted labels `predicted`, each returning a single number macro-averaged over every class.. | [Statistics & ML](statistics-ml.md) |
-| [`fft`](../fn/fft.html) | Returns a length-N complex vector (`CVec`), the discrete Fourier transform | [Signal processing](signal-processing.md) |
+| [`fall_time`](../fn/fall_time.html) | Returns a single number: the transition time of the first complete rising (resp | [Signal processing](signal-processing.md) |
+| [`fft`](../fn/fft.html) | On the FULL (two-sided) spectrum this returns, a real tone occupies TWO conjugate-symmetric bins, and scaling makes each of them independently read the tone's full peak amplitude (or RMS).. | [Signal processing](signal-processing.md) |
 | [`fftc`](../fn/fftc.html) | `rfft` returns a length-`floor(N/2)+1` complex vector, the one-sided half-spectrum; `fftc` returns a length-N complex vector, the full spectrum | [Signal processing](signal-processing.md) |
 | [`fftr`](../fn/fftr.html) | Deprecated — use `irfft`. The same function under a name that reads as `rfft`'s forward partner; it is actually `rfft`'s inverse, so the pair reads backwards | [Signal processing](signal-processing.md) |
 | [`fifo`](../fn/fifo.html) | Returns a `fifo` handle: a new, empty ring buffer | [Collections & strings](collections-strings.md) |
@@ -283,13 +288,21 @@ program, and a misspelled call suggests the nearest match.
 | [`file_exists`](../fn/file_exists.html) | Whether `path` (a `Str`) exists and is a regular file / a directory | [File I/O](file-io.md) |
 | [`file_size`](../fn/file_size.html) | Reports a file's size without opening it | [File I/O](file-io.md) |
 | [`fill_between`](../fn/fill_between.html) | A filled band between two curves: `x`, `y_lo`, `y_hi` are equal-length numeric Vecs giving the lower and upper boundary at each `x`, e.g. a confidence interval | [Plotting](plotting.md) |
+| [`fill_missing`](../fn/fill_missing.html) | `x` with the missing samples patched, same length, so a `Signal` keeps its `Fs` | [Noise](noise.md) |
 | [`filter`](../fn/filter.html) | Returns a `Table` containing only the rows where `mask` is `true` | [Collections & strings](collections-strings.md) |
 | [`filter_ba`](../fn/filter_ba.html) | Returns a same-length vector or `Signal` | [Signal processing](signal-processing.md) |
 | [`filter_init`](../fn/filter_init.html) | Returns a `Model` (kind `"filter_state"`) holding fresh all-zero streaming state for sample-at-a-time filtering: field is an `(n_sections, 2)` biquad-state matrix for an IIR (`sos`) filter,.. | [Signal processing](signal-processing.md) |
 | [`filter_next`](../fn/filter_next.html) | Returns a new `"filter_state"` `Model` (field `y`, a number, holds the filtered output) | [Signal processing](signal-processing.md) |
 | [`filtfilt`](../fn/filtfilt.html) | Returns a same-length vector or `Signal`, same `Fs`-preserving convention as `sosfilt` | [Signal processing](signal-processing.md) |
 | [`find`](../fn/find.html) | One argument: identical to `where(mask)` — the indices where a boolean `mask` is true, as a `Vec` | [Core maths](core-math.md) |
+| [`find_clipping`](../fn/find_clipping.html) | Same detection as `is_clipped`, same keywords, but returns *where* | [Signal processing](signal-processing.md) |
+| [`find_edges`](../fn/find_edges.html) | The reported positions are taken at `level` either way, so switching hysteresis on to reject glitches does not move the measurements it protects | [Signal processing](signal-processing.md) |
+| [`find_missing`](../fn/find_missing.html) | The indices of the missing samples, as a number vector | [Noise](noise.md) |
+| [`find_outliers`](../fn/find_outliers.html) | The indices of the samples a criterion flags, as a number vector (same shape of answer as `find_peaks`) | [Noise](noise.md) |
 | [`find_peaks`](../fn/find_peaks.html) | Kwarg names match SciPy; the original `min_height`/`min_distance`/`min_prominence` names are still accepted as aliases | [Signal processing](signal-processing.md) |
+| [`find_pulses`](../fn/find_pulses.html) | Returns a `Model` (kind `"pulses"`) with fields `starts`, `stops` (vectors of integer sample indices — `stops`, not `ends`, because `end` is a Qu keyword), `widths` (a vector of times:.. | [Signal processing](signal-processing.md) |
+| [`find_trigger`](../fn/find_trigger.html) | Returns a vector of 0-indexed integer sample indices, one per crossing, each being the first sample of the new state — a rising crossing at `i` means `x[i-1] < level <= x[i]` | [Signal processing](signal-processing.md) |
+| [`find_zero_crossings`](../fn/find_zero_crossings.html) | `find_trigger` at level zero. The default is both directions, unlike `find_trigger`'s own default: the zero-crossing rate is a count of every sign change, so `len(find_zero_crossings(x))`.. | [Signal processing](signal-processing.md) |
 | [`findpeaks`](../fn/findpeaks.html) | MATLAB-style `[peaks, locations] = findpeaks(x, ...)` | [Signal processing](signal-processing.md) |
 | [`fir1`](../fn/fir1.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
 | [`firls`](../fn/firls.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
@@ -316,6 +329,7 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`gain`](../fn/gain.html) | Returns the same shape as `x`, scaled by `10^(db/20)` — the AMPLITUDE convention, the same factor of 20 as `db2mag` | [Signal processing](signal-processing.md) |
 | [`gamma`](../fn/gamma.html) | The gamma function (`gamma(n) = (n-1)!` for a positive integer `n`) and its natural log (`lgamma(x) = ln\|gamma(x)\|`) | [Core maths](core-math.md) |
 | [`generate`](../fn/generate.html) | Runs greedy (argmax, no sampling knobs, no temperature) text completion on a model handle `model` from `llm_load`, given a string `prompt` and an integer cap `max_tokens` (default 64) on.. | [Statistics & ML](statistics-ml.md) |
 | [`gerischer`](../fn/gerischer.html) | `Zg/sqrt(k + jw)` — a coupled chemical reaction | [Signal processing](signal-processing.md) |
@@ -323,8 +337,8 @@ program, and a misspelled call suggests the nearest match.
 | [`getenv`](../fn/getenv.html) | Reads one environment variable | [File I/O](file-io.md) |
 | [`glob`](../fn/glob.html) | Every file matching a whole-path wildcard, as full paths, sorted — never a directory, which is what makes the content and size filters mean something on every entry | [File I/O](file-io.md) |
 | [`gmm_model`](../fn/gmm_model.html) | Gaussian mixture model with `k` components fitted by EM on an `N`-row, `D`-column matrix `X`, warm-started from a k-means run (optional integer `seed=`, and `max_iter` capping the EM.. | [Statistics & ML](statistics-ml.md) |
-| [`goertzel`](../fn/goertzel.html) | Returns a single complex scalar, the DFT value at bin `k` in O(n) — the standard tool for checking a handful of specific frequencies without paying for a whole FFT | [Signal processing](signal-processing.md) |
-| [`goertzel_freq`](../fn/goertzel_freq.html) | Returns a single complex scalar | [Signal processing](signal-processing.md) |
+| [`goertzel`](../fn/goertzel.html) | Returns a single complex scalar for a scalar `k`, or a length-K `CVec` for a vector — the K-point DFT this is named for: K arbitrary points in O(n·K), each independently, instead of every.. | [Signal processing](signal-processing.md) |
+| [`goertzel_freq`](../fn/goertzel_freq.html) | Returns a single complex scalar or a length-K `CVec`, same batching as `goertzel` above | [Signal processing](signal-processing.md) |
 | [`gpu_matmul`](../fn/gpu_matmul.html) | WebGPU-accelerated matmul via `qu-gpu`, same `A`/`B` shape requirements and `r×c` `Mat` return as `matmul`; only present in builds compiled with `--features gpu` | [Core maths](core-math.md) |
 | [`gpu_probe_info`](../fn/gpu_probe_info.html) | Returns a struct-like value with three fields: `.available` (a boolean, whether a GPU backend was found), `.crossover` (a number, the measured matrix/problem size above which the GPU wins.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`grad`](../fn/grad.html) | Takes `loss` — a tracked scalar that is the result of a computation built from `track`ed inputs — plus either a keyword argument `wrt=X` (one tracked tensor `X`) or one or more positional.. | [REPL & diagnostics](repl-diagnostics.md) |
@@ -418,10 +432,12 @@ program, and a misspelled call suggests the nearest match.
 | [`interp1`](../fn/interp1.html) | 1-D interpolation through `(x, y)` (MATLAB's `interp1`) | [Signal processing](signal-processing.md) |
 | [`interp2`](../fn/interp2.html) | 2-D grid interpolation (MATLAB's `interp2`): a query exactly at a grid coordinate returns that exact stored value, not an approximation; extrapolation beyond the grid is always on, matching.. | [Signal processing](signal-processing.md) |
 | [`interpolate_at`](../fn/interpolate_at.html) | A `Signal`-aware `interp1`: instead of an explicit `x`, the signal's OWN implicit time axis (`sig.t`, i.e. `i/Fs`) is used as `x` and `sig`'s samples as `y` | [Signal processing](signal-processing.md) |
+| [`interpolate_nan`](../fn/interpolate_nan.html) | Exactly `fill_missing(x, method="linear")` — the same engine, not a second implementation — kept under its own name because that is the operation people go looking for by name | [Noise](noise.md) |
 | [`inv`](../fn/inv.html) | True inverse of `A` (a square `Mat` or `CMat`); requires full rank, errors otherwise | [Core maths](core-math.md) |
 | [`inverse_transform`](../fn/inverse_transform.html) | Undoes a fitted scaler Record `scaler`'s transform on an already-scaled matrix/vector/table `newX`, returning it to the original units | [Statistics & ML](statistics-ml.md) |
 | [`iqr`](../fn/iqr.html) | Interquartile range: `percentile(x,75) - percentile(x,25)` — a spread measure robust to outliers, unlike `std`/`var` | [Core maths](core-math.md) |
 | [`irfft`](../fn/irfft.html) | Inverse of `rfft`. `half_spectrum` is a length-`floor(n/2)+1` complex vector (`CVec`); `n` (required number), the real output length, can't be recovered from the half-spectrum's length.. | [Signal processing](signal-processing.md) |
+| [`is_clipped`](../fn/is_clipped.html) | Returns a `Bool`: does `x` contain a flat run at an extreme | [Signal processing](signal-processing.md) |
 | [`is_empty`](../fn/is_empty.html) | Whether the fixed-capacity ring buffer `q` (a `Fifo` handle created by `fifo(capacity)`) currently holds nothing, or has no room left for another `push` without evicting the oldest element | [Core maths](core-math.md) |
 | [`is_full`](../fn/is_full.html) | Whether the fixed-capacity ring buffer `q` (a `Fifo` handle created by `fifo(capacity)`) currently holds nothing, or has no room left for another `push` without evicting the oldest element | [Core maths](core-math.md) |
 | [`is_stable`](../fn/is_stable.html) | Returns a boolean, `true` iff every pole lies strictly inside the unit circle — the standard causal-LTI stability criterion | [Signal processing](signal-processing.md) |
@@ -522,6 +538,7 @@ program, and a misspelled call suggests the nearest match.
 | [`medfilt2`](../fn/medfilt2.html) | Synonyms for `medfilt` at the Qu level: `x` is a length-N number vector or an `Image`, `window` an optional positional/named odd integer, default `3` | [Noise](noise.md) |
 | [`median`](../fn/median.html) | Middle order statistic of `x` (a scalar, `Vec`, or `Mat`/`Signal`, flattened): the middle element for an odd-length input, the average of the two middle elements when `len(x)` is even | [Core maths](core-math.md) |
 | [`median_filter`](../fn/median_filter.html) | Synonyms for `medfilt` at the Qu level: `x` is a length-N number vector or an `Image`, `window` an optional positional/named odd integer, default `3` | [Noise](noise.md) |
+| [`mem_usage`](../fn/mem_usage.html) | Returns this process's resident-set size right now, in bytes (a `Num`) — what THIS run has actually mapped in, not the machine's total memory (`sysinfo()`'s job) | [Concurrency](concurrency.md) |
 | [`meshgrid`](../fn/meshgrid.html) | The two coordinate matrices a surface or contour needs, from two axis vectors `x` (length `nx`) and `y` (length `ny`) | [Core maths](core-math.md) |
 | [`mid`](../fn/mid.html) | Plain aliases of the same implementation (`mid` exists purely for BASIC/Excel discoverability) | [Collections & strings](collections-strings.md) |
 | [`min`](../fn/min.html) | In the one-argument form on a `Mat`, the optional `axis=` keyword (`0` or `1`) reduces along just that dimension instead, returning a length-`cols`/`rows` `Vec` rather than a single scalar | [Core maths](core-math.md) |
@@ -590,6 +607,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ord`](../fn/ord.html) | Returns a one-character `Str` from `chr`, and a `number` — the code point — from `ord` | [Collections & strings](collections-strings.md) |
 | [`otsu`](../fn/otsu.html) | Compute-and-apply convenience: `otsu_threshold` followed immediately by `threshold` in one call | [Images](images.md) |
 | [`otsu_threshold`](../fn/otsu_threshold.html) | Computes (does not apply) the classic Otsu optimal threshold from `x`'s histogram (`Image` reads per-pixel luma; `Vec`/`Signal` read their own values) | [Images](images.md) |
+| [`overshoot`](../fn/overshoot.html) | Returns a single number, a percent of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going,.. | [Signal processing](signal-processing.md) |
 
 ## P
 
@@ -650,7 +668,11 @@ program, and a misspelled call suggests the nearest match.
 | [`profiling_mode`](../fn/profiling_mode.html) | `profiling_mode` takes one argument, a boolean (`true` to start recording, `false` to stop), and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`progress`](../fn/progress.html) | A tqdm-style progress bar, called once per loop iteration: `i` is the 0-based index (`0` through `n - 1`), `n` is the total count | [REPL & diagnostics](repl-diagnostics.md) |
 | [`proper`](../fn/proper.html) | Uppercases every word's first character, lowercases the rest — VB's `StrConv(s, vbProperCase)` | [Collections & strings](collections-strings.md) |
+| [`psd`](../fn/psd.html) | Returns a length-`nfft/2 + 1` real vector, the one-sided Welch PSD in SciPy's `"density"` scaling, exactly as `welch` does — literally the same code path, so `psd(x, fs)` and `welch(x, fs)`.. | [Signal processing](signal-processing.md) |
 | [`pt`](../fn/pt.html) | Length units as functions, converting a scalar `v` (millimetres/centimetres/inches/points as named) to the figure's own coordinate space — a tenth of a millimetre, so `mm(1)` is `10`,.. | [Core maths](core-math.md) |
+| [`pulse_frequency`](../fn/pulse_frequency.html) | Returns a single number: the mean interval between successive rising crossings (`pulse_period`) or its reciprocal (`pulse_frequency`) — seconds and Hz for a `Signal`, samples and.. | [Signal processing](signal-processing.md) |
+| [`pulse_period`](../fn/pulse_period.html) | Returns a single number: the mean interval between successive rising crossings (`pulse_period`) or its reciprocal (`pulse_frequency`) — seconds and Hz for a `Signal`, samples and.. | [Signal processing](signal-processing.md) |
+| [`pulse_width`](../fn/pulse_width.html) | Returns a single number: the mean width of the complete pulses, in seconds for a `Signal` and samples otherwise | [Signal processing](signal-processing.md) |
 | [`pump_watches`](../fn/pump_watches.html) | Checks every registered `watch ... end` (§ Watches, below) exactly ONCE, right now, against its real current external state, firing the body of any whose state has genuinely changed since.. | [Concurrency](concurrency.md) |
 | [`push`](../fn/push.html) | On a `fifo` handle `q`: `push(q, x)` adds `x` at the back (returns `Nothing`); `pop(q)` removes and returns the front element; `peek(q)` looks at it without removing | [Collections & strings](collections-strings.md) |
 | [`push_back`](../fn/push_back.html) | Grows `l` at the back (`push_back`) or front (`push_front`) in O(1) | [Collections & strings](collections-strings.md) |
@@ -733,10 +755,13 @@ program, and a misspelled call suggests the nearest match.
 | [`remove`](../fn/remove.html) | Two overloads, picked by the type of the second argument: `text` (`Str`) deletes every occurrence of it; `start` (number, 0-based index) with optional `count` (number of characters,.. | [Collections & strings](collections-strings.md) |
 | [`remove_dir`](../fn/remove_dir.html) | Deletes the directory `path`. Refuses a non-empty directory unless `recursive=true` — this check applies whether or not `recycle_bin` is set, since "may I remove a whole tree" and "should.. | [File I/O](file-io.md) |
 | [`remove_file`](../fn/remove_file.html) | Deletes `path` (a `Str`). Errors if it does not exist or is not a regular file, rather than silently doing nothing | [File I/O](file-io.md) |
+| [`remove_nan`](../fn/remove_nan.html) | `x` with the missing samples dropped | [Noise](noise.md) |
+| [`remove_outliers`](../fn/remove_outliers.html) | The same criterion, with the flagged samples dropped | [Noise](noise.md) |
 | [`remove_small_blobs`](../fn/remove_small_blobs.html) | Drop connected components below that area, after labelling internally (identical operation to `bwareaopen` above) | [Images](images.md) |
 | [`rename_file`](../fn/rename_file.html) | Renames `old` to `new` (both `Str`), generally within the same filesystem | [File I/O](file-io.md) |
 | [`repeat_str`](../fn/repeat_str.html) | `s * n` is the shorter spelling for the same thing; the function is not called `repeat` because that is a loop keyword | [Collections & strings](collections-strings.md) |
 | [`replace`](../fn/replace.html) | Every literal (non-regex) occurrence of `old` in `s` is replaced by `new` | [Collections & strings](collections-strings.md) |
+| [`replace_outliers`](../fn/replace_outliers.html) | The same criterion, with the flagged samples patched in place | [Noise](noise.md) |
 | [`resample_to`](../fn/resample_to.html) | Returns a new `Signal` at `Fs=new_fs`, whose length is whatever it takes to span the *same* start/end time as the input (generally not N) | [Signal processing](signal-processing.md) |
 | [`reset`](../fn/reset.html) | Returns the environment `env`'s starting state — a plain integer state index | [Statistics & ML](statistics-ml.md) |
 | [`reshape`](../fn/reshape.html) | Reinterprets a value as a matrix of a given shape | [Core maths](core-math.md) |
@@ -753,6 +778,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ridge`](../fn/ridge.html) | Tikhonov-regularized (L2) least squares on an `N`-row, `D`-column feature matrix `X` and a length-`N` target vector `y`, with regularization strength `alpha` (a non-negative number; plain.. | [Statistics & ML](statistics-ml.md) |
 | [`ridge_model`](../fn/ridge_model.html) | The same fit as `ols_model` on an `N`-row, `D`-column `X` and a length-`N` `y`, but with L2 regularization strength `alpha` (a non-negative number) shrinking the coefficients toward zero;.. | [Statistics & ML](statistics-ml.md) |
 | [`right`](../fn/right.html) | The last `n` characters of a string | [Collections & strings](collections-strings.md) |
+| [`rise_time`](../fn/rise_time.html) | Returns a single number: the transition time of the first complete rising (resp | [Signal processing](signal-processing.md) |
 | [`rlkk_extrapolate`](../fn/rlkk_extrapolate.html) | Returns a single length-M `CVec`, not a model | [Signal processing](signal-processing.md) |
 | [`rlkk_reconstruct`](../fn/rlkk_reconstruct.html) | Returns a `Model` (kind `"rlkk"`) with fields `z` (a length-N `CVec`, the reconstructed spectrum) and `gamma` (a length-M real vector, the fitted DRT coefficients) | [Signal processing](signal-processing.md) |
 | [`rlkk_validate`](../fn/rlkk_validate.html) | Returns a `Model` (kind `"rlkk_validation"`) with fields `valid` (a boolean, true iff every point's percent residual is under `threshold`), `residuals` (a length-N real vector, percent),.. | [Signal processing](signal-processing.md) |
@@ -760,6 +786,11 @@ program, and a misspelled call suggests the nearest match.
 | [`rmse`](../fn/rmse.html) | The regression-error trio, each taking a length-`N` vector of true values `actual` and a length-`N` vector of predictions `predicted`, and returning a single number: `mae` the mean absolute.. | [Statistics & ML](statistics-ml.md) |
 | [`rmsprop`](../fn/rmsprop.html) | Per-parameter learning rates derived from the running gradient history, given `params` (a Tensor to optimize) and `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
 | [`robust_scale`](../fn/robust_scale.html) | Outlier-resistant scaling of `X` (vector, matrix column-wise, or table per numeric column): `(x - median) / IQR` | [Statistics & ML](statistics-ml.md) |
+| [`rolling_max`](../fn/rolling_max.html) | Maximum over a centred window. Same shape/type rules as `rolling_mean` | [Noise](noise.md) |
+| [`rolling_mean`](../fn/rolling_mean.html) | Mean over a window centred on each sample | [Noise](noise.md) |
+| [`rolling_min`](../fn/rolling_min.html) | Minimum over a centred window. Same shape/type rules as `rolling_mean` | [Noise](noise.md) |
+| [`rolling_rms`](../fn/rolling_rms.html) | Root-mean-square over a centred window — a moving level, e.g. for an RMS trigger threshold | [Noise](noise.md) |
+| [`rolling_std`](../fn/rolling_std.html) | Sample (N-1, unbiased) standard deviation over a centred window, matching `std`/`var` exactly, so `rolling_std(x, w)[i]` equals `std` of that window — a property you can check | [Noise](noise.md) |
 | [`rot90`](../fn/rot90.html) | Rotates `A` (a `Mat`, or anything coercible to one) 90°×`k` counterclockwise; `k` is an optional scalar defaulting to `1`, may be negative for clockwise rotation, and is taken mod 4 | [Core maths](core-math.md) |
 | [`round`](../fn/round.html) | Standard rounding functions, elementwise: `floor` toward negative infinity, `ceil` toward positive infinity, `round` to the nearest integer (half away from zero) | [Core maths](core-math.md) |
 | [`row_mean`](../fn/row_mean.html) | Collapses each row of `M` (an `r×c` `Mat`, or anything coercible to one) to one number, returning an `r×1` column `Mat` (not a plain `Vec`) | [Core maths](core-math.md) |
@@ -842,7 +873,10 @@ program, and a misspelled call suggests the nearest match.
 | [`spectral_coherence`](../fn/spectral_coherence.html) | Returns a length-`nperseg/2 + 1` real vector, the magnitude-squared coherence `\|Pxy\|^2 / (Pxx*Pyy)` in `[0, 1]` — `1` at a frequency where `y` is an exact linear/time-invariant function.. | [Signal processing](signal-processing.md) |
 | [`spectral_entropy`](../fn/spectral_entropy.html) | Returns a vector of length `num_frames` (one value per STFT frame), each the Shannon entropy of that frame's normalized power spectrum, scaled to `[0, 1]`: low when energy concentrates in a.. | [Signal processing](signal-processing.md) |
 | [`spectrogram`](../fn/spectrogram.html) | If `x` is a `Signal`, its own `Fs` is used and `fs` need not be passed; passing one that disagrees with the signal's rate is an error rather than a silent relabelling (see *Which rate is.. | [Signal processing](signal-processing.md) |
+| [`spectrum`](../fn/spectrum.html) | Returns a `spectrum` of `floor(N/2)+1` one-sided bins (DC to Nyquist) | [Signal processing](signal-processing.md) |
 | [`spectrum_at`](../fn/spectrum_at.html) | Returns the single complex bin nearest that physical frequency (`round(freq/df)`, clamped to the available bins) — addressing the spectrum in Hz instead of by index | [Signal processing](signal-processing.md) |
+| [`spectrum_normalize`](../fn/spectrum_normalize.html) | Returns a new `spectrum` with that convention applied — the same conversion `fft`/`rfft(..., scaling=)` do at transform time, usable afterward on a spectrum that already went through.. | [Signal processing](signal-processing.md) |
+| [`spectrum_unnormalize`](../fn/spectrum_unnormalize.html) | Returns a new `raw_transform`-scaled `spectrum` — the exact inverse of `spectrum_normalize`/`scaling=` | [Signal processing](signal-processing.md) |
 | [`spiderplot`](../fn/spiderplot.html) | Radar chart; each argument (a Vec of numbers, one value per spoke/category) becomes its own series, layered onto the current panel's spider chart (repeated calls add more series) | [Plotting](plotting.md) |
 | [`splineplot`](../fn/splineplot.html) | Natural cubic spline through the control points `(x[i], y[i])` (equal-length numeric Vecs), resampled onto 200 points for a smooth line | [Plotting](plotting.md) |
 | [`split`](../fn/split.html) | `s` and `delim` are `Str`s; optional `limit` (number of pieces, default: unlimited) stops after that many pieces and leaves the remainder undivided as the last one — `split(line, ": ", 2)`.. | [Collections & strings](collections-strings.md) |
@@ -942,6 +976,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ui_select`](../fn/ui_select.html) | Declares a dropdown, labeled `label` (string), choosing among `options` (a List of strings — or of any values, displayed via their string form) | [Plotting](plotting.md) |
 | [`ui_slider`](../fn/ui_slider.html) | Declares a slider control (for a value you sweep) in an `explore` page or Qu Studio, labeled `label` (string) with range `min`..`max` (numbers) | [Plotting](plotting.md) |
 | [`ui_text`](../fn/ui_text.html) | Declares a free-text field, labeled `label` (string) | [Plotting](plotting.md) |
+| [`undershoot`](../fn/undershoot.html) | Returns a single number, a percent of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going,.. | [Signal processing](signal-processing.md) |
 | [`uniform`](../fn/uniform.html) | Draws from the uniform distribution on `[a, b)`, two numbers `a < b`, with the same `rows`/`cols`/`seed=` shape as `rand` | [Statistics & ML](statistics-ml.md) |
 | [`unique`](../fn/unique.html) | Returns a `Vec`: a sorted, de-duplicated copy | [Collections & strings](collections-strings.md) |
 | [`unit_scale`](../fn/unit_scale.html) | Returns the scale factor a `unit name = ...` declaration registered, or errors naming `name` if nothing was ever declared under it | [REPL & diagnostics](repl-diagnostics.md) |
@@ -956,6 +991,7 @@ program, and a misspelled call suggests the nearest match.
 | [`values`](../fn/values.html) | Returns a `List`: its keys (`keys`), its values (`values`), or `(key, value)` tuples (`items`) — insertion order, not sorted | [Collections & strings](collections-strings.md) |
 | [`vanicek`](../fn/vanicek.html) | Returns a length-M real vector, the power spectrum at each requested frequency — Vanicek's Least-Squares Spectral Analysis, valid for unevenly-sampled `(t, x)` where `fft`/`dft`/`goertzel`.. | [Signal processing](signal-processing.md) |
 | [`var`](../fn/var.html) | Sample variance, same N-1 (unbiased) denominator as `std`, so `var(x) == std(x)^2` always holds | [Core maths](core-math.md) |
+| [`verify_signal`](../fn/verify_signal.html) | Structural sanity before any of the semantic diagnostics above is worth running — deliberately narrow: it answers "are these samples a usable record", not "is this signal any good" | [Signal processing](signal-processing.md) |
 | [`violin`](../fn/violin.html) | The same Gaussian KDE and Tukey summary as `raincloud`, arranged the other way: the density is MIRRORED about the category into the closed symmetric shape, with the box inside it and the.. | [Plotting](plotting.md) |
 | [`viterbi`](../fn/viterbi.html) | Runs the Viterbi algorithm on an `hmm` model `hmm` for a length-`T` integer observation sequence `obs` (same encoding as `forward`) | [Statistics & ML](statistics-ml.md) |
 | [`vline`](../fn/vline.html) | Draws a vertical reference line spanning the whole panel at `x` (number, data units) | [Plotting](plotting.md) |

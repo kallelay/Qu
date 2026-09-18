@@ -217,6 +217,19 @@ q == q2: [1, 1; 1, 1]
 <tr><td><code>p</code></td><td>Bare SI prefix, no base unit (×1e-12)</td></tr>
 <tr><td><code>a</code></td><td>Bare SI prefix, no base unit (×1e-18)</td></tr>
 </table></div>
+<h3>User-defined units</h3>
+<p><code>unit &lt;name&gt; = &lt;expr&gt;</code> declares a named scale factor, for a physical unit this table doesn't already cover (<code>ppm</code>, a lab-specific calibration constant, ...). <code>unit</code> is contextual, not a reserved word — a plain identifier everywhere else, only parsed as this declaration when it's immediately followed by another bare identifier and then <code>=</code>.</p>
+<div class="example"><pre class="hl"><code>unit ppm = <span class="n">1e-6</span>
+x = <span class="n">5</span> * ppm            <span class="c"># 5e-6 -- ordinary arithmetic, works immediately</span>
+y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal-suffix adjacency also works</span>
+<span class="f">print</span>(<span class="f">unit_scale</span>(<span class="s">"ppm"</span>))   <span class="c"># 0.000001 -- reads the declaration back</span>
+</code></pre>
+</div>
+<p>The grammar already parses <code>&lt;number&gt; &lt;identifier&gt;</code> for any trailing identifier, not just the statically-known spellings in this chapter's table above (that widening — and why a truly unknown unit is a runtime error naming it, not a parse failure — predates user-defined units). <code>unit name = value</code> is what makes a PREVIOUSLY-unknown identifier resolve instead of erroring "unknown unit": it registers <code>name</code> in a runtime table that <code>5 &lt;name&gt;</code> literal adjacency, ordinary <code>*</code> arithmetic, and <code>unit_scale(name)</code> all consult.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>unit_scale</code></td><td><code>unit_scale(name)</code></td><td><code>name</code>: a string. Returns the scale factor a <code>unit name = ...</code> declaration registered, or errors naming <code>name</code> if nothing was ever declared under it.</td></tr>
+</table></div>
 <h2 id="s121">LaTeX Formatting</h2>
 <p>General LaTeX-formatting of any value — distinct from the plotting subsystem's own figure-export formats. <code>tex</code> mirrors <code>str</code>; <code>printtex</code> mirrors <code>print</code>.</p>
 <div class="tablewrap"><table>
@@ -374,7 +387,7 @@ p = <span class="f">gpu_probe_info</span>()
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

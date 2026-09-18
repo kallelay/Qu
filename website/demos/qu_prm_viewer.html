@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qu_prm_viewer — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Uncategorised</p>
+<h1>qu_prm_viewer</h1>
+<p class="lede">loads a Re-Volt .PRM mesh (via load_prm, see qu_prm_loader.qu) and renders it as a single shaded, vertex-coloured 3D object: orthographic projection, painter's-algorithm depth sorting, per-face Lambertian shading from the file's own vertex normals, filled</p>
+<p class="srcpath">catalog/qu_prm_viewer.qu</p>
+<p>with the file's own per-vertex ARGB colours -- entirely in Qu, on top of the existing 2D plotting pipeline (`polygon(xs, ys, fill=...)`).</p>
+<p>WHY NO 3D ENGINE: read directly before writing a line of this -- plotting.rs has no projection, no camera, no depth buffer; emission is SVG/PDF/TikZ. Building one would be a real subsystem (the eventual Canvas 3D viewer, not yet designed). This gets a real shaded object on screen tonight by staying in 2D the whole way: rotate points, drop Z, sort triangles back-to-front, draw filled polygons in that order. A painter's algorithm has one known failure mode -- interpenetrating geometry, where no single sort order is correct for every pair of triangles -- which does not arise for one ordinary, non-self- intersecting mesh.</p>
+<p>DECISIONS MADE HERE, RECORDED RATHER THAN LEFT OPEN (per the ask: choose and record, don't post and wait -- these were flagged as open questions in qu_prm_loader.qu's own board2 write-up):</p>
+<p>1. QUADS: triangulated on ingest, fan style -- a quad's corners (0,1,2,3) become triangles (0,1,2) and (0,2,3). Simplest choice that works for both triangles and quads with one code path; a non-planar or non-convex quad would triangulate slightly differently by a different diagonal, but Re-Volt car/track quads are, in practice, planar rectangles. 2. VERTEX ALPHA: ignored. The reference loader's alpha convention is mesh-KIND-dependent (car body vs world geometry) and load_prm's Tables carry no such flag -- rather than guess a kind, every triangle here is drawn fully opaque. Revisit once Canvas 3D actually needs semi-transparency. 3. COORDINATES/WINDING: load_prm's numbers are used exactly as the file stores them (no Y-flip, no winding reversal) -- that loader deliberately did not inherit the reference engine's Unity convention, and a viewer is where a convention gets CHOSEN, not where one gets silently inherited. The camera below is placed to show a recognisable view of THESE coordinates directly. 4. PROJECTION: orthographic (drop the rotated Z, keep it only for depth sorting), not perspective. A stretch for later -- correct, simpler, and immune to a stray vertex near the camera exploding the divide in `x/z`. 5. SHADING: flat per-triangle Lambertian -- each triangle's normal is the average of its three vertex normals (already in the file, already parsed), dotted against a fixed light direction, with a constant ambient floor so a triangle facing away from the light is dim rather than black. 6. TEXTURE: not attempted. The stretch goal, correctly identified as the hard part in an SVG-only pipeline (pattern fills or a per-triangle affine image transform) -- a clean shaded, vertex- coloured mesh that actually renders beats a textured one that does not.</p>
+<h2>How it works</h2>
+<section class="step">
+<h3>Self-test: a synthesized cube, 24 vertices (4 PER FACE rather than 8</h3>
+<p>shared corners, so every vertex carries its own face's true outward normal -- the way a hard-edged Re-Volt asset would, rather than smoothing across an edge) -- written by hand at the byte level, same discipline as qu_prm_loader.qu's own demo, so this file is proven before it ever touches the real local scarab.prm asset (never committed -- third-party asset). This caught two real bugs during development that the loader's own single-poly demo could not have: `mod(a, b)` is a parse error in Qu (`mod` is the infix operator `a mod b`, not a function -- unpack_rgb originally called it as one), and `polygon(fill=...)` defaults to alpha 0.18 (tuned for overlapping density-style fills), which silently let every "hidden" back face show straight through the front ones and would have defeated the entire painter's-algorithm depth sort. Neither survives this test.</p>
+<p>THE FILE FORMAT IS POLYS-THEN-VERTS: the write calls below happen in that byte order even though the vertex DATA is listed in the comments face-by-face for readability -- an earlier draft wrote all vertices first and got silently misparsed as a result.</p>
+<pre class="hl"><code><span class="k">function</span> <span class="f">write_face</span>(w, i0, i1, i2, i3, argb)
+    <span class="f">write_int16</span>(w, <span class="n">1</span>)           <span class="c"># type: quad bit set</span>
+    <span class="f">write_int16</span>(w, <span class="n">0</span>)           <span class="c"># tpage</span>
+    <span class="f">write_int16</span>(w, i0)
+    <span class="f">write_int16</span>(w, i1)
+    <span class="f">write_int16</span>(w, i2)
+    <span class="f">write_int16</span>(w, i3)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">write_vert</span>(w, x, y, z, nx, ny, nz)
+    <span class="f">write_float</span>(w, x); <span class="f">write_float</span>(w, y); <span class="f">write_float</span>(w, z)
+    <span class="f">write_float</span>(w, nx); <span class="f">write_float</span>(w, ny); <span class="f">write_float</span>(w, nz)
+<span class="k">end</span> <span class="k">function</span>
+
+tmp_path = <span class="f">tmp_file</span>()
+w = <span class="f">fopen</span>(tmp_path, <span class="s">"wb"</span>)
+<span class="f">write_int16</span>(w, <span class="n">6</span>)               <span class="c"># poly_count: 6 quad faces</span>
+<span class="f">write_int16</span>(w, <span class="n">24</span>)              <span class="c"># vert_count: 4 per face, no sharing</span>
+
+<span class="c">#   0.. 3: back   (z=-1) normal (0,0,-1)  -- red</span>
+<span class="c">#   4.. 7: front  (z=+1) normal (0,0, 1)  -- green</span>
+<span class="c">#   8..11: left   (x=-1) normal (-1,0,0)  -- blue</span>
+<span class="c">#  12..15: right  (x=+1) normal ( 1,0,0)  -- yellow</span>
+<span class="c">#  16..19: top    (y=+1) normal (0, 1,0)  -- magenta</span>
+<span class="c">#  20..23: bottom (y=-1) normal (0,-1,0)  -- cyan</span>
+<span class="f">write_face</span>(w, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">0xFFCC</span><span class="n">3333</span>)     <span class="c"># back   -- red</span>
+<span class="f">write_face</span>(w, <span class="n">5</span>, <span class="n">4</span>, <span class="n">7</span>, <span class="n">6</span>, <span class="n">0xFF</span><span class="n">33CC</span><span class="n">33</span>)     <span class="c"># front  -- green</span>
+<span class="f">write_face</span>(w, <span class="n">8</span>, <span class="n">9</span>, <span class="n">10</span>, <span class="n">11</span>, <span class="n">0xFF</span><span class="n">3355CC</span>)   <span class="c"># left   -- blue</span>
+<span class="f">write_face</span>(w, <span class="n">13</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">14</span>, <span class="n">0xFFCCCC</span><span class="n">33</span>) <span class="c"># right  -- yellow</span>
+<span class="f">write_face</span>(w, <span class="n">16</span>, <span class="n">17</span>, <span class="n">18</span>, <span class="n">19</span>, <span class="n">0xFFCC</span><span class="n">33CC</span>) <span class="c"># top    -- magenta</span>
+<span class="f">write_face</span>(w, <span class="n">21</span>, <span class="n">20</span>, <span class="n">23</span>, <span class="n">22</span>, <span class="n">0xFF</span><span class="n">33CCCC</span>) <span class="c"># bottom -- cyan</span>
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">close</span>(w)
+
+result = <span class="f">render_prm</span>(tmp_path, <span class="s">"qu_prm_viewer_selftest.svg"</span>)
+<span class="f">print</span>(<span class="s">"self-test: triangles={result.triangles}, polys={result.polys}, verts={result.verts}"</span>)
+<span class="f">print</span>(<span class="s">"(expect 12 triangles, 6 polys, 24 verts -- inspect qu_prm_viewer_selftest.svg for a shaded cube, six faces, distinct colours, no transparency)"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>  note: this figure uses screen styling and may not hold up in print -- call theme("publication") before saving for a paper (said once per session)
+  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
+self-test: triangles=12, polys=6, verts=24
+(expect 12 triangles, 6 polys, 24 verts -- inspect qu_prm_viewer_selftest.svg for a shaded cube, six faces, distinct colours, no transparency)</pre></div>
+<figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1400" width="1800" height="1400" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="1800" height="1400" fill="#ffffff"/>
+<clipPath id="qu-clip-19012-7800-157588-119769"><rect x="190.12" y="78.00" width="1575.88" height="1197.69"/></clipPath><g clip-path="url(#qu-clip-19012-7800-157588-119769)">
+<polygon points="1471.13,1221.25 775.14,1221.25 941.94,423.60" fill="#124712" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="318.20,930.08 775.14,1221.25 941.94,423.60" fill="#121e47" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="485.00,132.44 1637.92,423.60 941.94,423.60" fill="#471247" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1471.13,1221.25 941.94,423.60 1637.92,423.60" fill="#124712" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="318.20,930.08 941.94,423.60 485.00,132.44" fill="#121e47" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="485.00,132.44 1180.98,132.44 1637.92,423.60" fill="#471247" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1014.18,930.08 775.14,1221.25 1471.13,1221.25" fill="#2eb6b6" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1471.13,1221.25 1180.98,132.44 1637.92,423.60" fill="#515114" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1014.18,930.08 318.20,930.08 775.14,1221.25" fill="#2eb6b6" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="318.20,930.08 1180.98,132.44 485.00,132.44" fill="#902424" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1471.13,1221.25 1014.18,930.08 1180.98,132.44" fill="#515114" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="318.20,930.08 1014.18,930.08 1180.98,132.44" fill="#902424" stroke="none" stroke-width="1.40" opacity="1"/>
+</g>
+</svg>
+<figcaption>Drawn by running the program above.</figcaption></figure>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_prm_viewer.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_prm_viewer.qu -- loads a Re-Volt .PRM mesh (via load_prm, see</span>
+<span class="c"># qu_prm_loader.qu) and renders it as a single shaded, vertex-coloured 3D</span>
+<span class="c"># object: orthographic projection, painter's-algorithm depth sorting,</span>
+<span class="c"># per-face Lambertian shading from the file's own vertex normals, filled</span>
+<span class="c"># with the file's own per-vertex ARGB colours -- entirely in Qu, on top</span>
+<span class="c"># of the existing 2D plotting pipeline (`polygon(xs, ys, fill=...)`).</span>
+<span class="c">#</span>
+<span class="c"># WHY NO 3D ENGINE: read directly before writing a line of this --</span>
+<span class="c"># plotting.rs has no projection, no camera, no depth buffer; emission is</span>
+<span class="c"># SVG/PDF/TikZ. Building one would be a real subsystem (the eventual</span>
+<span class="c"># Canvas 3D viewer, not yet designed). This gets a real shaded object on</span>
+<span class="c"># screen tonight by staying in 2D the whole way: rotate points, drop Z,</span>
+<span class="c"># sort triangles back-to-front, draw filled polygons in that order. A</span>
+<span class="c"># painter's algorithm has one known failure mode -- interpenetrating</span>
+<span class="c"># geometry, where no single sort order is correct for every pair of</span>
+<span class="c"># triangles -- which does not arise for one ordinary, non-self-</span>
+<span class="c"># intersecting mesh.</span>
+<span class="c">#</span>
+<span class="c"># DECISIONS MADE HERE, RECORDED RATHER THAN LEFT OPEN (per the ask: choose</span>
+<span class="c"># and record, don't post and wait -- these were flagged as open questions</span>
+<span class="c"># in qu_prm_loader.qu's own board2 write-up):</span>
+<span class="c">#</span>
+<span class="c">#   1. QUADS: triangulated on ingest, fan style -- a quad's corners</span>
+<span class="c">#      (0,1,2,3) become triangles (0,1,2) and (0,2,3). Simplest choice</span>
+<span class="c">#      that works for both triangles and quads with one code path; a</span>
+<span class="c">#      non-planar or non-convex quad would triangulate slightly</span>
+<span class="c">#      differently by a different diagonal, but Re-Volt car/track quads</span>
+<span class="c">#      are, in practice, planar rectangles.</span>
+<span class="c">#   2. VERTEX ALPHA: ignored. The reference loader's alpha convention is</span>
+<span class="c">#      mesh-KIND-dependent (car body vs world geometry) and load_prm's</span>
+<span class="c">#      Tables carry no such flag -- rather than guess a kind, every</span>
+<span class="c">#      triangle here is drawn fully opaque. Revisit once Canvas 3D</span>
+<span class="c">#      actually needs semi-transparency.</span>
+<span class="c">#   3. COORDINATES/WINDING: load_prm's numbers are used exactly as the</span>
+<span class="c">#      file stores them (no Y-flip, no winding reversal) -- that loader</span>
+<span class="c">#      deliberately did not inherit the reference engine's Unity</span>
+<span class="c">#      convention, and a viewer is where a convention gets CHOSEN, not</span>
+<span class="c">#      where one gets silently inherited. The camera below is placed to</span>
+<span class="c">#      show a recognisable view of THESE coordinates directly.</span>
+<span class="c">#   4. PROJECTION: orthographic (drop the rotated Z, keep it only for</span>
+<span class="c">#      depth sorting), not perspective. A stretch for later -- correct,</span>
+<span class="c">#      simpler, and immune to a stray vertex near the camera exploding</span>
+<span class="c">#      the divide in `x/z`.</span>
+<span class="c">#   5. SHADING: flat per-triangle Lambertian -- each triangle's normal is</span>
+<span class="c">#      the average of its three vertex normals (already in the file,</span>
+<span class="c">#      already parsed), dotted against a fixed light direction, with a</span>
+<span class="c">#      constant ambient floor so a triangle facing away from the light is</span>
+<span class="c">#      dim rather than black.</span>
+<span class="c">#   6. TEXTURE: not attempted. The stretch goal, correctly identified as</span>
+<span class="c">#      the hard part in an SVG-only pipeline (pattern fills or a</span>
+<span class="c">#      per-triangle affine image transform) -- a clean shaded, vertex-</span>
+<span class="c">#      coloured mesh that actually renders beats a textured one that</span>
+<span class="c">#      does not.</span>
+
+<span class="k">function</span> <span class="f">load_prm</span>(path)
+    f = <span class="f">fopen</span>(path, <span class="s">"rb"</span>)
+    a = <span class="f">read_int16</span>(f)
+    b = <span class="f">read_int16</span>(f)
+    body = <span class="f">file_size</span>(path) - <span class="n">4</span>
+    <span class="k">if</span> a * <span class="n">60</span> + b * <span class="n">24</span> == body <span class="k">then</span>
+        poly_count = a
+        vert_count = b
+    <span class="k">elseif</span> b * <span class="n">60</span> + a * <span class="n">24</span> == body <span class="k">then</span>
+        poly_count = b
+        vert_count = a
+    <span class="k">else</span>
+        poly_count = a
+        vert_count = b
+    <span class="k">end</span> <span class="k">if</span>
+
+    poly_fields = ((<span class="s">"type"</span>, <span class="s">"i16"</span>), (<span class="s">"tpage"</span>, <span class="s">"i16"</span>),
+                   (<span class="s">"vi0"</span>, <span class="s">"i16"</span>), (<span class="s">"vi1"</span>, <span class="s">"i16"</span>), (<span class="s">"vi2"</span>, <span class="s">"i16"</span>), (<span class="s">"vi3"</span>, <span class="s">"i16"</span>),
+                   (<span class="s">"c0"</span>, <span class="s">"u32"</span>), (<span class="s">"c1"</span>, <span class="s">"u32"</span>), (<span class="s">"c2"</span>, <span class="s">"u32"</span>), (<span class="s">"c3"</span>, <span class="s">"u32"</span>),
+                   (<span class="s">"u0"</span>, <span class="s">"f32"</span>), (<span class="s">"v0"</span>, <span class="s">"f32"</span>), (<span class="s">"u1"</span>, <span class="s">"f32"</span>), (<span class="s">"v1"</span>, <span class="s">"f32"</span>),
+                   (<span class="s">"u2"</span>, <span class="s">"f32"</span>), (<span class="s">"v2"</span>, <span class="s">"f32"</span>), (<span class="s">"u3"</span>, <span class="s">"f32"</span>), (<span class="s">"v3"</span>, <span class="s">"f32"</span>))
+    polys = <span class="f">read_structs</span>(f, poly_fields, poly_count)
+
+    vert_fields = ((<span class="s">"px"</span>, <span class="s">"f32"</span>), (<span class="s">"py"</span>, <span class="s">"f32"</span>), (<span class="s">"pz"</span>, <span class="s">"f32"</span>),
+                   (<span class="s">"nx"</span>, <span class="s">"f32"</span>), (<span class="s">"ny"</span>, <span class="s">"f32"</span>), (<span class="s">"nz"</span>, <span class="s">"f32"</span>))
+    verts = <span class="f">read_structs</span>(f, vert_fields, vert_count)
+    <span class="f">close</span>(f)
+
+    <span class="k">return</span> {poly_count = poly_count, vert_count = vert_count,
+            polys = polys, verts = verts}
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># Packed color is 0xAARRGGBB (the reference loader reads alpha as</span>
+<span class="c"># `c &gt;&gt; 24`, red `c &gt;&gt; 16`, etc.) -- alpha discarded per decision 2 above.</span>
+<span class="k">function</span> <span class="f">unpack_rgb</span>(c)
+    r = <span class="f">floor</span>(c / <span class="n">65536.0</span>) <span class="k">mod</span> <span class="n">256.0</span>
+    g = <span class="f">floor</span>(c / <span class="n">256.0</span>) <span class="k">mod</span> <span class="n">256.0</span>
+    b = c <span class="k">mod</span> <span class="n">256.0</span>
+    <span class="k">return</span> (r, g, b)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># The colour at poly `i`'s corner `corner` (0..3) -- a plain match rather</span>
+<span class="c"># than a computed column name, since a Table's columns are fixed fields</span>
+<span class="c"># (c0..c3), not dynamically indexable by a variable.</span>
+<span class="k">function</span> <span class="f">corner_color</span>(P, i, corner)
+    <span class="k">if</span> corner == <span class="n">0</span> <span class="k">then</span>
+        <span class="k">return</span> P.c0[i]
+    <span class="k">elseif</span> corner == <span class="n">1</span> <span class="k">then</span>
+        <span class="k">return</span> P.c1[i]
+    <span class="k">elseif</span> corner == <span class="n">2</span> <span class="k">then</span>
+        <span class="k">return</span> P.c2[i]
+    <span class="k">else</span>
+        <span class="k">return</span> P.c3[i]
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">to_hex</span>(r, g, b)
+    <span class="k">return</span> <span class="s">"#"</span> + <span class="f">hex2</span>(r) + <span class="f">hex2</span>(g) + <span class="f">hex2</span>(b)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">hex2</span>(v)
+    v = <span class="f">max</span>(<span class="n">0.0</span>, <span class="f">min</span>(<span class="n">255.0</span>, <span class="f">floor</span>(v + <span class="n">0.5</span>)))
+    digits = <span class="s">"0123456789abcdef"</span>
+    hi = <span class="f">floor</span>(v / <span class="n">16.0</span>)
+    lo = v <span class="k">mod</span> <span class="n">16.0</span>
+    <span class="k">return</span> <span class="f">substr</span>(digits, hi, <span class="n">1</span>) + <span class="f">substr</span>(digits, lo, <span class="n">1</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># Rotate around X by `ax`, then around the (new) Y by `ay` -- a fixed,</span>
+<span class="c"># hand-picked view angle chosen to show three faces of a roughly</span>
+<span class="c"># axis-aligned mesh at once, the ordinary "isometric-ish" convention.</span>
+<span class="k">function</span> <span class="f">rotate3</span>(x, y, z, ax, ay)
+    y1 = y * <span class="f">cos</span>(ax) - z * <span class="f">sin</span>(ax)
+    z1 = y * <span class="f">sin</span>(ax) + z * <span class="f">cos</span>(ax)
+    x2 = x * <span class="f">cos</span>(ay) + z1 * <span class="f">sin</span>(ay)
+    z2 = <span class="n">0.0</span> - x * <span class="f">sin</span>(ay) + z1 * <span class="f">cos</span>(ay)
+    <span class="k">return</span> (x2, y1, z2)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">normalize3</span>(x, y, z)
+    n = <span class="f">sqrt</span>(x * x + y * y + z * z)
+    <span class="k">if</span> n &lt; <span class="n">1e-12</span> <span class="k">then</span>
+        <span class="k">return</span> (<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>)
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="k">return</span> (x / n, y / n, z / n)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="c"># render_prm(path, out_svg) -- the whole pipeline, one call.</span>
+<span class="k">function</span> <span class="f">render_prm</span>(path, out_svg)
+    mesh = <span class="f">load_prm</span>(path)
+    P = mesh.polys
+    V = mesh.verts
+    np = mesh.poly_count
+
+    <span class="c"># ---- 1. triangulate: (vi0,vi1,vi2) always, plus (vi0,vi2,vi3) when</span>
+    <span class="c"># the quad bit (type &amp; 1) is set -- collected as flat parallel lists</span>
+    <span class="c"># so no per-triangle record type is needed. `pi`/`ca`/`cb`/`cc` track</span>
+    <span class="c"># which POLY each triangle came from and which of its four corners</span>
+    <span class="c"># (0..3) each of the triangle's three vertices is, so the right</span>
+    <span class="c"># colour column can be looked up later -- the second triangle of a</span>
+    <span class="c"># quad reads corners 0, 2, 3, not 0, 1, 2.</span>
+    ta = ()
+    tb = ()
+    tc = ()
+    pi = ()
+    ca = ()
+    cb = ()
+    cc = ()
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> np - <span class="n">1</span>
+        ta = <span class="f">append</span>(ta, P.vi0[i])
+        tb = <span class="f">append</span>(tb, P.vi1[i])
+        tc = <span class="f">append</span>(tc, P.vi2[i])
+        pi = <span class="f">append</span>(pi, i)
+        ca = <span class="f">append</span>(ca, <span class="n">0</span>)
+        cb = <span class="f">append</span>(cb, <span class="n">1</span>)
+        cc = <span class="f">append</span>(cc, <span class="n">2</span>)
+        <span class="k">if</span> P.type[i] <span class="k">mod</span> <span class="n">2</span> == <span class="n">1</span> <span class="k">then</span>
+            ta = <span class="f">append</span>(ta, P.vi0[i])
+            tb = <span class="f">append</span>(tb, P.vi2[i])
+            tc = <span class="f">append</span>(tc, P.vi3[i])
+            pi = <span class="f">append</span>(pi, i)
+            ca = <span class="f">append</span>(ca, <span class="n">0</span>)
+            cb = <span class="f">append</span>(cb, <span class="n">2</span>)
+            cc = <span class="f">append</span>(cc, <span class="n">3</span>)
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    ntri = <span class="f">length</span>(ta)
+
+    <span class="c"># ---- 2. a fixed isometric-ish view: 20 degrees down, 35 degrees</span>
+    <span class="c"># around -- shows top, front and one side of an axis-aligned object.</span>
+    ax = <span class="n">0.35</span>
+    ay = <span class="n">0.61</span>
+    light = <span class="f">normalize3</span>(-<span class="n">0.4</span>, -<span class="n">0.6</span>, -<span class="n">0.7</span>)
+    ambient = <span class="n">0.35</span>
+
+    depths = <span class="f">zeros</span>(ntri)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> ntri - <span class="n">1</span>
+        ia = ta[i]
+        ib = tb[i]
+        ic = tc[i]
+        ra_ = <span class="f">rotate3</span>(V.px[ia], V.py[ia], V.pz[ia], ax, ay)
+        rb_ = <span class="f">rotate3</span>(V.px[ib], V.py[ib], V.pz[ib], ax, ay)
+        rc_ = <span class="f">rotate3</span>(V.px[ic], V.py[ic], V.pz[ic], ax, ay)
+        depths[i] = (ra_[<span class="n">2</span>] + rb_[<span class="n">2</span>] + rc_[<span class="n">2</span>]) / <span class="n">3.0</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="c"># Painter's algorithm: farthest (most negative-toward-camera, i.e.</span>
+    <span class="c"># LARGEST z into the screen under this rotation) drawn FIRST.</span>
+    order = <span class="f">argsort</span>(depths)
+    order = <span class="f">reverse</span>(order)
+
+    <span class="c"># `figure()` first, NOT just `figure_size(...)`: sizing the canvas</span>
+    <span class="c"># does not clear it -- shapes accumulate onto whatever figure state</span>
+    <span class="c"># already exists (same as matplotlib: `figsize=` alone never implies</span>
+    <span class="c"># `plt.figure()`). Without this, calling `render_prm` after ANY</span>
+    <span class="c"># other plotting activity in the same run -- including this file's</span>
+    <span class="c"># own self-test, if a caller happens to `import` it -- silently</span>
+    <span class="c"># draws the new mesh on top of the old one's leftover triangles into</span>
+    <span class="c"># one contaminated SVG. Found by rendering the real scarab.prm right</span>
+    <span class="c"># after this file's self-test had already run at import time: the</span>
+    <span class="c"># output had 216 triangles, not 204, the extra 12 an exact byte-for-</span>
+    <span class="c"># byte match for the self-test cube's own colours.</span>
+    <span class="f">figure</span>()
+    <span class="f">figure_size</span>(<span class="n">180</span>, <span class="n">140</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
+    axis equal
+    axis off
+    hold on
+
+    <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> ntri - <span class="n">1</span>
+        i = order[k]
+        ia = ta[i]
+        ib = tb[i]
+        ic = tc[i]
+
+        pa_ = <span class="f">rotate3</span>(V.px[ia], V.py[ia], V.pz[ia], ax, ay)
+        pb_ = <span class="f">rotate3</span>(V.px[ib], V.py[ib], V.pz[ib], ax, ay)
+        pc_ = <span class="f">rotate3</span>(V.px[ic], V.py[ic], V.pz[ic], ax, ay)
+        xa = pa_[<span class="n">0</span>]
+        ya = pa_[<span class="n">1</span>]
+        xb = pb_[<span class="n">0</span>]
+        yb = pb_[<span class="n">1</span>]
+        xc = pc_[<span class="n">0</span>]
+        yc = pc_[<span class="n">1</span>]
+
+        na_ = <span class="f">rotate3</span>(V.nx[ia], V.ny[ia], V.nz[ia], ax, ay)
+        nb_ = <span class="f">rotate3</span>(V.nx[ib], V.ny[ib], V.nz[ib], ax, ay)
+        nc_ = <span class="f">rotate3</span>(V.nx[ic], V.ny[ic], V.nz[ic], ax, ay)
+        navg = <span class="f">normalize3</span>((na_[<span class="n">0</span>] + nb_[<span class="n">0</span>] + nc_[<span class="n">0</span>]) / <span class="n">3.0</span>,
+                           (na_[<span class="n">1</span>] + nb_[<span class="n">1</span>] + nc_[<span class="n">1</span>]) / <span class="n">3.0</span>,
+                           (na_[<span class="n">2</span>] + nb_[<span class="n">2</span>] + nc_[<span class="n">2</span>]) / <span class="n">3.0</span>)
+        nx_ = navg[<span class="n">0</span>]
+        ny_ = navg[<span class="n">1</span>]
+        nz_ = navg[<span class="n">2</span>]
+        diffuse = <span class="f">max</span>(<span class="n">0.0</span>, nx_ * light[<span class="n">0</span>] + ny_ * light[<span class="n">1</span>] + nz_ * light[<span class="n">2</span>])
+        shade = ambient + (<span class="n">1.0</span> - ambient) * diffuse
+
+        <span class="c"># Average the triangle's own three corner colours, each looked up</span>
+        <span class="c"># from the poly's ACTUAL corner (ca[i]/cb[i]/cc[i]) rather than</span>
+        <span class="c"># assumed to be 0/1/2 -- the second half of a triangulated quad</span>
+        <span class="c"># is corners 0, 2, 3.</span>
+        p = pi[i]
+        ca_rgb = <span class="f">unpack_rgb</span>(<span class="f">corner_color</span>(P, p, ca[i]))
+        cb_rgb = <span class="f">unpack_rgb</span>(<span class="f">corner_color</span>(P, p, cb[i]))
+        cc_rgb = <span class="f">unpack_rgb</span>(<span class="f">corner_color</span>(P, p, cc[i]))
+        r = (ca_rgb[<span class="n">0</span>] + cb_rgb[<span class="n">0</span>] + cc_rgb[<span class="n">0</span>]) / <span class="n">3.0</span> * shade
+        g = (ca_rgb[<span class="n">1</span>] + cb_rgb[<span class="n">1</span>] + cc_rgb[<span class="n">1</span>]) / <span class="n">3.0</span> * shade
+        b = (ca_rgb[<span class="n">2</span>] + cb_rgb[<span class="n">2</span>] + cc_rgb[<span class="n">2</span>]) / <span class="n">3.0</span> * shade
+
+        <span class="c"># `alpha = 1.0` is NOT decorative: `polygon(fill=...)` defaults to</span>
+        <span class="c"># alpha 0.18 (tuned for overlapping density-style fills), which</span>
+        <span class="c"># would make every "hidden" back face show straight through the</span>
+        <span class="c"># front ones and defeat the entire painter's-algorithm depth sort.</span>
+        <span class="f">polygon</span>((xa, xb, xc), (ya, yb, yc), <span class="a">fill</span> = <span class="f">to_hex</span>(r, g, b), <span class="a">stroke</span> = <span class="s">"none"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
+    <span class="k">end</span> <span class="k">for</span>
+
+    <span class="f">savefig</span>(out_svg)
+    <span class="k">return</span> {triangles = ntri, polys = np, verts = mesh.vert_count}
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% Self-test: a synthesized cube, 24 vertices (4 PER FACE rather than 8</span>
+<span class="c"># shared corners, so every vertex carries its own face's true outward</span>
+<span class="c"># normal -- the way a hard-edged Re-Volt asset would, rather than</span>
+<span class="c"># smoothing across an edge) -- written by hand at the byte level, same</span>
+<span class="c"># discipline as qu_prm_loader.qu's own demo, so this file is proven</span>
+<span class="c"># before it ever touches the real local scarab.prm asset (never</span>
+<span class="c"># committed -- third-party asset). This caught two real bugs during</span>
+<span class="c"># development that the loader's own single-poly demo could not have:</span>
+<span class="c"># `mod(a, b)` is a parse error in Qu (`mod` is the infix operator `a mod</span>
+<span class="c"># b`, not a function -- unpack_rgb originally called it as one), and</span>
+<span class="c"># `polygon(fill=...)` defaults to alpha 0.18 (tuned for overlapping</span>
+<span class="c"># density-style fills), which silently let every "hidden" back face</span>
+<span class="c"># show straight through the front ones and would have defeated the</span>
+<span class="c"># entire painter's-algorithm depth sort. Neither survives this test.</span>
+<span class="c">#</span>
+<span class="c"># THE FILE FORMAT IS POLYS-THEN-VERTS: the write calls below happen in</span>
+<span class="c"># that byte order even though the vertex DATA is listed in the comments</span>
+<span class="c"># face-by-face for readability -- an earlier draft wrote all vertices</span>
+<span class="c"># first and got silently misparsed as a result.</span>
+<span class="k">function</span> <span class="f">write_face</span>(w, i0, i1, i2, i3, argb)
+    <span class="f">write_int16</span>(w, <span class="n">1</span>)           <span class="c"># type: quad bit set</span>
+    <span class="f">write_int16</span>(w, <span class="n">0</span>)           <span class="c"># tpage</span>
+    <span class="f">write_int16</span>(w, i0)
+    <span class="f">write_int16</span>(w, i1)
+    <span class="f">write_int16</span>(w, i2)
+    <span class="f">write_int16</span>(w, i3)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_uint32</span>(w, argb)
+    <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+    <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">write_vert</span>(w, x, y, z, nx, ny, nz)
+    <span class="f">write_float</span>(w, x); <span class="f">write_float</span>(w, y); <span class="f">write_float</span>(w, z)
+    <span class="f">write_float</span>(w, nx); <span class="f">write_float</span>(w, ny); <span class="f">write_float</span>(w, nz)
+<span class="k">end</span> <span class="k">function</span>
+
+tmp_path = <span class="f">tmp_file</span>()
+w = <span class="f">fopen</span>(tmp_path, <span class="s">"wb"</span>)
+<span class="f">write_int16</span>(w, <span class="n">6</span>)               <span class="c"># poly_count: 6 quad faces</span>
+<span class="f">write_int16</span>(w, <span class="n">24</span>)              <span class="c"># vert_count: 4 per face, no sharing</span>
+
+<span class="c">#   0.. 3: back   (z=-1) normal (0,0,-1)  -- red</span>
+<span class="c">#   4.. 7: front  (z=+1) normal (0,0, 1)  -- green</span>
+<span class="c">#   8..11: left   (x=-1) normal (-1,0,0)  -- blue</span>
+<span class="c">#  12..15: right  (x=+1) normal ( 1,0,0)  -- yellow</span>
+<span class="c">#  16..19: top    (y=+1) normal (0, 1,0)  -- magenta</span>
+<span class="c">#  20..23: bottom (y=-1) normal (0,-1,0)  -- cyan</span>
+<span class="f">write_face</span>(w, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">0xFFCC</span><span class="n">3333</span>)     <span class="c"># back   -- red</span>
+<span class="f">write_face</span>(w, <span class="n">5</span>, <span class="n">4</span>, <span class="n">7</span>, <span class="n">6</span>, <span class="n">0xFF</span><span class="n">33CC</span><span class="n">33</span>)     <span class="c"># front  -- green</span>
+<span class="f">write_face</span>(w, <span class="n">8</span>, <span class="n">9</span>, <span class="n">10</span>, <span class="n">11</span>, <span class="n">0xFF</span><span class="n">3355CC</span>)   <span class="c"># left   -- blue</span>
+<span class="f">write_face</span>(w, <span class="n">13</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">14</span>, <span class="n">0xFFCCCC</span><span class="n">33</span>) <span class="c"># right  -- yellow</span>
+<span class="f">write_face</span>(w, <span class="n">16</span>, <span class="n">17</span>, <span class="n">18</span>, <span class="n">19</span>, <span class="n">0xFFCC</span><span class="n">33CC</span>) <span class="c"># top    -- magenta</span>
+<span class="f">write_face</span>(w, <span class="n">21</span>, <span class="n">20</span>, <span class="n">23</span>, <span class="n">22</span>, <span class="n">0xFF</span><span class="n">33CCCC</span>) <span class="c"># bottom -- cyan</span>
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>)
+
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w,  <span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">write_vert</span>(w, -<span class="n">1.0</span>, -<span class="n">1.0</span>,  <span class="n">1.0</span>,  <span class="n">0.0</span>, -<span class="n">1.0</span>,  <span class="n">0.0</span>)
+<span class="f">close</span>(w)
+
+result = <span class="f">render_prm</span>(tmp_path, <span class="s">"qu_prm_viewer_selftest.svg"</span>)
+<span class="f">print</span>(<span class="s">"self-test: triangles={result.triangles}, polys={result.polys}, verts={result.verts}"</span>)
+<span class="f">print</span>(<span class="s">"(expect 12 triangles, 6 polys, 24 verts -- inspect qu_prm_viewer_selftest.svg for a shaded cube, six faces, distinct colours, no transparency)"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

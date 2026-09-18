@@ -288,6 +288,7 @@ jobs:
         shell: bash
         run: |
           set -e
+          ARCH_BINS=()
           for T in $(echo "${{ matrix.target }}" | tr ',' ' '); do
             cargo build --release --locked --target "$T" --manifest-path engine/Cargo.toml
             mkdir -p qu-studio-tauri/src-tauri/binaries
@@ -296,11 +297,50 @@ jobs:
             DST="qu-studio-tauri/src-tauri/binaries/qu-$T"
             [ -f "$SRC" ] && [[ "$SRC" == *.exe ]] && DST="$DST.exe"
             cp "$SRC" "$DST"
+            ARCH_BINS+=("$DST")
           done
+          # macOS universal build (matrix.target has TWO comma-separated
+          # triples): Tauri's own cargo build multi-arch-merges the APP
+          # binary automatically for `--target universal-apple-darwin`,
+          # but externalBin sidecars are plain files copied in, not part
+          # of that cargo build -- Tauri can't lipo something it didn't
+          # compile. It looks for one binary already named
+          # `qu-universal-apple-darwin`, and errors "Failed to copy
+          # external binaries" when only the two arch-suffixed ones
+          # exist (confirmed: this exact error, this exact step, tag
+          # v0.2.3's actual run). `lipo` ships on every macOS runner.
+          if [ "${#ARCH_BINS[@]}" -eq 2 ]; then
+            lipo -create "${ARCH_BINS[@]}" \
+              -output qu-studio-tauri/src-tauri/binaries/qu-universal-apple-darwin
+          fi
 
       - name: Install frontend dependencies
         working-directory: qu-studio-tauri
-        run: npm ci
+        shell: bash
+        # Retried: `npm ci`'s postinstall runs a NESTED `npm install
+        # --prefix ../qu-ui-components`, and on the Windows runner that
+        # inner install's own node_modules teardown intermittently hits
+        # `EPERM: operation not permitted, rmdir ...` on files under
+        # monaco-editor/maplibre -- something else (Defender, the
+        # indexer) still has a handle open on them for a moment. Real,
+        # observed failure (tag v0.2.3's run), not hypothetical: the
+        # actual `npm error code 1` is buried under a wall of nested
+        # "cleanup failed" noise from npm re-reporting the same error at
+        # every recursion level. A clean retry succeeds because the lock
+        # is transient -- confirmed by the failing run's own log
+        # containing a REAL install (all packages fetched, postinstall
+        # ran) before the cleanup step is what failed, not the fetch.
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if npm ci; then
+              exit 0
+            fi
+            echo "npm ci failed (attempt $attempt/3) -- retrying after a moment"
+            sleep 10
+          done
+          echo "npm ci failed 3 times" >&2
+          exit 1
 
       - uses: tauri-apps/tauri-action@v0
         env:

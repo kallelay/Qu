@@ -82,24 +82,24 @@ Vec2(-1, -2)
 ab</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_operator_overload.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_operator_overload.qu -- user-overloadable operators on a tagged record</span>
-<span class="c"># type (multiple dispatch phase 3).</span>
-<span class="c">#</span>
-<span class="c"># A plain `{__type = "...", ...}` record with a `function +(a: record&lt;Tag&gt;,</span>
-<span class="c"># b: record&lt;Tag&gt;)` overload gets its own `+`/`-`/unary `-` behavior; every</span>
-<span class="c"># ordinary numeric/vector/matrix/string operator combination is completely</span>
-<span class="c"># unaffected (the overload only fires when the hardcoded operator cascade</span>
-<span class="c"># doesn't cover the operand types at all).</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
-<span class="c">#   Vec2(x, y) := {__type = "Vec2", x = x, y = y}   -- tagged-record constructor</span>
-<span class="c">#   function +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)    -- binary operator overload</span>
-<span class="c">#   function -(a: record&lt;Vec2&gt;)                     -- unary operator overload</span>
-<span class="c">#   ordinary num/vec/mat/str operators, unchanged, in the same script</span>
+<pre class="hl"><code><span class="c"># qu_operator_overload.qu -- user-overloadable operators on a tagged record</span>
+<span class="c"># type (multiple dispatch phase 3).</span>
+<span class="c">#</span>
+<span class="c"># A plain `{__type = "...", ...}` record with a `function +(a: record&lt;Tag&gt;,</span>
+<span class="c"># b: record&lt;Tag&gt;)` overload gets its own `+`/`-`/unary `-` behavior; every</span>
+<span class="c"># ordinary numeric/vector/matrix/string operator combination is completely</span>
+<span class="c"># unaffected (the overload only fires when the hardcoded operator cascade</span>
+<span class="c"># doesn't cover the operand types at all).</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
+<span class="c">#   Vec2(x, y) := {__type = "Vec2", x = x, y = y}   -- tagged-record constructor</span>
+<span class="c">#   function +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)    -- binary operator overload</span>
+<span class="c">#   function -(a: record&lt;Vec2&gt;)                     -- unary operator overload</span>
+<span class="c">#   ordinary num/vec/mat/str operators, unchanged, in the same script</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% A tiny 2-D vector type built from a tagged record</span>
+<span class="c">#%% A tiny 2-D vector type built from a tagged record</span>
 <span class="f">Vec2</span>(x, y) := {__type = <span class="s">"Vec2"</span>, x = x, y = y}
 
 <span class="k">function</span> +(a: record&lt;Vec2&gt;, b: record&lt;Vec2&gt;)
@@ -124,7 +124,7 @@ q = <span class="f">Vec2</span>(<span class="n">3</span>, <span class="n">4</spa
 <span class="f">describe</span>(p - q)
 <span class="f">describe</span>(-p)
 
-<span class="c">#%% Zero-regression: ordinary operators on ordinary types, same script</span>
+<span class="c">#%% Zero-regression: ordinary operators on ordinary types, same script</span>
 print <span class="f">str</span>(<span class="n">1</span> + <span class="n">2</span>)
 print <span class="f">str</span>([<span class="n">1</span>, <span class="n">2</span>] + [<span class="n">3</span>, <span class="n">4</span>])
 print <span class="s">"a"</span> + <span class="s">"b"</span>

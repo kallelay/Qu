@@ -92,53 +92,53 @@ already_taken = <span class="k">false</span>
 <div class="out"><span class="lbl">printed</span><pre>serial_ports() found 2 port(s): ("COM1", "COM3")
 first entry: "COM1" (a plain Str, exactly like every other entry in the list)
   COM1: opened and closed cleanly
-  COM3: could not open (serial_open: could not open `COM3` at 9600 baud: Zugriff verweigert (check the port name is correct — `serial_ports()` lists what's currently available on this machine — and that no other program already has it open))
+  COM3: opened and closed cleanly
 attempting to open a nonexistent port "COM249" (already in real port list: false)
   serial_open("COM249", ...) failed as expected: serial_open: could not open `COM249` at 9600 baud: Das System kann die angegebene Datei nicht finden. (check the port name is correct — `serial_ports()` lists what's currently available on this machine — and that no other program already has it open)</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_serial_ports_discovery.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_serial_ports_discovery.qu -- a lighter-weight, general-purpose</span>
-<span class="c"># companion to qu_serial_realtime.qu, focused specifically on</span>
-<span class="c"># `serial_ports()` discovery and on `serial_open`/`.write()`/`.close()` in</span>
-<span class="c"># isolation, WITHOUT the full real-time acquisition loop (that's already</span>
-<span class="c"># covered by qu_serial_realtime.qu).</span>
-<span class="c">#</span>
-<span class="c"># Hardware reality on this machine: `serial_ports()` genuinely reports real</span>
-<span class="c"># COM ports (COM1, COM3 at the time this was written). COM3 in particular</span>
-<span class="c"># is very likely a real display-panel controller rather than a generic</span>
-<span class="c"># loopback device, so this demo deliberately never `.write()`s arbitrary</span>
-<span class="c"># bytes to any REAL port it discovers -- it only opens and immediately</span>
-<span class="c"># closes each one (proving `serial_open` genuinely acquires the OS handle),</span>
-<span class="c"># and demonstrates the write/read ERROR paths against a port name that</span>
-<span class="c"># does not exist on this machine instead. That keeps this script safe to</span>
-<span class="c"># run on any machine with real serial hardware attached, honest about what</span>
-<span class="c"># it can prove without a loopback pair, and non-overlapping with the fuller</span>
-<span class="c"># real-time capture loop in qu_serial_realtime.qu.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   serial_ports()                    -- real OS enumeration; a List of Str port names</span>
-<span class="c">#   serial_open(port, baud, ...)      -- open a real port / a clear error for a bad one</span>
-<span class="c">#   close(conn)                       -- release the OS handle</span>
-<span class="c">#   write(conn, data) / conn.write()  -- error path against a never-open handle's port</span>
-<span class="c">#   try/catch                         -- graceful handling of both error paths</span>
+<pre class="hl"><code><span class="c"># qu_serial_ports_discovery.qu -- a lighter-weight, general-purpose</span>
+<span class="c"># companion to qu_serial_realtime.qu, focused specifically on</span>
+<span class="c"># `serial_ports()` discovery and on `serial_open`/`.write()`/`.close()` in</span>
+<span class="c"># isolation, WITHOUT the full real-time acquisition loop (that's already</span>
+<span class="c"># covered by qu_serial_realtime.qu).</span>
+<span class="c">#</span>
+<span class="c"># Hardware reality on this machine: `serial_ports()` genuinely reports real</span>
+<span class="c"># COM ports (COM1, COM3 at the time this was written). COM3 in particular</span>
+<span class="c"># is very likely a real display-panel controller rather than a generic</span>
+<span class="c"># loopback device, so this demo deliberately never `.write()`s arbitrary</span>
+<span class="c"># bytes to any REAL port it discovers -- it only opens and immediately</span>
+<span class="c"># closes each one (proving `serial_open` genuinely acquires the OS handle),</span>
+<span class="c"># and demonstrates the write/read ERROR paths against a port name that</span>
+<span class="c"># does not exist on this machine instead. That keeps this script safe to</span>
+<span class="c"># run on any machine with real serial hardware attached, honest about what</span>
+<span class="c"># it can prove without a loopback pair, and non-overlapping with the fuller</span>
+<span class="c"># real-time capture loop in qu_serial_realtime.qu.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   serial_ports()                    -- real OS enumeration; a List of Str port names</span>
+<span class="c">#   serial_open(port, baud, ...)      -- open a real port / a clear error for a bad one</span>
+<span class="c">#   close(conn)                       -- release the OS handle</span>
+<span class="c">#   write(conn, data) / conn.write()  -- error path against a never-open handle's port</span>
+<span class="c">#   try/catch                         -- graceful handling of both error paths</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Discovery: `serial_ports()` returns a List of Str port names -- an</span>
-<span class="c"># empty list on a machine with no serial hardware is a correct, honest</span>
-<span class="c"># result, not an error (see serial_ops.rs's own doc comment).</span>
+<span class="c">#%% Discovery: `serial_ports()` returns a List of Str port names -- an</span>
+<span class="c"># empty list on a machine with no serial hardware is a correct, honest</span>
+<span class="c"># result, not an error (see serial_ops.rs's own doc comment).</span>
 ports = <span class="f">serial_ports</span>()
 <span class="f">print</span>(<span class="s">"serial_ports() found {length(ports)} port(s): {ports}"</span>)
 <span class="k">if</span> <span class="f">length</span>(ports) &gt; <span class="n">0</span>
     <span class="f">print</span>(<span class="s">"first entry: \"{ports[0]}\" (a plain Str, exactly like every other entry in the list)"</span>)
 <span class="k">end</span> <span class="k">if</span>
 
-<span class="c">#%% Real hardware, read-only touch: open and immediately close every real</span>
-<span class="c"># port this machine reports. No `.write()` and no `.read_line()` here --</span>
-<span class="c"># deliberately, since at least one of these (COM3 on this machine) is</span>
-<span class="c"># suspected real display-panel hardware, not a safe-to-poke loopback</span>
-<span class="c"># device. This still proves `serial_open`/`close` genuinely acquire and</span>
-<span class="c"># release a real OS handle for each one.</span>
+<span class="c">#%% Real hardware, read-only touch: open and immediately close every real</span>
+<span class="c"># port this machine reports. No `.write()` and no `.read_line()` here --</span>
+<span class="c"># deliberately, since at least one of these (COM3 on this machine) is</span>
+<span class="c"># suspected real display-panel hardware, not a safe-to-poke loopback</span>
+<span class="c"># device. This still proves `serial_open`/`close` genuinely acquire and</span>
+<span class="c"># release a real OS handle for each one.</span>
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(ports) - <span class="n">1</span>
     port = ports[i]
     <span class="k">try</span>
@@ -150,11 +150,11 @@ ports = <span class="f">serial_ports</span>()
     <span class="k">end</span>
 <span class="k">end</span> <span class="k">for</span>
 
-<span class="c">#%% The error path: a port name that (almost certainly) does not exist on</span>
-<span class="c"># any machine. `serial_open` itself is where this fails -- there is no</span>
-<span class="c"># handle to `.write()` to at all, so the honest demonstration is that the</span>
-<span class="c"># OPEN attempt is rejected with a clear, actionable message naming the</span>
-<span class="c"># port, rather than a crash or a hang.</span>
+<span class="c">#%% The error path: a port name that (almost certainly) does not exist on</span>
+<span class="c"># any machine. `serial_open` itself is where this fails -- there is no</span>
+<span class="c"># handle to `.write()` to at all, so the honest demonstration is that the</span>
+<span class="c"># OPEN attempt is rejected with a clear, actionable message naming the</span>
+<span class="c"># port, rather than a crash or a hang.</span>
 missing_port = <span class="s">"COM249"</span>
 already_taken = <span class="k">false</span>
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(ports) - <span class="n">1</span>

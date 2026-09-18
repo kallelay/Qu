@@ -68,28 +68,28 @@ server_saw = <span class="f">join</span>(worker)
 </code></pre>
 </section>
 <h2>Results</h2>
-<div class="out"><span class="lbl">printed</span><pre>server listening on 127.0.0.1:55814
+<div class="out"><span class="lbl">printed</span><pre>server listening on 127.0.0.1:55609
 client received: HELLO FROM THE QU CLIENT
 server originally saw: hello from the qu client</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_tcp_echo.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_tcp_echo.qu -- a genuine client/server TCP round trip on loopback.</span>
-<span class="c">#</span>
-<span class="c"># `tcp_listen(0)` asks the OS for a free ephemeral port; the server function</span>
-<span class="c"># runs in a `spawn`'d worker thread so it can block on `tcp_accept`/</span>
-<span class="c"># `tcp_recv` without blocking the script itself -- the same "spawn a</span>
-<span class="c"># function to run a long/blocking call in the background" idiom every other</span>
-<span class="c"># worker-based Qu builtin uses. `join(worker)` waits for the server to</span>
-<span class="c"># finish and returns whatever it `return`ed.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   tcp_listen(port) / tcp_port(listener)   -- bind an ephemeral port</span>
-<span class="c">#   spawn(fnName, args...) / join(worker)   -- run the server without blocking</span>
-<span class="c">#   tcp_connect / tcp_send / tcp_recv / tcp_close -- the client side</span>
+<pre class="hl"><code><span class="c"># qu_tcp_echo.qu -- a genuine client/server TCP round trip on loopback.</span>
+<span class="c">#</span>
+<span class="c"># `tcp_listen(0)` asks the OS for a free ephemeral port; the server function</span>
+<span class="c"># runs in a `spawn`'d worker thread so it can block on `tcp_accept`/</span>
+<span class="c"># `tcp_recv` without blocking the script itself -- the same "spawn a</span>
+<span class="c"># function to run a long/blocking call in the background" idiom every other</span>
+<span class="c"># worker-based Qu builtin uses. `join(worker)` waits for the server to</span>
+<span class="c"># finish and returns whatever it `return`ed.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   tcp_listen(port) / tcp_port(listener)   -- bind an ephemeral port</span>
+<span class="c">#   spawn(fnName, args...) / join(worker)   -- run the server without blocking</span>
+<span class="c">#   tcp_connect / tcp_send / tcp_recv / tcp_close -- the client side</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% A tiny echo server: reads one message, replies with it upper-cased</span>
+<span class="c">#%% A tiny echo server: reads one message, replies with it upper-cased</span>
 <span class="k">function</span> <span class="f">echo_server</span>(listener)
     conn = <span class="f">tcp_accept</span>(listener)
     msg = <span class="f">tcp_recv</span>(conn)
@@ -104,7 +104,7 @@ port = <span class="f">tcp_port</span>(listener)
 
 worker = <span class="f">spawn</span>(<span class="s">"echo_server"</span>, listener)
 
-<span class="c">#%% Client side: connect, send, read the reply</span>
+<span class="c">#%% Client side: connect, send, read the reply</span>
 conn = <span class="f">tcp_connect</span>(<span class="s">"127.0.0.1"</span>, port)
 <span class="f">tcp_send</span>(conn, <span class="s">"hello from the qu client"</span>)
 reply = <span class="f">tcp_recv</span>(conn)

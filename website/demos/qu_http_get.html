@@ -44,26 +44,26 @@ response body length = 559 chars
 body contains "Example Domain": true</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_http_get.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_http_get.qu -- a genuine HTTP(S) GET over the real network, using</span>
-<span class="c"># Qu's `http_get(url)` builtin (§ HTTP fetch, see</span>
-<span class="c"># docs/qu-language-tour.md §21). `http_get` is GET-only, has a fixed</span>
-<span class="c"># 30-second connect+read timeout, and always returns the response body as</span>
-<span class="c"># a plain string (lossily UTF-8 decoded) -- no headers, no status code,</span>
-<span class="c"># no POST, per its own documented v1 scope.</span>
-<span class="c">#</span>
-<span class="c"># `https://example.com/` is the same target the language tour's own worked</span>
-<span class="c"># example uses: a stable, well-known, IANA-reserved domain that always</span>
-<span class="c"># serves a small, static 200 OK HTML page and is exceedingly unlikely to</span>
-<span class="c"># ever be flagged as suspicious traffic. This whole call is wrapped in</span>
-<span class="c"># try/catch: on a machine with no outbound network access (or a transient</span>
-<span class="c"># DNS/TLS/connection failure), `http_get` raises a clear EvalError naming</span>
-<span class="c"># the URL, which is caught and reported as an honest "network unavailable"</span>
-<span class="c"># result instead of crashing the script or faking a response.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   http_get(url)            -- a real GET request, 30s timeout, returns a Str body</span>
-<span class="c">#   length(str)               -- real byte/char count of the fetched body</span>
-<span class="c">#   try/catch                 -- graceful handling of the real network dependency</span>
+<pre class="hl"><code><span class="c"># qu_http_get.qu -- a genuine HTTP(S) GET over the real network, using</span>
+<span class="c"># Qu's `http_get(url)` builtin (§ HTTP fetch, see</span>
+<span class="c"># docs/qu-language-tour.md §21). `http_get` is GET-only, has a fixed</span>
+<span class="c"># 30-second connect+read timeout, and always returns the response body as</span>
+<span class="c"># a plain string (lossily UTF-8 decoded) -- no headers, no status code,</span>
+<span class="c"># no POST, per its own documented v1 scope.</span>
+<span class="c">#</span>
+<span class="c"># `https://example.com/` is the same target the language tour's own worked</span>
+<span class="c"># example uses: a stable, well-known, IANA-reserved domain that always</span>
+<span class="c"># serves a small, static 200 OK HTML page and is exceedingly unlikely to</span>
+<span class="c"># ever be flagged as suspicious traffic. This whole call is wrapped in</span>
+<span class="c"># try/catch: on a machine with no outbound network access (or a transient</span>
+<span class="c"># DNS/TLS/connection failure), `http_get` raises a clear EvalError naming</span>
+<span class="c"># the URL, which is caught and reported as an honest "network unavailable"</span>
+<span class="c"># result instead of crashing the script or faking a response.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   http_get(url)            -- a real GET request, 30s timeout, returns a Str body</span>
+<span class="c">#   length(str)               -- real byte/char count of the fetched body</span>
+<span class="c">#   try/catch                 -- graceful handling of the real network dependency</span>
 
 <span class="k">backend</span> auto
 
@@ -73,11 +73,11 @@ url = <span class="s">"https://example.com/"</span>
     body = <span class="f">http_get</span>(url)
     <span class="f">print</span>(<span class="s">"GET {url} succeeded"</span>)
     <span class="f">print</span>(<span class="s">"response body length = {length(body)} chars"</span>)
-    <span class="c"># `example.com` always serves a small static page containing this</span>
-    <span class="c"># exact phrase -- a real content check, not just "it didn't throw".</span>
-    <span class="c"># Qu has no dedicated substring-search builtin (grepped for</span>
-    <span class="c"># `index_of`/`str_contains`/similar -- zero hits), so `split` on the</span>
-    <span class="c"># target phrase does the job: more than one piece means it was found.</span>
+    <span class="c"># `example.com` always serves a small static page containing this</span>
+    <span class="c"># exact phrase -- a real content check, not just "it didn't throw".</span>
+    <span class="c"># Qu has no dedicated substring-search builtin (grepped for</span>
+    <span class="c"># `index_of`/`str_contains`/similar -- zero hits), so `split` on the</span>
+    <span class="c"># target phrase does the job: more than one piece means it was found.</span>
     parts = <span class="f">split</span>(body, <span class="s">"Example Domain"</span>)
     contains_expected_text = <span class="f">length</span>(parts) &gt; <span class="n">1</span>
     <span class="f">print</span>(<span class="s">"body contains \"Example Domain\": {contains_expected_text}"</span>)

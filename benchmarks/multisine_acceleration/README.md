@@ -66,6 +66,41 @@ ranges overlap). `parallel for` and GPU are the two genuine surprises, both
 *slower* than doing nothing extra at all -- neither is a demo artifact,
 both have a specific, identified root cause below.
 
+## Memory: the axis speed alone hides
+
+`bench.qu` now also samples `mem_usage()` (process RSS, bytes) around each
+method and prints the MARGINAL RSS each one adds -- what that method costs
+ON TOP of everything already resident (all five methods' output arrays
+stay alive at once in this one process, for the correctness cross-check).
+One representative run, same machine as above:
+
+| Method | Marginal RSS added | Why |
+|---|---:|---|
+| `[1]` baseline loop | ~12 MB | `x1` plus one tone's scratch per loop iteration -- O(N) |
+| `[2]` full vectorization | ~1,260 MB | the explicit `(N,K)` `Basis2` matrix (`Phase`, `Basis2`, `x2_col` all alive at once, each ~612 MB) -- O(N\*K) |
+| `[3]` parallel for | ~620 MB | `Contrib`, the same `(N,K)` shape as `[2]`'s basis -- this is the SAME buffer the "parallel for and reductions" section above already identifies as the ~30x slowdown's root cause; the memory cost and the speed cost are the same object |
+| `[4]` pool + queue + workers | ~110 MB | 8 chunk partials plus `x4`, each only O(N) -- no large shared matrix, which is also why method 4 has no method-3-style perf trap |
+
+**The speed/memory tradeoff is not free, and it is not one-directional.**
+Method 2 is faster than method 1 AND uses ~100x more memory for it --
+buying speed with RAM, the usual accelerated-vs-baseline story. Method 4
+is ALSO faster than method 1 while using LESS memory than method 2 and
+barely more than method 1 -- because its speedup comes from spreading
+independent work across cores, not from building one large intermediate
+array. Reading only the timing column would make 2 and 4 look like
+similar choices; the memory column shows they are not, for a workload
+where 600+ MB might matter (a smaller machine, several signals processed
+concurrently, an embedded/edge target). Method 3's memory row is the
+same number as the mechanism already blamed for its slowdown above --
+seeing that echoed in the memory column, not just the timing column, is
+itself confirmation that the two are the same root cause, not two
+coincidental problems.
+
+Run `qu run benchmarks/multisine_acceleration/bench.qu` yourself to see
+both columns on your own machine -- `mem_usage()` is a real engine
+builtin (process RSS in bytes, `nothing` on a platform without support),
+not something specific to this benchmark.
+
 ## `parallel for` and reductions: investigated, not assumed
 
 The task-level question this benchmark had to answer first: does `parallel

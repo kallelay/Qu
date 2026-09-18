@@ -121,67 +121,67 @@ norm    = 3.0000
 reshape = [0, 2, 4; 1, 3, 5]</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_linear_algebra.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_linear_algebra.qu — a tour of Qu's M2 matrix surface.</span>
-<span class="c">#</span>
-<span class="c"># Runs end-to-end on the reference interpreter (`qu run`). Exercises:</span>
-<span class="c">#   §13  matrix `*` (matmul) vs elementwise `.*`</span>
-<span class="c">#   §14  NumPy-style broadcasting and orientation contracts (`as vector(r,c)`)</span>
-<span class="c">#   §15  2-D indexing: M[i,j], M[i,:], M[:,j], submatrices</span>
-<span class="c">#   §24  reductions with an `axis=` keyword</span>
-<span class="c">#   built-ins: eye, zeros/ones, reshape, transpose (`'`), matmul, dot, norm</span>
+<pre class="hl"><code><span class="c"># qu_linear_algebra.qu — a tour of Qu's M2 matrix surface.</span>
+<span class="c">#</span>
+<span class="c"># Runs end-to-end on the reference interpreter (`qu run`). Exercises:</span>
+<span class="c">#   §13  matrix `*` (matmul) vs elementwise `.*`</span>
+<span class="c">#   §14  NumPy-style broadcasting and orientation contracts (`as vector(r,c)`)</span>
+<span class="c">#   §15  2-D indexing: M[i,j], M[i,:], M[:,j], submatrices</span>
+<span class="c">#   §24  reductions with an `axis=` keyword</span>
+<span class="c">#   built-ins: eye, zeros/ones, reshape, transpose (`'`), matmul, dot, norm</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Matrix basics</span>
-<span class="c"># --- Matrix literals are row-major to read; stored column-major ------------</span>
+<span class="c">#%% Matrix basics</span>
+<span class="c"># --- Matrix literals are row-major to read; stored column-major ------------</span>
 A = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]
 B = [<span class="n">5</span>, <span class="n">6</span>; <span class="n">7</span>, <span class="n">8</span>]
 
 <span class="f">print</span>(<span class="s">"A       = {A}"</span>)
 <span class="f">print</span>(<span class="s">"B       = {B}"</span>)
-<span class="f">print</span>(<span class="s">"A * B   = {A * B}"</span>)          <span class="c"># matrix multiplication -&gt; [19,22;43,50]</span>
-<span class="f">print</span>(<span class="s">"A .* B  = {A .* B}"</span>)         <span class="c"># elementwise (Hadamard) -&gt; [5,12;21,32]</span>
-<span class="f">print</span>(<span class="s">"A'      = {A'}"</span>)             <span class="c"># transpose -&gt; [1,3;2,4]</span>
+<span class="f">print</span>(<span class="s">"A * B   = {A * B}"</span>)          <span class="c"># matrix multiplication -&gt; [19,22;43,50]</span>
+<span class="f">print</span>(<span class="s">"A .* B  = {A .* B}"</span>)         <span class="c"># elementwise (Hadamard) -&gt; [5,12;21,32]</span>
+<span class="f">print</span>(<span class="s">"A'      = {A'}"</span>)             <span class="c"># transpose -&gt; [1,3;2,4]</span>
 <span class="f">print</span>(<span class="s">"I3      = {eye(3)}"</span>)
 
-<span class="c">#%% Indexing</span>
-<span class="c"># --- Indexing --------------------------------------------------------------</span>
-<span class="f">print</span>(<span class="s">"A[0, 1] = {A[0, 1]}"</span>)        <span class="c"># 2   (zero-based)</span>
-<span class="f">print</span>(<span class="s">"A[1, :] = {A[1, :]}"</span>)        <span class="c"># row 1 -&gt; [3, 4]</span>
-<span class="f">print</span>(<span class="s">"A[:, 0] = {A[:, 0]}"</span>)        <span class="c"># col 0 -&gt; [1, 3]</span>
+<span class="c">#%% Indexing</span>
+<span class="c"># --- Indexing --------------------------------------------------------------</span>
+<span class="f">print</span>(<span class="s">"A[0, 1] = {A[0, 1]}"</span>)        <span class="c"># 2   (zero-based)</span>
+<span class="f">print</span>(<span class="s">"A[1, :] = {A[1, :]}"</span>)        <span class="c"># row 1 -&gt; [3, 4]</span>
+<span class="f">print</span>(<span class="s">"A[:, 0] = {A[:, 0]}"</span>)        <span class="c"># col 0 -&gt; [1, 3]</span>
 
-<span class="c">#%% Assignment</span>
-<span class="c"># --- Assignment into a matrix ---------------------------------------------</span>
+<span class="c">#%% Assignment</span>
+<span class="c"># --- Assignment into a matrix ---------------------------------------------</span>
 M = <span class="f">zeros</span>(<span class="n">3</span>, <span class="n">3</span>)
-M[<span class="n">0</span>, :] = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]                 <span class="c"># write a whole row</span>
-M[<span class="n">1</span>, <span class="n">1</span>] = <span class="n">9</span>                         <span class="c"># write a single cell</span>
-M[<span class="n">2</span>, :] = <span class="f">ones</span>(<span class="n">1</span>, <span class="n">3</span>)               <span class="c"># broadcast a row of ones</span>
+M[<span class="n">0</span>, :] = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]                 <span class="c"># write a whole row</span>
+M[<span class="n">1</span>, <span class="n">1</span>] = <span class="n">9</span>                         <span class="c"># write a single cell</span>
+M[<span class="n">2</span>, :] = <span class="f">ones</span>(<span class="n">1</span>, <span class="n">3</span>)               <span class="c"># broadcast a row of ones</span>
 <span class="f">print</span>(<span class="s">"M       = {M}"</span>)
 
-<span class="c">#%% Broadcasting</span>
-<span class="c"># --- Broadcasting: outer product via orientation contracts (§14) ----------</span>
+<span class="c">#%% Broadcasting</span>
+<span class="c"># --- Broadcasting: outer product via orientation contracts (§14) ----------</span>
 u = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]
 v = [<span class="n">10</span>, <span class="n">20</span>]
-u <span class="k">as</span> <span class="f">vector</span>(<span class="n">3</span>, <span class="n">1</span>)                  <span class="c"># column</span>
-v <span class="k">as</span> <span class="f">vector</span>(<span class="n">1</span>, <span class="n">2</span>)                  <span class="c"># row</span>
-outer = u * v                      <span class="c"># (3,1) * (1,2) -&gt; (3,2) outer product</span>
+u <span class="k">as</span> <span class="f">vector</span>(<span class="n">3</span>, <span class="n">1</span>)                  <span class="c"># column</span>
+v <span class="k">as</span> <span class="f">vector</span>(<span class="n">1</span>, <span class="n">2</span>)                  <span class="c"># row</span>
+outer = u * v                      <span class="c"># (3,1) * (1,2) -&gt; (3,2) outer product</span>
 <span class="f">print</span>(<span class="s">"outer   = {outer}"</span>)
 <span class="f">print</span>(<span class="s">"shape   = {shape(outer)}"</span>)
 
-<span class="c">#%% Reductions</span>
-<span class="c"># --- Reductions along an axis ---------------------------------------------</span>
+<span class="c">#%% Reductions</span>
+<span class="c"># --- Reductions along an axis ---------------------------------------------</span>
 G = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
-<span class="f">print</span>(<span class="s">"colsum  = {sum(G, axis=0)}"</span>)   <span class="c"># down columns -&gt; [5, 7, 9]</span>
-<span class="f">print</span>(<span class="s">"rowmean = {mean(G, axis=1)}"</span>)  <span class="c"># across rows  -&gt; [2, 5]</span>
+<span class="f">print</span>(<span class="s">"colsum  = {sum(G, axis=0)}"</span>)   <span class="c"># down columns -&gt; [5, 7, 9]</span>
+<span class="f">print</span>(<span class="s">"rowmean = {mean(G, axis=1)}"</span>)  <span class="c"># across rows  -&gt; [2, 5]</span>
 
-<span class="c">#%% Vector algebra</span>
-<span class="c"># --- Vector algebra --------------------------------------------------------</span>
+<span class="c">#%% Vector algebra</span>
+<span class="c"># --- Vector algebra --------------------------------------------------------</span>
 a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>]
-<span class="f">print</span>(<span class="s">"dot     = {dot(a, a)}"</span>)        <span class="c"># 9</span>
-<span class="f">print</span>(<span class="s">"norm    = {norm(a):.4f}"</span>)      <span class="c"># 3.0000</span>
+<span class="f">print</span>(<span class="s">"dot     = {dot(a, a)}"</span>)        <span class="c"># 9</span>
+<span class="f">print</span>(<span class="s">"norm    = {norm(a):.4f}"</span>)      <span class="c"># 3.0000</span>
 
-<span class="c">#%% Reshape</span>
-<span class="c"># --- Reshape preserves column-major order ---------------------------------</span>
+<span class="c">#%% Reshape</span>
+<span class="c"># --- Reshape preserves column-major order ---------------------------------</span>
 r = <span class="f">reshape</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">5</span>, <span class="n">2</span>, <span class="n">3</span>)
 <span class="f">print</span>(<span class="s">"reshape = {r}"</span>)
 

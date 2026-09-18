@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spectrum — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>spectrum</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>spectrum(x, [fs], [window="hann"], [scaling="amplitude"])</code></pre>
+<p class="fnnote">Input: x, fs, window, scaling &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; <code>fs</code> (number, Hz) — <strong>required</strong>, either passed or carried by a <code>Signal</code> (the result is a <code>spectrum</code>, whose point is its frequency axis; there is no default rate to mislabel it with). <code>window</code> (optional string: <code>"hann"</code> (default), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), or <code>"rectangular"</code>/<code>"boxcar"</code>/<code>"none"</code> for no taper): the analysis window applied to the record before transforming. <code>scaling</code> (optional string: <code>"amplitude"</code> (default) or <code>"rms"</code>): the convention stamped on <code>X.norm</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = spectrum(x, [fs], [window="hann"], [scaling="amplitude"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number or Signal, optional</span><span class="iodesc"><code>fs</code> (number, Hz) — <strong>required</strong>, either passed or carried by a <code>Signal</code> (the result is a <code>spectrum</code>, whose point is its frequency axis.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">string, optional (default <code>"hann"</code>)</span><span class="iodesc"><code>window</code> (optional string: <code>"hann"</code> (default), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), or <code>"rectangular"</code>/<code>"boxcar"</code>/<code>"none"</code> for no taper): the analysis window applied to the record before transforming.</span></div>
+<div class="ioitem"><code>scaling</code> <span class="iotype">string, optional (default <code>"amplitude"</code>)</span><span class="iodesc"><code>scaling</code> (optional string: <code>"amplitude"</code> (default) or <code>"rms"</code>): the convention stamped on <code>X.norm</code>.</span></div>
+</td><td><div class="ioitem"><code>A</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>A/sqrt(2)</code> under <code>"rms"</code></span></div>
+</td><td>Returns a <code>spectrum</code> of <code>floor(N/2)+1</code> one-sided bins (DC to Nyquist). <strong>The window is normalised to unit coherent gain (</strong><code>mean(w) == 1</code>) before it is applied<strong>, so a bin-aligned tone of amplitude </strong><code>A</code> reads exactly <code>A</code> (<code>A/sqrt(2)</code> under <code>"rms"</code>) — an uncompensated Hann taper would read <code>A/2</code>. This is what <code>spectrum</code> adds over <code>rfft(sig, scaling=)</code>, which applies no window at all; <code>window="rectangular"</code> makes the two agree bin for bin. Compensation is applied uniformly, not only when <code>scaling="amplitude"</code>, so two calls differing only in <code>scaling=</code> differ only by the documented <code>1/sqrt(2)</code>. <strong>It corrects a discrete tone's peak, not a broadband level</strong> — noise spread across bins is governed by the window's noise-equivalent bandwidth (<code>sum(w^2)</code>, 1.5 for Hann), which is what <code>psd</code>/<code>welch</code> are scaled for; integrate power with those, not this. <code>scaling="raw"</code> is deliberately refused: a <code>spectrum</code> carries no window field, so raw bins would be exactly what <code>band_power</code> integrates as if the record had not been tapered — use <code>rfft(sig)</code> for the unwindowed raw transform.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>spectrum(x, [fs], [window="hann"], [scaling="amplitude"])</code> — <code>toolkit-signal.md</code> §2's windowed amplitude/RMS spectrum: taper the record, transform it, and return a <code>Spectrum</code> whose bins read a physical amplitude. WHAT THIS ADDS OVER <code>rfft(sig, scaling=)</code>, which already exists and already stamps the same three conventions: a window. <code>rfft</code> transforms exactly the samples it is handed — it takes no <code>window=</code> argument — so today the taper is the caller's own <code>x .* hann(N)</code> by hand, and that hand-written form is where the bug below gets introduced. THE WINDOW GAIN DECISION (the reason this is not three lines). Tapering multiplies the record by <code>w</code>, and a bin-aligned tone of amplitude <code>A</code> then transforms to <code>(A/2)*e^(j*phi)*sum(w)</code>. <code>apply_spectrum_norm</code>'s <code>Amplitude</code> factor of <code>2/n</code> turns that into <code>A * (sum(w)/n)</code> — <code>A</code> times the window's COHERENT GAIN, which for a Hann window is 0.5. A user who windowed by hand and read the peak would see half the amplitude they put in, with a plausible-looking number and nothing announcing the factor. <code>toolkit-signal.md</code> §2 states the contract this has to meet in one line: "Window gain ... is applied by the chosen scaling, not left as an exercise." So the analysis window is normalised to UNIT COHERENT GAIN (<code>mean(w) == 1</code>) before it is applied, unconditionally — not only when <code>scaling=</code> asks for amplitude. One rule that always holds beats a rule whose meaning depends on another keyword: a caller comparing two <code>spectrum()</code> calls that differ only in <code>scaling=</code> gets results that differ only by the documented <code>1/sqrt(2)</code>, not by a window factor as well. Verified numerically, not by argument — see <code>windowed_spectrum_reads_true_amplitude</code> below. WHAT COHERENT-GAIN COMPENSATION DOES *NOT* FIX, stated here because a half-true correction is the more dangerous kind: it makes a discrete TONE's peak bin read true. It does not make a BROADBAND level read true — noise spread across bins is governed by the window's noise-equivalent bandwidth (<code>sum(w^2)</code>, not <code>sum(w)</code>), which is a different factor (1.5 for Hann). <code>psd</code> below is the estimator scaled for that, and it is what a caller integrating power over a band should be using. WHY <code>scaling="raw"</code> IS REFUSED HERE rather than passed through. <code>Value::Spectrum</code> carries no window field — <code>SpectrumNorm</code>'s own doc comment explains why it deliberately does not, and adding one is a real change across every producer, not something to smuggle in here. A raw-scaled windowed spectrum is exactly the value that loss hurts: <code>band_power</code> accepts <code>raw_transform</code> bins and applies Parseval to them, so it would return a number biased by the window's noise bandwidth, silently, from a taper it cannot see. <code>Amplitude</code>/<code>Rms</code> are already refused by <code>band_power</code>'s own exhaustive match, so restricting this producer to those two closes the hole with the mechanism that is already there. A caller who genuinely wants the unnormalised DFT of a tapered record still has <code>rfft(signal(x .* hann(n), fs))</code>, which says what it did.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

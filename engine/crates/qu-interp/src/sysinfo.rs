@@ -297,6 +297,78 @@ pub fn publication_line(info: &SysInfo, overrides: &[(String, String)]) -> Strin
     line
 }
 
+/// This process's resident-set size right now (physical memory actually
+/// mapped in), in bytes. `None` on a platform this isn't implemented for
+/// (anything but Windows and Linux today), not a guess.
+///
+/// Same reasoning as `qu-cli`'s own `resource::current_rss_bytes` (which
+/// this mirrors byte-for-byte): a manual FFI call to `psapi` on Windows
+/// and a `/proc/self/status` read on Linux, rather than a crate
+/// dependency, since this is the only platform call either crate needs
+/// for it. Kept as a second copy here (not moved to `qu-core` and shared)
+/// because `qu-cli`'s watchdog thread samples it in a hot polling loop
+/// where crate-boundary indirection would matter and the `mem_usage()`
+/// builtin below samples it once per call — different enough call
+/// patterns that de-duplicating the ~15 lines wasn't worth a new shared
+/// module for two callers.
+#[cfg(windows)]
+pub fn current_rss_bytes() -> Option<u64> {
+    #[repr(C)]
+    struct ProcessMemoryCounters {
+        cb: u32,
+        page_fault_count: u32,
+        peak_working_set_size: usize,
+        working_set_size: usize,
+        quota_peak_paged_pool_usage: usize,
+        quota_paged_pool_usage: usize,
+        quota_peak_non_paged_pool_usage: usize,
+        quota_non_paged_pool_usage: usize,
+        pagefile_usage: usize,
+        peak_pagefile_usage: usize,
+    }
+
+    #[link(name = "psapi")]
+    extern "system" {
+        fn GetProcessMemoryInfo(
+            process: *mut std::ffi::c_void,
+            counters: *mut ProcessMemoryCounters,
+            cb: u32,
+        ) -> i32;
+    }
+    extern "system" {
+        fn GetCurrentProcess() -> *mut std::ffi::c_void;
+    }
+
+    unsafe {
+        let mut pmc: ProcessMemoryCounters = std::mem::zeroed();
+        pmc.cb = std::mem::size_of::<ProcessMemoryCounters>() as u32;
+        let handle = GetCurrentProcess(); // pseudo-handle, no CloseHandle needed
+        if GetProcessMemoryInfo(handle, &mut pmc, pmc.cb) != 0 {
+            Some(pmc.working_set_size as u64)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(all(unix, target_os = "linux"))]
+pub fn current_rss_bytes() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            let kb_str = rest.trim().trim_end_matches("kB").trim();
+            let kb: u64 = kb_str.parse().ok()?;
+            return Some(kb * 1024);
+        }
+    }
+    None
+}
+
+#[cfg(not(any(windows, all(unix, target_os = "linux"))))]
+pub fn current_rss_bytes() -> Option<u64> {
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

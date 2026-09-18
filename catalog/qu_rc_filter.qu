@@ -49,6 +49,13 @@ Hc = 1 / (1 + 2i*pi*fc*tau)
 print("|H(fc)| = {abs(Hc):.4f} (should be ~0.7071, the -3 dB point)")
 
 #%% Plot
+# Three panels side by side (1 row x 3 cols): the default figure canvas
+# (900x600, a 3:2 aspect meant for ONE panel) divides its width three ways
+# but keeps the full height, so each panel came out ~300 wide x ~500 tall
+# -- narrow and needlessly tall, with titles wrapping awkwardly. Sized
+# explicitly instead so each panel lands close to square.
+figure_size(1350, 450)
+
 subplot(1, 3, 1)
 plot(t * 1e6, v_exact, label="closed form", color="blue")
 plot(t * 1e6, v_euler, label="Euler", color="orange")

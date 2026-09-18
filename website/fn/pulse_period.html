@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pulse_period — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pulse_period</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>pulse_period(x, [level=], [hysteresis=0])</code></pre>
+<p class="fnnote">Input: x, level, hysteresis &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; keywords as for <code>find_edges</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pulse_period(x, [level=], [hysteresis=0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or Signal</span></div>
+</td><td>Returns a single number: the mean interval between successive rising crossings (<code>pulse_period</code>) or its reciprocal (<code>pulse_frequency</code>) — seconds and Hz for a <code>Signal</code>, samples and cycles/sample otherwise. Errors when the record holds fewer than two rising crossings, i.e. not a full cycle. These are <strong>edge-counting</strong> measurements; <code>dominant_frequency</code>/<code>estimate_frequency</code> above are spectral estimators answering a different question — see the note before this table.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>pulse_period(x, [level=], [hysteresis=])</code> / <code>pulse_frequency(x, [level=], [hysteresis=])</code> -- the mean interval between successive rising crossings, and its reciprocal. Seconds and Hz for a <code>Signal</code>; samples and cycles/sample otherwise. NAMING, since this is the one real collision risk in the cluster. <code>dominant_frequency</code>/<code>estimate_frequency</code> already exist a few hundred lines above and answer a DIFFERENT question by a different method: they take the largest bin of the FFT magnitude spectrum. This one counts edges in the time domain. On a square wave they agree; on anything with a strong harmonic, a DC-ish drift, or a burst that is not periodic over the whole record, they do not, and the failure is silent because both return a plausible Hz. So the bare name <code>frequency</code> (which <code>toolkit-signal.md</code> §8 spells) is deliberately NOT taken -- it would be the name a caller reaches for by habit while wanting either one, with nothing at the call site to say which they got. <code>pulse_</code> says "edge-based, on a pulse train" in the name itself, and <code>pulse_period</code> carries the same prefix for symmetry rather than taking the equally-generic bare <code>period</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="pulse_frequency.html"><code>pulse_frequency</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

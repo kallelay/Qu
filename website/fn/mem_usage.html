@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mem_usage — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>mem_usage</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
+<pre class="fnsig">result = <code>mem_usage()</code></pre>
+<p class="fnnote">Input: no input &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Takes no arguments.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = mem_usage()</code></td><td><span class="ionone">no input</span></td><td><div class="ioitem"><code>result</code> <span class="iotype">Num</span></div>
+</td><td>Returns this process's resident-set size right now, in bytes (a <code>Num</code>) — what THIS run has actually mapped in, not the machine's total memory (<code>sysinfo()</code>'s job). <code>none</code> on a platform this isn't implemented for (anything but Windows and Linux today). Call it before and after the code being compared and take the difference: the question "which of these two ways of computing the same result used more memory" that timing alone can't answer.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/concurrency.html">Concurrency</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>mem_usage()</code> -- this process's resident-set size right now, in bytes. <code>sysinfo()</code>'s <code>.total_memory</code> is the MACHINE's memory; this is what THIS run has actually mapped in, the number that answers "which of these two ways of computing the same thing used more RAM" -- a question timing alone can't answer (a vectorized method can easily be faster AND build a much bigger intermediate array). Returns <code>nothing</code> on a platform this isn't implemented for (anything but Windows and Linux today) rather than a guess -- same convention as <code>sysinfo()</code>'s own optional fields. Call it before and after the code being measured and take the difference; RSS never shrinks from an ordinary garbage collection the way some runtimes' heap-size counters do, so a rising delta across back-to-back calls is a real signal, not GC noise.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

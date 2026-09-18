@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gain — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gain</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>gain(x, db)</code></pre>
+<p class="fnnote">Input: x, db &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a number, vector, matrix or <code>Signal</code>; <code>db</code>: a number of decibels, also nameable (<code>gain(x, db = -3)</code>) and accepting a <code>dB</code>-suffixed literal (<code>gain(x, -3 dB)</code>, since <code>dB</code> passes through dimensionless).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = gain(x, db)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number, vector, matrix, or Signal</span><span class="iodesc"><code>x</code>: a number, vector, matrix or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>db</code> <span class="iotype">number</span><span class="iodesc"><code>db</code>: a number of decibels, also nameable (<code>gain(x, db = -3)</code>) and accepting a <code>dB</code>-suffixed literal (<code>gain(x, -3 dB)</code>, since <code>dB</code> passes through dimensionless).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
+</td><td>Returns the same shape as <code>x</code>, scaled by <code>10^(db/20)</code> — the AMPLITUDE convention, the same factor of 20 as <code>db2mag</code>. A <code>Signal</code> keeps its <code>Fs</code>: changing a level does not touch the time axis.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>gain(x, db)</code> — scale a signal by a decibel amount, <code>x * 10^(db/20)</code>. The AMPLITUDE/field-quantity convention, the same factor of 20 <code>db2mag</code> above uses and deliberately not the power one: a fader is the thing people reach for <code>gain</code> for, and a <code>gain</code> that quietly halved the dB scale would be wrong by 2x in dB for every one of them. (<code>db</code> vs. <code>db_power</code> immediately above is the same distinction, spelled out there at more length.) Shape-preserving through <code>map1</code>, like every other elementwise numeric builtin: a <code>Signal</code> comes back a <code>Signal</code> at the SAME <code>fs</code> — changing a level does not touch the time axis — a <code>Vec</code> stays a <code>Vec</code>, a <code>Mat</code> stays a <code>Mat</code>, a bare number just scales. <code>gain(x, -3 dB)</code> needs no special handling here. <code>dB</code> is a registered dimensionless unit passing through at factor 1.0 (see <code>apply_unit</code>), so a <code>-3 dB</code> literal reaches this arm already as <code>-3</code> — probed 2026-09-18, <code>type(-3 dB)</code> is <code>number</code>. The amount is also nameable (<code>gain(x, db = -3)</code>) via the usual positional-or-named path, so the <code>[db=]</code> in the chapter is true rather than aspirational.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

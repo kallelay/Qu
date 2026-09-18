@@ -90,6 +90,19 @@ phi = rand(K) * 2 * pi                      # reproducible random phases (seeded
 print("workload: N={N} samples, K={K} tones, Fs={Fs} Hz, duration={duration} s")
 print("")
 
+#%% Memory, alongside timing -- sampled with `mem_usage()` (process RSS,
+# bytes) immediately after each method's output is actually used, since a
+# fresh `zeros(...)` barely moves RSS until its pages are touched (the OS
+# backs it with a shared zero page until then). Deltas are MARGINAL, not
+# per-method-isolated: all five methods' arrays stay alive at once in
+# this one process (the correctness cross-check below needs every x1..x5
+# still resident), so mem3's delta is "what [3] added on top of [1]+[2]
+# already being resident", not "[3] run alone". That's still the right
+# question for "should I use this method": it answers what each one
+# actually costs to add to a real pipeline, not an artificially isolated
+# number no real program would see.
+mem0 = mem_usage()
+
 #%% [1] Baseline -- loop over tones, vectorized per tone over N
 tic()
 x1 = zeros(N)
@@ -97,6 +110,7 @@ for k = 0 to K - 1
     x1 = x1 + A[k] * sin(2 * pi * f[k] * t + phi[k])
 end for
 t1 = toc()
+mem1 = mem_usage()
 print("[1] baseline loop            : {t1:.4f} s")
 
 #%% [2] Full vectorization -- one broadcast/matmul expression, no loops
@@ -111,6 +125,7 @@ Basis2 = sin(Phase + Phi_row)       # (N,K), phi broadcast across all N rows
 x2_col = Basis2 * A_col             # (N,K) x (K,1) -> (N,1); IS the tone sum
 x2     = x2_col[:, 0]               # flatten the (N,1) column to a plain N-vector
 t2 = toc()
+mem2 = mem_usage()
 print("[2] full vectorization       : {t2:.4f} s")
 
 #%% [3] parallel for -- disjoint per-tone column writes (see header comment
@@ -122,6 +137,7 @@ parallel for k in 0 to K - 1
 end parallel
 x3 = sum(Contrib, axis=1)
 t3 = toc()
+mem3 = mem_usage()
 print("[3] parallel for             : {t3:.4f} s")
 
 #%% [4] pool + queue + workers -- split the 51 tones into chunks, each
@@ -158,6 +174,7 @@ for c = 0 to n_chunks - 1
     x4 = x4 + partials[c]
 end for
 t4 = toc()
+mem4 = mem_usage()
 print("[4] pool + queue + workers   : {t4:.4f} s")
 
 #%% [5] GPU -- gpu_matmul(basis, amplitudes), reusing method [2]'s own basis
@@ -208,6 +225,7 @@ catch e
     gpu_err = e.message
 end
 t5 = toc()
+mem5 = mem_usage()
 
 if gpu_ok
     print("[5] gpu_matmul               : {t5:.4f} s  ({n_gpu_chunks} chunked dispatches)")
@@ -215,6 +233,15 @@ else
     print("[5] gpu_matmul               : UNAVAILABLE -- {gpu_err}")
 end if
 
+print("")
+print("marginal RSS added by each method (MB, cumulative -- see header comment):")
+print("  [1] baseline        {(mem1 - mem0) / 1e6:8.1f}")
+print("  [2] vectorization    {(mem2 - mem1) / 1e6:8.1f}")
+print("  [3] parallel for    {(mem3 - mem2) / 1e6:8.1f}")
+print("  [4] pool/queue      {(mem4 - mem3) / 1e6:8.1f}")
+if gpu_ok
+    print("  [5] gpu_matmul      {(mem5 - mem4) / 1e6:8.1f}")
+end if
 print("")
 
 #%% Correctness cross-check -- every method vs the baseline

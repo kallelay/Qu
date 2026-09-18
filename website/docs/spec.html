@@ -73,7 +73,7 @@
 <p>&gt; <strong>What changed in 0.12 — testing scientific and AI algorithms.</strong> §59 adds one &gt; testing model from scalar numerics to hardware-in-the-loop: familiar <code>test</code>, &gt; <code>bench</code>, and <code>testbench</code> blocks; tolerance-, shape-, unit-, spectrum-, and &gt; invariant-aware assertions; property tests and reference oracles for algorithms &gt; such as A*; capability-limited, deterministic sandboxes; replayable artifacts; &gt; and provider-neutral AI evaluation. AI services, including OpenAI integrations, &gt; remain packages rather than core syntax. The language records the exact model, &gt; grader, tool trace, seed, resource use, and latency needed to reproduce a run.</p>
 <p>&gt; <strong>What changed in 0.11 — familiar-first syntax.</strong> §58 defines a small canonical &gt; teaching surface and progressive disclosure: ordinary <code>=</code>, parenthesized calls, &gt; explicit <code>end if</code>/<code>end for</code> blocks, readable <code>to</code>/<code>step</code> ranges, and optional &gt; <code>as</code> contracts come first; dataflow, mapping notation, schedules, and backends &gt; come later. The data/model/stream pipe is now consistently <code>|&gt;</code> everywhere; &gt; bare <code>|</code> is not a data pipe and remains available for domain meanings such as &gt; parallel circuit composition. General parenthesis-free calls are rejected; &gt; only a small closed set of declarative commands such as <code>grid on</code> remains. &gt; Documentation, formatting, and teaching prefer one canonical ASCII spelling &gt; even where the parser accepts compatibility aliases.</p>
 <p>&gt; <strong>What changed in 0.9 — distributed execution.</strong> §54 lets Qu reach other Qu &gt; instances running on the network: connect to a machine by IP address or hostname &gt; (<code>worker("192.168.0.20")</code>, <code>worker("gpu-box")</code>), group them into a <code>cluster</code>, and &gt; <strong>allocate</strong> work across them. The resource-aware <code>pool</code> (§47.3) extends across &gt; nodes with allocation policies (<code>round_robin</code>, <code>least_loaded</code>, <code>affinity</code>, &gt; <code>capacity</code>) and per-node capacity caps; a task runs where its resource need and &gt; the policy send it, or on an explicit node (<code>spawn fft(x) on worker("gpu-box")</code>). &gt; Two intents are supported — <strong>accelerate</strong> (offload transparently to a faster/GPU &gt; node as a remote backend) and <strong>allocate</strong> (<code>reserve 2 gpu on lab</code> for an &gt; experiment) — with data locality (<code>pin</code>, distributed arrays), fault tolerance &gt; (<code>on drop = reschedule</code>), and authenticated, sandboxed workers.</p>
-<p>&gt; <strong>What changed in 0.8 — OS/comms, 3D, and simulation.</strong> Three chapters extend Qu &gt; outward. §50 adds the operating-system and communication layer: binary/text file &gt; I/O, file watching with <code>tail</code>/<code>head</code>/<code>grep</code>, serial ports, TCP/UDP sockets, a &gt; POSIX <code>os</code> interface, and one reactive <code>on EVENT do … end</code> form (a flag, a changed &gt; value, a signal, a socket message, a file change, a key). §51 adds 3D: build a &gt; <code>mesh</code> from vertex/face arrays, texture it, and <code>view</code> it, with <code>scene3d</code>, cameras, &gt; and volumetric plotting reusing the animation subsystem. §52 adds simulation: &gt; ODE/DAE solvers, a <code>simulate</code> time-stepping block, and FEM/physics — with the &gt; larger domain simulators (<code>spice</code>, <code>fem</code>) and the impedance chapter (§48, now the &gt; <code>eis</code> library) delivered as <strong>includable libraries</strong>, keeping the core small &gt; (§52.4). Also in 0.8: the <strong>mapping function form</strong> <code>g: x -&gt; y</code> is adopted as the &gt; third and final function form (§17.1); <strong>classes</strong> (VB.NET-style) with properties, &gt; inheritance, and interfaces (§53); a reasoned <strong>no-</strong><code>goto</code><strong> policy with labeled &gt; </strong><code>break</code>/<code>continue</code> (§53.6); <strong>asynchronous training</strong> and <strong>fine-tuning / &gt; hyperparameter </strong><code>tune</code><strong> (§45.5–§45.6); a </strong>resource-aware scheduler<strong> with &gt; per-device capacity and round-robin (</strong><code>pool with cpu=3, gpu=1</code>, §47.3); and &gt; explicit <strong></strong><code>compile</code><strong> and </strong><code>vectorize</code><strong> for peak speed (§41.3, §47.6).</strong></p>
+<p>&gt; <strong>What changed in 0.8 — OS/comms, 3D, and simulation.</strong> Three chapters extend Qu &gt; outward. §50 adds the operating-system and communication layer: binary/text file &gt; I/O, file watching with <code>tail</code>/<code>head</code>/<code>grep</code>, serial ports, TCP/UDP sockets, a &gt; POSIX <code>os</code> interface, and one reactive <code>on EVENT do … end</code> form (a flag, a changed &gt; value, a signal, a socket message, a file change, a key). §51 adds 3D: build a &gt; <code>mesh</code> from vertex/face arrays, texture it, and <code>view</code> it, with <code>scene3d</code>, cameras, &gt; and volumetric plotting reusing the animation subsystem. §52 adds simulation: &gt; ODE/DAE solvers, a <code>simulate</code> time-stepping block, and FEM/physics — with the &gt; larger domain simulators (<code>spice</code>, <code>fem</code>) and the impedance chapter (§48, now the &gt; <code>eis</code> library) delivered as <strong>includable libraries</strong>, keeping the core small &gt; (§52.4). Also in 0.8: <strong>classes</strong> (VB.NET-style) with properties, &gt; inheritance, and interfaces (§53); a reasoned <strong>no-</strong><code>goto</code><strong> policy with labeled &gt; </strong><code>break</code>/<code>continue</code> (§53.6); <strong>asynchronous training</strong> and <strong>fine-tuning / &gt; hyperparameter </strong><code>tune</code><strong> (§45.5–§45.6); a </strong>resource-aware scheduler<strong> with &gt; per-device capacity and round-robin (</strong><code>pool with cpu=3, gpu=1</code>, §47.3); and &gt; explicit <strong></strong><code>compile</code><strong> and </strong><code>vectorize</code><strong> for peak speed (§41.3, §47.6).</strong></p>
 <p>&gt; <strong>What changed in 0.7 — impedance, native architectures, more inspirations, and &gt; ASCII-canonical notation.</strong> §48 makes electrochemical impedance spectroscopy &gt; native: circuit elements (<code>R</code>, <code>C</code>, <code>L</code>, <code>Q</code>/CPE, <code>W</code>, <code>G</code>, <code>T</code>), building an &gt; equivalent circuit as a <strong>network</strong> (series <code>+</code> / parallel <code>|</code>, or a CDC string), &gt; <strong>native ECM fitting</strong> (complex NLLS with parameter errors), <strong>parallel batch &gt; fitting</strong> across spectra, Kramers-Kronig validation, DRT, and Nyquist/Bode plots. &gt; §45.4 adds <strong>native architectures</strong> as one-call models (<code>resnet</code>, <code>xception</code>, &gt; <code>mlp</code>, <code>cnn</code>, <code>unet</code>, <code>transformer</code>, <code>vae</code>, …) with data-parallel/distributed &gt; training (§45.5). §49 folds in further inspirations — Halide's algorithm/schedule &gt; separation, Futhark's stencils and nested parallelism, Chapel's distributed &gt; domains, and APL/J tacit composition. And §42.6 fixes the notation direction: &gt; <strong>ASCII is canonical</strong> (<code>Ohm</code>, <code>Hz</code>, <code>int</code>, <code>diff</code>, <code>tau</code>, <code>pi</code>, <code>u</code> for micro); &gt; Unicode is an accepted alias, never required.</p>
 <p>Qu is pronounced "queue".</p>
 <p>&gt; <strong>What changed in 0.10 — reliability, a 3D/audio/physics studio, and state &gt; estimation.</strong> §55 adds a reliability layer for mission-critical continuous &gt; monitoring (structural health monitoring): real-time deadlines, watchdogs, &gt; supervisors, redundancy and voting, design-by-contract, alarms, and safe states. &gt; §56 turns Qu into a 3D studio: solid/CSG modeling, PBR materials and rendering, &gt; positional 3D audio (HRTF/ambisonics, built on the DSP core), and a real-time &gt; physics engine (rigid/soft bodies, cloth, SPH fluids). §57 adds state estimation &gt; — Kalman, EKF/UKF, and particle filters under one predict/update interface, all &gt; animatable. All reuse the array/signal/mesh/solver core.</p>
@@ -126,7 +126,7 @@ show plot
 <p>Statements are newline-oriented. A statement may continue inside parentheses, brackets, or braces, after a comma, or after a binary operator.</p>
 <p>One trailing semicolon is accepted for pasted MATLAB/Octave-style code. It suppresses interactive echo and otherwise has no semantic effect; canonical Qu examples omit it.</p>
 <p>Line comment:</p>
-<div class="example"><pre class="hl"><code><span class="c"># this is a comment</span>
+<div class="example"><pre class="hl"><code><span class="c"># this is a comment</span>
 </code></pre>
 </div>
 <p>Block comments are reserved for a future version. MATLAB-style <code>'</code> comments are not part of the base language because <code>'</code> is used for strings and transpose compatibility.</p>
@@ -173,16 +173,16 @@ zlabel, zlim
 <div class="example"><pre class="hl"><code><span class="n">0</span>
 <span class="n">42</span>
 <span class="n">1_</span><span class="n">000_</span><span class="n">000</span>
-<span class="n">0xFF</span>        <span class="c"># hex, 255 — 0x/0X prefix, case-insensitive digits</span>
-<span class="n">0xDEAD_BEEF</span> <span class="c"># underscores allowed, same as decimal</span>
+<span class="n">0xFF</span>        <span class="c"># hex, 255 — 0x/0X prefix, case-insensitive digits</span>
+<span class="n">0xDEAD_BEEF</span> <span class="c"># underscores allowed, same as decimal</span>
 </code></pre>
 </div>
 <p>Floating point:</p>
 <div class="example"><pre class="hl"><code><span class="n">0.1</span>
 <span class="n">1.</span>
 .<span class="n">5</span>
-<span class="n">5e3</span>     <span class="c"># 5000</span>
-<span class="n">5e-3</span>    <span class="c"># 0.005</span>
+<span class="n">5e3</span>     <span class="c"># 5000</span>
+<span class="n">5e-3</span>    <span class="c"># 0.005</span>
 </code></pre>
 </div>
 <p>Complex numbers:</p>
@@ -205,6 +205,15 @@ k = <span class="n">3</span>
 </code></pre>
 </div>
 <p>Interpolation uses <code>{expr}</code> inside double-quoted strings. Single-quoted strings do not interpolate.</p>
+<p>Raw strings, <code>r"..."</code>, are text exactly as written: no escape decoding, no <code>{}</code> interpolation.</p>
+<div class="example"><pre class="hl"><code>path  = r<span class="s">"C:\temp\new\data.csv"</span>   <span class="c"># plain "..." gives C:&lt;tab&gt;emp&lt;newline&gt;ew\...</span>
+regex = r<span class="s">"\d+\.\d+"</span>
+tmpl  = r<span class="s">"block { x = 1; }"</span>       <span class="c"># braces outside a $...$ span</span>
+</code></pre>
+</div>
+<p>The main use is a Windows path. In a plain string <code>"C:\temp\new"</code> is not a near miss — <code>\t</code> and <code>\n</code> are a tab and a newline, so the value silently stops resembling a path at all, on the platform Qu is most used on.</p>
+<p>The body ends at the first <code>"</code>, so a raw string cannot contain a double quote — but a trailing backslash is fine (<code>r"C:\dir\"</code>), where Rust and Python both make that spelling a syntax error. Raw strings are double-quoted only: <code>r'</code> is already the transpose of a variable named <code>r</code>.</p>
+<p>LaTeX in figure labels generally does *not* need one — escapes are already left alone inside a <code>$...$</code> span, and a <code>{</code> directly after <code>^</code>, <code>_</code> or a macro name is treated as a LaTeX group rather than an interpolation, so <code>"$10^{-3}$"</code>, <code>"$V_{pp}$"</code> and <code>"$\frac{a}{b}$"</code> all work as written while <code>"$\alpha = {a}$"</code> still substitutes.</p>
 <p>Format specifiers follow the expression after a colon, <code>{expr:spec}</code>, using a printf/Python-style mini-grammar (<code>0.3f</code>, <code>4.0f</code>, <code>e</code>, <code>g</code>, <code>d</code>, <code>x</code>):</p>
 <p>&lt;!-- Grammar, not an example: the names stand for whatever the caller has, and <code>crest()</code> is illustrative rather than a builtin. --&gt;</p>
 <div class="example norun"><pre class="hl"><code><span class="f">print</span>(<span class="s">"Fs={Fs:0.0f} Hz, N={N}, K={K} tones, df={df:0.4f} Hz"</span>)
@@ -219,27 +228,27 @@ k = <span class="n">3</span>
 <h2 id="s267">7.A. Preprocessor Directives</h2>
 <p>Four preprocessor directives are part of the base language:</p>
 <p>&lt;!-- Grammar, not an example: parse-time directives shown as forms. --&gt;</p>
-<div class="example norun"><pre class="hl"><code><span class="c">#include "common.qu"          # file inclusion at parse time</span>
-<span class="c">#define DEBUG true             # compile-time flag</span>
-<span class="c">#if DEBUG                      # conditional compilation</span>
+<div class="example norun"><pre class="hl"><code><span class="c">#include "common.qu"          # file inclusion at parse time</span>
+<span class="c">#define DEBUG true             # compile-time flag</span>
+<span class="c">#if DEBUG                      # conditional compilation</span>
     <span class="f">print</span>(<span class="s">"Debug mode"</span>)
-<span class="c">#end</span>
+<span class="c">#end</span>
 
-<span class="c">#declare PI = 3.141592653589793   # alias for 'constant' (POV-Ray style)</span>
+<span class="c">#declare PI = 3.141592653589793   # alias for 'constant' (POV-Ray style)</span>
 </code></pre>
 </div>
 <p>Preprocessor directives are evaluated at parse time. <code>#define</code> values are immutable and available only as boolean or string constants for <code>#if</code> conditions. <code>#if</code> supports boolean expressions using <code>and</code>, <code>or</code>, <code>not</code>. <code>#else</code> and <code>#elif</code> are NOT part of the base language (use nested <code>#if</code>/<code>#end</code>).</p>
 <h2 id="s315">7.B. Code Macros</h2>
 <p>Parse-time code substitution templates:</p>
 <p>&lt;!-- Grammar, not an example: <code>mydata</code>/<code>Fs</code> stand for the caller's own. --&gt;</p>
-<div class="example norun"><pre class="hl"><code><span class="c">#macro fft_plot(signal, sample_rate)</span>
+<div class="example norun"><pre class="hl"><code><span class="c">#macro fft_plot(signal, sample_rate)</span>
     x = <span class="f">fft</span>(signal, <span class="f">size</span>(signal))
     f = <span class="f">arange</span>(<span class="n">0</span>, <span class="f">size</span>(signal)/<span class="n">2</span>) * sample_rate / <span class="f">size</span>(signal)
     mag = <span class="f">abs</span>(x[<span class="n">0</span>, <span class="f">size</span>(signal)/<span class="n">2</span>])
     <span class="f">plot</span>(f, mag, <span class="a">label</span>=<span class="s">"FFT"</span>)
-<span class="c">#end</span>
+<span class="c">#end</span>
 
-<span class="c"># Usage — expands at parse time</span>
+<span class="c"># Usage — expands at parse time</span>
 <span class="f">fft_plot</span>(mydata, Fs)
 </code></pre>
 </div>
@@ -247,13 +256,13 @@ k = <span class="n">3</span>
 <h2 id="s351">8. Type System</h2>
 <p>Qu is dynamically typed by default, with optional type and shape contracts.</p>
 <p>Strict mode:</p>
-<div class="example"><pre class="hl"><code><span class="c">#top of file or module</span>
+<div class="example"><pre class="hl"><code><span class="c">#top of file or module</span>
 implicit <span class="k">none</span>
 
-dimension x[<span class="n">1024</span>] <span class="k">as</span> float64    <span class="c"># explicit declaration (FORTRAN DIMENSION)</span>
+dimension x[<span class="n">1024</span>] <span class="k">as</span> float64    <span class="c"># explicit declaration (FORTRAN DIMENSION)</span>
 
-<span class="c"># Block-scoped local (POV-Ray #local)</span>
-<span class="c"># Inside a function or block:</span>
+<span class="c"># Block-scoped local (POV-Ray #local)</span>
+<span class="c"># Inside a function or block:</span>
 local temp = <span class="f">compute_auxiliary</span>()
 </code></pre>
 </div>
@@ -308,9 +317,9 @@ matrix(M, N)        two-dimensional matrix
 tensor(D0, D1, ...) N-dimensional tensor
 </code></pre>
 <p>Array literals:</p>
-<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]       <span class="c"># row vector</span>
-c = [<span class="n">1</span>; <span class="n">2</span>; <span class="n">3</span>; <span class="n">4</span>]       <span class="c"># column vector</span>
-M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]       <span class="c"># 2x2 matrix</span>
+<div class="example"><pre class="hl"><code>v = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]       <span class="c"># row vector</span>
+c = [<span class="n">1</span>; <span class="n">2</span>; <span class="n">3</span>; <span class="n">4</span>]       <span class="c"># column vector</span>
+M = [<span class="n">1</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>]       <span class="c"># 2x2 matrix</span>
 </code></pre>
 </div>
 <p>Space-separated row literals are allowed in MATLAB compatibility mode only:</p>
@@ -327,11 +336,11 @@ B <span class="k">as</span> <span class="f">matrix</span>(M, N, float32, <span c
 </div>
 <h2 id="s425">10. Size, Shape, and Length</h2>
 <p>These names are deliberately separate:</p>
-<div class="example"><pre class="hl"><code><span class="f">shape</span>(x)       <span class="c"># tuple of dimensions, e.g. (K, N)</span>
-<span class="f">numel</span>(x)       <span class="c"># total element count</span>
-<span class="f">length</span>(x)      <span class="c"># largest dimension, MATLAB-style convenience</span>
-<span class="f">size</span>(x, dim)   <span class="c"># length along one dimension</span>
-<span class="f">rank</span>(x)        <span class="c"># number of dimensions</span>
+<div class="example"><pre class="hl"><code><span class="f">shape</span>(x)       <span class="c"># tuple of dimensions, e.g. (K, N)</span>
+<span class="f">numel</span>(x)       <span class="c"># total element count</span>
+<span class="f">length</span>(x)      <span class="c"># largest dimension, MATLAB-style convenience</span>
+<span class="f">size</span>(x, dim)   <span class="c"># length along one dimension</span>
+<span class="f">rank</span>(x)        <span class="c"># number of dimensions</span>
 </code></pre>
 </div>
 <p><code>size(x)</code> without a dimension is not part of the base language because it is ambiguous. Use <code>shape(x)</code> or <code>numel(x)</code>.</p>
@@ -350,12 +359,12 @@ x = x + <span class="n">1</span>
 </code></pre>
 </div>
 <p>Compound assignment (Octave heritage, §44.3):</p>
-<div class="example"><pre class="hl"><code>x += <span class="n">1</span>        <span class="c"># x = x + 1</span>
-x -= dt       <span class="c"># x = x - dt</span>
-g *= <span class="n">2</span>        <span class="c"># x = x * 2</span>
-a ./= n       <span class="c"># elementwise in place, a = a ./ n</span>
-v .*= w       <span class="c"># elementwise in place, v = v .* w</span>
-M ^= <span class="n">2</span>        <span class="c"># in place, M = M ^ 2 (real matrix power on a matrix)</span>
+<div class="example"><pre class="hl"><code>x += <span class="n">1</span>        <span class="c"># x = x + 1</span>
+x -= dt       <span class="c"># x = x - dt</span>
+g *= <span class="n">2</span>        <span class="c"># x = x * 2</span>
+a ./= n       <span class="c"># elementwise in place, a = a ./ n</span>
+v .*= w       <span class="c"># elementwise in place, v = v .* w</span>
+M ^= <span class="n">2</span>        <span class="c"># in place, M = M ^ 2 (real matrix power on a matrix)</span>
 </code></pre>
 </div>
 <p><code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code>, <code>^=</code>, and the elementwise <code>.*=</code>, <code>./=</code> all update a binding in place, inheriting the exact same semantics as the corresponding plain operator (<code>^=</code> on a matrix does real matrix power, matching <code>^</code>, not elementwise). In-place update is a statement, not an expression, so it cannot be nested inside another expression (this keeps evaluation order unambiguous). <strong></strong><code>++</code>/<code>--</code> are NOT supported<strong> — </strong><code>x++</code> is a parse error (<code>unexpected Eof in expression</code>, since <code>++</code> isn't a lexed token at all); there is no increment/decrement operator, statement-only or otherwise.</p>
@@ -367,13 +376,13 @@ r = res.r
 </div>
 <p>— never <code>q, r = qr(M)</code>. See §7 of <code>docs/qu-language-tour.md</code> for a fully verified walkthrough (<code>qr</code>, <code>findpeaks</code>, and others all follow this same pattern).</p>
 <p>Read-only binding:</p>
-<div class="example"><pre class="hl"><code><span class="k">const</span> Fs = <span class="n">5e3</span>                   <span class="c"># standard form</span>
-<span class="k">constant</span> PI = <span class="n">3.141592653589793</span>  <span class="c"># FORTRAN PARAMETER / POV-Ray #declare style</span>
+<div class="example"><pre class="hl"><code><span class="k">const</span> Fs = <span class="n">5e3</span>                   <span class="c"># standard form</span>
+<span class="k">constant</span> PI = <span class="n">3.141592653589793</span>  <span class="c"># FORTRAN PARAMETER / POV-Ray #declare style</span>
 </code></pre>
 </div>
 <p><code>const</code> and <code>constant</code> are equivalent. Once bound, the variable cannot be reassigned. Attempting <code>Fs = 1000</code> after <code>const Fs = 5e3</code> produces a compile error.</p>
 <p><code>#declare</code> from POV-Ray is accepted as an alias for <code>constant</code>:</p>
-<div class="example"><pre class="hl"><code><span class="c">#declare PI = 3.141589265358979   # same as constant PI = ...</span>
+<div class="example"><pre class="hl"><code><span class="c">#declare PI = 3.141589265358979   # same as constant PI = ...</span>
 </code></pre>
 </div>
 <p>Deferred dataflow binding:</p>
@@ -501,24 +510,24 @@ start:
 </code></pre>
 <p>The bare (bracket-free) <code>start:step:stop</code> compact range literal (§12.A) reads the same three parts in the same order and with the same inclusive meaning.</p>
 <p><strong>Negative indexes do NOT count from the end</strong> — <code>x[-1]</code> is a runtime error (<code>index must be a non-negative integer, got -1</code>), not "last element." <code>end</code> is the real, existing mechanism, and arithmetic on it works normally, so <code>end</code>, <code>end-1</code>, <code>end-2</code>, ... give the last, second-to-last, third-to-last element and so on:</p>
-<div class="example"><pre class="hl"><code>x[<span class="k">end</span>]        <span class="c"># last element</span>
-x[<span class="k">end</span>-<span class="n">1</span>]      <span class="c"># second-to-last</span>
-x[<span class="k">end</span>-<span class="n">2</span>]      <span class="c"># third-to-last</span>
+<div class="example"><pre class="hl"><code>x[<span class="k">end</span>]        <span class="c"># last element</span>
+x[<span class="k">end</span>-<span class="n">1</span>]      <span class="c"># second-to-last</span>
+x[<span class="k">end</span>-<span class="n">2</span>]      <span class="c"># third-to-last</span>
 x[<span class="n">0</span>:<span class="k">end</span>]
 </code></pre>
 </div>
 <p>(Verified: on <code>[10,20,30,40,50]</code>, <code>x[end]</code> → <code>50</code>, <code>x[end-1]</code> → <code>40</code>, <code>x[end-2]</code> → <code>30</code>.)</p>
 <p>Integer-vector indexing (fancy indexing) gathers elements:</p>
-<div class="example"><pre class="hl"><code>bins = <span class="f">round</span>(f * N / Fs)    <span class="c"># integer vector</span>
-phi = <span class="f">angle</span>(X[bins])        <span class="c"># gathers X at the bin positions</span>
+<div class="example"><pre class="hl"><code>bins = <span class="f">round</span>(f * N / Fs)    <span class="c"># integer vector</span>
+phi = <span class="f">angle</span>(X[bins])        <span class="c"># gathers X at the bin positions</span>
 </code></pre>
 </div>
 <p>A logical comparison produces a boolean mask. It may be used directly for mutation, or converted to stable zero-based indices with prefix <code>where</code>:</p>
 <div class="example"><pre class="hl"><code>x = <span class="f">randn</span>(<span class="n">3</span>, <span class="n">1</span>)
-x[x &lt; <span class="n">0</span>] = <span class="n">0</span>                         <span class="c"># logical assignment / ReLU-style clamp</span>
+x[x &lt; <span class="n">0</span>] = <span class="n">0</span>                         <span class="c"># logical assignment / ReLU-style clamp</span>
 
-idx1 := where x &gt; <span class="n">3</span>                  <span class="c"># deferred index vector</span>
-idx2  = where x &gt; <span class="n">2</span>                  <span class="c"># eager snapshot of the indices</span>
+idx1 := where x &gt; <span class="n">3</span>                  <span class="c"># deferred index vector</span>
+idx2  = where x &gt; <span class="n">2</span>                  <span class="c"># eager snapshot of the indices</span>
 <span class="f">plot</span>(x)
 <span class="f">plot</span>(x[idx1], <span class="s">"o"</span>, <span class="a">color</span>=<span class="s">"red"</span>)
 <span class="f">plot</span>(x[idx2], <span class="s">"x"</span>, <span class="a">color</span>=<span class="s">"blue"</span>)
@@ -551,7 +560,7 @@ idx2  = where x &gt; <span class="n">2</span>                  <span class="c">#
     export data <span class="k">to</span> filename
 <span class="k">end</span> <span class="k">sub</span>
 
-<span class="c"># Called without assignment:</span>
+<span class="c"># Called without assignment:</span>
 <span class="f">save_report</span>(mydata, <span class="s">"report.docx"</span>)
 </code></pre>
 </div>
@@ -592,11 +601,11 @@ elif Fs &lt; <span class="n">2</span>*fmax <span class="k">then</span>
 </code></pre>
 </div>
 <p><code>for NAME in EXPR</code> is the same statement with the collection spelling. Over a numeric range, vector, or signal it is identical to <code>=</code> (<code>for k = 0 to 9</code> and <code>for k in 0 to 9</code> are one loop). Over a <strong>list</strong> it binds each element verbatim, whatever kind that element is:</p>
-<div class="example"><pre class="hl"><code><span class="k">for</span> theme <span class="k">in</span> [<span class="s">"ocean"</span>, <span class="s">"journal"</span>, <span class="s">"dark"</span>]   <span class="c"># a heterogeneous list literal (§47.4)</span>
+<div class="example"><pre class="hl"><code><span class="k">for</span> theme <span class="k">in</span> [<span class="s">"ocean"</span>, <span class="s">"journal"</span>, <span class="s">"dark"</span>]   <span class="c"># a heterogeneous list literal (§47.4)</span>
     <span class="f">save</span>(<span class="f">figure</span>(), <span class="s">"trend_"</span> + theme + <span class="s">".svg"</span>, <span class="a">theme</span> = theme)
 <span class="k">end</span> <span class="k">for</span>
 
-<span class="k">for</span> path <span class="k">in</span> <span class="f">list_dir</span>(<span class="s">"aging/"</span>)             <span class="c"># any list-returning call works</span>
+<span class="k">for</span> path <span class="k">in</span> <span class="f">list_dir</span>(<span class="s">"aging/"</span>)             <span class="c"># any list-returning call works</span>
     <span class="f">process</span>(path)
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
@@ -621,19 +630,19 @@ elif Fs &lt; <span class="n">2</span>*fmax <span class="k">then</span>
 <div class="example"><pre class="hl"><code>n = <span class="n">42</span>
 
 <span class="k">function</span> <span class="f">helper</span>(v)
-    n = <span class="f">len</span>(v)          <span class="c"># a local `n`, not the module's</span>
+    n = <span class="f">len</span>(v)          <span class="c"># a local `n`, not the module's</span>
     <span class="k">return</span> n
 <span class="k">end</span> <span class="k">function</span>
 
-<span class="f">helper</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>])       <span class="c"># returns 3</span>
-<span class="f">print</span>(n)                <span class="c"># 42 -- unchanged</span>
+<span class="f">helper</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>])       <span class="c"># returns 3</span>
+<span class="f">print</span>(n)                <span class="c"># 42 -- unchanged</span>
 </code></pre>
 </div>
 <p>Reading is unrestricted, so a function may close over module-level state without taking it as a parameter:</p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">5000</span>
 
 <span class="k">function</span> <span class="f">tone</span>(f)
-    <span class="k">return</span> <span class="f">sin</span>(<span class="n">2</span> * pi * f * (<span class="n">0</span> <span class="k">to</span> Fs - <span class="n">1</span>) / Fs)   <span class="c"># reads Fs</span>
+    <span class="k">return</span> <span class="f">sin</span>(<span class="n">2</span> * pi * f * (<span class="n">0</span> <span class="k">to</span> Fs - <span class="n">1</span>) / Fs)   <span class="c"># reads Fs</span>
 <span class="k">end</span> <span class="k">function</span>
 </code></pre>
 </div>
@@ -682,48 +691,14 @@ elif Fs &lt; <span class="n">2</span>*fmax <span class="k">then</span>
 <span class="k">end</span> <span class="k">function</span>
 </code></pre>
 </div>
-<h3>17.1 The mapping form: <code>g: input -&gt; output</code></h3>
-<p>Adopted in 0.8, the <strong>mapping form</strong> defines a function the way a mathematician writes a map <code>g: x ↦ y</code>: the output variable is *named*, and the body reads as equations rather than <code>return</code> statements.</p>
-<div class="example"><pre class="hl"><code>g: x -&gt; y
-    y = <span class="n">2</span>*x + <span class="n">1</span>
-<span class="k">end</span>
-
-<span class="c"># multiple named inputs and outputs</span>
-<span class="k">step</span>: (x, w, b) -&gt; (z, a)
-    z = w*x + b
-    a = <span class="f">relu</span>(z)
-<span class="k">end</span>
-</code></pre>
-</div>
-<p>The output name(s) after <code>-&gt;</code> are the function's result — the body assigns them and they are returned at <code>end</code> (no explicit <code>return</code> needed, though <code>return</code> still works for early exit). The mapping form is the middle of Qu's <strong>three, and only three,</strong> function forms, each with a distinct role:</p>
+<h3>17.1 The mapping form (removed)</h3>
+<p>0.8 adopted a third function-definition spelling here, the "mapping form" (<code>g: x -&gt; y ... end</code>). It was never implemented in the parser or interpreter and, per Ahmed's direct ruling on 2026-09-17, is dropped as not needed -- see the debate record at §34.C.2 for the history. Qu has two, and only two, function forms:</p>
 <div class="tablewrap"><table>
 <tr><td>Form</td><td>Shape</td><td>Use</td></tr>
 <tr><td><code>f(x) := expr</code> (§41.1)</td><td>one line, one expression</td><td>elemental rules, math one-liners</td></tr>
-<tr><td><code>g: x -&gt; y … end</code> (§17.1)</td><td>named outputs, equation body</td><td>maps that read like the math</td></tr>
-<tr><td><code>function … end function</code></td><td>full imperative, <code>return</code></td><td>control flow, side effects, multiple statements</td></tr>
+<tr><td><code>function ... end function</code></td><td>full imperative, <code>return</code></td><td>control flow, side effects, multiple statements</td></tr>
 </table></div>
 <p><code>sub</code> (§15.B) remains for side-effect-only procedures. No further function syntax will be added; the exploratory forms in Appendix X that overlap these are closed.</p>
-<p>Import:</p>
-<div class="example"><pre class="hl"><code><span class="k">import</span> dsp.filter
-from dsp.fft <span class="k">import</span> fft, ifft, fftshift
-using plot
-</code></pre>
-</div>
-<p>Module:</p>
-<div class="example"><pre class="hl"><code>module mydsp
-    export hilbert, envelope
-
-    <span class="k">function</span> <span class="f">hilbert</span>(x)
-        <span class="c"># implementation</span>
-    <span class="k">end</span> <span class="k">function</span>
-
-    <span class="k">function</span> <span class="f">_private_helper</span>(x)
-        <span class="k">return</span> x
-    <span class="k">end</span> <span class="k">function</span>
-<span class="k">end</span> module
-</code></pre>
-</div>
-<p>Names beginning with <code>_</code> are private by convention unless exported explicitly.</p>
 <h2 id="s896">18.A. Embedded Data</h2>
 <p>Tabular data block (novel Qu feature, inspired by BASIC <code>DATA</code> + FORTRAN tabular input):</p>
 <div class="example"><pre class="hl"><code>data table
@@ -748,7 +723,7 @@ i = measurements.current
 </div>
 <p>BASIC stream data (legacy alias):</p>
 <div class="example"><pre class="hl"><code>data <span class="n">1.0</span>, <span class="n">2.5</span>, <span class="n">3.3</span>, <span class="n">4.7</span>, <span class="n">5.1</span>
-read a, b, c        <span class="c"># a=1.0, b=2.5, c=3.3</span>
+read a, b, c        <span class="c"># a=1.0, b=2.5, c=3.3</span>
 </code></pre>
 </div>
 <p><code>DATA</code> creates a read-only stream. <code>READ</code> consumes values left-to-right. Subsequent <code>READ</code> calls continue from the last position. Used rarely in new code; retained for BASIC familiarity and short test vectors.</p>
@@ -758,11 +733,11 @@ read a, b, c        <span class="c"># a=1.0, b=2.5, c=3.3</span>
     result = <span class="f">fft</span>(x)
 <span class="k">catch</span> e
     <span class="f">print</span>(<span class="s">"FFT error at line {e.line}: {e.message}"</span>)
-    result = <span class="f">zeros</span>(<span class="f">size</span>(x))       <span class="c"># fallback</span>
+    result = <span class="f">zeros</span>(<span class="f">size</span>(x))       <span class="c"># fallback</span>
 <span class="k">else</span>
-    <span class="f">print</span>(<span class="s">"FFT succeeded"</span>)        <span class="c"># runs if no exception</span>
+    <span class="f">print</span>(<span class="s">"FFT succeeded"</span>)        <span class="c"># runs if no exception</span>
 finally
-    <span class="f">cleanup_buffers</span>()             <span class="c"># always runs</span>
+    <span class="f">cleanup_buffers</span>()             <span class="c"># always runs</span>
 <span class="k">end</span>
 </code></pre>
 </div>
@@ -810,25 +785,25 @@ grid on
 </div>
 <p>Internally, the imperative form builds the same scene graph as the declarative block. The declarative form is recommended for multi-component figures, exported reports, and published papers.</p>
 <p><code>render</code> command: explicitly renders all pending plots:</p>
-<div class="example"><pre class="hl"><code>render plots              <span class="c"># render all open figures</span>
-render plot <span class="k">to</span> <span class="s">"fig.png"</span>  <span class="c"># render and save</span>
+<div class="example"><pre class="hl"><code>render plots              <span class="c"># render all open figures</span>
+render plot <span class="k">to</span> <span class="s">"fig.png"</span>  <span class="c"># render and save</span>
 </code></pre>
 </div>
 <h2 id="s1024">18.D. Panels, Axes, Legends, and Annotations</h2>
 <p>The commands below are implemented today (<code>engine/crates/qu-interp/src/plotting.rs</code>), unlike the aspirational <code>plot { … }</code> block and <code>render</code> command above.</p>
 <p>Every <code>plot</code>/<code>stem</code>/<code>scatter</code>/<code>bar</code>/<code>hist</code> call draws into the figure's *current panel*. <code>hold on</code> is the default: successive calls overlay on the same panel. <code>hold off</code> gives each call a fresh panel instead:</p>
 <div class="example"><pre class="hl"><code><span class="f">plot</span>(x, <span class="f">sin</span>(x))
-<span class="f">plot</span>(x, <span class="f">cos</span>(x))     <span class="c"># hold on (default) — overlays with the line above</span>
+<span class="f">plot</span>(x, <span class="f">cos</span>(x))     <span class="c"># hold on (default) — overlays with the line above</span>
 
 hold off
-<span class="f">plot</span>(x, <span class="f">sin</span>(x))     <span class="c"># its own panel</span>
-<span class="f">plot</span>(x, <span class="f">cos</span>(x))     <span class="c"># a different panel</span>
+<span class="f">plot</span>(x, <span class="f">sin</span>(x))     <span class="c"># its own panel</span>
+<span class="f">plot</span>(x, <span class="f">cos</span>(x))     <span class="c"># a different panel</span>
 </code></pre>
 </div>
 <p><code>next plot [vertical|horizontal]</code> starts a new panel regardless of <code>hold</code>, stacking it below (<code>vertical</code>, the default) or beside (<code>horizontal</code>) the previous one — a lightweight alternative to a full grid:</p>
 <div class="example"><pre class="hl"><code><span class="f">plot</span>(t, x)
 next plot
-<span class="f">plot</span>(f, <span class="f">abs</span>(<span class="f">fft</span>(x)))   <span class="c"># a second panel, stacked under the first</span>
+<span class="f">plot</span>(f, <span class="f">abs</span>(<span class="f">fft</span>(x)))   <span class="c"># a second panel, stacked under the first</span>
 </code></pre>
 </div>
 <p><code>panel(rows, cols, index)</code> is the MATLAB-<code>subplot</code>-style explicit grid selector (1-based, row-major); <code>subplot(...)</code> is a plain alias, same spelling either way:</p>
@@ -842,17 +817,17 @@ next plot
 <p>Axes: <code>xlim(lo, hi)</code> / <code>ylim(lo, hi)</code> (call with no arguments to return to auto-scaling), <code>axis equal</code> (equal data units per pixel on both axes), <code>axis scale x log</code> / <code>axis scale y log</code> (and back to <code>linear</code>), <code>grid on|off</code>, <code>box on|off</code>. <code>xlabel(...)</code>, <code>ylabel(...)</code>, and <code>title(...)</code> label whichever panel is current.</p>
 <p>Legend: <code>legend("sin(x)", "cos(x)")</code> labels the trailing series of the current panel, in call order, and turns the legend on. The bare command sets position and visibility: <code>legend top left</code>, <code>legend bottom right</code>, <code>legend top</code>/<code>bottom</code>/<code>left</code>/<code>right</code>, <code>legend best</code> (scores the four corners by how many plotted points fall in each quadrant and places the legend in the emptiest one), <code>legend off</code>. The legend box is translucent with rounded corners by default.</p>
 <p>Shapes and annotations, all attaching to the current panel:</p>
-<div class="example"><pre class="hl"><code><span class="f">vline</span>(<span class="n">3</span>)                          <span class="c"># vertical reference line at x = 3</span>
-<span class="f">hline</span>(<span class="n">0</span>)                          <span class="c"># horizontal reference line at y = 0</span>
-<span class="f">rectangle</span>(x0, y0, x1, y1)         <span class="c"># translucent highlighted box</span>
-<span class="f">xspan</span>(<span class="n">2</span>, <span class="n">4</span>)                       <span class="c"># translucent vertical band over x in [2, 4]</span>
-<span class="f">yspan</span>(-<span class="n">1</span>, <span class="n">1</span>)                      <span class="c"># translucent horizontal band over y in [-1, 1]</span>
-<span class="f">text</span>(<span class="n">1</span>, <span class="n">1</span>, <span class="s">"note"</span>)                <span class="c"># a plain label at (1, 1)</span>
-<span class="f">annotate</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="s">"note"</span>)            <span class="c"># a label with a marker dot at (2, 2)</span>
-<span class="f">arrow</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>)                 <span class="c"># an arrow with no label</span>
-<span class="f">arrowtext</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="s">"go"</span>)       <span class="c"># an arrow ending in a labeled point</span>
-<span class="f">point</span>(<span class="n">3</span>, <span class="n">4</span>)                       <span class="c"># a highlighted "radioactive" callout,</span>
-                                   <span class="c"># auto-labeled "(3, 4)" from its own coordinates</span>
+<div class="example"><pre class="hl"><code><span class="f">vline</span>(<span class="n">3</span>)                          <span class="c"># vertical reference line at x = 3</span>
+<span class="f">hline</span>(<span class="n">0</span>)                          <span class="c"># horizontal reference line at y = 0</span>
+<span class="f">rectangle</span>(x0, y0, x1, y1)         <span class="c"># translucent highlighted box</span>
+<span class="f">xspan</span>(<span class="n">2</span>, <span class="n">4</span>)                       <span class="c"># translucent vertical band over x in [2, 4]</span>
+<span class="f">yspan</span>(-<span class="n">1</span>, <span class="n">1</span>)                      <span class="c"># translucent horizontal band over y in [-1, 1]</span>
+<span class="f">text</span>(<span class="n">1</span>, <span class="n">1</span>, <span class="s">"note"</span>)                <span class="c"># a plain label at (1, 1)</span>
+<span class="f">annotate</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="s">"note"</span>)            <span class="c"># a label with a marker dot at (2, 2)</span>
+<span class="f">arrow</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>)                 <span class="c"># an arrow with no label</span>
+<span class="f">arrowtext</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="s">"go"</span>)       <span class="c"># an arrow ending in a labeled point</span>
+<span class="f">point</span>(<span class="n">3</span>, <span class="n">4</span>)                       <span class="c"># a highlighted "radioactive" callout,</span>
+                                   <span class="c"># auto-labeled "(3, 4)" from its own coordinates</span>
 </code></pre>
 </div>
 <p><code>color=</code>/<code>label=</code>/<code>marker=</code> are accepted as named arguments on <code>plot</code>/<code>stem</code>/<code>scatter</code>/<code>vline</code>/<code>hline</code>/<code>rectangle</code>/<code>xspan</code>/<code>yspan</code> (e.g. <code>plot(x, y, color="red", label="signal")</code>); <code>plot(x, y, "o")</code> also accepts a MATLAB-style positional marker string.</p>
@@ -876,7 +851,7 @@ next plot
 <span class="k">backend</span> cuda
 <span class="k">backend</span> opencl
 <span class="k">backend</span> sycl
-<span class="k">backend</span> vulkan          <span class="c"># vendor-neutral GPU via a wgpu-style compute layer</span>
+<span class="k">backend</span> vulkan          <span class="c"># vendor-neutral GPU via a wgpu-style compute layer</span>
 </code></pre>
 </div>
 <p><code>backend auto</code> is <strong>benchmark-driven</strong>, not a fixed preference: the implementation periodically calibrates the available backends on representative workloads (matrix multiply, FFT, elementwise, loop-heavy) and selects per operation by measured speed, memory, and accuracy — the calibration approach proven in the <code>matty</code> interpreter that precedes Qu. The reference implementations that inform lowering are Julia (type specialization + LLVM JIT), JAX (XLA + autodiff), a native Rust core (ndarray-linalg, rustfft) for CPU, and Vulkan via a wgpu-style layer for vendor-neutral GPU (AMD, Intel, NVIDIA, Apple) without a CUDA toolkit dependency.</p>
@@ -1080,7 +1055,7 @@ box on
 legend
 <span class="f">tight_layout</span>()
 show plot
-<span class="f">show</span>()                              <span class="c"># familiar function alias</span>
+<span class="f">show</span>()                              <span class="c"># familiar function alias</span>
 </code></pre>
 </div>
 <p>Subplots:</p>
@@ -1099,9 +1074,9 @@ legend
 </code></pre>
 </div>
 <p>Render (POV-Ray inspired explicit render command):</p>
-<div class="example"><pre class="hl"><code>render plots                  <span class="c"># render all pending figures</span>
-render plot <span class="k">to</span> <span class="s">"fig.png"</span>      <span class="c"># render current figure to file</span>
-render all                    <span class="c"># render and close all</span>
+<div class="example"><pre class="hl"><code>render plots                  <span class="c"># render all pending figures</span>
+render plot <span class="k">to</span> <span class="s">"fig.png"</span>      <span class="c"># render current figure to file</span>
+render all                    <span class="c"># render and close all</span>
 </code></pre>
 </div>
 <h2 id="s1482">28. Extension System</h2>
@@ -1346,21 +1321,21 @@ def fn <span class="f">normalize</span>(x) = (x - <span class="f">mean</span>(x)
 </div>
 <p><strong>BASIC</strong> defended <code>DEF FN</code> as essential for math scripts. <strong>FORTRAN</strong> said it's <code>ELEMENTAL</code> done right. <strong>Python</strong> said it's cleaner than <code>lambda</code>. <strong>Verdict:</strong> Adopted. <code>def fn</code> is for single-expression functions. Full <code>function / end function</code> remains for multi-statement.</p>
 <h3>34.A.7 Light Preprocessor — <code>#include</code>, <code>#define</code>, <code>#if</code></h3>
-<div class="example"><pre class="hl"><code><span class="c">#include "common.qu"</span>
-<span class="c">#define DEBUG true</span>
-<span class="c">#if DEBUG</span>
+<div class="example"><pre class="hl"><code><span class="c">#include "common.qu"</span>
+<span class="c">#define DEBUG true</span>
+<span class="c">#if DEBUG</span>
     <span class="f">print</span>(<span class="s">"Debug mode"</span>)
-<span class="c">#end</span>
+<span class="c">#end</span>
 </code></pre>
 </div>
 <p><strong>POV-Ray</strong> defended <code>#</code> system as foundational. <strong>FORTRAN</strong> said <code>INCLUDE</code> and <code>PARAMETER</code> are enough. <strong>MATLAB</strong> said preprocessors add compile-time complexity. <strong>Verdict:</strong> Four-directive minimum: <code>#include</code>, <code>#define</code>, <code>#if</code>, <code>#end</code>. No <code>#ifdef</code>, <code>#endif</code>, <code>#elif</code>, <code>#undef</code>. <code>#declare</code> alias for <code>constant</code>.</p>
 <h3>34.A.8 <code>sub</code> vs <code>function</code> — Distinction kept</h3>
-<div class="example"><pre class="hl"><code><span class="c"># Returns a value</span>
+<div class="example"><pre class="hl"><code><span class="c"># Returns a value</span>
 <span class="k">function</span> <span class="f">normalize</span>(x) <span class="k">as</span> float[]
     <span class="k">return</span> (x - <span class="f">mean</span>(x)) / <span class="f">std</span>(x)
 <span class="k">end</span> <span class="k">function</span>
 
-<span class="c"># Side-effect only</span>
+<span class="c"># Side-effect only</span>
 <span class="k">sub</span> <span class="f">save_report</span>(data, filename)
     <span class="f">print</span>(<span class="s">"Saving {filename}..."</span>)
     export data <span class="k">to</span> filename
@@ -1371,12 +1346,12 @@ def fn <span class="f">normalize</span>(x) = (x - <span class="f">mean</span>(x)
 <h3>34.A.9 Global State — <code>constant</code> + explicit context</h3>
 <p><strong>FORTRAN</strong> defended <code>COMMON</code> blocks. <strong>Python</strong> said global state makes code untestable. <strong>POV-Ray</strong> said <code>#declare</code> is global by design. <strong>MATLAB</strong> said base workspace is global. <strong>Verdict:</strong> <code>constant</code> replaces FORTRAN <code>COMMON</code> for shared read-only values. Module-level scope for variables (Python model). <code>global</code> keyword allowed but discouraged.</p>
 <h3>34.A.10 <code>#macro</code> Code Templates — Restricted adoption</h3>
-<div class="example"><pre class="hl"><code><span class="c">#macro fft_plot(signal, sample_rate)</span>
+<div class="example"><pre class="hl"><code><span class="c">#macro fft_plot(signal, sample_rate)</span>
     x = <span class="f">fft</span>(signal, <span class="f">size</span>(signal))
     f = <span class="f">arange</span>(<span class="n">0</span>, <span class="f">size</span>(signal)/<span class="n">2</span>) * sample_rate / <span class="f">size</span>(signal)
     mag = <span class="f">abs</span>(x[<span class="n">0</span>, <span class="f">size</span>(signal)/<span class="n">2</span>])
     <span class="f">plot</span>(f, mag, <span class="a">label</span>=<span class="s">"FFT"</span>)
-<span class="c">#end</span>
+<span class="c">#end</span>
 
 <span class="f">fft_plot</span>(mydata, Fs)
 </code></pre>
@@ -1412,9 +1387,10 @@ def fn <span class="f">normalize</span>(x) = (x - <span class="f">mean</span>(x)
 <p><strong>FORTRAN</strong> defended the reservations: "A keyword that appears mid-expression must be reserved, or parsing becomes guesswork and error messages rot."</p>
 <p><strong>BASIC</strong> noted the heritage sets are small: "BASIC survived on fifteen." <strong>POV-Ray</strong> added that its directive words live only after <code>#</code>, never in the program text.</p>
 <p><strong>Verdict:</strong> *Austerity rule adopted.* Two classes, no third: 1. <strong>Reserved</strong> (≈45 words): only words that appear <strong>inside expressions or mid-statement</strong> — control flow, operators spelled as words, definition and module words, literals. These are words no one expects to use as a name. 2. <strong>Contextual introducers</strong> (everything else): recognized as syntax <strong>only at a statement/block head</strong>; everywhere else they are ordinary identifiers. If a local binding shadows one, a later introducer use in the same scope is a <code>Q1015</code> diagnostic asking for a rename — never a silent reinterpretation. Type names (<code>signal</code>, <code>frame</code>, <code>int</code>, ...) are contextual after <code>as</code>. The full regrouped list is §6. Amends §6 and the grammar header.</p>
-<h3>34.C.2 The third function form <code>g: x -&gt; y</code> — provisional, evidence-decided at 1.0</h3>
-<p><strong>BASIC:</strong> "Three spellings for one idea is two too many. A 14-year-old meets <code>function</code>, finally gets it, and then a textbook shows <code>g: x -&gt; y</code>." <strong>POV-Ray:</strong> "It reads like the mathematics on the whiteboard; the worksheet style is the point of Qu." <strong>MATLAB:</strong> "One keyword, one form, twenty-five years of that lesson." <strong>Python:</strong> "One obvious way — but we also keep comprehensions beside loops, and nobody dies."</p>
-<p><strong>Verdict:</strong> *Provisional.* <code>g: x -&gt; y … end</code> remains valid Layer-3 syntax (§58.2), but: (a) no tutorial, example, or standard library may <strong>require or emit</strong> it; (b) it is absent from the teaching surface; (c) at 1.0 it is either promoted with usage evidence or demoted to formatter-displayed sugar over <code>function</code>. Resolves the standing question in the 0.11 board note. Amends §17.1 usage guidance (no grammar change).</p>
+<h3>34.C.2 The third function form <code>g: x -&gt; y</code> — dropped, never implemented</h3>
+<p><strong>BASIC:</strong> "Three spellings for one idea is two too many. A 14-year-old meets <code>function</code>, finally gets it, and then a textbook shows <code>g: x -&gt; y</code>." <strong>POV-Ray:</strong> "It reads like the mathematics on the whiteboard; the worksheet style is the point of Qu." <strong>MATLAB:</strong> "One keyword, one form, twenty-five years of that lesson." <strong>Python:</strong> "One obvious way—but we also keep comprehensions beside loops, and nobody dies."</p>
+<p><strong>Verdict (2026-09-17):</strong> *Dropped.* The provisional verdict below shipped 0.8 documentation for <code>g: x -&gt; y ... end</code> as valid Layer-3 syntax, but the form was never actually built: neither <code>qu-syntax</code> nor <code>qu-interp</code> ever gained a parser rule, statement variant, or arrow-token handling for it. Ahmed ruled directly that the form is not needed and it is withdrawn; Qu keeps its two real function forms, <code>f(x) := expr</code> (§41.1) and <code>function ... end function</code> (§17.1, §58.3). This record is kept for history rather than deleted, per this document's own convention of keeping debate records alongside their outcomes.</p>
+<p><strong>Original provisional verdict (0.8, superseded above):</strong> <code>g: x -&gt; y ... end</code> remains valid Layer-3 syntax (§58.2), but: (a) no tutorial, example, or standard library may <strong>require or emit</strong> it; (b) it is absent from the teaching surface; (c) at 1.0 it is either promoted with usage evidence or demoted to formatter-displayed sugar over <code>function</code>. Resolved the standing question in the 0.11 board note; amended §17.1 usage guidance (no grammar change) at the time.</p>
 <h3>34.C.3 Inclusive <code>to</code> ranges beside half-open slices — keep both, diagnose the seam (REVERSED — see §15)</h3>
 <p>&gt; <strong>Reversed in 0.13.</strong> The verdict below was to keep both conventions and &gt; make the seam safe with diagnostics. The diagnostics were never built, and &gt; the seam turned out to be sharper than the debate allowed for: <code>a:b</code> was &gt; inclusive as a *value* and half-open as an *index*, so <code>k = 0:2</code> followed by &gt; <code>v[k]</code> gave three elements where <code>v[0:2]</code> gave two. That is not a seam &gt; between two conventions, it is one expression with two meanings. Slices are &gt; now inclusive, matching <code>to</code> and the compact literal. The Python argument &gt; below is still the strongest one against, and the price is real: <code>a[0:k]</code> &gt; and <code>a[k:N]</code> now overlap at <code>k</code>, and there is no empty slice. The record &gt; stays because the reasoning was sound on what it knew.</p>
 <p><strong>FORTRAN:</strong> "Inclusive bounds are sixty years of muscle memory: <code>DO 10 K=1,N</code>." <strong>Python:</strong> "Half-open slices compose: <code>x[0:N]</code> has exactly <code>N</code> elements, and <code>a[0:k] ++ a[k:N]</code> is <code>a</code>. That is why I win at boundaries." <strong>MATLAB:</strong> "I do inclusive everything, and my users write <code>n+1</code> in every loop." <strong>BASIC:</strong> "<code>FOR K = 1 TO 20</code> — inclusive, obviously; it names the last value."</p>
@@ -1432,21 +1408,21 @@ def fn <span class="f">normalize</span>(x) = (x - <span class="f">mean</span>(x)
 <p><strong>Verdict:</strong> *Affirm and freeze.* The declarative commands (<code>grid on</code>, <code>box on</code>, <code>hold on/off</code>, <code>show plot</code>, <code>close figure/all</code>, <code>legend</code>, <code>clear</code>, and the §39.4 animation verbs <code>render</code>/<code>play</code>/<code>pause</code>/<code>record</code>/<code>snapshot</code>) are the complete set. Their operands are modes, not arguments (§58.4). No library may add new paren-free call syntax; the grammar's <code>FigureCommand</code> and <code>RenderStatement</code> productions are exhaustive.</p>
 <hr>
 <h2 id="s2006">35. Open Design Questions</h2>
-<p>Items 1–4 and 6 are resolved — see the second debate record (§34.B); item 5 was resolved by 0.4 (§42.2). The 0.11 familiarity questions (<code>g: x -&gt; y</code> cost, inclusive-<code>to</code> beside half-open slices, indexing base, keyword count, <code>:=</code> duality) are resolved by the third debate record (§34.C). The standing questions:</p>
-<p>1. (0.2) Should the frame index be a distinguished column or an ordinary column with a role tag? 2. (0.2) Should <code>grad</code> default to reverse-mode always, or auto-select forward vs reverse from the shape of <code>wrt</code>? 3. (0.2) Should the animation frame clock be wall-time-locked in interactive mode, or always exact-frame with dropped frames on slow render? 4. (0.2) Should <code>train</code> and <code>scene</code> be core syntax or standard-library macros expressed with the §16 <code>each</code>/<code>for</code> and §18.C plot primitives? 5. The FFI ABI (§28) is unspecified; fixing it must precede native plugins. 6. The <code>each</code> reduction clause (§16) is deferred; a deterministic-by-default reduction design must accompany it. 7. Appendix X explorations not yet promoted (<code>@type</code> suffix, <code>Redim</code>/<code>keep</code>, <code>ez</code>/<code>ze</code> blocks, linespecs) await promotion debates. The mapping form <code>g: x -&gt; y</code> itself is adopted but provisional: evidence-decided at 1.0 (§34.C.2). 8. Keep <code>diff</code> as the derivative (0.10 §43) or the MATLAB differences meaning? Units: interval arithmetic or first-order uncertainty? (standing from the 0.6 board note) 9. Novice testing must validate the §34.C.3 seam diagnostics (<code>Q1031</code>–<code>Q1033</code>) and the §58 teaching order before 1.0 freezes the surface.</p>
+<p>Items 1–4 and 6 are resolved — see the second debate record (§34.B); item 5 was resolved by 0.4 (§42.2). The 0.11 familiarity questions (the dropped <code>g: x -&gt; y</code> proposal, inclusive-<code>to</code> beside half-open slices, indexing base, keyword count, <code>:=</code> duality) are resolved by the third debate record (§34.C). The standing questions:</p>
+<p>1. (0.2) Should the frame index be a distinguished column or an ordinary column with a role tag? 2. (0.2) Should <code>grad</code> default to reverse-mode always, or auto-select forward vs reverse from the shape of <code>wrt</code>? 3. (0.2) Should the animation frame clock be wall-time-locked in interactive mode, or always exact-frame with dropped frames on slow render? 4. (0.2) Should <code>train</code> and <code>scene</code> be core syntax or standard-library macros expressed with the §16 <code>each</code>/<code>for</code> and §18.C plot primitives? 5. The FFI ABI (§28) is unspecified; fixing it must precede native plugins. 6. The <code>each</code> reduction clause (§16) is deferred; a deterministic-by-default reduction design must accompany it. 7. Appendix X explorations not yet promoted (<code>@type</code> suffix, <code>Redim</code>/<code>keep</code>, <code>ez</code>/<code>ze</code> blocks, linespecs) await promotion debates. The mapping form <code>g: x -&gt; y</code> (formerly Appendix X.4) was never implemented and is dropped as of 2026-09-17 (§34.C.2); it is not a standing question. 8. Keep <code>diff</code> as the derivative (0.10 §43) or the MATLAB differences meaning? Units: interval arithmetic or first-order uncertainty? (standing from the 0.6 board note) 9. Novice testing must validate the §34.C.3 seam diagnostics (<code>Q1031</code>–<code>Q1033</code>) and the §58 teaching order before 1.0 freezes the surface.</p>
 <hr>
 <h2 id="s2052">36. DataFrames and Tables</h2>
 <p>Version 0.1 has arrays, matrices, and the <code>data table</code> block for embedded numeric data. Version 0.2 adds a first-class <strong>frame</strong> — a named, heterogeneous, columnar table — for data-science workflows. A frame is columnar: each column is a homogeneous Qu array, so every array and DSP operation applies to a column without conversion.</p>
 <h3>36.1 The <code>frame</code> type</h3>
-<div class="example"><pre class="hl"><code>df = <span class="f">read_csv</span>(<span class="s">"quality_data.csv"</span>, <span class="a">headers</span>=<span class="k">true</span>)   <span class="c"># -&gt; frame</span>
-<span class="f">shape</span>(df)          <span class="c"># (rows, cols)</span>
-df.columns         <span class="c"># vector of column names (string)</span>
-df[<span class="s">"voltage"</span>]      <span class="c"># one column, as a numeric array</span>
-df.voltage         <span class="c"># same column, dotted access when the name is an identifier</span>
+<div class="example"><pre class="hl"><code>df = <span class="f">read_csv</span>(<span class="s">"quality_data.csv"</span>, <span class="a">headers</span>=<span class="k">true</span>)   <span class="c"># -&gt; frame</span>
+<span class="f">shape</span>(df)          <span class="c"># (rows, cols)</span>
+df.columns         <span class="c"># vector of column names (string)</span>
+df[<span class="s">"voltage"</span>]      <span class="c"># one column, as a numeric array</span>
+df.voltage         <span class="c"># same column, dotted access when the name is an identifier</span>
 </code></pre>
 </div>
 <p>A frame has an ordered set of named columns and an optional index column. Column access returns a live view; assigning to it mutates the frame:</p>
-<div class="example"><pre class="hl"><code>df[<span class="s">"power"</span>] = df.voltage .* df.current      <span class="c"># add a computed column</span>
+<div class="example"><pre class="hl"><code>df[<span class="s">"power"</span>] = df.voltage .* df.current      <span class="c"># add a computed column</span>
 </code></pre>
 </div>
 <p>The <code>table</code> keyword builds an inline frame literal (a superset of the 0.1 <code>data table</code> block, now with per-column types):</p>
@@ -1468,8 +1444,8 @@ df.voltage         <span class="c"># same column, dotted access when the name is
 </code></pre>
 </div>
 <p>Column projection and boolean masks:</p>
-<div class="example"><pre class="hl"><code><span class="k">sub</span> = df[[<span class="s">"t"</span>, <span class="s">"v"</span>]]              <span class="c"># projection to two columns -&gt; frame</span>
-hot = df[df.v &gt; <span class="n">0.97</span>]            <span class="c"># boolean row mask -&gt; frame</span>
+<div class="example"><pre class="hl"><code><span class="k">sub</span> = df[[<span class="s">"t"</span>, <span class="s">"v"</span>]]              <span class="c"># projection to two columns -&gt; frame</span>
+hot = df[df.v &gt; <span class="n">0.97</span>]            <span class="c"># boolean row mask -&gt; frame</span>
 </code></pre>
 </div>
 <p>Slicing follows array rules (zero-based, both ends included): <code>df[0:99]</code> is the first 100 rows as a frame.</p>
@@ -1490,15 +1466,15 @@ hot = df[df.v &gt; <span class="n">0.97</span>]            <span class="c"># boo
 <div class="example"><pre class="hl"><code>long = <span class="f">pivot_longer</span>(df, <span class="a">keep</span>=<span class="s">"t"</span>, <span class="a">into</span>=(<span class="s">"channel"</span>, <span class="s">"value"</span>))
 wide = <span class="f">pivot_wider</span>(long, <span class="a">names</span>=<span class="s">"channel"</span>, <span class="a">values</span>=<span class="s">"value"</span>)
 
-df2 = <span class="f">dropna</span>(df)                 <span class="c"># drop rows containing nan</span>
-df3 = <span class="f">fillna</span>(df, <span class="n">0.0</span>)            <span class="c"># replace nan with a value</span>
+df2 = <span class="f">dropna</span>(df)                 <span class="c"># drop rows containing nan</span>
+df3 = <span class="f">fillna</span>(df, <span class="n">0.0</span>)            <span class="c"># replace nan with a value</span>
 </code></pre>
 </div>
 <p>Missing numeric data is represented by <code>nan</code>; missing strings by the empty-optional value <code>none</code>. Reductions over columns respect a <code>skipna</code> policy (default <code>true</code> for frame aggregations, <code>false</code> for raw array reductions, so array math stays exact).</p>
 <h3>36.5 Frame I/O</h3>
 <p>Frames read and write every file family from §26. <code>read_csv</code>, <code>read_json</code>, <code>read_parquet</code>, and <code>read_xlsx</code> return frames; <code>write_csv</code>, <code>write_json</code>, <code>write_parquet</code>, <code>write_xlsx</code> accept them. A frame also exports directly to a report:</p>
-<div class="example"><pre class="hl"><code>export df <span class="k">to</span> <span class="s">"summary.docx"</span>       <span class="c"># rendered as a formatted table</span>
-export df <span class="k">to</span> <span class="s">"summary.tex"</span>        <span class="c"># LaTeX tabular</span>
+<div class="example"><pre class="hl"><code>export df <span class="k">to</span> <span class="s">"summary.docx"</span>       <span class="c"># rendered as a formatted table</span>
+export df <span class="k">to</span> <span class="s">"summary.tex"</span>        <span class="c"># LaTeX tabular</span>
 </code></pre>
 </div>
 <h3>36.6 The fluent pipeline — from data to a plot in one line</h3>
@@ -1521,11 +1497,11 @@ df |&gt; sort <span class="k">by</span> t |&gt; <span class="f">scatter</span>(<
 <h3>37.1 Descriptive and inferential statistics</h3>
 <div class="example"><pre class="hl"><code><span class="k">import</span> stats
 
-s = stats.<span class="f">describe</span>(x)            <span class="c"># record: n, mean, std, min, q1, median, q3, max</span>
-r = stats.<span class="f">corr</span>(a, b)             <span class="c"># Pearson correlation</span>
-c = stats.<span class="f">cov</span>(A)                 <span class="c"># covariance matrix of columns</span>
+s = stats.<span class="f">describe</span>(x)            <span class="c"># record: n, mean, std, min, q1, median, q3, max</span>
+r = stats.<span class="f">corr</span>(a, b)             <span class="c"># Pearson correlation</span>
+c = stats.<span class="f">cov</span>(A)                 <span class="c"># covariance matrix of columns</span>
 
-<span class="c"># Hypothesis tests return a record with .stat, .pvalue, .df</span>
+<span class="c"># Hypothesis tests return a record with .stat, .pvalue, .df</span>
 t = stats.<span class="f">ttest</span>(a, b, <span class="a">kind</span>=<span class="s">"welch"</span>)
 k = stats.<span class="f">ks_test</span>(sample, <span class="s">"normal"</span>)
 a = stats.<span class="f">anova</span>(groups)
@@ -1533,9 +1509,9 @@ a = stats.<span class="f">anova</span>(groups)
 </div>
 <h3>37.2 The model protocol</h3>
 <p>Every model — a line fit, a GLM, a clustering, or a neural network (§38) — obeys the same three-verb protocol:</p>
-<div class="example"><pre class="hl"><code>m = model.<span class="f">fit</span>(X, y)              <span class="c"># returns a fitted model handle</span>
-yhat = m.<span class="f">predict</span>(Xnew)           <span class="c"># apply the model</span>
-s = m.<span class="f">score</span>(X, y)                <span class="c"># scalar goodness metric (R^2, accuracy, ...)</span>
+<div class="example"><pre class="hl"><code>m = model.<span class="f">fit</span>(X, y)              <span class="c"># returns a fitted model handle</span>
+yhat = m.<span class="f">predict</span>(Xnew)           <span class="c"># apply the model</span>
+s = m.<span class="f">score</span>(X, y)                <span class="c"># scalar goodness metric (R^2, accuracy, ...)</span>
 </code></pre>
 </div>
 <p>A fitted model is a <code>record</code>-like handle with read-only fields for its parameters and diagnostics (<code>m.coef</code>, <code>m.intercept</code>, <code>m.residuals</code>, <code>m.loss_curve</code>, ...).</p>
@@ -1543,9 +1519,9 @@ s = m.<span class="f">score</span>(X, y)                <span class="c"># scalar
 <div class="example"><pre class="hl"><code><span class="k">import</span> ml.linear
 <span class="k">import</span> ml.cluster
 
-fit = ml.linear.<span class="f">ols</span>(X, y)                 <span class="c"># ordinary least squares</span>
-fit.coef                                   <span class="c"># coefficients (vector)</span>
-fit.r2                                      <span class="c"># coefficient of determination</span>
+fit = ml.linear.<span class="f">ols</span>(X, y)                 <span class="c"># ordinary least squares</span>
+fit.coef                                   <span class="c"># coefficients (vector)</span>
+fit.r2                                      <span class="c"># coefficient of determination</span>
 
 ridge = ml.linear.<span class="f">ridge</span>(X, y, <span class="a">alpha</span>=<span class="n">0.1</span>)
 logit = ml.linear.<span class="f">logistic</span>(X, y)
@@ -1572,10 +1548,10 @@ acc = fit.<span class="f">score</span>(Xtest, ytest)
 <h2 id="s2146">38. Machine Learning: Tensors, Autodiff, and Layers</h2>
 <p>Version 0.2 makes Qu differentiable. The array model from §9 is unchanged; a <strong>tensor</strong> is an array that additionally carries a gradient tape when it is created with <code>param</code> or wrapped by <code>track</code>.</p>
 <h3>38.1 Parameters and automatic differentiation</h3>
-<div class="example"><pre class="hl"><code>param W = <span class="f">randn</span>(<span class="n">10</span>, <span class="n">3</span>)           <span class="c"># a trainable tensor, gradient-tracked</span>
+<div class="example"><pre class="hl"><code>param W = <span class="f">randn</span>(<span class="n">10</span>, <span class="n">3</span>)           <span class="c"># a trainable tensor, gradient-tracked</span>
 param b = <span class="f">zeros</span>(<span class="n">1</span>, <span class="n">3</span>)
 
-<span class="c"># grad(f, wrt) returns the gradient of a scalar-valued expression</span>
+<span class="c"># grad(f, wrt) returns the gradient of a scalar-valued expression</span>
 loss = <span class="f">mean</span>((X * W + b - Y)^<span class="n">2</span>)
 gW, gb = <span class="f">grad</span>(loss, <span class="a">wrt</span>=(W, b))
 </code></pre>
@@ -1587,7 +1563,7 @@ gW, gb = <span class="f">grad</span>(loss, <span class="a">wrt</span>=(W, b))
 
 <span class="k">for</span> epoch = <span class="n">0</span> <span class="k">to</span> <span class="n">200</span>
     loss = <span class="f">mean</span>((X * W + b - Y)^<span class="n">2</span>)
-    opt.<span class="k">step</span>(loss)               <span class="c"># computes grads, updates params in place</span>
+    opt.<span class="k">step</span>(loss)               <span class="c"># computes grads, updates params in place</span>
     <span class="k">if</span> epoch <span class="k">mod</span> <span class="n">20</span> == <span class="n">0</span> <span class="k">then</span>
         <span class="f">print</span>(<span class="s">"epoch {epoch}: loss={loss}"</span>)
 <span class="k">end</span> <span class="k">for</span>
@@ -1618,7 +1594,7 @@ gW, gb = <span class="f">grad</span>(loss, <span class="a">wrt</span>=(W, b))
 <span class="k">end</span> model
 
 net = <span class="f">mlp</span>(<span class="n">784</span>, <span class="n">128</span>, <span class="n">10</span>)
-y = <span class="f">net</span>(x)                        <span class="c"># forward pass; parameters are gradient-tracked</span>
+y = <span class="f">net</span>(x)                        <span class="c"># forward pass; parameters are gradient-tracked</span>
 </code></pre>
 </div>
 <p>Built-in layers include <code>dense</code>, <code>conv1d</code>, <code>conv2d</code>, <code>lstm</code>, <code>gru</code>, <code>attention</code>, <code>dropout</code>, <code>batchnorm</code>, <code>embedding</code>, and <code>pool</code>. Activations (<code>relu</code>, <code>gelu</code>, <code>tanh</code>, <code>sigmoid</code>, <code>softmax</code>) are ordinary elementwise functions and may be used outside layers. A <code>model</code> is callable, composes with <code>train</code> (§38.3), and obeys the model protocol (§37.2). Saving and loading:</p>
@@ -1643,8 +1619,8 @@ net2 = <span class="f">load_model</span>(<span class="s">"mlp.qm"</span>)
 <p>Version 0.1 defines static figures, plot commands, and a declarative plot block (§18.C, §27). Version 0.2 adds <strong>time</strong>: a first-class animation subsystem for producing motion — evolving signals, training curves that draw themselves, parameter sweeps, rotating surfaces, and interactive scenes — and exporting them to GIF, MP4, or an interactive HTML canvas.</p>
 <h3>39.1 The <code>animate</code> block</h3>
 <p>The core construct is an <code>animate</code> block. It declares a time range and a body that is re-evaluated for each frame. The loop variable is the frame time.</p>
-<div class="example"><pre class="hl"><code>animate t from <span class="n">0</span> <span class="k">to</span> <span class="n">2</span> <span class="k">step</span> <span class="n">1</span>/<span class="n">60</span>      <span class="c"># 2 seconds at 60 fps</span>
-    x = <span class="f">sin</span>(<span class="n">2</span>*pi*(f*tt - t))          <span class="c"># a traveling wave; tt is the space axis</span>
+<div class="example"><pre class="hl"><code>animate t from <span class="n">0</span> <span class="k">to</span> <span class="n">2</span> <span class="k">step</span> <span class="n">1</span>/<span class="n">60</span>      <span class="c"># 2 seconds at 60 fps</span>
+    x = <span class="f">sin</span>(<span class="n">2</span>*pi*(f*tt - t))          <span class="c"># a traveling wave; tt is the space axis</span>
     <span class="f">plot</span>(tt, x)
     <span class="f">ylim</span>(-<span class="n">1</span>, <span class="n">1</span>)
     <span class="f">title</span>(<span class="s">"t = {t:0.2f} s"</span>)
@@ -1699,13 +1675,13 @@ render scene spectrum_show
 </div>
 <p>A <code>scene</code> composes layers into one timeline; each <code>layer</code> may carry its own <code>animate</code> clause or be static. <code>camera</code> selects <code>view2d</code>, <code>view3d</code>, or a scripted camera path. The scene's <code>duration</code> and <code>export</code> behave like the plot block's export options, extended with <code>fps</code>.</p>
 <h3>39.4 Playback, capture, and export</h3>
-<div class="example"><pre class="hl"><code>render animation                 <span class="c"># play in the interactive figure window</span>
-pause animation                  <span class="c"># controls available in REPL / GUI</span>
+<div class="example"><pre class="hl"><code>render animation                 <span class="c"># play in the interactive figure window</span>
+pause animation                  <span class="c"># controls available in REPL / GUI</span>
 play animation
 
 record animation <span class="k">to</span> <span class="s">"wave.gif"</span> fps=<span class="n">30</span>
 record animation <span class="k">to</span> <span class="s">"wave.mp4"</span> fps=<span class="n">60</span> quality=high
-snapshot <span class="k">to</span> <span class="s">"frame_042.png"</span> at t=<span class="n">0.7</span>      <span class="c"># single frame at a time</span>
+snapshot <span class="k">to</span> <span class="s">"frame_042.png"</span> at t=<span class="n">0.7</span>      <span class="c"># single frame at a time</span>
 </code></pre>
 </div>
 <p>Export targets: <code>gif</code>, <code>mp4</code>, <code>webm</code>, and <code>apng</code> for motion; <code>png</code>, <code>svg</code>, <code>pdf</code> for a single snapshot; and an interactive <code>html</code> canvas that embeds the animation with play controls. Headless execution (<code>qu script.qu --headless</code>) renders directly to the file without opening a window, so animations can be produced on a server or in a report pipeline. A report (<code>export all to "report.docx"</code>) embeds a static snapshot of each animation plus a link to the motion file.</p>
@@ -1776,20 +1752,20 @@ export df <span class="k">to</span> <span class="s">"quality_summary.docx"</span
 <span class="f">crest</span>(x) := <span class="f">max</span>(<span class="f">abs</span>(x)) / <span class="f">rms</span>(x)
 <span class="f">db</span>(g)    := <span class="n">20</span> * <span class="f">log10</span>(g)
 
-Mt := t <span class="k">as</span> <span class="f">matrix</span>(K, N)          <span class="c"># deferred value — same operator, same idea</span>
+Mt := t <span class="k">as</span> <span class="f">matrix</span>(K, N)          <span class="c"># deferred value — same operator, same idea</span>
 S  := A * <span class="f">cos</span>(<span class="n">2</span>*pi*f*Mt + phi)
 </code></pre>
 </div>
 <p>Both example scripts previously wrote these one-liners as <code>def fn zof(fr) = ...</code> and <code>def fn crest(x) = ...</code>. Under 0.3 the canonical spelling is <code>zof(fr) := ...</code>; <code>def fn</code> is retained as an accepted alias so existing scripts keep working.</p>
 <p><strong>Semantics.</strong></p>
-<p>1. A <code>:=</code> function body is a single expression — no assignments, no control flow (use <code>function ... end function</code> for those). It is pure and side-effect-free. 2. It is <code>ELEMENTAL</code> by default (FORTRAN influence): applying it to an array maps over elements with broadcasting, so <code>zof(f)</code> returns a vector when <code>f</code> is one. 3. The planner may inline it into a fused dataflow graph or lift it to a real function; either way the observable result is identical. 4. The one-line form is non-recursive. Recursion, multiple statements, or multiple named outputs require <code>function</code> — or, since 0.8, the mapping form <code>g: x -&gt; y … end</code> (§17.1), which was adopted after this chapter first wrote it off. The three accepted function forms are listed in §17.1; Appendix X.4 is closed. 5. <code>=</code> is eager assignment; <code>:=</code> is definition/deferral. This is the only distinction a reader must learn, and it matches mathematical usage.</p>
+<p>1. A <code>:=</code> function body is a single expression — no assignments, no control flow (use <code>function ... end function</code> for those). It is pure and side-effect-free. 2. It is <code>ELEMENTAL</code> by default (FORTRAN influence): applying it to an array maps over elements with broadcasting, so <code>zof(f)</code> returns a vector when <code>f</code> is one. 3. The planner may inline it into a fused dataflow graph or lift it to a real function; either way the observable result is identical. 4. The one-line form is non-recursive. Recursion, multiple statements, or multiple named outputs require <code>function</code>. A third "mapping form" (<code>g: x -&gt; y … end</code>) was documented as adopted in 0.8 but never implemented, and is dropped (§34.C.2). Only two function forms are accepted: this one and <code>function</code>. 5. <code>=</code> is eager assignment; <code>:=</code> is definition/deferral. This is the only distinction a reader must learn, and it matches mathematical usage.</p>
 <h3>41.2 Sampled-signal types — <code>Fs</code> and axis travel with the value</h3>
 <p><strong>Decision.</strong> <code>signal</code> and <code>spectrum</code> are first-class types: an array plus a <strong>sampling contract</strong> (sample rate <code>Fs</code>, sample count <code>N</code>, and an axis role — time or frequency). The sampling contract is part of the value and propagates through operations, exactly as shape does for arrays (§9).</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">signal</span>(data, <span class="a">Fs</span>=<span class="n">5e3</span>)         <span class="c"># or:  x as signal(Fs=5e3)</span>
-x.Fs        <span class="c"># 5000</span>
-x.N         <span class="c"># length</span>
-x.dt        <span class="c"># 1/Fs</span>
-x.t         <span class="c"># the time axis, computed, not hand-built</span>
+<div class="example"><pre class="hl"><code>x = <span class="f">signal</span>(data, <span class="a">Fs</span>=<span class="n">5e3</span>)         <span class="c"># or:  x as signal(Fs=5e3)</span>
+x.Fs        <span class="c"># 5000</span>
+x.N         <span class="c"># length</span>
+x.dt        <span class="c"># 1/Fs</span>
+x.t         <span class="c"># the time axis, computed, not hand-built</span>
 </code></pre>
 </div>
 <p><strong>Why this is the decisive DSP lever.</strong> The most common defect in MATLAB/NumPy DSP code is losing track of <code>Fs</code>, <code>df</code>, and bin indexing. Both reference scripts carry the same boilerplate on every run:</p>
@@ -1799,11 +1775,11 @@ freq = <span class="f">range</span>(<span class="n">0</span>, N/<span class="n">
 </code></pre>
 </div>
 <p>With sampled-signal types this becomes structural, not manual. <code>fft</code> returns a <code>spectrum</code> that already knows its frequency axis and bin mapping:</p>
-<div class="example"><pre class="hl"><code>X = <span class="f">fft</span>(x)                       <span class="c"># X is a spectrum</span>
-X.freq                           <span class="c"># frequency axis in Hz — no df, no range()</span>
-mag = X.mag[<span class="n">0</span> : X.nyquist]       <span class="c"># half spectrum by name</span>
-Z   = X.<span class="f">at</span>(f)                    <span class="c"># values at physical frequencies f (bin snap)</span>
-<span class="f">plot</span>(X)                          <span class="c"># x-axis auto-labeled in Hz</span>
+<div class="example"><pre class="hl"><code>X = <span class="f">fft</span>(x)                       <span class="c"># X is a spectrum</span>
+X.freq                           <span class="c"># frequency axis in Hz — no df, no range()</span>
+mag = X.mag[<span class="n">0</span> : X.nyquist]       <span class="c"># half spectrum by name</span>
+Z   = X.<span class="f">at</span>(f)                    <span class="c"># values at physical frequencies f (bin snap)</span>
+<span class="f">plot</span>(X)                          <span class="c"># x-axis auto-labeled in Hz</span>
 </code></pre>
 </div>
 <p><strong>Semantics.</strong></p>
@@ -1811,12 +1787,12 @@ Z   = X.<span class="f">at</span>(f)                    <span class="c"># values
 <p>A <code>signal</code> is still an array underneath, so every array operation, dispatch method, and fusion rule in this specification applies to it unchanged.</p>
 <h3>41.3 Multiple dispatch and type specialization — the speed model</h3>
 <p><strong>Decision.</strong> Functions dispatch on the types of *all* their arguments — element type, shape class, precision, device, and the signal/spectrum roles above — and the compiler <strong>specializes</strong> each call site to concrete types, generating monomorphized kernels with no boxing. One generic <code>fft</code>, <code>conv</code>, <code>solve</code>, <code>filter</code>, or <code>zof</code> serves real, complex, <code>float32</code>, <code>float64</code>, GPU, and <code>signal</code> arguments; users extend a built-in by adding a method for their own type.</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">conv</span>(a <span class="k">as</span> signal,   b <span class="k">as</span> fir)        -&gt; signal      <span class="c"># method 1</span>
-<span class="k">function</span> <span class="f">conv</span>(a <span class="k">as</span> gpu.array, b <span class="k">as</span> gpu.array) -&gt; gpu.array   <span class="c"># method 2</span>
-method   <span class="f">fft</span>(x <span class="k">as</span> fixed)                                     <span class="c"># user-added overload</span>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">conv</span>(a <span class="k">as</span> signal,   b <span class="k">as</span> fir)        -&gt; signal      <span class="c"># method 1</span>
+<span class="k">function</span> <span class="f">conv</span>(a <span class="k">as</span> gpu.array, b <span class="k">as</span> gpu.array) -&gt; gpu.array   <span class="c"># method 2</span>
+method   <span class="f">fft</span>(x <span class="k">as</span> fixed)                                     <span class="c"># user-added overload</span>
 
-<span class="c"># The compiler picks the most specific method and specializes to the</span>
-<span class="c"># concrete argument types at the call site — no runtime type tests.</span>
+<span class="c"># The compiler picks the most specific method and specializes to the</span>
+<span class="c"># concrete argument types at the call site — no runtime type tests.</span>
 </code></pre>
 </div>
 <p>This is why <code>zof</code> in the battery-impedance workload already works on a scalar frequency, a real vector, and the complex broadcasting in <code>Zref = zof(f)</code> without being rewritten: it is one elemental generic, specialized per call.</p>
@@ -1828,8 +1804,8 @@ method   <span class="f">fft</span>(x <span class="k">as</span> fixed)          
     ...
 <span class="k">end</span> <span class="k">function</span>
 
-fast = <span class="f">compile</span>(my_fn, <span class="k">for</span>=(signal, vector))   <span class="c"># AOT-compile a specialization now</span>
-<span class="k">with</span> compile                                    <span class="c"># compile everything in the block</span>
+fast = <span class="f">compile</span>(my_fn, <span class="k">for</span>=(signal, vector))   <span class="c"># AOT-compile a specialization now</span>
+<span class="k">with</span> compile                                    <span class="c"># compile everything in the block</span>
     y = <span class="f">pipeline</span>(x)
 <span class="k">end</span> <span class="k">with</span>
 </code></pre>
@@ -1844,8 +1820,8 @@ fast = <span class="f">compile</span>(my_fn, <span class="k">for</span>=(signal,
     |&gt; aggregate <span class="f">mean</span>(power) <span class="k">as</span> p_mean, <span class="f">std</span>(power) <span class="k">as</span> p_std, <span class="f">count</span>() <span class="k">as</span> n
     |&gt; order <span class="k">by</span> p_mean
 
-result = <span class="f">collect</span>(summary)        <span class="c"># plan optimized, then executed once</span>
-explain summary                  <span class="c"># show the query plan and fusions</span>
+result = <span class="f">collect</span>(summary)        <span class="c"># plan optimized, then executed once</span>
+explain summary                  <span class="c"># show the query plan and fusions</span>
 </code></pre>
 </div>
 <p>Because a frame column *is* a Qu array, column expressions reuse the same specialization and fusion as array math (§41.3) — the Monte-Carlo SNR sweep in The battery-impedance workload expresses naturally as a fused pipeline rather than nested materializing loops.</p>
@@ -1889,25 +1865,25 @@ fit = <span class="f">logistic</span>(pass ~ voltage + temp + voltage:temp, <spa
 <tr><td><code>αβγ…ω</code>, <code>ΔΣΩ…</code></td><td><code>alpha</code> <code>beta</code> …</td><td>Greek identifiers</td></tr>
 <tr><td><code>ℝ ℂ ℤ ℕ</code></td><td><code>real</code> <code>complex</code> <code>int</code> <code>nat</code></td><td>number-set type tags</td></tr>
 </table></div>
-<div class="example"><pre class="hl"><code>ω = <span class="n">2</span>·π·f                       <span class="c"># ASCII:  w = 2*pi*f</span>
-Z ∈ ℂ                           <span class="c"># ASCII:  Z as complex</span>
-<span class="k">if</span> <span class="n">0</span> ≤ x &lt; <span class="n">1</span> <span class="k">then</span> ...           <span class="c"># ASCII:  if 0 &lt;= x and x &lt; 1 then ...</span>
-r = √(a² + b²)                  <span class="c"># ASCII:  r = sqrt(a^2 + b^2)</span>
+<div class="example"><pre class="hl"><code>ω = <span class="n">2</span>·π·f                       <span class="c"># ASCII:  w = 2*pi*f</span>
+Z ∈ ℂ                           <span class="c"># ASCII:  Z as complex</span>
+<span class="k">if</span> <span class="n">0</span> ≤ x &lt; <span class="n">1</span> <span class="k">then</span> ...           <span class="c"># ASCII:  if 0 &lt;= x and x &lt; 1 then ...</span>
+r = √(a² + b²)                  <span class="c"># ASCII:  r = sqrt(a^2 + b^2)</span>
 </code></pre>
 </div>
 <p>Greek identifiers are ordinary names: <code>τ1</code>, <code>ω_c</code>, <code>Δf</code> bind and reference like any identifier. Unicode subscripts (<code>ωₖ</code>, <code>xᵢ</code>) are accepted as identifier characters; <code>A[k]</code> remains the indexing form (subscript-as-index is exploratory, Appendix X).</p>
 <h3>42.2 Physical units and dimensional analysis</h3>
 <p>A numeric literal may carry a physical unit. The value then participates in <strong>dimensional analysis</strong>: units combine under arithmetic, incompatible units are a compile error, and conversions are explicit or automatic within a dimension.</p>
-<div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz                      <span class="c"># frequency</span>
-R0 = <span class="n">35</span> mΩ                      <span class="c"># resistance      (ASCII: 35 mOhm)</span>
-C  = <span class="n">4.7</span> uF                     <span class="c"># capacitance</span>
+<div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz                      <span class="c"># frequency</span>
+R0 = <span class="n">35</span> mΩ                      <span class="c"># resistance      (ASCII: 35 mOhm)</span>
+C  = <span class="n">4.7</span> uF                     <span class="c"># capacitance</span>
 t  = <span class="n">100</span> s
 V  = <span class="n">3.6</span> V
-I  = V / R0                     <span class="c"># -&gt; 102.857 A     (units derived)</span>
-τ  = R0 · C                     <span class="c"># -&gt; 164.5 us      (dimension: time)</span>
-f_c = <span class="n">1</span> / (<span class="n">2</span>·π·τ)               <span class="c"># -&gt; Hz, checked</span>
+I  = V / R0                     <span class="c"># -&gt; 102.857 A     (units derived)</span>
+τ  = R0 · C                     <span class="c"># -&gt; 164.5 us      (dimension: time)</span>
+f_c = <span class="n">1</span> / (<span class="n">2</span>·π·τ)               <span class="c"># -&gt; Hz, checked</span>
 
-x = Fs + <span class="n">3</span> V                    <span class="c"># COMPILE ERROR: cannot add [Hz] and [V]</span>
+x = Fs + <span class="n">3</span> V                    <span class="c"># COMPILE ERROR: cannot add [Hz] and [V]</span>
 </code></pre>
 </div>
 <p>Semantics.</p>
@@ -1929,34 +1905,34 @@ y = m·x + b                         where m = Δy/Δx, b = y0 - m·x0
     <span class="n">1</span>        otherwise
 <span class="k">end</span> cases
 
-<span class="f">relu</span>(x) := cases  x <span class="k">if</span> x ≥ <span class="n">0</span>  <span class="k">else</span> <span class="n">0</span>  <span class="k">end</span>        <span class="c"># single-line form</span>
+<span class="f">relu</span>(x) := cases  x <span class="k">if</span> x ≥ <span class="n">0</span>  <span class="k">else</span> <span class="n">0</span>  <span class="k">end</span>        <span class="c"># single-line form</span>
 </code></pre>
 </div>
 <p><code>cases</code> evaluates conditions top to bottom and returns the first match; <code>otherwise</code> (or <code>else</code>) is the default and is required unless the conditions are provably exhaustive. <code>cases</code> is <code>ELEMENTAL</code> (§41.1), so <code>step(v)</code> maps over an array.</p>
 <h3>42.4 Sums, products, integrals, and derivatives</h3>
 <p>Big-operator and calculus notation are first-class and lower to existing operations — reductions (§23), numerical quadrature, and autodiff (§38).</p>
 <p><strong>Sum and product</strong> with an index binding:</p>
-<div class="example"><pre class="hl"><code>x = ∑ k <span class="k">in</span> <span class="n">0..K</span>-<span class="n">1</span> : A[k]·<span class="f">cos</span>(<span class="n">2</span>·π·f[k]·t + φ[k])     <span class="c"># traveling multisine</span>
+<div class="example"><pre class="hl"><code>x = ∑ k <span class="k">in</span> <span class="n">0..K</span>-<span class="n">1</span> : A[k]·<span class="f">cos</span>(<span class="n">2</span>·π·f[k]·t + φ[k])     <span class="c"># traveling multisine</span>
 p = ∏ i <span class="k">in</span> <span class="n">1..n</span> : (<span class="n">1</span> - r[i])
 </code></pre>
 </div>
 <p>ASCII: <code>x = sum(A[k]*cos(...) for k in 0..K-1)</code>. Both forms build the same fused reduction (§41.3); the multisine in <code>catalog/qu_multisine.qu</code> is one <code>∑</code>.</p>
 <p><strong>Integral</strong> (numerical quadrature):</p>
-<div class="example"><pre class="hl"><code>E = ∫ <span class="f">x</span>(t)² dt  from <span class="n">0</span> <span class="k">to</span> T            <span class="c"># energy of a signal</span>
-q = ∫ f dμ      over region            <span class="c"># general measure form</span>
+<div class="example"><pre class="hl"><code>E = ∫ <span class="f">x</span>(t)² dt  from <span class="n">0</span> <span class="k">to</span> T            <span class="c"># energy of a signal</span>
+q = ∫ f dμ      over region            <span class="c"># general measure form</span>
 </code></pre>
 </div>
 <p>ASCII: <code>E = integral(x(t)^2, t, 0, T)</code>. The method (<code>trapz</code>, <code>simpson</code>, adaptive) is selectable; default is documented and deterministic.</p>
 <p><strong>Derivative and gradient</strong> (automatic differentiation, §38):</p>
-<div class="example"><pre class="hl"><code>g  = ∂f/∂x  at x0                       <span class="c"># scalar derivative via autodiff</span>
-J  = ∂y/∂x                              <span class="c"># Jacobian when y, x are vectors</span>
-gr = ∇ loss                            <span class="c"># gradient of a scalar field</span>
+<div class="example"><pre class="hl"><code>g  = ∂f/∂x  at x0                       <span class="c"># scalar derivative via autodiff</span>
+J  = ∂y/∂x                              <span class="c"># Jacobian when y, x are vectors</span>
+gr = ∇ loss                            <span class="c"># gradient of a scalar field</span>
 </code></pre>
 </div>
 <p>ASCII: <code>g = deriv(f, x) at x0</code>, <code>gr = grad(loss)</code>. These reuse the reverse/forward autodiff of §38 — <code>∇</code> is literally <code>grad</code>, so notation and machinery are the same thing.</p>
 <h3>42.5 Chained comparisons and set-builder</h3>
 <p><strong>Chained comparison</strong> reads as in mathematics and evaluates each neighbor once:</p>
-<div class="example"><pre class="hl"><code><span class="k">if</span> <span class="n">0</span> ≤ i &lt; N <span class="k">then</span> ...                   <span class="c"># 0 &lt;= i and i &lt; N</span>
+<div class="example"><pre class="hl"><code><span class="k">if</span> <span class="n">0</span> ≤ i &lt; N <span class="k">then</span> ...                   <span class="c"># 0 &lt;= i and i &lt; N</span>
 valid = a &lt; b ≤ c
 </code></pre>
 </div>
@@ -1983,8 +1959,8 @@ evens = { <span class="n">2k</span> <span class="k">for</span> k <span class="k"
 <p>Exact autodiff is for closed forms and learning (a loss, a transfer function you wrote as <code>:=</code>). Finite differences are for measured data where no closed form exists — the derivative of a battery's measured terminal voltage, <code>dV/dt</code>. Both respect the sampling contract (§41.2) and units (§42.2): the derivative of a <code>[V]</code> signal sampled in <code>[s]</code> is a <code>[V/s]</code> signal, and the integral of an <code>[A]</code> signal over <code>[s]</code> is <code>[A·s] = [C]</code>.</p>
 <h3>43.1 Successive differences vs the numerical derivative</h3>
 <p>Two different operations that MATLAB unfortunately spells the same way; Qu keeps them apart.</p>
-<div class="example"><pre class="hl"><code>Δx = <span class="f">differences</span>(x)      <span class="c"># raw successive differences x[k+1]-x[k]; length N-1</span>
-g  = <span class="f">diff</span>(x, dx)         <span class="c"># numerical DERIVATIVE dx-scaled; same length, edge-aware</span>
+<div class="example"><pre class="hl"><code>Δx = <span class="f">differences</span>(x)      <span class="c"># raw successive differences x[k+1]-x[k]; length N-1</span>
+g  = <span class="f">diff</span>(x, dx)         <span class="c"># numerical DERIVATIVE dx-scaled; same length, edge-aware</span>
 </code></pre>
 </div>
 <p><code>differences</code> (ASCII alias for <code>Δ</code>) is the plain first-difference of §23. <code>diff</code> is the estimated derivative <code>dx/dt</code>, scaled by the spacing and corrected at the ends so the result keeps the signal's length and axis.</p>
@@ -1996,12 +1972,12 @@ g  = <span class="f">diff</span>(x, dx)         <span class="c"># numerical DERI
 <tr><td><code>backward</code></td><td><code>(f[k] − f[k−1]) / h</code></td><td>O(h)</td><td>biased left; causal — usable in real time</td></tr>
 <tr><td><code>central</code></td><td><code>(f[k+1] − f[k−1]) / (2h)</code></td><td>O(h²)</td><td>default; symmetric, most accurate</td></tr>
 </table></div>
-<div class="example"><pre class="hl"><code>g = <span class="f">diff</span>(y, dx)                       <span class="c"># central, first derivative</span>
-g = <span class="f">diff</span>(y, dx, <span class="a">scheme</span>=forward)       <span class="c"># keyword form</span>
-g = diff backward y <span class="k">by</span> dx             <span class="c"># command form (scheme as modifier)</span>
+<div class="example"><pre class="hl"><code>g = <span class="f">diff</span>(y, dx)                       <span class="c"># central, first derivative</span>
+g = <span class="f">diff</span>(y, dx, <span class="a">scheme</span>=forward)       <span class="c"># keyword form</span>
+g = diff backward y <span class="k">by</span> dx             <span class="c"># command form (scheme as modifier)</span>
 
-<span class="c"># on a signal, spacing comes from x.Fs and units propagate:</span>
-dvdt = <span class="f">diff</span>(v)                        <span class="c"># v is a signal [V] -&gt; dvdt is [V/s]</span>
+<span class="c"># on a signal, spacing comes from x.Fs and units propagate:</span>
+dvdt = <span class="f">diff</span>(v)                        <span class="c"># v is a signal [V] -&gt; dvdt is [V/s]</span>
 </code></pre>
 </div>
 <p>Details.</p>
@@ -2009,27 +1985,27 @@ dvdt = <span class="f">diff</span>(v)                        <span class="c"># v
 <h3>43.3 The <code>df/dx</code> notation and how dispatch chooses</h3>
 <p>The mathematical forms <code>df/dx</code>, <code>d²f/dx²</code>, and <code>∂f/∂x</code> are all accepted. Which machinery runs is decided by <strong>what </strong><code>f</code> is<strong> (§41.3 dispatch):</strong></p>
 <div class="example"><pre class="hl"><code><span class="f">f</span>(x) := <span class="f">sin</span>(x)
-g = df/dx           at x0        <span class="c"># f is a definition -&gt; EXACT autodiff (§38)</span>
+g = df/dx           at x0        <span class="c"># f is a definition -&gt; EXACT autodiff (§38)</span>
 
 v = <span class="f">signal</span>(data, <span class="a">Fs</span>=<span class="n">5e3</span>)
-a = dv/dt                        <span class="c"># v is sampled data -&gt; finite difference (central)</span>
+a = dv/dt                        <span class="c"># v is sampled data -&gt; finite difference (central)</span>
 </code></pre>
 </div>
 <p>Rule: the derivative of a *callable definition or expression graph* is exact autodiff; the derivative of a *materialized array or signal* is a finite difference (default <code>central</code>). <code>∂</code> and <code>∇</code> always mean autodiff. <code>explain dv/dt</code> reports which family was chosen, the scheme, order, spacing source, and edge handling. If a value is genuinely ambiguous, the compiler asks for <code>grad(...)</code> or <code>diff(...)</code> explicitly rather than guessing.</p>
 <h3>43.4 Integration: <code>int</code> and <code>cumint</code></h3>
 <p><code>int</code> is reclaimed from the integer-type alias (§8) so integration reads as mathematics. Two forms, mirroring differentiation:</p>
-<div class="example"><pre class="hl"><code>S   = <span class="f">int</span>(y, dx)                 <span class="c"># definite: total area (a scalar)</span>
-Y   = <span class="f">cumint</span>(y, dx)              <span class="c"># cumulative: running integral (same length)</span>
+<div class="example"><pre class="hl"><code>S   = <span class="f">int</span>(y, dx)                 <span class="c"># definite: total area (a scalar)</span>
+Y   = <span class="f">cumint</span>(y, dx)              <span class="c"># cumulative: running integral (same length)</span>
 
-<span class="c"># function form with limits (adaptive quadrature):</span>
-E   = ∫ <span class="f">x</span>(t)² dt from <span class="n">0</span> <span class="k">to</span> T     <span class="c"># ascii: E = int(x(t)^2, t, 0, T)</span>
+<span class="c"># function form with limits (adaptive quadrature):</span>
+E   = ∫ <span class="f">x</span>(t)² dt from <span class="n">0</span> <span class="k">to</span> T     <span class="c"># ascii: E = int(x(t)^2, t, 0, T)</span>
 </code></pre>
 </div>
 <p>Methods: <code>trapz</code> (default for sampled data), <code>simpson</code>, <code>romberg</code>, and an adaptive <code>quad</code> for callable integrands. Select with <code>method=</code>; the default is documented and deterministic (§21). On a <code>signal</code>, spacing is <code>dt</code> and units integrate — this is exactly the battery state-of-charge computation, now dimensionally checked:</p>
-<div class="example"><pre class="hl"><code><span class="c"># the battery-impedance workload wrote:  soc = cumsum(i_exc) * dt / 3600</span>
-<span class="c"># with units + calculus it becomes, checked as charge:</span>
-q   = <span class="f">cumint</span>(i)                  <span class="c"># i is [A], dt from Fs  -&gt;  q is [A·s] = [C]</span>
-soc = q <span class="k">in</span> Ah                    <span class="c"># convert C -&gt; Ah</span>
+<div class="example"><pre class="hl"><code><span class="c"># the battery-impedance workload wrote:  soc = cumsum(i_exc) * dt / 3600</span>
+<span class="c"># with units + calculus it becomes, checked as charge:</span>
+q   = <span class="f">cumint</span>(i)                  <span class="c"># i is [A], dt from Fs  -&gt;  q is [A·s] = [C]</span>
+soc = q <span class="k">in</span> Ah                    <span class="c"># convert C -&gt; Ah</span>
 </code></pre>
 </div>
 <p><code>diff</code> and <code>int</code> are numerical inverses to the stated accuracy: <code>int(diff(y, dx), dx) ≈ y − y[0]</code>.</p>
@@ -2076,7 +2052,7 @@ soc = q <span class="k">in</span> Ah                    <span class="c"># conver
 <h3>44.4 Masked array assignment: <code>where</code> / <code>elsewhere</code></h3>
 <p>FORTRAN's <code>WHERE</code> construct assigns to array elements selected by a mask. Qu adopts it as the readable form of masked assignment (it lowers to the logical-indexing assignment of §15):</p>
 <div class="example"><pre class="hl"><code>where x &lt; <span class="n">0</span>
-    y = <span class="n">0</span>                      <span class="c"># only where the mask is true</span>
+    y = <span class="n">0</span>                      <span class="c"># only where the mask is true</span>
 elsewhere
     y = <span class="f">sqrt</span>(x)
 <span class="k">end</span> where
@@ -2089,8 +2065,8 @@ elsewhere
     …
 <span class="k">end</span> <span class="k">function</span>
 
-<span class="f">butter</span>(sig)                 <span class="c"># uses all defaults</span>
-<span class="f">butter</span>(sig, <span class="n">2</span>, <span class="n">500</span>)         <span class="c"># positional overrides, left to right</span>
+<span class="f">butter</span>(sig)                 <span class="c"># uses all defaults</span>
+<span class="f">butter</span>(sig, <span class="n">2</span>, <span class="n">500</span>)         <span class="c"># positional overrides, left to right</span>
 </code></pre>
 </div>
 <p>A parameter with <code>= value</code> is optional; once one parameter has a default, every parameter after it must too. The default expression is re-evaluated fresh on every call (not computed once at definition time), and may refer to an earlier parameter (<code>function f(x, y = x * 2)</code> works). Composes with multiple dispatch — arity checking becomes a <code>[required, total]</code> range.</p>
@@ -2099,20 +2075,20 @@ elsewhere
 <p><strong></strong><code>pure</code>/<code>elemental</code> attributes — not supported.<strong> Neither keyword exists in the lexer at all; </strong><code>pure function f(x) ... end function</code> is not recognized syntax.</p>
 <p><strong>Anonymous functions — not supported; use the real one-line form instead.</strong> <code>sq = (x) -&gt; x^2</code> is a parse error: <code>-&gt;</code> is exclusively the reshape operator (<code>expr -&gt; (rows, cols)</code>, sugar for <code>reshape(expr, rows, cols)</code> — §12 of <code>docs/qu-language-tour.md</code>), and after it the parser expects a parenthesized dims tuple, not an arbitrary expression body — the same token cannot mean both things. There is no lambda-literal syntax today. The real, existing, verified equivalent for a short named function is the one-line <code>:=</code> form:</p>
 <div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x^<span class="n">2</span>
-<span class="f">print</span>(<span class="f">square</span>(<span class="n">5</span>))   <span class="c"># 25</span>
+<span class="f">print</span>(<span class="f">square</span>(<span class="n">5</span>))   <span class="c"># 25</span>
 </code></pre>
 </div>
 <p>This already works exactly like a lambda assigned to a name — it just requires a name, there is no anonymous form. <code>map</code>/<code>reduce</code>/<code>filter</code> take the function's name <strong>as a string</strong> (<code>map("square", xs)</code>, not <code>map(square, xs)</code> — matches the same by-name convention the job-queue system's <code>q.push("fnName", ...)</code> uses, §15 of <code>docs/qu-language-tour.md</code>), and only a function YOU defined, not a builtin:</p>
 <div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x^<span class="n">2</span>
-<span class="f">print</span>(<span class="f">map</span>(<span class="s">"square"</span>, [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>]))   <span class="c"># (1, 4, 9, 16)</span>
+<span class="f">print</span>(<span class="f">map</span>(<span class="s">"square"</span>, [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>,<span class="n">4</span>]))   <span class="c"># (1, 4, 9, 16)</span>
 </code></pre>
 </div>
 <h3>44.6 Utility statements: <code>swap</code>, <code>restore</code>, <code>with</code></h3>
-<div class="example"><pre class="hl"><code>swap a, b                        <span class="c"># BASIC SWAP: exchange two bindings</span>
-restore                          <span class="c"># BASIC RESTORE: rewind the data/read cursor (§18.A)</span>
-restore label                    <span class="c"># rewind to a labeled data block</span>
+<div class="example"><pre class="hl"><code>swap a, b                        <span class="c"># BASIC SWAP: exchange two bindings</span>
+restore                          <span class="c"># BASIC RESTORE: rewind the data/read cursor (§18.A)</span>
+restore label                    <span class="c"># rewind to a labeled data block</span>
 
-<span class="k">with</span> measurement                 <span class="c"># VB6 With: member-access shorthand</span>
+<span class="k">with</span> measurement                 <span class="c"># VB6 With: member-access shorthand</span>
     .voltage = .voltage - offset
     .flagged = .voltage &gt; vmax
 <span class="k">end</span> <span class="k">with</span>
@@ -2143,7 +2119,7 @@ split(s,sep), join(parts,sep), val(s), str(x), format(x,spec)
 <div class="example"><pre class="hl"><code>print using <span class="s">"Z = ###.## ohm  at ##.# Hz"</span>; <span class="f">abs</span>(Z), f
 s = <span class="f">sprintf</span>(<span class="s">"%.3f %+.2e"</span>, cf, err)
 <span class="f">disp</span>(summary)
-format long                      <span class="c"># display precision: long | short | engineering</span>
+format long                      <span class="c"># display precision: long | short | engineering</span>
 </code></pre>
 </div>
 <p>These interoperate with the <code>{expr:spec}</code> interpolation of §7.C, which remains the recommended default; <code>print using</code>/<code>sprintf</code> exist for column-aligned reports and for readers coming from BASIC and MATLAB.</p>
@@ -2157,11 +2133,11 @@ format long                      <span class="c"># display precision: long | sho
 <h3>47.1 Timers and periodic execution</h3>
 <p><code>every</code> runs a body on a fixed period; <code>after</code> runs it once, later. Both return a timer handle that can be stopped. The period is drift-corrected, so <code>every 1 ms</code> stays on a 1 ms grid rather than accumulating error.</p>
 <div class="example"><pre class="hl"><code>acq = every <span class="n">1</span> ms <span class="k">do</span>
-    rb.<span class="f">push</span>(<span class="f">read_adc</span>())          <span class="c"># sample on a real-time clock</span>
+    rb.<span class="f">push</span>(<span class="f">read_adc</span>())          <span class="c"># sample on a real-time clock</span>
 <span class="k">end</span>
 
 blink = every <span class="n">0.5</span> s <span class="k">do</span> led = <span class="k">not</span> led <span class="k">end</span>
-after <span class="n">10</span> s <span class="k">do</span> stop acq <span class="k">end</span>       <span class="c"># one-shot: stop acquisition after 10 s</span>
+after <span class="n">10</span> s <span class="k">do</span> stop acq <span class="k">end</span>       <span class="c"># one-shot: stop acquisition after 10 s</span>
 </code></pre>
 </div>
 <p><code>every N do … end</code>, <code>after N do … end</code>, and <code>at t do … end</code> are the three forms; <code>stop handle</code> cancels. Timers are scheduled cooperatively and are deterministic in headless runs.</p>
@@ -2177,24 +2153,24 @@ results = await <span class="f">all</span>(<span class="f">map</span>(spawn_fft,
 <h3>47.3 Channels and the instruction queue</h3>
 <p>A <code>channel</code> connects producers and consumers; a <code>queue</code> of <strong>deferred instructions</strong> (thunks) is executed by a worker pool — a job/instruction queue. This is the same scheduler that fuses <code>:=</code> dataflow graphs (§11), exposed directly.</p>
 <div class="example"><pre class="hl"><code>ch = <span class="f">channel</span>(<span class="a">capacity</span> = <span class="n">1024</span>)
-spawn <span class="f">producer</span>(ch)               <span class="c"># ch.send(x)</span>
-spawn <span class="f">consumer</span>(ch)               <span class="c"># for x in ch: process(x)</span>
+spawn <span class="f">producer</span>(ch)               <span class="c"># ch.send(x)</span>
+spawn <span class="f">consumer</span>(ch)               <span class="c"># for x in ch: process(x)</span>
 
 jobs = <span class="f">queue</span>()
-jobs.<span class="f">push</span>(() -&gt; <span class="f">process</span>(chunk_a))    <span class="c"># queue instructions (thunks)</span>
+jobs.<span class="f">push</span>(() -&gt; <span class="f">process</span>(chunk_a))    <span class="c"># queue instructions (thunks)</span>
 jobs.<span class="f">push</span>(() -&gt; <span class="f">process</span>(chunk_b))
-run jobs on <span class="f">pool</span>(<span class="n">8</span>)                  <span class="c"># execute the instruction queue across 8 workers</span>
+run jobs on <span class="f">pool</span>(<span class="n">8</span>)                  <span class="c"># execute the instruction queue across 8 workers</span>
 </code></pre>
 </div>
 <p><code>run … on pool(n)</code> executes queued instructions in order or by <code>priority=</code>; a <code>pipeline</code> (§37.4) is the staged form for producer→transform→consumer flows.</p>
 <p><strong>Resource-aware pools.</strong> A pool declares the *resources* available and a dispatch policy, so a queue of heterogeneous tasks is placed across devices with a capacity cap per resource — e.g. three CPU workers and one GPU:</p>
-<div class="example"><pre class="hl"><code>pool workers <span class="k">with</span> cpu = <span class="n">3</span>, gpu = <span class="n">1</span>          <span class="c"># 3 CPU slots, 1 GPU slot</span>
-    policy = round_robin                     <span class="c"># round_robin | priority | fair | affinity</span>
-    on full = queue                          <span class="c"># queue | reject | spill_to(cpu)</span>
+<div class="example"><pre class="hl"><code>pool workers <span class="k">with</span> cpu = <span class="n">3</span>, gpu = <span class="n">1</span>          <span class="c"># 3 CPU slots, 1 GPU slot</span>
+    policy = round_robin                     <span class="c"># round_robin | priority | fair | affinity</span>
+    on full = queue                          <span class="c"># queue | reject | spill_to(cpu)</span>
 <span class="k">end</span> pool
 
-run jobs on workers                          <span class="c"># tasks placed by resource + policy</span>
-job = submit workers: <span class="f">fft</span>(x) on gpu          <span class="c"># request a specific resource</span>
+run jobs on workers                          <span class="c"># tasks placed by resource + policy</span>
+job = submit workers: <span class="f">fft</span>(x) on gpu          <span class="c"># request a specific resource</span>
 </code></pre>
 </div>
 <p>A task declares the resource it needs (<code>on gpu</code>, <code>on cpu</code>, or <code>any</code>); the scheduler admits at most the declared capacity per resource and round-robins (or prioritizes) the rest, spilling GPU overflow to CPU when <code>spill_to</code> is set. <code>workers.status</code> reports queue depth and per-resource utilization, and <code>explain</code> shows the placement (§47.9). This is the one scheduler (§47.9) given explicit resource limits.</p>
@@ -2212,29 +2188,29 @@ dict()        key -&gt; value map                get, set, keys, values
 <p><code>ring</code> is the streaming-DSP workhorse — a fixed live window over an incoming signal:</p>
 <div class="example"><pre class="hl"><code>rb = <span class="f">ring</span>(<span class="n">1024</span>)
 every <span class="n">1</span> ms <span class="k">do</span> rb.<span class="f">push</span>(<span class="f">read_adc</span>()) <span class="k">end</span>
-X = <span class="f">fft</span>(rb.window <span class="k">as</span> <span class="f">signal</span>(<span class="a">Fs</span> = <span class="n">1</span> kHz))    <span class="c"># spectrum of the latest 1024 samples</span>
+X = <span class="f">fft</span>(rb.window <span class="k">as</span> <span class="f">signal</span>(<span class="a">Fs</span> = <span class="n">1</span> kHz))    <span class="c"># spectrum of the latest 1024 samples</span>
 </code></pre>
 </div>
 <h3>47.5 Fast and advanced I/O — memory-mapped, streaming, intuitive</h3>
 <p>Large measurement files are handled without loading them. <strong>Memory-mapped</strong> arrays are zero-copy and out-of-core; writes go through to disk. Streaming iterators walk files bigger than RAM in chunks.</p>
-<div class="example"><pre class="hl"><code>big = <span class="f">mmap</span>(<span class="s">"scope_2022.bin"</span>, <span class="a">shape</span>=(N,), <span class="a">dtype</span>=int16)   <span class="c"># 40 GB file, nothing loaded</span>
+<div class="example"><pre class="hl"><code>big = <span class="f">mmap</span>(<span class="s">"scope_2022.bin"</span>, <span class="a">shape</span>=(N,), <span class="a">dtype</span>=int16)   <span class="c"># 40 GB file, nothing loaded</span>
 peak = <span class="n">0</span>
-<span class="k">for</span> chunk <span class="k">in</span> <span class="f">stream</span>(big, <span class="a">size</span> = <span class="n">1e6</span>)                    <span class="c"># chunked, out-of-core</span>
+<span class="k">for</span> chunk <span class="k">in</span> <span class="f">stream</span>(big, <span class="a">size</span> = <span class="n">1e6</span>)                    <span class="c"># chunked, out-of-core</span>
     peak = <span class="f">max</span>(peak, <span class="f">max</span>(<span class="f">abs</span>(chunk)))
 <span class="k">end</span> <span class="k">for</span>
 
-x = <span class="f">open_signal</span>(<span class="s">"meas.wav"</span>)      <span class="c"># intuitive: type + Fs inferred (§41.2)</span>
-<span class="f">save</span>(<span class="s">"out.npz"</span>, results)         <span class="c"># format from extension; async under the hood</span>
+x = <span class="f">open_signal</span>(<span class="s">"meas.wav"</span>)      <span class="c"># intuitive: type + Fs inferred (§41.2)</span>
+<span class="f">save</span>(<span class="s">"out.npz"</span>, results)         <span class="c"># format from extension; async under the hood</span>
 </code></pre>
 </div>
 <p>The high-level <code>load</code>/<code>save</code>/<code>open_signal</code> layer is intuitive; underneath, I/O is zero-copy and asynchronous where the platform allows, and <code>explain</code> reports any copy or format conversion (§22 honesty). Async I/O composes with <code>await</code> (§47.2).</p>
 <h3>47.6 SIMD and explicit vectorization</h3>
 <p>Automatic fusion and vectorization are the default (§41.3). <code>simd</code> gives explicit, guaranteed control for hot kernels — a data-parallel loop with no cross-lane dependencies, mapped to CPU SIMD (AVX/NEON) or GPU lanes.</p>
-<div class="example"><pre class="hl"><code>simd <span class="k">for</span> i <span class="k">in</span> <span class="n">0..N</span>-<span class="n">1</span>             <span class="c"># vectorized across lanes</span>
+<div class="example"><pre class="hl"><code>simd <span class="k">for</span> i <span class="k">in</span> <span class="n">0..N</span>-<span class="n">1</span>             <span class="c"># vectorized across lanes</span>
     y[i] = a * x[i] + b
 <span class="k">end</span>
 
-<span class="f">simd</span>(<span class="a">lanes</span> = <span class="n">8</span>, <span class="a">align</span> = <span class="n">32</span>)      <span class="c"># optional width/alignment hints</span>
+<span class="f">simd</span>(<span class="a">lanes</span> = <span class="n">8</span>, <span class="a">align</span> = <span class="n">32</span>)      <span class="c"># optional width/alignment hints</span>
     z = <span class="f">fma</span>(a, x, b)
 <span class="k">end</span> simd
 </code></pre>
@@ -2248,7 +2224,7 @@ x = <span class="f">open_signal</span>(<span class="s">"meas.wav"</span>)      <
         <span class="f">size</span>(<span class="n">900</span>, <span class="n">400</span>)
         rb = <span class="f">ring</span>(<span class="n">1024</span>)
     <span class="k">end</span>
-    on draw                       <span class="c"># called every frame</span>
+    on draw                       <span class="c"># called every frame</span>
         rb.<span class="f">push</span>(<span class="f">read_adc</span>())
         <span class="f">background</span>(<span class="s">"surface"</span>)
         <span class="f">plot</span>(rb.window <span class="k">as</span> <span class="f">signal</span>(<span class="a">Fs</span> = <span class="n">1</span> kHz))
@@ -2272,7 +2248,7 @@ run sketch scope
             last = <span class="f">run_sweep</span>(fmin, fmax)
         <span class="k">end</span>
     <span class="k">end</span>
-    plot nyquist of last          <span class="c"># a plot is a live widget</span>
+    plot nyquist of last          <span class="c"># a plot is a live widget</span>
     meter soc label = <span class="s">"SoC"</span>
 <span class="k">end</span> window
 </code></pre>
@@ -2285,24 +2261,24 @@ run sketch scope
 <h2 id="s2794">57. State Estimation and Filtering</h2>
 <p>Estimating hidden state from noisy measurements — target tracking, sensor fusion, navigation, SoC estimation — is core to signal processing and to the sensor work Qu is built for. Qu ships the standard estimators under one <strong>predict / update</strong> interface (mirroring fit/predict for models, §37.2), and every one is animatable (§39) because its state and covariance are ordinary arrays.</p>
 <h3>57.1 The Kalman filter (linear)</h3>
-<div class="example"><pre class="hl"><code>kf = <span class="f">kalman</span>(<span class="a">F</span> = A, <span class="a">H</span> = C, <span class="a">Q</span> = q, <span class="a">R</span> = r, <span class="a">x0</span> = x0, <span class="a">P0</span> = P0)   <span class="c"># state/measurement + noises</span>
+<div class="example"><pre class="hl"><code>kf = <span class="f">kalman</span>(<span class="a">F</span> = A, <span class="a">H</span> = C, <span class="a">Q</span> = q, <span class="a">R</span> = r, <span class="a">x0</span> = x0, <span class="a">P0</span> = P0)   <span class="c"># state/measurement + noises</span>
 <span class="k">for</span> z <span class="k">in</span> measurements
-    kf.<span class="f">predict</span>()                       <span class="c"># time update:  x &lt;- F x,  P &lt;- F P F' + Q</span>
-    kf.<span class="f">update</span>(z)                       <span class="c"># measurement update with gain K</span>
-    est = kf.x ; unc = kf.P            <span class="c"># filtered state and covariance</span>
+    kf.<span class="f">predict</span>()                       <span class="c"># time update:  x &lt;- F x,  P &lt;- F P F' + Q</span>
+    kf.<span class="f">update</span>(z)                       <span class="c"># measurement update with gain K</span>
+    est = kf.x ; unc = kf.P            <span class="c"># filtered state and covariance</span>
 <span class="k">end</span>
 </code></pre>
 </div>
 <h3>57.2 Nonlinear: EKF and UKF</h3>
-<div class="example"><pre class="hl"><code>ekf = <span class="f">ekf</span>(<span class="a">f</span> = motion, <span class="a">h</span> = sensor, <span class="a">Q</span> = q, <span class="a">R</span> = r)   <span class="c"># Jacobians via autodiff (§38)</span>
-ukf = <span class="f">ukf</span>(<span class="a">f</span> = motion, <span class="a">h</span> = sensor, <span class="a">Q</span> = q, <span class="a">R</span> = r)   <span class="c"># sigma-point (unscented) transform</span>
+<div class="example"><pre class="hl"><code>ekf = <span class="f">ekf</span>(<span class="a">f</span> = motion, <span class="a">h</span> = sensor, <span class="a">Q</span> = q, <span class="a">R</span> = r)   <span class="c"># Jacobians via autodiff (§38)</span>
+ukf = <span class="f">ukf</span>(<span class="a">f</span> = motion, <span class="a">h</span> = sensor, <span class="a">Q</span> = q, <span class="a">R</span> = r)   <span class="c"># sigma-point (unscented) transform</span>
 </code></pre>
 </div>
 <p>Same <code>predict</code>/<code>update</code>; the EKF linearizes with automatic differentiation (no hand Jacobians), the UKF uses sigma points for stronger nonlinearity.</p>
 <h3>57.3 The particle filter</h3>
 <div class="example"><pre class="hl"><code>pf = <span class="f">particle_filter</span>(<span class="a">transition</span> = f, <span class="a">likelihood</span> = g, <span class="a">n</span> = <span class="n">1000</span>)
-pf.<span class="f">predict</span>() ; pf.<span class="f">update</span>(z) ; pf.<span class="f">resample</span>()     <span class="c"># weighted particles</span>
-est = pf.estimate ; cloud = pf.particles         <span class="c"># non-Gaussian / multimodal</span>
+pf.<span class="f">predict</span>() ; pf.<span class="f">update</span>(z) ; pf.<span class="f">resample</span>()     <span class="c"># weighted particles</span>
+est = pf.estimate ; cloud = pf.particles         <span class="c"># non-Gaussian / multimodal</span>
 </code></pre>
 </div>
 <h3>57.4 Others and smoothing</h3>
@@ -2310,11 +2286,11 @@ est = pf.estimate ; cloud = pf.particles         <span class="c"># non-Gaussian 
 <h3>57.5 Animated tracking example</h3>
 <div class="example"><pre class="hl"><code>kf = <span class="f">kalman</span>(<span class="a">F</span> = <span class="f">cv_model</span>(dt), <span class="a">H</span> = pos_only, <span class="a">Q</span> = q, <span class="a">R</span> = r)
 animate t from <span class="n">0</span> <span class="k">to</span> <span class="n">10</span> fps <span class="n">30</span>
-    z = <span class="f">noisy_position</span>(<span class="f">true_path</span>(t))     <span class="c"># a noisy measurement</span>
+    z = <span class="f">noisy_position</span>(<span class="f">true_path</span>(t))     <span class="c"># a noisy measurement</span>
     kf.<span class="f">predict</span>() ; kf.<span class="f">update</span>(z)
-    <span class="f">scatter</span>(z, <span class="a">color</span> = <span class="s">"muted"</span>)          <span class="c"># measurements</span>
-    <span class="f">plot</span>(kf.trace, <span class="a">color</span> = <span class="s">"blue"</span>)       <span class="c"># KF estimate</span>
-    <span class="f">ellipse</span>(kf.x, kf.P, <span class="a">conf</span> = <span class="n">0.95</span>)     <span class="c"># 95% uncertainty ellipse</span>
+    <span class="f">scatter</span>(z, <span class="a">color</span> = <span class="s">"muted"</span>)          <span class="c"># measurements</span>
+    <span class="f">plot</span>(kf.trace, <span class="a">color</span> = <span class="s">"blue"</span>)       <span class="c"># KF estimate</span>
+    <span class="f">ellipse</span>(kf.x, kf.P, <span class="a">conf</span> = <span class="n">0.95</span>)     <span class="c"># 95% uncertainty ellipse</span>
     <span class="f">title</span>(<span class="s">"t = {t:0.1f} s"</span>)
 <span class="k">end</span> animate
 record animation <span class="k">to</span> <span class="s">"tracking.mp4"</span> fps = <span class="n">30</span>
@@ -2360,7 +2336,7 @@ show plot
 <p>Ranges are inclusive everywhere -- <code>to</code>, the compact <code>a:s:b</code> literal, and bracket slices alike -- because they name the last value rather than a boundary. The language had the distinction once, with slices half-open, and it cost more than it bought: the same <code>a:b</code> meant different things as a value and as an index. Indexing is zero-based in base Qu; MATLAB compatibility is a visible module policy, never an inference.</p>
 <h3>58.2 Progressive disclosure</h3>
 <p>Features are taught in three layers:</p>
-<p>1. <strong>Familiar scripting:</strong> assignment, expressions, calls, arrays, control flow, functions, files, and plots. 2. <strong>Scientific correctness:</strong> sampled signals, physical units, shape contracts, frames, models, and <code>|&gt;</code> pipelines. 3. <strong>Expert control:</strong> <code>:=</code> deferred graphs, <code>g: x -&gt; y</code> named-output mappings, dispatch, schedules, explicit devices, distribution, and real-time policy.</p>
+<p>1. <strong>Familiar scripting:</strong> assignment, expressions, calls, arrays, control flow, functions, files, and plots. 2. <strong>Scientific correctness:</strong> sampled signals, physical units, shape contracts, frames, models, and <code>|&gt;</code> pipelines. 3. <strong>Expert control:</strong> <code>:=</code> deferred graphs, dispatch, schedules, explicit devices, distribution, and real-time policy.</p>
 <p>Layer 3 can optimize or constrain a Layer 1 program, but cannot silently change its numerical meaning. A tutorial must not require Layer 3 syntax merely to load, filter, transform, fit, plot, or export data.</p>
 <h3>58.3 Functions: familiar default, mathematical options</h3>
 <p>The introductory form is the explicit block:</p>
@@ -2369,7 +2345,7 @@ show plot
 <span class="k">end</span> <span class="k">function</span>
 </code></pre>
 </div>
-<p>After ordinary functions are understood, <code>crest_factor(x) := ...</code> introduces a one-expression mathematical definition (§41.1). The named-output mapping form <code>g: x -&gt; y … end</code> (§17.1) is an advanced equation-writing tool. It is valid Qu, but it is not prerequisite knowledge and should not be mixed into beginner examples without explanation. Formatters never rewrite one function form into another.</p>
+<p>After ordinary functions are understood, <code>crest_factor(x) := ...</code> introduces a one-expression mathematical definition (§41.1). These are the only two function forms; a third "mapping form" (<code>g: x -&gt; y … end</code>) was documented at 0.8 but never implemented, and is dropped (§34.C.2). Formatters never rewrite one function form into another.</p>
 <h3>58.4 One call grammar</h3>
 <p>Ordinary functions always use parentheses: <code>plot(x, y)</code>, <code>text(x, y, label)</code>, and <code>filter(x, cutoff=1 kHz)</code>. The proposed general command-call form <code>plot x, y</code> is rejected (Appendix X.7): it creates a second grammar for calls and becomes harder to scan when expressions or keyword arguments grow.</p>
 <p>A small closed set of declarative commands remains because its operands are modes, not arbitrary function arguments: <code>grid on</code>, <code>hold off</code>, <code>box on</code>, <code>show plot</code>. New libraries cannot create new parenthesis-free call syntax.</p>
@@ -2394,9 +2370,6 @@ errors = <span class="f">tail</span>(<span class="s">"run.log"</span>, <span cla
 f(x) := x^2
 Y = f(X)
 
-g: x -&gt; y
-    y = 2*x + 1
-
 Z = f(X)
 
 ez
@@ -2412,8 +2385,8 @@ ze
 <p><code>Redim X as ...</code> revives Visual Basic's <code>Redim</code>/<code>Redim Preserve</code>. The novel part is <code>keep = {1, 2, ..., K}</code>: an initializer that seeds the freshly-shaped array, with <code>{...}</code> as a set/list literal that admits the <code>1, 2, ..., K</code> comma-range from §12. <code>keep</code> echoes <code>Redim Preserve</code> (retain contents across a reshape). <strong>Tension:</strong> §8's post-assignment <code>as</code> contract deliberately refuses silent reshape; <code>Redim</code> would be the *explicit* reshape verb the spec already gestures at with <code>x = x as reshape(...)</code>. Two ways to reshape is one too many. <strong>Lean:</strong> if adopted, <code>Redim</code> becomes *the* explicit reshape/reallocate statement and <code>reshape(...)</code> is its functional form; <code>{...}</code> list literals are worth having regardless.</p>
 <h3>X.3 <code>:=</code> as definition, not just deferral</h3>
 <p><code>f(x) := x^2</code> uses <code>:=</code> to *define a function*. In 0.2, <code>:=</code> binds a deferred dataflow <strong>value</strong> (§11) and <code>def fn f(x) = x^2</code> defines a one-line function. The sketch unifies them: read <code>:=</code> as mathematics' "is defined as." A deferred value and a lazy function are then the same idea — a named rule the planner may fuse, inline, or evaluate on demand — and <code>f(x) := x^2</code> / <code>y := a*b</code> share one mental model. <strong>Tension:</strong> overloading <code>:=</code> blurs "lazy value" and "function"; parsing must distinguish <code>name(args) :=</code> (function) from <code>name :=</code> (value). <strong>Lean:</strong> the unification is genuinely elegant and mathematically honest; strongest candidate in this appendix for eventual promotion. <strong>Status: ADOPTED in 0.3 — promoted to §41.1 as the canonical function-definition form ("kind 1"). </strong><code>def fn</code> is retained as an accepted alias.<strong></strong></p>
-<h3>X.4 <code>g: x -&gt; y</code> with a named output — mapping definitions</h3>
-<p><code>g: x -&gt; y</code> then an indented body computing <code>y</code> defines a function the way a mathematician writes a map <code>g: x ↦ y</code>. The output variable is *named* (<code>y</code>), so the body reads as equations rather than as <code>return</code> statements — a strong fit for the "code should look like the math" pillar (§2). It generalizes to <code>h: (x, w) -&gt; (loss, grad)</code> for multiple named outputs. <strong>Status: ADOPTED in 0.8 — the "mapping form," specified in §17.1. It joins the one-line </strong><code>:=</code> (§41.1) and the block <code>function</code> as the third and final function form; each has a distinct, non-overlapping role (one-line rule / named-output map / full imperative), so no further function syntax will be added.<strong></strong></p>
+<h3>X.4 (removed) — named-output mapping form</h3>
+<p>This entry proposed <code>g: x -&gt; y</code> with an indented body computing <code>y</code>, generalizing to <code>h: (x, w) -&gt; (loss, grad)</code> for multiple named outputs, and its status line once read "ADOPTED in 0.8". It was never implemented in the parser or interpreter, and Ahmed ruled on 2026-09-17 that it is not needed. Removed; see the debate record at §34.C.2 for the full history.</p>
 <h3>X.5 <code>ez</code> / <code>ze</code> figure blocks — word-pair delimiters</h3>
 <p><code>ez ... ze</code> brackets a figure/plot block with a playful palindrome delimiter (BASIC spirit: a low-ceremony "draw everything between here and there"). It overlaps the declarative <code>plot { ... }</code> block (§18.C) and the <code>scene ... end scene</code> block (§39). <strong>Tension:</strong> the core uses <code>end &lt;kw&gt;</code> consistently; introducing a <code>ez</code>/<code>ze</code> pair breaks that regularity for cuteness. <strong>Lean:</strong> likely express the same intent as <code>figure ... end figure</code>; retain <code>ez</code>/<code>ze</code> only if a friendly one-word figure opener proves to matter for teaching/first-contact.</p>
 <h3>X.6 <code>.-</code> linespec and <code>text ... ; ...</code> annotations</h3>
@@ -2424,7 +2397,7 @@ ze
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

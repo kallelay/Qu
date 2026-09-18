@@ -84,42 +84,42 @@ matmul(A, B) = [58, 64; 139, 154]
 done -- for real GPU-vs-CPU timing comparisons, see benchmarks/multisine_acceleration/ and benchmarks/particle_filter_gpu/</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_gpu_matmul.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_gpu_matmul.qu -- explicit GPU matrix multiplication, with an honest</span>
-<span class="c"># CPU fallback when the GPU feature isn't compiled in.</span>
-<span class="c">#</span>
-<span class="c"># `gpu_matmul(A, B)` is only real when `qu-interp` is built with</span>
-<span class="c"># `--features gpu` (pulls in `qu-gpu`/wgpu, opt-in per IMPL.md's M6</span>
-<span class="c"># milestone). A default build's `gpu_matmul` arm just returns a clear</span>
-<span class="c"># error naming that requirement -- it does NOT silently fall back to CPU</span>
-<span class="c"># on its own, so this script does the fallback itself, via try/catch, and</span>
-<span class="c"># says out loud which path actually ran. That matters because this</span>
-<span class="c"># codebase has already MEASURED, not assumed, that GPU dispatch is not a</span>
-<span class="c"># universal win:</span>
-<span class="c">#   - `benchmarks/particle_filter_gpu/README.md`: a "tall and skinny"</span>
-<span class="c">#     (n, 4) x (4, 4) GEMM never wins on the GPU at ANY particle count</span>
-<span class="c">#     tested, up to 10 million particles -- the fixed per-call</span>
-<span class="c">#     upload/submit/readback overhead never amortizes for a workload this</span>
-<span class="c">#     thin, even well past the measured square-matmul crossover.</span>
-<span class="c">#   - `benchmarks/multisine_acceleration/README.md`: GPU dispatch only</span>
-<span class="c">#     wins for genuinely large, roughly SQUARE GEMM shapes (the process-</span>
-<span class="c">#     global crossover `gpu_probe` measures is `m=n=k` matmuls); thin or</span>
-<span class="c">#     small shapes lose to plain CPU `matmul` once transfer/setup overhead</span>
-<span class="c">#     is counted.</span>
-<span class="c"># So this demo runs a modest, clearly-labeled matrix multiply and reports</span>
-<span class="c"># whichever real result it could produce -- GPU if available, CPU</span>
-<span class="c"># `matmul` (the correctness-equivalent operation) if not -- rather than</span>
-<span class="c"># overclaiming a speedup that would only be real for a much bigger, more</span>
-<span class="c"># square-shaped problem than this small illustrative example.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   gpu_matmul(A, B)     -- explicit GPU dispatch, feature="gpu" only</span>
-<span class="c">#   matmul(A, B)          -- the CPU-equivalent operation, always available</span>
-<span class="c">#   try / catch err       -- graceful handling of the "feature not built" case</span>
-<span class="c">#   err.message            -- the caught error's text</span>
+<pre class="hl"><code><span class="c"># qu_gpu_matmul.qu -- explicit GPU matrix multiplication, with an honest</span>
+<span class="c"># CPU fallback when the GPU feature isn't compiled in.</span>
+<span class="c">#</span>
+<span class="c"># `gpu_matmul(A, B)` is only real when `qu-interp` is built with</span>
+<span class="c"># `--features gpu` (pulls in `qu-gpu`/wgpu, opt-in per IMPL.md's M6</span>
+<span class="c"># milestone). A default build's `gpu_matmul` arm just returns a clear</span>
+<span class="c"># error naming that requirement -- it does NOT silently fall back to CPU</span>
+<span class="c"># on its own, so this script does the fallback itself, via try/catch, and</span>
+<span class="c"># says out loud which path actually ran. That matters because this</span>
+<span class="c"># codebase has already MEASURED, not assumed, that GPU dispatch is not a</span>
+<span class="c"># universal win:</span>
+<span class="c">#   - `benchmarks/particle_filter_gpu/README.md`: a "tall and skinny"</span>
+<span class="c">#     (n, 4) x (4, 4) GEMM never wins on the GPU at ANY particle count</span>
+<span class="c">#     tested, up to 10 million particles -- the fixed per-call</span>
+<span class="c">#     upload/submit/readback overhead never amortizes for a workload this</span>
+<span class="c">#     thin, even well past the measured square-matmul crossover.</span>
+<span class="c">#   - `benchmarks/multisine_acceleration/README.md`: GPU dispatch only</span>
+<span class="c">#     wins for genuinely large, roughly SQUARE GEMM shapes (the process-</span>
+<span class="c">#     global crossover `gpu_probe` measures is `m=n=k` matmuls); thin or</span>
+<span class="c">#     small shapes lose to plain CPU `matmul` once transfer/setup overhead</span>
+<span class="c">#     is counted.</span>
+<span class="c"># So this demo runs a modest, clearly-labeled matrix multiply and reports</span>
+<span class="c"># whichever real result it could produce -- GPU if available, CPU</span>
+<span class="c"># `matmul` (the correctness-equivalent operation) if not -- rather than</span>
+<span class="c"># overclaiming a speedup that would only be real for a much bigger, more</span>
+<span class="c"># square-shaped problem than this small illustrative example.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   gpu_matmul(A, B)     -- explicit GPU dispatch, feature="gpu" only</span>
+<span class="c">#   matmul(A, B)          -- the CPU-equivalent operation, always available</span>
+<span class="c">#   try / catch err       -- graceful handling of the "feature not built" case</span>
+<span class="c">#   err.message            -- the caught error's text</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% A small, square-ish matrix multiply -- easy to verify by eye</span>
+<span class="c">#%% A small, square-ish matrix multiply -- easy to verify by eye</span>
 A = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>; <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>]
 B = [<span class="n">7</span>, <span class="n">8</span>; <span class="n">9</span>, <span class="n">10</span>; <span class="n">11</span>, <span class="n">12</span>]
 <span class="f">print</span>(<span class="s">"A is {rows(A)}x{cols(A)}, B is {rows(B)}x{cols(B)}"</span>)
@@ -127,7 +127,7 @@ B = [<span class="n">7</span>, <span class="n">8</span>; <span class="n">9</span
 cpu_result = <span class="f">matmul</span>(A, B)
 <span class="f">print</span>(<span class="s">"CPU matmul(A, B) = {cpu_result}"</span>)
 
-<span class="c">#%% Try the GPU path; fall back honestly if the feature isn't compiled in</span>
+<span class="c">#%% Try the GPU path; fall back honestly if the feature isn't compiled in</span>
 <span class="k">try</span>
     gpu_result = <span class="f">gpu_matmul</span>(A, B)
     diff = <span class="f">max</span>(<span class="f">abs</span>(gpu_result - cpu_result))
@@ -139,13 +139,13 @@ cpu_result = <span class="f">matmul</span>(A, B)
     <span class="f">print</span>(<span class="s">"matmul(A, B) = {cpu_result}"</span>)
 <span class="k">end</span>
 
-<span class="c">#%% Honesty note, not a benchmark: this A/B pair is tiny and non-square --</span>
-<span class="c"># exactly the "thin" shape the benchmarks above found the GPU losing on --</span>
-<span class="c"># so even on a `--features gpu` build, nobody should expect (or measure) a</span>
-<span class="c"># GPU speedup here. The point of this script is correctness/availability,</span>
-<span class="c"># not performance; see benchmarks/particle_filter_gpu/README.md and</span>
-<span class="c"># benchmarks/multisine_acceleration/README.md for real measured timings at</span>
-<span class="c"># problem sizes where the GPU path can plausibly win.</span>
+<span class="c">#%% Honesty note, not a benchmark: this A/B pair is tiny and non-square --</span>
+<span class="c"># exactly the "thin" shape the benchmarks above found the GPU losing on --</span>
+<span class="c"># so even on a `--features gpu` build, nobody should expect (or measure) a</span>
+<span class="c"># GPU speedup here. The point of this script is correctness/availability,</span>
+<span class="c"># not performance; see benchmarks/particle_filter_gpu/README.md and</span>
+<span class="c"># benchmarks/multisine_acceleration/README.md for real measured timings at</span>
+<span class="c"># problem sizes where the GPU path can plausibly win.</span>
 <span class="f">print</span>(<span class="s">"done -- for real GPU-vs-CPU timing comparisons, see benchmarks/multisine_acceleration/ and benchmarks/particle_filter_gpu/"</span>)
 </code></pre>
 </div></main>

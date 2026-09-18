@@ -33,16 +33,16 @@
 <pre class="fnsig">result = <code>goertzel_freq(x, fs, freq)</code></pre>
 <p class="fnnote">Input: x, fs, freq &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code> is a length-N real vector; <code>fs</code> (number, Hz) is the sample rate; <code>freq</code> (number, Hz) is the frequency to evaluate.</p>
+<p><code>x</code> is a length-N real vector; <code>fs</code> (number, Hz) is the sample rate; <code>freq</code> is the frequency to evaluate (a number, Hz) or a length-K vector of frequencies.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
 <tr><td class="iocode"><code>result = goertzel_freq(x, fs, freq)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N real vector.</span></div>
 <div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc"><code>fs</code> (number, Hz) is the sample rate.</span></div>
-<div class="ioitem"><code>freq</code> <span class="iotype">number</span><span class="iodesc"><code>freq</code> (number, Hz) is the frequency to evaluate.</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar</span></div>
-</td><td>Returns a single complex scalar. <code>goertzel</code> parameterized by a real frequency rather than a raw bin index — the common case of checking a known tone frequency at a fixed sample rate.</td></tr>
+<div class="ioitem"><code>freq</code> <span class="iotype">number or vector</span><span class="iodesc"><code>freq</code> is the frequency to evaluate (a number, Hz) or a length-K vector of frequencies.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or CVec</span></div>
+</td><td>Returns a single complex scalar or a length-K <code>CVec</code>, same batching as <code>goertzel</code> above. <code>goertzel</code> parameterized by real frequencies rather than raw bin indices — the common case of checking one or several known tone frequencies at a fixed sample rate.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -72,12 +72,12 @@ back = <span class="f">irfft</span>(half, <span class="n">64</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
-<p><code>goertzel_freq(x, fs, freq)</code> -- <code>goertzel</code> parameterized by a real frequency in Hz rather than a raw bin index, the common case (a known tone frequency at a fixed sample rate).</p>
+<p><code>goertzel_freq(x, fs, freq)</code> -- <code>goertzel</code> parameterized by a real frequency in Hz rather than a raw bin index, the common case (a known tone frequency at a fixed sample rate). <code>freq</code> may also be a vector of frequencies, same K-point-DFT batching as <code>goertzel</code> above, returning a <code>CVec</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

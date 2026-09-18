@@ -112,37 +112,37 @@ exists_after_unsandboxed_touch = <span class="f">file_exists</span>(audit_path)
 profile_stats() Table: 2 rows x 3 cols
 function          calls   seconds
 ----------------  -----  --------
-hot_workload          2  0.001559
-helper_normalize      1    1.5e-6
+hot_workload          2  0.000256
+helper_normalize      1    4.6e-6
 
 Sandboxed touch() denied: true
 Caught error message: sandbox: 'touch' is disabled in sandboxed execution
 Unsandboxed touch() succeeded: true</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_sandbox_profiling.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_sandbox_profiling.qu -- `sandbox_mode(on)`, `profiling_mode(on)`, and</span>
-<span class="c"># `profile_stats()` as in-program controls, distinct from the CLI's</span>
-<span class="c"># process-wide `--sandbox`/`--profile` flags: a script can profile or</span>
-<span class="c"># sandbox just the one section it cares about, mid-run, and read the</span>
-<span class="c"># results back as ordinary Qu values instead of an external report.</span>
-<span class="c">#</span>
-<span class="c"># Scenario: profile a moderately-sized hot numeric loop and print the</span>
-<span class="c"># resulting Table, then sandbox a section that tries a denied builtin</span>
-<span class="c"># (`touch`, a file-write operation) and catch the resulting error cleanly,</span>
-<span class="c"># then turn sandboxing back off and show the same call succeeding.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   profiling_mode(on)             -- start/stop the in-program profiler</span>
-<span class="c">#   profile_stats()                -- returns a real Table: function/calls/seconds</span>
-<span class="c">#   sandbox_mode(on)                -- start/stop the in-program capability sandbox</span>
-<span class="c">#   try / catch                    -- catching the denied-builtin error</span>
-<span class="c">#   touch(path)                    -- the file-write builtin used to prove both sides</span>
+<pre class="hl"><code><span class="c"># qu_sandbox_profiling.qu -- `sandbox_mode(on)`, `profiling_mode(on)`, and</span>
+<span class="c"># `profile_stats()` as in-program controls, distinct from the CLI's</span>
+<span class="c"># process-wide `--sandbox`/`--profile` flags: a script can profile or</span>
+<span class="c"># sandbox just the one section it cares about, mid-run, and read the</span>
+<span class="c"># results back as ordinary Qu values instead of an external report.</span>
+<span class="c">#</span>
+<span class="c"># Scenario: profile a moderately-sized hot numeric loop and print the</span>
+<span class="c"># resulting Table, then sandbox a section that tries a denied builtin</span>
+<span class="c"># (`touch`, a file-write operation) and catch the resulting error cleanly,</span>
+<span class="c"># then turn sandboxing back off and show the same call succeeding.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   profiling_mode(on)             -- start/stop the in-program profiler</span>
+<span class="c">#   profile_stats()                -- returns a real Table: function/calls/seconds</span>
+<span class="c">#   sandbox_mode(on)                -- start/stop the in-program capability sandbox</span>
+<span class="c">#   try / catch                    -- catching the denied-builtin error</span>
+<span class="c">#   touch(path)                    -- the file-write builtin used to prove both sides</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% A slightly bigger "hot" function: sums squared residuals over a sizable</span>
-<span class="c">#%% vector, called repeatedly -- enough real work that profiling has</span>
-<span class="c">#%% something non-trivial to measure.</span>
+<span class="c">#%% A slightly bigger "hot" function: sums squared residuals over a sizable</span>
+<span class="c">#%% vector, called repeatedly -- enough real work that profiling has</span>
+<span class="c">#%% something non-trivial to measure.</span>
 <span class="k">function</span> <span class="f">hot_workload</span>(n)
     total = <span class="n">0</span>
     xs = <span class="n">1</span> <span class="k">to</span> n
@@ -156,8 +156,8 @@ Unsandboxed touch() succeeded: true</pre></div>
     <span class="k">return</span> v / n
 <span class="k">end</span> <span class="k">function</span>
 
-<span class="c"># Warm-up call outside the profiling window -- must NOT show up in the</span>
-<span class="c"># stats below, proving profiling only tracks its own enabled window.</span>
+<span class="c"># Warm-up call outside the profiling window -- must NOT show up in the</span>
+<span class="c"># stats below, proving profiling only tracks its own enabled window.</span>
 <span class="f">hot_workload</span>(<span class="n">50</span>)
 
 <span class="f">profiling_mode</span>(<span class="k">true</span>)
@@ -166,7 +166,7 @@ result_b = <span class="f">hot_workload</span>(<span class="n">2000</span>)
 normalized = <span class="f">helper_normalize</span>(result_a, <span class="n">2000</span>)
 <span class="f">profiling_mode</span>(<span class="k">false</span>)
 
-<span class="c"># This call happens AFTER profiling_mode(false) -- also must not be counted.</span>
+<span class="c"># This call happens AFTER profiling_mode(false) -- also must not be counted.</span>
 <span class="f">hot_workload</span>(<span class="n">50</span>)
 
 stats = <span class="f">profile_stats</span>()
@@ -174,10 +174,10 @@ stats = <span class="f">profile_stats</span>()
 <span class="f">print</span>(<span class="s">"profile_stats() Table: {nrow(stats)} rows x {ncol(stats)} cols"</span>)
 <span class="f">print</span>(stats)
 
-<span class="c">#%% Sandbox a risky section: deny file-write builtins for just this part.</span>
+<span class="c">#%% Sandbox a risky section: deny file-write builtins for just this part.</span>
 audit_path = <span class="s">"qu_sandbox_profiling_audit.txt"</span>
 <span class="k">if</span> <span class="f">file_exists</span>(audit_path)
-    <span class="c"># best-effort cleanup from a previous run, done BEFORE sandboxing</span>
+    <span class="c"># best-effort cleanup from a previous run, done BEFORE sandboxing</span>
     f = <span class="f">fopen</span>(audit_path, <span class="s">"w"</span>)
     <span class="f">write_line</span>(f, <span class="s">"reset"</span>)
     <span class="f">close</span>(f)
@@ -199,7 +199,7 @@ blocked_message = <span class="s">""</span>
 <span class="f">print</span>(<span class="s">"Sandboxed touch() denied: {blocked}"</span>)
 <span class="f">print</span>(<span class="s">"Caught error message: {blocked_message}"</span>)
 
-<span class="c"># Sandbox is off again now -- the identical call should succeed.</span>
+<span class="c"># Sandbox is off again now -- the identical call should succeed.</span>
 <span class="f">touch</span>(audit_path)
 exists_after_unsandboxed_touch = <span class="f">file_exists</span>(audit_path)
 <span class="f">print</span>(<span class="s">"Unsandboxed touch() succeeded: {exists_after_unsandboxed_touch}"</span>)

@@ -47,43 +47,43 @@ y2[0]=-0.4121  y2[39]=0.4121
 open this file in QuStudio's Interactive Mode to get real sliders for freq/amp/phase</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_interactive_sliders.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_interactive_sliders.qu -- QuStudio's Interactive Mode, as an actual</span>
-<span class="c"># catalog demo (previously this feature had NO dedicated demo -- only an</span>
-<span class="c"># inline default script baked into QuStudio's InteractiveModePanel.tsx</span>
-<span class="c"># component, never saved as a real, standalone .qu file anyone could open,</span>
-<span class="c"># read, or run on its own outside the IDE).</span>
-<span class="c">#</span>
-<span class="c"># What "Interactive Mode" actually is (verified against</span>
-<span class="c"># qu-studio-tauri/src/InteractiveModePanel.tsx, not guessed): a special</span>
-<span class="c"># comment syntax, `# @slider name min max step`, that QuStudio's UI scans</span>
-<span class="c"># for and renders as a real slider widget. Dragging a slider rewrites that</span>
-<span class="c"># variable's literal value in the script text, re-runs the whole script via</span>
-<span class="c"># `qu run --emit-data` (see main.rs's --emit-data flag, which dumps every</span>
-<span class="c"># top-level numeric variable as JSON), and re-plots whatever 2D/3D data</span>
-<span class="c"># came back -- debounced 300ms so dragging feels live, not laggy. This is</span>
-<span class="c"># QuStudio-specific tooling, not a Qu language feature: `qu run` on this</span>
-<span class="c"># file directly (no --emit-data) just runs it once with freq/amp/phase at</span>
-<span class="c"># their fixed starting values below, exactly like any other script -- the</span>
-<span class="c"># "interactive" part is entirely in how the IDE re-invokes it, not</span>
-<span class="c"># something this file does on its own.</span>
-<span class="c">#</span>
-<span class="c"># Deliberately exercises BOTH plot shapes Interactive Mode supports from</span>
-<span class="c"># one script: a 3D grid (z, surface/scatter3d in the UI) and a plain 2D</span>
-<span class="c"># curve (y2), so switching view modes always has real data to show.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   linspace, zeros, nested for, sqrt/sin -- ordinary numeric code, nothing</span>
-<span class="c">#   Interactive-Mode-specific at the LANGUAGE level; the `# @slider ...`</span>
-<span class="c">#   lines are comments as far as `qu run` is concerned, meaningful only to</span>
-<span class="c">#   QuStudio's own scanner.</span>
+<pre class="hl"><code><span class="c"># qu_interactive_sliders.qu -- QuStudio's Interactive Mode, as an actual</span>
+<span class="c"># catalog demo (previously this feature had NO dedicated demo -- only an</span>
+<span class="c"># inline default script baked into QuStudio's InteractiveModePanel.tsx</span>
+<span class="c"># component, never saved as a real, standalone .qu file anyone could open,</span>
+<span class="c"># read, or run on its own outside the IDE).</span>
+<span class="c">#</span>
+<span class="c"># What "Interactive Mode" actually is (verified against</span>
+<span class="c"># qu-studio-tauri/src/InteractiveModePanel.tsx, not guessed): a special</span>
+<span class="c"># comment syntax, `# @slider name min max step`, that QuStudio's UI scans</span>
+<span class="c"># for and renders as a real slider widget. Dragging a slider rewrites that</span>
+<span class="c"># variable's literal value in the script text, re-runs the whole script via</span>
+<span class="c"># `qu run --emit-data` (see main.rs's --emit-data flag, which dumps every</span>
+<span class="c"># top-level numeric variable as JSON), and re-plots whatever 2D/3D data</span>
+<span class="c"># came back -- debounced 300ms so dragging feels live, not laggy. This is</span>
+<span class="c"># QuStudio-specific tooling, not a Qu language feature: `qu run` on this</span>
+<span class="c"># file directly (no --emit-data) just runs it once with freq/amp/phase at</span>
+<span class="c"># their fixed starting values below, exactly like any other script -- the</span>
+<span class="c"># "interactive" part is entirely in how the IDE re-invokes it, not</span>
+<span class="c"># something this file does on its own.</span>
+<span class="c">#</span>
+<span class="c"># Deliberately exercises BOTH plot shapes Interactive Mode supports from</span>
+<span class="c"># one script: a 3D grid (z, surface/scatter3d in the UI) and a plain 2D</span>
+<span class="c"># curve (y2), so switching view modes always has real data to show.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   linspace, zeros, nested for, sqrt/sin -- ordinary numeric code, nothing</span>
+<span class="c">#   Interactive-Mode-specific at the LANGUAGE level; the `# @slider ...`</span>
+<span class="c">#   lines are comments as far as `qu run` is concerned, meaningful only to</span>
+<span class="c">#   QuStudio's own scanner.</span>
 
 <span class="k">backend</span> auto
 
-<span class="c"># @slider freq 1 10 0.5</span>
+<span class="c"># @slider freq 1 10 0.5</span>
 freq = <span class="n">3</span>
-<span class="c"># @slider amp 0.1 3 0.1</span>
+<span class="c"># @slider amp 0.1 3 0.1</span>
 amp = <span class="n">1</span>
-<span class="c"># @slider phase 0 6.28 0.1</span>
+<span class="c"># @slider phase 0 6.28 0.1</span>
 phase = <span class="n">0</span>
 
 N = <span class="n">40</span>
@@ -102,7 +102,7 @@ x = xs
 y = ys
 z = Z
 
-<span class="c"># A plain 2D curve too, for 2D mode: x vs y2.</span>
+<span class="c"># A plain 2D curve too, for 2D mode: x vs y2.</span>
 y2 = amp * <span class="f">sin</span>(freq * xs + phase)
 
 <span class="f">print</span>(<span class="s">"freq={freq} amp={amp} phase={phase}"</span>)

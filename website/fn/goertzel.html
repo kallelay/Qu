@@ -33,15 +33,15 @@
 <pre class="fnsig">result = <code>goertzel(x, k)</code></pre>
 <p class="fnnote">Input: x, k &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code> is a length-N real vector; <code>k</code> (number) is the bin index to evaluate — need not be an integer (evaluates the DFT at an arbitrary point between the FFT's grid bins, a "K-point DFT").</p>
+<p><code>x</code> is a length-N real vector; <code>k</code> is the bin index to evaluate (a number, need not be an integer — evaluates the DFT at an arbitrary point between the FFT's grid bins) or a length-K vector of bins.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
 <tr><td class="iocode"><code>result = goertzel(x, k)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N real vector.</span></div>
-<div class="ioitem"><code>k</code> <span class="iotype">number</span><span class="iodesc"><code>k</code> (number) is the bin index to evaluate — need not be an integer (evaluates the DFT at an arbitrary point between the FFT's grid bins, a "K-point DFT").</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar</span></div>
-</td><td>Returns a single complex scalar, the DFT value at bin <code>k</code> in O(n) — the standard tool for checking a handful of specific frequencies without paying for a whole FFT.</td></tr>
+<div class="ioitem"><code>k</code> <span class="iotype">number or vector</span><span class="iodesc"><code>k</code> is the bin index to evaluate (a number, need not be an integer — evaluates the DFT at an arbitrary point between the FFT's grid bins) or a length-K vector of bins.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, CVec, or vector</span></div>
+</td><td>Returns a single complex scalar for a scalar <code>k</code>, or a length-K <code>CVec</code> for a vector — the K-point DFT this is named for: K arbitrary points in O(n·K), each independently, instead of every bin of a full N-point <code>fft</code> whether wanted or not. The standard tool for checking a handful of specific frequencies without paying for a whole FFT.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -66,12 +66,12 @@ back = <span class="f">irfft</span>(half, <span class="n">64</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
-<p><code>goertzel(x, k)</code> -- the DFT value at a single "bin" <code>k</code> in O(n), the standard tool for checking a handful of specific frequencies without paying for a whole FFT. <code>k</code> need not be an integer: this evaluates the DFT at an arbitrary frequency point between the FFT's own grid bins (a "K-point DFT"), not just a fast way to recover an on-grid one.</p>
+<p><code>goertzel(x, k)</code> -- the DFT value at a single "bin" <code>k</code> in O(n), the standard tool for checking a handful of specific frequencies without paying for a whole FFT. <code>k</code> need not be an integer: this evaluates the DFT at an arbitrary frequency point between the FFT's own grid bins, not just a fast way to recover an on-grid one. <code>k</code> may also be a vector of bins, evaluating each independently and returning a <code>CVec</code> -- the K-point DFT this is named for: K arbitrary points in O(n*K), instead of every one of a full N-point <code>fft</code>'s bins whether wanted or not.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

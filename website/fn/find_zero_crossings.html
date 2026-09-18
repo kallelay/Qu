@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>find_zero_crossings — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>find_zero_crossings</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>find_zero_crossings(x, [edge="both"])</code></pre>
+<p class="fnnote">Input: x, edge &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; <code>edge</code> (optional string) as above. <code>find_trigger</code> at level zero. The default is <strong>both</strong> directions, unlike <code>find_trigger</code>'s own default: the zero-crossing rate is a count of every sign change, so <code>len(find_zero_crossings(x))</code> has to be that count to be worth anything, and a <code>"rising"</code> default would silently halve it.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = find_zero_crossings(x, [edge="both"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>edge</code> <span class="iotype">string, optional (default <code>"both"</code>)</span><span class="iodesc"><code>edge</code> (optional string) as above.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a vector of 0-indexed integer sample indices.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>find_zero_crossings(x, [edge="both"])</code> -- <code>find_trigger</code> at level zero. The default is BOTH directions, which is the conventional reading of "zero crossing" and not merely the permissive choice: the zero-crossing RATE (this document's own §6 <code>zcr</code>, and the standard speech/audio feature) counts every sign change, so <code>len(find_zero_crossings(x))</code> has to be that count to be worth anything. Defaulting to <code>"rising"</code> -- which would have matched <code>find_trigger</code>'s own default -- would halve it silently, and a halved rate is exactly the believable-looking wrong number that is hard to catch. <code>edge=</code> still restricts it when a single direction is what was wanted.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

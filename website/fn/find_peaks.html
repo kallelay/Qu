@@ -30,18 +30,20 @@
 <h1>find_peaks</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>find_peaks(x, [min_height=], [min_distance=], [min_prominence=])</code></pre>
-<p class="fnnote">Input: x, min_height, min_distance, min_prominence &middot; Output: result</p>
+<pre class="fnsig">result = <code>find_peaks(x, [height=], [distance=], [prominence=], [width=], [rel_height=0.5])</code></pre>
+<p class="fnnote">Input: x, height, distance, prominence, width, rel_height &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code> is a length-N vector. <code>min_height</code> (optional number): minimum peak value; <code>min_distance</code> (optional number, samples): minimum separation, enforced greedily by height so a close cluster keeps its tallest member; <code>min_prominence</code> (optional number): minimum rise above surrounding terrain, not just absolute height.</p>
+<p><code>x</code> is a length-N vector. <code>height</code> (optional number): minimum peak value; <code>distance</code> (optional number, samples): minimum separation, enforced greedily by height so a close cluster keeps its tallest member; <code>prominence</code> (optional number): minimum rise above surrounding terrain (the real bounding-minima computation, not just local-maxima detection); <code>width</code> (optional number, samples): minimum width at <code>rel_height</code> (default <code>0.5</code>, i.e. half-prominence) of the peak's prominence below its height, via linear interpolation of the crossing — matches <code>scipy.signal.find_peaks</code>'s own algorithm. Kwarg names match SciPy; the original <code>min_height</code>/<code>min_distance</code>/<code>min_prominence</code> names are still accepted as aliases.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = find_peaks(x, [min_height=], [min_distance=], [min_prominence=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N vector.</span></div>
-<div class="ioitem"><code>min_height</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_height</code> (optional number): minimum peak value.</span></div>
-<div class="ioitem"><code>min_distance</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_distance</code> (optional number, samples): minimum separation, enforced greedily by height so a close cluster keeps its tallest member.</span></div>
-<div class="ioitem"><code>min_prominence</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_prominence</code> (optional number): minimum rise above surrounding terrain, not just absolute height.</span></div>
+<tr><td class="iocode"><code>result = find_peaks(x, [height=], [distance=], [prominence=], [width=], [rel_height=0.5])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N vector.</span></div>
+<div class="ioitem"><code>height</code> <span class="iotype">number, optional</span><span class="iodesc"><code>height</code> (optional number): minimum peak value.</span></div>
+<div class="ioitem"><code>distance</code> <span class="iotype">number, optional</span><span class="iodesc"><code>distance</code> (optional number, samples): minimum separation, enforced greedily by height so a close cluster keeps its tallest member.</span></div>
+<div class="ioitem"><code>prominence</code> <span class="iotype">number, optional</span><span class="iodesc"><code>prominence</code> (optional number): minimum rise above surrounding terrain (the real bounding-minima computation, not just local-maxima detection).</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">number, optional</span><span class="iodesc"><code>width</code> (optional number, samples): minimum width at <code>rel_height</code> (default <code>0.5</code>, i.e.</span></div>
+<div class="ioitem"><code>rel_height</code> <span class="iotype">number, optional (default <code>0.5</code>)</span><span class="iodesc"><code>width</code> (optional number, samples): minimum width at <code>rel_height</code> (default <code>0.5</code>, i.e.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
 </td><td>Returns a vector of 0-indexed integer indices into <code>x</code>, one per surviving local maximum.</td></tr>
 </table></div>
@@ -95,12 +97,12 @@ peak_p = <span class="f">find_peaks</span>(psd_p, <span class="a">min_height</sp
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
-<p><code>find_peaks(x, [min_height=], [min_distance=], [min_prominence=])</code> — indices of <code>x</code>'s local maxima, optionally filtered by height, minimum separation (samples — enforced greedily by height, so a close cluster keeps its tallest member), and prominence (how much a peak rises above its own surrounding terrain, not just its absolute height).</p>
+<p><code>find_peaks(x, [height=], [distance=], [prominence=], [width=], [rel_height=])</code> — indices of <code>x</code>'s local maxima, optionally filtered by height, minimum separation (samples — enforced greedily by height, so a close cluster keeps its tallest member), prominence (how much a peak rises above its own surrounding terrain, not just its absolute height — <code>numeric::transforms::find_peaks</code>'s own real bounding-minima computation, not a shortcut), and now <code>width</code> (the peak's width, in samples, at <code>rel_height</code> — default <code>0.5</code> — of its prominence below the peak, computed by linear interpolation around the crossing exactly as <code>scipy.signal.peak_widths</code> does; see <code>numeric::transforms::peak_width</code>'s own doc comment). Kwarg names match <code>scipy.signal.find_peaks</code> (<code>height</code>/<code>distance</code>/<code>prominence</code>/<code>width</code>) — the original <code>min_height</code>/<code>min_distance</code>/<code>min_prominence</code> names are kept as accepted aliases so existing scripts keep working unchanged. Returns just the peak indices (a plain <code>Vec</code>, not SciPy's <code>(peaks, properties)</code> pair — Qu has no tuple-return for that shape here); <code>findpeaks</code> below is the enriched, multi-field alternative when prominence/width VALUES (not just filters) are wanted.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

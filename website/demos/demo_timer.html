@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>demo_timer — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Uncategorised</p>
+<h1>demo_timer</h1>
+<p class="lede">timing code with a real stopwatch object.</p>
+<p class="srcpath">catalog/demo_timer.qu</p>
+<p>`tic()`/`toc()` is one global stopwatch, so it cannot time two things at once. `timer()` gives you as many independent stopwatches as you like.</p>
+<h2>What it exercises</h2>
+<ul class="uses">
+<li>timer()      make a stopwatch (it starts STOPPED -- call start())</li>
+<li>start/pause  control it</li>
+<li>elapsed()    read it WITHOUT stopping it</li>
+<li>t.start()    method spelling; `t.f()` is the same as `f(t)`</li>
+</ul>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>sum of sqrt(1..2e6) = 1885618790.1
+took 0.0305 s
+
+inner section : 0.0167 s
+whole block   : 0.0264 s
+inner was 63% of the block
+
+counted work only: 0.0101 s
+(the array setup in the middle was not counted)</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/demo_timer.qu</code></p>
+<pre class="hl"><code><span class="c"># demo_timer.qu — timing code with a real stopwatch object.</span>
+<span class="c">#</span>
+<span class="c"># `tic()`/`toc()` is one global stopwatch, so it cannot time two things at</span>
+<span class="c"># once. `timer()` gives you as many independent stopwatches as you like.</span>
+<span class="c">#</span>
+<span class="c"># Exercises:</span>
+<span class="c">#   timer()      make a stopwatch (it starts STOPPED -- call start())</span>
+<span class="c">#   start/pause  control it</span>
+<span class="c">#   elapsed()    read it WITHOUT stopping it</span>
+<span class="c">#   t.start()    method spelling; `t.f()` is the same as `f(t)`</span>
+
+<span class="c"># --- one stopwatch, the simplest use ------------------------------------</span>
+t = <span class="f">timer</span>(<span class="n">1</span>)
+t.<span class="f">start</span>()
+
+total = <span class="n">0</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">2000000</span>
+    total = total + <span class="f">sqrt</span>(i)
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">"sum of sqrt(1..2e6) = {total:.1f}"</span>)
+<span class="f">print</span>(<span class="s">"took {t.elapsed():.4f} s"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c"># --- two at once, which tic()/toc() cannot do ---------------------------</span>
+<span class="c"># `whole` keeps running while `part` times a section inside it.</span>
+whole = <span class="f">timer</span>(<span class="n">1</span>)
+part = <span class="f">timer</span>(<span class="n">1</span>)
+
+whole.<span class="f">start</span>()
+
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">1000000</span>
+    total = total + i
+<span class="k">end</span> <span class="k">for</span>
+
+part.<span class="f">start</span>()                       <span class="c"># start a second clock mid-flight</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">1000000</span>
+    total = total + <span class="f">sin</span>(i)
+<span class="k">end</span> <span class="k">for</span>
+part_time = part.<span class="f">elapsed</span>()
+
+whole_time = whole.<span class="f">elapsed</span>()       <span class="c"># reading it does NOT stop it</span>
+
+<span class="f">print</span>(<span class="s">"inner section : {part_time:.4f} s"</span>)
+<span class="f">print</span>(<span class="s">"whole block   : {whole_time:.4f} s"</span>)
+<span class="f">print</span>(<span class="s">"inner was {100 * part_time / whole_time:.0f}% of the block"</span>)
+<span class="f">print</span>(<span class="s">""</span>)
+
+<span class="c"># --- pause and resume ---------------------------------------------------</span>
+<span class="c"># Time only the parts you care about, skipping the setup in between.</span>
+work = <span class="f">timer</span>(<span class="n">1</span>)
+work.<span class="f">start</span>()
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">500000</span>
+    total = total + i
+<span class="k">end</span> <span class="k">for</span>
+work.<span class="f">pause</span>()                       <span class="c"># clock frozen here</span>
+
+x = <span class="f">zeros</span>(<span class="n">200000</span>)                  <span class="c"># setup we do NOT want to count</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">199999</span>
+    x[i] = i * <span class="n">0.5</span>
+<span class="k">end</span> <span class="k">for</span>
+
+work.<span class="f">start</span>()                       <span class="c"># resumes from where it paused</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">500000</span>
+    total = total + i
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="f">print</span>(<span class="s">"counted work only: {work.elapsed():.4f} s"</span>)
+<span class="f">print</span>(<span class="s">"(the array setup in the middle was not counted)"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

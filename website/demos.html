@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demos — Qu</title>
-<meta name="description" content="66 complete programs, each one runnable as it stands, with the output and the figure it produced.">
+<meta name="description" content="71 complete programs, each one runnable as it stands, with the output and the figure it produced.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="assets/site.css">
 <link rel="stylesheet" href="assets/demo.css">
@@ -26,7 +26,7 @@
 </div></div>
 
 <header class="hero"><div class="wrap">
-  <h1>66 programs, whole</h1>
+  <h1>71 programs, whole</h1>
   <p class="lede">Not fragments. Each one is a file in <code>catalog/</code> that runs as
   it stands — a real problem from measurement, signals, or data, solved end to end.
   The build runs every one of them, so the printed output and the figure on each page
@@ -52,7 +52,7 @@
 <a class="demo" href="demos/qu_filter_design.html"><h3>Filter design</h3><p>digital IIR filter design, diagnostics, and zero-phase filtering of a noisy signal.</p><p class="file">qu_filter_design.qu</p></a>
 <a class="demo" href="demos/qu_interpolate_apply_cut.html"><h3>Interpolate, apply &amp; cut</h3><p>signal-aware interpolation, elementwise transforms, and range extraction (commit 48ea648).</p><p class="file">qu_interpolate_apply_cut.qu</p></a>
 <a class="demo" href="demos/qu_multisine.html"><h3>Multisine excitation</h3><p>multisine synthesis with a per-tone figure breakdown.</p><p class="file">qu_multisine.qu</p></a>
-<a class="demo" href="demos/qu_multisine_acceleration.html"><h3>Multisine acceleration</h3><p>51-tone multisine, the "no explicit acceleration" baseline.</p><p class="file">qu_multisine_acceleration.qu</p></a>
+<a class="demo" href="demos/qu_multisine_acceleration.html"><h3>Multisine acceleration</h3><p>the same multisine, several ways to compute it, and what "accelerated" actually buys you here.</p><p class="file">qu_multisine_acceleration.qu</p></a>
 <a class="demo" href="demos/qu_noise_and_removal.html"><h3>Noise, in and out</h3><p>putting noise in, and taking it out again.</p><p class="file">qu_noise_and_removal.qu</p></a>
 <a class="demo" href="demos/qu_peak_finding.html"><h3>Peak finding</h3><p>findpeaks() on a noisy multi-tone signal + spectrum.</p><p class="file">qu_peak_finding.qu</p></a>
 <a class="demo" href="demos/qu_rc_filter.html"><h3>RC filter response</h3><p>RC low-pass filter: transient step response and Bode plot.</p><p class="file">qu_rc_filter.qu</p></a>
@@ -143,16 +143,21 @@
 <section class="demogroup"><div class="wrap">
 <h2>Uncategorised</h2>
 <div class="demogrid">
+<a class="demo" href="demos/demo_filter.html"><h3>demo_filter</h3><p>clean up a noisy measurement with a lowpass filter.</p><p class="file">demo_filter.qu</p></a>
+<a class="demo" href="demos/demo_timer.html"><h3>demo_timer</h3><p>timing code with a real stopwatch object.</p><p class="file">demo_timer.qu</p></a>
 <a class="demo" href="demos/qu_line_styles.html"><h3>qu_line_styles</h3><p>Every line style Qu draws.</p><p class="file">qu_line_styles.qu</p></a>
 <a class="demo" href="demos/qu_markers.html"><h3>qu_markers</h3><p>Every marker Qu draws, at the size a figure actually uses.</p><p class="file">qu_markers.qu</p></a>
 <a class="demo" href="demos/qu_plot_types.html"><h3>qu_plot_types</h3><p>Every kind of plot Qu draws, one panel each.</p><p class="file">qu_plot_types.qu</p></a>
+<a class="demo" href="demos/qu_prm_loader.html"><h3>qu_prm_loader</h3><p>reads a Re-Volt (RVGL) .PRM 3D mesh file, built entirely on the existing packed-struct binary readers (`read_structs`) and typed scalar reads (`read_int16`) -- no new engine code.</p><p class="file">qu_prm_loader.qu</p></a>
+<a class="demo" href="demos/qu_prm_viewer.html"><h3>qu_prm_viewer</h3><p>loads a Re-Volt .PRM mesh (via load_prm, see qu_prm_loader.qu) and renders it as a single shaded, vertex-coloured 3D object: orthographic projection, painter's-algorithm depth sorting, per-face Lambertian shading from the file's own vertex normals, filled</p><p class="file">qu_prm_viewer.qu</p></a>
+<a class="demo" href="demos/qu_progress_bar.html"><h3>qu_progress_bar</h3><p>a tqdm-style progress indicator for a long loop.</p><p class="file">qu_progress_bar.qu</p></a>
 <a class="demo" href="demos/qu_spectrogram_interactive.html"><h3>qu_spectrogram_interactive</h3><p>Spectrogram - Time-Frequency Analysis</p><p class="file">qu_spectrogram_interactive.qu</p></a>
 <a class="demo" href="demos/qu_twin_axis_reference.html"><h3>qu_twin_axis_reference</h3><p>A two-panel figure of the shape journals actually print: a distribution with its two summary statistics called out, and a dual-axis panel whose axes are colour-bound to their own series.</p><p class="file">qu_twin_axis_reference.qu</p></a>
 </div></div></section>
 
 
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div>
     <a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp;
     <a href="docs.html">Docs</a> &nbsp; <a href="refs.html">Refs</a> &nbsp;

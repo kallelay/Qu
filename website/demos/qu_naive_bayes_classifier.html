@@ -89,22 +89,22 @@ predict([5.5, 10.5])  = [2]  (expected 2)
 All three held-out points classified into their obviously-correct cluster.</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_naive_bayes_classifier.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_naive_bayes_classifier.qu -- Gaussian Naive Bayes on a small, hand-</span>
-<span class="c"># understandable 2-feature, 3-class dataset: three well-separated clusters</span>
-<span class="c"># arranged so the correct class for any held-out point is obvious by eye.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   naive_bayes_model(X, y)  -- fits per-class/per-feature mean &amp; variance</span>
-<span class="c">#                                (features treated as conditionally</span>
-<span class="c">#                                independent given the class)</span>
-<span class="c">#   model.classes/.means/.variances/.priors  -- read-only fitted fields</span>
-<span class="c">#   model.predict(Xnew)      -- log-posterior-maximizing class</span>
+<pre class="hl"><code><span class="c"># qu_naive_bayes_classifier.qu -- Gaussian Naive Bayes on a small, hand-</span>
+<span class="c"># understandable 2-feature, 3-class dataset: three well-separated clusters</span>
+<span class="c"># arranged so the correct class for any held-out point is obvious by eye.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   naive_bayes_model(X, y)  -- fits per-class/per-feature mean &amp; variance</span>
+<span class="c">#                                (features treated as conditionally</span>
+<span class="c">#                                independent given the class)</span>
+<span class="c">#   model.classes/.means/.variances/.priors  -- read-only fitted fields</span>
+<span class="c">#   model.predict(Xnew)      -- log-posterior-maximizing class</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Three obviously-separated 2-D clusters: class 0 near (0,0),</span>
-<span class="c"># class 1 near (10,0), class 2 near (5,10). Each cluster is a tight</span>
-<span class="c"># 4-point square so the per-class mean is exactly the cluster center.</span>
+<span class="c">#%% Three obviously-separated 2-D clusters: class 0 near (0,0),</span>
+<span class="c"># class 1 near (10,0), class 2 near (5,10). Each cluster is a tight</span>
+<span class="c"># 4-point square so the per-class mean is exactly the cluster center.</span>
 X = [<span class="n">0</span>, <span class="n">0</span>; <span class="n">1</span>, <span class="n">0</span>; <span class="n">0</span>, <span class="n">1</span>; <span class="n">1</span>, <span class="n">1</span>; <span class="n">10</span>, <span class="n">0</span>; <span class="n">11</span>, <span class="n">0</span>; <span class="n">10</span>, <span class="n">1</span>; <span class="n">11</span>, <span class="n">1</span>; <span class="n">5</span>, <span class="n">10</span>; <span class="n">6</span>, <span class="n">10</span>; <span class="n">5</span>, <span class="n">11</span>; <span class="n">6</span>, <span class="n">11</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">12</span>, <span class="n">2</span>)
 y = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>]
 
@@ -114,10 +114,10 @@ m = <span class="f">naive_bayes_model</span>(X, y)
 <span class="f">print</span>(m.means)
 <span class="f">print</span>(<span class="s">"Priors (should all be 1/3, equal class counts): {m.priors}"</span>)
 
-<span class="c">#%% Held-out points, each obviously closest to one cluster by eye.</span>
-near_class0 = [<span class="n">0.5</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)   <span class="c"># clearly inside the (0,0) cluster</span>
-near_class1 = [<span class="n">10.5</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)  <span class="c"># clearly inside the (10,0) cluster</span>
-near_class2 = [<span class="n">5.5</span>, <span class="n">10.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)  <span class="c"># clearly inside the (5,10) cluster</span>
+<span class="c">#%% Held-out points, each obviously closest to one cluster by eye.</span>
+near_class0 = [<span class="n">0.5</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)   <span class="c"># clearly inside the (0,0) cluster</span>
+near_class1 = [<span class="n">10.5</span>, <span class="n">0.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)  <span class="c"># clearly inside the (10,0) cluster</span>
+near_class2 = [<span class="n">5.5</span>, <span class="n">10.5</span>] <span class="k">as</span> <span class="f">matrix</span>(<span class="n">1</span>, <span class="n">2</span>)  <span class="c"># clearly inside the (5,10) cluster</span>
 
 p0 = m.<span class="f">predict</span>(near_class0)
 p1 = m.<span class="f">predict</span>(near_class1)
@@ -126,12 +126,12 @@ p2 = m.<span class="f">predict</span>(near_class2)
 <span class="f">print</span>(<span class="s">"predict([10.5, 0.5])  = {p1}  (expected 1)"</span>)
 <span class="f">print</span>(<span class="s">"predict([5.5, 10.5])  = {p2}  (expected 2)"</span>)
 
-<span class="c">#%% Verify against the obviously-correct classes by hand-reasoning: each</span>
-<span class="c"># held-out point sits well inside one cluster's tight 1x1 square and more</span>
-<span class="c"># than 4 units from either other cluster's square, so Gaussian Naive Bayes</span>
-<span class="c"># (which classifies by nearest-scaled-distance-to-class-mean here, since</span>
-<span class="c"># priors are equal and per-feature variances are the same order of</span>
-<span class="c"># magnitude within each tiny cluster) has no way to get this wrong.</span>
+<span class="c">#%% Verify against the obviously-correct classes by hand-reasoning: each</span>
+<span class="c"># held-out point sits well inside one cluster's tight 1x1 square and more</span>
+<span class="c"># than 4 units from either other cluster's square, so Gaussian Naive Bayes</span>
+<span class="c"># (which classifies by nearest-scaled-distance-to-class-mean here, since</span>
+<span class="c"># priors are equal and per-feature variances are the same order of</span>
+<span class="c"># magnitude within each tiny cluster) has no way to get this wrong.</span>
 expected = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>]
 got = [p0[<span class="n">0</span>], p1[<span class="n">0</span>], p2[<span class="n">0</span>]]
 <span class="k">if</span> <span class="f">sum</span>(<span class="f">abs</span>(got - expected)) &lt; <span class="n">1e-9</span> <span class="k">then</span>

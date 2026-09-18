@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qu_prm_loader — Qu demos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/demo.css">
+</head>
+<body class="demopage">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html" aria-current="page">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<main class="demomain"><div class="wrap">
+<p class="backlink"><a href="../demos.html">&larr; All demos</a></p>
+<p class="eyebrow">Uncategorised</p>
+<h1>qu_prm_loader</h1>
+<p class="lede">reads a Re-Volt (RVGL) .PRM 3D mesh file, built entirely on the existing packed-struct binary readers (`read_structs`) and typed scalar reads (`read_int16`) -- no new engine code.</p>
+<p class="srcpath">catalog/qu_prm_loader.qu</p>
+<p>Format (from the game's own loader, read locally, never committed -- third-party asset, kept out of this repo): a 4-byte header of two int16 counts, then that many fixed-size records back to back.</p>
+<p>header   poly_count:i16, vert_count:i16          (order below) polygon  type:i16, tpage:i16,                    -- 60 bytes vi0..vi3:i16 (4 vertex indices), c0..c3:u32   (4 packed ARGB colors), u0,v0 .. u3,v3:f32  (4 UV pairs) vertex   px,py,pz:f32, nx,ny,nz:f32               -- 24 bytes</p>
+<p>The header's two counts are written in DIFFERENT orders across game builds (poly-then-vert, or vert-then-poly) -- the loader has no version field to tell them apart, so it tries both readings against the file's actual remaining length and keeps whichever one accounts for every byte. A wrong guess parses garbage records rather than failing loudly, which is why this check exists at all.</p>
+<p>Deliberately NOT done here, because each would be a rendering decision rather than a loading one: triangulating the quad polys (bit 0 of `type`) into two triangles, sorting polygons into draw buckets by their type flags (double-sided / env-mapped / semi-transparent), applying any texture-page remap, or flipping the Y axis / triangle winding to match a particular viewer's convention. This hands back the file's own numbers, faithfully, as two Tables -- one row per polygon, one row per vertex -- and stops there.</p>
+<h2>How it works</h2>
+<section class="step">
+<h3>A tiny synthesized mesh -- one quad polygon over 4 vertices -- written</h3>
+<p>by hand at the byte level so this demo needs no external asset. Values chosen to be recognisable after the round trip: a unit square in the XY plane, facing +Z, vertex 2's color carries a distinct alpha byte.</p>
+<p>`tmp_file()` rather than a plain name in the working directory -- Qu has no file-delete builtin, so a name like `prm_loader_demo.prm.tmp` here would have been left behind after every run, in whatever directory the demo happened to be invoked from. The OS temp directory is where a throwaway scratch file belongs; the real output of this demo is the printed mesh, not the file.</p>
+<pre class="hl"><code>tmp_path = <span class="f">tmp_file</span>()
+w = <span class="f">fopen</span>(tmp_path, <span class="s">"wb"</span>)
+<span class="f">write_int16</span>(w, <span class="n">1</span>)              <span class="c"># poly_count</span>
+<span class="f">write_int16</span>(w, <span class="n">4</span>)              <span class="c"># vert_count</span>
+<span class="c"># the one polygon: type=1 (quad bit set), tpage=2, corners 0..3</span>
+<span class="f">write_int16</span>(w, <span class="n">1</span>)
+<span class="f">write_int16</span>(w, <span class="n">2</span>)
+<span class="f">write_int16</span>(w, <span class="n">0</span>)
+<span class="f">write_int16</span>(w, <span class="n">1</span>)
+<span class="f">write_int16</span>(w, <span class="n">2</span>)
+<span class="f">write_int16</span>(w, <span class="n">3</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0xFFFF</span><span class="n">0000</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0xFF</span><span class="n">00FF</span><span class="n">00</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0x</span><span class="n">800000FF</span>)     <span class="c"># alpha 0x80 -- the one this demo checks</span>
+<span class="f">write_uint32</span>(w, <span class="n">0xFFFFFFFF</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="c"># the four vertices, unit square, normal pointing +Z</span>
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">close</span>(w)
+
+mesh = <span class="f">load_prm</span>(tmp_path)
+<span class="f">print</span>(<span class="s">"polys={mesh.poly_count}, verts={mesh.vert_count}"</span>)
+<span class="f">print</span>(<span class="s">"poly 0: type={mesh.polys.type[0]}, tpage={mesh.polys.tpage[0]}, corners=({mesh.polys.vi0[0]},{mesh.polys.vi1[0]},{mesh.polys.vi2[0]},{mesh.polys.vi3[0]})"</span>)
+<span class="f">print</span>(<span class="s">"vertex 2: ({mesh.verts.px[2]}, {mesh.verts.py[2]}, {mesh.verts.pz[2]})"</span>)
+</code></pre>
+</section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>polys=1, verts=4
+poly 0: type=1, tpage=2, corners=(0,1,2,3)
+vertex 2: (1, 1, 0)</pre></div>
+<h2>The whole program</h2>
+<p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_prm_loader.qu</code></p>
+<pre class="hl"><code><span class="c"># qu_prm_loader.qu -- reads a Re-Volt (RVGL) .PRM 3D mesh file, built</span>
+<span class="c"># entirely on the existing packed-struct binary readers (`read_structs`)</span>
+<span class="c"># and typed scalar reads (`read_int16`) -- no new engine code.</span>
+<span class="c">#</span>
+<span class="c"># Format (from the game's own loader, read locally, never committed --</span>
+<span class="c"># third-party asset, kept out of this repo): a 4-byte header of two int16</span>
+<span class="c"># counts, then that many fixed-size records back to back.</span>
+<span class="c">#</span>
+<span class="c">#   header   poly_count:i16, vert_count:i16          (order below)</span>
+<span class="c">#   polygon  type:i16, tpage:i16,                    -- 60 bytes</span>
+<span class="c">#            vi0..vi3:i16 (4 vertex indices),</span>
+<span class="c">#            c0..c3:u32   (4 packed ARGB colors),</span>
+<span class="c">#            u0,v0 .. u3,v3:f32  (4 UV pairs)</span>
+<span class="c">#   vertex   px,py,pz:f32, nx,ny,nz:f32               -- 24 bytes</span>
+<span class="c">#</span>
+<span class="c"># The header's two counts are written in DIFFERENT orders across game</span>
+<span class="c"># builds (poly-then-vert, or vert-then-poly) -- the loader has no version</span>
+<span class="c"># field to tell them apart, so it tries both readings against the file's</span>
+<span class="c"># actual remaining length and keeps whichever one accounts for every</span>
+<span class="c"># byte. A wrong guess parses garbage records rather than failing loudly,</span>
+<span class="c"># which is why this check exists at all.</span>
+<span class="c">#</span>
+<span class="c"># Deliberately NOT done here, because each would be a rendering decision</span>
+<span class="c"># rather than a loading one: triangulating the quad polys (bit 0 of</span>
+<span class="c"># `type`) into two triangles, sorting polygons into draw buckets by their</span>
+<span class="c"># type flags (double-sided / env-mapped / semi-transparent), applying any</span>
+<span class="c"># texture-page remap, or flipping the Y axis / triangle winding to match</span>
+<span class="c"># a particular viewer's convention. This hands back the file's own</span>
+<span class="c"># numbers, faithfully, as two Tables -- one row per polygon, one row per</span>
+<span class="c"># vertex -- and stops there.</span>
+<span class="k">function</span> <span class="f">load_prm</span>(path)
+    f = <span class="f">fopen</span>(path, <span class="s">"rb"</span>)
+    a = <span class="f">read_int16</span>(f)
+    b = <span class="f">read_int16</span>(f)
+    body = <span class="f">file_size</span>(path) - <span class="n">4</span>
+    <span class="k">if</span> a * <span class="n">60</span> + b * <span class="n">24</span> == body <span class="k">then</span>
+        poly_count = a
+        vert_count = b
+    <span class="k">elseif</span> b * <span class="n">60</span> + a * <span class="n">24</span> == body <span class="k">then</span>
+        poly_count = b
+        vert_count = a
+    <span class="k">else</span>
+        poly_count = a
+        vert_count = b
+    <span class="k">end</span> <span class="k">if</span>
+
+    poly_fields = ((<span class="s">"type"</span>, <span class="s">"i16"</span>), (<span class="s">"tpage"</span>, <span class="s">"i16"</span>),
+                   (<span class="s">"vi0"</span>, <span class="s">"i16"</span>), (<span class="s">"vi1"</span>, <span class="s">"i16"</span>), (<span class="s">"vi2"</span>, <span class="s">"i16"</span>), (<span class="s">"vi3"</span>, <span class="s">"i16"</span>),
+                   (<span class="s">"c0"</span>, <span class="s">"u32"</span>), (<span class="s">"c1"</span>, <span class="s">"u32"</span>), (<span class="s">"c2"</span>, <span class="s">"u32"</span>), (<span class="s">"c3"</span>, <span class="s">"u32"</span>),
+                   (<span class="s">"u0"</span>, <span class="s">"f32"</span>), (<span class="s">"v0"</span>, <span class="s">"f32"</span>), (<span class="s">"u1"</span>, <span class="s">"f32"</span>), (<span class="s">"v1"</span>, <span class="s">"f32"</span>),
+                   (<span class="s">"u2"</span>, <span class="s">"f32"</span>), (<span class="s">"v2"</span>, <span class="s">"f32"</span>), (<span class="s">"u3"</span>, <span class="s">"f32"</span>), (<span class="s">"v3"</span>, <span class="s">"f32"</span>))
+    polys = <span class="f">read_structs</span>(f, poly_fields, poly_count)
+
+    vert_fields = ((<span class="s">"px"</span>, <span class="s">"f32"</span>), (<span class="s">"py"</span>, <span class="s">"f32"</span>), (<span class="s">"pz"</span>, <span class="s">"f32"</span>),
+                   (<span class="s">"nx"</span>, <span class="s">"f32"</span>), (<span class="s">"ny"</span>, <span class="s">"f32"</span>), (<span class="s">"nz"</span>, <span class="s">"f32"</span>))
+    verts = <span class="f">read_structs</span>(f, vert_fields, vert_count)
+    <span class="f">close</span>(f)
+
+    <span class="k">return</span> {poly_count = poly_count, vert_count = vert_count,
+            polys = polys, verts = verts}
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">backend</span> auto
+
+<span class="c">#%% A tiny synthesized mesh -- one quad polygon over 4 vertices -- written</span>
+<span class="c"># by hand at the byte level so this demo needs no external asset. Values</span>
+<span class="c"># chosen to be recognisable after the round trip: a unit square in the</span>
+<span class="c"># XY plane, facing +Z, vertex 2's color carries a distinct alpha byte.</span>
+<span class="c">#</span>
+<span class="c"># `tmp_file()` rather than a plain name in the working directory -- Qu has</span>
+<span class="c"># no file-delete builtin, so a name like `prm_loader_demo.prm.tmp` here</span>
+<span class="c"># would have been left behind after every run, in whatever directory the</span>
+<span class="c"># demo happened to be invoked from. The OS temp directory is where a</span>
+<span class="c"># throwaway scratch file belongs; the real output of this demo is the</span>
+<span class="c"># printed mesh, not the file.</span>
+tmp_path = <span class="f">tmp_file</span>()
+w = <span class="f">fopen</span>(tmp_path, <span class="s">"wb"</span>)
+<span class="f">write_int16</span>(w, <span class="n">1</span>)              <span class="c"># poly_count</span>
+<span class="f">write_int16</span>(w, <span class="n">4</span>)              <span class="c"># vert_count</span>
+<span class="c"># the one polygon: type=1 (quad bit set), tpage=2, corners 0..3</span>
+<span class="f">write_int16</span>(w, <span class="n">1</span>)
+<span class="f">write_int16</span>(w, <span class="n">2</span>)
+<span class="f">write_int16</span>(w, <span class="n">0</span>)
+<span class="f">write_int16</span>(w, <span class="n">1</span>)
+<span class="f">write_int16</span>(w, <span class="n">2</span>)
+<span class="f">write_int16</span>(w, <span class="n">3</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0xFFFF</span><span class="n">0000</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0xFF</span><span class="n">00FF</span><span class="n">00</span>)
+<span class="f">write_uint32</span>(w, <span class="n">0x</span><span class="n">800000FF</span>)     <span class="c"># alpha 0x80 -- the one this demo checks</span>
+<span class="f">write_uint32</span>(w, <span class="n">0xFFFFFFFF</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="c"># the four vertices, unit square, normal pointing +Z</span>
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>)
+<span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">0.0</span>); <span class="f">write_float</span>(w, <span class="n">1.0</span>)
+<span class="f">close</span>(w)
+
+mesh = <span class="f">load_prm</span>(tmp_path)
+<span class="f">print</span>(<span class="s">"polys={mesh.poly_count}, verts={mesh.vert_count}"</span>)
+<span class="f">print</span>(<span class="s">"poly 0: type={mesh.polys.type[0]}, tpage={mesh.polys.tpage[0]}, corners=({mesh.polys.vi0[0]},{mesh.polys.vi1[0]},{mesh.polys.vi2[0]},{mesh.polys.vi3[0]})"</span>)
+<span class="f">print</span>(<span class="s">"vertex 2: ({mesh.verts.px[2]}, {mesh.verts.py[2]}, {mesh.verts.pz[2]})"</span>)
+</code></pre>
+</div></main>
+
+<footer><div class="wrap">
+  <p>Qu — an array language for measurement science.
+  <a href="../demos.html">All demos</a> ·
+  <a href="../docs.html">Documentation</a> ·
+  <a href="../download.html">Download</a></p>
+  <p class="fine">Every program on this page is a file in <code>catalog/</code>,
+  run by the build. The output and the figure are what it produced.</p>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

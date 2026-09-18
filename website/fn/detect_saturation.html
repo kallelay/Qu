@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>detect_saturation — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>detect_saturation</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>detect_saturation(x, adc_bits, [full_scale=1.0])</code></pre>
+<p class="fnnote">Input: x, adc_bits, full_scale &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector, <code>Mat</code> or <code>Signal</code>; <code>adc_bits</code>: a whole number 1–32, positional or as <code>adc_bits=</code>/<code>bits=</code> — required, since there is no rail to check against without it. Has <code>x</code> hit the rails of an <code>adc_bits</code>-bit converter: the clipping question for a converter whose range is *known* rather than inferred, so no flat run is required and a single sample sitting on a rail already counts. <code>full_scale=</code> (optional number, default <code>1.0</code>, must be positive) sets a range symmetric about zero, <code>[-full_scale, +full_scale]</code>: signal-processing records are bipolar by default, and a unipolar reading would report the entire negative half as railed. The default is the stated convention <code>dbfs</code> already set, <strong>not</strong> a value read off the data — inferring the range from the record would make the answer trivially "yes" for every record.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = detect_saturation(x, adc_bits, [full_scale=1.0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector, Mat, or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector, <code>Mat</code> or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>adc_bits</code> <span class="iotype">number</span><span class="iodesc"><code>adc_bits</code>: a whole number 1–32, positional or as <code>adc_bits=</code>/<code>bits=</code> — required, since there is no rail to check against without it.</span></div>
+<div class="ioitem"><code>full_scale</code> <span class="iotype">number, optional (default <code>1.0</code>)</span><span class="iodesc"><code>full_scale=</code> (optional number, default <code>1.0</code>, must be positive) sets a range symmetric about zero, <code>[-full_scale, +full_scale]</code>: signal-processing records are bipolar by default, and a unipolar reading would report the entire negative half as railed.</span></div>
+</td><td><div class="ioitem"><code>saturated</code> <span class="iotype">&mdash;</span><span class="iodesc">a <code>Bool</code></span></div>
+<div class="ioitem"><code>total</code> <span class="iotype">Num</span><span class="iodesc"><code>Num</code>s, samples on the top rail, the bottom rail, and either</span></div>
+<div class="ioitem"><code>fraction</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code>, <code>total / N</code></span></div>
+<div class="ioitem"><code>top_code</code> <span class="iotype">Num</span><span class="iodesc"><code>Num</code>s, the code geometry used — note <code>top_code = vmax - lsb</code></span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code></span></div>
+</td><td>Returns a <code>Record</code> with fields <code>saturated</code> (a <code>Bool</code>), <code>high</code>, <code>low</code>, <code>total</code> (<code>Num</code>s, samples on the top rail, the bottom rail, and either), <code>fraction</code> (a <code>Num</code>, <code>total / N</code>), <code>lsb</code>, <code>vmin</code>, <code>vmax</code>, <code>top_code</code> (<code>Num</code>s, the code geometry used — note <code>top_code = vmax - lsb</code>), and <code>bits</code> (a <code>Num</code>). Errors on an empty record.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>detect_saturation(x, adc_bits, [full_scale=])</code> -- the same question for a converter whose range is KNOWN rather than guessed, and deliberately a different test: no flat run is required, because when the rail is a number you were handed, a single sample sitting on it is already evidence and demanding a run would lose exactly the short excursions that matter most. The code geometry comes from <code>numeric::noise::code_step</code>, the same one <code>adc</code> quantises with, so the detector and the simulator cannot drift into two slightly different converters. The consequence worth knowing: codes run <code>0 ..= 2^bits - 1</code>, so the top code is <code>full_scale - lsb</code>, NOT <code>full_scale</code>. A check that looks for samples at exactly <code>full_scale</code> finds none, ever. <code>full_scale</code> defaults to 1.0 -- the stated convention <code>dbfs</code> already set, not a value read off the data. Inferring the range from the record would make the answer trivially "yes" for every record, since the largest sample is always at the largest sample.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

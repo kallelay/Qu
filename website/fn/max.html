@@ -30,10 +30,10 @@
 <h1>max</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
-<pre class="fnsig"><code>max(x)</code> or <code>max(a, b)</code></pre>
-<p class="fnnote">Input: x &middot; Output: no output</p>
+<pre class="fnsig"><code>max(x, [on_invalid=])</code> or <code>max(a, b)</code></pre>
+<p class="fnnote">Input: x, on_invalid &middot; Output: no output</p>
 <h2>What it is</h2>
-<p>One argument reduces <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) to its largest/smallest element, a scalar <code>Num</code>. Two arguments <code>a</code>, <code>b</code> (matching or broadcastable shapes) instead compare elementwise and keep the larger/smaller of each pair — the "clip" idiom, e.g. <code>max(x, 0)</code>. In the one-argument form on a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a length-<code>cols</code>/<code>rows</code> <code>Vec</code> rather than a single scalar.</p>
+<p>One argument reduces <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) to its largest/smallest element, a scalar <code>Num</code>, and accepts <code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro). Two arguments <code>a</code>, <code>b</code> (matching or broadcastable shapes) instead compare elementwise and keep the larger/smaller of each pair — the "clip" idiom, e.g. <code>max(x, 0)</code>; <code>on_invalid=</code> does not apply to this two-argument form. In the one-argument form on a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a length-<code>cols</code>/<code>rows</code> <code>Vec</code> rather than a single scalar.</p>
 <h2>Overloads</h2>
 <p class="ioacross"><code>x</code> can be scalar, Vec, Mat, Signal, or Num; <code>a</code> can be scalar, Vec, Mat, Signal, or Num.</p>
 <p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
@@ -80,7 +80,7 @@ t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">999</sp
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = max(a, b)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">scalar, Vec, Mat, Signal, or Num</span><span class="iodesc">One argument reduces <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) to its largest/smallest element, a scalar <code>Num</code>.</span></div>
+<tr><td class="iocode"><code>result = max(a, b)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">scalar, Vec, Mat, Signal, or Num</span><span class="iodesc">One argument reduces <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>) to its largest/smallest element, a scalar <code>Num</code>, and accepts <code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro).</span></div>
 <div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">Two arguments <code>a</code>, <code>b</code> (matching or broadcastable shapes) instead compare elementwise and keep the larger/smaller of each pair — the "clip" idiom, e.g.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar</span></div>
 </td><td>Elementwise max of <code>a</code> and <code>b</code> (matching or broadcastable shapes) — the "clip" idiom, e.g. <code>max(x, 0)</code>. Returns the broadcast shape, not a scalar.</td></tr>
@@ -113,7 +113,7 @@ m = <span class="f">mutex</span>(<span class="n">0</span>)
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

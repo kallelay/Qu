@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rolling_mean — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rolling_mean</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig">result = <code>rolling_mean(x, [window=5])</code></pre>
+<p class="fnnote">Input: x, window &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Mean over a window centred on each sample. <code>x</code> is a length-N number vector or a <code>Signal</code>; <code>window</code> is an odd integer, positional or named, default <code>5</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rolling_mean(x, [window=5])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number, vector, or Signal</span><span class="iodesc"><code>x</code> is a length-N number vector or a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">optional (default <code>5</code>)</span><span class="iodesc"><code>window</code> is an odd integer, positional or named, default <code>5</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
+</td><td>Returns the same length and the same type — a <code>Signal</code> keeps its <code>Fs</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/noise.html">Noise</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>rolling_mean</code>/<code>rolling_rms</code>/<code>rolling_std</code>/<code>rolling_min</code>/ <code>rolling_max(x, [window=5])</code> — a statistic over a sliding window: drift removal before an FFT, a moving-RMS trigger level, a moving min/max envelope. Centred on each sample over an ODD window, same as every other windowed function in this engine (<code>medfilt</code>, <code>savgol</code>, <code>smooth</code>, <code>hampel</code>) and refusing an even one for the same reason -- an even window has no middle sample and which way it rounds changes the answer. The edges are where these deliberately DIVERGE from the smoothers above, and it is worth stating why rather than leaving it to be discovered. <code>medfilt</code>/<code>moving_average</code> pad (reflect/clamp) because a filter must emit a sample for every input sample and has to invent the neighbours it does not have. These are statistics, not filters: padding would answer "what was the spread of the data here" with fabricated data, and for <code>rolling_std</code> it does not just add edge error, it biases the answer toward zero (a clamped repeat has no variance), reporting the signal as quietest exactly where least is known about it. So the window SHRINKS at the edges instead -- MATLAB's <code>movmean</code>/<code>movstd</code> default and pandas' <code>min_periods=1</code> -- and every returned value is the statistic of real samples only. See <code>numeric::noise</code>'s own section comment for the full argument. A <code>Signal</code> comes back a <code>Signal</code> at the same <code>Fs</code>: the output is the same length and each sample still lines up with the input instant it was centred on, so the rate is still true.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -86,28 +86,28 @@ forecast = 20 degC
 rejected as expected: operator `*` is not defined on a temperature — Celsius/Fahrenheit are affine scales, so scaling one is not physically meaningful (see docs/design/physical-units.md §2).</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_temperature_units.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_temperature_units.qu -- tracked physical units for temperature (degC/</span>
-<span class="c"># degF), an affine (not linear) scale.</span>
-<span class="c">#</span>
-<span class="c"># A temperature literal (`10 degC`) stays a distinct unit-tagged value, not</span>
-<span class="c"># a bare number: it compares correctly across scales (through Kelvin</span>
-<span class="c"># internally), a plain-number shift keeps it a temperature ("5 degrees</span>
-<span class="c"># warmer"), but scaling one (`2 * (10 degC)`) is rejected outright, since</span>
-<span class="c"># doubling a Celsius reading isn't physically meaningful the way doubling a</span>
-<span class="c"># Kelvin one is -- the offset doesn't scale. Subtracting two temperatures</span>
-<span class="c"># IS meaningful (the affine offset cancels) and yields a plain number, a</span>
-<span class="c"># delta in Kelvin/Celsius-sized degrees, not a temperature itself.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
-<span class="c">#   10 degC / 98.6 degF        -- unit literals</span>
-<span class="c">#   (a degC) - (b degC)        -- a plain Num delta</span>
-<span class="c">#   (a degC) + 5               -- stays a temperature</span>
-<span class="c">#   (a degC) == (b degF)       -- cross-scale comparison via Kelvin</span>
-<span class="c">#   try/catch on an affine-scale violation (2 * temperature)</span>
+<pre class="hl"><code><span class="c"># qu_temperature_units.qu -- tracked physical units for temperature (degC/</span>
+<span class="c"># degF), an affine (not linear) scale.</span>
+<span class="c">#</span>
+<span class="c"># A temperature literal (`10 degC`) stays a distinct unit-tagged value, not</span>
+<span class="c"># a bare number: it compares correctly across scales (through Kelvin</span>
+<span class="c"># internally), a plain-number shift keeps it a temperature ("5 degrees</span>
+<span class="c"># warmer"), but scaling one (`2 * (10 degC)`) is rejected outright, since</span>
+<span class="c"># doubling a Celsius reading isn't physically meaningful the way doubling a</span>
+<span class="c"># Kelvin one is -- the offset doesn't scale. Subtracting two temperatures</span>
+<span class="c"># IS meaningful (the affine offset cancels) and yields a plain number, a</span>
+<span class="c"># delta in Kelvin/Celsius-sized degrees, not a temperature itself.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working syntax):</span>
+<span class="c">#   10 degC / 98.6 degF        -- unit literals</span>
+<span class="c">#   (a degC) - (b degC)        -- a plain Num delta</span>
+<span class="c">#   (a degC) + 5               -- stays a temperature</span>
+<span class="c">#   (a degC) == (b degF)       -- cross-scale comparison via Kelvin</span>
+<span class="c">#   try/catch on an affine-scale violation (2 * temperature)</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Unit literals and cross-scale comparison (converted through Kelvin)</span>
+<span class="c">#%% Unit literals and cross-scale comparison (converted through Kelvin)</span>
 room = <span class="n">21</span> degC
 body = <span class="n">98.6</span> degF
 <span class="f">print</span>(<span class="s">"room = {room}"</span>)
@@ -118,17 +118,17 @@ freezing_c = <span class="n">0</span> degC
 freezing_f = <span class="n">32</span> degF
 <span class="f">print</span>(<span class="s">"0 degC == 32 degF: {freezing_c == freezing_f}"</span>)
 
-<span class="c">#%% Deltas: subtracting two temperatures cancels the offset -&gt; a plain number</span>
+<span class="c">#%% Deltas: subtracting two temperatures cancels the offset -&gt; a plain number</span>
 morning = <span class="n">15</span> degC
 afternoon = <span class="n">23</span> degC
 warmup = afternoon - morning
 <span class="f">print</span>(<span class="s">"warmup = {warmup} degrees (a plain number, not itself a temperature)"</span>)
 
-<span class="c">#%% A temperature shifted by a plain number stays a temperature</span>
+<span class="c">#%% A temperature shifted by a plain number stays a temperature</span>
 forecast = morning + <span class="n">5</span>
 <span class="f">print</span>(<span class="s">"forecast = {forecast}"</span>)
 
-<span class="c">#%% Scaling a temperature is physically meaningless and rejected</span>
+<span class="c">#%% Scaling a temperature is physically meaningless and rejected</span>
 <span class="k">try</span>
     doubled = <span class="n">2</span> * room
 <span class="k">catch</span> err

@@ -30184,6 +30184,26 @@ self.eval_grad(loss, wrt)
                     ("build".into(), Value::Str(info.build.to_string())),
                 ])))
             }
+            // `mem_usage()` -- this process's resident-set size right now,
+            // in bytes. `sysinfo()`'s `.total_memory` is the MACHINE's
+            // memory; this is what THIS run has actually mapped in, the
+            // number that answers "which of these two ways of computing
+            // the same thing used more RAM" -- a question timing alone
+            // can't answer (a vectorized method can easily be faster AND
+            // build a much bigger intermediate array).
+            //
+            // Returns `nothing` on a platform this isn't implemented for
+            // (anything but Windows and Linux today) rather than a guess
+            // -- same convention as `sysinfo()`'s own optional fields.
+            // Call it before and after the code being measured and take
+            // the difference; RSS never shrinks from an ordinary garbage
+            // collection the way some runtimes' heap-size counters do, so
+            // a rising delta across back-to-back calls is a real signal,
+            // not GC noise.
+            "mem_usage" => Ok(match sysinfo::current_rss_bytes() {
+                Some(bytes) => Value::Num(bytes as f64),
+                None => Value::Nothing,
+            }),
             // `device_used()` -- whether this run has actually dispatched
             // anything to the GPU, and how many times.
             //
@@ -36882,7 +36902,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "lstm_init", "ltrim", "lu", "mae", "mag2db", "make_file", "map",
     "markov_chain", "matlab_exec", "matmul", "max", "maxpool2d", "md2html",
     "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
-    "meshgrid", "mid", "min", "minimize", "minutely_profile", "mirror",
+    "mem_usage", "meshgrid", "mid", "min", "minimize", "minutely_profile", "mirror",
     "mismatch_loss", "mkdir", "mlp_classifier", "mm", "mmap_len", "mmap_open",
     "mmap_read", "mod", "mode", "monte_carlo", "monthly_profile", "move", "move_file",
     "mse", "mtimes", "mul", "multi_head_attention", "multi_otsu", "multisine",

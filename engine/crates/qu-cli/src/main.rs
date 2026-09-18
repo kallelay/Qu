@@ -96,7 +96,13 @@
 //!                       its own to disambiguate against.
 //!   qu tokens <file.qu>  dump the token stream (lexer debugging)
 //!   qu ast <file.qu>     dump the parsed AST (parser debugging)
-//!   qu repl              read-eval-print loop over stdin
+//!   qu repl               read-eval-print loop over stdin
+//!   qu repl <file.qu>     run the script, keep its interpreter and top-level
+//!                       bindings alive, then drop into the same REPL loop
+//!                       -- Python's `python -i script.py`, or a notebook's
+//!                       "run all cells, kernel stays alive". Plain `qu run
+//!                       <file.qu>` still exits the moment the script ends;
+//!                       this is the one command that keeps going.
 //!   qu eval "<src>"      run a one-liner
 //!   qu diary <file.qu> [-o out.html]   run a script, export a Jupyter-style
 //!                       HTML transcript (code block + printed text/plot per
@@ -182,7 +188,7 @@ fn run() -> ExitCode {
         "eval" => cmd_eval(arg(&args, 1)),
         "diary" => cmd_diary(&args[1..]),
         "docs" => cmd_docs(&args[1..]),
-        "repl" => cmd_repl(),
+        "repl" => cmd_repl(&args[1..]),
         "mcp" => mcp::cmd_mcp(&args[1..]),
         "version" | "--version" | "-V" => {
             println!("qu {}", env!("CARGO_PKG_VERSION"));
@@ -1296,7 +1302,7 @@ fn print_repl_help() {
     );
 }
 
-fn cmd_repl() -> Result<(), String> {
+fn cmd_repl(args: &[String]) -> Result<(), String> {
     let mut it = qu_interp::Interp::new();
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
@@ -1304,6 +1310,24 @@ fn cmd_repl() -> Result<(), String> {
     // A banner, because the meta-command system was previously reachable
     // only by typing something wrong and reading the error.
     println!("Qu {} — `:help` for commands, `:quit` to leave", env!("CARGO_PKG_VERSION"));
+
+    // `qu repl <file.qu>` -- run the file into THIS SAME interpreter before
+    // the first prompt, so its top-level bindings are already live when the
+    // user starts typing. This is the one command that bridges "one-shot
+    // run" and "REPL from nothing" (see the `qu repl` doc comment at the top
+    // of this file for why that gap mattered). A script error here is fatal
+    // -- same as `qu run` -- rather than silently dropping into an empty
+    // REPL, since a half-run script's partial bindings would be a confusing
+    // starting point, not a useful one.
+    if let Some(path) = args.first() {
+        let src = read_file(Some(path.as_str()))?;
+        it.set_script_path(std::path::Path::new(path));
+        it.run(&src).map_err(|e| e.to_string())?;
+        print!("{}", it.out);
+        it.out.clear();
+        io::stdout().flush().ok();
+    }
+
     print!("qu> ");
     io::stdout().flush().ok();
     while let Some(line) = lines.next() {
@@ -1411,7 +1435,8 @@ fn print_help() {
          eval \"<src>\"      run a one-liner\n  \
          diary <file.qu> [-o out.html]   run + export a Jupyter-style HTML transcript\n  \
          docs --json       dump the builtin reference table (name/signature/summary/chapter) as JSON\n  \
-         repl              interactive read-eval-print loop\n  \
+         repl [<file.qu>]  interactive read-eval-print loop; with a file, run it first and\n  \
+                           keep its bindings alive in the same session (like `python -i`)\n  \
          mcp [--allow-write] [--timeout <s>] [--memory <MB>] [--root <dir>]\n  \
                            Model Context Protocol server on stdin/stdout, so an\n  \
                            assistant can run Qu instead of guessing at it\n  \

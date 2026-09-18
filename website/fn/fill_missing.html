@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fill_missing — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fill_missing</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/noise.html">Noise</a></p>
+<pre class="fnsig"><code>fill_missing(x, [method="linear"], [value=])</code></pre>
+<p class="fnnote">Input: x, method, value &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>x</code> with the missing samples patched, same length, so a <code>Signal</code> keeps its <code>Fs</code>. <code>method</code> is a named string: <code>"linear"</code> (default), <code>"previous"</code>/<code>"ffill"</code>, <code>"next"</code>/<code>"bfill"</code>, <code>"nearest"</code>, <code>"mean"</code>, <code>"median"</code>. <code>value</code> is a named number overriding all of them with a constant.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>fill_missing(x, [method="linear"], [value=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Signal</span><span class="iodesc"><code>x</code> with the missing samples patched, same length, so a <code>Signal</code> keeps its <code>Fs</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"linear"</code>)</span><span class="iodesc"><code>method</code> is a named string: <code>"linear"</code> (default), <code>"previous"</code>/<code>"ffill"</code>, <code>"next"</code>/<code>"bfill"</code>, <code>"nearest"</code>, <code>"mean"</code>, <code>"median"</code>.</span></div>
+<div class="ioitem"><code>value</code> <span class="iotype">number, optional</span><span class="iodesc"><code>value</code> is a named number overriding all of them with a constant.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/noise.html">Noise</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>fill_missing(x, [method="linear"], [value=])</code> — patch the dropouts, keeping the length (and so a <code>Signal</code>'s <code>Fs</code>). <code>method</code>: "linear" (default), "previous"/"ffill", "next"/ "bfill", "nearest", "mean", "median". <code>value=</code> overrides them all with a constant. <code>interpolate_nan(x)</code> is the same thing spelled for the one case that is overwhelmingly the common one -- it IS <code>fill_missing(x, method="linear")</code>, sharing the engine rather than being a second implementation, and is kept as its own name only because that is the operation people go looking for by name. The linear fill deliberately does NOT extrapolate at the ends (a gap with good data on one side only holds the nearest good sample). <code>interp1</code> does extrapolate -- verified, not assumed: <code>interp1([0,1,2,3], [0,10,20,30], 6)</code> is <code>60</code> -- which is why it is not reused here unchanged. The two are answering different questions: <code>interp1</code>'s caller asked for the model's value at a named point outside the data, while here nobody asked for anything and a trailing dropout is being patched so the next stage has something to work with. Extrapolating there turns a dropout into a trend, which is worse than a flat patch precisely because it looks like data.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

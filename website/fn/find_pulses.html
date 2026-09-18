@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>find_pulses — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>find_pulses</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>find_pulses(x, [level=], [hysteresis=0], [polarity="positive"])</code></pre>
+<p class="fnnote">Input: x, level, hysteresis, polarity &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N real vector or <code>Signal</code>; <code>level</code>/<code>hysteresis</code> as for <code>find_edges</code>; <code>polarity</code> (optional string): <code>"positive"</code> (default) pairs each rising edge with the next falling one, <code>"negative"</code> the reverse.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = find_pulses(x, [level=], [hysteresis=0], [polarity="positive"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">optional</span><span class="iodesc"><code>level</code>/<code>hysteresis</code> as for <code>find_edges</code>.</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iodesc"><code>level</code>/<code>hysteresis</code> as for <code>find_edges</code>.</span></div>
+<div class="ioitem"><code>polarity</code> <span class="iotype">string, optional (default <code>"positive"</code>)</span><span class="iodesc"><code>polarity</code> (optional string): <code>"positive"</code> (default) pairs each rising edge with the next falling one, <code>"negative"</code> the reverse.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"pulses"</code></span></div>
+<div class="ioitem"><code>stops</code> <span class="iotype">vector</span><span class="iodesc">vectors of integer sample <strong>indices</strong> — <code>stops</code>, not <code>ends</code>, because <code>end</code> is a Qu keyword</span></div>
+<div class="ioitem"><code>widths</code> <span class="iotype">vector or Signal</span><span class="iodesc">a vector of <strong>times</strong>: seconds for a <code>Signal</code>, samples otherwise, measured between the interpolated crossings so that <code>mean(p.widths)</code> equals <code>pulse_width(x)</code> exactly</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">number</span><span class="iodesc">a number</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"pulses"</code>) with fields <code>starts</code>, <code>stops</code> (vectors of integer sample <strong>indices</strong> — <code>stops</code>, not <code>ends</code>, because <code>end</code> is a Qu keyword), <code>widths</code> (a vector of <strong>times</strong>: seconds for a <code>Signal</code>, samples otherwise, measured between the interpolated crossings so that <code>mean(p.widths)</code> equals <code>pulse_width(x)</code> exactly), and <code>count</code> (a number). A partial pulse at either end of the record — already high when capture started, or still high when it stopped — has only one of its two edges and is <strong>not</strong> reported; its width is genuinely unknown.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>find_pulses(x, [level=], [hysteresis=], [polarity="positive"])</code> -- consecutive opposite-going edge pairs, as a <code>Model</code> with parallel fields <code>starts</code>, <code>stops</code> and <code>widths</code>, plus a scalar <code>count</code>. Field names are plural to match <code>findpeaks</code>'s own <code>peaks</code>/<code>locations</code>/ <code>prominences</code>/<code>widths</code> convention; <code>stops</code> rather than the obvious <code>ends</code> because <code>end</code> is a Qu keyword and a field spelled that way would be awkward to reach. UNITS, because this record deliberately mixes them: <code>starts</code>/<code>stops</code> are integer sample INDICES (they index into <code>x</code>), while <code>widths</code> are TIMES -- seconds for a <code>Signal</code>, samples otherwise -- measured between the interpolated crossings. The alternative, widths in whole samples, would make <code>mean(p.widths)</code> disagree with <code>pulse_width(x)</code> on the same input, which is a worse trap than a documented mixed record. A partial pulse at either end of the record -- already high when capture started, or still high when it stopped -- has only one of its two edges and is NOT reported. Its width is genuinely unknown and a truncated one would look fine.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

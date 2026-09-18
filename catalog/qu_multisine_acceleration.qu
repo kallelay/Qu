@@ -1,12 +1,56 @@
-# qu_multisine_acceleration.qu — 51-tone multisine, the "no explicit
-# acceleration" baseline.
+# qu_multisine_acceleration.qu — the same multisine, several ways to
+# compute it, and what "accelerated" actually buys you here.
 #
-# Companion to benchmarks/multisine_acceleration/: that directory times
-# FIVE ways of computing this exact same signal (this loop, full
-# broadcast/matmul vectorization, `parallel for`, a pool/queue job split,
-# and `gpu_matmul`) against each other and cross-checks that they all
-# produce the numerically identical waveform. This file is just the
-# reference workload on its own, runnable standalone with `qu run`.
+# Five ways exist to compute this exact workload; this file runs the two
+# that matter for a script you'd actually write (baseline loop vs. full
+# vectorization) and documents all five so the choice is informed, not
+# guessed:
+#
+#   [1] BASELINE (unaccelerated) — a scalar `for` loop over the 51 tones,
+#       each iteration vectorized over the N-length time axis. Run below.
+#       Qu has no reasonable scalar-loop-over-N alternative, so this IS
+#       the right "unaccelerated" reference, not a strawman.
+#   [2] FULL VECTORIZATION (accelerated) — zero explicit loops: reshape
+#       into an (N,1) time column and a (1,K) frequency row, outer-product
+#       them into an (N,K) phase matrix via broadcast multiply, `sin()`
+#       it, then collapse to (N,1) with one matmul against the amplitude
+#       vector. Run below, ~1.6-1.9x faster than [1] on a 16-core desktop.
+#   [3] `parallel for` (accelerated, usually) — disjoint per-tone writes
+#       into a shared (N,K) matrix, summed after the loop closes. NOT run
+#       here: at this problem's size the one large shared output matrix
+#       hits a real copy-on-write perf trap (see benchmarks/
+#       multisine_acceleration/README.md's "parallel for and reductions"
+#       section) and comes out ~30x SLOWER than [1] — a genuine, measured
+#       result, not a demo simplification. `parallel for` is NOT slow in
+#       general (the same directory's parallel_isolation.qu shows a clean
+#       ~4.7x speedup on a workload with no large shared buffer); it is
+#       slow specifically for a multisine synthesized this way.
+#   [4] pool + queue + workers (accelerated) — split the 51 tones into 8
+#       chunks, each a queued job on a worker pool, partial sums combined
+#       after `run jobs on pool(...)` returns. NOT run here for brevity;
+#       tied for fastest of all five methods in the referenced benchmark,
+#       because no method-3-style shared mutable buffer is ever touched.
+#   [5] `gpu_matmul` (accelerated, sometimes) — method [2]'s own basis
+#       matrix collapsed on the GPU instead of the CPU. NOT run here: it
+#       needs a `qu.exe` built with `--features gpu`, off by default. Also
+#       the one genuine surprise: ~3x SLOWER than [1] on this workload,
+#       because a "skinny" (N,51)x(51,1) multiply is dominated by
+#       upload/dispatch/readback overhead, not by the raw FLOP count GPUs
+#       are good at — see the benchmark README's "GPU" section.
+#
+# `benchmarks/multisine_acceleration/bench.qu` runs and cross-checks all
+# five in one process, plus a full write-up of what changed the timing
+# results (`benchmarks/multisine_acceleration/README.md`).
+#
+# Where does `backend auto` (line below) fit into this? It's a different
+# axis entirely: not "which of the 5 algorithms did YOU write", but "for
+# each individual operation (matmul, FFT, elementwise) the RUNTIME already
+# does, which physical backend runs it" — CPU vs. GPU vs. a specific
+# vendor library, decided per call by measured speed on representative
+# workloads (see spec §20), not a fixed compile-time choice. Methods [1]
+# and [2] below both run under `backend auto`; it does not turn one into
+# the other; it only affects how the arithmetic THEY already specify gets
+# dispatched underneath.
 #
 # The workload: x(t) = sum_{k=1..51} A_k * sin(2*pi*f_k*t + phi_k),
 # Fs = 5000 Hz, duration = 300 s (N = 1,500,000 samples). 51 tones
@@ -15,13 +59,10 @@
 # reproducible run to run.
 #
 # Construct exercised (spec section -> use):
-#   §12  logspace, ranges
+#   §12  logspace, ranges, reshape
 #   §21  seed()/rand() for reproducible phases
-#   §16  for loop, vectorized per-tone (the "baseline" idiom: a scalar loop
-#        over the 51 tones, each iteration itself vectorized over the
-#        N-length time axis — Qu has no reasonable scalar-loop-over-N
-#        alternative, so this IS the right "unaccelerated" reference, not
-#        a strawman)
+#   §16  for loop, vectorized per-tone (method [1])
+#   §14  broadcasting, outer products via matmul (method [2])
 #   §24  rms, crest factor via max/abs
 
 backend auto
@@ -47,17 +88,57 @@ phi = rand(K) * 2 * pi                     # reproducible random phases
 
 print("N = {N} samples, K = {K} tones, Fs = {Fs} Hz, duration = {duration} s")
 
-#%% Synthesize (baseline: loop over tones, vectorized per tone over N)
+#%% [1] Baseline (unaccelerated) -- loop over tones, vectorized per tone over N
+#
+# `mem_usage()` reports this process's RESIDENT set (pages actually
+# mapped in), not what was merely requested -- `zeros(N)` alone barely
+# moves it (the OS backs a fresh zero-filled allocation with a shared
+# zero page until something writes to it), so the delta below is taken
+# AFTER x is filled with real values, when the pages are genuinely
+# touched and the number means something.
+mem0 = mem_usage()
 tic()
 x = zeros(N)
 for k = 0 to K - 1
     x = x + A[k] * sin(2 * pi * f[k] * t + phi[k])
 end for
 t_baseline = toc()
+mem1 = mem_usage()
 
-print("baseline synth time = {t_baseline:.4f} s")
+print("[1] baseline loop      : {t_baseline:.4f} s")
 print("rms(x)   = {rms(x):.6f}")
 print("crest(x) = {max(abs(x)) / rms(x):.4f}")
+
+#%% [2] Full vectorization (accelerated) -- one broadcast/matmul expression
+tic()
+T_col   = reshape(t, N, 1)
+F_row   = reshape(f, 1, K)
+Phi_row = reshape(phi, 1, K)
+A_col   = reshape(A, K, 1)
+
+Phase = 2 * pi * (T_col * F_row)    # (N,1) x (1,K) -> (N,K) outer product
+Basis = sin(Phase + Phi_row)        # (N,K), phi broadcast across all N rows
+x2    = (Basis * A_col)[:, 0]       # (N,K) x (K,1) -> (N,1), flattened to N
+t_vectorized = toc()
+mem2 = mem_usage()
+
+print("[2] full vectorization : {t_vectorized:.4f} s  ({t_baseline / t_vectorized:.2f}x vs [1])")
+print("max|x - x2| = {max(abs(x - x2)):.3e}  (both methods, same signal)")
+
+#%% Speed AND memory, side by side -- timing alone hides the tradeoff
+#
+# [1] holds only N-length arrays (x, t, and one tone's worth of scratch
+# per iteration): O(N) memory. [2] builds an explicit (N,K) `Basis`
+# matrix -- N=1,500,000 x K=51 doubles, ~612 MB -- to buy its speedup:
+# O(N*K) memory. Faster is not automatically lighter; here it is the
+# opposite, and only measuring both numbers shows that.
+mb1 = (mem1 - mem0) / 1e6
+mb2 = (mem2 - mem1) / 1e6
+basis_mb = numel(Basis) * 8 / 1e6
+print("")
+print("           time (s)   RSS delta (MB)")
+print("[1] baseline    {t_baseline:8.4f}   {mb1:8.1f}")
+print("[2] vectorized  {t_vectorized:8.4f}   {mb2:8.1f}   ({basis_mb:.0f} MB is Basis alone)")
 
 #%% Plot (first 0.05 s only -- 1.5M points is too dense to eyeball otherwise)
 n_show = round(0.05 * Fs)

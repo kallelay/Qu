@@ -42,7 +42,7 @@
 <div class="ioitem"><code>f0</code> <span class="iotype">number</span><span class="iodesc"><code>f0</code>, <code>f1</code>: numbers (Hz, <code>f1 &gt;= f0</code>).</span></div>
 <div class="ioitem"><code>f1</code> <span class="iotype">number</span><span class="iodesc"><code>f0</code>, <code>f1</code>: numbers (Hz, <code>f1 &gt;= f0</code>).</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
-</td><td>Returns a new <code>spectrum</code> at the same <code>Fs</code> and <code>N</code> with that band cleared — an ideal brick-wall notch. On a full spectrum it <strong>also clears each bin's conjugate partner</strong> (<code>N-k</code>), which is what keeps the inverse transform real; clearing only the positive-frequency half is the classic way to get a silently complex signal back out of <code>ifft</code>.</td></tr>
+</td><td>Returns a new <code>spectrum</code> at the same <code>Fs</code>, <code>N</code> and scaling with that band cleared — an ideal brick-wall notch. On a full spectrum it <strong>also clears each bin's conjugate partner</strong> (<code>N-k</code>), which is what keeps the inverse transform real; clearing only the positive-frequency half is the classic way to get a silently complex signal back out of <code>ifft</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -60,13 +60,10 @@ clean = <span class="f">ifft</span>(<span class="f">band_zero</span>(X, <span cl
 <span class="f">print</span>(<span class="s">"residual imaginary part: {max(abs(imag(clean)))}"</span>)   <span class="c"># ~1e-16, still real</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
-<h2>How it works</h2>
-<p>§41.2, frequency side -- the twin of <code>signal_slice_time</code> above: address a spectrum in Hz instead of in bin indices, which is the single most error-prone step in DSP code (<code>round(f * N / fs)</code> written out by hand on every script). These deliberately do NOT include a "slice out a band" verb. Slicing bins would leave bin 0 of the result no longer at DC, silently invalidating <code>.freq</code> -- an axis that lies is worse than no axis. <code>band_zero</code> keeps the full axis intact, and <code>.mag</code>/ <code>.freq</code> return plain vectors that can be sliced safely.</p>
-<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

@@ -136,8 +136,12 @@ max_field_val = <span class="f">max</span>(Uexact)
 </section>
 <section class="step">
 <h3>Cross-language comparison dump</h3>
-<p>--- Dump the final field to CSV for fluid_simulation.py to diff directly -- (this scheme is fully deterministic -- no RNG anywhere -- so the Qu and NumPy fields should agree to near float64 round-off, not just "both close to the analytic solution": this is the actual apples-to-apples check.)</p>
+<p>--- Dump the final field to CSV for fluid_simulation.py to diff directly -- (this scheme is fully deterministic -- no RNG anywhere -- so the Qu and NumPy fields should agree to near float64 round-off, not just "both close to the analytic solution": this is the actual apples-to-apples check.) That path is relative to the REPOSITORY ROOT, because the Python script it is diffed against lives there. Run from anywhere else -- `catalog/`, say -- and the write used to fail with a bare OS error. Fall back to writing beside the script instead, and say so, so the demo runs from any directory while still landing in the right place when it can.</p>
 <pre class="hl"><code>field_csv_path = <span class="s">"benchmarks/qu_vs_python_advanced/qu_fluid_field.csv"</span>
+<span class="k">if</span> <span class="k">not</span> <span class="f">dir_exists</span>(<span class="s">"benchmarks/qu_vs_python_advanced"</span>) <span class="k">then</span>
+    field_csv_path = <span class="s">"qu_fluid_field.csv"</span>
+    <span class="f">print</span>(<span class="s">"[Qu] not at the repository root -- writing the field to {field_csv_path} instead"</span>)
+<span class="k">end</span> <span class="k">if</span>
 fcsv = <span class="f">fopen</span>(field_csv_path, <span class="s">"w"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> nx - <span class="n">1</span>
     line = <span class="s">""</span>
@@ -161,66 +165,77 @@ fcsv = <span class="f">fopen</span>(field_csv_path, <span class="s">"w"</span>)
 show plot
 </code></pre>
 </section>
+<h2>Results</h2>
+<div class="out"><span class="lbl">printed</span><pre>[Qu] grid=91x91, dx=0.03333, dy=0.03333
+[Qu] dt=0.005556 (dt_max=0.013889, safety factor=0.4), nsteps=180
+[Qu] elapsed=4339.0 ms for 180 steps on a 91x91 grid
+[Qu] mass: initial=0.141372, final=0.141372, relative drift=-0.0000%
+[Qu] vs analytic Gaussian at t=1: max|err|=2.077297e-4, rms(err)=2.855639e-5, peak field value=0.360000
+[Qu] max|err| as % of peak field value: 0.0577%
+[Qu] PASS: numeric field matches analytic Gaussian diffusion to &lt;2% of peak amplitude
+[Qu] not at the repository root -- writing the field to qu_fluid_field.csv instead
+[Qu] wrote final field to qu_fluid_field.csv for cross-language diff</pre></div>
+<p class="bigfig">This one draws about 2 MB of vector graphics -- too much to put in a web page, and itself worth knowing about the demo. Run it to see it.</p>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_fluid_simulation.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_fluid_simulation.qu — 2D scalar diffusion (heat equation), explicit FTCS</span>
-<span class="c">#</span>
-<span class="c"># HONESTY NOTE (read this before calling it "CFD"): this solves the linear</span>
-<span class="c"># 2-D diffusion equation for a scalar field u(x,y,t),</span>
-<span class="c">#</span>
-<span class="c">#     du/dt = D * (d2u/dx2 + d2u/dy2)</span>
-<span class="c">#</span>
-<span class="c"># It is NOT the incompressible Navier-Stokes lid-driven-cavity benchmark</span>
-<span class="c"># (Ghia et al. 1982) that was the first choice for this demo. That attempt</span>
-<span class="c"># was dropped deliberately: a from-scratch explicit projection method</span>
-<span class="c"># (predictor step + pressure-Poisson solve + velocity correction) is easy to</span>
-<span class="c"># get numerically *unstable* or subtly wrong (wrong pressure BCs, wrong</span>
-<span class="c"># staggering) in the time available, and an incorrect "fluid-flow-shaped"</span>
-<span class="c"># picture that nobody actually checked against Ghia's tabulated centerline</span>
-<span class="c"># velocities is worse than an honestly-scoped diffusion demo that IS checked</span>
-<span class="c"># against a closed-form reference to a real numeric tolerance. Diffusion</span>
-<span class="c"># is still a real transport PDE (the same operator that appears inside the</span>
-<span class="c"># viscous term of Navier-Stokes), it is "fluid-adjacent," and — critically —</span>
-<span class="c"># it has an exact analytic solution for a Gaussian initial condition, so the</span>
-<span class="c"># correctness check below is a real quantitative comparison, not a vibe check.</span>
-<span class="c">#</span>
-<span class="c"># NUMERICAL METHOD</span>
-<span class="c">#   Explicit forward-time, centered-space (FTCS) finite differences on a</span>
-<span class="c">#   uniform nx*ny grid, Dirichlet u=0 boundary (justified below). The</span>
-<span class="c">#   Laplacian stencil at each interior cell (i,j) is computed from the</span>
-<span class="c">#   PREVIOUS time step's field (Uold), written into the new field U — a</span>
-<span class="c">#   genuine Jacobi-style sweep, one full nested `for` loop per time step</span>
-<span class="c">#   (the "naive stencil code" side of the Qu-vs-NumPy comparison in</span>
-<span class="c">#   benchmarks/qu_vs_python_advanced/fluid_simulation.py, which computes the</span>
-<span class="c">#   identical stencil via vectorized NumPy slicing instead of a Python loop).</span>
-<span class="c">#</span>
-<span class="c"># STABILITY (CFL-like) CONDITION</span>
-<span class="c">#   Explicit FTCS for 2-D diffusion is stable only for</span>
-<span class="c">#     dt &lt;= dx^2*dy^2 / (2*D*(dx^2 + dy^2))     (= dx^2/(4D) when dx=dy)</span>
-<span class="c">#   We use dt = 0.4 * that limit (a comfortable safety margin below the 0.5</span>
-<span class="c">#   theoretical bound) and choose nsteps so nsteps*dt lands exactly on</span>
-<span class="c">#   t_final.</span>
-<span class="c">#</span>
-<span class="c"># VERIFICATION (two independent checks, both printed with real numbers)</span>
-<span class="c">#   1. Analytic reference: the initial condition is an isotropic Gaussian</span>
-<span class="c">#      blob u(x,y,0) = A0*exp(-r^2/(2*sigma0^2)). A Gaussian convolved with</span>
-<span class="c">#      the 2-D heat kernel stays Gaussian, with variance growing linearly:</span>
-<span class="c">#        sigma(t)^2 = sigma0^2 + 2*D*t</span>
-<span class="c">#        u_exact(x,y,t) = A0*(sigma0^2/sigma(t)^2)*exp(-r^2/(2*sigma(t)^2))</span>
-<span class="c">#      The domain half-width is chosen to be &gt;5 analytic sigmas at t_final,</span>
-<span class="c">#      so the zero-Dirichlet boundary truncates negligible tail mass and</span>
-<span class="c">#      u_exact is a fair reference for the whole domain. We report the max</span>
-<span class="c">#      and RMS difference between the simulated field and u_exact.</span>
-<span class="c">#   2. Total-mass conservation: with ~zero field value (hence ~zero flux) at</span>
-<span class="c">#      the boundary, integral(u) dx dy should stay ~constant over time; we</span>
-<span class="c">#      report initial vs final mass.</span>
-<span class="c">#</span>
-<span class="c"># Plot: a heatmap of the final scalar field.</span>
+<pre class="hl"><code><span class="c"># qu_fluid_simulation.qu — 2D scalar diffusion (heat equation), explicit FTCS</span>
+<span class="c">#</span>
+<span class="c"># HONESTY NOTE (read this before calling it "CFD"): this solves the linear</span>
+<span class="c"># 2-D diffusion equation for a scalar field u(x,y,t),</span>
+<span class="c">#</span>
+<span class="c">#     du/dt = D * (d2u/dx2 + d2u/dy2)</span>
+<span class="c">#</span>
+<span class="c"># It is NOT the incompressible Navier-Stokes lid-driven-cavity benchmark</span>
+<span class="c"># (Ghia et al. 1982) that was the first choice for this demo. That attempt</span>
+<span class="c"># was dropped deliberately: a from-scratch explicit projection method</span>
+<span class="c"># (predictor step + pressure-Poisson solve + velocity correction) is easy to</span>
+<span class="c"># get numerically *unstable* or subtly wrong (wrong pressure BCs, wrong</span>
+<span class="c"># staggering) in the time available, and an incorrect "fluid-flow-shaped"</span>
+<span class="c"># picture that nobody actually checked against Ghia's tabulated centerline</span>
+<span class="c"># velocities is worse than an honestly-scoped diffusion demo that IS checked</span>
+<span class="c"># against a closed-form reference to a real numeric tolerance. Diffusion</span>
+<span class="c"># is still a real transport PDE (the same operator that appears inside the</span>
+<span class="c"># viscous term of Navier-Stokes), it is "fluid-adjacent," and — critically —</span>
+<span class="c"># it has an exact analytic solution for a Gaussian initial condition, so the</span>
+<span class="c"># correctness check below is a real quantitative comparison, not a vibe check.</span>
+<span class="c">#</span>
+<span class="c"># NUMERICAL METHOD</span>
+<span class="c">#   Explicit forward-time, centered-space (FTCS) finite differences on a</span>
+<span class="c">#   uniform nx*ny grid, Dirichlet u=0 boundary (justified below). The</span>
+<span class="c">#   Laplacian stencil at each interior cell (i,j) is computed from the</span>
+<span class="c">#   PREVIOUS time step's field (Uold), written into the new field U — a</span>
+<span class="c">#   genuine Jacobi-style sweep, one full nested `for` loop per time step</span>
+<span class="c">#   (the "naive stencil code" side of the Qu-vs-NumPy comparison in</span>
+<span class="c">#   benchmarks/qu_vs_python_advanced/fluid_simulation.py, which computes the</span>
+<span class="c">#   identical stencil via vectorized NumPy slicing instead of a Python loop).</span>
+<span class="c">#</span>
+<span class="c"># STABILITY (CFL-like) CONDITION</span>
+<span class="c">#   Explicit FTCS for 2-D diffusion is stable only for</span>
+<span class="c">#     dt &lt;= dx^2*dy^2 / (2*D*(dx^2 + dy^2))     (= dx^2/(4D) when dx=dy)</span>
+<span class="c">#   We use dt = 0.4 * that limit (a comfortable safety margin below the 0.5</span>
+<span class="c">#   theoretical bound) and choose nsteps so nsteps*dt lands exactly on</span>
+<span class="c">#   t_final.</span>
+<span class="c">#</span>
+<span class="c"># VERIFICATION (two independent checks, both printed with real numbers)</span>
+<span class="c">#   1. Analytic reference: the initial condition is an isotropic Gaussian</span>
+<span class="c">#      blob u(x,y,0) = A0*exp(-r^2/(2*sigma0^2)). A Gaussian convolved with</span>
+<span class="c">#      the 2-D heat kernel stays Gaussian, with variance growing linearly:</span>
+<span class="c">#        sigma(t)^2 = sigma0^2 + 2*D*t</span>
+<span class="c">#        u_exact(x,y,t) = A0*(sigma0^2/sigma(t)^2)*exp(-r^2/(2*sigma(t)^2))</span>
+<span class="c">#      The domain half-width is chosen to be &gt;5 analytic sigmas at t_final,</span>
+<span class="c">#      so the zero-Dirichlet boundary truncates negligible tail mass and</span>
+<span class="c">#      u_exact is a fair reference for the whole domain. We report the max</span>
+<span class="c">#      and RMS difference between the simulated field and u_exact.</span>
+<span class="c">#   2. Total-mass conservation: with ~zero field value (hence ~zero flux) at</span>
+<span class="c">#      the boundary, integral(u) dx dy should stay ~constant over time; we</span>
+<span class="c">#      report initial vs final mass.</span>
+<span class="c">#</span>
+<span class="c"># Plot: a heatmap of the final scalar field.</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Parameters</span>
-<span class="c"># --- Grid, physics, and timing ---------------------------------------------</span>
+<span class="c">#%% Parameters</span>
+<span class="c"># --- Grid, physics, and timing ---------------------------------------------</span>
 Lx = <span class="n">3.0</span>
 Ly = <span class="n">3.0</span>
 nx = <span class="n">91</span>
@@ -239,13 +254,13 @@ dy = Ly / (ny - <span class="n">1</span>)
 dt_max = (dx^<span class="n">2</span> * dy^<span class="n">2</span>) / (<span class="n">2</span> * D * (dx^<span class="n">2</span> + dy^<span class="n">2</span>))
 dt = cfl_factor * dt_max
 nsteps = <span class="f">ceil</span>(t_final / dt)
-dt = t_final / nsteps               <span class="c"># land exactly on t_final after nsteps</span>
+dt = t_final / nsteps               <span class="c"># land exactly on t_final after nsteps</span>
 
 <span class="f">print</span>(<span class="s">"[Qu] grid={nx}x{ny}, dx={dx:.5f}, dy={dy:.5f}"</span>)
 <span class="f">print</span>(<span class="s">"[Qu] dt={dt:.6f} (dt_max={dt_max:.6f}, safety factor={cfl_factor}), nsteps={nsteps}"</span>)
 
-<span class="c">#%% Initial condition</span>
-<span class="c"># --- Gaussian blob ----------------------------------------------------------</span>
+<span class="c">#%% Initial condition</span>
+<span class="c"># --- Gaussian blob ----------------------------------------------------------</span>
 U = <span class="f">zeros</span>(nx, ny)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> nx - <span class="n">1</span>
     xi = i * dx
@@ -258,8 +273,8 @@ U = <span class="f">zeros</span>(nx, ny)
 
 mass0 = <span class="f">sum</span>(U) * dx * dy
 
-<span class="c">#%% Time-stepping: explicit FTCS diffusion, nested for loops</span>
-<span class="c"># --- March forward in time --------------------------------------------------</span>
+<span class="c">#%% Time-stepping: explicit FTCS diffusion, nested for loops</span>
+<span class="c"># --- March forward in time --------------------------------------------------</span>
 <span class="f">tic</span>()
 <span class="k">for</span> tstep = <span class="n">1</span> <span class="k">to</span> nsteps
     Uold = U
@@ -275,8 +290,8 @@ elapsed_ms = <span class="f">toc</span>() * <span class="n">1000</span>
 
 mass_final = <span class="f">sum</span>(U) * dx * dy
 
-<span class="c">#%% Verification</span>
-<span class="c"># --- Analytic reference field at t_final ------------------------------------</span>
+<span class="c">#%% Verification</span>
+<span class="c"># --- Analytic reference field at t_final ------------------------------------</span>
 sigma_final_sq = sigma0^<span class="n">2</span> + <span class="n">2</span> * D * t_final
 amp_final = A0 * (sigma0^<span class="n">2</span> / sigma_final_sq)
 
@@ -306,12 +321,21 @@ max_field_val = <span class="f">max</span>(Uexact)
     <span class="f">print</span>(<span class="s">"[Qu] FAIL: numeric field deviates from analytic Gaussian diffusion by &gt;=2% of peak amplitude"</span>)
 <span class="k">end</span> <span class="k">if</span>
 
-<span class="c">#%% Cross-language comparison dump</span>
-<span class="c"># --- Dump the final field to CSV for fluid_simulation.py to diff directly --</span>
-<span class="c"># (this scheme is fully deterministic -- no RNG anywhere -- so the Qu and</span>
-<span class="c"># NumPy fields should agree to near float64 round-off, not just "both close</span>
-<span class="c"># to the analytic solution": this is the actual apples-to-apples check.)</span>
+<span class="c">#%% Cross-language comparison dump</span>
+<span class="c"># --- Dump the final field to CSV for fluid_simulation.py to diff directly --</span>
+<span class="c"># (this scheme is fully deterministic -- no RNG anywhere -- so the Qu and</span>
+<span class="c"># NumPy fields should agree to near float64 round-off, not just "both close</span>
+<span class="c"># to the analytic solution": this is the actual apples-to-apples check.)</span>
+<span class="c"># That path is relative to the REPOSITORY ROOT, because the Python script</span>
+<span class="c"># it is diffed against lives there. Run from anywhere else -- `catalog/`,</span>
+<span class="c"># say -- and the write used to fail with a bare OS error. Fall back to</span>
+<span class="c"># writing beside the script instead, and say so, so the demo runs from any</span>
+<span class="c"># directory while still landing in the right place when it can.</span>
 field_csv_path = <span class="s">"benchmarks/qu_vs_python_advanced/qu_fluid_field.csv"</span>
+<span class="k">if</span> <span class="k">not</span> <span class="f">dir_exists</span>(<span class="s">"benchmarks/qu_vs_python_advanced"</span>) <span class="k">then</span>
+    field_csv_path = <span class="s">"qu_fluid_field.csv"</span>
+    <span class="f">print</span>(<span class="s">"[Qu] not at the repository root -- writing the field to {field_csv_path} instead"</span>)
+<span class="k">end</span> <span class="k">if</span>
 fcsv = <span class="f">fopen</span>(field_csv_path, <span class="s">"w"</span>)
 <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> nx - <span class="n">1</span>
     line = <span class="s">""</span>
@@ -326,8 +350,8 @@ fcsv = <span class="f">fopen</span>(field_csv_path, <span class="s">"w"</span>)
 <span class="f">close</span>(fcsv)
 <span class="f">print</span>(<span class="s">"[Qu] wrote final field to {field_csv_path} for cross-language diff"</span>)
 
-<span class="c">#%% Plot</span>
-<span class="c"># --- Heatmap of the final scalar field --------------------------------------</span>
+<span class="c">#%% Plot</span>
+<span class="c"># --- Heatmap of the final scalar field --------------------------------------</span>
 <span class="f">heatmap</span>(U, <span class="a">colormap</span>=<span class="s">"viridis"</span>)
 <span class="f">title</span>(<span class="s">"2D diffusion: scalar field at t={t_final}s (Gaussian blob, D={D})"</span>)
 show plot

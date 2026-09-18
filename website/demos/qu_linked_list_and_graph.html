@@ -119,40 +119,40 @@ Shortest Depot-&gt;D route cost: 6
 Shortest path with no edge at all (directed, unreachable): none</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_linked_list_and_graph.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_linked_list_and_graph.qu -- a double-ended `linked_list` used to build</span>
-<span class="c"># a small road network's edge list, then a weighted `graph` over the same</span>
-<span class="c"># five towns, solved with Dijkstra's algorithm via `.shortest_path`.</span>
-<span class="c">#</span>
-<span class="c"># The linked_list plays a genuinely double-ended role here: edges are</span>
-<span class="c"># discovered in two directions during a (fictional) survey -- forward</span>
-<span class="c"># discoveries get appended with `.push_back`, but a late report of a</span>
-<span class="c"># previously-missed direct link between the depot and the first town needs</span>
-<span class="c"># to be recorded as the FIRST leg of the route, so it goes in with</span>
-<span class="c"># `.push_front`. `.to_vec()` then materializes the whole deque, in final</span>
-<span class="c"># front-to-back order, for printing.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   linked_list()                         -- new empty deque</span>
-<span class="c">#   l.push_back(v), l.push_front(v)        -- append / prepend</span>
-<span class="c">#   l.pop_front(), l.pop_back()            -- remove from either end</span>
-<span class="c">#   l.to_vec()                            -- materialize front-to-back</span>
-<span class="c">#   len(l)                                -- element count</span>
-<span class="c">#   graph([directed=])                     -- new node+edge graph</span>
-<span class="c">#   g.add_node(id), g.add_edge(a, b, weight=)</span>
-<span class="c">#   g.neighbors(id), g.has_edge(a, b)</span>
-<span class="c">#   g.shortest_path(source, target)        -- Dijkstra</span>
-<span class="c">#   len(g)                                -- node count</span>
+<pre class="hl"><code><span class="c"># qu_linked_list_and_graph.qu -- a double-ended `linked_list` used to build</span>
+<span class="c"># a small road network's edge list, then a weighted `graph` over the same</span>
+<span class="c"># five towns, solved with Dijkstra's algorithm via `.shortest_path`.</span>
+<span class="c">#</span>
+<span class="c"># The linked_list plays a genuinely double-ended role here: edges are</span>
+<span class="c"># discovered in two directions during a (fictional) survey -- forward</span>
+<span class="c"># discoveries get appended with `.push_back`, but a late report of a</span>
+<span class="c"># previously-missed direct link between the depot and the first town needs</span>
+<span class="c"># to be recorded as the FIRST leg of the route, so it goes in with</span>
+<span class="c"># `.push_front`. `.to_vec()` then materializes the whole deque, in final</span>
+<span class="c"># front-to-back order, for printing.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   linked_list()                         -- new empty deque</span>
+<span class="c">#   l.push_back(v), l.push_front(v)        -- append / prepend</span>
+<span class="c">#   l.pop_front(), l.pop_back()            -- remove from either end</span>
+<span class="c">#   l.to_vec()                            -- materialize front-to-back</span>
+<span class="c">#   len(l)                                -- element count</span>
+<span class="c">#   graph([directed=])                     -- new node+edge graph</span>
+<span class="c">#   g.add_node(id), g.add_edge(a, b, weight=)</span>
+<span class="c">#   g.neighbors(id), g.has_edge(a, b)</span>
+<span class="c">#   g.shortest_path(source, target)        -- Dijkstra</span>
+<span class="c">#   len(g)                                -- node count</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Part 1: linked_list -- recording a road survey's discovered legs</span>
+<span class="c">#%% Part 1: linked_list -- recording a road survey's discovered legs</span>
 legs = <span class="f">linked_list</span>()
 legs.<span class="f">push_back</span>(<span class="s">"Depot-&gt;A"</span>)
 legs.<span class="f">push_back</span>(<span class="s">"A-&gt;B"</span>)
 legs.<span class="f">push_back</span>(<span class="s">"B-&gt;C"</span>)
 legs.<span class="f">push_back</span>(<span class="s">"C-&gt;D"</span>)
-<span class="c"># Late correction: a direct Depot-&gt;A link was actually surveyed FIRST,</span>
-<span class="c"># before any of the above -- push it onto the front, not the back.</span>
+<span class="c"># Late correction: a direct Depot-&gt;A link was actually surveyed FIRST,</span>
+<span class="c"># before any of the above -- push it onto the front, not the back.</span>
 legs.<span class="f">push_front</span>(<span class="s">"Survey-start marker"</span>)
 
 <span class="f">print</span>(<span class="s">"Survey legs recorded (front to back): {legs.to_vec()}"</span>)
@@ -164,7 +164,7 @@ last_leg = legs.<span class="f">pop_back</span>()
 <span class="f">print</span>(<span class="s">"Popped back: {last_leg}"</span>)
 <span class="f">print</span>(<span class="s">"Remaining legs: {legs.to_vec()}"</span>)
 
-<span class="c">#%% Part 2: graph -- five towns (Depot, A, B, C, D), weighted roads, Dijkstra</span>
+<span class="c">#%% Part 2: graph -- five towns (Depot, A, B, C, D), weighted roads, Dijkstra</span>
 g = <span class="f">graph</span>()
 g.<span class="f">add_node</span>(<span class="s">"Depot"</span>)
 g.<span class="f">add_edge</span>(<span class="s">"Depot"</span>, <span class="s">"A"</span>, <span class="a">weight</span>=<span class="n">4</span>)
@@ -183,16 +183,16 @@ g.<span class="f">add_edge</span>(<span class="s">"D"</span>, <span class="s">"A
 
 cost = g.<span class="f">shortest_path</span>(<span class="s">"Depot"</span>, <span class="s">"D"</span>)
 <span class="f">print</span>(<span class="s">"Shortest Depot-&gt;D route cost: {cost}"</span>)
-<span class="c"># Hand-verified Dijkstra trace from Depot (undirected graph, so every edge</span>
-<span class="c"># weight applies both ways):</span>
-<span class="c">#   dist(Depot) = 0</span>
-<span class="c">#   relax Depot's edges: dist(A) = 4, dist(C) = 1</span>
-<span class="c">#   pop C (dist 1): relax C's edges: dist(A) = min(4, 1+2) = 3, dist(D) = min(inf, 1+8) = 9</span>
-<span class="c">#   pop A (dist 3): relax A's edges: dist(B) = min(inf, 3+5) = 8, dist(D) = min(9, 3+3) = 6</span>
-<span class="c">#   pop D (dist 6): relax D's edges: dist(B) = min(8, 6+1) = 7</span>
-<span class="c">#   pop B (dist 7): done</span>
-<span class="c"># Cheapest route Depot-&gt;D costs 6, via Depot-&gt;C-&gt;A-&gt;D (1 + 2 + 3 = 6) --</span>
-<span class="c"># matching the printed `cost` value exactly.</span>
+<span class="c"># Hand-verified Dijkstra trace from Depot (undirected graph, so every edge</span>
+<span class="c"># weight applies both ways):</span>
+<span class="c">#   dist(Depot) = 0</span>
+<span class="c">#   relax Depot's edges: dist(A) = 4, dist(C) = 1</span>
+<span class="c">#   pop C (dist 1): relax C's edges: dist(A) = min(4, 1+2) = 3, dist(D) = min(inf, 1+8) = 9</span>
+<span class="c">#   pop A (dist 3): relax A's edges: dist(B) = min(inf, 3+5) = 8, dist(D) = min(9, 3+3) = 6</span>
+<span class="c">#   pop D (dist 6): relax D's edges: dist(B) = min(8, 6+1) = 7</span>
+<span class="c">#   pop B (dist 7): done</span>
+<span class="c"># Cheapest route Depot-&gt;D costs 6, via Depot-&gt;C-&gt;A-&gt;D (1 + 2 + 3 = 6) --</span>
+<span class="c"># matching the printed `cost` value exactly.</span>
 
 unreachable = <span class="f">graph</span>(<span class="a">directed</span>=<span class="k">true</span>)
 unreachable.<span class="f">add_node</span>(<span class="s">"X"</span>)

@@ -67,59 +67,59 @@ R diagonal  = 1, 1, 1</pre></div>
 <figure class="demofig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
 
 <rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
-<rect x="86.00" y="48.00" width="260.00" height="164.00" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
-<text x="216.00" y="133.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
-<rect x="346.00" y="48.00" width="260.00" height="164.00" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
-<text x="476.00" y="133.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
-<rect x="606.00" y="48.00" width="260.00" height="164.00" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
-<text x="736.00" y="133.50" font-size="11" text-anchor="middle" fill="#ffffff">0.404</text>
-<rect x="86.00" y="212.00" width="260.00" height="164.00" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
-<text x="216.00" y="297.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
-<rect x="346.00" y="212.00" width="260.00" height="164.00" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
-<text x="476.00" y="297.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
-<rect x="606.00" y="212.00" width="260.00" height="164.00" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
-<text x="736.00" y="297.50" font-size="11" text-anchor="middle" fill="#ffffff">0.404</text>
-<rect x="86.00" y="376.00" width="260.00" height="164.00" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
-<text x="216.00" y="461.50" font-size="11" text-anchor="middle" fill="#ffffff">0.404</text>
-<rect x="346.00" y="376.00" width="260.00" height="164.00" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
-<text x="476.00" y="461.50" font-size="11" text-anchor="middle" fill="#ffffff">0.404</text>
-<rect x="606.00" y="376.00" width="260.00" height="164.00" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
-<text x="736.00" y="461.50" font-size="11" text-anchor="middle" fill="#111111">1</text>
+<rect x="104.06" y="48.00" width="253.98" height="160.28" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
+<text x="231.05" y="134.38" font-size="17.82" text-anchor="middle" fill="#111111">1</text>
+<rect x="358.04" y="48.00" width="253.98" height="160.28" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
+<text x="485.03" y="134.38" font-size="17.82" text-anchor="middle" fill="#111111">1</text>
+<rect x="612.02" y="48.00" width="253.98" height="160.28" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
+<text x="739.01" y="134.38" font-size="17.82" text-anchor="middle" fill="#ffffff">0.404</text>
+<rect x="104.06" y="208.28" width="253.98" height="160.28" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
+<text x="231.05" y="294.66" font-size="17.82" text-anchor="middle" fill="#111111">1</text>
+<rect x="358.04" y="208.28" width="253.98" height="160.28" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
+<text x="485.03" y="294.66" font-size="17.82" text-anchor="middle" fill="#111111">1</text>
+<rect x="612.02" y="208.28" width="253.98" height="160.28" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
+<text x="739.01" y="294.66" font-size="17.82" text-anchor="middle" fill="#ffffff">0.404</text>
+<rect x="104.06" y="368.56" width="253.98" height="160.28" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
+<text x="231.05" y="454.94" font-size="17.82" text-anchor="middle" fill="#ffffff">0.404</text>
+<rect x="358.04" y="368.56" width="253.98" height="160.28" rx="0" fill="#440154" stroke="#ffffff" opacity="1"><title>0.404</title></rect>
+<text x="485.03" y="454.94" font-size="17.82" text-anchor="middle" fill="#ffffff">0.404</text>
+<rect x="612.02" y="368.56" width="253.98" height="160.28" rx="0" fill="#fde725" stroke="#ffffff" opacity="1"><title>1</title></rect>
+<text x="739.01" y="454.94" font-size="17.82" text-anchor="middle" fill="#111111">1</text>
 </svg>
 <figcaption>Drawn by running the program above.</figcaption></figure>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_corrcoef_heatmap.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_corrcoef_heatmap.qu — corrcoef(X) + heatmap(corrcoef(X)).</span>
-<span class="c">#</span>
-<span class="c"># Runs end-to-end on the reference interpreter (`qu run`). Exercises:</span>
-<span class="c">#   corrcoef(X)   — the full pairwise Pearson correlation matrix of a data</span>
-<span class="c">#                   matrix X (rows = samples, cols = features), an NxN Mat</span>
-<span class="c">#                   (N = number of features), symmetric, diagonal of 1s.</span>
-<span class="c">#   heatmap(...)  — the existing colored-grid renderer, fed corrcoef's own</span>
-<span class="c">#                   Mat output directly (distinct from corr_heatmap/corrplot,</span>
-<span class="c">#                   which do the same computation over a Table's numeric</span>
-<span class="c">#                   columns and push the plot themselves in one call).</span>
+<pre class="hl"><code><span class="c"># qu_corrcoef_heatmap.qu — corrcoef(X) + heatmap(corrcoef(X)).</span>
+<span class="c">#</span>
+<span class="c"># Runs end-to-end on the reference interpreter (`qu run`). Exercises:</span>
+<span class="c">#   corrcoef(X)   — the full pairwise Pearson correlation matrix of a data</span>
+<span class="c">#                   matrix X (rows = samples, cols = features), an NxN Mat</span>
+<span class="c">#                   (N = number of features), symmetric, diagonal of 1s.</span>
+<span class="c">#   heatmap(...)  — the existing colored-grid renderer, fed corrcoef's own</span>
+<span class="c">#                   Mat output directly (distinct from corr_heatmap/corrplot,</span>
+<span class="c">#                   which do the same computation over a Table's numeric</span>
+<span class="c">#                   columns and push the plot themselves in one call).</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% Setup</span>
-<span class="c"># --- A small 5-sample, 3-feature data matrix -------------------------------</span>
-<span class="c"># col 0 = a, col 1 = b = 2*a (perfectly correlated), col 2 = c (partially</span>
-<span class="c"># correlated with both) -- hand-checkable, not a random draw.</span>
+<span class="c">#%% Setup</span>
+<span class="c"># --- A small 5-sample, 3-feature data matrix -------------------------------</span>
+<span class="c"># col 0 = a, col 1 = b = 2*a (perfectly correlated), col 2 = c (partially</span>
+<span class="c"># correlated with both) -- hand-checkable, not a random draw.</span>
 X = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">5</span>; <span class="n">2</span>, <span class="n">4</span>, <span class="n">3</span>; <span class="n">3</span>, <span class="n">6</span>, <span class="n">6</span>; <span class="n">4</span>, <span class="n">8</span>, <span class="n">2</span>; <span class="n">5</span>, <span class="n">10</span>, <span class="n">9</span>]
 
-<span class="c">#%% Compute</span>
+<span class="c">#%% Compute</span>
 R = <span class="f">corrcoef</span>(X)
-<span class="f">print</span>(<span class="s">"corrcoef(X) = {R}"</span>)          <span class="c"># [1,1,0.404145; 1,1,0.404145; 0.404145,0.404145,1]</span>
+<span class="f">print</span>(<span class="s">"corrcoef(X) = {R}"</span>)          <span class="c"># [1,1,0.404145; 1,1,0.404145; 0.404145,0.404145,1]</span>
 
-<span class="c"># Sanity checks against the pairwise `corr` builtin -------------------------</span>
-<span class="f">print</span>(<span class="s">"corr(a,b)   = {corr(X[:,0], X[:,1])}"</span>)   <span class="c"># 1        (b = 2*a exactly)</span>
-<span class="f">print</span>(<span class="s">"corr(a,c)   = {corr(X[:,0], X[:,2])}"</span>)   <span class="c"># ~0.4041</span>
-<span class="f">print</span>(<span class="s">"R[0,1]      = {R[0, 1]}"</span>)                <span class="c"># matches corr(a,b)</span>
-<span class="f">print</span>(<span class="s">"R diagonal  = {R[0,0]}, {R[1,1]}, {R[2,2]}"</span>)  <span class="c"># 1, 1, 1 (self-correlation)</span>
+<span class="c"># Sanity checks against the pairwise `corr` builtin -------------------------</span>
+<span class="f">print</span>(<span class="s">"corr(a,b)   = {corr(X[:,0], X[:,1])}"</span>)   <span class="c"># 1        (b = 2*a exactly)</span>
+<span class="f">print</span>(<span class="s">"corr(a,c)   = {corr(X[:,0], X[:,2])}"</span>)   <span class="c"># ~0.4041</span>
+<span class="f">print</span>(<span class="s">"R[0,1]      = {R[0, 1]}"</span>)                <span class="c"># matches corr(a,b)</span>
+<span class="f">print</span>(<span class="s">"R diagonal  = {R[0,0]}, {R[1,1]}, {R[2,2]}"</span>)  <span class="c"># 1, 1, 1 (self-correlation)</span>
 
-<span class="c">#%% Plot</span>
-<span class="c"># --- The real verified example: heatmap(corrcoef(X)) ----------------------</span>
+<span class="c">#%% Plot</span>
+<span class="c"># --- The real verified example: heatmap(corrcoef(X)) ----------------------</span>
 <span class="f">heatmap</span>(R, <span class="a">colormap</span>=<span class="s">"viridis"</span>)
 
 show plot

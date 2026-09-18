@@ -30,20 +30,18 @@
 <h1>findpeaks</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></pre>
-<p class="fnnote">Input: x, min_peak_height, min_peak_distance &middot; Output: result</p>
+<pre class="fnsig"><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></pre>
+<p class="fnnote">Input: x, min_peak_height, min_peak_distance &middot; Output: no output</p>
 <h2>What it is</h2>
-<p><code>x</code> is a length-N vector; <code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above. MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment, so this returns a <code>Model</code> (kind <code>"findpeaks"</code>) with fields <code>peaks</code> (a vector of the peak values) and <code>locations</code> (a vector of their 0-indexed integer indices into <code>x</code> — not MATLAB's 1-indexing) — the same named-field convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> use. Shares its peak-finding/non-max-suppression logic with <code>find_peaks</code> above.</p>
+<p><code>x</code> is a length-N vector; <code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above. MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment, so this returns a <code>Model</code> (kind <code>"findpeaks"</code>) with fields <code>peaks</code> (a vector of the peak values), <code>locations</code> (a vector of their 0-indexed integer indices into <code>x</code> — not MATLAB's 1-indexing), <code>prominences</code> (a vector, one per peak, the real prominence value) and <code>widths</code> (a vector, one per peak, the width in samples at <code>rel_height=0.5</code>) — the same named-field convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> use. Shares its peak-finding/non-max-suppression logic with <code>find_peaks</code> above.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N vector.</span></div>
+<tr><td class="iocode"><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N vector.</span></div>
 <div class="ioitem"><code>min_peak_height</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above.</span></div>
 <div class="ioitem"><code>min_peak_distance</code> <span class="iotype">number, optional</span><span class="iodesc"><code>min_peak_height</code>/<code>min_peak_distance</code> (optional numbers) as above.</span></div>
-</td><td><div class="ioitem"><code>peaks</code> <span class="iotype">Vec</span><span class="iodesc">a <code>Vec</code> of the peak values</span></div>
-<div class="ioitem"><code>locations</code> <span class="iotype">Vec</span><span class="iodesc">a <code>Vec</code> of the matching 0-based integer indices into <code>x</code></span></div>
-</td><td>Returns a <code>Model</code> of kind <code>"findpeaks"</code>, with fields <code>peaks</code> (a <code>Vec</code> of the peak values) and <code>locations</code> (a <code>Vec</code> of the matching 0-based integer indices into <code>x</code>), both the same length — the number of peaks found.</td></tr>
+</td><td><span class="ionone">not documented yet</span></td><td>Shares its peak-finding/non-max-suppression logic with <code>find_peaks</code> above.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -99,12 +97,12 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
-<p><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code> — MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment (see the <code>argmin</code>/<code>argmax</code>/<code>median</code>/... doc comment history), so this returns a <code>Value::Model</code> instead, the same named-field multi-return convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> already use: kind <code>"findpeaks"</code>, fields <code>peaks</code> (the values) and <code>locations</code> (their 0-indexed positions in <code>x</code> — Qu is 0-indexed everywhere, unlike MATLAB's 1-indexing, so there is deliberately no +1 offset here). Shares its actual peak- finding/non-max-suppression logic with <code>find_peaks</code> above (<code>numeric::transforms::find_peaks</code>) rather than a second implementation; <code>min_prominence</code> isn't exposed here since MATLAB's own <code>findpeaks</code> kwarg vocabulary this is modeled on is <code>MinPeakHeight</code>/<code>MinPeakDistance</code>, not prominence.</p>
+<p><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code> — MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment (see the <code>argmin</code>/<code>argmax</code>/<code>median</code>/... doc comment history), so this returns a <code>Value::Model</code> instead, the same named-field multi-return convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> already use: kind <code>"findpeaks"</code>, fields <code>peaks</code> (the values) and <code>locations</code> (their 0-indexed positions in <code>x</code> — Qu is 0-indexed everywhere, unlike MATLAB's 1-indexing, so there is deliberately no +1 offset here). Shares its actual peak- finding/non-max-suppression logic with <code>find_peaks</code> above (<code>numeric::transforms::find_peaks</code>) rather than a second implementation; <code>min_prominence</code> isn't exposed as a FILTER here since MATLAB's own <code>findpeaks</code> kwarg vocabulary this is modeled on is <code>MinPeakHeight</code>/<code>MinPeakDistance</code>, not prominence. Two more fields, <code>prominences</code> and <code>widths</code> (each one value per located peak, same order as <code>peaks</code>/ <code>locations</code>), are computed unconditionally via <code>numeric::transforms::peak_prominence</code>/<code>peak_width</code> (the real SciPy-style bounding-minima/interpolated-crossing algorithms, <code>width</code> at <code>rel_height=0.5</code>, "full width at half prominence") — this is the enriched alternative to <code>find_peaks</code> above for scripts that want the VALUES, not just filters on them.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

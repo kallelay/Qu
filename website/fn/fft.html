@@ -30,20 +30,28 @@
 <h1>fft</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>fft(x)</code></pre>
-<p class="fnnote">Input: x &middot; Output: result</p>
+<pre class="fnsig">result = <code>fft(x, [scaling=])</code></pre>
+<p class="fnnote">Input: x, scaling &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code>: a length-N real or complex vector.</p>
+<p><code>x</code>: a length-N real or complex vector. <code>scaling=</code> (optional string: <code>"raw"</code>, the default, <code>"amplitude"</code> or <code>"rms"</code>), same conventions as <code>rfft</code> below, requires <code>x</code> to be a <code>Signal</code>. On the FULL (two-sided) spectrum this returns, a real tone occupies TWO conjugate-symmetric bins, and scaling makes each of them independently read the tone's full peak amplitude (or RMS) rather than half of it — correct per bin, but summing both (or integrating a band across the mirror) double-counts that tone's energy. Use <code>rfft</code> instead when a total is what you want.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = fft(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector or CVec</span></div>
-</td><td>Returns a length-N complex vector (<code>CVec</code>), the discrete Fourier transform. <code>abs</code> gives magnitude, <code>angle</code> phase.</td></tr>
+<tr><td class="iocode"><code>result = fft(x, [scaling=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real or complex vector.</span></div>
+<div class="ioitem"><code>scaling</code> <span class="iotype">string or Signal, optional</span><span class="iodesc"><code>scaling=</code> (optional string: <code>"raw"</code>, the default, <code>"amplitude"</code> or <code>"rms"</code>), same conventions as <code>rfft</code> below, requires <code>x</code> to be a <code>Signal</code>.</span></div>
+</td><td><div class="ioitem"><code>spectrum</code> <span class="iotype">Signal</span><span class="iodesc"><code>Signal</code> <code>x</code></span></div>
+</td><td>Returns a length-N complex vector (<code>CVec</code>, plain <code>x</code>) or <code>spectrum</code> (<code>Signal</code> <code>x</code>), the discrete Fourier transform. <code>abs</code> gives magnitude, <code>angle</code> phase.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>N = <span class="n">8</span>
+n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+x = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">2</span> * n / N)     <span class="c"># a pure tone at bin 2</span>
+X = <span class="f">fft</span>(x, N)
+<span class="f">print</span>(<span class="s">"mag = {abs(X)}"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example"><pre class="hl"><code>r = {x = <span class="n">1</span>, y = <span class="n">2</span>}
 <span class="f">print</span>(<span class="s">"r = {r}"</span>)
 <span class="f">print</span>(<span class="s">"r.x = {r.x}"</span>)
@@ -77,33 +85,13 @@ freqs = pk.locations * (Fs / N)
 <span class="f">print</span>(<span class="s">"Peak frequencies (Hz): {freqs}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example"><pre class="hl"><code>N = <span class="n">256</span>
-Fs = <span class="n">256</span>
-t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / Fs
-f0 = <span class="n">20.5</span>
-x = <span class="f">sin</span>(<span class="n">2</span>*pi*f0*t)
-
-mag_raw = <span class="f">abs</span>(<span class="f">fft</span>(x))[<span class="n">0</span>:N/<span class="n">2</span>]
-w = <span class="f">hann</span>(N)
-mag_win = <span class="f">abs</span>(<span class="f">fft</span>(x .* w))[<span class="n">0</span>:N/<span class="n">2</span>]
-
-far_band = <span class="n">90</span> <span class="k">to</span> <span class="n">127</span>
-leak_raw = <span class="f">sum</span>(mag_raw[far_band])
-leak_win = <span class="f">sum</span>(mag_win[far_band])
-
-<span class="f">print</span>(<span class="s">"Peak magnitude, no window:   {max(mag_raw):.2f}"</span>)
-<span class="f">print</span>(<span class="s">"Peak magnitude, hann window: {max(mag_win):.2f}"</span>)
-<span class="f">print</span>(<span class="s">"Far-band (90-127 Hz) leakage energy, no window:   {leak_raw:.3f}"</span>)
-<span class="f">print</span>(<span class="s">"Far-band (90-127 Hz) leakage energy, hann window: {leak_win:.3f}"</span>)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p>DFT: <code>fft(x)</code> or <code>fft(x, n)</code> (zero-pads/truncates to n samples). <code>fftc</code> is an explicit-complex alias of <code>fft</code> (same function).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

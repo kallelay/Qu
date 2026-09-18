@@ -89,35 +89,35 @@ StreamURL drain length: 559 chars
 both streams answered to read_line/eof/close with zero branching in `drain`</pre></div>
 <h2>The whole program</h2>
 <p class="srcnote">Runnable as it stands: <code>qu run catalog/qu_streamfile_streamurl.qu</code></p>
-<pre class="hl"><code><span class="c"># qu_streamfile_streamurl.qu -- `StreamFile(path)` and `StreamURL(url)`</span>
-<span class="c"># (§ StreamFile/StreamURL polymorphic streams, see</span>
-<span class="c"># docs/qu-language-tour.md §23) are two different constructors that expose</span>
-<span class="c"># the SAME method names -- `read_line`/`read_all`/`eof`/`close` -- so one</span>
-<span class="c"># function written against "a stream" works completely unmodified against</span>
-<span class="c"># either kind. `StreamFile` is literally `fopen`'s own machinery under a</span>
-<span class="c"># second name (a real `Value::File` handle); `StreamURL` makes a real HTTP</span>
-<span class="c"># GET (the same request `http_get` makes, see qu_http_get.qu) and wraps the</span>
-<span class="c"># whole body eagerly in a read-only in-memory cursor answering to the exact</span>
-<span class="c"># same method names.</span>
-<span class="c">#</span>
-<span class="c"># This demo proves the polymorphism for real: the exact same `drain`</span>
-<span class="c"># function below is called once against a real local file and once against</span>
-<span class="c"># a real network response, with zero branching on which kind it received.</span>
-<span class="c"># The network half is wrapped in try/catch, same honest pattern as</span>
-<span class="c"># qu_http_get.qu -- on a machine with no outbound network access this</span>
-<span class="c"># prints a clear "network unavailable" message instead of crashing, while</span>
-<span class="c"># the StreamFile half (pure local disk I/O) always runs.</span>
-<span class="c">#</span>
-<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
-<span class="c">#   StreamFile(path)                  -- fopen's own machinery under a second name</span>
-<span class="c">#   StreamURL(url)                    -- eager real HTTP GET wrapped as a read-only stream</span>
-<span class="c">#   read_line(s) / eof(s) / close(s)  -- the shared method surface both kinds answer to</span>
-<span class="c">#   try/catch                         -- graceful handling of the real network dependency</span>
+<pre class="hl"><code><span class="c"># qu_streamfile_streamurl.qu -- `StreamFile(path)` and `StreamURL(url)`</span>
+<span class="c"># (§ StreamFile/StreamURL polymorphic streams, see</span>
+<span class="c"># docs/qu-language-tour.md §23) are two different constructors that expose</span>
+<span class="c"># the SAME method names -- `read_line`/`read_all`/`eof`/`close` -- so one</span>
+<span class="c"># function written against "a stream" works completely unmodified against</span>
+<span class="c"># either kind. `StreamFile` is literally `fopen`'s own machinery under a</span>
+<span class="c"># second name (a real `Value::File` handle); `StreamURL` makes a real HTTP</span>
+<span class="c"># GET (the same request `http_get` makes, see qu_http_get.qu) and wraps the</span>
+<span class="c"># whole body eagerly in a read-only in-memory cursor answering to the exact</span>
+<span class="c"># same method names.</span>
+<span class="c">#</span>
+<span class="c"># This demo proves the polymorphism for real: the exact same `drain`</span>
+<span class="c"># function below is called once against a real local file and once against</span>
+<span class="c"># a real network response, with zero branching on which kind it received.</span>
+<span class="c"># The network half is wrapped in try/catch, same honest pattern as</span>
+<span class="c"># qu_http_get.qu -- on a machine with no outbound network access this</span>
+<span class="c"># prints a clear "network unavailable" message instead of crashing, while</span>
+<span class="c"># the StreamFile half (pure local disk I/O) always runs.</span>
+<span class="c">#</span>
+<span class="c"># Constructs exercised (all real, verified-working builtins):</span>
+<span class="c">#   StreamFile(path)                  -- fopen's own machinery under a second name</span>
+<span class="c">#   StreamURL(url)                    -- eager real HTTP GET wrapped as a read-only stream</span>
+<span class="c">#   read_line(s) / eof(s) / close(s)  -- the shared method surface both kinds answer to</span>
+<span class="c">#   try/catch                         -- graceful handling of the real network dependency</span>
 
 <span class="k">backend</span> auto
 
-<span class="c">#%% One function, written against "a stream" -- no branching on the</span>
-<span class="c"># concrete kind of `s` anywhere in this body.</span>
+<span class="c">#%% One function, written against "a stream" -- no branching on the</span>
+<span class="c"># concrete kind of `s` anywhere in this body.</span>
 <span class="k">function</span> <span class="f">drain</span>(s)
     total = <span class="s">""</span>
     n = <span class="n">0</span>
@@ -130,7 +130,7 @@ both streams answered to read_line/eof/close with zero branching in `drain`</pre
     <span class="k">return</span> total
 <span class="k">end</span> <span class="k">function</span>
 
-<span class="c">#%% StreamFile side: a real local file with three known lines</span>
+<span class="c">#%% StreamFile side: a real local file with three known lines</span>
 notes_path = <span class="f">tmp_file</span>()
 w = <span class="f">fopen</span>(notes_path, <span class="s">"w"</span>)
 <span class="f">write_line</span>(w, <span class="s">"alpha"</span>)
@@ -141,8 +141,8 @@ w = <span class="f">fopen</span>(notes_path, <span class="s">"w"</span>)
 a = <span class="f">drain</span>(<span class="f">StreamFile</span>(notes_path))
 <span class="f">print</span>(<span class="s">"StreamFile drain result: \"{a}\""</span>)
 
-<span class="c">#%% StreamURL side: a real HTTP GET against the same stable target</span>
-<span class="c"># qu_http_get.qu uses, drained through the IDENTICAL `drain` function above</span>
+<span class="c">#%% StreamURL side: a real HTTP GET against the same stable target</span>
+<span class="c"># qu_http_get.qu uses, drained through the IDENTICAL `drain` function above</span>
 <span class="k">try</span>
     b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s">"https://example.com/"</span>))
     <span class="f">print</span>(<span class="s">"StreamURL drain length: {length(b)} chars"</span>)

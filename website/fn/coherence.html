@@ -39,8 +39,8 @@
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
 <tr><td class="iocode"><code>result = coherence(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">matrix</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
-</td><td>Returns a single number: the largest inner product between any two different normalised columns of <code>A</code>. Small is good.</td></tr>
+</td><td><div class="ioitem"><code>spectral_coherence</code> <span class="iotype">&mdash;</span><span class="iodesc">magnitude-squared spectral coherence of two signals</span></div>
+</td><td>Returns a single number: the largest inner product between any two different normalised columns of <code>A</code>. Small is good. Unrelated to <code>spectral_coherence</code> (magnitude-squared spectral coherence of two signals) in the Signal Processing chapter's Spectral Analysis section — two different functions, two different names.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -49,12 +49,12 @@
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/compressed-sensing.html">compressed-sensing</a></p>
 <h2>How it works</h2>
-<p><code>coherence(A)</code> — the largest inner product between two different normalised columns. Small is good.</p>
+<p><code>coherence(A)</code> — the largest inner product between two different normalised columns of a compressed-sensing matrix. Pre-existing, single-argument, left untouched. The unrelated DSP two-signal magnitude-squared coherence lives under its own name, <code>spectral_coherence</code>, below — see that arm's comment for why it isn't an overload of this one.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>

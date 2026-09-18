@@ -30,17 +30,19 @@
 <h1>argmin</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
-<pre class="fnsig">result = <code>argmin(x)</code></pre>
-<p class="fnnote">Input: x &middot; Output: result</p>
+<pre class="fnsig">result = <code>argmin(x, [on_invalid=])</code></pre>
+<p class="fnnote">Input: x, on_invalid &middot; Output: result</p>
 <h2>What it is</h2>
 <p>0-based index of the first-occurring minimum/maximum element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened).</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = argmin(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, Num, Mat, Vec, or matrix</span></div>
-</td><td>Returns a scalar <code>Num</code> index. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) instead returns the index of the extremum *within* each column or row — a <code>Vec</code> of length <code>cols</code>/<code>rows</code>, each entry an index into that column/row rather than into the flattened matrix.</td></tr>
+<tr><td class="iocode"><code>result = argmin(x, [on_invalid=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, or Signal</span><span class="iodesc">0-based index of the first-occurring minimum/maximum element of <code>x</code> (a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, flattened).</span></div>
+<div class="ioitem"><code>on_invalid</code> <span class="iotype">optional</span><span class="iodesc"><code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro) controls NaN/Inf handling.</span></div>
+</td><td><div class="ioitem"><code>on_invalid=</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">or, under <code>axis=</code>, the original row/column</span></div>
+</td><td>Returns a scalar <code>Num</code> index. <code>on_invalid=</code> (<code>"propagate"</code>/<code>"ignore"</code>/<code>"error"</code>, see this section's intro) controls NaN/Inf handling; under <code>"ignore"</code> the returned index still refers to a position in the original, unfiltered <code>x</code> (or, under <code>axis=</code>, the original row/column), so it can be used to index straight back into the caller's own data. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) instead returns the index of the extremum *within* each column or row — a <code>Vec</code> of length <code>cols</code>/<code>rows</code>, each entry an index into that column/row rather than into the flattened matrix.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -53,7 +55,7 @@
 </main>
 </div>
 <footer><div class="wrap">
-  <div>Qu 0.2.1 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.2.2 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
 </div></footer>
 <script src="../assets/site.js"></script>
