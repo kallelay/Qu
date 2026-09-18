@@ -10,6 +10,13 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-18
+
+Version bump only -- no new content over v0.2.4/v0.2.5 below. Folds
+the Qu Studio installer fix (a corrupted `esbuild` lockfile entry that
+failed every platform's build) in under one version number, ahead of
+the first public release.
+
 ## [0.2.4] - 2026-09-18
 
 Dependabot security fixes (26 of 32 alerts, all criticals), the
