@@ -337,6 +337,95 @@ imported a second time
 </code></pre>
 </div>
 <p>Same distinction as matplotlib's <code>plt.figure()</code> versus a <code>figsize=</code> kwarg. A function meant to be callable more than once per run — or called after ANY other plotting in the same run, including another function's own self-test firing on <code>import</code> (see above) — should call <code>figure()</code> itself before drawing, rather than assume it starts clean. Found by rendering two different meshes back to back through one shared render function: the second SVG silently contained the first mesh's leftover triangles too, at their own old coordinates, layered underneath.</p>
+<h3><code>show</code> ends the current figure, the same way <code>plt.show()</code> does</h3>
+<p><code>show plot</code> renders what has been drawn so far, then FINALIZES that figure and starts the next one — not more drawing on top of it. A script with two <code>show plot</code> blocks in a row gets two separate figures, each with only what was drawn since the last <code>show</code> (or since the start of the script). <code>savefig</code>, by contrast, does not end the figure: calling <code>savefig</code> twice with nothing drawn in between writes the same figure to two files.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">plot</span>([<span class="n">0</span>, <span class="n">1</span>], [<span class="n">0</span>, <span class="n">1</span>])
+show plot
+<span class="f">plot</span>([<span class="n">0</span>, <span class="n">1</span>], [<span class="n">1</span>, <span class="n">0</span>])
+show plot   <span class="c"># a second, separate figure -- NOT the first plot plus this one</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (2 points)
+· show plot
+· plot: figure 3 (2 points)
+· show plot</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,70.90 829.72,528.84" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+</svg></figure></div>
+<p>This used to be a real bug (two <code>show plot</code> blocks would accumulate into one figure and silently drop the first), fixed by making <code>show</code> call the same finalize-into-history step <code>figure()</code> itself uses. The bug is gone; the trap now is the opposite direction — a caller who expects <code>show</code> to behave like <code>savefig</code> (write current state, keep drawing) and is surprised that the next shape lands on a blank canvas.</p>
 <hr>
 <h3><code>bitand</code>/<code>bitor</code>/<code>bitxor</code>/<code>bitcmp</code>/<code>bitshift</code> round-trip through</h3>
 <h3><code>f64</code> on the way OUT, not just on the way in</h3>

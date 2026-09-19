@@ -669,7 +669,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000676
+stop returns: 0.000611
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -803,10 +803,11 @@ results = run q on workers            <span class="c"># some jobs run locally, s
 <hr>
 <h2 id="s788">16. <code>cast</code> and <code>resample_to</code></h2>
 <p>Added the same day as this section, alongside the <code>-&gt;</code> reshape operator and <code>table.</code>/<code>timer.</code> sugar (§12). <code>cast(value, tag)</code> converts between Qu's real existing types — using the same <code>TypeTag</code> vocabulary multiple dispatch already uses (<code>num</code>, <code>str</code>, <code>bool</code>, <code>vec</code>, ...), not a separate casting vocabulary, and deliberately NOT the <code>as</code> keyword (which already means something else — a shape-validation contract, <code>x as vector(3)</code>, unrelated to type conversion):</p>
-<div class="example"><pre class="hl"><code><span class="f">print</span>((<span class="n">42</span>).<span class="f">cast</span>(<span class="s">"str"</span>))
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>((<span class="n">42</span>).<span class="f">cast</span>(<span class="s">"str"</span>))
 <span class="f">print</span>(<span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>42
+42</pre></div></div>
 <pre><code>42
 42
 </code></pre>
@@ -1124,11 +1125,11 @@ Best-match lag (samples): -15 (true shift was 15)
 <p><code>corr(x,x)=1</code> exactly, as expected. The direct-sample correlation <code>corr(x, y)</code> between the original and its 15-sample-delayed copy is near zero (delaying a 10 Hz tone by 15 samples at 200 Hz rotates its phase by 270 deg, which happens to land close to decorrelated) — <code>xcorr</code>'s full lag sweep is what actually finds the true delay: its peak sits at lag -15, correctly identifying that <code>y</code> is <code>x</code> delayed by 15 samples (the sign is <code>xcorr</code>'s own convention — <code>y</code> lags <code>x</code>, so the peak appears on the negative side).</p>
 <h3><code>square</code> is a square-WAVE generator, not "x squared" — a real silent-wrong-answer bug, now fixed</h3>
 <p><code>square(freq, fs, n, [duty=])</code> generates a bipolar pulse train — it has nothing to do with squaring a number, despite the name being very easy to misread as an elementwise math function. Before this fix, <code>square</code>'s (and <code>impulse</code>'s and <code>pwm</code>'s) required numeric arguments were read with <code>args.get(idx).and_then(|v| v.as_num().ok()).unwrap_or(default)</code> — a pattern that silently swallows a type error and substitutes the default whenever the argument is PRESENT but the WRONG type, rather than erroring. Live-confirmed footgun: piping a whole <code>Vec</code> into <code>square</code> as if it were an elementwise operation silently produced a meaningless 1-sample signal instead of any kind of error:</p>
-<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<div class="example"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
 y = x |&gt; square |&gt; sum
 <span class="f">print</span>(y)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>55</pre></div></div>
+</div>
 <p>Old (buggy) output: <code>1</code> — <code>freq</code>/<code>fs</code>/<code>n</code> all silently fell back to their defaults (<code>1.0</code>, <code>1.0</code>, <code>1</code> sample), and the sum of that one sample is <code>1</code>, a plausible-looking but completely meaningless number with no relationship to <code>x</code>.</p>
 <p>New output (this fix):</p>
 <pre><code><span class="e">qu: runtime error: square: freq must be a number, found vector</span>

@@ -545,6 +545,31 @@ render function: the second SVG silently contained the first mesh's
 leftover triangles too, at their own old coordinates, layered
 underneath.
 
+### `show` ends the current figure, the same way `plt.show()` does
+
+`show plot` renders what has been drawn so far, then FINALIZES that
+figure and starts the next one — not more drawing on top of it. A
+script with two `show plot` blocks in a row gets two separate figures,
+each with only what was drawn since the last `show` (or since the
+start of the script). `savefig`, by contrast, does not end the
+figure: calling `savefig` twice with nothing drawn in between writes
+the same figure to two files.
+
+```qu
+figure()
+plot([0, 1], [0, 1])
+show plot
+plot([0, 1], [1, 0])
+show plot   # a second, separate figure -- NOT the first plot plus this one
+```
+
+This used to be a real bug (two `show plot` blocks would accumulate
+into one figure and silently drop the first), fixed by making `show`
+call the same finalize-into-history step `figure()` itself uses. The
+bug is gone; the trap now is the opposite direction — a caller who
+expects `show` to behave like `savefig` (write current state, keep
+drawing) and is surprised that the next shape lands on a blank canvas.
+
 ---
 
 ### `bitand`/`bitor`/`bitxor`/`bitcmp`/`bitshift` round-trip through

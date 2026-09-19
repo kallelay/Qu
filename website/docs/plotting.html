@@ -65,7 +65,7 @@
 
 <main class="docmain">
 <h1>Plotting</h1>
-<nav class="onthispage"><a href="#s0">Animation</a><a href="#s27">Layers</a><a href="#s52">Interactive export</a><a href="#s89">Shapes</a><a href="#s114">Colours</a><a href="#s141">Handles: tying one mark to another</a><a href="#s195">Example data</a><a href="#s227">Figure &amp; Axes Control</a><a href="#s272">Chart Types</a><a href="#s303">Annotations &amp; Overlays</a><a href="#s349">Interpolation for plotting</a><a href="#s395">Saving &amp; Export</a><a href="#s434">Markers &amp; Styling reference</a><a href="#s485">Worked examples</a><a href="#s520">More functions</a></nav>
+<nav class="onthispage"><a href="#s0">Animation</a><a href="#s27">Layers</a><a href="#s52">Interactive export</a><a href="#s89">Shapes</a><a href="#s114">Colours</a><a href="#s141">Handles: tying one mark to another</a><a href="#s195">Example data</a><a href="#s227">Figure &amp; Axes Control</a><a href="#s272">Chart Types</a><a href="#s303">Annotations &amp; Overlays</a><a href="#s349">Diagrams</a><a href="#s377">Interpolation for plotting</a><a href="#s423">Saving &amp; Export</a><a href="#s462">Markers &amp; Styling reference</a><a href="#s513">Worked examples</a><a href="#s548">More functions</a></nav>
 <p>The tables below are generated from the interpreter's own builtin dispatch table (<code>fn call_builtin</code> and <code>fn exec_plot_command</code> in <code>engine/crates/qu-interp/src/lib.rs</code>), not written speculatively ahead of the implementation — every function and command listed here runs today and produces a real <code>Figure</code>/<code>Panel</code> state that <code>savefig(...)</code> can export to SVG, HTML, or TikZ. A browser-based interactive Playground (<code>docs/ide.html</code>) also exists separately for live plot rendering — see its own chapter in this book.</p>
 <p>Most chart-type and annotation calls accept trailing <strong>named style arguments</strong> collected into a small key/value bag — commonly <code>color=</code>, <code>label=</code>, <code>marker=</code>; a few calls have their own extras (<code>bins=</code>, <code>colormap=</code>, <code>values=</code>, <code>hatch=</code>, <code>align=</code>, <code>position=</code>, <code>outside=</code>, <code>radius=</code>). These are noted per-row only when a call has something beyond the common trio. <code>hold on</code> (the default) overlays successive calls on the current panel; <code>hold off</code> gives each call its own panel.</p>
 <h2 id="s0">Animation</h2>
@@ -2218,7 +2218,41 @@ $\begin{bmatrix} 1 &amp; 2 \\ 3 &amp; 4 \end{bmatrix}$</pre></div><figure class=
 </g>
 </g>
 </svg></figure></div>
-<h2 id="s349">Interpolation for plotting</h2>
+<h2 id="s349">Diagrams</h2>
+<p>Auto-laid-out box-and-arrow diagrams — the coordinates are computed, not placed by hand as <code>rectangle</code>/<code>arrow</code>/<code>text</code> above require. Both return the diagram as an SVG string (so it can be captured, <code>print</code>ed, or embedded) and, given <code>file=</code>, also write it to disk. Format is chosen by extension the same way <code>savefig</code> chooses one: <code>.svg</code> and <code>.html</code>/<code>.htm</code> are implemented; <code>.png</code> is <strong>not</strong> (same whole-figure rasterizer gap <code>savefig</code> documents) and raises a clear error naming <code>.svg</code>/<code>.html</code> instead.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>diagram_pipeline</code></td><td><code>diagram_pipeline(fn, [file=])</code></td><td>Renders a <code>|&gt;</code> pipe chain as a left-to-right chain of labeled boxes, one per stage. <code>fn</code> is a zero-parameter lambda whose body is the pipeline (<code>() := data |&gt; lowpass(fc=1000) |&gt; fft() |&gt; abs()</code>) — a call argument is normally evaluated before any builtin sees it, which would run the pipeline instead of describing it, so the pipeline has to be wrapped so its <code>|&gt;</code> chain survives as an expression. A function name (string) defined the same one-line way (<code>mypipe() := data |&gt; f() |&gt; g()</code>) is also accepted. The source expression should be a variable or parenthesized, not a bare <code>to</code> range literal — <code>0 to 99 |&gt; f()</code> parses as <code>0 to (99 |&gt; f())</code>, since <code>|&gt;</code> binds tighter than <code>to</code>. Returns the SVG (string).</td></tr>
+<tr><td><code>algorigram</code></td><td><code>algorigram(name, [file=])</code></td><td>Renders a flowchart of the named function's control flow: <code>if</code>/<code>else</code> as a decision diamond with <code>yes</code>/<code>no</code> branches that rejoin, <code>while</code>/<code>for</code>/<code>do...loop</code> as a decision with a routed "repeat" back-edge, <code>select case</code> and <code>try</code>/<code>catch</code> as their own multi-way/two-way branches. <code>name</code> (string) must resolve to exactly one overload (§ multiple dispatch) — an overloaded function raises a clear error asking for a single-overload name instead. Returns the SVG (string).</td></tr>
+</table></div>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">classify</span>(x)
+  <span class="k">if</span> x &gt; <span class="n">0</span>
+    y = <span class="n">1</span>
+  <span class="k">else</span>
+    y = -<span class="n">1</span>
+  <span class="k">end</span> <span class="k">if</span>
+  <span class="k">return</span> y
+<span class="k">end</span> <span class="k">function</span>
+svg = <span class="f">algorigram</span>(<span class="s">"classify"</span>)
+data = <span class="n">0</span> <span class="k">to</span> <span class="n">99</span>
+<span class="f">print</span>(<span class="f">diagram_pipeline</span>(() := data |&gt; <span class="f">lowpass</span>(<span class="a">fc</span>=<span class="n">1000</span>) |&gt; <span class="f">fft</span>() |&gt; <span class="f">abs</span>()))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 830.00 124.00" width="830.00" height="124.00" font-family="Inter, Helvetica, Arial, sans-serif"&gt;
+&lt;rect x="0" y="0" width="830.00" height="124.00" fill="#ffffff"/&gt;
+&lt;line x1="191.00" y1="62.00" x2="233.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="239.00,62.00 230.00,65.60 230.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;line x1="391.00" y1="62.00" x2="433.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="439.00,62.00 430.00,65.60 430.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;line x1="591.00" y1="62.00" x2="633.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="639.00,62.00 630.00,65.60 630.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;rect x="40.00" y="40.00" width="150.00" height="44.00" rx="22" fill="#e6f4ea" stroke="#333333" opacity="1"/&gt;
+&lt;text x="115.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;data&lt;/text&gt;
+&lt;rect x="240.00" y="40.00" width="150.00" height="44.00" rx="6" fill="#eef3fb" stroke="#333333" opacity="1"/&gt;
+&lt;text x="315.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;lowpass(fc=1000)&lt;/text&gt;
+&lt;rect x="440.00" y="40.00" width="150.00" height="44.00" rx="6" fill="#eef3fb" stroke="#333333" opacity="1"/&gt;
+&lt;text x="515.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;fft()&lt;/text&gt;
+    ... 3 more lines</pre></div></div>
+<h2 id="s377">Interpolation for plotting</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>interp1</code></td><td><code>interp1(x, y, xq, [method])</code></td><td>Interpolates (and freely extrapolates — there's no opt-in flag, a query point outside <code>x</code>'s range is always answered) <code>y</code> at query point(s) <code>xq</code>. <code>x</code>, <code>y</code> are equal-length Vecs of numbers (the known samples); <code>xq</code> is a number or a Vec of numbers (the query point(s)), and the return type matches: a number for a scalar <code>xq</code>, a Vec for a vector one. <code>method</code> (string, positional, default <code>"linear"</code>) is <code>"linear"</code> (extrapolates via the boundary segment's slope), <code>"spline"</code> (natural cubic, shares <code>splineplot</code>'s solver), or <code>"nearest"</code> — these are string arguments to <code>interp1</code>, not separate functions.</td></tr>
@@ -2732,7 +2766,7 @@ xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span
 </g>
 </g>
 </svg></figure></div>
-<h2 id="s395">Saving &amp; Export</h2>
+<h2 id="s423">Saving &amp; Export</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>savefig</code></td><td><code>savefig(path, [embed_fonts=])</code></td><td>Exports the current figure to <code>path</code> (string, a filesystem path); format is chosen by the file extension. <code>.svg</code>, <code>.html</code>/<code>.htm</code> (an SVG embedded in a minimal page), <code>.tikz</code>/<code>.tex</code> (LaTeX/TikZ source) and <code>.pdf</code> are implemented and share one draw-command list so they never visually disagree. <code>.png</code> is <strong>not implemented</strong> for a whole figure (it needs a real 2-D rasterizer) and raises a clear error saying so; <code>save_image(path, img)</code> does write a PNG of raster <code>Value::Image</code> content. <code>embed_fonts=</code> (bool) inlines the actual font bytes (only possible for the curated <code>fontfamily(...)</code> presets), subset to the glyphs the figure actually draws so a journal-theme figure costs tens of kilobytes rather than the whole font file; it defaults to on under a print-ready theme and off otherwise. A <code>.pdf</code> always embeds its faces, and subsets them the same way. Returns <code>Nothing</code>; the file on disk is the result.</td></tr>
@@ -2741,7 +2775,7 @@ xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span
 <tr><td><code>printtex</code></td><td><code>printtex(x)</code></td><td>Same conversion as <code>tex(x)</code> on value <code>x</code> (number, Vec, Mat, or complex), but prints it directly instead of returning a string. Returns nothing.</td></tr>
 </table></div>
 <p>The actual <strong>figure</strong>-to-LaTeX export path is <code>savefig("plot.tikz")</code> or <code>savefig("plot.tex")</code> (see the <code>savefig</code> row above) — <code>tex</code>/<code>printtex</code> are a separate, value-level feature that happens to share the "LaTeX" theme, not alternate spellings of figure export.</p>
-<h2 id="s434">Markers &amp; Styling reference</h2>
+<h2 id="s462">Markers &amp; Styling reference</h2>
 <p>Marker strings (passed as <code>marker="..."</code> or, for a few chart calls, as a bare positional string like <code>plot(x, y, "o")</code>):</p>
 <ul>
 <li><code>"line"</code> — the default for <code>plot</code>/<code>splineplot</code>/<code>pwl</code>/<code>waterfall</code>/etc.</li>
@@ -2773,7 +2807,7 @@ xq = <span class="n">0</span> <span class="k">to</span> <span class="n">10</span
 <li><code>"blues"</code> — ColorBrewer "Blues"; the default for plain <code>heatmap(...)</code>.</li>
 </ul>
 <p>An unrecognized colormap name is accepted and silently resolves to <code>"default"</code> rather than erroring the whole script over a typo.</p>
-<h2 id="s485">Worked examples</h2>
+<h2 id="s513">Worked examples</h2>
 <p>The examples below are the smallest complete scripts each showing one common task end to end, rather than one call in isolation. Each is self-contained except where it says otherwise — it either defines its own data or reuses the vectors from the "Example data" section above (<code>t</code>, <code>y</code>, <code>mag</code>, <code>f</code>, <code>yhat</code>, <code>losses</code>), so pasting the Example data block once and then any one of these below it should reproduce exactly what's described.</p>
 <p>A basic plot with labels, legend, and export — the shape almost every script starts from: two series on one panel, both axes labeled, a legend to tell them apart, and a save to disk. Look for two full sine/cosine periods sharing one set of axes, colour-coded and named in the legend box:</p>
 <div class="example hasout"><pre class="hl"><code>x = <span class="n">0</span> <span class="k">to</span> <span class="n">2</span>*pi <span class="k">step</span> <span class="n">0.05</span>
@@ -4877,7 +4911,7 @@ legend
 <circle cx="895.62" cy="392.31" r="4.429687499999999" fill="none" stroke="#BF9F40"/>
 <text x="915.87" y="395.81" font-size="16.2" text-anchor="start" fill="#222">measurements</text>
 </svg></figure></div>
-<h2 id="s520">More functions</h2>
+<h2 id="s548">More functions</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>panel</code>, <code>subplot</code></td><td><code>panel(rows, cols, k)</code></td><td>Selects cell <code>k</code> (integer, 1-based, row-major) of a <code>rows</code>-by-<code>cols</code> (integers) grid as the target for further drawing. <code>subplot</code> is the same call under MATLAB's name. Returns nothing.</td></tr>
