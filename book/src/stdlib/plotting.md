@@ -832,6 +832,35 @@ print(tex([1, 2; 3, 4]))
 printtex([1, 2; 3, 4])
 ```
 
+## Diagrams
+
+Auto-laid-out box-and-arrow diagrams — the coordinates are computed, not
+placed by hand as `rectangle`/`arrow`/`text` above require. Both return the
+diagram as an SVG string (so it can be captured, `print`ed, or embedded)
+and, given `file=`, also write it to disk. Format is chosen by extension
+the same way `savefig` chooses one: `.svg` and `.html`/`.htm` are
+implemented; `.png` is **not** (same whole-figure rasterizer gap `savefig`
+documents) and raises a clear error naming `.svg`/`.html` instead.
+
+| Function | Signature | Description |
+|---|---|---|
+| `diagram_pipeline` | `diagram_pipeline(fn, [file=])` | Renders a `\|>` pipe chain as a left-to-right chain of labeled boxes, one per stage. `fn` is a zero-parameter lambda whose body is the pipeline (`() := data \|> lowpass(fc=1000) \|> fft() \|> abs()`) — a call argument is normally evaluated before any builtin sees it, which would run the pipeline instead of describing it, so the pipeline has to be wrapped so its `\|>` chain survives as an expression. A function name (string) defined the same one-line way (`mypipe() := data \|> f() \|> g()`) is also accepted. The source expression should be a variable or parenthesized, not a bare `to` range literal — `0 to 99 \|> f()` parses as `0 to (99 \|> f())`, since `\|>` binds tighter than `to`. Returns the SVG (string). |
+| `algorigram` | `algorigram(name, [file=])` | Renders a flowchart of the named function's control flow: `if`/`else` as a decision diamond with `yes`/`no` branches that rejoin, `while`/`for`/`do...loop` as a decision with a routed "repeat" back-edge, `select case` and `try`/`catch` as their own multi-way/two-way branches. `name` (string) must resolve to exactly one overload (§ multiple dispatch) — an overloaded function raises a clear error asking for a single-overload name instead. Returns the SVG (string). |
+
+```qu
+function classify(x)
+  if x > 0
+    y = 1
+  else
+    y = -1
+  end if
+  return y
+end function
+svg = algorigram("classify")
+data = 0 to 99
+print(diagram_pipeline(() := data |> lowpass(fc=1000) |> fft() |> abs()))
+```
+
 ## Interpolation for plotting
 
 | Function | Signature | Description |

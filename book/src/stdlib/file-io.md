@@ -631,11 +631,16 @@ print(xlsx.read("cities.xlsx", headers = false))
 
 ### Audio: `codec`
 
-Both take `src` as either a path (string) or the file's bytes as a `Vec`
-of whole numbers 0-255 — a script that already has the bytes, from a
+The readers take `src` as either a path (string) or the file's bytes as a
+`Vec` of whole numbers 0-255 — a script that already has the bytes, from a
 socket or an archive, should not have to write a temporary file to use
 them, and the two can never be confused because a FLAC stream starts with
 the bytes `fLaC`.
+
+The WAV writer is split in two for the same reason, pointed the other way:
+`codec.write_wav` writes a file, and `codec.encode_wav` hands back the
+bytes for a script that is going to send them somewhere rather than store
+them. Only WAV is written — see the note below the table for what is not.
 
 | Function | Signature | Description |
 |---|---|---|
@@ -644,9 +649,64 @@ the bytes `fLaC`.
 | `codec.decode_wav` | `codec.decode_wav(src, [channel=])` | Decodes a WAV file. Same arguments and same two return forms as `codec.decode_flac`. Integer WAV is normalised by `2^(bits-1)`, exactly as FLAC is, so the same recording in either container gives the same numbers. **Float WAV passes through untouched** — it is already in `-1.0 ..= 1.0`, and rescaling it would be the one case where normalising changes the data — and reports `bits` as `none`, because a float format has a width but no quantisation step. Returns a `Signal` for a single series — a mono file, or any file with `channel=` — and otherwise a `Record` with `fs`, `bits`, `frames` and `channels`, exactly as `codec.decode_flac` does. |
 | `codec.decode_mp3` | `codec.decode_mp3(src, [channel=])` | Decodes an MP3 file. Same arguments and same two return forms as `codec.decode_flac`. `bits` is always `none`: MP3 is lossy, its output is real numbers rather than a quantised grid, and a plausible `16` there would invite arithmetic that means nothing. MP3 has no header — only a run of frames — so a file that is not MP3 fails by finding no frames rather than by rejecting a magic number, and the error says so. Returns a `Signal` for a single series — a mono file, or any file with `channel=` — and otherwise a `Record` with `fs`, `bits`, `frames` and `channels`, exactly as `codec.decode_flac` does. |
 
+| `codec.write_wav` <br> *Added in v0.2.4* | `codec.write_wav(path, x, depth=, [dither=])` | Writes audio out as a WAV file. `path` (string) is the destination, overwritten if it exists. `x` is a `Signal`, or a `List` of `Signal`s for a multi-channel file — a signal carries its own sample rate, so there is no `fs=` argument to get wrong, and the rates of a list have to agree because a WAV header holds exactly one. `depth` (number, named, **required**) is `16`, `24` or `32`, where `32` means 32-bit **float**. `dither` (string, named) is `"tpdf"` or `"none"`, and at `depth=16` it is **required** — see below. Returns `Nothing`. |
+| `codec.encode_wav` <br> *Added in v0.2.4* | `codec.encode_wav(x, depth=, [dither=])` | The same encoder as `codec.write_wav`, returning the file's bytes as a `Vec` of whole numbers 0-255 instead of writing them — the exact inverse of what `codec.decode_wav` accepts, so a stream can be re-encoded and passed on without ever touching disk. Same `x`, `depth` and `dither` arguments, and the same rule about naming `dither` at `depth=16`. Returns a `Vec`. |
+
 `flac_info` needs no split — a header is a header. The three decoders
 differ only in which format they read: they return the same shapes, scale
 to the same range, and a script that handles one handles all three.
+
+#### Bit depth and dither are named, never defaulted
+
+`depth` has no default because the depth is what decides how much of the
+signal survives the write, and a default would be the library quietly
+choosing that for you.
+
+`dither` is required at `depth=16` specifically, and leaving it out is an
+error rather than a silent truncation:
+
+```qu,ignore
+import codec
+
+codec.write_wav("out.wav", x, depth = 16)
+# error -- depth = 16 quantises 64-bit samples down to 16 bits, and doing
+# that without saying how is an error: silent truncation of audio is
+# audible. Name dither = "tpdf" or dither = "none".
+```
+
+Samples are 64-bit floats inside a `Signal`, so 16-bit is always a
+reduction, and it is the depth where the difference is plainly audible —
+rounding alone leaves harmonic distortion on fades and quiet passages.
+`"tpdf"` adds ±1 LSB of triangular noise, which trades that distortion for
+a flat noise floor uncorrelated with the signal; `"none"` is plain
+rounding, which is a legitimate choice as long as it is a *choice*. The
+dither is drawn from the interpreter's own generator, so `seed(n)` makes a
+dithered write reproducible.
+
+`depth=24` does not require the argument (it accepts it), and `depth=32`
+**refuses** it: 32-bit float has no quantisation step, so there would be
+nothing for a dither to do.
+
+```qu,ignore
+import codec
+
+a = codec.decode_wav("take.wav")            # a stereo file
+codec.write_wav("take24.wav", a.channels, depth = 24)
+codec.write_wav("take16.wav", a.channels, depth = 16, dither = "tpdf")
+```
+
+A round trip at a file's own depth is **exact**, not approximate: the
+scale is `2^(depth-1)` in both directions, a power of two, so the
+integers come back as the integers they were. The one asymmetry is the
+format's — two's complement has no `+2^(depth-1)`, so a sample of exactly
+`+1.0` clips to one step below full scale, while `-1.0` is exact.
+
+**Not written, and not silently implied covered**: RF64 (the >4GB WAV
+variant), and FLAC/OGG/MP3/AIFF/CAF encoding. `hound` has no RF64 support
+in either direction and `claxon` is a FLAC *decoder* only, so each of
+these means a from-scratch container implementation — exactly what
+`IMPL.md` §7 exists to prevent. Reading FLAC, MP3 and WAV is unaffected;
+it is only the write direction that stops at WAV.
 
 None of the codec examples here are run by the build: they need an audio
 file, and the repository carries none.

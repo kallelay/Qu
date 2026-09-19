@@ -1088,7 +1088,9 @@ leaves the qualified one available too.
 | [`codec.decode_flac`](../fn/codec.decode_flac.html) | Decodes a FLAC file to samples | [File I/O](file-io.md) |
 | [`codec.decode_mp3`](../fn/codec.decode_mp3.html) | Decodes an MP3 file. Same arguments and same two return forms as `codec.decode_flac` | [File I/O](file-io.md) |
 | [`codec.decode_wav`](../fn/codec.decode_wav.html) | Decodes a WAV file. Same arguments and same two return forms as `codec.decode_flac` | [File I/O](file-io.md) |
+| [`codec.encode_wav`](../fn/codec.encode_wav.html) | The same encoder as `codec.write_wav`, returning the file's bytes as a `Vec` of whole numbers 0-255 instead of writing them — the exact inverse of what `codec.decode_wav` accepts, so a.. | [File I/O](file-io.md) |
 | [`codec.flac_info`](../fn/codec.flac_info.html) | Reads a FLAC file's header without decoding any audio, which is how to check a file is what you expect before paying for the samples | [File I/O](file-io.md) |
+| [`codec.write_wav`](../fn/codec.write_wav.html) | Writes audio out as a WAV file | [File I/O](file-io.md) |
 | [`xlsx.read`](../fn/xlsx.read.html) | Reads one worksheet of a workbook into a `Table`, the same type `read_csv` produces, so everything that consumes a CSV consumes a spreadsheet unchanged | [File I/O](file-io.md) |
 | [`xlsx.sheets`](../fn/xlsx.sheets.html) | Names a workbook's worksheets without reading any of them, so a program can find out what it is holding before deciding what to load | [File I/O](file-io.md) |
 | [`xlsx.write`](../fn/xlsx.write.html) | Writes a `Table` out as a one-worksheet workbook | [File I/O](file-io.md) |

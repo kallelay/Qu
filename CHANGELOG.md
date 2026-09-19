@@ -10,6 +10,38 @@ changes are called out.
 
 ## [Unreleased]
 
+Auto-laid-out diagram rendering, the box/arrow "smart art" layout layer
+noted as missing in BACKLOG.md (2026-09-10): `diagram_pipeline(fn)` draws
+a `|>` pipe chain as a left-to-right chain of boxes; `algorigram(name)`
+draws a function's control flow (`if`/`else`, loops, `select case`,
+`try`/`catch`) as a top-to-bottom flowchart. Both return SVG and accept
+`file=` to write `.svg`/`.html` directly (`.png` is refused, same
+whole-figure-rasterizer scoping as `savefig`).
+
+The rest of the signal toolkit deferred out of v0.3.0 (§8-§11 of
+`docs/design/toolkit-signal.md`), now shipped: UART/SPI/I2C/CAN
+decoders (`decode_uart`/`decode_spi`/`decode_i2c`/`decode_can`); a
+streaming block/state processor (`block_process`, `blocks`,
+`processor`/`process`); WAV file I/O (`codec.write_wav`/`encode_wav`,
+joining the existing `codec.decode_wav`); transfer functions and
+impedance (`transfer_function`, `impedance(voltage, current, ...)`,
+`bode`); calibration, units, markers and metadata
+(`calibrate`/`apply_gain`/`apply_offset`/`convert_unit`,
+`metadata()`/`set_metadata`, `add_marker`/`add_region`) -- `Value::Signal`
+now carries this as a third field, empty and free for every signal that
+never sets one; an LMS adaptive FIR filter (`lms_init`); multirate
+resampling (`upsample`/`downsample`/`resample_int`), plus a **behavior
+change**: `resample_to()` now anti-alias filters before decimating when
+lowering the rate, instead of aliasing (it was pure linear interpolation
+between grids before); digital-comms coding (`qam_modulate`/
+`qam_demodulate`, `hamming74_encode`/`hamming74_decode`, `crc`/
+`crc_check`); delay-and-sum beamforming (`beamform`, `steer_delays`).
+Also 3 P0 correctness fixes from a defect review: `delay()` no longer
+overflows on an extreme shift, `gain()` rejects a NaN `db` instead of
+silently producing NaN samples, and `block_process()` tags its output
+Signal-vs-Vec by genuine per-block agreement rather than a coincidental
+aggregate-length match.
+
 ## [0.3.0] - 2026-09-18
 
 Signal toolkit expansion, scoped to what actually shipped (see
@@ -27,11 +59,6 @@ kernel session instead of a one-shot subprocess per click. Protocol
 decoders, audio file I/O, calibration, and transfer-function/impedance
 measurement (§8/§9/§10/§11 of the signal-toolkit spec) remain unstarted
 and are deferred to the next version.
-
-Also folds v0.2.4 and v0.2.5 under this one number ahead of the first
-public release, per Ahmed's own instruction -- v0.2.5 was only the Qu
-Studio installer fix (a corrupted `esbuild` lockfile entry that failed
-every platform's build).
 
 ## [0.2.4] - 2026-09-18
 

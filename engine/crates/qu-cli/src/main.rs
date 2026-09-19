@@ -953,7 +953,7 @@ fn data_to_json(it: &qu_interp::Interp) -> String {
             // every signal-processing script's main variable was absent:
             // `x = chirp(...)` produced one, so Interactive Mode had
             // nothing to plot from the very scripts it exists for.
-            qu_interp::Value::Signal(xs, _) => ("vector", (xs.len(), 1), xs.as_ref().clone()),
+            qu_interp::Value::Signal(xs, _, _) => ("vector", (xs.len(), 1), xs.as_ref().clone()),
             qu_interp::Value::Mat(m) => (
                 "matrix",
                 m.shape(),

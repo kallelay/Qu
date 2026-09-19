@@ -76,6 +76,38 @@ print("valid ({length(v)}): {v}")    # valid (2): [6, 9]
 | `db2pow` | `db2pow(db)` | `db`: a number or vector (decibel value). Returns the same shape: `10^(db/10)` — inverse of `pow2db`/`db_power`. |
 | `gain` | `gain(x, db)` | `x`: a number, vector, matrix or `Signal`; `db`: a number of decibels, also nameable (`gain(x, db = -3)`) and accepting a `dB`-suffixed literal (`gain(x, -3 dB)`, since `dB` passes through dimensionless). Returns the same shape as `x`, scaled by `10^(db/20)` — the AMPLITUDE convention, the same factor of 20 as `db2mag`. A `Signal` keeps its `Fs`: changing a level does not touch the time axis. |
 
+## Calibration, Units, Metadata & Markers
+
+`toolkit-signal.md` §10. A raw ADC sample is a number; a measurement is a number **in a unit**, and these are how one becomes the other. The rule throughout is that the unit and the calibration travel **with the samples**, so the two can never disagree — `convert_unit` rescales the data and the tag together, and `spl` refuses outright rather than reporting pascals it cannot justify.
+
+**Deviation from the spec's literal syntax.** `toolkit-signal.md` §10 writes `calibrate(s, tone: 94 dB @ 1 kHz)` and `calibrate(s, sensitivity: 12.3 mV/Pa)`. Neither parses in Qu: call arguments are spelled `key = value` (not `key: value`), `@` is a statement-level self-assign prefix with no infix form, `dB` evaluates to a bare number before any operator could see it, and `mV/Pa` is not a unit literal the lexer can produce. The keyword spellings below are the real API.
+
+**Canonical unit set**: `V`, `mV`, `uV`/`µV`, `kV`; `A`, `mA`, `uA`/`µA`; `Ohm`/`ohm`/`Ω`, `mOhm`, `kOhm`, `MOhm`; `Pa`, `hPa`, `kPa`, `mbar`, `bar`; `m/s^2`/`m/s²`, `g` (the **acceleration** g, 9.80665 m/s², not the gram — `mg` is deliberately absent because it reads as "milligram" to as many people as "milli-g"); `N`, `mN`, `kN`; `strain`, `ustrain`/`µstrain`/`microstrain`; and the affine temperatures `degC`/`°C`, `degF`/`°F`, `K` (bare `C` and `F` are absent — they are Coulomb and Farad elsewhere in this engine). Conversion **within** a family is allowed; across families it is an error naming both, because volts to pascals is a calibration, not a unit change.
+
+| Function | Signature | Description |
+|---|---|---|
+| `calibrate` | `calibrate(s, sensitivity=, [sensitivity_unit="mV/Pa"])` or `calibrate(s, tone_level=, [tone_freq=], [tone_ref=], [tone_unit="Pa"])` | Added in v0.2.4. Turns a raw `Signal` into a physically calibrated one, scaling the samples and stamping the resulting unit. Name **exactly one** of `sensitivity=` (a transducer datasheet figure — `calibrate(s, sensitivity = 12.3)` means 12.3 mV/Pa, and the slope is its reciprocal) or `tone_level=` (dB level of an acoustic calibrator recorded in `s` itself, so `spl(calibrate(rec, tone_level = 94))` reads back 94). `tone_ref` defaults to 20 µPa for pressure; `tone_unit` names the physical unit. If `tone_freq=` is given, the named tone is **checked** against the recording via a Goertzel estimate and a record whose energy is not concentrated there is refused — the wrong-file mistake, which every later measurement would otherwise inherit silently. The level is measured AC-coupled (RMS about the mean), as a sound level meter does. Errors on a non-`Signal`, on an empty signal, or when both/neither form is named. |
+| `spl` | `spl(s)` | Added in v0.2.4. Sound pressure level of a **calibrated** `Signal`: `20*log10(rms/reference)` using the calibration's own reference (20 µPa for pressure), AC-coupled. On an **uncalibrated** signal it refuses — and the error carries the dBFS reading the signal *can* support plus the `calibrate(...)` call that would fix it. That refusal is the point: an uncalibrated signal answers in dBFS and says so, and will not pretend to know pascals. |
+| `signal_unit` | `signal_unit(s, [unit])` | Added in v0.2.4. With one argument, reads the sample unit (`Nothing` if unset). With two, **stamps** one without touching a sample — the caller asserting what the numbers already are, which is the only way a raw capture acquires a unit. Stamping is not converting; `convert_unit` is the one that rescales. An unknown unit is refused with the full known list. |
+| `convert_unit` | `convert_unit(s, unit)` | Added in v0.2.4. Rescales the **samples** into another unit of the same physical quantity and moves the unit tag with them, so the two cannot disagree; a calibration's dB reference is re-expressed at the same time, which is why `spl` is unchanged by a conversion. Affine for temperatures. Refuses across physical quantities (`V` → `Pa`) naming both, and refuses a signal with no unit to convert *from*. |
+| `to_unit` | `to_unit(s, unit)` | Added in v0.2.4. Alias of `convert_unit(s, unit)` above — the spec's own second spelling, kept so a reader following `toolkit-signal.md` §10 literally finds it. |
+| `apply_gain` | `apply_gain(s, g)` | Added in v0.2.4. Multiplies every sample by a **linear** gain factor and composes it into the calibration record, so a calibrated signal stays calibrated and its level rises accordingly. `gain(x, db)` is the decibel spelling of the same operation and the two agree exactly; both exist because both are idiomatic, and the names say which is which. |
+| `apply_offset` | `apply_offset(s, b)` | Added in v0.2.4. Adds a constant to every sample (a DC trim, a tare), composed into the calibration record like any other linear step. |
+| `apply_calibration` | `apply_calibration(s, slope, [offset=0], [unit=])` | Added in v0.2.4. The general linear calibration `physical = slope*raw + offset` that the two `calibrate` forms are specific instances of. `unit=` stamps the resulting physical unit (and picks up its conventional dB reference, enabling `spl` for pressure). |
+| `apply_calibration_curve` | `apply_calibration_curve(s, raw_points, physical_points, [unit=], [extrapolate="error"])` | Added in v0.2.4. A **non-linear** calibration: a lookup table from raw reading to physical value, interpolated piecewise-linearly — what a thermocouple or a certificated load cell actually gives you, and what no slope/offset pair represents. `raw_points` must be strictly increasing (a curve that doubles back does not define a single value for a reading). `extrapolate` defaults to `"error"` because a sample outside the measured domain is one the calibration says nothing about; `"clamp"` holds the end value and `"linear"` continues the end slope, both explicit opt-ins to a guess. The curve's own points are not retained on the result. |
+| `start_time` | `start_time(s)` | Added in v0.2.4. The time of sample 0, in seconds (`0` unless `set_start_time` was called, so nothing about an un-dated signal changes). |
+| `end_time` | `end_time(s)` | Added in v0.2.4. `start_time + duration`, i.e. the end of the **record** — one sample period after the last sample's own timestamp, so that `end_time - start_time` is exactly the duration. Deliberately not the same number as the last entry of `timestamps`. |
+| `set_start_time` | `set_start_time(s, t)` | Added in v0.2.4. Dates the signal: sets the time of sample 0 in seconds. The whole time axis moves with it — `timestamps(s)`, `s.t`, and the range that `add_marker`/`add_region` check against. |
+| `timestamps` | `timestamps(s)` | Added in v0.2.4. The absolute time axis as a vector, `start_time + i/Fs` for each sample. Agrees with the `s.t` field accessor by construction. Errors if the signal's rate is not positive and finite, since then it has no time axis to report. |
+| `metadata` | `metadata(s)` | Added in v0.2.4. Returns a `Record` of the signal's metadata. `sampling_rate`, `start_time` and `unit` are **read through** from the value itself rather than from stored copies, alongside `duration`, `n`, `calibrated` and the calibration's `source`/`slope`/`offset`/`reference` when present, marker and region counts, and whichever free-form fields were set. |
+| `set_metadata` | `set_metadata(s, key, value)` | Added in v0.2.4. Writes one field of the named schema: `channel`, `comment`, `experiment`, `gain`, `instrument`, `offset`, `operator`, `sample`, `sampling_rate`, `sensor`, `start_time`, `temperature`, `unit`. Keys match ignoring case and underscores, so the spec's `samplingRate`/`startTime` resolve too. An **off-schema key is an error** listing the schema — a typo that silently became its own field would be one nobody ever reads back. `sampling_rate`, `start_time` and `unit` are derived from the signal and are refused with a pointer at their real setter, so a stored copy can never contradict the value. Values must be a number, string or boolean. |
+| `add_marker` | `add_marker(s, time, [label])` | Added in v0.2.4. Annotates an instant — an impact, a fault injection — at `time` seconds on the signal's own (origin-aware) axis. A time outside the signal is refused naming the span, because a marker outside the data it annotates is not an annotation. Markers are kept in time order. |
+| `markers` | `markers(s)` | Added in v0.2.4. The signal's markers as a list of records with `time` and `label`, in time order. |
+| `add_region` | `add_region(s, start, end, [label])` | Added in v0.2.4. Annotates an interval rather than an instant. `end` must be at least `start` and both must lie within the signal, refused by name otherwise. Regions are kept in start order. |
+| `regions` | `regions(s)` | Added in v0.2.4. The signal's regions as a list of records with `start`, `end` and `label`, in start order. |
+
+Annotations survive an operation exactly as far as they remain true of the result. A sample-aligned, unit-preserving operation (a rolling statistic, a dropout fill, denoising) keeps everything; a gain, offset or unit conversion composes into the calibration; an arbitrary elementwise function (`sqrt`, `sin`) keeps the **time axis** but drops the unit and the calibration, because `sqrt` of a signal in pascals is not in pascals; `delay` keeps the unit and calibration but drops markers, whose features have moved. `save`/`load` round-trips all of it; the XML writer carries samples and rate only.
+
 `mag2db`/`db2mag`/`pow2db`/`db2pow` are the canonical, MATLAB-derived names; `db`/`db_power` are aliases for callers coming from plain-SciPy/DSP habit who reach for a bare `db()` first. Whether a ratio is a power or an amplitude changes the factor of 10 vs. 20 — `db`/`mag2db` are for field quantities (V, A, Pa, ...), `db_power`/`pow2db` are for quantities already a power/energy ratio (W, W/Hz, `|X|^2`, ...). Getting this backwards is the classic dB mixup.
 
 ## Spectral Analysis
@@ -85,11 +117,14 @@ print("valid ({length(v)}): {v}")    # valid (2): [6, 9]
 | `spectrogram` | `spectrogram(x, [nfft=256], [hop=nfft/2], [fs=1])` | `x`: a length-N real vector or `Signal`. `nfft`/`hop` (optional numbers): STFT frame size and hop, as in `stft`. `fs` (optional number, Hz): scales row ticks to Hz and column ticks to seconds. **If `x` is a `Signal`, its own `Fs` is used and `fs` need not be passed**; passing one that disagrees with the signal's rate is an error rather than a silent relabelling (see *Which rate is used*, below). The default of `1` applies only to a plain vector, which carries no rate. Renders a heatmap of `stft(x, nfft, hop)`'s magnitude, restricted to the positive-frequency half (`nfft/2+1` rows), in dB (floored at -120dB); frequency increases upward (row 0 = Nyquist). Draws **and** returns: the surface would otherwise be unreachable, with no way to read a level off it or hand it to Qu Studio's Interactive Mode. Returns a `Record` with fields `db` (an `(nfft/2+1, frames)` `Mat` of dB magnitudes, row 0 = DC — the honest axis order, the opposite of the drawn picture's), `freq` (a length-`nfft/2+1` `Vec`, Hz) and `time` (a length-`frames` `Vec`, seconds). |
 | `spectral_entropy` | `spectral_entropy(x, [nfft=256], [hop=nfft/2])` | `x`: a length-N real vector. `nfft`/`hop` (optional numbers): STFT frame size/hop as in `stft`. Returns a vector of length `num_frames` (one value per STFT frame), each the Shannon entropy of that frame's normalized power spectrum, scaled to `[0, 1]`: low when energy concentrates in a few bins (a clean tone), high when spread across many (broadband noise). |
 | `spectrum` | `spectrum(x, [fs], [window="hann"], [scaling="amplitude"])` | `x`: a length-N real vector or `Signal`; `fs` (number, Hz) — **required**, either passed or carried by a `Signal` (the result is a `spectrum`, whose point is its frequency axis; there is no default rate to mislabel it with). `window` (optional string: `"hann"` (default), `"hamming"`, `"blackman"`, `"kaiser"` (needs `beta=`), or `"rectangular"`/`"boxcar"`/`"none"` for no taper): the analysis window applied to the record before transforming. `scaling` (optional string: `"amplitude"` (default) or `"rms"`): the convention stamped on `X.norm`. Returns a `spectrum` of `floor(N/2)+1` one-sided bins (DC to Nyquist). **The window is normalised to unit coherent gain (`mean(w) == 1`) before it is applied**, so a bin-aligned tone of amplitude `A` reads exactly `A` (`A/sqrt(2)` under `"rms"`) — an uncompensated Hann taper would read `A/2`. This is what `spectrum` adds over `rfft(sig, scaling=)`, which applies no window at all; `window="rectangular"` makes the two agree bin for bin. Compensation is applied uniformly, not only when `scaling="amplitude"`, so two calls differing only in `scaling=` differ only by the documented `1/sqrt(2)`. **It corrects a discrete tone's peak, not a broadband level** — noise spread across bins is governed by the window's noise-equivalent bandwidth (`sum(w^2)`, 1.5 for Hann), which is what `psd`/`welch` are scaled for; integrate power with those, not this. `scaling="raw"` is deliberately refused: a `spectrum` carries no window field, so raw bins would be exactly what `band_power` integrates as if the record had not been tapered — use `rfft(sig)` for the unwindowed raw transform. |
-| `welch` | `welch(x, fs, [nperseg=min(256,len(x))], [noverlap=nperseg/2], [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz): sample rate. `nperseg` (optional number): samples per segment; `noverlap` (optional number): overlap between segments; `window` (optional string, e.g. `"hann"`/`"hamming"`/`"blackman"`): window applied to each segment. Returns a length-`nperseg/2 + 1` real vector, the one-sided PSD (DC to Nyquist) in SciPy's `"density"` scaling — Welch's method segments `x` into overlapping windowed frames and averages their squared-magnitude spectra. Pair with `linspace(0, fs/2, length(psd))` for the frequency axis. |
-| `periodogram` | `periodogram(x, fs, [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz); `window` (optional string). Returns a length-`N/2 + 1` real vector, same scaling as `welch`. The simplest PSD estimate — `welch`'s one-segment (`nperseg=length(x)`, `noverlap=0`), no-averaging special case. |
-| `psd` | `psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])` | `x`: a length-N real vector or `Signal`; `fs` (number, Hz) — required, or carried by a `Signal`. `nfft` (optional number): the **segment length** — the same meaning `spectrogram`/`stft` give `nfft` in this engine, *not* SciPy's zero-padded transform length. `overlap` (optional number): segment overlap as a **fraction** in `[0, 1)` — `0.5` is 50%, where `welch`'s `noverlap=` is an absolute sample count. `window` (optional string, as for `welch`). Returns a length-`nfft/2 + 1` real vector, the one-sided Welch PSD in SciPy's `"density"` scaling, exactly as `welch` does — literally the same code path, so `psd(x, fs)` and `welch(x, fs)` are bit-identical and the defaults are chosen to keep that true. Pair with `linspace(0, fs/2, length(p))` for the frequency axis. **The result carries no units.** `toolkit-signal.md` §2 sketches a `P.unit` of `V^2/Hz`; the engine has no derived/compound unit algebra to propagate one with (`unit ppm = 1e-6` declares simple named scalars), so this returns a plain vector and documents the scaling rather than stamping a label it cannot enforce. |
+| `welch` | `welch(x, fs, [nperseg=min(256,len(x))], [noverlap=nperseg/2], [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz): sample rate. `nperseg` (optional number): samples per segment; `noverlap` (optional number): overlap between segments; `window` (optional string, e.g. `"hann"`/`"hamming"`/`"blackman"`): window applied to each segment. Returns a **`spectrum`** of `nperseg/2 + 1` one-sided bins (DC to Nyquist), stamped `norm = "density"` — SciPy's `"density"` scaling, units²/Hz. Welch's method segments `x` into overlapping windowed frames and averages their squared-magnitude spectra. **Changed in v0.2.4**: this used to return a bare vector whose frequency axis you had to rebuild by hand, which is exactly the mislabelling `toolkit-signal.md` §2 exists to prevent; it now carries its own axis, so `P.freq` is the axis, `P.df` the bin spacing (`Fs/nperseg` — the *segment* length, not `length(x)`) and `P.N` the segment length. The change is back-compatible: a density reads as a plain real vector everywhere one was accepted before, so `length(P)`, `max(P)`, arithmetic and plotting are unaffected, and `linspace(0, fs/2, length(P))` still gives the same axis. `band_power(P, f0, f1)` integrates it over a band, returning mean-square power whose square root is the band RMS. It cannot be inverted (`ifft`) or unnormalised — a PSD discarded its phase. |
+| `periodogram` | `periodogram(x, fs, [window="hann"])` | `x`: a length-N real vector; `fs` (number, Hz); `window` (optional string). Returns a **`spectrum`** of `N/2 + 1` one-sided bins stamped `norm = "density"`, same scaling as `welch` (**changed in v0.2.4** from a bare vector, back-compatibly — see `welch`). The simplest PSD estimate — `welch`'s one-segment (`nperseg=length(x)`, `noverlap=0`), no-averaging special case. |
+| `psd` | `psd(x, [fs], [window="hann"], [nfft=min(256,len(x))], [overlap=0.5])` | `x`: a length-N real vector or `Signal`; `fs` (number, Hz) — required, or carried by a `Signal`. `nfft` (optional number): the **segment length** — the same meaning `spectrogram`/`stft` give `nfft` in this engine, *not* SciPy's zero-padded transform length. `overlap` (optional number): segment overlap as a **fraction** in `[0, 1)` — `0.5` is 50%, where `welch`'s `noverlap=` is an absolute sample count. `window` (optional string, as for `welch`). Returns a **`spectrum`** of `nfft/2 + 1` one-sided bins stamped `norm = "density"`, the Welch PSD in SciPy's `"density"` scaling, exactly as `welch` does — literally the same code path, so `psd(x, fs)` and `welch(x, fs)` stay bit-identical and the defaults are chosen to keep that true. **Changed in v0.2.4** from a bare vector, back-compatibly: it now carries its own frequency axis (`P.freq`, `P.df`), which is what `toolkit-signal.md` §2 asks for. **The scaling is a typed tag, not a unit string.** §2 sketches a `P.unit` of `V^2/Hz`; the engine still has no derived/compound unit algebra to propagate a per-hertz density through arithmetic, so what is recorded is the *convention* (`norm = "density"`), which the engine does enforce — `ifft` and `spectrum_unnormalize` refuse a density, and `band_power` integrates it correctly — rather than a label it could not. |
 | `csd` | `csd(x, y, fs, [nperseg=min(256,len(x),len(y))], [noverlap=nperseg/2], [window="hann"])` | `x`/`y`: equal-length real vectors; `fs` (number, Hz). Returns a length-`nperseg/2 + 1` complex vector (`CVec`), the one-sided cross-spectral density `Pxy` — Welch's method, sharing `welch`'s own framing/windowing/averaging exactly, so it lines up bin-for-bin with `welch(x, ...)`/`welch(y, ...)`. `abs(csd(x, y, fs))` is cross-power magnitude, `angle(csd(x, y, fs))` is phase. |
 | `spectral_coherence` | `spectral_coherence(x, y, fs, [nperseg=], [noverlap=], [window="hann"])` | `x`/`y`: equal-length real vectors; `fs` (number, Hz). Returns a length-`nperseg/2 + 1` real vector, the magnitude-squared coherence `\|Pxy\|^2 / (Pxx*Pyy)` in `[0, 1]` — `1` at a frequency where `y` is an exact linear/time-invariant function of `x`'s content there. Unrelated to `coherence(A)` (see the Compressed Sensing chapter) — the largest inner product between two different normalised columns of a compressed-sensing matrix — which is a different, pre-existing function under its own name. |
+| `transfer_function` | `transfer_function(input, output, [fs], [method="h1"], [nperseg=min(256,len)], [noverlap=nperseg/2], [window="hann"])` | Returns an `frf` model carrying the frequency response of the system taking `input` to `output`, with fields `h` (length-`nperseg/2 + 1` `CVec`), `freq` (the matching Hz axis), `coherence`, `method`, `fs` and `nperseg`. `input`/`output`: equal-length real vectors or `Signal`s recorded simultaneously; `fs` (number, Hz) may instead be carried by either one, and two recordings carrying rates that disagree is an error. `method` selects the noise-weighted estimator: `"h1"` (default) assumes the noise is on the **output** and is the usual choice for a controlled excitation; `"h2"` assumes it is on the **input** and is the one to use at a resonance; `"hv"` is the geometric-mean compromise `sqrt(H1*H2)`. All three share one phase and differ only in magnitude, in the fixed ratio `\|H1\| = coherence * \|H2\|`, so they agree exactly on a noiseless record. Built on `welch`/`csd` with one shared framing, so `h`, `coherence` and the axis line up bin-for-bin. Read it with `H.magnitude()`, `H.phase()`, `H.coherence()`, `H.freq`, and plot it with `H.bode()`. Added in v0.3.0. |
+| `bode` | `bode(Z, [freqs], [color=], [label=], [marker="line"])` | Draws a complete two-panel Bode figure — magnitude in dB above, phase in degrees below, both against a log frequency axis — and returns `Nothing`. `Z`: an `frf`/`impedance` model (from `transfer_function` or `impedance(v, i)`), which already carries its own `freq` axis so no second argument is needed; or a plain `CVec`, which carries no axis and so must be given the matching length-N `freqs` vector (Hz) positionally. `color`/`label`/`marker` (optional strings): plot styling. This is §11's self-plotting `Z.bode()`; `bode_magnitude`/`bode_phase` remain available for a script that wants one half in a panel of its own choosing. Added in v0.3.0. |
+| `magnitude` | `magnitude(x)` | An exact alias of `abs` — the same match arm, so the two names cannot drift apart. `x`: any real or complex number, vector or matrix, or an `frf`/`impedance` model (whose complex data it reads through). Returns `sqrt(re^2+im^2)` elementwise for complex input and the absolute value for real input. Exists because `toolkit-signal.md` §11 spells the accessor `Z.magnitude()`/`H.magnitude()`, which method sugar rewrites to `magnitude(Z)`. Added in v0.3.0. |
 | `nyquist` | `nyquist(Z, [color=], [label=], [marker="o"])` | `Z`: a length-N complex vector (`CVec`, the impedance spectrum). `color`/`label`/`marker` (optional strings): plot styling. The standard EIS plot: `Re(Z)` on x, `-Im(Z)` on y (the impedance-spectroscopy sign convention every EIS instrument uses, so capacitive/inductive behavior plots in the upper half-plane). Returns `Nothing` — this call is made for the figure it draws. |
 | `bode_magnitude` | `bode_magnitude(Z, freqs, [color=], [label=], [marker="line"])` | `Z`: a length-N complex vector (`CVec`); `freqs`: the matching length-N real vector (Hz). `color`/`label`/`marker` (optional strings). Magnitude half of a Bode plot: `20*log10(\|Z\|)` vs. log-scaled frequency. Returns `Nothing` — this call is made for the figure it draws. |
 | `bode_phase` | `bode_phase(Z, freqs, [color=], [label=], [marker="line"])` | `Z`: a length-N complex vector (`CVec`); `freqs`: the matching length-N real vector (Hz). `color`/`label`/`marker` (optional strings). Phase half of a Bode plot: `arg(Z)` in degrees vs. log-scaled frequency. Kept as a separate call from `bode_magnitude` (rather than one builtin silently building a 2-panel figure) so a script stays in control of its own subplot layout. Returns `Nothing` — this call is made for the figure it draws. |
@@ -108,6 +143,42 @@ print("valid ({length(v)}): {v}")    # valid (2): [6, 9]
 | `energy` | `energy(x)` | `x`: a length-N vector or `Signal`. Returns a single number, `sum(x.^2)` — total signal energy. See `tkeo` for a per-sample instantaneous estimate instead. |
 | `tkeo` | `tkeo(x)` | `x`: a length-N real vector. Returns a length-`(N-2)` vector (like `diff`, doesn't pad — the definition needs a neighbor on each side). Teager-Kaiser Energy Operator, a cheap near-instantaneous nonlinear energy tracker: `psi[x(n)] = x(n)^2 - x(n-1)*x(n+1)`. |
 | `ste` | `ste(x, [win=256], [hop=win/2])` | `x`: a length-N real vector. `win` (optional number): frame length in samples; `hop` (optional number, default `win/2`): samples between successive frame starts. Returns a vector of length `num_frames`, one energy value per frame. Short-time energy: the windowed extension of `energy(x)` over sliding, overlapping frames — the standard way to track how a signal's power evolves over time (e.g. locating bursts in EMG, or voiced/silent segments in speech). |
+
+## Digital Communications
+
+Bit-level building blocks for a baseband link. A *bit vector* throughout
+is a `Vec` of literal `0`/`1` values, MSB-first — the order a codeword is
+written down in — and anything else in it is an error rather than a
+truthiness coercion, because a stray `2` or `0.5` would otherwise encode
+a codeword no decoder disagrees with.
+
+Amplitude modulation and the two-point schemes (BPSK, QPSK) are already a
+couple of lines on top of `hilbert` and complex arithmetic, and stay that
+way; these are the pieces that are not. `qam_modulate(bits, 4)` **is**
+QPSK, so the hand-rolled version and the general one agree.
+
+| Function | Signature | Description |
+|---|---|---|
+| `qam_modulate` | `qam_modulate(bits, order)` | `bits`: a bit vector whose length is a multiple of `log2(order)`; `order` (number): the constellation size, a power of two with an even exponent (`4`, `16`, `64`, `256`, ...). Maps each group of `log2(order)` bits to one point of the standard Gray-coded square constellation — the first half of the group labels the in-phase level, the second half the quadrature one. Points sit on the unnormalized odd-integer grid (`±1`, `±3` for 16-QAM), the same convention MATLAB's `qammod` uses by default, so the mapping is exact in floating point. Cross constellations (`32`, `128`) are a different geometry and are rejected rather than approximated by a rectangle. Returns a `CVec`, one symbol per group. (Added in v0.3.0.) |
+| `qam_demodulate` | `qam_demodulate(symbols, order)` | `symbols`: a `CVec`, a real `Vec` (quadrature taken as zero), or a single `Complex`; `order` as for `qam_modulate`. Nearest-constellation-point decision, the exact inverse of `qam_modulate` on clean symbols. Because a square constellation is a product of two independent PAM axes, the nearest point is found by rounding per axis rather than searching all `order` points; a symbol landing outside the constellation decides to the edge point. Returns a `Vec` of `0`/`1`, `log2(order)` bits per symbol. (Added in v0.3.0.) |
+| `hamming74_encode` | `hamming74_encode(d)` | `d`: a bit vector whose length is a multiple of 4. Hamming(7,4) systematic encoder, 7 bits out per 4 in, laid out `[p1, p2, d1, p4, d2, d3, d4]` with the parity bits at the power-of-two positions — the layout that makes a nonzero syndrome read out directly as the 1-indexed position of the corrupted bit. Not to be confused with `hamming(n)`, the window function. Returns a `Vec` of `0`/`1`. (Added in v0.3.0.) |
+| `hamming74_decode` | `hamming74_decode(codeword)` | `codeword`: a bit vector whose length is a multiple of 7. Computes each block's syndrome, flips the bit it names, and recovers the data. Corrects **any single bit flip per codeword**; the code's minimum distance is 3, so a double flip is mis-corrected — that is the code's limit, not the implementation's. Returns a `Record` with fields `data` (the recovered bits, 4 per codeword), `corrected` (a `Bool`, true when any codeword needed fixing) and `positions` (per codeword, the 1-indexed bit flipped back, or `0` for a clean one). (Added in v0.3.0.) |
+| `crc` | `crc(bits, polynomial)` | `bits`: the message as a bit vector; `polynomial`: the generator, written MSB-first **with its leading 1 included**, either as a bit vector (`[1,0,1,1]`) or as the number spelling the same bits (`11`). Textbook unreflected, zero-initialized polynomial division: the message is shifted left by the CRC width and divided mod 2. The width comes from the polynomial, not from a hardcoded table, so any width works; this is deliberately not any one named catalogue variant (CRC-32 and friends also specify an init value, input/output reflection and a final XOR). Returns a `Vec` of `0`/`1`, `len(polynomial) - 1` bits long. (Added in v0.3.0.) |
+| `crc_check` | `crc_check(bits, polynomial)` | `bits`: a message with its `crc` remainder already appended; `polynomial` as for `crc`. Divides the whole codeword and reports whether the remainder is all zeros. Returns a `Bool`. (Added in v0.3.0.) |
+
+```qu
+bits = [0, 1, 1, 0, 1, 0, 0, 1]
+syms = qam_modulate(bits, 16)             # 2 symbols on the odd-integer grid
+print(qam_demodulate(syms, 16))           # back to the same 8 bits
+
+print(hamming74_encode([1, 0, 1, 1]))     # [0, 1, 1, 0, 0, 1, 1]
+r = hamming74_decode([0, 1, 1, 0, 1, 1, 1])   # bit 5 flipped in transit
+print("{r.data} corrected={r.corrected} at {r.positions}")
+
+m = [1, 1, 0, 1]
+print(crc(m, 11))                         # [0, 0, 1] -- x^3 + x + 1
+print(crc_check([1, 1, 0, 1, 0, 0, 1], 11))   # true
+```
 
 ## Filter Design
 
@@ -217,10 +288,13 @@ print("bandpass taps: {length(bp.b)}")   # bandpass taps: 21
 | `filter_init` | `filter_init(filt)` | `filt`: a `Model` (kind `"filter"`). Returns a `Model` (kind `"filter_state"`) holding fresh all-zero streaming state for sample-at-a-time filtering: field is an `(n_sections, 2)` biquad-state matrix for an IIR (`sos`) filter, or a length-`(len(b)-1)` all-zero delay vector for an FIR (`b`) filter. |
 | `filter_next` | `filter_next(state, x)` | `state`: a `Model` (kind `"filter_state"`, from `filter_init` or a prior `filter_next`); `x`: a single number (one new sample). Returns a new `"filter_state"` `Model` (field `y`, a number, holds the filtered output). Use as `state = filter_next(state, next_sample)` in a loop, reading `state.y` each time — the real-time/serial-fed-data counterpart to `sosfilt`/`filtfilt`. |
 | `block_process` | `block_process(x, f, [block=256])` | `x`: a vector or `Signal`; `f`: a function (a value or the name of a user function) called once per block; `block`: block length in samples, positional or named, default 256. Cuts `x` into consecutive blocks, calls `f` on each, and concatenates the results. The last block is short when the length is not a multiple of `block` — passed as-is, never zero-padded. A block of a `Signal` is itself a `Signal` at the same `Fs`, so `f` can read the rate off its own argument. **Carries no state between blocks** — see the note below. |
+| `blocks` | `blocks(x, n, [hop=n])` | `x`: a vector or `Signal`; `n`: block length, either a whole number of samples or a duration (`100 ms`) resolved against `x`'s own `Fs`; `hop`: distance between block starts, default `n` (no overlap). Returns a **list** of blocks, so `for b in s.blocks(4096)` iterates it with the ordinary `for` loop. Each block is a `Signal` at `x`'s `Fs` (a plain vector if `x` had none). The last block is short when the length does not divide evenly — passed as-is, never zero-padded. A duration is a **length**: `0.5 s` at 8 Hz is 4 samples, one fewer than the inclusive slice `s[0 s : 0.5 s]` spans. Added in v0.2.4. |
+| `processor` | `processor(f, [block=256], [state=], [rate=])` | `f`: a function (a value or the name of a user function) called once per block; `block`: block length in samples, positional or named, default 256; `state`: the initial state — **passing it is what makes the processor stateful**; `rate`: the design sample rate, a number or a frequency (`48 kHz`). Returns a `Model` (kind `"processor"`) with fields `fn`, `block`, `latency` (samples), `stateful`, plus `state` when stateful and `rate`/`latency_ms` when a rate was given. Run it over a whole signal with `process`. Added in v0.2.4. |
+| `process` | `process(p, x)` | `p`: a `Model` (kind `"processor"`); `x`: a vector or `Signal`. Returns the processed signal, applying `p`'s function block by block and **carrying state across the block boundaries**. Also spelled `p.process(x)`. A stateless processor calls `f(block)`; a stateful one calls `f(block, state)` and requires the two-element list `(y, next_state)` back. A processor built with a `rate` refuses a signal at any other rate, naming both. Added in v0.2.4. |
 
 `block_process` is the offline half of "write the algorithm once, run it block by block". For a function with no history it is exactly equivalent to applying that function to the whole signal — `block_process(x, (b) := 2 .* b, block = 256)` on a 1000-sample `x` reassembles `2 .* x` to the bit, short final block and all.
 
-**It does not thread state across block boundaries, and that is a real limit, not a rounding detail.** A filter applied per block restarts at every boundary: `block_process(x, (b) := sosfilt(lp, b), block = 256)` differs from `sosfilt(lp, x)` by about 1.1 on a unit-amplitude signal — block-edge artifacts, not noise. Use it for per-block work that is independent of history (blockwise FFT or RMS metering, level detection, gain, any pure elementwise map). For genuinely stateful filtering, the sample-at-a-time `filter_init`/`filter_next` pair above is what carries state, explicitly.
+**It does not thread state across block boundaries, and that is a real limit, not a rounding detail.** A filter applied per block restarts at every boundary: `block_process(x, (b) := sosfilt(lp, b), block = 256)` differs from `sosfilt(lp, x)` by about 1.1 on a unit-amplitude signal — block-edge artifacts, not noise. Use it for per-block work that is independent of history (blockwise FFT or RMS metering, level detection, gain, any pure elementwise map). For genuinely stateful work, use `processor`/`process` below, which threads state across the boundaries; the sample-at-a-time `filter_init`/`filter_next` pair above carries state one sample at a time.
 
 **The rate of the result.** If `f` returns as many samples as it was handed, a `Signal` keeps its `Fs`. If `f` reduces each block to one number — the metering case — the result is genuinely sampled at `Fs / block` and is tagged that way, so a metering series plots against the right time axis instead of the input's rate. Any other output length has no rate that can be named, so it comes back as a plain vector rather than a `Signal` carrying a guess.
 
@@ -229,6 +303,51 @@ s     = signal(sin(2 * pi * 7 .* ((0 to 999) / 1000)), 1000)
 level = block_process(s, (b) := rms(b), block = 250)
 print("{length(level)} blocks at {level.Fs} Hz")   # 4 blocks at 4 Hz
 ```
+
+### Stateful streaming: `processor` and `process`
+
+`processor` is the stateful sibling of `block_process`, and it is what closes the gap described just above. State is threaded explicitly, the same way `filter_init`/`filter_next` and `kalman_predict`/`kalman_update` already do it, lifted from a sample to a block: a stateful body is called as `f(block, state)` and returns the two-element list `(y, next_state)`.
+
+Passing `state=` is what opts in. Without it the body is the stateless `f(block)` shape and `process` agrees with `block_process` sample for sample.
+
+```qu
+lp = butter(4, "low", 80, 1000)
+
+function lp_block(b, st)
+    s   = st
+    out = ()
+    for v in b
+        s   = filter_next(s, v)
+        out = append(out, s.y)
+    end for
+    return (out, s)
+end function
+
+p = processor("lp_block", block = 256, state = filter_init(lp), rate = 1000)
+y = process(p, x)          # or: p.process(x)
+
+print("{p.latency} samples, {p.latency_ms} ms")   # 256 samples, 256 ms
+```
+
+Run that way, `y` equals `sosfilt(lp, x)` **exactly** — the biquad state crosses every block boundary. The same filter through `block_process` is off by about 1.1 on a unit-amplitude signal.
+
+A body that forgets to return its state is an error rather than a silent reset: taken leniently, the seed state would be reused for every block, which is the block-edge bug this exists to remove, in a form that still returns a full-length signal and that no length or finiteness check would catch.
+
+**Latency.** `p.latency` is the block length in samples — a block cannot be emitted until its last sample has arrived. `p.latency_ms` is the same figure in milliseconds, and exists **only** when the processor was given a `rate`; a processor that was never told a rate has no `latency_ms` field at all, rather than reporting milliseconds derived from a rate nobody supplied.
+
+**Iterating blocks yourself.** When you want the loop rather than the machinery, `blocks` hands back an ordinary list:
+
+```qu
+for b in s.blocks(250)
+    print(rms(b))
+end for
+
+for b in s.blocks(100 ms)      # sized against s.Fs
+    print(rms(b))
+end for
+```
+
+**Not built.** §5 of the signal-toolkit design also sketches `run(proc, input: mic, output: speakers)` for live device I/O, pre-built `stream.lowPass()`/`.fft()`/`.detectPeaks()` stages, and `signal.memoryMap()`. None of these exist: there is no audio-device layer in the engine, and the file-side memory mapping (`mmap_open`/`mmap_read`/`mmap_len`) has no signal-domain counterpart. `processor`/`process`/`blocks` are the offline half only. Under-run counting belongs with the live half and is deliberately not surfaced as a field that would always read zero offline.
 
 #### Overloads: `sosfilt`
 
@@ -280,6 +399,44 @@ fs = 1000
 fir = fir1(6, 100, kind="low", fs=fs)
 sf = filter_init(fir)
 print("FIR state length: {length(sf.z)}")   # FIR state length: 6
+```
+
+## Adaptive Filters
+
+| Function | Signature | Description |
+|---|---|---|
+| `lms_init` | `lms_init(n_taps, mu)` | The least-mean-squares (LMS) adaptive FIR filter's initial state. `n_taps` (number, at least 1): the adaptive FIR's length; `mu` (number, positive): the step size. Returns a `Model` (kind `"lms"`) with fields `w` (a length-`n_taps` vector of weights, all zero), `hist` (the length-`n_taps` sliding input window, all zero), `mu`, `y` (the last output, 0) and `e` (the last error, 0). State is immutable, the same convention `kalman_init` uses: thread the value returned by `.update(x, d)` through successive calls rather than mutating in place, so the whole weight trajectory stays available. **Stability:** the weights converge for `0 < mu < 2 / (n_taps * E[x^2])`; only `mu > 0` is enforced, because `E[x^2]` is a property of the input signal that `lms_init` has not seen yet — the upper bound is the caller's to respect. Added in v0.3.0. |
+| `update` (`lms`) | `state.update(x, d)` | One LMS sample step. `x` (number): the new input sample; `d` (number): the desired/reference sample. Returns a **new** `"lms"` state (the receiver is untouched) whose `w` holds the updated weights, `y` the filter output for this sample and `e` the error `d - y`. Per sample, in this order: `x` is shifted into `hist` (newest first), `y = dot(w, hist)`, `e = d - y`, `w = w + mu * e * hist`. Since `y` is formed from the window that already contains `x`, the 1-tap case reduces exactly to the textbook single-weight recursion `e = d - w*x`, `w = w + mu*e*x`. Added in v0.3.0. |
+
+### Adaptive filter example: identifying an unknown FIR
+
+The classic use is system identification: drive an unknown filter and the adaptive filter with the same input, feed the unknown filter's output in as the desired signal `d`, and the weights converge to the unknown impulse response. Here `h_true = [0.5, 0.3, -0.2]` is recovered from 1500 noise samples.
+
+```qu
+h    = [0.5, 0.3, -0.2]
+s    = lms_init(3, 0.05)          # mu well inside 2/(3*1) = 0.667
+x    = randn(1500, seed = 7)
+xm1  = 0
+xm2  = 0
+for i = 0 to 1499
+    xi = x[i]
+    d  = h[0]*xi + h[1]*xm1 + h[2]*xm2      # the unknown system's output
+    s  = s.update(xi, d)
+    xm2 = xm1
+    xm1 = xi
+end for
+print("w = {s.w}")                # w = [0.5, 0.3, -0.2] to ~2 decimals
+print("residual = {s.e}")         # ~0 once identified
+```
+
+The single-weight case is the same filter with `n_taps = 1`, and has a closed form worth checking an implementation against: with a constant input `x = 1` chasing a gain of `0.5`, `w_k = 0.5 * (1 - (1-mu)^k)`, so `mu = 0.1` reaches `0.4974` after 50 updates.
+
+```qu
+s = lms_init(1, 0.1)
+for i = 1 to 50
+    s = s.update(1, 0.5)
+end for
+print("w = {s.w[0]}")             # w = 0.4974231...
 ```
 
 ## Filter Analysis
@@ -409,7 +566,10 @@ print("signals.square matches: {max(abs(a - b)) < 1e-12}")
 
 | Function | Signature | Description |
 |---|---|---|
-| `resample_to` | `resample_to(signal, new_fs)` | `signal`: a length-N `Signal` (must carry a known `Fs`); `new_fs`: a number (Hz), the target sample rate. Returns a new `Signal` at `Fs=new_fs`, whose length is whatever it takes to span the *same* start/end time as the input (generally not N). Real resampling, not a relabel: evaluates the signal's own piecewise-linear waveform (through its samples at their original instants `i/Fs`, via the same kernel `interp1`'s `"linear"` method uses) at the new instants `j/new_fs` — e.g. a 4-sample, 1 Hz ramp `[0,10,20,30]` (spanning t=0..3s) resampled to 2 Hz becomes the 7-sample `[0,5,10,15,20,25,30]`, still spanning t=0..3s — never a same-length signal with `Fs` merely swapped out (which would silently misstate the recorded duration). `signal.resample_to(new_fs)` also works, via the generic method-chain sugar. Wrap a plain vector first with `signal(data, Fs)` if it isn't already a `Signal`. |
+| `resample_to` | `resample_to(signal, new_fs)` | `signal`: a length-N `Signal` (must carry a known `Fs`); `new_fs`: a number (Hz), the target sample rate. Returns a new `Signal` at `Fs=new_fs`, whose length is whatever it takes to span the *same* start/end time as the input (generally not N). Real resampling, not a relabel: evaluates the signal's own piecewise-linear waveform (through its samples at their original instants `i/Fs`, via the same kernel `interp1`'s `"linear"` method uses) at the new instants `j/new_fs` — e.g. a 4-sample, 1 Hz ramp `[0,10,20,30]` (spanning t=0..3s) resampled to 2 Hz becomes the 7-sample `[0,5,10,15,20,25,30]`, still spanning t=0..3s — never a same-length signal with `Fs` merely swapped out (which would silently misstate the recorded duration). `signal.resample_to(new_fs)` also works, via the generic method-chain sugar. Wrap a plain vector first with `signal(data, Fs)` if it isn't already a `Signal`. **Anti-aliased on the way down, and this changed the numbers (v0.3.0).** When `new_fs < fs` the samples now pass through a lowpass at the new Nyquist (`new_fs/2`, order 60, designed and applied at the original rate) before the grid change; before v0.3.0 they did not, so anything above the new Nyquist folded back into the band and came out as a plausible-looking tone that was never recorded. The filter is causal, so the result is **delayed by its group delay, `30/fs` seconds** (order/2 = 30 input samples), and the first and last ~30 samples are filter transient. The order is reduced automatically for inputs shorter than 61 samples, and no filter is applied below 5 samples. Upsampling (`new_fs >= fs`) cannot alias and is untouched — same values, no filter, no delay. To opt out of anti-aliasing entirely, interpolate onto the new grid yourself with `interp1` and accept the aliasing. |
+| `upsample` | `upsample(x, L, [order=60], [fs=])` | `x`: a length-N vector or `Signal`; `L`: a whole number ≥ 1, the integer interpolation factor; `order` (optional, even, default 60): the FIR interpolation filter's order; `fs` (optional): the input sample rate, defaulting to the `Signal`'s own `Fs` or 1.0 for a plain vector. Raises the sample rate by an integer factor: inserts `L-1` zeros between samples, then interpolates with a lowpass at the original Nyquist (`fs/2`), scaled by `L` to preserve amplitude. That interpolation filter runs at the new rate `fs*L`, and the gain of `L` is what stops the zero-stuffing dividing the amplitude by `L`. Returns `N*L` samples — a `Signal` at `Fs = fs*L` if `x` was one, a plain vector otherwise. The filter is causal, so the output is **delayed by `order/2` samples at the OUTPUT rate** (30 samples by default), which is `order/(2*fs*L)` seconds. `L = 1` is the identity, with no filter and no delay. Added in v0.3.0. |
+| `downsample` | `downsample(x, M, [order=60], [fs=])` | `x`: a length-N vector or `Signal`; `M`: a whole number ≥ 1, the integer decimation factor; `order` (optional, even, default 60): the FIR anti-alias filter's order; `fs` (optional): the input sample rate, defaulting to the `Signal`'s own `Fs` or 1.0 for a plain vector. Lowers the sample rate by an integer factor, **anti-aliasing first**: applies a lowpass at the new Nyquist (`fs/(2*M)`, at the input rate) and only then keeps every `M`th sample. The order matters and is the point — decimating first and filtering afterwards filters alias that has already folded into the band, which no filter can separate from signal again. Returns `ceil(N/M)` samples (`y[i] = filtered[i*M]`, sample 0 always kept) — a `Signal` at `Fs = fs/M` if `x` was one, a plain vector otherwise. The filter is causal, so the output is **delayed by `order/2` samples at the INPUT rate** (30 by default, i.e. `order/(2*M)` output samples), which is `order/(2*fs)` seconds. `M = 1` is the identity. Added in v0.3.0. |
+| `resample_int` | `resample_int(x, L, M, [order=60], [fs=])` | `x`: a length-N vector or `Signal`; `L`, `M`: whole numbers ≥ 1, the interpolation and decimation factors; `order` (optional, even, default 60); `fs` (optional), as for `upsample`. Rational rate change by `L/M` in a single pass: zero-stuff by `L`, filter **once**, decimate by `M`. Returns `ceil(N*L/M)` samples at `Fs = fs*L/M`. Prefer this to `x.upsample(L).downsample(M)`: that runs two filters in series at the same intermediate rate, doubling both the transition-band loss and the group delay for no benefit. The single shared filter's cutoff is `min(fs/2, fs*L/(2*M))` — the interpolation limit when `L >= M`, the anti-alias limit when `M > L` — with gain `L`. Causal, so the output is **delayed by `order/2` samples at the intermediate rate `fs*L`** (`order/(2*fs*L)` seconds), half what the two-step form costs. Added in v0.3.0. |
 | `interp2` | `interp2(x, y, Z, xq, yq, [method="bilinear"\|"nearest"])` | `x`: a length-`ncols` vector, the grid's COLUMN coordinates (strictly increasing); `y`: a length-`nrows` vector, the grid's ROW coordinates (strictly increasing); `Z`: an `(nrows, ncols)` matrix with `Z[i,j]` the value at `(y[i], x[j])` — `Matrix::get(row, col)`'s own indexing convention used everywhere else in this codebase, not a swapped axis order; `xq`/`yq`: paired query coordinates, either both numbers or both length-M vectors (`xq[k]`/`yq[k]` is query point `k` — not an implied meshgrid over every combination); `method` (optional string: `"bilinear"` default or `"nearest"`). 2-D grid interpolation (MATLAB's `interp2`): a query exactly at a grid coordinate returns that exact stored value, not an approximation; extrapolation beyond the grid is always on, matching `interp1`. Returns a number (if `xq`/`yq` are numbers) or a length-M vector (if they are vectors). |
 
 `interp2` is the 2-D counterpart of `interp1` below — instead of a single `(x, y)` curve, it interpolates over a whole `(x, y, Z)` grid, the way a lookup table or a measured 2-D response surface would be sampled at an arbitrary point. The example below builds a tiny 2×3 grid, reads back an exact grid point (verifying no interpolation error is introduced there), then reads back the point exactly between all four corners (verifying the bilinear average).
@@ -464,6 +624,32 @@ print("mid={mid}, lo={lo}, hi={hi}, qs={qs}")
 ```
 
 `interp1(x, y, xq)`/`interpolate_at`'s existing extrapolation already covers what a separate `extrapolate_at` builtin would offer — there is no such function, and none is needed.
+
+## Array Processing (beamforming)
+
+| Function | Signature | Description |
+|---|---|---|
+| `beamform` | `beamform(signals, positions, angle_degrees, [c=343], [method="nearest"])` | Delay-and-sum beamformer. `signals`: a list of `Signal`s, one per array element, all at the same `Fs` and the same length; `positions`: a matching-length vector of element coordinates (metres, measured along the array from its origin); `angle_degrees`: the steering direction in degrees off broadside (the same degrees-in convention `imrotate`/`bode_phase` use, not radians); `c` (optional): propagation speed in m/s, default `343` (air — use ~1500 for water), also spellable `c=`; `method` (optional): the interpolation kernel used to apply each delay, `interpolate_at`'s own three, default `"nearest"`. Steers each channel by its geometric delay `x_m*sin(theta)/c` (exactly `steer_delays`, shared code) and averages, returning a `Signal` at the inputs' own `Fs` — which is honest here, unlike `interpolate_at`'s plain-vector return, because every query time is the uniform axis shifted by one constant per channel. `method` defaults to `"nearest"` rather than `interpolate_at`'s `"linear"` on purpose: linear interpolation averages neighbouring samples, which low-pass-filters the noise and inflates the measured array gain (7.25 dB with `"nearest"` vs 8.58 dB with `"linear"` on the 5-element example below, against 10*log10(5) = 6.99 dB of theory) — the default must report what the geometry bought, not add denoising of its own. Added in v0.3.0. |
+| `steer_delays` | `steer_delays(positions, angle_degrees, [c=343])` | The geometry half of `beamform` on its own: the per-element steering delays `tau_m = x_m*sin(theta)/c`, in seconds, for element coordinates `positions` and a direction `angle_degrees` degrees off broadside (`c` as in `beamform`: m/s, default `343`, also spellable `c=`). Returns a plain vector, so it composes directly with `interpolate_at(sig_m, sig_m.t + delays[m], method)` when you want per-channel treatment `beamform` cannot express — element weighting/shading, a different method per channel, or a subset of the array. Added in v0.3.0. |
+
+A five-microphone linear array, 0.08 m spacing, steered at a 1 kHz tone arriving 30° off broadside in air. Each channel carries the same tone with its own geometric delay plus independent noise; summing the steered channels raises the tone coherently while the noise adds incoherently, so the SNR improves by about `10*log10(M)`.
+
+```qu
+fs = 48000
+d  = 0.08
+th = 30
+c  = 343
+mics = [-2, -1, 0, 1, 2] .* d          # positions, metres, origin-centred
+taus = steer_delays(mics, th, c)       # per-element delay, seconds
+chans = []
+for m in 0 to 4 {
+    t = (0 to 4799) ./ fs              # 0.1 s of record
+    tone = sin(2 * pi * 1000 .* (t .- taus[m]))
+    chans = push(chans, signal(tone .+ 0.8 .* randn(1, 4800, seed=m), fs))
+}
+beam = beamform(chans, mics, th)       # c=343, method="nearest" by default
+print("beamformed {beam.len} samples at {beam.fs} Hz")
+```
 
 ## Elementwise Apply (container-preserving)
 
@@ -754,7 +940,7 @@ deliberate: the same circuit on two different sweeps is the same circuit.
 |---|---|---|
 | `series` | `series(a, b, ...)` | Two or more circuits in series; impedances add. |
 | `parallel` | `parallel(a, b, ...)` | Two or more circuits in parallel; admittances add. An ideal short in any branch shorts the block. |
-| `impedance` | `impedance(c, freqs)` | `c`: a circuit; `freqs`: frequencies in **Hz**, not rad/s. Returns a complex vector, one impedance per frequency. A zero or negative frequency is an error rather than an infinity: at DC a capacitor's impedance is unbounded and a Warburg's is undefined, and returning `inf`/`NaN` into a spectrum hides the mistake instead of reporting it. |
+| `impedance` | `impedance(c, freqs)` | `c`: a circuit; `freqs`: frequencies in **Hz**, not rad/s. Returns a complex vector, one impedance per frequency — this is the **forward** form, which evaluates a circuit model; see *Measured impedance* below for `impedance(voltage, current)`, which estimates the same quantity from two recordings instead. A zero or negative frequency is an error rather than an infinity: at DC a capacitor's impedance is unbounded and a Warburg's is undefined, and returning `inf`/`NaN` into a spectrum hides the mistake instead of reporting it. |
 | `circuit` | `circuit(spec, params)` | Builds a circuit from a **spec string** and a flat parameter vector. |
 
 ### Spec strings
@@ -807,6 +993,36 @@ order on them, so `<` is an error rather than a guess.
 > a superset always reaches its subset's score; use multiple starts; and
 > report which parameters the data actually constrains — are recorded in the
 > commit that added this section.
+
+## Measured impedance
+
+`impedance` names two different computations, told apart by what you hand it.
+`impedance(circuit, freqs)` (above) **evaluates a model**. `impedance(voltage,
+current)` **estimates the same quantity from two simultaneous recordings** —
+the measurement, rather than the model of it. A circuit is never a recording
+and a recording is never a circuit, so the two forms cannot be confused; they
+share a name because they produce the same physical quantity, a complex
+impedance over a frequency axis.
+
+| Function | Signature | Description |
+|---|---|---|
+| `impedance` (measured) | `impedance(voltage, current, [fs], [frequencies=], [method="h1"], [nperseg=], [noverlap=], [window="hann"])` | Returns an `impedance` model with fields `z` (a `CVec`), `freq` (the matching Hz axis), `method`, `fs`, and — on the broadband path only — `coherence` and `nperseg`. `voltage`/`current`: equal-length real vectors or `Signal`s recorded simultaneously; `fs` (Hz) may instead be carried by either. Because `Z = V/I`, this is the transfer function from **current (the input) to voltage (the output)** — the reverse of the argument order, which follows the way the quantity is written. That ordering is what makes `method="h1"` the right default: H1 assumes the noise is on the output, i.e. on the measured voltage, which is the **galvanostatic** case. A **potentiostatic** rig has its noise on the current and should pass `method="h2"`. With `frequencies=` (a vector of excitation frequencies in Hz) the impedance is evaluated by Goertzel at exactly those points instead, which is what a multisine or stepped sweep wants: EIS sweeps are logarithmically spaced and rarely land on FFT bin centres, and interpolating a complex spectrum across an arc is how a Nyquist plot acquires a kink that is not in the data. That path reports no `coherence` — a single-record ratio has no averaged segments for one to mean anything — and a frequency above Nyquist, at or below zero, or at which the current has no measurable content is an error rather than an alias or a division by zero. The measured form was added in v0.3.0; the forward `impedance(circuit, freqs)` form predates it. |
+
+Read the result with `Z.real()`, `Z.imag()`, `Z.magnitude()`, `Z.phase()`,
+`Z.freq` and `Z.coherence()`, and plot it with `Z.nyquist()` or `Z.bode()`.
+The `freq` field follows the same convention as `Spectrum`'s own `.freq` —
+bin `k` at `k*fs/nperseg`, in Hz — so an `impedance` result hands straight to
+`rlkk_validate(Z.z, Z.freq)` and the rest of the rLKK family below.
+
+```qu
+# A broadband (noise or multisine) excitation, galvanostatic.
+Z = impedance(v, i, 1000)
+print("coherence at bin 10: {Z.coherence()[10]}")
+Z.nyquist()
+
+# A stepped/multisine sweep at known excitation frequencies.
+Z = impedance(v, i, 1000, frequencies=logspace(0, 2, 20))
+```
 
 ## Impedance Spectroscopy (rLKK)
 
@@ -1298,6 +1514,64 @@ defined on the boolean state `x[i] >= level`, so "exactly at the level"
 counts as high — which guarantees that rising and falling crossings strictly
 **alternate**, the property `find_pulses` relies on to pair them.
 
+A third layer, `to_digital`, is sugar over the two above: it bundles a
+signal and a threshold into one `Digital` value so the threshold doesn't
+have to be repeated at every call site. `d = x.to_digital(level)` then
+`d.edges()`/`d.duty_cycle()`/... reads the same as `find_edges(x,
+level=level)`/`duty_cycle(x, level=level)`, just once instead of per call
+— it is the identical math underneath, not a second implementation.
+`duty_cycle` accepts either shape (`duty_cycle(x, level=...)` or
+`duty_cycle(d)` on a `Digital` value); `edges`/`rising_edges`/
+`falling_edges`/`high_time`/`low_time` are `Digital`-only, since (unlike
+`duty_cycle`, which already existed) they were added specifically as
+`Digital` methods and there was no established plain-signal form to stay
+compatible with.
+
+On top of that digitized layer sit the protocol decoders. `decode_uart` and
+`decode_spi` both take `Digital` values and both return a **decoded-frame
+table** — one row per byte, carrying the fields that say whether to trust it —
+which is the shape §8 of `docs/design/toolkit-signal.md` groups the whole
+family by. They return a `Table` rather than the `Model` of parallel vectors
+`find_edges`/`find_pulses` use, because a decoded frame is a row of
+*mixed-type* fields (a number, a hex string, a validity flag, an error name)
+and a `Model`'s fields are numeric vectors — the `error` column could not be
+text at all. It also means `filter`, `nrow`, `sort_by` and the rest of the
+table verbs work on a decode result without any special casing.
+`decode_i2c`/`decode_can` are named in the same section of the design doc and
+return a `Model` instead (see below) — the two decoder families settled on
+different return shapes because I2C/CAN transactions nest (a transaction
+holds a list of address/data records) in a way a flat per-byte `Table` row
+doesn't represent as naturally.
+
+On top of that sit the **protocol decoders**, which turn a digitized
+capture back into the traffic that produced it. `decode_i2c` and
+`decode_can` are both in the table below. They share an input shape (a
+`Digital` value) and an output shape (a `Model` holding a list of
+decoded records), and nothing else: each is a protocol-specific state
+machine, and the two protocols disagree about almost everything that
+matters.
+
+The one difference worth understanding before reading either row is
+**where the bit timing comes from**. I2C ships a clock wire, so
+`decode_i2c` takes two `Digital` values and never needs to be told a
+rate — SCL says when each bit is valid, and the START/STOP conditions
+are defined by SDA moving *while SCL is high*, which is why neither wire
+decodes alone. CAN ships no clock, so `decode_can` takes one `Digital`
+value and **must** be told the bit length, via `bitrate=` on a `Signal`
+(whose sample rate supplies the rest) or `samples_per_bit=` on anything.
+
+CAN also needs **bit de-stuffing**, and this is not a detail: the
+protocol inserts an extra bit of opposite polarity after any five
+consecutive identical bits, to keep receivers' clocks locked. Ordinary
+traffic trips this constantly — an identifier or payload byte with a run
+of five like bits is common, not exotic — and a decoder that skips
+de-stuffing does not fail loudly, it shifts every later field by one bit
+per missed stuff bit and reports a plausible wrong frame. `decode_can`
+de-stuffs from SOF through the end of the CRC sequence (the CRC
+delimiter, ACK slot and EOF are transmitted unstuffed) and reports how
+many stuff bits it removed, so the count can be checked rather than
+trusted.
+
 Two unit conventions worth reading twice, because they differ on purpose:
 `duty_cycle` returns a **fraction** in `[0, 1]`, so that
 `duty_cycle(x) * pulse_period(x)` is the high time; `overshoot`/`undershoot`
@@ -1317,9 +1591,17 @@ they do not, and both return a plausible number.
 | `find_zero_crossings` | `find_zero_crossings(x, [edge="both"])` | `x`: a length-N real vector or `Signal`; `edge` (optional string) as above. `find_trigger` at level zero. The default is **both** directions, unlike `find_trigger`'s own default: the zero-crossing rate is a count of every sign change, so `len(find_zero_crossings(x))` has to be that count to be worth anything, and a `"rising"` default would silently halve it. Returns a vector of 0-indexed integer sample indices. |
 | `find_edges` | `find_edges(x, [level=], [threshold=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; `level=`/`threshold=` (optional number, same thing under two names) defaults to the signal's own midpoint `(min+max)/2`; `hysteresis` (optional number, default `0`): with `0` this is a plain single-threshold detector, i.e. `find_trigger` run in both directions; with a positive value it is a Schmitt trigger requiring `level + hysteresis/2` to call high and `level - hysteresis/2` to call low, so noise on a slow edge yields one edge rather than a burst. The reported positions are taken at `level` either way, so switching hysteresis on to reject glitches does not move the measurements it protects. Returns a `Model` (kind `"edges"`) with fields `indices` (a vector of integer sample indices), `directions` (a vector, `+1` rising / `-1` falling, parallel to `indices`), `positions` (a vector of interpolated sub-sample crossing points), `rising` and `falling` (the two index splits), and `count` (a number). |
 | `find_pulses` | `find_pulses(x, [level=], [hysteresis=0], [polarity="positive"])` | `x`: a length-N real vector or `Signal`; `level`/`hysteresis` as for `find_edges`; `polarity` (optional string): `"positive"` (default) pairs each rising edge with the next falling one, `"negative"` the reverse. Returns a `Model` (kind `"pulses"`) with fields `starts`, `stops` (vectors of integer sample **indices** — `stops`, not `ends`, because `end` is a Qu keyword), `widths` (a vector of **times**: seconds for a `Signal`, samples otherwise, measured between the interpolated crossings so that `mean(p.widths)` equals `pulse_width(x)` exactly), and `count` (a number). A partial pulse at either end of the record — already high when capture started, or still high when it stopped — has only one of its two edges and is **not** reported; its width is genuinely unknown. |
+| `to_digital` | `to_digital(x, threshold)` | `x`: a length-N real vector or `Signal`; `threshold`: a number, positional and required. Returns a `Digital` value (a `Model`, kind `"digital"`) remembering `x` and `threshold` together, so `edges`/`rising_edges`/`falling_edges`/`high_time`/`low_time`/`duty_cycle` below can be called on it without repeating the threshold. |
+| `edges` | `edges(d, [hysteresis=0])` | `d`: a `Digital` value from `to_digital`. Same `hysteresis` as `find_edges`, same return shape (a `Model`, kind `"edges"`, with `indices`/`directions`/`positions`/`rising`/`falling`/`count`) — `d.edges()` is `find_edges(x, level=threshold)` with the threshold already remembered. |
+| `rising_edges`, `falling_edges` | `rising_edges(d, [hysteresis=0])` | `d`: a `Digital` value. Returns a vector of the interpolated crossing **positions** of one polarity only — seconds for a `Signal`, samples otherwise (the same convention `find_pulses`'s `widths` field uses). |
+| `high_time`, `low_time` | `high_time(d, [hysteresis=0])` | `d`: a `Digital` value. Returns a single number: the **sum** of the widths of every complete pulse above (`high_time`) or below (`low_time`) the threshold, in seconds for a `Signal` and samples otherwise. Unlike `pulse_width` (a mean, which errors with zero complete pulses), this is a sum, so a record with no complete pulse of that polarity returns `0.0` rather than erroring — there is a defined answer ("no time observed"), it's just zero. Deliberately **not** `duty_cycle(d) * record_length`, which would assume a clean periodic waveform the input isn't obligated to have. |
+| `decode_uart` | `decode_uart(d, [baud=], [samples_per_bit=], [bits=8], [parity="none"], [stop=1])` | `d`: a `Digital` value from `to_digital`. Decodes asynchronous serial frames into bytes at a stated bit rate. Bit timing is stated, not recovered: give either `baud=` (bits per second, converted through the signal's own sample rate) or `samples_per_bit=` directly — one of the two is required. `baud=` needs a `Signal`, since a bits-per-second figure has nothing to refer to on a bare vector; that case is an error naming `samples_per_bit=` rather than a silent `Fs = 1` that would decode the whole capture into nonsense. `bits` (optional, 5–9, default `8`) data bits; `parity` (optional string) `"none"` (default), `"even"` or `"odd"`; `stop` (optional, 1 or 2, default `1`). The line is assumed to **idle high** (a frame opens on a falling edge, the stop bit is high) and data is **LSB-first**, which the standard fixes — there is deliberately no `bit_order=` here, unlike `decode_spi`. Each frame is sampled at its bit centres measured from its own start edge, so the decoder re-syncs on every frame instead of drifting off the bit centres across a long capture. Returns a `Table`, one row per frame, with columns `byte` (number), `hex` (string, e.g. `"0x48"`), `start` (the falling edge that opened the frame — seconds for a `Signal`, samples otherwise), `valid` (`1`/`0`) and `error` (string: empty, `"framing"`, `"parity"` or `"framing+parity"`). A frame whose stop bit is low or whose parity disagrees is **reported with its decoded bits and flagged**, never silently returned as a clean byte; a frame cut off by the end of the record is not reported at all, the same rule `find_pulses` applies to a partial pulse. Added in v0.3.0. |
+| `decode_spi` | `decode_spi(clk, [mosi], [miso], [mode=], [cpol=0], [cpha=0], [bits=8], [bit_order="msb"], [cs=], [cs_active="low"])` | `clk`: a `Digital` clock. Decodes clocked SPI traffic into bytes, sampling each data line at whichever clock edge CPOL and CPHA select. SPI carries its own clock, so unlike `decode_uart` there is no bit rate to state — but there are multiple input signals. At least one data line is required, given positionally (`decode_spi(clk, mosi)` or `decode_spi(clk, mosi, miso)`) or by name (`miso=` alone, for a capture that only tapped the peripheral's output). Every line must be the same length; a mismatch is an error rather than a truncation to the shortest, since two captures of different lengths were not taken together. `mode` (optional, 0–3) is the datasheet spelling of `cpol`/`cpha`, with `mode = 2*CPOL + CPHA`; passing `mode=` **and** `cpol=`/`cpha=` is an error rather than a precedence rule, because the two can contradict. CPHA=0 samples on each clock cycle's leading edge and CPHA=1 on its trailing edge, with CPOL fixing which physical direction that is — so modes 0 and 3 sample rising, modes 1 and 2 falling. `bits` (optional, 2–32, default `8`); `bit_order` (optional string) `"msb"` (default) or `"lsb"`, both genuinely in use on real peripherals. `cs` (optional `Digital`) segments the capture into frames: each assertion starts a new frame and bumps `frame`, clock edges while CS is idle are ignored entirely, and a partial byte left over when CS releases is discarded; `cs_active` (optional string) is `"low"` (default) or `"high"`. **Without `cs=` the capture decodes as one continuous byte stream** with `frame` `0` throughout — frame boundaries are deliberately not guessed from clock gaps, which has no correct answer on a bus whose idle time is unspecified. Returns a `Table` with columns `frame`, `start` (the sampling edge of the byte's first bit — seconds for a `Signal`, samples otherwise), and `mosi`/`mosi_hex` and/or `miso`/`miso_hex` for whichever data lines were given. A trailing partial byte is not reported. Added in v0.3.0. |
+| `decode_i2c` | `decode_i2c(scl, sda, [hysteresis=0])` | **Added in v0.3.0.** `scl`, `sda`: two `Digital` values from `to_digital`, clock first, data second — I2C framing is defined by SDA moving while SCL is held high, so neither wire decodes alone and a single-argument call is an error, as is a clock and data of different lengths (they are two channels of one capture; differing lengths mean they are not aligned in time). `hysteresis` as for `find_edges`. There is deliberately **no** bit-rate keyword: I2C carries its own clock, and a rate keyword would invite stating something the decoder must not believe over SCL itself. Returns a `Model` (kind `"i2c"`) with `transactions` (a list), `addresses` (a parallel vector) and `count`. Each transaction is a `Model` (kind `"i2c_transaction"`) with `address`, `read` (bool), `direction` (`"read"`/`"write"`), `ten_bit`, `address_complete`, `address_ack`, `address_acks` (one entry per address byte), `data` (a vector of bytes), `acks` (`1`/`0` per data byte, where **`1` means the receiver pulled SDA low to acknowledge**), `byte_count`, `repeated_start` (whether *this* segment was preceded by an Sr), `terminator`, `partial_bits`, `start_index`/`stop_index` and `start_time`/`stop_time`. Two things that look like bugs and are not: a **repeated START ends one transaction record and begins another** — the bus is never released, but the address and direction are restated, and flattening both halves of a register read into one record would discard exactly the framing this decoder exists to preserve, so `terminator` is a string (`"stop"`, `"repeated_start"`, `"truncated"`) rather than a boolean; and `partial_bits` is normally **`1`** after a clean STOP, because generating STOP requires a real SCL rising edge that is sampled as a data bit before SDA rises to end the transfer. A transaction the capture cut off is still reported, with `terminator = "truncated"` and whatever bytes did decode — a clipped capture is ordinary, and dropping it silently would look identical to there having been no traffic. 10-bit addressing is handled, including the asymmetry that trips naive decoders: a 10-bit **write** sends the reserved `11110xx0` prefix byte *and* a second byte of low address bits, but the **read** half (after a repeated START) sends only `11110xx1` — so the number of address bytes is decided by the R/W bit, not fixed, and the low byte is carried forward from the write phase, with `address_complete` reporting `false` if no such phase was captured. |
+| `decode_can` | `decode_can(bus, [bitrate=], [samples_per_bit=], [polarity="normal"], [hysteresis=0])` | **Added in v0.3.0.** `bus`: one `Digital` value — the differential pair has already been resolved to a logic level by the transceiver or by the scope's own threshold. Bit length is **required** and comes from either `bitrate=` (125000, 250000, 500000, 1e6, …), which needs a `Signal` whose sample rate supplies the rest, or `samples_per_bit=`, which works on a plain vector too; with neither, or with fewer than 2 samples per bit, it errors rather than guessing. `polarity` (optional string): `"normal"` (default) means bus **dominant = logical 0 = LOW**, which is what a transceiver's RX pin gives you and leaves the bus recessive/high when idle; `"inverted"` for a capture taken off an inverting buffer or the other line of the pair. Getting polarity wrong does **not** reliably yield zero frames — the complemented stream still offers candidate start bits — but it cannot produce a CRC-valid one, so check `crc_ok` rather than the frame count. `hysteresis` as for `find_edges`. Handles both **base (11-bit)** and **extended (29-bit)** identifiers; which one a frame uses is not knowable up front, since both open with SOF and 11 identifier bits and it is the IDE bit — the *thirteenth* — that finally says, so the fields are read strictly sequentially. Returns a `Model` (kind `"can"`) with `frames` (a list), `ids` (a parallel vector), `count`, `error_count` (candidate frames abandoned on a stuff error) and `samples_per_bit` (the resolved value, worth printing when a `bitrate=` is suspected wrong). Each frame is a `Model` (kind `"can_frame"`) with `id`, `extended`, `rtr`, `dlc`, `byte_count`, `data`, `crc`, `crc_ok`, `crc_delim_ok`, `ack`, `ack_delim_ok`, `eof_ok`, `stuff_bits`, `start_index` and `start_time`. `dlc` is reported **raw** and `byte_count` separately, rather than silently reconciling the two: a remote-transmission-request frame states a DLC but carries no payload at all, and classical CAN caps the payload at 8 bytes while DLC values 9–15 are legal on the wire and still mean 8. `ack` is `true` when the ACK slot was driven **dominant**, i.e. some node on the bus acknowledged. The decoder resynchronizes on every recessive-to-dominant edge, the way a real CAN controller does — on an ideal capture this changes nothing, and on a drifting one it is what stops the sample point walking off the bit over a ~130-bit frame. |
 | `rise_time`, `fall_time` | `rise_time(x, [low=0.1], [high=0.9], [base=], [top=])` | `x`: a length-N real vector or `Signal`. `low`/`high` (optional numbers, defaults `0.1`/`0.9`) are **fractions of the step, not levels**, so the 20%–80% convention is `low=0.2, high=0.8`. `base`/`top` (optional numbers) are the levels the step runs between, defaulting to `x`'s own min and max. Returns a single number: the transition time of the first complete rising (resp. falling) transition, in seconds for a `Signal` and samples otherwise, with both endpoints linearly interpolated between samples. Errors rather than guessing when the record holds no complete transition. **Caveat, and it is a common case:** on a step that *rings*, the automatic `top` is the overshoot peak rather than the settled value, which drags the 90% level up and reports a rise time that is too long — pass `top=` explicitly when the step overshoots. |
 | `pulse_width` | `pulse_width(x, [level=], [hysteresis=0], [polarity="positive"])` | `x`: a length-N real vector or `Signal`; keywords as for `find_pulses`. Returns a single number: the **mean** width of the complete pulses, in seconds for a `Signal` and samples otherwise. Equal by construction to `mean(find_pulses(x, ...).widths)`. |
-| `duty_cycle` | `duty_cycle(x, [level=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; keywords as for `find_edges`. Returns a single number: mean high time over mean period, as a **fraction in `[0, 1]`, not a percentage** — multiply by 100 for the figure a scope's front panel shows. The fraction is the composable form: `duty_cycle(x) * pulse_period(x)` is the high time. |
+| `duty_cycle` | `duty_cycle(x, [level=], [hysteresis=0])` | `x`: a length-N real vector, `Signal`, **or `Digital`** value (from `to_digital`, in which case its stored threshold is the default `level`, still overridable); keywords as for `find_edges`. Returns a single number: mean high time over mean period, as a **fraction in `[0, 1]`, not a percentage** — multiply by 100 for the figure a scope's front panel shows. The fraction is the composable form: `duty_cycle(x) * pulse_period(x)` is the high time. |
 | `pulse_period`, `pulse_frequency` | `pulse_period(x, [level=], [hysteresis=0])` | `x`: a length-N real vector or `Signal`; keywords as for `find_edges`. Returns a single number: the mean interval between successive rising crossings (`pulse_period`) or its reciprocal (`pulse_frequency`) — seconds and Hz for a `Signal`, samples and cycles/sample otherwise. Errors when the record holds fewer than two rising crossings, i.e. not a full cycle. These are **edge-counting** measurements; `dominant_frequency`/`estimate_frequency` above are spectral estimators answering a different question — see the note before this table. |
 | `overshoot`, `undershoot` | `overshoot(x, [settle_level=], [initial_level=], [settle_frac=0.1])` | `x`: a length-N real vector or `Signal`. `settle_level`/`initial_level` (optional numbers) default to the mean of the last and first `settle_frac` of the record (10%, at least one sample each — a mean rather than the single end samples, so one noisy point cannot carry the whole measurement). Returns a single number, a **percent** of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going, `undershoot` how far it backs up *past where it started* (the pre-shoot), which is MATLAB `stepinfo`'s convention. Both clamp at zero. A falling step works the same way with min and max exchanged. Errors when the record contains no step to be a percentage of. |
 

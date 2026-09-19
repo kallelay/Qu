@@ -187,6 +187,172 @@ fn describe_wav(err: hound::Error, who: &str) -> String {
     }
 }
 
+/// Whether to dither on the way down to an integer depth, and how.
+///
+/// The writer takes an `Option<Dither>`, and the `None` case is the
+/// load-bearing one: it means the caller never named `dither` at all,
+/// which is NOT the same request as naming `dither = "none"`. A plain
+/// `bool` could not tell "no" from "unsaid", and that distinction is the
+/// whole feature -- see `encode_wav`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dither {
+    /// Quantise by rounding, nothing added.
+    None,
+    /// Triangular PDF, +/-1 LSB. The standard choice for audio: it
+    /// decorrelates the quantisation error from the signal and leaves a
+    /// flat noise floor, where rounding alone leaves harmonic distortion
+    /// that is plainly audible on a fade or a quiet passage.
+    Tpdf,
+}
+
+/// Encode samples in `-1.0 ..= 1.0` as a WAV stream.
+///
+/// The inverse of `decode_wav`, and deliberately its exact mirror: the
+/// same `2^(depth-1)` scale, so a file decoded and re-encoded at its own
+/// depth comes back bit-identical. That is testable, and it is tested.
+///
+/// `depth` is 16, 24 or 32. **32 means 32-bit FLOAT**, not 32-bit integer
+/// PCM -- that is what the format's users mean by it, what the spec's own
+/// format list names, and what `decode_wav` reads back without rescaling.
+///
+/// `dither` is `None` when the caller never named it. Going to 16 bits
+/// that way is an ERROR rather than a silent truncation: samples are f64
+/// here, 16-bit is the depth where the difference is audible, and the
+/// spec makes naming it mandatory for exactly that reason. 24-bit
+/// defaults to no dither, and 32-bit float refuses the argument outright
+/// because it has no quantisation step to dither.
+///
+/// `uniform` supplies independent draws on `[0, 1)`. Passed in rather
+/// than owned so this crate keeps no RNG and no `rand` dependency, and so
+/// the interpreter can hand over its own seeded generator -- which is
+/// what makes a dithered write reproducible under `seed()`.
+pub fn encode_wav(
+    channels: &[Vec<f64>],
+    sample_rate: f64,
+    depth: u16,
+    dither: Option<Dither>,
+    uniform: &mut dyn FnMut() -> f64,
+) -> Result<Vec<u8>, String> {
+    if channels.is_empty() {
+        return Err("encode_wav: there are no channels to write".into());
+    }
+    let frames = channels[0].len();
+    for (i, ch) in channels.iter().enumerate() {
+        if ch.len() != frames {
+            return Err(format!(
+                "encode_wav: channel {i} has {} samples but channel 0 has {frames} -- \
+                 every channel of one file has to be the same length",
+                ch.len()
+            ));
+        }
+    }
+    if !(sample_rate.is_finite() && sample_rate > 0.0 && sample_rate <= u32::MAX as f64) {
+        return Err(format!(
+            "encode_wav: {sample_rate} is not a sample rate a WAV file can declare \
+             (it holds a whole number of Hz, 1 .. 4294967295)"
+        ));
+    }
+    if sample_rate.fract() != 0.0 {
+        return Err(format!(
+            "encode_wav: a WAV header holds a whole number of Hz, so {sample_rate} cannot \
+             be written exactly -- round it first if that is what you meant"
+        ));
+    }
+
+    // The policy, and the reason this function takes an `Option` rather
+    // than a `Dither`.
+    match (depth, dither) {
+        (16, None) => {
+            return Err(
+                "encode_wav: depth = 16 quantises 64-bit samples down to 16 bits, and doing \
+                 that without saying how is an error -- silent truncation of audio is \
+                 audible. Name dither = \"tpdf\" (adds +/-1 LSB of triangular noise, which \
+                 keeps the quantisation error flat and uncorrelated with the signal) or \
+                 dither = \"none\" (plain rounding, which distorts fades and quiet passages)."
+                    .into(),
+            );
+        }
+        (32, Some(_)) => {
+            return Err(
+                "encode_wav: depth = 32 writes 32-bit float, which has no quantisation step \
+                 -- there is nothing for dither to do. Drop the argument, or ask for \
+                 depth = 24 or depth = 16 if you meant to quantise."
+                    .into(),
+            );
+        }
+        (16, Some(_)) | (24, _) | (32, None) => {}
+        (other, _) => {
+            return Err(format!(
+                "encode_wav: depth = {other} is not a depth this writes -- 16, 24 or 32, \
+                 32 being 32-bit float"
+            ));
+        }
+    }
+
+    let spec = hound::WavSpec {
+        channels: channels.len() as u16,
+        sample_rate: sample_rate as u32,
+        bits_per_sample: depth,
+        sample_format: if depth == 32 {
+            hound::SampleFormat::Float
+        } else {
+            hound::SampleFormat::Int
+        },
+    };
+
+    let mut buf = Cursor::new(Vec::new());
+    {
+        let mut w =
+            hound::WavWriter::new(&mut buf, spec).map_err(|e| describe_wav(e, "encode_wav"))?;
+        // Interleaved on the way out -- what WAV stores, and the exact
+        // inverse of the de-interleaving `decode_wav` does on the way in.
+        for i in 0..frames {
+            for (c, ch) in channels.iter().enumerate() {
+                let v = ch[i];
+                if !v.is_finite() {
+                    return Err(format!(
+                        "encode_wav: channel {c} sample {i} is {v}, which has no WAV \
+                         representation -- it would land as silence and nothing downstream \
+                         could tell it had"
+                    ));
+                }
+                if depth == 32 {
+                    w.write_sample(v as f32)
+                        .map_err(|e| describe_wav(e, "encode_wav"))?;
+                } else {
+                    let q = quantise(v, depth, dither.unwrap_or(Dither::None), uniform);
+                    w.write_sample(q).map_err(|e| describe_wav(e, "encode_wav"))?;
+                }
+            }
+        }
+        w.finalize().map_err(|e| describe_wav(e, "encode_wav"))?;
+    }
+    Ok(buf.into_inner())
+}
+
+/// One sample, `-1.0 ..= 1.0` to a `depth`-bit two's-complement integer.
+///
+/// The scale is `2^(depth-1)`, matching `decode_wav` exactly, so `-1.0`
+/// lands on full negative scale and a value that came out of a file of
+/// this depth returns to the integer it started as -- exactly, because
+/// the scale is a power of two and so the division that produced it was
+/// lossless.
+///
+/// `+1.0` is the one asymmetry, and it is the format's rather than ours:
+/// two's complement has no `+2^(depth-1)`, so full positive scale clips to
+/// `2^(depth-1) - 1`. Every other tool does the same.
+fn quantise(v: f64, depth: u16, dither: Dither, uniform: &mut dyn FnMut() -> f64) -> i32 {
+    let scale = (1i64 << (depth - 1)) as f64;
+    let mut x = v * scale;
+    if dither == Dither::Tpdf {
+        // Two independent uniforms on [0,1) subtracted give a triangular
+        // density on (-1, 1) LSB. That is TPDF -- the textbook dither for
+        // audio, and the one the spec names.
+        x += uniform() - uniform();
+    }
+    x.round().clamp(-scale, scale - 1.0) as i32
+}
+
 /// Decode an MP3 stream to samples in `-1.0 ..= 1.0`.
 ///
 /// MP3 has no bit depth to report: it is lossy and its output is real
@@ -631,6 +797,227 @@ mod wav_round_trip {
     fn a_file_that_is_not_wav_says_so() {
         let err = decode_wav(b"fLaC\0\0\0\x22").unwrap_err();
         assert!(err.contains("not valid WAV"), "got: {err}");
+    }
+}
+
+#[cfg(test)]
+mod wav_write {
+    use crate::{decode_wav, encode_wav, Dither};
+
+    /// A deterministic uniform source, so a dithered write is a fixed
+    /// stream of bytes in a test rather than a flaky one. Real callers
+    /// hand over the interpreter's seeded RNG.
+    fn fake_uniform() -> impl FnMut() -> f64 {
+        let mut state = 0x243F_6A88_85A3_08D3u64;
+        move || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        }
+    }
+
+    fn no_dither() -> impl FnMut() -> f64 {
+        || unreachable!("a write that names no dither must not draw a random number")
+    }
+
+    /// **The spec's one explicit, load-bearing rule for this section.**
+    ///
+    /// Not "16-bit works" -- 16-bit without SAYING what to do about the
+    /// lost bits has to fail, and fail as a real error a script can catch,
+    /// because silent truncation of audio is audible and nothing
+    /// downstream can detect it after the fact.
+    #[test]
+    fn going_to_16_bit_without_naming_dither_is_an_error() {
+        let x = vec![vec![0.0, 0.5, -0.5, 0.25]];
+        let err = encode_wav(&x, 44100.0, 16, None, &mut no_dither())
+            .expect_err("16-bit with no dither named must not be accepted");
+        assert!(err.contains("dither"), "the error has to name the fix: {err}");
+        assert!(err.contains("tpdf"), "and both options: {err}");
+        assert!(err.contains("none"), "and both options: {err}");
+    }
+
+    /// The other half of that rule: `none` is a legitimate answer, and
+    /// naming it must WORK. An implementation that simply rejected 16-bit
+    /// would pass the test above and still be wrong.
+    #[test]
+    fn naming_dither_none_is_accepted() {
+        let x = vec![vec![0.0, 0.5, -0.5, 0.25]];
+        assert!(encode_wav(&x, 44100.0, 16, Some(Dither::None), &mut no_dither()).is_ok());
+    }
+
+    /// 24-bit does not require the argument -- the spec singles out 16 --
+    /// but it must still accept it.
+    #[test]
+    fn depth_24_does_not_require_dither_but_allows_it() {
+        let x = vec![vec![0.0, 0.5, -0.5]];
+        assert!(encode_wav(&x, 44100.0, 24, None, &mut no_dither()).is_ok());
+        assert!(encode_wav(&x, 44100.0, 24, Some(Dither::Tpdf), &mut fake_uniform()).is_ok());
+    }
+
+    /// 32-bit is float: there is no quantisation step, so dithering it is
+    /// not a no-op to be ignored but a misunderstanding to be reported.
+    #[test]
+    fn depth_32_refuses_dither_rather_than_ignoring_it() {
+        let x = vec![vec![0.0, 0.5, -0.5]];
+        assert!(encode_wav(&x, 44100.0, 32, None, &mut no_dither()).is_ok());
+        let err = encode_wav(&x, 44100.0, 32, Some(Dither::Tpdf), &mut fake_uniform())
+            .expect_err("32-bit float has nothing to dither");
+        assert!(err.contains("no quantisation step"), "got: {err}");
+    }
+
+    #[test]
+    fn an_unsupported_depth_is_refused_by_name() {
+        let x = vec![vec![0.0, 0.5]];
+        for bad in [8u16, 12, 20, 64] {
+            let err = encode_wav(&x, 44100.0, bad, Some(Dither::None), &mut no_dither())
+                .expect_err("only 16/24/32 are written");
+            assert!(err.contains(&bad.to_string()), "got: {err}");
+        }
+    }
+
+    /// The round trip that makes the scale claim checkable: values that
+    /// sit exactly on the 16-bit grid must come back exactly, because the
+    /// scale is a power of two and the writer is the reader's mirror.
+    #[test]
+    fn a_16_bit_round_trip_returns_the_same_numbers() {
+        let grid: Vec<f64> = [0i32, 1, -1, 1000, -1000, 32767, -32768, 7, -7, 12345]
+            .iter()
+            .map(|&k| k as f64 / 32768.0)
+            .collect();
+        let bytes = encode_wav(&[grid.clone()], 44100.0, 16, Some(Dither::None), &mut no_dither())
+            .expect("writes");
+        let back = decode_wav(&bytes).expect("reads back");
+        assert_eq!(back.sample_rate, 44100.0);
+        assert_eq!(back.bits, Some(16));
+        assert_eq!(back.channels.len(), 1);
+        assert_eq!(
+            back.channels[0], grid,
+            "a power-of-two scale makes this exact, not approximate"
+        );
+    }
+
+    #[test]
+    fn a_24_bit_round_trip_returns_the_same_numbers() {
+        let scale = (1i64 << 23) as f64;
+        let grid: Vec<f64> = [0i32, 1, -1, 8388607, -8388608, 4242, -4242]
+            .iter()
+            .map(|&k| k as f64 / scale)
+            .collect();
+        let bytes =
+            encode_wav(&[grid.clone()], 96000.0, 24, None, &mut no_dither()).expect("writes");
+        let back = decode_wav(&bytes).expect("reads back");
+        assert_eq!(back.sample_rate, 96000.0);
+        assert_eq!(back.bits, Some(24));
+        assert_eq!(back.channels[0], grid);
+    }
+
+    /// Float WAV passes through the reader untouched, so a round trip
+    /// through it is exact for anything f32 can hold.
+    #[test]
+    fn a_32_bit_float_round_trip_returns_the_same_numbers() {
+        let xs: Vec<f64> = vec![0.0, 0.5, -0.5, 0.25, -0.125, 1.0, -1.0, 0.0625];
+        let bytes = encode_wav(&[xs.clone()], 48000.0, 32, None, &mut no_dither()).expect("writes");
+        let back = decode_wav(&bytes).expect("reads back");
+        assert_eq!(back.bits, None, "a float format has no quantisation step");
+        assert_eq!(back.channels[0], xs);
+        // 1.0 survives here, where 16-bit has to clip it -- that is the
+        // actual reason to choose float, so it is worth pinning.
+        assert_eq!(back.channels[0][5], 1.0);
+    }
+
+    /// Channel order is the thing most likely to be wrong and least
+    /// likely to look wrong, so it gets the same treatment on write as
+    /// the decoder already gives it on read.
+    #[test]
+    fn a_stereo_write_keeps_the_channels_apart_and_in_order() {
+        let left: Vec<f64> = (1..=16).map(|i| i as f64 / 32768.0).collect();
+        let right: Vec<f64> = left.iter().map(|v| -v).collect();
+        let bytes = encode_wav(
+            &[left.clone(), right.clone()],
+            44100.0,
+            16,
+            Some(Dither::None),
+            &mut no_dither(),
+        )
+        .expect("writes");
+        let back = decode_wav(&bytes).expect("reads back");
+        assert_eq!(back.channels.len(), 2);
+        assert_eq!(back.channels[0], left);
+        assert_eq!(back.channels[1], right);
+        assert!(back.channels[0][0] > 0.0 && back.channels[1][0] < 0.0);
+    }
+
+    /// A probe that can actually come out either way: dither has to
+    /// CHANGE the bits, or naming it meant nothing. Half-LSB inputs are
+    /// used because that is where rounding is deterministic and dither
+    /// is not, so a difference here is the dither and nothing else.
+    #[test]
+    fn tpdf_dither_perturbs_the_quantisation_and_none_does_not() {
+        let xs: Vec<f64> = (0..256).map(|i| (i as f64 + 0.5) / 32768.0).collect();
+        let plain = encode_wav(&[xs.clone()], 44100.0, 16, Some(Dither::None), &mut no_dither())
+            .expect("writes");
+        let plain_again =
+            encode_wav(&[xs.clone()], 44100.0, 16, Some(Dither::None), &mut no_dither())
+                .expect("writes");
+        let dithered = encode_wav(&[xs.clone()], 44100.0, 16, Some(Dither::Tpdf), &mut fake_uniform())
+            .expect("writes");
+
+        assert_eq!(plain, plain_again, "undithered writes must be deterministic");
+        assert_ne!(
+            plain, dithered,
+            "TPDF that changed no sample would be a dither in name only"
+        );
+
+        // And it must stay a dither, not a corruption: every sample
+        // within one LSB of where rounding would have put it.
+        let a = decode_wav(&plain).expect("reads");
+        let b = decode_wav(&dithered).expect("reads");
+        for (p, d) in a.channels[0].iter().zip(&b.channels[0]) {
+            assert!(
+                (p - d).abs() <= 1.0 / 32768.0 + 1e-12,
+                "dither moved a sample by more than 1 LSB: {p} vs {d}"
+            );
+        }
+    }
+
+    /// Clipping is the format's asymmetry, not a bug to be surprised by
+    /// later: two's complement has no +2^15.
+    #[test]
+    fn full_positive_scale_clips_and_full_negative_scale_does_not() {
+        let xs = vec![1.0f64, -1.0];
+        let bytes =
+            encode_wav(&[xs], 44100.0, 16, Some(Dither::None), &mut no_dither()).expect("writes");
+        let back = decode_wav(&bytes).expect("reads");
+        assert_eq!(back.channels[0][0], 32767.0 / 32768.0, "+1.0 clips by one step");
+        assert_eq!(back.channels[0][1], -1.0, "-1.0 is exactly representable");
+    }
+
+    /// A NaN would be written as silence and nothing downstream could
+    /// tell, which is the failure mode this whole section exists to
+    /// prevent.
+    #[test]
+    fn a_non_finite_sample_is_an_error_not_silence() {
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let x = vec![vec![0.0, bad, 0.0]];
+            let err = encode_wav(&x, 44100.0, 16, Some(Dither::None), &mut no_dither())
+                .expect_err("must not be written as silence");
+            assert!(err.contains("sample 1"), "the error names where: {err}");
+        }
+    }
+
+    #[test]
+    fn ragged_channels_and_impossible_rates_are_refused() {
+        assert!(encode_wav(&[], 44100.0, 16, Some(Dither::None), &mut no_dither()).is_err());
+        let ragged = vec![vec![0.0, 0.1], vec![0.0]];
+        assert!(encode_wav(&ragged, 44100.0, 16, Some(Dither::None), &mut no_dither()).is_err());
+        let x = vec![vec![0.0, 0.1]];
+        for bad in [0.0, -44100.0, f64::NAN, 44100.5] {
+            assert!(
+                encode_wav(&x, bad, 16, Some(Dither::None), &mut no_dither()).is_err(),
+                "{bad} is not a writable sample rate"
+            );
+        }
     }
 }
 

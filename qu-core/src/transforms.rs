@@ -407,6 +407,107 @@ pub fn coherence(
         .collect())
 }
 
+/// Which of the three standard noise-weighted transfer-function estimators
+/// [`transfer_function`] should compute.
+///
+/// The choice is a statement about WHERE THE NOISE IS, and it is not a
+/// detail: on a noisy measurement the three disagree by exactly the
+/// coherence, and picking one silently is how a biased FRF gets published.
+/// `toolkit-signal.md` §11 calls this out as "a real, well-known choice
+/// that should be a named parameter, not a hidden default".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TfEstimator {
+    /// `H1 = Pxy / Pxx` — assumes the noise is on the OUTPUT `y` and the
+    /// input `x` is clean. Biased LOW (towards zero) by output noise.
+    /// The right default for a controlled-excitation measurement, where
+    /// the drive is known and the response is what the sensor sees.
+    H1,
+    /// `H2 = Pyy / Pyx` — assumes the noise is on the INPUT `x`. Biased
+    /// HIGH by input noise. The estimator to reach for at a resonance,
+    /// where the response is large and the drive is comparatively noisy.
+    H2,
+    /// `Hv = sqrt(H1 * H2)` — the geometric-mean compromise, between the
+    /// two bounds whichever way the noise actually falls.
+    ///
+    /// This is the SISO (single-input single-output) definition. The
+    /// general `Hv` is the principal eigenvector of the full spectral
+    /// matrix and only coincides with the geometric mean in the
+    /// one-input-one-output case, which is the only case this function
+    /// computes.
+    Hv,
+}
+
+/// Frequency response `H` of the system taking `x` to `y`, plus the
+/// magnitude-squared coherence at every bin — Welch's method throughout,
+/// sharing [`welch`]/[`csd`]'s exact framing (this is deliberately the same
+/// call pattern [`coherence`] already uses, so `Pxx`, `Pyy` and `Pxy` line
+/// up bin-for-bin with no scaling to reconcile).
+///
+/// Returns `(H, coherence)`, both `nperseg/2 + 1` bins, DC to Nyquist.
+///
+/// The three estimators share one phase and differ only in magnitude.
+/// Because [`csd`] forms `Pxy = conj(X) * Y`, `arg(H1) = arg(Pxy)` and
+/// `arg(H2) = -arg(conj(Pxy)) = arg(Pxy)` alike, so the estimator choice
+/// can bias a magnitude but can never flip a phase. Their magnitudes
+/// stand in a fixed ratio set by the coherence `g2`:
+/// `|H1| = g2 * |H2|` and `|Hv| = sqrt(|H1| * |H2|) = sqrt(Pyy/Pxx)`,
+/// which is why `Hv`'s magnitude needs no cross-spectrum at all.
+///
+/// A bin whose denominator underflows yields `0` rather than `inf`/`NaN`:
+/// an unexcited bin has no measurable response, and propagating a NaN
+/// through a plot hides that where a zero shows it.
+pub fn transfer_function(
+    x: &[f64],
+    y: &[f64],
+    fs: f64,
+    nperseg: usize,
+    noverlap: usize,
+    window: &[f64],
+    estimator: TfEstimator,
+) -> Result<(Vec<Complex64>, Vec<f64>), NumericError> {
+    let pxx = welch(x, fs, nperseg, noverlap, window)?;
+    let pyy = welch(y, fs, nperseg, noverlap, window)?;
+    let pxy = csd(x, y, fs, nperseg, noverlap, window)?;
+    let mut h = Vec::with_capacity(pxy.len());
+    let mut gamma2 = Vec::with_capacity(pxy.len());
+    for k in 0..pxy.len() {
+        let (sxx, syy, sxy) = (pxx[k], pyy[k], pxy[k]);
+        // |Pxy|^2, reused by both the coherence and the H2 division.
+        let cross2 = sxy.re * sxy.re + sxy.im * sxy.im;
+        let denom = sxx * syy;
+        // Clamped: round-off on a perfectly coherent bin can land a hair
+        // above 1, and a coherence above 1 is not a thing a caller should
+        // ever have to reason about.
+        gamma2.push(if denom > 1e-300 { (cross2 / denom).min(1.0) } else { 0.0 });
+        h.push(match estimator {
+            TfEstimator::H1 => {
+                if sxx > 1e-300 {
+                    sxy.scale(1.0 / sxx)
+                } else {
+                    Complex64::real(0.0)
+                }
+            }
+            // Pyy / conj(Pxy), written as Pyy * Pxy / |Pxy|^2 since
+            // 1/conj(z) == z/|z|^2 — one division instead of a complex one.
+            TfEstimator::H2 => {
+                if cross2 > 1e-300 {
+                    sxy.scale(syy / cross2)
+                } else {
+                    Complex64::real(0.0)
+                }
+            }
+            TfEstimator::Hv => {
+                if sxx > 1e-300 {
+                    Complex64::from_polar((syy / sxx).max(0.0).sqrt(), sxy.arg())
+                } else {
+                    Complex64::real(0.0)
+                }
+            }
+        });
+    }
+    Ok((h, gamma2))
+}
+
 /// Direct `O(n^2)` discrete Fourier transform — the textbook definition
 /// `X[k] = sum_n x[n] * exp(-2*pi*i*k*n/n_total)`, not the fast
 /// (`fft_complex`) algorithm. An independent reference to validate the FFT
@@ -2385,6 +2486,160 @@ mod tests {
             // Pxx == Sxx's magnitude (imaginary part ~0 for a signal with itself).
             assert!(s.im.abs() < 1e-6, "expected ~real Sxx, got im={}", s.im);
             assert!((p - s.re).abs() / p.max(1e-9) < 1e-6, "welch {p} vs csd.re {}", s.re);
+        }
+    }
+
+    /// Deterministic broadband noise — every bin excited, no RNG crate and
+    /// no cross-platform reproducibility question (a plain LCG, written out
+    /// so the test means the same thing on every machine).
+    fn lcg_noise(n: usize, seed: u64) -> Vec<f64> {
+        let mut state = seed;
+        (0..n)
+            .map(|_| {
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                ((state >> 33) as f64 / (1u64 << 31) as f64) * 2.0 - 1.0
+            })
+            .collect()
+    }
+
+    /// The estimator's PHASE SIGN — which a magnitude check cannot reveal.
+    ///
+    /// [`csd`] forms `conj(X) * Y`, so `H1 = Pxy/Pxx` must map `x -> y`. A
+    /// pure `D`-sample delay has the closed form `exp(-2i*pi*f*D/fs)`: unit
+    /// magnitude at every bin and a phase ramp whose SIGN is exactly what a
+    /// backwards conjugation would flip while leaving `|H| = 1` untouched.
+    /// A magnitude-only assertion here would pass for both conventions,
+    /// which is the whole reason this test is written against the phase.
+    #[test]
+    fn h1_recovers_a_pure_delays_phase_ramp_with_the_right_sign() {
+        let fs = 1000.0;
+        let n = 16384;
+        let x = lcg_noise(n, 12345);
+        let d = 3usize;
+        let mut y = vec![0.0; n];
+        for k in d..n {
+            y[k] = x[k - d];
+        }
+        let nperseg = 256;
+        let window = hann_window(nperseg);
+        let (h, coh) =
+            transfer_function(&x, &y, fs, nperseg, nperseg / 2, &window, TfEstimator::H1).unwrap();
+        for k in 5..100 {
+            let f = k as f64 * fs / nperseg as f64;
+            let want = -TAU * f * d as f64 / fs;
+            assert!(
+                (h[k].magnitude() - 1.0).abs() < 0.02,
+                "bin {k}: |H| = {}, expected ~1 for a pure delay",
+                h[k].magnitude()
+            );
+            // Compared as unit phasors so the (-pi, pi] wrap never matters.
+            let got = Complex64::from_polar(1.0, h[k].arg());
+            let expected = Complex64::from_polar(1.0, want);
+            assert!(
+                got.sub(expected).magnitude() < 0.05,
+                "bin {k}: phase {} but a {d}-sample delay must give {want}; \
+                 a flipped conjugation would land on {}",
+                h[k].arg(),
+                -want
+            );
+            assert!(coh[k] > 0.95, "bin {k}: coherence {} on a noiseless delay", coh[k]);
+        }
+    }
+
+    /// The documented bias ordering, and the exact magnitude identity that
+    /// ties the three together: `|H1| = g2 * |H2|`, with `|Hv|` between.
+    /// With the noise on the OUTPUT, `H1` is the estimator that is right,
+    /// which is why it is the default.
+    #[test]
+    fn output_noise_biases_h1_low_h2_high_and_hv_between() {
+        let fs = 1000.0;
+        let n = 32768;
+        let x = lcg_noise(n, 12345);
+        let noise = lcg_noise(n, 777);
+        let gain = 2.0;
+        let y: Vec<f64> = x
+            .iter()
+            .zip(noise.iter())
+            .map(|(a, e)| gain * a + 0.5 * e)
+            .collect();
+        let nperseg = 512;
+        let window = hann_window(nperseg);
+        let half = nperseg / 2;
+        let (h1, coh) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::H1).unwrap();
+        let (h2, _) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::H2).unwrap();
+        let (hv, _) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::Hv).unwrap();
+        let (mut err1, mut err2, mut bins) = (0.0, 0.0, 0.0);
+        for k in 5..200 {
+            let (m1, m2, mv) = (h1[k].magnitude(), h2[k].magnitude(), hv[k].magnitude());
+            assert!(m1 <= m2 + 1e-9, "bin {k}: |H1| {m1} must not exceed |H2| {m2}");
+            assert!(
+                mv >= m1 - 1e-9 && mv <= m2 + 1e-9,
+                "bin {k}: |Hv| {mv} must sit between {m1} and {m2}"
+            );
+            assert!(
+                (m1 - coh[k] * m2).abs() < 1e-6 * m2.max(1.0),
+                "bin {k}: the |H1| = g2*|H2| identity broke ({m1} vs {})",
+                coh[k] * m2
+            );
+            err1 += (m1 - gain).abs();
+            err2 += (m2 - gain).abs();
+            bins += 1.0;
+        }
+        // The noise is on `y`, so H1 is the unbiased estimator here and H2
+        // is inflated by 1/g2. That is a claim about the EXPECTATION, not
+        // about any one bin: with ~127 averaged segments the per-bin random
+        // error is comparable to the bias, and individual bins where H2
+        // lands closer by luck are expected (bin 27 of this very record is
+        // one). Asserting it per-bin would be asserting something the
+        // estimator does not promise, so it is averaged across the band.
+        assert!(
+            err1 / bins < err2 / bins,
+            "H1 should be the better estimator under output noise: \
+             mean |error| {} vs H2's {}",
+            err1 / bins,
+            err2 / bins
+        );
+    }
+
+    /// With no noise anywhere the coherence is 1, and at `g2 == 1` the
+    /// three estimators are algebraically the same number — so a clean
+    /// measurement cannot tell them apart, and any disagreement here would
+    /// mean one of the three formulas is wrong.
+    #[test]
+    fn the_three_estimators_agree_when_the_measurement_is_noiseless() {
+        let fs = 1000.0;
+        let n = 16384;
+        let x = lcg_noise(n, 4242);
+        let y: Vec<f64> = x.iter().map(|a| -1.75 * a).collect();
+        let nperseg = 256;
+        let window = hann_window(nperseg);
+        let half = nperseg / 2;
+        let (h1, _) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::H1).unwrap();
+        let (h2, _) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::H2).unwrap();
+        let (hv, _) =
+            transfer_function(&x, &y, fs, nperseg, half, &window, TfEstimator::Hv).unwrap();
+        for k in 3..120 {
+            assert!(
+                h1[k].sub(h2[k]).magnitude() < 1e-6,
+                "bin {k}: H1 {:?} and H2 {:?} disagree on a noiseless record",
+                h1[k],
+                h2[k]
+            );
+            assert!(h1[k].sub(hv[k]).magnitude() < 1e-6, "bin {k}: H1 and Hv disagree");
+            // A pure sign inversion is a gain of 1.75 at a phase of pi.
+            assert!((h1[k].magnitude() - 1.75).abs() < 1e-6, "bin {k}: gain");
+            assert!(
+                (h1[k].arg().abs() - std::f64::consts::PI).abs() < 1e-6,
+                "bin {k}: an inverting gain must read as a phase of +-pi, got {}",
+                h1[k].arg()
+            );
         }
     }
 

@@ -49,6 +49,15 @@ use table::{Cell, Column, Table};
 pub mod model;
 use model::ModelHandle;
 
+/// `toolkit-signal.md` §10: what a `Signal` knows about itself beyond its
+/// samples and its rate — time origin, sample unit, calibration, the named
+/// metadata field set, markers and regions. Its own module for the same
+/// reason `collections.rs` is: the surface is a dozen builtin arms, and
+/// growing this file's dispatch match by the whole implementation as well
+/// would collide with every other lane editing it.
+pub mod signal_meta;
+use signal_meta::SigMeta;
+
 pub mod scaler;
 use scaler::ColumnParams;
 
@@ -66,6 +75,11 @@ pub mod huffman;
 pub mod range_coder;
 /// rANS entropy coding (`rans_encode`/`rans_decode`).
 pub mod rans;
+/// Digital-communications primitives: square Gray-coded QAM mapping
+/// (`qam_modulate`/`qam_demodulate`), the Hamming(7,4) codec
+/// (`hamming74_encode`/`hamming74_decode`) and a width-generic CRC
+/// (`crc`/`crc_check`).
+pub mod comms;
 /// MATLAB Level 5 `.mat` reader.
 pub mod matfile;
 /// Contour lines and filled bands from a scalar field on a grid.
@@ -259,6 +273,15 @@ pub mod linked_list;
 pub mod graph;
 use graph::GraphState;
 
+/// `diagram_pipeline(fn, [file=])` / `algorigram(fn, [file=])` (2026-09-18)
+/// — the missing box/arrow LAYOUT layer BACKLOG.md's "smart art" entry
+/// (2026-09-10) asked for, scoped to these two callers: a `|>` pipe chain
+/// as a left-to-right diagram, and a function's control flow as a
+/// top-to-bottom flowchart. See that module's own doc comment for the
+/// full design. Own module for the same "minimize collision with
+/// concurrent work on this file" reasoning as `fs_ops`/`queue_pool` above.
+pub mod diagram;
+
 /// `TensorBackend` trait + the optional `TorchBackend` (feature
 /// `backend-torch`) — see that module's own doc comment for the full design
 /// and scope. `NativeBackend` (the trait's default, always-on
@@ -367,6 +390,27 @@ pub enum SpectrumNorm {
     /// than its peak -- the number a true-RMS meter would show for that
     /// single tone in isolation.
     Rms,
+    /// A one-sided POWER SPECTRAL DENSITY in SciPy's `"density"` scaling:
+    /// bin `k` is `units^2` per hertz, already divided by the window's
+    /// noise-equivalent bandwidth and by `Fs`, so integrating it over a
+    /// band gives that band's mean-square power. `welch`/`periodogram`/
+    /// `psd` are its producers.
+    ///
+    /// The variant this enum's own doc comment above predicted. Two
+    /// consequences fall out of it being a variant rather than a flag:
+    ///
+    ///  * `reject_scaled_spectrum` already refuses anything that is not
+    ///    `RawTransform`, so `ifft`/`irfft`/`idft` refuse a density with no
+    ///    new code -- which is correct, because a PSD has discarded the
+    ///    phase and cannot be inverted at all. `band_power` does NOT go
+    ///    through that guard; it has its own exhaustive `match` on this
+    ///    enum, which is where integrating a density is implemented.
+    ///  * the bins are REAL and non-negative. They are still stored as
+    ///    `Complex64` with a zero imaginary part so that one `Spectrum`
+    ///    representation serves every producer, and `to_cow` unwraps
+    ///    exactly this variant back to a plain real vector -- which is what
+    ///    keeps every existing `welch` caller working unchanged.
+    Density,
 }
 
 impl SpectrumNorm {
@@ -375,6 +419,7 @@ impl SpectrumNorm {
             SpectrumNorm::RawTransform => "raw_transform",
             SpectrumNorm::Amplitude => "amplitude",
             SpectrumNorm::Rms => "rms",
+            SpectrumNorm::Density => "density",
         }
     }
 
@@ -387,6 +432,7 @@ impl SpectrumNorm {
             "raw_transform" => Some(SpectrumNorm::RawTransform),
             "amplitude" => Some(SpectrumNorm::Amplitude),
             "rms" => Some(SpectrumNorm::Rms),
+            "density" => Some(SpectrumNorm::Density),
             _ => None,
         }
     }
@@ -433,7 +479,20 @@ pub enum Value {
     /// refcount bump, and an in-place mutation goes through
     /// `Arc::make_mut`/`Arc::try_unwrap`, cloning only when something else
     /// still aliases the same buffer.
-    Signal(Arc<Vec<f64>>, f64),
+    /// The third field is everything else a measurement carries --
+    /// time origin, sample unit, calibration, metadata, markers
+    /// ([`SigMeta`], §10). `Arc`-shared and `Default`-empty, so the ~100
+    /// construction sites that have nothing to say pay one refcount bump
+    /// for [`SigMeta::none`]'s single process-wide empty, and every
+    /// origin-aware accessor is a no-op on a signal nobody annotated
+    /// (`t0` defaults to `0.0`, which is what the axis already assumed).
+    ///
+    /// A third FIELD rather than a fourth VARIANT, deliberately: adding
+    /// `Value::SignalWithMeta` would have been silently swallowed by this
+    /// enum's 283 catch-all `_ =>` arms, each of which would then handle a
+    /// signal correctly or not depending on which spelling it was handed.
+    /// Widening the existing variant makes rustc name every site instead.
+    Signal(Arc<Vec<f64>>, f64, Arc<SigMeta>),
     /// a sampled spectrum (§41.2): complex bins plus the sampling contract
     /// they came from -- the frequency-domain twin of [`Value::Signal`],
     /// which its doc comment names as "the distinct planned type for that
@@ -2029,7 +2088,7 @@ impl Value {
             Value::Complex(_) => "complex",
             Value::CVec(_) => "complex vector",
             Value::CMat(_) => "complex matrix",
-            Value::Signal(_, _) => "signal",
+            Value::Signal(_, _, _) => "signal",
             Value::Spectrum(..) => "spectrum",
             Value::Circuit(_) => "circuit",
             Value::Mask(_) => "mask",
@@ -2145,7 +2204,7 @@ impl Value {
             Value::Num(n) => Ok(vec![*n]),
             Value::Bool(b) => Ok(vec![if *b { 1.0 } else { 0.0 }]),
             Value::Mat(m) => Ok(m.as_slice().to_vec()),
-            Value::Signal(xs, _) => Ok(xs.to_vec()),
+            Value::Signal(xs, _, _) => Ok(xs.to_vec()),
             other => Err(format!(
                 "expected a numeric value, found {}",
                 other.type_name()
@@ -2154,6 +2213,12 @@ impl Value {
     }
     /// View any value as complex samples (reals gain a zero imaginary part).
     fn as_complex_flat(&self) -> Result<Vec<Complex64>, String> {
+        // An FRF/impedance handle stands in for its own complex data, so
+        // `nyquist(Z)`/`abs(Z)`/`ifft(H)` read through it -- see
+        // `frequency_carrier_complex`.
+        if let Some(xs) = frequency_carrier_complex(self) {
+            return Ok(xs);
+        }
         match self {
             Value::CVec(xs) => Ok(xs.as_ref().clone()),
             Value::Spectrum(xs, ..) => Ok(xs.as_ref().clone()),
@@ -2384,7 +2449,14 @@ fn zeros_like_value(v: &Value) -> R<Value> {
         // Silence at the same sample rate: the rate is part of the shape,
         // so dropping it would return something that is not "like" the
         // input in the way that matters.
-        Value::Signal(xs, rate) => Ok(Value::Signal(Arc::new(vec![0.0; xs.len()]), *rate)),
+        // Only the rate, deliberately: "like" here means the shape and the
+        // sampling, per the comment above. A fresh buffer of silence is not
+        // the same MEASUREMENT, so it inherits no calibration, no unit and
+        // none of the source's markers -- those describe events in a
+        // recording this value does not contain.
+        Value::Signal(xs, rate, _) => {
+            Ok(Value::Signal(Arc::new(vec![0.0; xs.len()]), *rate, SigMeta::none()))
+        }
         // Zero pixels is black, at the same size.
         Value::Image(img) => Ok(Value::Image(Arc::new(image::Image::filled(
             img.width,
@@ -3017,7 +3089,7 @@ pub fn display_value(v: &Value) -> String {
             s.push(']');
             s
         }
-        Value::Signal(xs, fs) => {
+        Value::Signal(xs, fs, _) => {
             let mut s = format!("signal(Fs={}) ", fmt_num(*fs));
             s.push('[');
             for (i, x) in xs.iter().enumerate() {
@@ -3747,7 +3819,11 @@ fn ui_layout(style: &[(String, Value)]) -> (bool, Option<f64>) {
 /// an ambiguous name. Keep it in step with the `"ns::name"` match arms --
 /// a test walks both directions.
 pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
-    ("codec", &["decode_flac", "decode_mp3", "decode_wav", "flac_info"]),
+    // Keep each module on ONE line: `tools/gen_builtin_index.qu` reads this
+    // table textually, line by line, and a wrapped entry silently vanishes
+    // from the book's index rather than failing (found the hard way,
+    // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
+    ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
 ];
 
@@ -4657,6 +4733,88 @@ fn signal_time_span(xs: &[f64], fs: f64, t0: f64, t1: f64, ctx: &str) -> R<Vec<f
     } else {
         xs[i0..=hi].to_vec()
     })
+}
+
+/// A block LENGTH in samples, from either a plain count or a duration
+/// (`blocks(s, 100 ms)`), for the §5 streaming builtins.
+///
+/// Deliberately NOT `signal_time_span`, even though both turn a time into
+/// samples against `fs`. That one resolves the two ENDPOINTS of an
+/// inclusive closed interval, so `s[0 s : 0.25 s]` at `Fs = 8` spans three
+/// samples (indices 0, 1, 2) -- correct for a slice, and one too many for
+/// a length. A block length is a COUNT, so it is `round(secs * fs)` and
+/// `100 ms` at 48 kHz is 4800 samples, not 4801. Probed both ways against
+/// the binary on 2026-09-18 before writing this.
+///
+/// The duration is classified by SI dimension through §1's own
+/// `axis_coord`, so a frequency handed in where a duration belongs is
+/// refused for being the wrong dimension rather than by inspecting how it
+/// was spelled.
+fn block_len_samples(v: &Value, fs: Option<f64>, ctx: &str) -> R<usize> {
+    match axis_coord(v) {
+        Some(AxisCoord::Time(secs)) => {
+            let Some(fs) = fs else {
+                return e(format!(
+                    "{ctx}: a block length in time ({secs} s) needs the signal's sample rate, \
+                     but this value carries none -- wrap it first with `signal(data, Fs)`, or \
+                     give the block length in samples"
+                ));
+            };
+            if !(secs > 0.0) {
+                return e(format!("{ctx}: a block length must be positive, found {secs} s"));
+            }
+            let n = (secs * fs).round();
+            if n < 1.0 {
+                return e(format!(
+                    "{ctx}: {secs} s at {fs} Hz rounds to {n} samples -- too short to be a block"
+                ));
+            }
+            Ok(n as usize)
+        }
+        Some(AxisCoord::Freq(hz)) => e(format!(
+            "{ctx}: expected a block length in samples or in time, found the frequency {hz} Hz"
+        )),
+        None => match v {
+            Value::Num(n) => {
+                if !(*n >= 1.0) || n.fract() != 0.0 {
+                    return e(format!(
+                        "{ctx}: block length must be a positive whole number of samples, found {n}"
+                    ));
+                }
+                Ok(*n as usize)
+            }
+            other => e(format!(
+                "{ctx}: expected a block length in samples or in time, found {}",
+                other.type_name()
+            )),
+        },
+    }
+}
+
+/// A sample rate in Hz from either a plain number or a frequency
+/// (`rate = 48 kHz`), for `processor`'s optional `rate=`.
+fn rate_hz(v: &Value, ctx: &str) -> R<f64> {
+    let hz = match axis_coord(v) {
+        Some(AxisCoord::Freq(hz)) => hz,
+        Some(AxisCoord::Time(s)) => {
+            return e(format!(
+                "{ctx}: rate must be a frequency, found the duration {s} s"
+            ))
+        }
+        None => match v {
+            Value::Num(n) => *n,
+            other => {
+                return e(format!(
+                    "{ctx}: rate must be a number or a frequency, found {}",
+                    other.type_name()
+                ))
+            }
+        },
+    };
+    if !(hz > 0.0) {
+        return e(format!("{ctx}: rate must be positive, found {hz}"));
+    }
+    Ok(hz)
 }
 
 /// The bin a frequency lands in, shared by `spectrum_at`/`band_power`/
@@ -9457,7 +9615,7 @@ impl Interp {
             // fills in, so `v as matrix(r, c) as vector` is `v`), and a list
             // of numbers becomes a numeric vector.
             "vector" => match v {
-                Value::Vec(_) | Value::CVec(_) | Value::Signal(_, _) => Ok(v),
+                Value::Vec(_) | Value::CVec(_) | Value::Signal(_, _, _) => Ok(v),
                 Value::Mat(m) => Ok(Value::Vec(Arc::new(m.as_slice().to_vec()))),
                 Value::CMat(m) => Ok(Value::CVec(Arc::new(m.as_slice().to_vec()))),
                 Value::Num(n) => Ok(Value::Vec(Arc::new(vec![n]))),
@@ -9531,18 +9689,36 @@ impl Interp {
                     unreachable!()
                 }
             }
-            (Value::Signal(_, _), "len") | (Value::Signal(_, _), "length") => {
+            (Value::Signal(_, _, _), "len") | (Value::Signal(_, _, _), "length") => {
                 Ok(Value::Num(value_len(&v) as f64))
             }
             // Â§41.2 sampling contract accessors: `Fs` (sample rate), `N`
             // (sample count), `dt` (1/Fs), `t` (the time axis, computed --
             // never hand-built).
-            (Value::Signal(_, fs), "Fs") => Ok(Value::Num(*fs)),
-            (Value::Signal(xs, _), "N") => Ok(Value::Num(xs.len() as f64)),
-            (Value::Signal(_, fs), "dt") => Ok(Value::Num(1.0 / fs)),
-            (Value::Signal(xs, fs), "t") => {
-                Ok(Value::Vec(Arc::new((0..xs.len()).map(|i| i as f64 / fs).collect())))
+            (Value::Signal(_, fs, _), "Fs") => Ok(Value::Num(*fs)),
+            (Value::Signal(xs, _, _), "N") => Ok(Value::Num(xs.len() as f64)),
+            (Value::Signal(_, fs, _), "dt") => Ok(Value::Num(1.0 / fs)),
+            // The axis is measured from the signal's OWN time origin
+            // (§10 `set_start_time`). `t0` defaults to 0.0, so this is
+            // byte-for-byte what it always returned for every signal that
+            // never set one -- there is no old behaviour being changed here,
+            // only a previously impossible one becoming expressible.
+            (Value::Signal(xs, fs, m), "t") => {
+                let t0 = m.t0;
+                Ok(Value::Vec(Arc::new((0..xs.len()).map(|i| t0 + i as f64 / fs).collect())))
             }
+            // §10 accessors, readable as fields so a script can ask what a
+            // signal is without calling anything: `s.t0`, `s.unit`,
+            // `s.calibrated`, `s.duration`.
+            (Value::Signal(_, _, m), "t0") => Ok(Value::Num(m.t0)),
+            (Value::Signal(xs, fs, _), "duration") => {
+                Ok(Value::Num(signal_meta::duration_of(xs.len(), *fs)))
+            }
+            (Value::Signal(_, _, m), "unit") => Ok(match &m.unit {
+                Some(u) => Value::Str(u.clone()),
+                None => Value::Nothing,
+            }),
+            (Value::Signal(_, _, m), "calibrated") => Ok(Value::Bool(m.cal.is_some())),
             // §41.2, frequency side. `N` is the TRANSFORM length, not the bin
             // count, so `fft(sig).N == sig.N` holds -- the bin count is `bins`,
             // which differs from `N` for a half-spectrum. `freq` is the axis
@@ -10223,7 +10399,7 @@ impl Interp {
         // the O(N) -> O(N^2) bug fixed by this function's structure; see
         // `var_take`'s doc comment for the full explanation.
         match self.var_get(name) {
-            Some(Value::Vec(_)) | Some(Value::Signal(_, _)) => {}
+            Some(Value::Vec(_)) | Some(Value::Signal(_, _, _)) => {}
             // `Value::Mat`/`Value::CVec` follow the identical pattern in
             // their own functions — no value is cloned/passed down here.
             Some(Value::Mat(_)) => return self.exec_matrix_index_assign(name, indices, op, rhs),
@@ -10239,7 +10415,7 @@ impl Interp {
         }
         let len = match self.var_get(name) {
             Some(Value::Vec(xs)) => xs.len(),
-            Some(Value::Signal(xs, _)) => xs.len(),
+            Some(Value::Signal(xs, _, _)) => xs.len(),
             _ => unreachable!("checked above"),
         };
         if indices.len() != 1 {
@@ -10282,7 +10458,7 @@ impl Interp {
             let cur_vals: Vec<f64> = {
                 let xs = match self.var_get(name) {
                     Some(Value::Vec(xs)) => xs,
-                    Some(Value::Signal(xs, _)) => xs,
+                    Some(Value::Signal(xs, _, _)) => xs,
                     _ => unreachable!("checked above"),
                 };
                 positions
@@ -10323,13 +10499,17 @@ impl Interp {
                 );
                 (Value::Vec(xs), r)
             }
-            Value::Signal(mut xs, fs) => {
+            // Index-assignment edits samples in place, so the signal's own
+            // annotations (rate, origin, unit, markers) are untouched and
+            // travel through unchanged -- `s[0] = 0` must not silently
+            // strip a calibration off `s`.
+            Value::Signal(mut xs, fs, m) => {
                 let r = numeric::selection::indexed_assign(
                     Arc::make_mut(&mut xs).as_mut_slice(),
                     &positions,
                     &repl,
                 );
-                (Value::Signal(xs, fs), r)
+                (Value::Signal(xs, fs, m), r)
             }
             other => {
                 // `name`'s binding changed shape out from under us (e.g. the
@@ -10811,7 +10991,7 @@ impl Interp {
                     }
                 }
             }
-            Value::Signal(xs, fs) => {
+            Value::Signal(xs, fs, _) => {
                 if indices.len() != 1 {
                     return e("a signal takes a single index");
                 }
@@ -10851,7 +11031,7 @@ impl Interp {
                                 numeric::selection::gather(&xs, &idxs).map_err(|se| EvalError {
                                     msg: se.to_string(),
                                 })?;
-                            Ok(Value::Signal(out.into(), fs))
+                            Ok(Value::Signal(out.into(), fs, SigMeta::none()))
                         }
                     },
                     // `s[440 Hz]` -- a signal has no frequency axis to
@@ -10916,7 +11096,7 @@ impl Interp {
                             _ => (xs.len().saturating_sub(1)) as f64 / fs,
                         };
                         let out = signal_time_span(&xs, fs, t0, t1, "time slice")?;
-                        Ok(Value::Signal(out.into(), fs))
+                        Ok(Value::Signal(out.into(), fs, SigMeta::none()))
                     }
                 }
             }
@@ -11395,7 +11575,7 @@ impl Interp {
         match self.eval(ex)? {
             Value::Vec(xs) => Ok(ForIterable::Nums(xs.to_vec())),
             Value::Num(n) => Ok(ForIterable::Nums(vec![n])),
-            Value::Signal(xs, _) => Ok(ForIterable::Nums(xs.to_vec())),
+            Value::Signal(xs, _, _) => Ok(ForIterable::Nums(xs.to_vec())),
             Value::List(items) => Ok(ForIterable::Values(items.to_vec())),
             v => e(format!("cannot iterate a {}", v.type_name())),
         }
@@ -12614,7 +12794,7 @@ impl Interp {
         // unaffected -- this only ADDS metadata where the caller had already
         // said what the sample rate was.
         let rate = match (inverse, src) {
-            (false, Value::Signal(_, fs)) => Some(*fs),
+            (false, Value::Signal(_, fs, _)) => Some(*fs),
             _ => None,
         };
         // `scaling=` on the FORWARD, full (two-sided) transform: the same
@@ -12771,6 +12951,14 @@ impl Interp {
     /// the ambiguity had to be legislated.
     #[cfg(feature = "codec")]
     fn codec_call(&mut self, f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
+        // The writers go first: their argument 0 is a destination or a
+        // signal, NOT a stream, so `codec_bytes` below must not get to
+        // look at it. (It would read `"out.wav"` as a file to open and
+        // fail with "could not read", which is a confusing way to say
+        // "that is where I was going to write".)
+        if matches!(f, "codec::encode_wav" | "codec::write_wav") {
+            return self.codec_wav_write(f, args, style);
+        }
         let src = arg0(args)?.clone();
         let bytes = self.codec_bytes(&src, f)?;
         match f {
@@ -12815,7 +13003,11 @@ impl Interp {
                             n - 1
                         ),
                     })?;
-                    return Ok(Value::Signal(Arc::new(ch.clone()), audio.sample_rate));
+                    return Ok(Value::Signal(
+                        Arc::new(ch.clone()),
+                        audio.sample_rate,
+                        SigMeta::none(),
+                    ));
                 }
                 // MONO COMES BACK AS A `Signal`, so the sample rate
                 // travels with the samples: `spectrogram(x)` and
@@ -12829,7 +13021,15 @@ impl Interp {
                 // have been a promise the engine does not keep.
                 if n == 1 {
                     let mut ch = audio.channels;
-                    return Ok(Value::Signal(Arc::new(ch.remove(0)), audio.sample_rate));
+                    return Ok(Value::Signal(
+                        Arc::new(ch.remove(0)),
+                        audio.sample_rate,
+                        // A decoded audio file carries no calibration: what a
+                        // full-scale sample meant in pascals depends on the
+                        // microphone and the gain, neither of which is in the
+                        // file. `calibrate` is how that gets attached.
+                        SigMeta::none(),
+                    ));
                 }
                 // Multi-channel cannot: a `Signal` is one series and a
                 // `Mat` has nowhere to put `fs`. So it comes back as a
@@ -12841,7 +13041,7 @@ impl Interp {
                 let chans: Vec<Value> = audio
                     .channels
                     .into_iter()
-                    .map(|c| Value::Signal(Arc::new(c), fs))
+                    .map(|c| Value::Signal(Arc::new(c), fs, SigMeta::none()))
                     .collect();
                 Ok(Value::Record(Arc::new(vec![
                     ("fs".into(), Value::Num(fs)),
@@ -12862,6 +13062,151 @@ impl Interp {
                 ])))
             }
             other => e(format!("codec: no such function `{other}`")),
+        }
+    }
+
+    /// `codec.write_wav(path, x, depth =, [dither =])` and its pure
+    /// sibling `codec.encode_wav(x, depth =, [dither =])`, which returns
+    /// the bytes instead of touching the disk.
+    ///
+    /// Two entry points rather than one because the module's read side
+    /// already takes a path OR bytes, for the reason its own comment
+    /// gives -- a script holding bytes should not need a temporary file.
+    /// The write side owes it the same choice, and splitting it in two is
+    /// how: `encode_wav` is the exact inverse of `decode_wav`, and
+    /// `write_wav` is that plus `fs::write`.
+    ///
+    /// `depth` is named, never defaulted. The spec makes it explicit
+    /// because the depth decides what gets thrown away, and a default
+    /// would be this function quietly choosing that for the caller.
+    #[cfg(feature = "codec")]
+    fn codec_wav_write(
+        &mut self,
+        f: &str,
+        args: &[Value],
+        style: &[(String, Value)],
+    ) -> R<Value> {
+        let short = f.rsplit("::").next().unwrap_or(f);
+        let to_file = f == "codec::write_wav";
+        // `write_wav` puts the destination first, matching `xlsx.write`
+        // and every other write in the language; `encode_wav` has no
+        // destination at all.
+        let (path, sig_idx) = if to_file {
+            (Some(text_arg(args, 0)?), 1usize)
+        } else {
+            (None, 0usize)
+        };
+        let sig = arg_get(args, sig_idx).ok_or_else(|| EvalError {
+            msg: format!(
+                "{short}: needs the audio to write -- a signal, or a list of signals for a \
+                 multi-channel file"
+            ),
+        })?;
+        let (channels, fs) = self.codec_channels(sig, short)?;
+
+        let depth = match style_entry(style, "depth") {
+            None => {
+                return e(format!(
+                    "{short}: name the bit depth -- depth = 16, 24 or 32 (32 being 32-bit \
+                     float). It is explicit on purpose: the depth is what decides how much \
+                     of the signal survives the write."
+                ))
+            }
+            Some((_, v)) => v.as_num().map_err(|_| EvalError {
+                msg: format!("{short}: depth must be a number, found {}", v.type_name()),
+            })?,
+        };
+        if !(depth.is_finite() && depth.fract() == 0.0 && (0.0..=64.0).contains(&depth)) {
+            return e(format!(
+                "{short}: depth = {depth} is not a bit depth -- 16, 24 or 32"
+            ));
+        }
+        // `none` the literal and `"none"` the string both read as "no
+        // dither": the spec writes the argument bare (`dither: tpdf |
+        // none`), and refusing the spelling the spec itself uses would be
+        // a poor joke.
+        let dither = match style_str(style, "dither") {
+            None => None,
+            Some(s) => match s.as_str() {
+                "tpdf" => Some(qu_codec::Dither::Tpdf),
+                "none" => Some(qu_codec::Dither::None),
+                other => {
+                    return e(format!(
+                        "{short}: dither = \"{other}\" is not one of the two choices -- \
+                         \"tpdf\" (triangular noise, +/-1 LSB) or \"none\" (plain rounding)"
+                    ))
+                }
+            },
+        };
+
+        // The interpreter's own seeded generator, so `seed(n)` makes a
+        // dithered write reproducible. `qu-codec` deliberately owns no
+        // RNG -- see `encode_wav`.
+        let rng = &mut self.rng;
+        let mut uniform = move || rng.uniform();
+        let bytes = qu_codec::encode_wav(&channels, fs, depth as u16, dither, &mut uniform)
+            .map_err(|msg| EvalError {
+                // The crate says `encode_wav:`; say the name the script
+                // actually called.
+                msg: msg.replacen("encode_wav:", &format!("{short}:"), 1),
+            })?;
+
+        match path {
+            Some(p) => {
+                std::fs::write(&p, &bytes).map_err(|err| EvalError {
+                    msg: format!("{short}: could not write `{p}`: {err}"),
+                })?;
+                Ok(Value::Nothing)
+            }
+            // The same shape `decode_wav` accepts on the way in: whole
+            // numbers 0-255.
+            None => Ok(Value::Vec(Arc::new(
+                bytes.into_iter().map(|b| b as f64).collect(),
+            ))),
+        }
+    }
+
+    /// The audio argument of a WAV write: one signal, or a list of them.
+    ///
+    /// A `Signal` carries its own rate, which is why the writer needs no
+    /// `fs =` argument and cannot be given a mismatched one. A list is
+    /// how a multi-channel file is written, and the rates have to agree
+    /// -- a WAV header holds exactly one.
+    #[cfg(feature = "codec")]
+    fn codec_channels(&mut self, sig: &Value, short: &str) -> R<(Vec<Vec<f64>>, f64)> {
+        match sig {
+            Value::Signal(xs, fs, _) => Ok((vec![xs.as_ref().clone()], *fs)),
+            Value::List(items) if !items.is_empty() => {
+                let mut chans = Vec::with_capacity(items.len());
+                let mut rate: Option<f64> = None;
+                for (i, it) in items.iter().enumerate() {
+                    let Value::Signal(xs, fs, _) = it else {
+                        return e(format!(
+                            "{short}: channel {i} of the list is {}, but a multi-channel \
+                             write takes a list of signals",
+                            it.type_name()
+                        ));
+                    };
+                    match rate {
+                        None => rate = Some(*fs),
+                        Some(r) if r == *fs => {}
+                        Some(r) => {
+                            return e(format!(
+                                "{short}: channel 0 is {r} Hz but channel {i} is {fs} Hz -- \
+                                 a WAV header holds one rate, so resample first"
+                            ))
+                        }
+                    }
+                    chans.push(xs.as_ref().clone());
+                }
+                Ok((chans, rate.unwrap_or(0.0)))
+            }
+            other => e(format!(
+                "{short}: the audio is a signal, or a list of signals for a multi-channel \
+                 file -- found {}. A vector has no sample rate; write `v as signal(fs)`. A \
+                 record from `decode_wav` keeps its channels in `.channels`.",
+                other.type_name()
+            )),
         }
     }
 
@@ -14149,6 +14494,15 @@ impl Interp {
             "shell",
             "write_csv",
             "touch",
+            // § signal-wav (2026-09-18): the dispatch name is qualified,
+            // which is how a module function has to be spelled here.
+            // `codec::encode_wav` is deliberately NOT on this list: it
+            // returns the bytes and never opens a file, so there is
+            // nothing for a sandbox to stop -- and denying it would block
+            // the one way a sandboxed script can legitimately produce a
+            // WAV (encode, then hand the bytes to whatever is allowed to
+            // write them).
+            "codec::write_wav",
             // § fileops (2026-09-16): all six can destroy or overwrite an
             // EXISTING file/directory outside the script's own output --
             // `remove_file`/`remove_dir` even with `recycle_bin=true`
@@ -18640,7 +18994,9 @@ self.eval_grad(loss, wrt)
             "codec::decode_flac"
             | "codec::decode_mp3"
             | "codec::decode_wav"
-            | "codec::flac_info" => self.codec_call(f, &args, &style),
+            | "codec::encode_wav"
+            | "codec::flac_info"
+            | "codec::write_wav" => self.codec_call(f, &args, &style),
             "items" => collections::dict_items(arg_all(&args)),
             "has_key" => collections::dict_has_key(arg_all(&args)),
             // Sequence operations. `Value::List` is what `split`, `zip`,
@@ -19618,7 +19974,14 @@ self.eval_grad(loss, wrt)
             "erf" => e1(libm::erf, arg0(&args)?),
             "erfc" => e1(libm::erfc, arg0(&args)?),
             // `abs`/`angle`/`real`/`imag`/`conj` are complex-aware.
-            "abs" => complex_map_to_real(arg0(&args)?, |c| c.magnitude(), f64::abs),
+            //
+            // `magnitude` is a pure ALIAS of `abs`, not a second
+            // implementation: `toolkit-signal.md` §11 spells the accessor
+            // `Z.magnitude()`/`H.magnitude()`, and method sugar rewrites
+            // that to `magnitude(Z)`. Sharing the arm is what guarantees
+            // the two names can never drift into disagreeing about what the
+            // magnitude of a complex number is.
+            "abs" | "magnitude" => complex_map_to_real(arg0(&args)?, |c| c.magnitude(), f64::abs),
             "angle" | "arg" | "phase" => complex_map_to_real(
                 arg0(&args)?,
                 |c| c.arg(),
@@ -19870,7 +20233,7 @@ self.eval_grad(loss, wrt)
                     Value::Num(n) => vec![vec![*n]],
                     Value::Bool(b) => vec![vec![if *b { 1.0 } else { 0.0 }]],
                     Value::Vec(xs) => vec![xs.as_ref().clone()],
-                    Value::Signal(xs, _) => vec![xs.as_ref().clone()],
+                    Value::Signal(xs, _, _) => vec![xs.as_ref().clone()],
                     Value::Mat(m) => {
                         let (_, cols) = m.shape();
                         (0..cols)
@@ -20002,6 +20365,641 @@ self.eval_grad(loss, wrt)
                 }
                 let peak = xs.iter().fold(0.0f64, |m, &x| m.max(x.abs()));
                 Ok(Value::Num(20.0 * (peak / full_scale).max(1e-300).log10()))
+            }
+
+            // ---------------------------------------------------------------
+            // §10 Calibration, units, timestamps, metadata and markers
+            // (`docs/design/toolkit-signal.md`). The machinery -- the unit
+            // table, the affine conversions, the calibration record and how
+            // it composes -- lives in `signal_meta.rs`; these arms are the
+            // surface. `dbfs` above is where this section starts, exactly as
+            // its own comment predicted.
+            //
+            // DEVIATION FROM THE SPEC'S LITERAL SYNTAX, stated once here.
+            // §10 writes `calibrate(s, tone: 94 dB @ 1 kHz)` and
+            // `calibrate(s, sensitivity: 12.3 mV/Pa)`. Neither parses in Qu
+            // today and this lane did not change the grammar to make them:
+            // `key: value` call arguments do not exist (Qu spells keywords
+            // `key = value`), `@` is a statement-level self-assign prefix
+            // with no infix form, `dB` collapses to a bare number before any
+            // operator could see it, and `mV/Pa` is not a unit literal the
+            // lexer can produce. So the kwarg spellings below are the real
+            // API: `calibrate(s, tone_level = 94, tone_freq = 1000)` and
+            // `calibrate(s, sensitivity = 12.3, sensitivity_unit = "mV/Pa")`.
+            // ---------------------------------------------------------------
+
+            // `signal_unit(s)` READS the sample unit; `signal_unit(s, "V")`
+            // STAMPS one, without touching a sample.
+            //
+            // Stamping is not converting. It is the caller asserting what
+            // the numbers already are, which is the only way a raw capture
+            // ever acquires a unit in the first place. `convert_unit` is the
+            // one that rescales; keeping them separate means neither can be
+            // mistaken for the other.
+            "signal_unit" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("signal_unit", v)?;
+                match arg_get(&args, 1) {
+                    None => Ok(match &m.unit {
+                        Some(u) => Value::Str(u.clone()),
+                        None => Value::Nothing,
+                    }),
+                    Some(_) => {
+                        let u = text_arg(&args, 1)?;
+                        if !signal_meta::known_unit(&u) {
+                            return e(format!(
+                                "signal_unit: unknown unit \"{u}\" -- known units are {}",
+                                signal_meta::known_units_list()
+                            ));
+                        }
+                        let mut meta = (**m).clone();
+                        meta.unit = Some(u);
+                        Ok(Value::Signal(xs.clone(), fs, Arc::new(meta)))
+                    }
+                }
+            }
+            // `convert_unit(s, "mV")` / `to_unit(s, "mV")` -- rescale the
+            // SAMPLES into another unit of the same physical quantity and
+            // move the unit tag with them, so the two can never disagree.
+            //
+            // Refuses across families (`V` -> `Pa`) by naming both. That is
+            // the §1 "mismatched rates error, they never silently
+            // reinterpret" rule applied to the vertical axis: volts to
+            // pascals is a CALIBRATION, it needs a transducer sensitivity,
+            // and answering it with a scale factor would be inventing one.
+            "convert_unit" | "to_unit" => {
+                let v = arg0(&args)?;
+                let (_, _, m) = signal_meta::as_signal(f, v)?;
+                if arg_get(&args, 1).is_none() {
+                    return e(format!(
+                        "{f}(s, unit) needs the unit to convert to, e.g. {f}(s, \"mV\")"
+                    ));
+                }
+                let to = text_arg(&args, 1)?;
+                let from = match &m.unit {
+                    Some(u) => u.clone(),
+                    None => {
+                        return e(format!(
+                            "{f}: this signal has no unit to convert FROM. Say what its \
+                             samples already are first -- `signal_unit(s, \"V\")` -- or \
+                             calibrate it."
+                        ))
+                    }
+                };
+                let (scale, offset) = signal_meta::conversion(f, &from, &to)?;
+                signal_meta::rescale(f, v, scale, offset, Some(to), None)
+            }
+            // `apply_gain(s, g)` -- a LINEAR gain factor, not decibels.
+            //
+            // `gain(x, db)` is the decibel spelling and keeps its name; both
+            // exist because both are idiomatic in their own half of the
+            // field, and the names say which is which rather than one name
+            // taking a unit keyword nobody remembers to pass.
+            "apply_gain" => {
+                let v = arg0(&args)?;
+                if args.len() < 2 && style_entry(&style, "gain").is_none() {
+                    return e(
+                        "apply_gain(s, g) needs a linear gain factor -- `apply_gain(s, 2.5)`. \
+                         For decibels use `gain(s, -3)`.",
+                    );
+                }
+                let g = positional_or_named_num(&args, 1, &style, "gain", 1.0, "apply_gain")?;
+                signal_meta::rescale("apply_gain", v, g, 0.0, None, None)
+            }
+            // `apply_offset(s, b)` -- add a constant to every sample (a DC
+            // trim, a tare), composed into the calibration like any other
+            // linear step.
+            "apply_offset" => {
+                let v = arg0(&args)?;
+                if args.len() < 2 && style_entry(&style, "offset").is_none() {
+                    return e(
+                        "apply_offset(s, b) needs a constant to add -- `apply_offset(s, -0.02)`",
+                    );
+                }
+                let b = positional_or_named_num(&args, 1, &style, "offset", 0.0, "apply_offset")?;
+                signal_meta::rescale("apply_offset", v, 1.0, b, None, None)
+            }
+            // `apply_calibration(s, slope, [offset=0], [unit=])` -- the
+            // general linear calibration §10 names, and the form both
+            // `calibrate` spellings below are specific instances of:
+            // `physical = slope*raw + offset`.
+            "apply_calibration" => {
+                let v = arg0(&args)?;
+                if args.len() < 2 && style_entry(&style, "slope").is_none() {
+                    return e(
+                        "apply_calibration(s, slope, [offset]) needs a slope -- \
+                         physical = slope*raw + offset",
+                    );
+                }
+                let slope =
+                    positional_or_named_num(&args, 1, &style, "slope", 1.0, "apply_calibration")?;
+                let offset =
+                    positional_or_named_num(&args, 2, &style, "offset", 0.0, "apply_calibration")?;
+                let unit = match style_str(&style, "unit") {
+                    Some(u) => {
+                        if !signal_meta::known_unit(&u) {
+                            return e(format!(
+                                "apply_calibration: unknown unit \"{u}\" -- known units are {}",
+                                signal_meta::known_units_list()
+                            ));
+                        }
+                        Some(u)
+                    }
+                    None => None,
+                };
+                signal_meta::rescale("apply_calibration", v, slope, offset, unit, Some("linear"))
+            }
+            // `apply_calibration_curve(s, raw_points, physical_points,
+            // [unit=], [extrapolate="error"])` -- §10's NON-LINEAR
+            // calibration: a lookup table from raw reading to physical
+            // value, interpolated piecewise-linearly between the points.
+            // This is what a thermocouple or a load cell with a certificate
+            // of calibration actually gives you, and no slope/offset pair
+            // represents it.
+            //
+            // `extrapolate` DEFAULTS TO `"error"`, deliberately. A sample
+            // outside the curve's measured domain is a reading the
+            // calibration says nothing about, and the two usual behaviours
+            // -- clamp to the end value, or run the end segment onwards --
+            // both answer confidently from data that does not exist. §6's
+            // rule is "a measurement that had to guess says so", so the
+            // default is to say so; `"clamp"` and `"linear"` are available
+            // for callers who have decided which guess they want.
+            "apply_calibration_curve" => {
+                let v = arg0(&args)?;
+                let (xs, fs, _) = signal_meta::as_signal("apply_calibration_curve", v)?;
+                let raw = match arg_get(&args, 1) {
+                    Some(a) => to_vec(a)?,
+                    None => {
+                        return e(
+                            "apply_calibration_curve(s, raw_points, physical_points) needs the \
+                             curve's two columns",
+                        )
+                    }
+                };
+                let phys = match arg_get(&args, 2) {
+                    Some(a) => to_vec(a)?,
+                    None => {
+                        return e(
+                            "apply_calibration_curve(s, raw_points, physical_points) needs the \
+                             curve's two columns",
+                        )
+                    }
+                };
+                let mode = style_str(&style, "extrapolate")
+                    .unwrap_or_else(|| "error".to_string());
+                let unit = match style_str(&style, "unit") {
+                    Some(u) => {
+                        if !signal_meta::known_unit(&u) {
+                            return e(format!(
+                                "apply_calibration_curve: unknown unit \"{u}\" -- known units \
+                                 are {}",
+                                signal_meta::known_units_list()
+                            ));
+                        }
+                        Some(u)
+                    }
+                    None => None,
+                };
+                let out = signal_meta::apply_curve(&xs, &raw, &phys, &mode)?;
+                let mut meta = signal_meta::as_signal("apply_calibration_curve", v)?.2.axis_only();
+                meta.unit = unit.clone();
+                meta.cal = Some(signal_meta::Calibration {
+                    // The curve has already been applied, so what remains on
+                    // top of it is the identity; `source` is what records
+                    // that a curve, not a slope, is how these samples became
+                    // physical. The curve's own points are not retained --
+                    // see `signal_meta::apply_curve`.
+                    slope: 1.0,
+                    offset: 0.0,
+                    unit: unit.clone().unwrap_or_default(),
+                    reference: unit.as_deref().and_then(signal_meta::db_reference_for),
+                    source: "curve",
+                });
+                Ok(Value::Signal(Arc::new(out), fs, Arc::new(meta)))
+            }
+            // `calibrate(s, sensitivity = 12.3, [sensitivity_unit="mV/Pa"])`
+            // or `calibrate(s, tone_level = 94, [tone_freq=], [tone_ref=],
+            // [tone_unit="Pa"])` -- §10's two acoustic spellings, both of
+            // them special cases of `apply_calibration` above.
+            //
+            // The SENSITIVITY form is the transducer's datasheet figure:
+            // "this microphone puts out 12.3 mV per pascal". The slope is
+            // its RECIPROCAL, which is the step that gets inverted by hand
+            // and gets it backwards, so it is done once in
+            // `parse_sensitivity_unit` and here.
+            //
+            // The TONE form is a recording of an acoustic calibrator -- a
+            // device that produces a known level at a known frequency
+            // against your actual microphone, cable and gain setting, which
+            // is why it is the form measurement people trust. `s` is that
+            // recording; the returned signal is `s` in pascals, so
+            // `spl(calibrate(rec, tone_level = 94))` reads 94 dB back. Pass
+            // `tone_freq` and the named tone is CHECKED against what is
+            // actually in the recording rather than assumed.
+            "calibrate" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("calibrate", v)?;
+                if xs.is_empty() {
+                    return e("calibrate: the signal is empty");
+                }
+                let has_sens = style_entry(&style, "sensitivity").is_some();
+                let has_tone = style_entry(&style, "tone_level").is_some();
+                if has_sens == has_tone {
+                    return e(
+                        "calibrate: name exactly one of sensitivity= (a transducer's datasheet \
+                         figure, e.g. calibrate(s, sensitivity = 12.3) for 12.3 mV/Pa) or \
+                         tone_level= (a recording of an acoustic calibrator, e.g. \
+                         calibrate(s, tone_level = 94))",
+                    );
+                }
+                if has_sens {
+                    let sens = style_num_checked(&style, "sensitivity", 1.0, "calibrate")?;
+                    if !(sens.is_finite() && sens != 0.0) {
+                        return e(format!(
+                            "calibrate: sensitivity ({sens}) must be finite and non-zero -- it \
+                             is divided by to get the physical value"
+                        ));
+                    }
+                    let spec = style_str(&style, "sensitivity_unit")
+                        .unwrap_or_else(|| "mV/Pa".to_string());
+                    let (elec, phys) = signal_meta::parse_sensitivity_unit("calibrate", &spec)?;
+                    // The signal's own unit is what the sensitivity has to
+                    // be expressed against. An untagged signal is assumed to
+                    // be in the sensitivity's own electrical unit's BASE
+                    // (volts for mV/Pa), which is the near-universal case
+                    // for a raw capture scaled to +/-1.
+                    let sig_unit = m.unit.clone().unwrap_or_else(|| {
+                        signal_meta::family_base_unit(&elec).to_string()
+                    });
+                    let (elec_to_sig, _) =
+                        signal_meta::conversion("calibrate", &elec, &sig_unit)?;
+                    let sens_in_sig = sens * elec_to_sig;
+                    if sens_in_sig == 0.0 {
+                        return e("calibrate: the sensitivity works out to zero");
+                    }
+                    return signal_meta::rescale(
+                        "calibrate",
+                        v,
+                        1.0 / sens_in_sig,
+                        0.0,
+                        Some(phys),
+                        Some("sensitivity"),
+                    );
+                }
+                let level = style_num_checked(&style, "tone_level", 94.0, "calibrate")?;
+                if !level.is_finite() {
+                    return e("calibrate: tone_level must be finite");
+                }
+                let tone_unit = style_str(&style, "tone_unit").unwrap_or_else(|| "Pa".to_string());
+                if !signal_meta::known_unit(&tone_unit) {
+                    return e(format!(
+                        "calibrate: unknown tone_unit \"{tone_unit}\" -- known units are {}",
+                        signal_meta::known_units_list()
+                    ));
+                }
+                let reference = match style_entry(&style, "tone_ref") {
+                    Some(_) => style_num_checked(&style, "tone_ref", 0.0, "calibrate")?,
+                    None => match signal_meta::db_reference_for(&tone_unit) {
+                        Some(r) => r,
+                        None => {
+                            return e(format!(
+                                "calibrate: there is no conventional 0 dB reference for \
+                                 {tone_unit}, so a tone level in dB is undefined -- pass \
+                                 tone_ref= to say what the level is relative to"
+                            ))
+                        }
+                    },
+                };
+                if !(reference.is_finite() && reference > 0.0) {
+                    return e(format!(
+                        "calibrate: tone_ref ({reference}) must be finite and positive"
+                    ));
+                }
+                // AC-coupled, like every sound level meter: a DC offset in
+                // the capture is not part of the calibrator's tone, and
+                // leaving it in would inflate the measured RMS and quietly
+                // under-scale everything measured afterwards.
+                let measured = signal_meta::ac_rms(xs);
+                if !(measured.is_finite() && measured > 0.0) {
+                    return e(
+                        "calibrate: this recording has no AC content to measure the calibrator \
+                         tone from (its RMS about the mean is zero)",
+                    );
+                }
+                if let Some(_) = style_entry(&style, "tone_freq") {
+                    let hz = style_num_checked(&style, "tone_freq", 1000.0, "calibrate")?;
+                    if !(hz.is_finite() && hz > 0.0 && hz < fs / 2.0) {
+                        return e(format!(
+                            "calibrate: tone_freq ({hz} Hz) must be positive and below the \
+                             Nyquist frequency ({} Hz)",
+                            fs / 2.0
+                        ));
+                    }
+                    // What fraction of the record's power actually sits at
+                    // the frequency the caller named? A calibrator is a pure
+                    // tone, so this is near 1 for a real calibration
+                    // recording and far from it if the wrong file was
+                    // reached for -- which is the mistake worth catching,
+                    // because every measurement afterwards inherits it.
+                    let x = numeric::transforms::goertzel_freq(xs, fs, hz)
+                        .map_err(|ne| EvalError { msg: format!("calibrate: {ne}") })?;
+                    let tone_rms = (2.0 * x.magnitude() / xs.len() as f64)
+                        / std::f64::consts::SQRT_2;
+                    let share = tone_rms / measured;
+                    if share < 0.7 {
+                        return e(format!(
+                            "calibrate: the tone at {hz} Hz accounts for only {:.0}% of this \
+                             recording's RMS, so it does not look like a calibrator at that \
+                             frequency. Check the file and the frequency, or drop tone_freq= \
+                             to calibrate against the whole record's level anyway.",
+                            share * 100.0
+                        ));
+                    }
+                }
+                let target = reference * 10f64.powf(level / 20.0);
+                signal_meta::rescale(
+                    "calibrate",
+                    v,
+                    target / measured,
+                    0.0,
+                    Some(tone_unit),
+                    Some("tone"),
+                )
+            }
+            // `spl(s)` -- the sound pressure level of a CALIBRATED signal,
+            // `20*log10(rms / reference)` with the calibration's own
+            // reference (20 uPa for pressure).
+            //
+            // §10's headline behaviour is the refusal, not the number: "an
+            // uncalibrated signal answers in dBFS and says so. It will not
+            // pretend to know Pascals." So the error path here computes the
+            // dBFS reading and puts it in the message -- the caller gets the
+            // answer their signal can actually support, plus what to do to
+            // get the one they asked for.
+            "spl" => {
+                let v = arg0(&args)?;
+                let (xs, _, m) = signal_meta::as_signal("spl", v)?;
+                if xs.is_empty() {
+                    return e("spl: the signal is empty");
+                }
+                let reference = match m.cal.as_ref().and_then(|c| c.reference) {
+                    Some(r) if r > 0.0 => r,
+                    _ => {
+                        let peak = xs.iter().fold(0.0f64, |a, &x| a.max(x.abs()));
+                        let dbfs = 20.0 * (peak).max(1e-300).log10();
+                        return e(format!(
+                            "spl: this signal is not calibrated, so it cannot answer in \
+                             pascals -- it reads {dbfs:.1} dBFS. Attach a calibration first: \
+                             calibrate(s, sensitivity = 12.3) for a microphone's mV/Pa \
+                             figure, or calibrate(s, tone_level = 94) against a recording of \
+                             an acoustic calibrator."
+                        ));
+                    }
+                };
+                let rms = signal_meta::ac_rms(xs);
+                Ok(Value::Num(20.0 * (rms / reference).max(1e-300).log10()))
+            }
+            // `start_time(s)` / `end_time(s)` / `set_start_time(s, t)` /
+            // `timestamps(s)` -- §10's timestamps.
+            //
+            // `end_time` is `start_time + duration`, i.e. the end of the
+            // RECORD, one sample period after the last sample's own
+            // timestamp. That keeps `end_time - start_time == duration`
+            // exactly; the last entry of `timestamps(s)` is deliberately not
+            // the same number, and is one `dt` earlier.
+            "start_time" => {
+                let (_, _, m) = signal_meta::as_signal("start_time", arg0(&args)?)?;
+                Ok(Value::Num(m.t0))
+            }
+            "end_time" => {
+                let (xs, fs, m) = signal_meta::as_signal("end_time", arg0(&args)?)?;
+                Ok(Value::Num(m.t0 + signal_meta::duration_of(xs.len(), fs)))
+            }
+            "set_start_time" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("set_start_time", v)?;
+                if args.len() < 2 && style_entry(&style, "t").is_none() {
+                    return e(
+                        "set_start_time(s, t) needs the time of sample 0, in seconds -- \
+                         `set_start_time(s, 12.5)`",
+                    );
+                }
+                let t = positional_or_named_num(&args, 1, &style, "t", 0.0, "set_start_time")?;
+                if !t.is_finite() {
+                    return e(format!("set_start_time: t ({t}) must be finite"));
+                }
+                let mut meta = (**m).clone();
+                meta.t0 = t;
+                Ok(Value::Signal(xs.clone(), fs, Arc::new(meta)))
+            }
+            "timestamps" => {
+                let (xs, fs, m) = signal_meta::as_signal("timestamps", arg0(&args)?)?;
+                if !(fs.is_finite() && fs > 0.0) {
+                    return e(format!(
+                        "timestamps: the signal's rate is {fs} Hz, so it has no time axis"
+                    ));
+                }
+                let t0 = m.t0;
+                Ok(Value::Vec(Arc::new(
+                    (0..xs.len()).map(|i| t0 + i as f64 / fs).collect(),
+                )))
+            }
+            // `metadata(s)` -- the §10 named field set, as a Record.
+            //
+            // `sampling_rate`, `start_time` and `unit` are READ THROUGH from
+            // the signal itself rather than from stored copies, and
+            // `set_metadata` refuses to write them (see `DERIVED_FIELDS`).
+            // A stored `unit` field saying "Pa" beside samples in volts is
+            // not metadata, it is a second answer competing with the real
+            // one, and whichever the reader happens to look at is the one
+            // they believe.
+            "metadata" => {
+                let (xs, fs, m) = signal_meta::as_signal("metadata", arg0(&args)?)?;
+                let mut fields: Vec<(String, Value)> = vec![
+                    ("sampling_rate".into(), Value::Num(fs)),
+                    ("start_time".into(), Value::Num(m.t0)),
+                    (
+                        "duration".into(),
+                        Value::Num(signal_meta::duration_of(xs.len(), fs)),
+                    ),
+                    ("n".into(), Value::Num(xs.len() as f64)),
+                    (
+                        "unit".into(),
+                        match &m.unit {
+                            Some(u) => Value::Str(u.clone()),
+                            None => Value::Nothing,
+                        },
+                    ),
+                    ("calibrated".into(), Value::Bool(m.cal.is_some())),
+                ];
+                if let Some(c) = &m.cal {
+                    fields.push(("calibration_source".into(), Value::Str(c.source.into())));
+                    fields.push(("calibration_slope".into(), Value::Num(c.slope)));
+                    fields.push(("calibration_offset".into(), Value::Num(c.offset)));
+                    if let Some(r) = c.reference {
+                        fields.push(("calibration_reference".into(), Value::Num(r)));
+                    }
+                }
+                fields.push(("markers".into(), Value::Num(m.markers.len() as f64)));
+                fields.push(("regions".into(), Value::Num(m.regions.len() as f64)));
+                // The free-form half of the schema, in the canonical order
+                // `METADATA_FIELDS` lists, so two dumps of the same signal
+                // diff cleanly against each other.
+                for key in signal_meta::METADATA_FIELDS {
+                    if signal_meta::is_derived_field(key) {
+                        continue;
+                    }
+                    if let Some(v) = m.field(key) {
+                        fields.push(((*key).to_string(), v.clone()));
+                    }
+                }
+                Ok(Value::Record(Arc::new(fields)))
+            }
+            // `set_metadata(s, key, value)` -- write one field of the §10
+            // schema. An unknown key is an ERROR naming the whole schema,
+            // not a new field: a typo that silently becomes its own key is a
+            // field nobody will ever read back.
+            "set_metadata" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("set_metadata", v)?;
+                if args.len() < 3 {
+                    return e(
+                        "set_metadata(s, key, value) needs a key and a value -- \
+                         `set_metadata(s, \"operator\", \"AK\")`",
+                    );
+                }
+                let key = text_arg(&args, 1)?;
+                let canon = match signal_meta::canonical_field(&key) {
+                    Some(c) => c,
+                    None => {
+                        return e(format!(
+                            "set_metadata: \"{key}\" is not a field of the signal metadata \
+                             schema. The fields are: {}.",
+                            signal_meta::METADATA_FIELDS.join(", ")
+                        ))
+                    }
+                };
+                if signal_meta::is_derived_field(canon) {
+                    return e(format!(
+                        "set_metadata: \"{canon}\" is not free-form metadata -- the signal \
+                         already carries it, and a stored copy could disagree with the real \
+                         value. Set it through {} instead.",
+                        signal_meta::derived_field_owner(canon)
+                    ));
+                }
+                let val = arg_get(&args, 2).cloned().unwrap_or(Value::Nothing);
+                match &val {
+                    Value::Num(_) | Value::Str(_) | Value::Bool(_) => {}
+                    other => {
+                        return e(format!(
+                            "set_metadata: a metadata value must be a number, a string or a \
+                             boolean, found {}",
+                            other.type_name()
+                        ))
+                    }
+                }
+                let mut meta = (**m).clone();
+                meta.set_field(canon, val);
+                Ok(Value::Signal(xs.clone(), fs, Arc::new(meta)))
+            }
+            // `add_marker(s, time, label)` / `markers(s)` and
+            // `add_region(s, start, end, label)` / `regions(s)` -- §10's
+            // interactive-annotation counterpart, for marking an impact or a
+            // fault injection on a recording.
+            //
+            // A marker's time is checked against the signal's own span and
+            // an out-of-range one is refused. A marker that sits outside the
+            // data it annotates is not an annotation, and the alternative --
+            // storing it and letting whatever draws the signal decide -- is
+            // how it would become invisible instead of wrong.
+            "add_marker" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("add_marker", v)?;
+                if args.len() < 2 && style_entry(&style, "time").is_none() {
+                    return e(
+                        "add_marker(s, time, [label]) needs a time in seconds -- \
+                         `add_marker(s, 1.25, \"impact\")`",
+                    );
+                }
+                let t = positional_or_named_num(&args, 1, &style, "time", 0.0, "add_marker")?;
+                let label = match arg_get(&args, 2) {
+                    Some(_) => text_arg(&args, 2)?,
+                    None => style_str(&style, "label").unwrap_or_default(),
+                };
+                let (lo, hi) = (m.t0, m.t0 + signal_meta::duration_of(xs.len(), fs));
+                if !(t.is_finite() && t >= lo && t <= hi) {
+                    return e(format!(
+                        "add_marker: time {t} s is outside this signal, which spans {lo} s to \
+                         {hi} s"
+                    ));
+                }
+                let mut meta = (**m).clone();
+                meta.markers.push(signal_meta::Marker { time: t, label });
+                meta.markers.sort_by(|a, b| a.time.total_cmp(&b.time));
+                Ok(Value::Signal(xs.clone(), fs, Arc::new(meta)))
+            }
+            "markers" => {
+                let (_, _, m) = signal_meta::as_signal("markers", arg0(&args)?)?;
+                Ok(Value::List(Arc::new(
+                    m.markers
+                        .iter()
+                        .map(|k| {
+                            Value::Record(Arc::new(vec![
+                                ("time".into(), Value::Num(k.time)),
+                                ("label".into(), Value::Str(k.label.clone())),
+                            ]))
+                        })
+                        .collect(),
+                )))
+            }
+            "add_region" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("add_region", v)?;
+                if args.len() < 3 {
+                    return e(
+                        "add_region(s, start, end, [label]) needs a start and an end in \
+                         seconds -- `add_region(s, 1.0, 1.5, \"fault\")`",
+                    );
+                }
+                let a = positional_or_named_num(&args, 1, &style, "start", 0.0, "add_region")?;
+                let b = positional_or_named_num(&args, 2, &style, "end", 0.0, "add_region")?;
+                let label = match arg_get(&args, 3) {
+                    Some(_) => text_arg(&args, 3)?,
+                    None => style_str(&style, "label").unwrap_or_default(),
+                };
+                let (lo, hi) = (m.t0, m.t0 + signal_meta::duration_of(xs.len(), fs));
+                if !(a.is_finite() && b.is_finite()) {
+                    return e("add_region: start and end must be finite");
+                }
+                if b < a {
+                    return e(format!("add_region: end ({b} s) must be >= start ({a} s)"));
+                }
+                if a < lo || b > hi {
+                    return e(format!(
+                        "add_region: {a} s to {b} s is outside this signal, which spans {lo} s \
+                         to {hi} s"
+                    ));
+                }
+                let mut meta = (**m).clone();
+                meta.regions.push(signal_meta::Region { start: a, end: b, label });
+                meta.regions.sort_by(|x, y| x.start.total_cmp(&y.start));
+                Ok(Value::Signal(xs.clone(), fs, Arc::new(meta)))
+            }
+            "regions" => {
+                let (_, _, m) = signal_meta::as_signal("regions", arg0(&args)?)?;
+                Ok(Value::List(Arc::new(
+                    m.regions
+                        .iter()
+                        .map(|r| {
+                            Value::Record(Arc::new(vec![
+                                ("start".into(), Value::Num(r.start)),
+                                ("end".into(), Value::Num(r.end)),
+                                ("label".into(), Value::Str(r.label.clone())),
+                            ]))
+                        })
+                        .collect(),
+                )))
             }
 
             // ----------------------------------------- measurement diagnostics
@@ -20185,7 +21183,7 @@ self.eval_grad(loss, wrt)
                     ("finite".into(), Value::Bool(r.nan == 0 && r.inf == 0)),
                     ("constant".into(), Value::Bool(r.constant)),
                 ];
-                if let Value::Signal(_, rate) = v {
+                if let Value::Signal(_, rate, _) = v {
                     if !rate.is_finite() || *rate <= 0.0 {
                         issues.push(Value::Str(format!(
                             "the sample rate is {rate} -- every frequency axis derived from this \
@@ -20813,6 +21811,38 @@ self.eval_grad(loss, wrt)
             // own name, `spectral_coherence`, below — see that arm's
             // comment for why it isn't an overload of this one.
             "coherence" => {
+                // `H.coherence()` / `Z.coherence()` desugars to
+                // `coherence(H)`, which would otherwise land in the
+                // compressed-sensing function above and complain that an
+                // FRF handle is not a matrix. An `frf`/`impedance` handle
+                // already CARRIES the magnitude-squared coherence its
+                // estimator computed, so hand that back rather than
+                // recomputing it from data the handle no longer has.
+                //
+                // Branching on the argument's type, not overloading by
+                // arity: a `Value::Model` is never a matrix, so this cannot
+                // change what any existing `coherence(A)` call does.
+                if let Value::Model(m) = arg0(&args)? {
+                    if m.kind == "frf" || m.kind == "impedance" {
+                        return match m.field("coherence") {
+                            Some(v) => Ok(v.clone()),
+                            // The `frequencies=` Goertzel path has no
+                            // averaged segments, so it attaches no
+                            // coherence. Saying so beats inventing one.
+                            None => e(format!(
+                                "coherence: this {} was estimated with method=\"{}\", \
+                                 which evaluates one record at each frequency and so has \
+                                 no coherence to report -- coherence needs averaged \
+                                 segments. Estimate it without `frequencies=` for a \
+                                 broadband record with coherence attached",
+                                m.kind,
+                                m.field("method")
+                                    .map(display_value)
+                                    .unwrap_or_else(|| "?".to_string())
+                            )),
+                        };
+                    }
+                }
                 let mat = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
                 Ok(Value::Num(numeric::cs::coherence(&mat)))
             }
@@ -22582,11 +23612,19 @@ self.eval_grad(loss, wrt)
             // `update(state, ...)` — callable as `state.update(...)`. The
             // estimation-theory family's measurement update; see
             // `estimation_update`'s own doc comment for the full contract.
-            // No non-estimation model currently has an `update` operation,
-            // so this dispatches on kind unconditionally rather than
-            // falling back to anything else.
+            //
+            // The LMS adaptive filter (`lms_init`) shares this one name
+            // because it is the same idea and the same immutable-state
+            // convention -- a new observation in, a new state out -- but
+            // its step has nothing to do with a covariance update, so it
+            // branches off to `lms_update` before `estimation_update` ever
+            // sees it rather than being bolted into that function's own
+            // kind-match.
             "update" => {
                 let m = as_model(arg0(&args)?)?;
+                if m.kind == "lms" {
+                    return lms_update(&m, &args);
+                }
                 estimation_update(self, &m, &args, &style)
             }
             // `move(state, dt)` — an alias for `predict(state, dt)` that
@@ -22926,7 +23964,7 @@ self.eval_grad(loss, wrt)
                 // stored length is the TIME-domain `n`, not the returned
                 // half-length -- that is what `df` and `irfft` both need.
                 let rate = match arg0(&args)? {
-                    Value::Signal(_, fs) => Some(*fs),
+                    Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
                 };
                 let scaling = style_str(&style, "scaling");
@@ -23157,6 +24195,110 @@ self.eval_grad(loss, wrt)
                     .map(|v| Value::CVec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: ne.to_string() })
             }
+
+            // ---- Digital communications -------------------------------
+            //
+            // AM, BPSK and QPSK were already expressible in a couple of
+            // lines of Qu on top of `hilbert` and complex arithmetic, and
+            // stay that way — these are the pieces that are NOT a couple
+            // of lines: an order-generic Gray-coded constellation, and
+            // the two error-control codes. Implementation and its tests
+            // live in `comms.rs`.
+
+            // `qam_modulate(bits, order)` — `bits` is a vector of 0/1,
+            // MSB-first, whose length is a multiple of `log2(order)`.
+            // Returns a `CVec` of one symbol per `log2(order)` bits on
+            // the unnormalized odd-integer square grid. `order` must be a
+            // power of two with an even exponent (4, 16, 64, 256, ...);
+            // order 4 is QPSK.
+            "qam_modulate" => {
+                let bits = bits_arg(&args, 0, f)?;
+                let order = int_arg(&args, 1)?;
+                if order < 0 {
+                    return e(format!("{f}: order must be positive, got {order}"));
+                }
+                let syms = comms::qam_modulate(&bits, order as u64)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                Ok(Value::CVec(Arc::new(
+                    syms.into_iter().map(|(re, im)| Complex64::new(re, im)).collect(),
+                )))
+            }
+
+            // `qam_demodulate(symbols, order)` — nearest-constellation-
+            // point decision, the inverse of `qam_modulate`. Accepts a
+            // `CVec`, a real `Vec` (quadrature taken as zero) or a single
+            // `Complex`. Returns the recovered bits as a `Vec` of 0/1.
+            "qam_demodulate" => {
+                let syms = arg0(&args)?
+                    .as_complex_flat()
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                let order = int_arg(&args, 1)?;
+                if order < 0 {
+                    return e(format!("{f}: order must be positive, got {order}"));
+                }
+                let pairs: Vec<(f64, f64)> = syms.iter().map(|z| (z.re, z.im)).collect();
+                let bits = comms::qam_demodulate(&pairs, order as u64)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                Ok(Value::Vec(Arc::new(bits.into_iter().map(f64::from).collect())))
+            }
+
+            // `hamming74_encode(d)` — `d` is a vector of 0/1 whose length
+            // is a multiple of 4. Returns 7 bits per 4 data bits, laid
+            // out `[p1, p2, d1, p4, d2, d3, d4]`.
+            "hamming74_encode" => {
+                let d = bits_arg(&args, 0, f)?;
+                let out = comms::hamming74_encode(&d)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                Ok(Value::Vec(Arc::new(out.into_iter().map(f64::from).collect())))
+            }
+
+            // `hamming74_decode(codeword)` — corrects one bit flip per
+            // 7-bit codeword. Returns a `Record`, the same multi-return
+            // convention `huffman_encode` uses: `data` (the recovered
+            // bits), `corrected` (a `Bool`, true when any codeword needed
+            // fixing) and `positions` (per codeword, the 1-indexed bit
+            // that was flipped back, or 0 for a clean one).
+            "hamming74_decode" => {
+                let c = bits_arg(&args, 0, f)?;
+                let got = comms::hamming74_decode(&c)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                Ok(Value::Record(Arc::new(vec![
+                    (
+                        "data".into(),
+                        Value::Vec(Arc::new(got.data.into_iter().map(f64::from).collect())),
+                    ),
+                    ("corrected".into(), Value::Bool(got.corrected)),
+                    (
+                        "positions".into(),
+                        Value::Vec(Arc::new(
+                            got.positions.into_iter().map(|p| p as f64).collect(),
+                        )),
+                    ),
+                ])))
+            }
+
+            // `crc(bits, polynomial)` — the CRC remainder of `bits` under
+            // `polynomial`, returned as `polynomial`'s width in 0/1 bits.
+            // The polynomial is data, not a hardcoded width: write it
+            // MSB-first with its leading 1, either as a bit vector
+            // (`[1,0,1,1]`) or as the number that spells (`11`).
+            "crc" => {
+                let bits = bits_arg(&args, 0, f)?;
+                let poly = poly_arg(&args, 1, f)?;
+                let r = comms::crc(&bits, &poly)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })?;
+                Ok(Value::Vec(Arc::new(r.into_iter().map(f64::from).collect())))
+            }
+
+            // `crc_check(bits, polynomial)` — `bits` is a message with its
+            // CRC already appended; true when the remainder is zero.
+            "crc_check" => {
+                let bits = bits_arg(&args, 0, f)?;
+                let poly = poly_arg(&args, 1, f)?;
+                comms::crc_check(&bits, &poly)
+                    .map(Value::Bool)
+                    .map_err(|m| EvalError { msg: format!("{f}: {m}") })
+            }
             // `find_peaks(x, [height=], [distance=], [prominence=], [width=],
             // [rel_height=])` — indices of `x`'s local maxima, optionally
             // filtered by height, minimum separation (samples — enforced
@@ -23355,37 +24497,686 @@ self.eval_grad(loss, wrt)
                 let level = threshold_kwarg(f, &style, &xs)?;
                 let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
                 let set = numeric::transforms::find_edges(&xs, level, hyst);
-                let rising: Vec<f64> = set
-                    .indices
-                    .iter()
-                    .zip(set.rising.iter())
-                    .filter(|(_, &r)| r)
-                    .map(|(&i, _)| i as f64)
-                    .collect();
-                let falling: Vec<f64> = set
-                    .indices
-                    .iter()
-                    .zip(set.rising.iter())
-                    .filter(|(_, &r)| !r)
-                    .map(|(&i, _)| i as f64)
-                    .collect();
+                Ok(edge_set_to_model(&set))
+            }
+
+            // `to_digital(x, threshold)` -- §8 of toolkit-signal.md.
+            // Wraps a signal and a digitizing threshold into a `Digital`
+            // value (a `Model` tagged `"digital"`, same general shape
+            // `find_edges`'s own `"edges"` result already uses -- this
+            // codebase's `Value::Model` was never ML-exclusive, see its
+            // own doc comment) so `.edges()`/`.rising_edges()`/
+            // `.falling_edges()`/`.high_time()`/`.low_time()`/
+            // `.duty_cycle()` all read naturally via UFCS
+            // (`d.edges()` desugars to `edges(d)`) without repeating the
+            // threshold at every call site the way `find_edges(x,
+            // level=...)` requires today. Deliberately NOT a new engine
+            // concept: it is the same `find_edges`/`find_trigger`/
+            // `duty_cycle` math already shipped, just remembering the
+            // threshold on the caller's behalf.
+            "to_digital" => {
+                let sig = arg0(&args)?.clone();
+                let threshold = arg_get(&args, 1)
+                    .ok_or_else(|| EvalError {
+                        msg: "to_digital(x, threshold) needs a threshold argument".into(),
+                    })?
+                    .as_num()
+                    .map_err(|msg| EvalError { msg })?;
+                // Validate now, not at first use -- to_cow on a non-signal-like
+                // value should fail at the point the mistake was made.
+                to_cow(&sig)?;
                 Ok(Value::Model(Arc::new(ModelHandle::new(
-                    "edges",
+                    "digital",
+                    vec![("signal".to_string(), sig), ("threshold".to_string(), Value::Num(threshold))],
+                ))))
+            }
+
+            // `edges(d)`/`rising_edges(d)`/`falling_edges(d)` -- the
+            // `Digital` value's edge accessors. `edges` returns the same
+            // shape `find_edges` does (reusing `edge_set_to_model`);
+            // `rising_edges`/`falling_edges` return just the interpolated
+            // crossing positions of one polarity, in seconds for a
+            // `Signal` and samples otherwise (same convention
+            // `find_pulses`'s `widths` field already documents).
+            "edges" => {
+                let d = arg0(&args)?;
+                let (xs, thr, _orig) = digital_parts(d, "edges")?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let set = numeric::transforms::find_edges(&xs, thr, hyst);
+                Ok(edge_set_to_model(&set))
+            }
+            "rising_edges" | "falling_edges" => {
+                let d = arg0(&args)?;
+                let (xs, thr, orig) = digital_parts(d, f)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let set = numeric::transforms::find_edges(&xs, thr, hyst);
+                let want_rising = f == "rising_edges";
+                let dt = sample_period(orig);
+                let positions: Vec<f64> = set
+                    .positions
+                    .iter()
+                    .zip(set.rising.iter())
+                    .filter(|(_, &r)| r == want_rising)
+                    .map(|(&p, _)| p * dt)
+                    .collect();
+                Ok(Value::Vec(Arc::new(positions)))
+            }
+            // `high_time(d)`/`low_time(d)` -- total time the digitized
+            // signal spent above/below its threshold, in seconds for a
+            // `Signal` and samples otherwise. Summed from the actual
+            // complete pulses (`find_pulses`), not `duty_cycle(d) *
+            // record_length` -- that would assume a clean periodic
+            // waveform, which a real captured signal is not obligated to
+            // be. A record with zero complete pulses of the requested
+            // polarity reports 0.0 (genuinely no time observed spent that
+            // way, inside a complete pulse), not an error -- unlike
+            // `pulse_width`, which errors on the same input because a mean
+            // over zero pulses has no defined value, `high_time`/
+            // `low_time` are a SUM, and the sum over zero pulses is 0.
+            "high_time" | "low_time" => {
+                let d = arg0(&args)?;
+                let (xs, thr, orig) = digital_parts(d, f)?;
+                let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
+                let positive = f == "high_time";
+                let dt = sample_period(orig);
+                let total: f64 = numeric::transforms::find_pulses(&xs, thr, hyst, positive)
+                    .iter()
+                    .map(|p| p.width * dt)
+                    .sum();
+                Ok(Value::Num(total))
+            }
+
+            // ----------------------------------------------------------------
+            // §8 protocol decoders. `decode_uart`/`decode_spi` take `Digital`
+            // values (from `to_digital`) and return a decoded-frame `Table` --
+            // the shared input shape and output shape toolkit-signal.md §8
+            // explicitly groups these by ("they share the same input shape (a
+            // digitized edge stream) and the same general shape of output (a
+            // decoded-frame table)"). `decode_i2c`/`decode_can` belong to the
+            // same §8 group but are a SEPARATE lane's work and are deliberately
+            // absent here rather than stubbed -- a stub that returns an empty
+            // table is indistinguishable from a real decode of a silent bus.
+            //
+            // Both return a `Value::Table` rather than the `Model`-with-
+            // parallel-vectors shape `find_edges`/`find_pulses` use. That is
+            // not inconsistency for its own sake: a decoded frame is a ROW of
+            // mixed-type fields (a number, a hex string, a validity flag, an
+            // error name), which is exactly what `Table` is for and what a
+            // `Model` of parallel `Value::Vec`s cannot hold -- `Model` fields
+            // are numeric vectors, so the `error` column could not be text at
+            // all. It also means `filter(u, u.valid == 0)`, `nrow`, `sort_by`
+            // and the rest of the table verbs work on a decode result for free.
+            // ----------------------------------------------------------------
+
+            // `decode_uart(d, baud=|samples_per_bit=, [bits=8],
+            // [parity="none"], [stop=1])` -- asynchronous serial.
+            //
+            // Bit timing is DERIVED, not recovered: the caller states the baud
+            // rate (or the samples-per-bit directly) and every bit of a frame
+            // is sampled at its nominal centre, measured from the falling edge
+            // that opened the frame. Re-deriving the centre from `j` at each
+            // frame -- rather than free-running a sample counter across the
+            // whole record -- is what keeps a long capture from walking off the
+            // bit centres when the sender's clock and `baud=` disagree slightly,
+            // which is the entire reason real UARTs re-sync on every start bit.
+            //
+            // The line is assumed to IDLE HIGH (start bit is a falling edge,
+            // stop bit is high), which is the convention at the logic level --
+            // i.e. downstream of an RS-232 receiver, which has already inverted
+            // the marking-low line. Data bits are LSB-first, which the standard
+            // fixes; there is deliberately no `bit_order=` knob here (unlike
+            // `decode_spi`, where both orders are genuinely in use).
+            //
+            // A frame whose stop bit is not high is reported with
+            // `error="framing"` and `valid=0`, and one whose parity bit
+            // disagrees with the data with `error="parity"` -- reported, not
+            // dropped and not silently returned as a clean byte. The decoded
+            // bits are still in `byte` for both, because that is what a logic
+            // analyser shows and because the bits are what a caller debugging a
+            // baud-rate mismatch actually needs to see.
+            "decode_uart" => {
+                let d = arg0(&args)?;
+                let (levels, orig) = digital_levels_from_value(d, f)?;
+                let spb = uart_samples_per_bit(f, &style, orig)?;
+                let data_bits = int_kwarg(f, &style, "bits", 8.0, 5.0, 9.0)?;
+                let stop_bits = int_kwarg(f, &style, "stop", 1.0, 1.0, 2.0)?;
+                let parity = uart_parity_kwarg(f, &style)?;
+                let parity_bits = usize::from(parity != UartParity::None);
+                let total_slots = 1 + data_bits + parity_bits + stop_bits;
+
+                let n = levels.len();
+                let dt = sample_period(orig);
+                // Centre of bit slot `k` of the frame that started at sample
+                // `j`, counting the START bit as slot 0 -- so data bit `b` is
+                // slot `1 + b`, and the first stop bit is slot
+                // `1 + data_bits + parity_bits`.
+                let centre = |j: usize, k: usize| j as f64 + (k as f64 + 0.5) * spb;
+                let at = |p: f64| -> Option<bool> {
+                    let idx = p.round();
+                    if idx < 0.0 || idx >= n as f64 {
+                        None
+                    } else {
+                        Some(levels[idx as usize])
+                    }
+                };
+
+                let mut bytes: Vec<f64> = Vec::new();
+                let mut hexes: Vec<String> = Vec::new();
+                let mut starts: Vec<f64> = Vec::new();
+                let mut valids: Vec<f64> = Vec::new();
+                let mut errors: Vec<String> = Vec::new();
+
+                let mut i = 1usize;
+                while i < n {
+                    // A frame opens on a falling edge, the line having been
+                    // idle high. Scanning for the EDGE rather than for a low
+                    // level is what makes back-to-back frames (no idle gap)
+                    // decode correctly.
+                    if !(levels[i - 1] && !levels[i]) {
+                        i += 1;
+                        continue;
+                    }
+                    let j = i;
+                    // A frame cut off by the end of the record is NOT reported
+                    // -- the same rule `find_pulses` applies to a pulse missing
+                    // one of its edges. Truncated bits would decode to a
+                    // plausible-looking wrong byte, which is worse than a
+                    // missing row.
+                    if at(centre(j, total_slots - 1)).is_none() {
+                        break;
+                    }
+                    // Re-check the start bit at its CENTRE: a narrow glitch on
+                    // an idle line produces a falling edge but is back high by
+                    // mid-bit, and is not a frame.
+                    match at(centre(j, 0)) {
+                        Some(false) => {}
+                        _ => {
+                            i = j + 1;
+                            continue;
+                        }
+                    }
+
+                    let mut val: u32 = 0;
+                    let mut ones: u32 = 0;
+                    for b in 0..data_bits {
+                        if at(centre(j, 1 + b)) == Some(true) {
+                            val |= 1 << b;
+                            ones += 1;
+                        }
+                    }
+
+                    let parity_err = match parity {
+                        UartParity::None => false,
+                        // Even parity: the count of 1s INCLUDING the parity bit
+                        // is even, so the parity bit is 1 exactly when the data
+                        // holds an odd number of 1s. Odd parity is the negation.
+                        UartParity::Even => at(centre(j, 1 + data_bits)) != Some(ones % 2 == 1),
+                        UartParity::Odd => at(centre(j, 1 + data_bits)) != Some(ones % 2 == 0),
+                    };
+                    let mut framing_err = false;
+                    for s in 0..stop_bits {
+                        if at(centre(j, 1 + data_bits + parity_bits + s)) != Some(true) {
+                            framing_err = true;
+                        }
+                    }
+
+                    bytes.push(val as f64);
+                    hexes.push(format!("0x{val:02X}"));
+                    starts.push(j as f64 * dt);
+                    valids.push(f64::from(u8::from(!framing_err && !parity_err)));
+                    errors.push(
+                        match (framing_err, parity_err) {
+                            (false, false) => "",
+                            (true, false) => "framing",
+                            (false, true) => "parity",
+                            (true, true) => "framing+parity",
+                        }
+                        .to_string(),
+                    );
+
+                    // Resume scanning from the LAST stop bit's centre, not from
+                    // the end of the frame: on a clean frame the line is still
+                    // high there, so the next frame's start bit is seen as a
+                    // falling edge even with zero idle time between frames.
+                    // `.max(j + 1)` only matters for a pathologically small
+                    // `samples_per_bit`, but without it the loop could stand
+                    // still.
+                    i = (centre(j, total_slots - 1).round() as usize).max(j + 1);
+                }
+
+                let columns = vec![
+                    ("byte".to_string(), Column::Num(bytes)),
+                    ("hex".to_string(), Column::Str(hexes)),
+                    ("start".to_string(), Column::Num(starts)),
+                    ("valid".to_string(), Column::Num(valids)),
+                    ("error".to_string(), Column::Str(errors)),
+                ];
+                Ok(Value::Table(Arc::new(
+                    Table::from_columns(columns).map_err(|msg| EvalError { msg })?,
+                )))
+            }
+
+            // `decode_spi(clk, [mosi], [miso], [mosi=], [miso=], [mode=],
+            // [cpol=0], [cpha=0], [bits=8], [bit_order="msb"], [cs=],
+            // [cs_active="low"])` -- synchronous serial.
+            //
+            // Unlike UART this takes MULTIPLE digitized signals, because SPI
+            // carries its own clock: there is no baud rate to state and nothing
+            // to derive timing from -- every bit is sampled at a clock edge, so
+            // the clock line is a required second input rather than a keyword.
+            // The data lines may be given positionally (`decode_spi(clk, mosi)`,
+            // `decode_spi(clk, mosi, miso)`) or by name (`miso=` alone, for a
+            // capture that only tapped the peripheral's output); at least one is
+            // required, since a clock with no data decodes to nothing.
+            //
+            // WHICH EDGE SAMPLES is the whole of CPOL/CPHA, and reduces to one
+            // line. CPHA=0 samples on the LEADING edge of each clock cycle,
+            // CPHA=1 on the TRAILING edge; CPOL fixes which physical direction
+            // "leading" is (idle low -> leading is rising, idle high -> falling).
+            // Composing those gives `sample_on_rising == (cpol == cpha)`, i.e.
+            // modes 0 and 3 sample rising, modes 1 and 2 falling.
+            //
+            // FRAMING. With a `cs=` chip-select line, bytes are segmented by it:
+            // each assertion starts a new frame and bumps the `frame` column,
+            // clock edges while CS is idle are ignored entirely, and a partial
+            // byte left over when CS releases is discarded (a frame is not
+            // obliged to be a whole number of bytes, and padding one out with
+            // invented bits would be a fabricated row). Without `cs=` the
+            // capture is decoded as ONE continuous byte stream with `frame` 0
+            // throughout -- deliberately not guessing frame boundaries from
+            // clock gaps, which is a heuristic with no correct answer on a bus
+            // whose idle time is unspecified.
+            "decode_spi" => {
+                let clk = arg0(&args)?;
+                // Named wins over positional when both are given, matching this
+                // file's established positional-or-named convention (see
+                // `positional_or_named_num`'s own note).
+                // `arg_get` is called unconditionally (not lazily inside
+                // `or_else`) so both positional slots are marked read even when
+                // the named form supplied the line -- otherwise a call passing
+                // both would trip the unread-argument check.
+                let pos_mosi = arg_get(&args, 1);
+                let pos_miso = arg_get(&args, 2);
+                let mosi_arg = style_entry(&style, "mosi").map(|(_, v)| v).or(pos_mosi);
+                let miso_arg = style_entry(&style, "miso").map(|(_, v)| v).or(pos_miso);
+                if mosi_arg.is_none() && miso_arg.is_none() {
+                    return e(format!(
+                        "{f}: needs at least one data line -- {f}(clk, mosi), {f}(clk, mosi, miso), or {f}(clk, miso=...)"
+                    ));
+                }
+
+                let (clk_lv, clk_orig) = digital_levels_from_value(clk, f)?;
+                let n = clk_lv.len();
+                let mosi_lv = mosi_arg.map(|v| digital_levels_from_value(v, f)).transpose()?.map(|(lv, _)| lv);
+                let miso_lv = miso_arg.map(|v| digital_levels_from_value(v, f)).transpose()?.map(|(lv, _)| lv);
+                let cs_lv = match style_entry(&style, "cs") {
+                    Some((_, v)) => Some(digital_levels_from_value(v, f)?.0),
+                    None => None,
+                };
+                // Every line is sampled at the SAME index, so a length mismatch
+                // is a real error, not something to paper over by truncating to
+                // the shortest: two captures of different lengths were not taken
+                // together, and silently decoding the overlap would answer
+                // confidently about a bus that was never observed that way.
+                for (name, lv) in [("mosi", &mosi_lv), ("miso", &miso_lv), ("cs", &cs_lv)] {
+                    if let Some(lv) = lv {
+                        if lv.len() != n {
+                            return e(format!(
+                                "{f}: {name} has {} samples but clk has {n} -- every line must be the same length, sampled together",
+                                lv.len()
+                            ));
+                        }
+                    }
+                }
+
+                let (cpol, cpha) = spi_mode_kwargs(f, &style)?;
+                let sample_on_rising = cpol == cpha;
+                let bits = int_kwarg(f, &style, "bits", 8.0, 2.0, 32.0)?;
+                let msb_first = spi_bit_order_kwarg(f, &style)?;
+                let cs_active_high = match style_str(&style, "cs_active").as_deref() {
+                    None | Some("low") => false,
+                    Some("high") => true,
+                    Some(other) => {
+                        return e(format!(
+                            "{f}: unknown cs_active `{other}`, expected \"low\" (the default) or \"high\""
+                        ))
+                    }
+                };
+
+                let dt = sample_period(clk_orig);
+                let mut frames: Vec<f64> = Vec::new();
+                let mut starts: Vec<f64> = Vec::new();
+                let mut mosi_bytes: Vec<f64> = Vec::new();
+                let mut mosi_hexes: Vec<String> = Vec::new();
+                let mut miso_bytes: Vec<f64> = Vec::new();
+                let mut miso_hexes: Vec<String> = Vec::new();
+
+                let mut frame = 0.0f64;
+                let mut seen_first_assert = false;
+                let mut cs_was_active = false;
+                let mut acc_mosi: u64 = 0;
+                let mut acc_miso: u64 = 0;
+                let mut nbits = 0usize;
+                let mut byte_start = 0.0f64;
+
+                for i in 1..n {
+                    if let Some(cs) = &cs_lv {
+                        let active = cs[i] == cs_active_high;
+                        if active && !cs_was_active {
+                            // A fresh assertion starts a new frame. The first
+                            // one keeps `frame = 0` so that a capture with one
+                            // frame numbers it 0, the same as the no-CS case.
+                            if seen_first_assert {
+                                frame += 1.0;
+                            }
+                            seen_first_assert = true;
+                            acc_mosi = 0;
+                            acc_miso = 0;
+                            nbits = 0;
+                        } else if !active && cs_was_active {
+                            // Release mid-byte: drop the partial byte.
+                            acc_mosi = 0;
+                            acc_miso = 0;
+                            nbits = 0;
+                        }
+                        cs_was_active = active;
+                        if !active {
+                            continue;
+                        }
+                    }
+
+                    let is_sample_edge = if sample_on_rising {
+                        !clk_lv[i - 1] && clk_lv[i]
+                    } else {
+                        clk_lv[i - 1] && !clk_lv[i]
+                    };
+                    if !is_sample_edge {
+                        continue;
+                    }
+
+                    if nbits == 0 {
+                        byte_start = i as f64 * dt;
+                    }
+                    // The data lines transition on the OTHER edge, so they are
+                    // stable at the sampling edge -- reading them at the clock
+                    // transition's own sample index is the intended point.
+                    let shift = if msb_first { bits - 1 - nbits } else { nbits };
+                    if let Some(m) = &mosi_lv {
+                        acc_mosi |= u64::from(m[i]) << shift;
+                    }
+                    if let Some(m) = &miso_lv {
+                        acc_miso |= u64::from(m[i]) << shift;
+                    }
+                    nbits += 1;
+
+                    if nbits == bits {
+                        frames.push(frame);
+                        starts.push(byte_start);
+                        if mosi_lv.is_some() {
+                            mosi_bytes.push(acc_mosi as f64);
+                            mosi_hexes.push(format!("0x{acc_mosi:02X}"));
+                        }
+                        if miso_lv.is_some() {
+                            miso_bytes.push(acc_miso as f64);
+                            miso_hexes.push(format!("0x{acc_miso:02X}"));
+                        }
+                        acc_mosi = 0;
+                        acc_miso = 0;
+                        nbits = 0;
+                    }
+                }
+                // A trailing partial byte (capture stopped mid-byte) is dropped
+                // for the same reason a partial UART frame is.
+
+                let mut columns = vec![
+                    ("frame".to_string(), Column::Num(frames)),
+                    ("start".to_string(), Column::Num(starts)),
+                ];
+                if mosi_lv.is_some() {
+                    columns.push(("mosi".to_string(), Column::Num(mosi_bytes)));
+                    columns.push(("mosi_hex".to_string(), Column::Str(mosi_hexes)));
+                }
+                if miso_lv.is_some() {
+                    columns.push(("miso".to_string(), Column::Num(miso_bytes)));
+                    columns.push(("miso_hex".to_string(), Column::Str(miso_hexes)));
+                }
+                Ok(Value::Table(Arc::new(
+                    Table::from_columns(columns).map_err(|msg| EvalError { msg })?,
+                )))
+            }
+            // `decode_i2c(scl, sda, [hysteresis=])` -- §8's I2C protocol
+            // decoder.
+            //
+            // TWO positional arguments, both `Digital`, because I2C is a
+            // two-wire bus and neither wire alone carries a transaction:
+            // the clock says WHEN a data bit is valid and the data line
+            // says WHAT it is, and the START/STOP conditions are defined
+            // by their relationship (SDA moving while SCL is held high),
+            // so there is no way to express this as a method on one
+            // signal. Clock first, data second, matching how every
+            // datasheet, scope decoder and the bus's own name orders
+            // them.
+            //
+            // Unlike CAN below, there is no `bitrate=`: I2C is a clocked
+            // bus and the clock is right there in the capture. A bit rate
+            // keyword would be an invitation to state something the
+            // decoder must not believe over SCL itself.
+            //
+            // The decode walks the two level streams in lockstep rather
+            // than working from an edge list, per `digital_levels`. Three
+            // things can happen at sample `i`:
+            //
+            //   * SCL high and steady, SDA falls -> START (or, mid
+            //     transaction, a repeated START)
+            //   * SCL high and steady, SDA rises -> STOP
+            //   * SCL rises                      -> a data bit, sample SDA
+            //
+            // These are mutually exclusive by construction: the first two
+            // require SCL high at both `i-1` and `i`, which is exactly
+            // what an SCL rising edge is not. That is the whole reason
+            // the protocol reserves SDA transitions during SCL-high for
+            // framing -- data is only allowed to move while the clock is
+            // low -- and it is why this ordering is safe rather than a
+            // priority guess.
+            "decode_i2c" => {
+                let scl_v = arg0(&args)?;
+                let sda_v = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "decode_i2c(scl, sda) needs both wires: a clock Digital and a data Digital \
+                          -- I2C framing is defined by SDA moving while SCL is high, so neither \
+                          line decodes alone"
+                        .into(),
+                })?;
+                let hyst = style_num_checked(&style, "hysteresis", 0.0, f)?;
+                let (scl_xs, scl_thr, _) = digital_parts(scl_v, f)?;
+                let (sda_xs, sda_thr, orig) = digital_parts(sda_v, f)?;
+                if scl_xs.len() != sda_xs.len() {
+                    return e(format!(
+                        "decode_i2c: clock and data must be the same length -- scl has {} samples, \
+                         sda has {}. They are two channels of one capture; different lengths mean \
+                         they are not aligned in time and every bit position would be a guess.",
+                        scl_xs.len(),
+                        sda_xs.len()
+                    ));
+                }
+                let scl = digital_levels(&scl_xs, scl_thr, hyst);
+                let sda = digital_levels(&sda_xs, sda_thr, hyst);
+                let n = scl.len();
+                let dt = sample_period(orig);
+                let mut txns: Vec<Value> = Vec::new();
+                let mut addresses: Vec<f64> = Vec::new();
+                let mut cur: Option<I2cTxn> = None;
+                // Most recent COMPLETE 10-bit address, carried forward so
+                // the read half of a 10-bit transfer can report the whole
+                // address rather than just the two high bits it restates.
+                let mut carried_ten: Option<f64> = None;
+                for i in 1..n {
+                    let (c, d) = (scl[i], sda[i]);
+                    let (pc, pd) = (scl[i - 1], sda[i - 1]);
+                    if c && pc {
+                        if pd && !d {
+                            let repeated = cur.is_some();
+                            if let Some(t) = cur.take() {
+                                if t.ten_bit && t.address_complete {
+                                    carried_ten = Some(t.address);
+                                }
+                                addresses.push(t.address);
+                                txns.push(t.finish("repeated_start", i, dt));
+                            }
+                            cur = Some(I2cTxn::new(i, repeated));
+                        } else if !pd && d {
+                            if let Some(t) = cur.take() {
+                                if t.ten_bit && t.address_complete {
+                                    carried_ten = Some(t.address);
+                                }
+                                addresses.push(t.address);
+                                txns.push(t.finish("stop", i, dt));
+                            }
+                        }
+                    } else if c && !pc {
+                        if let Some(t) = cur.as_mut() {
+                            t.push_bit(d, carried_ten);
+                        }
+                    }
+                }
+                if let Some(t) = cur.take() {
+                    addresses.push(t.address);
+                    txns.push(t.finish("truncated", n.saturating_sub(1), dt));
+                }
+                let count = txns.len() as f64;
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "i2c",
                     vec![
-                        (
-                            "indices".to_string(),
-                            Value::Vec(Arc::new(set.indices.iter().map(|&i| i as f64).collect())),
-                        ),
-                        (
-                            "directions".to_string(),
-                            Value::Vec(Arc::new(
-                                set.rising.iter().map(|&r| if r { 1.0 } else { -1.0 }).collect(),
-                            )),
-                        ),
-                        ("positions".to_string(), Value::Vec(Arc::new(set.positions.clone()))),
-                        ("rising".to_string(), Value::Vec(Arc::new(rising))),
-                        ("falling".to_string(), Value::Vec(Arc::new(falling))),
-                        ("count".to_string(), Value::Num(set.indices.len() as f64)),
+                        ("transactions".to_string(), Value::List(Arc::new(txns))),
+                        ("addresses".to_string(), Value::Vec(Arc::new(addresses))),
+                        ("count".to_string(), Value::Num(count)),
+                    ],
+                ))))
+            }
+
+            // `decode_can(bus, [bitrate=], [samples_per_bit=],
+            // [polarity="normal"], [hysteresis=])` -- §8's CAN decoder,
+            // base (11-bit) and extended (29-bit) frame formats.
+            //
+            // One positional argument, unlike I2C: CAN is a single-wire
+            // bus as far as a digitized capture is concerned (the
+            // differential pair has already been resolved to a logic
+            // level by the transceiver, or by the scope's own threshold),
+            // and it carries no clock -- which is exactly why this one
+            // needs a `bitrate=` and I2C does not.
+            //
+            // LEVELS: CAN is defined on dominant/recessive, not high/low.
+            // Dominant is logical 0 and, on a transceiver's RX pin, LOW;
+            // recessive is logical 1, HIGH, and is the idle state. That
+            // is `polarity="normal"`. A capture taken off an inverting
+            // buffer -- or off CAN_L instead of CAN_H -- needs
+            // `polarity="inverted"`, and gets a clear error rather than a
+            // silent stream of nonsense frames if it is left unset,
+            // because with the polarity backwards the bus never looks
+            // idle and no SOF is ever found.
+            //
+            // FIELD ORDER, which is where base and extended diverge and
+            // the divergence is not knowable up front: both open with SOF
+            // and 11 identifier bits, then one bit (RTR for base, SRR for
+            // extended) and then IDE -- and it is IDE, the THIRTEENTH
+            // bit, that finally says which format has been arriving all
+            // along. Base then runs r0, DLC(4); extended runs 18 more
+            // identifier bits, RTR, r1, r0, DLC(4). Hence the read is
+            // strictly sequential and cannot be a fixed-offset slice.
+            "decode_can" => {
+                let d = arg0(&args)?;
+                let hyst = style_num_checked(&style, "hysteresis", 0.0, f)?;
+                let (xs, thr, orig) = digital_parts(d, f)?;
+                let dominant_low = match style_str(&style, "polarity").as_deref() {
+                    None | Some("normal" | "low" | "dominant_low") => true,
+                    Some("inverted" | "high" | "dominant_high") => false,
+                    Some(other) => {
+                        return e(format!(
+                            "decode_can: polarity must be \"normal\" (bus dominant = low, what a \
+                             transceiver RX pin gives you) or \"inverted\", found \"{other}\""
+                        ))
+                    }
+                };
+                // Samples per bit. `samples_per_bit=` is the escape hatch
+                // for a plain vector, which carries no sample rate at all
+                // and for which `bitrate=` therefore cannot mean
+                // anything; a `Signal` knows its rate and takes the
+                // ordinary `bitrate=` (125000, 250000, 500000, 1e6, ...).
+                let spb = if style_entry(&style, "samples_per_bit").is_some() {
+                    style_num_checked(&style, "samples_per_bit", 0.0, f)?
+                } else if style_entry(&style, "bitrate").is_some() {
+                    let br = style_num_checked(&style, "bitrate", 0.0, f)?;
+                    if !(br > 0.0) {
+                        return e(format!("decode_can: bitrate must be positive, found {br}"));
+                    }
+                    if !matches!(orig, Value::Signal(..)) {
+                        return e(
+                            "decode_can: bitrate= needs the capture's sample rate to turn into a \
+                             bit length, and only a Signal carries one -- either digitize a Signal \
+                             or pass samples_per_bit= instead"
+                                .to_string(),
+                        );
+                    }
+                    let dt = sample_period(orig);
+                    (1.0 / dt) / br
+                } else {
+                    return e(
+                        "decode_can: needs bitrate= (on a Signal, whose sample rate sets the bit \
+                         length) or samples_per_bit= -- CAN carries no clock, so the bit length \
+                         cannot be recovered from the capture alone"
+                            .to_string(),
+                    );
+                };
+                if !(spb >= 2.0) {
+                    return e(format!(
+                        "decode_can: that works out to {spb} samples per bit, below the 2 a level \
+                         decoder needs at minimum -- check bitrate= against the capture's sample rate"
+                    ));
+                }
+                let dt = sample_period(orig);
+                let levels = digital_levels(&xs, thr, hyst);
+                // Logical CAN bits: recessive = 1 = idle.
+                let bits: Vec<u8> =
+                    levels.iter().map(|&hi| u8::from(if dominant_low { hi } else { !hi })).collect();
+                let n = bits.len();
+                let mut frames: Vec<Value> = Vec::new();
+                let mut ids: Vec<f64> = Vec::new();
+                let mut error_count = 0usize;
+                let mut i = 1usize;
+                while i < n {
+                    // SOF: the first dominant bit after a recessive bus.
+                    if !(bits[i] == 0 && bits[i - 1] == 1) {
+                        i += 1;
+                        continue;
+                    }
+                    let sof_index = i;
+                    let mut r = CanBitReader { bits: &bits, spb, pos: sof_index as f64 };
+                    let mut ds = CanDeStuffer::new();
+                    match can_read_frame(&mut r, &mut ds) {
+                        Some(fr) => {
+                            ids.push(fr.id as f64);
+                            frames.push(fr.into_model(ds.stuff_bits, sof_index, dt));
+                            // Resume after the frame just consumed, not
+                            // after its SOF -- otherwise every dominant
+                            // bit inside it would be retried as a new SOF.
+                            i = (r.pos.ceil() as usize).max(sof_index + 1);
+                        }
+                        None => {
+                            if ds.stuff_error {
+                                error_count += 1;
+                            }
+                            i = sof_index + 1;
+                        }
+                    }
+                }
+                let count = frames.len() as f64;
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "can",
+                    vec![
+                        ("frames".to_string(), Value::List(Arc::new(frames))),
+                        ("ids".to_string(), Value::Vec(Arc::new(ids))),
+                        ("count".to_string(), Value::Num(count)),
+                        ("error_count".to_string(), Value::Num(error_count as f64)),
+                        ("samples_per_bit".to_string(), Value::Num(spb)),
                     ],
                 ))))
             }
@@ -23525,8 +25316,21 @@ self.eval_grad(loss, wrt)
             // overshoot" reads as 0.05%. Both are stated in the book
             // table; the asymmetry is deliberate, not an oversight.
             "duty_cycle" => {
-                let xs = to_cow(arg0(&args)?)?;
-                let level = threshold_kwarg(f, &style, &xs)?;
+                let arg = arg0(&args)?;
+                // Also callable as `d.duty_cycle()` on a `to_digital(...)`
+                // value (§8), reusing its stored threshold as the default
+                // `level` -- an explicit `level=`/`threshold=` kwarg still
+                // wins, same precedence as the plain-signal form below.
+                let (xs, level) = if matches!(arg, Value::Model(m) if m.kind == "digital") {
+                    let (xs, thr, _orig) = digital_parts(arg, f)?;
+                    let level =
+                        style_num(&style, "level").or_else(|| style_num(&style, "threshold")).unwrap_or(thr);
+                    (xs, level)
+                } else {
+                    let xs = to_cow(arg)?;
+                    let level = threshold_kwarg(f, &style, &xs)?;
+                    (xs, level)
+                };
                 let hyst = style_num(&style, "hysteresis").unwrap_or(0.0);
                 match numeric::transforms::duty_cycle(&xs, level, hyst) {
                     Some(d) => Ok(Value::Num(d)),
@@ -23674,7 +25478,20 @@ self.eval_grad(loss, wrt)
                     );
                 }
                 let db = positional_or_named_num(&args, 1, &style, "db", 0.0, "gain")?;
+                if db.is_nan() {
+                    return e("gain: db must be a number, found NaN");
+                }
                 let factor = 10f64.powf(db / 20.0);
+                // A gain is a KNOWN LINEAR map, so on a Signal it goes
+                // through `signal_meta::rescale`, which composes it into the
+                // calibration record and keeps the unit. `map1` would drop
+                // both (correctly, for the arbitrary functions it exists
+                // for) -- and then `gain(s, -3)` and `apply_gain(s, 0.708)`,
+                // which are the same operation spelled two ways, would
+                // disagree about whether `s` is still calibrated.
+                if matches!(x, Value::Signal(..)) {
+                    return signal_meta::rescale("gain", &x, factor, 0.0, None, None);
+                }
                 map1(x, move |v| v * factor)
             }
             // `delay(x, n)` — shift `x` later along its own time axis by
@@ -23715,16 +25532,30 @@ self.eval_grad(loss, wrt)
                 }
                 let xs = to_cow(&x)?.into_owned();
                 let len = xs.len();
+                // `n_f as i64` saturates rather than panics (Rust's
+                // float-to-int cast has been saturating since 1.45), but an
+                // `n` near `i64::MIN`/`i64::MAX` can still overflow the
+                // plain `i64` subtraction below for every `i` in range --
+                // `i as i64 - n` panics on overflow in a debug build (and
+                // is UB-adjacent wrapping in release). Doing the arithmetic
+                // in `i128` instead makes overflow impossible: `i` and `n`
+                // both fit comfortably within `i128`, so no shift value can
+                // ever blow this up, regardless of build profile.
                 let n = n_f as i64;
                 let mut out = vec![0.0; len];
                 for (i, slot) in out.iter_mut().enumerate() {
-                    let src = i as i64 - n;
-                    if src >= 0 && (src as usize) < len {
+                    let src = i as i128 - n as i128;
+                    if src >= 0 && src < len as i128 {
                         *slot = xs[src as usize];
                     }
                 }
                 Ok(match &x {
-                    Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+                    // Still the same physical quantity, slid along its own
+                    // axis -- see `SigMeta::values_only` for why the unit
+                    // and calibration ride along and the markers do not.
+                    Value::Signal(_, fs, m) => {
+                        Value::Signal(Arc::new(out), *fs, Arc::new(m.values_only()))
+                    }
                     _ => Value::Vec(Arc::new(out)),
                 })
             }
@@ -23800,7 +25631,10 @@ self.eval_grad(loss, wrt)
                     }
                 };
                 Ok(match &x {
-                    Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+                    // Denoising is sample-aligned and unit-preserving: a
+                    // denoised pressure signal is still that pressure, at
+                    // the same instants. Everything rides along.
+                    Value::Signal(_, fs, m) => Value::Signal(Arc::new(out), *fs, m.clone()),
                     _ => Value::Vec(Arc::new(out)),
                 })
             }
@@ -25276,7 +27110,7 @@ self.eval_grad(loss, wrt)
                     msg: format!("{f}(b, a, x) needs the signal"),
                 })?;
                 let fs = match x_arg {
-                    Value::Signal(_, fs) => Some(*fs),
+                    Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
                 };
                 let x = to_vec(x_arg)?;
@@ -25315,7 +27149,7 @@ self.eval_grad(loss, wrt)
                     y.push(yi);
                 }
                 match fs {
-                    Some(fs) => Ok(Value::Signal(y.into(), fs)),
+                    Some(fs) => Ok(Value::Signal(y.into(), fs, SigMeta::none())),
                     None => Ok(Value::Vec(Arc::new(y))),
                 }
             }
@@ -25325,13 +27159,13 @@ self.eval_grad(loss, wrt)
                     msg: "sosfilt(filt, x) needs 2 arguments".into(),
                 })?;
                 let fs = match x_arg {
-                    Value::Signal(_, fs) => Some(*fs),
+                    Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
                 };
                 let x = to_vec(x_arg)?;
                 let out = repr_filt(&repr, &x)?;
                 match fs {
-                    Some(fs) => Ok(Value::Signal(out.into(), fs)),
+                    Some(fs) => Ok(Value::Signal(out.into(), fs, SigMeta::none())),
                     None => Ok(Value::Vec(Arc::new(out))),
                 }
             }
@@ -25345,13 +27179,13 @@ self.eval_grad(loss, wrt)
                     msg: "filtfilt(filt, x) needs 2 arguments".into(),
                 })?;
                 let fs = match x_arg {
-                    Value::Signal(_, fs) => Some(*fs),
+                    Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
                 };
                 let x = to_vec(x_arg)?;
                 let out = repr_filtfilt(&repr, &x)?;
                 match fs {
-                    Some(fs) => Ok(Value::Signal(out.into(), fs)),
+                    Some(fs) => Ok(Value::Signal(out.into(), fs, SigMeta::none())),
                     None => Ok(Value::Vec(Arc::new(out))),
                 }
             }
@@ -25517,7 +27351,7 @@ self.eval_grad(loss, wrt)
                     );
                 }
                 let fs = match &x {
-                    Value::Signal(_, fs) => Some(*fs),
+                    Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
                 };
                 let xs = to_cow(&x)?.into_owned();
@@ -25534,6 +27368,14 @@ self.eval_grad(loss, wrt)
                 let block = block_f as usize;
                 let n_blocks = xs.len().div_ceil(block);
                 let mut out: Vec<f64> = Vec::with_capacity(xs.len());
+                // Tagging must be decided PER BLOCK, not from the aggregate
+                // output length: two non-uniform blocks (e.g. lengths 1 and
+                // 7) can happen to sum to `xs.len()` without `f` actually
+                // being a consistent same-rate or one-per-block function,
+                // and the old aggregate-only check could not tell that
+                // apart from the real thing.
+                let mut same_rate = true;
+                let mut decimated = true;
                 for chunk in xs.chunks(block) {
                     // Each block is handed over as the same KIND of thing
                     // `x` is: a block of a `Signal` is itself a `Signal` at
@@ -25545,19 +27387,305 @@ self.eval_grad(loss, wrt)
                     // passed as-is rather than zero-padded: padding would
                     // silently invent samples the caller never had.
                     let arg = match fs {
-                        Some(fs) => Value::Signal(Arc::new(chunk.to_vec()), fs),
+                        Some(fs) => Value::Signal(Arc::new(chunk.to_vec()), fs, SigMeta::none()),
                         None => Value::Vec(Arc::new(chunk.to_vec())),
                     };
                     let got = self.apply(&fn_name, vec![arg], Vec::new())?;
                     let got_xs = to_cow(&got).map_err(|err| EvalError {
                         msg: format!("block_process: `{fn_name}` must return numbers -- {}", err.msg),
                     })?;
+                    same_rate &= got_xs.len() == chunk.len();
+                    decimated &= got_xs.len() == 1;
                     out.extend_from_slice(&got_xs);
                 }
                 Ok(match fs {
-                    Some(fs) if out.len() == xs.len() => Value::Signal(Arc::new(out), fs),
+                    Some(fs) if same_rate => Value::Signal(Arc::new(out), fs, SigMeta::none()),
+                    Some(fs) if decimated && n_blocks != xs.len() => {
+                        Value::Signal(Arc::new(out), fs / block as f64, SigMeta::none())
+                    }
+                    _ => Value::Vec(Arc::new(out)),
+                })
+            }
+            // `blocks(x, n, [hop=n])` — cut `x` into a LIST of consecutive
+            // blocks, so `for b in s.blocks(4096)` works with the `for`
+            // loop Qu already has. This is `toolkit-signal.md` §5's second
+            // surface ("[from specs.md §49]"), and it is deliberately a
+            // plain `Value::List` rather than a new lazy-iterator value:
+            // `eval_for_iterable` matches List/Vec/Signal/Num/range and
+            // errors on everything else, so a new variant would need its
+            // own arm there AND in `collection_elems`, to buy laziness
+            // nobody asked for over data that is already wholly in memory.
+            //
+            // `n` is a whole number of SAMPLES, or a duration
+            // (`blocks(s, 100 ms)`) resolved against the signal's own `Fs`.
+            // A duration is a LENGTH, so it is `round(secs * fs)` samples
+            // — NOT the inclusive `s[0 s : 0.1 s]` slice convention, which
+            // spans `round(t1*fs) - round(t0*fs) + 1` and would make every
+            // block one sample too long. Probed 2026-09-18 against this
+            // binary: `s[0.0 s : 0.25 s]` on an Fs=8 signal returns 3
+            // samples, not 2. The classifier is §1's own `axis_coord`, so
+            // a frequency handed in where a duration belongs is refused by
+            // SI dimension rather than by spelling.
+            //
+            // Each block is a `Signal` at the input's `Fs` (a plain `Vec`
+            // if the input had no rate), so a per-block `fft`/`rms` reads
+            // the rate off its own argument. The last block is short when
+            // the length is not a multiple of `n`, passed as-is and never
+            // zero-padded — same rule as `block_process`, for the same
+            // reason: padding invents samples the caller never had.
+            "blocks" => {
+                let x = arg0(&args)?.clone();
+                if matches!(x, Value::Mat(_)) {
+                    return e(
+                        "blocks: expected a signal or vector, found a matrix -- blocking one \
+                         would have to flatten it column-major, so it is refused rather than \
+                         silently flattened",
+                    );
+                }
+                let fs = match &x {
+                    Value::Signal(_, fs, _) => Some(*fs),
+                    _ => None,
+                };
+                let n_arg = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "blocks(x, n, [hop=]) needs a block length -- `blocks(s, 4096)` or \
+                          `blocks(s, 100 ms)`"
+                        .into(),
+                })?;
+                let block = block_len_samples(&n_arg, fs, "blocks")?;
+                let hop = match style_entry(&style, "hop") {
+                    Some((_, v)) => block_len_samples(v, fs, "blocks")?,
+                    None => block,
+                };
+                let xs = to_cow(&x)?;
+                if xs.is_empty() {
+                    return e("blocks: the signal is empty");
+                }
+                let mut out: Vec<Value> = Vec::new();
+                let mut start = 0usize;
+                while start < xs.len() {
+                    let stop = (start + block).min(xs.len());
+                    let chunk = xs[start..stop].to_vec();
+                    out.push(match fs {
+                        Some(fs) => Value::Signal(Arc::new(chunk), fs, SigMeta::none()),
+                        None => Value::Vec(Arc::new(chunk)),
+                    });
+                    start += hop;
+                }
+                Ok(Value::List(Arc::new(out)))
+            }
+            // `processor(f, [block=256], [state=], [rate=])` — the STATEFUL
+            // sibling of `block_process`, and the offline half of
+            // `toolkit-signal.md` §5. `block_process`'s own comment above
+            // names the exact gap this fills: it threads NOTHING between
+            // block calls, so an algorithm needing history across a
+            // boundary (an IIR's biquad state, overlap-add, a running
+            // accumulator) restarts at every block and shows block-edge
+            // artifacts. Probed 2026-09-18: a running sum over
+            // `[1..8]` at `block=4` comes back `[1,3,6,10, 5,11,18,26]` —
+            // the accumulator visibly resets at sample 4.
+            //
+            // THE STATE PROTOCOL, AND WHY THIS ONE. `block_process`'s
+            // comment correctly says a block-level state protocol should
+            // not be invented unilaterally on the way past. It is not
+            // invented here: it is the SAME "thread a new state through
+            // each call" idiom `filter_init`/`filter_next` and
+            // `kalman_predict`/`kalman_update` already use, lifted from a
+            // sample to a block. `f(block, state)` returns the two-element
+            // list `(y, next_state)`; `processor` seeds the first `state`
+            // and carries each returned one into the next block. Qu has no
+            // mutation-of-shared-state primitive, by design, so explicit
+            // threading is the only shape available anyway.
+            //
+            // Stateful is opted into by PASSING `state=`, not by
+            // introspecting `f`'s arity. Arity would have to cope with
+            // overloads and would silently pick the wrong protocol when it
+            // guessed wrong; a declared `state=` says what the caller
+            // meant, and its absence means the stateless `f(block)` shape
+            // that `block_process` already has.
+            //
+            // WHY NOT THE SPEC'S `proc = processor(block: 256) { |x| ... }`
+            // / `y = proc(s)`. Both halves were probed against this binary
+            // on 2026-09-18 and neither parses or runs. `{ |x| ... }` is a
+            // parse error ("expected end of statement, found Op(`{`)") —
+            // `|` is explicitly rejected as a Qu operator and `{` in
+            // expression position is a record literal. And `proc(s)` calls
+            // a value that is not a function, which lands in "unknown
+            // function `proc`". Both would need the open "does Qu grow
+            // general object dispatch?" question settled, which is Ahmed's
+            // call. So `f` arrives the way every other higher-order builtin
+            // takes it (a name or a function value, via `text_arg`, which
+            // means all three real lambda spellings work), and the handle
+            // is applied with `process(p, s)` / `p.process(s)`.
+            "processor" => {
+                let fn_name = text_arg(&args, 0)?;
+                if !self.has_user_fn(&fn_name) {
+                    return e(format!(
+                        "processor: no user function named `{fn_name}` (only functions you \
+                         defined can be a processor's body, not builtins)"
+                    ));
+                }
+                let block_f = positional_or_named_num(&args, 1, &style, "block", 256.0, "processor")?;
+                if !(block_f >= 1.0) || block_f.fract() != 0.0 {
+                    return e(format!(
+                        "processor: block must be a positive whole number of samples, found {block_f}"
+                    ));
+                }
+                let block = block_f as usize;
+                // `rate=` takes a plain number or a frequency (`48 kHz`),
+                // classified by SI dimension like everything else on this
+                // axis. It stays OPTIONAL: a processor that was never told
+                // a rate simply has no `rate`/`latency_ms` field, so
+                // `p.latency_ms` fails with the record-style "no field
+                // ... (fields: ...)" error naming what IS there, rather
+                // than reporting a millisecond figure computed from a
+                // sample rate nobody supplied. `latency` in samples is
+                // always available, because it never needed a rate.
+                let rate = match style_entry(&style, "rate") {
+                    Some((_, v)) => Some(rate_hz(v, "processor")?),
+                    None => None,
+                };
+                let stateful = style_entry(&style, "state").is_some();
+                let init_state = style_entry(&style, "state")
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or(Value::Num(0.0));
+                let mut fields: Vec<(String, Value)> = vec![
+                    ("fn".to_string(), Value::Str(fn_name)),
+                    ("block".to_string(), Value::Num(block as f64)),
+                    // The algorithmic latency of block buffering: a block
+                    // cannot be emitted until its last sample has arrived.
+                    ("latency".to_string(), Value::Num(block as f64)),
+                    ("stateful".to_string(), Value::Bool(stateful)),
+                ];
+                if stateful {
+                    fields.push(("state".to_string(), init_state));
+                }
+                if let Some(hz) = rate {
+                    fields.push(("rate".to_string(), Value::Num(hz)));
+                    fields.push((
+                        "latency_ms".to_string(),
+                        Value::Num(block as f64 / hz * 1000.0),
+                    ));
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new("processor", fields))))
+            }
+            // `process(p, x)` / `x.process(p)` — run a `processor` over a
+            // whole signal, block by block, carrying state across the
+            // boundaries. The OFFLINE call of §5's "same object" pair; the
+            // live `run(proc, input: mic, output: speakers)` half is NOT
+            // built (no mic/speaker layer exists in this engine) and is
+            // deliberately not stubbed.
+            "process" => {
+                let p = as_model(arg0(&args)?)?;
+                if p.kind != "processor" {
+                    return e(format!(
+                        "process: expected a processor, got a `{}` model -- build one with \
+                         `processor(f, block = 256)`",
+                        p.kind
+                    ));
+                }
+                let x = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "process(p, x) needs a signal to run the processor over".into(),
+                })?;
+                if matches!(x, Value::Mat(_)) {
+                    return e(
+                        "process: expected a signal or vector, found a matrix -- blocking one \
+                         would have to flatten it column-major, so it is refused rather than \
+                         silently flattened",
+                    );
+                }
+                let fn_name = match p.field("fn") {
+                    Some(Value::Str(s)) => s.clone(),
+                    _ => return e("process: this processor has no function to run"),
+                };
+                let block = match p.field("block") {
+                    Some(Value::Num(n)) => *n as usize,
+                    _ => return e("process: this processor has no block length"),
+                };
+                let stateful = matches!(p.field("stateful"), Some(Value::Bool(true)));
+                let fs = match &x {
+                    Value::Signal(_, fs, _) => Some(*fs),
+                    _ => None,
+                };
+                // A processor that was told its design rate refuses a
+                // signal at another rate, naming both — §4's rule for
+                // filters ("applying it to a signal of another rate is an
+                // error"), which applies for the same reason: every
+                // block-length-in-time and every latency figure the
+                // processor has already reported was computed at the
+                // declared rate.
+                if let (Some(Value::Num(declared)), Some(actual)) = (p.field("rate"), fs) {
+                    if (*declared - actual).abs() > 1e-9 {
+                        return e(format!(
+                            "process: this processor was built for rate {declared} Hz but the \
+                             signal is at {actual} Hz -- `resample(x, {declared} Hz)` first, or \
+                             build the processor without a `rate` to accept any"
+                        ));
+                    }
+                }
+                let xs = to_cow(&x)?.into_owned();
+                if xs.is_empty() {
+                    return e("process: the signal is empty");
+                }
+                let n_blocks = xs.len().div_ceil(block);
+                let mut out: Vec<f64> = Vec::with_capacity(xs.len());
+                let mut state = p.field("state").cloned().unwrap_or(Value::Num(0.0));
+                for chunk in xs.chunks(block) {
+                    let arg = match fs {
+                        Some(fs) => Value::Signal(Arc::new(chunk.to_vec()), fs, SigMeta::none()),
+                        None => Value::Vec(Arc::new(chunk.to_vec())),
+                    };
+                    let got = if stateful {
+                        self.apply(&fn_name, vec![arg, state.clone()], Vec::new())?
+                    } else {
+                        self.apply(&fn_name, vec![arg], Vec::new())?
+                    };
+                    let block_out = if stateful {
+                        // `(y, next_state)`. Insisting on exactly two
+                        // elements rather than taking `first`/`last` of
+                        // whatever arrives: a stateful body that forgot to
+                        // return its state would otherwise run to
+                        // completion with the seed state silently reused
+                        // for every block — which is precisely the
+                        // block-edge bug this builtin exists to remove,
+                        // reintroduced in a form no test would notice.
+                        match &got {
+                            Value::List(items) if items.len() == 2 => {
+                                state = items[1].clone();
+                                items[0].clone()
+                            }
+                            Value::List(items) => {
+                                return e(format!(
+                                    "process: `{fn_name}` is a stateful body, so it must return \
+                                     the two-element list `(y, next_state)` -- it returned {} \
+                                     elements",
+                                    items.len()
+                                ))
+                            }
+                            other => {
+                                return e(format!(
+                                    "process: `{fn_name}` is a stateful body, so it must return \
+                                     the two-element list `(y, next_state)` -- it returned {}",
+                                    other.type_name()
+                                ))
+                            }
+                        }
+                    } else {
+                        got
+                    };
+                    let got_xs = to_cow(&block_out).map_err(|err| EvalError {
+                        msg: format!("process: `{fn_name}` must return numbers -- {}", err.msg),
+                    })?;
+                    out.extend_from_slice(&got_xs);
+                }
+                // Same rate-tagging rule as `block_process`, deliberately
+                // identical so the two do not drift: same length keeps the
+                // rate, one-number-per-block is genuinely sampled at
+                // `fs / block` and is tagged that way, anything else has no
+                // rate this can name and comes back a plain `Vec`.
+                Ok(match fs {
+                    Some(fs) if out.len() == xs.len() => Value::Signal(Arc::new(out), fs, SigMeta::none()),
                     Some(fs) if out.len() == n_blocks && n_blocks != xs.len() => {
-                        Value::Signal(Arc::new(out), fs / block as f64)
+                        Value::Signal(Arc::new(out), fs / block as f64, SigMeta::none())
                     }
                     _ => Value::Vec(Arc::new(out)),
                 })
@@ -26300,7 +28428,7 @@ self.eval_grad(loss, wrt)
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
                 let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
                 numeric::transforms::welch(&xs, fs, nperseg, noverlap, &window)
-                    .map(|v| Value::Vec(Arc::new(v)))
+                    .map(|v| density_spectrum(v, fs, nperseg))
                     .map_err(|ne| EvalError { msg: format!("welch: {ne}") })
             }
             // `periodogram(x, fs, [window="hann"])` — the simplest PSD
@@ -26323,7 +28451,7 @@ self.eval_grad(loss, wrt)
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
                 let window = periodic_analysis_window(f, &window_name, xs.len(), &style)?;
                 numeric::transforms::periodogram(&xs, fs, &window)
-                    .map(|v| Value::Vec(Arc::new(v)))
+                    .map(|v| density_spectrum(v, fs, xs.len()))
                     .map_err(|ne| EvalError { msg: format!("periodogram: {ne}") })
             }
             // `spectrum(x, [fs], [window="hann"], [scaling="amplitude"])` —
@@ -26515,7 +28643,7 @@ self.eval_grad(loss, wrt)
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hann".to_string());
                 let window = periodic_analysis_window(f, &window_name, nperseg, &style)?;
                 numeric::transforms::welch(&xs, fs, nperseg, noverlap, &window)
-                    .map(|v| Value::Vec(Arc::new(v)))
+                    .map(|v| density_spectrum(v, fs, nperseg))
                     .map_err(|ne| EvalError { msg: format!("psd: {ne}") })
             }
             // `csd(x, y, fs, [nperseg=], [noverlap=], [window="hann"])` —
@@ -26564,6 +28692,62 @@ self.eval_grad(loss, wrt)
                 numeric::transforms::csd(&xs, &ys, fs, nperseg, noverlap, &window)
                     .map(|v| Value::CVec(Arc::new(v)))
                     .map_err(|ne| EvalError { msg: format!("csd: {ne}") })
+            }
+            // `transfer_function(input, output, [fs], [method="h1"], ...)` —
+            // `toolkit-signal.md` §11's `Signal.transferFunction(input,
+            // output)`: the frequency response of the system taking `input`
+            // to `output`, with the coherence that says how much of the
+            // output that response actually explains.
+            //
+            // The estimator is a `method=` KEYWORD rather than three
+            // separate builtins. H1/H2/Hv are three answers to one question
+            // (where is the noise?), not three operations — and the names
+            // `h1`/`h2` are already taken by the report builder's heading
+            // helpers (`r.h1("Title")`), so top-level `h1(x, y)` was never
+            // available to take.
+            //
+            // Returns a `kind="frf"` handle rather than a bare `CVec`
+            // because §0's whole thesis is that the axis travels with the
+            // data: `H.freq` is in Hz and reads exactly like `Spectrum`'s
+            // own `.freq`, and `H.magnitude()`/`.phase()`/`.coherence()`
+            // work through the ordinary `recv.method()` sugar.
+            "transfer_function" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let ys = to_cow(arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "transfer_function(input, output, [fs]): expected a second \
+                          argument, the measured `output` recording"
+                        .to_string(),
+                })?)?;
+                if xs.is_empty() || ys.is_empty() {
+                    return e("transfer_function: input signal is empty");
+                }
+                if xs.len() != ys.len() {
+                    return e(format!(
+                        "transfer_function: input has {} sample(s) but output has {} -- \
+                         an FRF is estimated from two SIMULTANEOUS recordings, so they \
+                         must be the same length",
+                        xs.len(),
+                        ys.len()
+                    ));
+                }
+                let fs = resolve_fs_pair(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).expect("output argument checked above"),
+                    arg_get(&args, 2).and_then(|v| v.as_num().ok()),
+                )?;
+                let (h, coh, freq, method, nperseg) = estimate_frf(f, &xs, &ys, fs, &style)?;
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "frf",
+                    vec![
+                        ("h".to_string(), Value::CVec(Arc::new(h))),
+                        ("freq".to_string(), Value::Vec(Arc::new(freq))),
+                        ("coherence".to_string(), Value::Vec(Arc::new(coh))),
+                        ("method".to_string(), Value::Str(method)),
+                        ("fs".to_string(), Value::Num(fs)),
+                        ("nperseg".to_string(), Value::Num(nperseg as f64)),
+                    ],
+                ))))
             }
             // `signal_slice_time(sig, t0, t1)` — slices a `Signal` by a TIME
             // range in seconds (half-open `[t0, t1)`, matching the ordinary
@@ -26624,7 +28808,7 @@ self.eval_grad(loss, wrt)
             // far more likely a mistake than an intentional empty cut.
             "signal_slice_time" | "cut" => {
                 let (xs, fs) = match arg0(&args)? {
-                    Value::Signal(xs, fs) => (xs.clone(), *fs),
+                    Value::Signal(xs, fs, _) => (xs.clone(), *fs),
                     other => return e(format!(
                         "{f} expects a Signal (a value with its own Fs), found {}",
                         other.type_name()
@@ -26654,7 +28838,7 @@ self.eval_grad(loss, wrt)
                 // one body, extended to the third spelling of the same
                 // operation.
                 let out = signal_time_span(&xs, fs, t0, t1, f)?;
-                Ok(Value::Signal(out.into(), fs))
+                Ok(Value::Signal(out.into(), fs, SigMeta::none()))
             }
             // §41.2, frequency side -- the twin of `signal_slice_time` above:
             // address a spectrum in Hz instead of in bin indices, which is the
@@ -26714,6 +28898,24 @@ self.eval_grad(loss, wrt)
                 };
                 if norm == SpectrumNorm::RawTransform {
                     return e("spectrum_unnormalize: X is already raw_transform-scaled".to_string());
+                }
+                // A density cannot be walked back to a raw transform by any
+                // per-bin factor: `welch` squared the bins, averaged them
+                // across overlapping segments and divided by the window's
+                // noise-equivalent bandwidth, and the phase was discarded on
+                // the way. Without this guard the generic path below would
+                // apply a factor of 1.0 and hand back a density wearing a
+                // `raw_transform` label -- which `ifft` would then happily
+                // accept.
+                if norm == SpectrumNorm::Density {
+                    return e(
+                        "spectrum_unnormalize: X is a power spectral density (from welch/\
+                         periodogram/psd), and a density cannot be converted back to raw \
+                         transform output -- squaring, segment averaging and the window's \
+                         noise bandwidth are not per-bin factors, and the phase is gone. \
+                         Take rfft(s) if you need the invertible transform."
+                            .to_string(),
+                    );
                 }
                 let out = unapply_spectrum_norm(xs.as_ref().clone(), n, norm);
                 Ok(Value::Spectrum(Arc::new(out), fs, n, SpectrumNorm::RawTransform))
@@ -26775,13 +28977,32 @@ self.eval_grad(loss, wrt)
                     // honest answer until that formula exists; a plausible
                     // number computed from the wrong premise would be worse
                     // than refusing.
+                    //
+                    // `Density` decided the other way, because for a PSD the
+                    // answer is not extra work, it is the DEFINING one:
+                    // integrating a power spectral density over a band is
+                    // what a density is for. `toolkit-signal.md` §2 says so
+                    // outright -- "Integrating a PSD over a band returns V²,
+                    // whose square root is the band RMS in volts". The bins
+                    // are already one-sided units²/Hz with the window's noise
+                    // bandwidth divided out, so the integral is a plain
+                    // rectangular sum times `df`, and no conjugate-pair
+                    // handling applies (a density has no negative half).
                     match norm {
                         SpectrumNorm::RawTransform => {}
+                        SpectrumNorm::Density => {
+                            let mut acc = 0.0;
+                            for k in k0..=k1.min(len.saturating_sub(1)) {
+                                acc += xs[k].re;
+                            }
+                            return Ok(Value::Num(acc * df));
+                        }
                         SpectrumNorm::Amplitude | SpectrumNorm::Rms => {
                             return e(format!(
                                 "{f}: not implemented yet for a {}-scaled spectrum -- only \
-                                 raw_transform bins are supported today. Take rfft(sig) \
-                                 without scaling= if you need band_power.",
+                                 raw_transform bins and welch/psd densities are supported \
+                                 today. Take rfft(sig) without scaling= if you need \
+                                 band_power.",
                                 norm.name()
                             ));
                         }
@@ -26933,6 +29154,134 @@ self.eval_grad(loss, wrt)
             // what turns it into data. Frequencies are in Hz, the axis
             // measured data arrives on.
             "impedance" => {
+                // TWO different computations share this one name, told apart
+                // by the first argument's type — the same argument-shape
+                // branch several builtins here already use:
+                //
+                //   impedance(circuit, freqs)     FORWARD:  evaluate a model
+                //   impedance(voltage, current)   MEASURED: estimate from two
+                //                                 recordings (§11)
+                //
+                // These cannot be confused: a `Circuit` is never a recording
+                // and a recording is never a `Circuit`. They are the same
+                // QUANTITY (a complex impedance over a frequency axis, in
+                // ohms) arrived at two ways, which is why they share a name
+                // rather than being `impedance` and `impedance_measured`.
+                if !matches!(arg0(&args)?, Value::Circuit(_)) {
+                    let volts = arg0(&args)?;
+                    let amps = arg_get(&args, 1).ok_or_else(|| EvalError {
+                        msg: format!(
+                            "impedance: the first argument is {}, not a circuit. \
+                             For a MEASURED impedance pass both recordings, \
+                             `impedance(voltage, current)`; for a modelled one pass a \
+                             circuit, `impedance(circuit, freqs)`",
+                            volts.type_name()
+                        ),
+                    })?;
+                    let vs = to_cow(volts)?;
+                    let is = to_cow(amps)?;
+                    if vs.is_empty() || is.is_empty() {
+                        return e("impedance: input signal is empty");
+                    }
+                    if vs.len() != is.len() {
+                        return e(format!(
+                            "impedance: voltage has {} sample(s) but current has {} -- \
+                             a measured impedance comes from two SIMULTANEOUS recordings, \
+                             so they must be the same length",
+                            vs.len(),
+                            is.len()
+                        ));
+                    }
+                    let fs = resolve_fs_pair(
+                        f,
+                        volts,
+                        amps,
+                        arg_get(&args, 2).and_then(|v| v.as_num().ok()),
+                    )?;
+                    // `frequencies=` — the excitation frequencies are KNOWN
+                    // (a multisine, a stepped sweep), so the impedance is
+                    // wanted at exactly those and nowhere else. Evaluated
+                    // with Goertzel at each one rather than by interpolating
+                    // a Welch grid: EIS sweeps are logarithmically spaced and
+                    // almost never land on FFT bin centres, and interpolating
+                    // a complex spectrum across a resonance is how a Nyquist
+                    // arc acquires a kink that is not in the data.
+                    //
+                    // No coherence on this path: it is a single-record
+                    // ratio, and coherence needs averaged segments to mean
+                    // anything. Reporting a fabricated 1.0 would be worse
+                    // than omitting the field.
+                    if let Some((_, fv)) = style_entry(&style, "frequencies") {
+                        let freqs = to_vec(fv)?;
+                        if freqs.is_empty() {
+                            return e("impedance: frequencies= is empty");
+                        }
+                        if let Some(bad) = freqs.iter().position(|hz| *hz <= 0.0) {
+                            return e(format!(
+                                "impedance: frequency {} at index {bad} is not positive -- \
+                                 impedance is evaluated on a positive frequency sweep",
+                                freqs[bad]
+                            ));
+                        }
+                        if let Some(bad) = freqs.iter().position(|hz| *hz > fs / 2.0) {
+                            return e(format!(
+                                "impedance: frequency {} Hz at index {bad} is above the \
+                                 Nyquist frequency ({} Hz) -- it was not measurable at this \
+                                 sample rate, and what comes back would be an alias",
+                                freqs[bad],
+                                fs / 2.0
+                            ));
+                        }
+                        let mut z = Vec::with_capacity(freqs.len());
+                        for hz in &freqs {
+                            let v = numeric::transforms::goertzel_freq(&vs, fs, *hz)
+                                .map_err(|ne| EvalError { msg: format!("impedance: {ne}") })?;
+                            let i = numeric::transforms::goertzel_freq(&is, fs, *hz)
+                                .map_err(|ne| EvalError { msg: format!("impedance: {ne}") })?;
+                            if i.magnitude() <= 1e-300 {
+                                return e(format!(
+                                    "impedance: the current recording has no measurable \
+                                     content at {hz} Hz, so Z = V/I is undefined there -- \
+                                     check that the excitation actually contains this frequency"
+                                ));
+                            }
+                            z.push(v.div(i));
+                        }
+                        return Ok(Value::Model(Arc::new(ModelHandle::new(
+                            "impedance",
+                            vec![
+                                ("z".to_string(), Value::CVec(Arc::new(z))),
+                                ("freq".to_string(), Value::Vec(Arc::new(freqs))),
+                                ("method".to_string(), Value::Str("goertzel".to_string())),
+                                ("fs".to_string(), Value::Num(fs)),
+                            ],
+                        ))));
+                    }
+                    // Broadband excitation. Z = V/I is the transfer function
+                    // from CURRENT to VOLTAGE, so current is the input and
+                    // voltage the output -- the reverse of this call's own
+                    // (voltage, current) argument order, which follows the
+                    // spec and reads the way the quantity is written.
+                    //
+                    // That ordering is what makes "h1" the right default
+                    // here: H1 assumes the noise is on the OUTPUT, i.e. on
+                    // the measured voltage, which is the galvanostatic case
+                    // (a controlled current drive). See board2.txt — a
+                    // potentiostatic rig has its noise on the current and
+                    // wants method="h2".
+                    let (h, coh, freq, method, nperseg) = estimate_frf(f, &is, &vs, fs, &style)?;
+                    return Ok(Value::Model(Arc::new(ModelHandle::new(
+                        "impedance",
+                        vec![
+                            ("z".to_string(), Value::CVec(Arc::new(h))),
+                            ("freq".to_string(), Value::Vec(Arc::new(freq))),
+                            ("coherence".to_string(), Value::Vec(Arc::new(coh))),
+                            ("method".to_string(), Value::Str(method)),
+                            ("fs".to_string(), Value::Num(fs)),
+                            ("nperseg".to_string(), Value::Num(nperseg as f64)),
+                        ],
+                    ))));
+                }
                 let c = match arg0(&args)? {
                     Value::Circuit(c) => c.clone(),
                     other => {
@@ -27200,6 +29549,53 @@ self.eval_grad(loss, wrt)
                 Ok(Value::Model(Arc::new(ModelHandle::new(
                     "kalman",
                     vec![("x".to_string(), Value::Vec(Arc::new(x0))), ("P".to_string(), Value::Mat(Arc::new(p0)))],
+                ))))
+            }
+            // The adaptive-filter family: a least-mean-squares (LMS)
+            // adaptive FIR, deliberately built on the SAME immutable
+            // `Value::Model` state handle the Kalman filter above uses
+            // (kind `"lms"`, fields `w`/`hist`/`mu`/`y`/`e`) rather than a
+            // mutable filter object — a script threads the returned state
+            // through successive `state.update(x, d)` calls, and the
+            // receiver is never modified in place. That matters more here
+            // than for `kalman`: the whole point of an adaptive filter is
+            // that you keep the weight history, and an in-place update
+            // would quietly destroy the very trajectory you are studying.
+            //
+            // `lms_init(n_taps, mu)` — an `n_taps`-tap filter with all
+            // weights AND its sliding input window zeroed, step size `mu`.
+            //
+            // Stability: the weights converge for
+            // `0 < mu < 2 / (n_taps * E[x^2])`. `mu` is NOT checked against
+            // that bound here, and cannot be: `E[x^2]` is a property of the
+            // input signal, which `lms_init` has not seen a single sample
+            // of yet. Only the two things knowable at init time --
+            // `n_taps >= 1` and `mu > 0` -- are enforced; the upper bound
+            // is documented in `book/src/stdlib/signal-processing.md` for
+            // the caller to apply, not silently assumed away.
+            "lms_init" => {
+                let n_taps = arg0(&args)?.as_index().map_err(|msg| EvalError { msg })?;
+                let mu = arg_get(&args, 1)
+                    .ok_or_else(|| EvalError { msg: "lms_init(n_taps, mu) needs 2 arguments".into() })?
+                    .as_num()
+                    .map_err(|msg| EvalError { msg })?;
+                if n_taps == 0 {
+                    return e("lms_init: n_taps must be at least 1");
+                }
+                if !(mu > 0.0) {
+                    return e(format!(
+                        "lms_init: mu must be positive (got {mu}) — LMS converges for 0 < mu < 2/(n_taps*E[x^2])"
+                    ));
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "lms",
+                    vec![
+                        ("w".to_string(), Value::Vec(Arc::new(vec![0.0; n_taps]))),
+                        ("hist".to_string(), Value::Vec(Arc::new(vec![0.0; n_taps]))),
+                        ("mu".to_string(), Value::Num(mu)),
+                        ("y".to_string(), Value::Num(0.0)),
+                        ("e".to_string(), Value::Num(0.0)),
+                    ],
                 ))))
             }
             // The shared `predict`/`update`/`estimate` dispatch for this
@@ -27487,6 +29883,97 @@ self.eval_grad(loss, wrt)
                 self.figures += 1;
                 Ok(Value::Nothing)
             }
+            // `bode(Z)` / `bode(Z, freqs)` — `toolkit-signal.md` §11's
+            // `Z.bode()`: magnitude AND phase, two stacked panels, one call.
+            //
+            // This deliberately does what the comment on `bode_magnitude`/
+            // `bode_phase` just above declined to do, and the difference is
+            // the frequency axis. Those two take a BARE complex vector, so a
+            // script must supply `freqs` anyway and is already managing the
+            // figure; splitting them leaves it in control of its own layout.
+            // A `kind="frf"`/`kind="impedance"` handle CARRIES its axis, and
+            // §11 asks that such a value "knows how to plot itself,
+            // correctly, once" -- at which point requiring two calls plus a
+            // hand-built `panel(2,1,k)` grid is asking the caller to
+            // reassemble something the value already knows.
+            //
+            // Both spellings stay: `bode(Z)` for the whole picture,
+            // `bode_magnitude`/`bode_phase` when a script wants one half in
+            // a panel of its own choosing. Flagged in board2.txt as a
+            // genuine tension with that documented decision.
+            "bode" => {
+                let src = arg0(&args)?;
+                let z = src.as_complex_flat().map_err(|msg| EvalError { msg })?;
+                let freqs = match arg_get(&args, 1) {
+                    Some(v) => to_vec(v)?,
+                    None => match src {
+                        Value::Model(m) if m.kind == "frf" || m.kind == "impedance" => {
+                            match m.field("freq") {
+                                Some(v) => to_vec(v)?,
+                                None => return e("bode: this handle carries no `freq` axis"),
+                            }
+                        }
+                        _ => {
+                            return e(
+                                "bode(Z, freqs) needs a frequency vector: a plain complex \
+                                 vector carries no frequency axis. Pass one, or plot the \
+                                 result of `transfer_function(...)`/`impedance(v, i)`, \
+                                 which carries its own",
+                            )
+                        }
+                    },
+                };
+                if z.len() != freqs.len() {
+                    return e(format!(
+                        "bode: Z has {} point(s) but freqs has {}",
+                        z.len(),
+                        freqs.len()
+                    ));
+                }
+                let color = style_str(&style, "color");
+                let label = style_str(&style, "label");
+                let marker = apply_line_style(
+                    style_str(&style, "marker").unwrap_or_else(|| "line".into()),
+                    &style,
+                );
+                // Floored before the log so an exactly-zero bin plots at the
+                // bottom of the axis instead of taking the whole panel to
+                // -inf and rendering every real point as a flat line.
+                let mag_db: Vec<f64> =
+                    z.iter().map(|c| 20.0 * c.magnitude().max(1e-300).log10()).collect();
+                let phase_deg: Vec<f64> = z.iter().map(|c| c.arg().to_degrees()).collect();
+                self.figure.select_grid(2, 1, 1).map_err(|msg| EvalError { msg })?;
+                {
+                    let p = self.figure.current_panel_mut();
+                    p.series.push(plotting::Series {
+                        x: freqs.clone(),
+                        y: mag_db,
+                        label: label.clone(),
+                        marker: marker.clone(),
+                        color: color.clone(),
+                        ..Default::default()
+                    });
+                    p.xscale = Scale::Log;
+                    p.ylabel = Some("Magnitude (dB)".into());
+                }
+                self.figure.select_grid(2, 1, 2).map_err(|msg| EvalError { msg })?;
+                {
+                    let p = self.figure.current_panel_mut();
+                    p.series.push(plotting::Series {
+                        x: freqs,
+                        y: phase_deg,
+                        label,
+                        marker,
+                        color,
+                        ..Default::default()
+                    });
+                    p.xscale = Scale::Log;
+                    p.ylabel = Some("Phase (deg)".into());
+                    p.xlabel = Some("Frequency (Hz)".into());
+                }
+                self.figures += 1;
+                Ok(Value::Nothing)
+            }
             "linspace" => {
                 let a = arg_get(&args, 0).and_then(|v| v.as_num().ok()).unwrap_or(0.0);
                 let b = arg_get(&args, 1).and_then(|v| v.as_num().ok()).unwrap_or(1.0);
@@ -27581,7 +30068,12 @@ self.eval_grad(loss, wrt)
                 // plain Vec with no `Fs`, while `diff` on the very same
                 // Signal correctly kept it).
                 match src {
-                    Value::Signal(_, fs) => Ok(Value::Signal(out.into(), *fs)),
+                    // Integration changes the quantity (a signal in volts
+                    // accumulates to volt-samples), so the unit and the
+                    // calibration do not survive it; the instants do.
+                    Value::Signal(_, fs, m) => {
+                        Ok(Value::Signal(out.into(), *fs, Arc::new(m.axis_only())))
+                    }
                     _ => Ok(Value::Vec(Arc::new(out))),
                 }
             }
@@ -27591,7 +30083,13 @@ self.eval_grad(loss, wrt)
                 let out: Vec<f64> = xs.windows(2).map(|w| w[1] - w[0]).collect();
                 // a signal's first difference is still a signal, same Fs.
                 match src {
-                    Value::Signal(_, fs) => Ok(Value::Signal(out.into(), *fs)),
+                    // Differentiation likewise changes the quantity, so
+                    // only the axis rides along. Note the result is one
+                    // sample SHORTER, so a marker sitting on the final
+                    // instant of the input now lies just past the end.
+                    Value::Signal(_, fs, m) => {
+                        Ok(Value::Signal(out.into(), *fs, Arc::new(m.axis_only())))
+                    }
                     _ => Ok(Value::Vec(Arc::new(out))),
                 }
             }
@@ -27616,7 +30114,7 @@ self.eval_grad(loss, wrt)
                         msg: "signal(data, Fs) needs a sample rate as the second argument".into(),
                     })?,
                 };
-                Ok(Value::Signal(xs.into(), fs))
+                Ok(Value::Signal(xs.into(), fs, SigMeta::none()))
             }
             "array" | "Array" => Ok(Value::Vec(Arc::new(to_vec(arg0(&args)?)?))),
 
@@ -27636,9 +30134,43 @@ self.eval_grad(loss, wrt)
             // actually recorded over 3s). Functional/pure like every other
             // Qu builtin (no in-place `Fs` mutation exists to abuse here
             // anyway — `expr.field = value` doesn't parse).
+            //
+            // **Anti-aliased on the way DOWN (behavior change, 2026-09-19).**
+            // Until this change `resample_to` was the linear interpolation
+            // below and nothing else, which is correct for upsampling and
+            // silently WRONG for downsampling: evaluating a waveform on a
+            // sparser grid folds everything above the new Nyquist back into
+            // the band as alias, and the returned signal looks perfectly
+            // plausible while containing tones that were never in the input.
+            // So when `new_fs < fs` the samples now go through a lowpass at
+            // the new Nyquist (`new_fs/2`, designed and applied at the
+            // ORIGINAL rate) before being interpolated onto the new grid —
+            // `multirate_lowpass`, the same `fir1`+`sosfilt` pair the
+            // `upsample`/`downsample`/`resample_int` family uses.
+            //
+            // **This changes the numbers existing downsampling callers get,
+            // by design** (QuMaster's ruling: correct beats silently
+            // aliased). Two specific differences, neither hidden:
+            //
+            //  1. The result is delayed by the filter's group delay,
+            //     `order/2` samples at the ORIGINAL rate — the filter is
+            //     causal, exactly as `sosfilt` is. With the default order 60
+            //     that is 30 input samples, i.e. `30/fs` seconds. Nothing
+            //     here compensates it; if you need the old sample-for-sample
+            //     time alignment, drop the first `30/fs` seconds yourself,
+            //     or use `interp1` directly to opt out of anti-aliasing
+            //     entirely and accept the aliasing that comes with it.
+            //  2. The first and last ~`order/2` samples are filter startup/
+            //     run-out transient rather than signal.
+            //
+            // The order is reduced for short inputs (`multirate_effective_
+            // order`) and filtering is skipped entirely below 5 samples,
+            // where no filter of useful length exists. Upsampling
+            // (`new_fs >= fs`) is untouched — it cannot alias, so it gets no
+            // filter, no delay and byte-identical results to before.
             "resample_to" => {
                 let (xs, fs) = match arg0(&args)? {
-                    Value::Signal(xs, fs) => (xs.clone(), *fs),
+                    Value::Signal(xs, fs, _) => (xs.clone(), *fs),
                     other => {
                         return e(format!(
                             "resample_to(signal, new_fs) expects a signal (with a known Fs) as its first argument, found {} — wrap it first via signal(data, Fs)",
@@ -27654,21 +30186,179 @@ self.eval_grad(loss, wrt)
                 }
                 let n = xs.len();
                 if n == 0 {
-                    return Ok(Value::Signal(Arc::new(Vec::new()), new_fs));
+                    return Ok(Value::Signal(Arc::new(Vec::new()), new_fs, SigMeta::none()));
                 }
                 if n == 1 {
                     // A single sample has no duration to preserve — carry
                     // it through unchanged at the new rate, same convention
                     // `interp1_linear`'s own `n == 1` arm uses.
-                    return Ok(Value::Signal(xs.clone(), new_fs));
+                    return Ok(Value::Signal(xs.clone(), new_fs, SigMeta::none()));
                 }
                 let duration = (n - 1) as f64 / fs;
                 let new_n = (duration * new_fs).round() as usize + 1;
                 let orig_t: Vec<f64> = (0..n).map(|i| i as f64 / fs).collect();
+                // Anti-alias BEFORE the grid change, at the original rate,
+                // and only when the grid is getting sparser. See the arm's
+                // own doc comment above for the group delay this introduces.
+                let filtered;
+                let src: &[f64] = if new_fs < fs {
+                    let order = multirate_effective_order(MULTIRATE_FIR_ORDER, n);
+                    filtered = multirate_lowpass(order, new_fs / 2.0, fs, xs.as_slice())?;
+                    &filtered
+                } else {
+                    xs.as_slice()
+                };
                 let new_y: Vec<f64> = (0..new_n)
-                    .map(|j| interp1_linear(&orig_t, xs.as_slice(), j as f64 / new_fs))
+                    .map(|j| interp1_linear(&orig_t, src, j as f64 / new_fs))
                     .collect();
-                Ok(Value::Signal(new_y.into(), new_fs))
+                Ok(Value::Signal(new_y.into(), new_fs, SigMeta::none()))
+            }
+
+            // ---- integer-factor rate conversion: `upsample`/`downsample`/
+            // `resample_int` ----
+            //
+            // Plain vector-in/vector-out (or `Signal` in, `Signal` out with
+            // the new `Fs` already set), no stateful object to build the way
+            // `processor()` needs one. These are the textbook multirate
+            // primitives that `resample_to`'s continuous-time framing cannot
+            // express: `resample_to` asks "what would this waveform look
+            // like sampled at `new_fs`", these ask "insert L-1 zeros between
+            // samples and interpolate" / "keep every Mth sample" — the exact
+            // operations a polyphase implementation is built out of, and the
+            // ones a ported MATLAB/scipy script is written in terms of.
+            //
+            // Every one of them is causal and therefore DELAYED by its
+            // filter's group delay (`order/2` samples at the rate the filter
+            // runs at). That is stated in each doc row and in the tests,
+            // which align by the known delay before comparing rather than
+            // pretending it isn't there.
+
+            // `upsample(x, L, [order=], [fs=])` — zero-stuff by `L`, then
+            // interpolate with a lowpass at the ORIGINAL Nyquist (`fs/2`)
+            // running at the NEW rate (`fs*L`), scaled by `L` to restore the
+            // amplitude the zero-stuffing divided away (stuffing L-1 zeros
+            // spreads the same energy over L times as many samples, so the
+            // interpolated result comes out at 1/L of the input's amplitude
+            // without the gain — the same `L` factor MATLAB's `interp` and
+            // scipy's `resample_poly` apply).
+            //
+            // Group delay: `order/2` samples at the OUTPUT rate `fs*L`
+            // (30 output samples at the default order 60), i.e.
+            // `order/(2*fs*L)` seconds.
+            "upsample" => {
+                let x_arg = arg0(&args)?;
+                let was_signal = matches!(x_arg, Value::Signal(..));
+                let x = to_vec(x_arg)?;
+                let l = multirate_factor_arg(&args, 1, "upsample", "L")?;
+                let order = multirate_order_arg(&style, "upsample")?;
+                let fs_old = multirate_fs_arg(&style, x_arg, "upsample")?;
+                let fs_new = fs_old * l as f64;
+                if x.is_empty() {
+                    return Ok(signal_or_vec(Vec::new(), was_signal, fs_new));
+                }
+                if l == 1 {
+                    // Nothing to insert and nothing to alias: the identity,
+                    // with no filter and therefore no delay. (The general
+                    // path would also produce x unchanged — a cutoff exactly
+                    // at Nyquist designs a unit impulse — but saying so
+                    // explicitly is cheaper and clearer than relying on it.)
+                    return Ok(signal_or_vec(x, was_signal, fs_new));
+                }
+                let mut up = vec![0.0; x.len() * l];
+                for (i, &v) in x.iter().enumerate() {
+                    up[i * l] = v;
+                }
+                let order = multirate_effective_order(order, up.len());
+                let mut y = multirate_lowpass(order, fs_old / 2.0, fs_new, &up)?;
+                let gain = l as f64;
+                for v in y.iter_mut() {
+                    *v *= gain;
+                }
+                Ok(signal_or_vec(y, was_signal, fs_new))
+            }
+
+            // `downsample(x, M, [order=], [fs=])` — anti-alias FIRST with a
+            // lowpass at the new Nyquist (`fs/(2*M)`, running at the input
+            // rate `fs`), THEN keep every Mth sample. The order matters and
+            // is the whole point: decimating first and filtering afterwards
+            // filters alias that has already folded into the band, which no
+            // filter can separate from signal again.
+            //
+            // Output length is `ceil(len(x)/M)` — `y[i] = filtered[i*M]`,
+            // MATLAB's own `downsample`/`decimate` convention (sample 0 is
+            // always kept).
+            //
+            // Group delay: `order/2` samples at the INPUT rate `fs`, which
+            // is `order/(2*M)` samples at the output rate (15 output samples
+            // for M=2 at the default order 60), i.e. `order/(2*fs)` seconds.
+            "downsample" => {
+                let x_arg = arg0(&args)?;
+                let was_signal = matches!(x_arg, Value::Signal(..));
+                let x = to_vec(x_arg)?;
+                let m = multirate_factor_arg(&args, 1, "downsample", "M")?;
+                let order = multirate_order_arg(&style, "downsample")?;
+                let fs_old = multirate_fs_arg(&style, x_arg, "downsample")?;
+                let fs_new = fs_old / m as f64;
+                if x.is_empty() {
+                    return Ok(signal_or_vec(Vec::new(), was_signal, fs_new));
+                }
+                if m == 1 {
+                    return Ok(signal_or_vec(x, was_signal, fs_new));
+                }
+                let order = multirate_effective_order(order, x.len());
+                let filtered = multirate_lowpass(order, fs_old / (2.0 * m as f64), fs_old, &x)?;
+                let y: Vec<f64> = filtered.iter().step_by(m).copied().collect();
+                Ok(signal_or_vec(y, was_signal, fs_new))
+            }
+
+            // `resample_int(x, L, M, [order=], [fs=])` — rational rate
+            // change by `L/M` in one pass: zero-stuff by `L`, filter ONCE,
+            // decimate by `M`. Output rate is `fs*L/M`.
+            //
+            // The single shared filter is the point. Calling `upsample` then
+            // `downsample` runs two filters in series, doubling the
+            // transition-band loss and the group delay for no benefit —
+            // both filters run at the same intermediate rate `fs*L`, and two
+            // cascaded lowpasses there are just a worse version of one
+            // lowpass at the tighter of the two cutoffs. So the cutoff here
+            // is `min(fs/2, fs*L/(2*M))`: the interpolation cutoff when
+            // upsampling dominates (`L >= M`), the anti-alias cutoff when
+            // decimating does (`M > L`). Gain `L`, same reason as
+            // `upsample`.
+            //
+            // Group delay: `order/2` samples at the intermediate rate
+            // `fs*L`, i.e. `order/(2*fs*L)` seconds — HALF what
+            // `x.upsample(L).downsample(M)` costs, and the reason to prefer
+            // this when both factors apply.
+            "resample_int" => {
+                let x_arg = arg0(&args)?;
+                let was_signal = matches!(x_arg, Value::Signal(..));
+                let x = to_vec(x_arg)?;
+                let l = multirate_factor_arg(&args, 1, "resample_int", "L")?;
+                let m = multirate_factor_arg(&args, 2, "resample_int", "M")?;
+                let order = multirate_order_arg(&style, "resample_int")?;
+                let fs_old = multirate_fs_arg(&style, x_arg, "resample_int")?;
+                let fs_up = fs_old * l as f64;
+                let fs_new = fs_up / m as f64;
+                if x.is_empty() {
+                    return Ok(signal_or_vec(Vec::new(), was_signal, fs_new));
+                }
+                if l == 1 && m == 1 {
+                    return Ok(signal_or_vec(x, was_signal, fs_new));
+                }
+                let mut up = vec![0.0; x.len() * l];
+                for (i, &v) in x.iter().enumerate() {
+                    up[i * l] = v;
+                }
+                let order = multirate_effective_order(order, up.len());
+                let cutoff = (fs_old / 2.0) * (l as f64 / m as f64).min(1.0);
+                let mut filtered = multirate_lowpass(order, cutoff, fs_up, &up)?;
+                let gain = l as f64;
+                for v in filtered.iter_mut() {
+                    *v *= gain;
+                }
+                let y: Vec<f64> = filtered.iter().step_by(m).copied().collect();
+                Ok(signal_or_vec(y, was_signal, fs_new))
             }
 
             // `cast(value, tag)` — explicit type conversion between real
@@ -27707,7 +30397,7 @@ self.eval_grad(loss, wrt)
                     // consistent with how numbers already print elsewhere.
                     (Value::Num(n), "str") => Ok(Value::Str(fmt_num(*n))),
                     (Value::Bool(_), "str") => Ok(Value::Str(display_value(v))),
-                    (Value::Vec(xs), "str") | (Value::Signal(xs, _), "str") => Ok(Value::List(Arc::new(
+                    (Value::Vec(xs), "str") | (Value::Signal(xs, _, _), "str") => Ok(Value::List(Arc::new(
                         xs.iter().map(|x| Value::Str(fmt_num(*x))).collect(),
                     ))),
 
@@ -27764,14 +30454,14 @@ self.eval_grad(loss, wrt)
                     // argument) now uses; `signal -> vec` just drops the
                     // `Fs` metadata and keeps the samples, unlike
                     // `resample_to` this does NOT change the data at all.
-                    (Value::Vec(xs), "signal") => Ok(Value::Signal(xs.clone(), 1.0)),
-                    (Value::Signal(xs, _), "vec") => Ok(Value::Vec(xs.clone())),
+                    (Value::Vec(xs), "signal") => Ok(Value::Signal(xs.clone(), 1.0, SigMeta::none())),
+                    (Value::Signal(xs, _, _), "vec") => Ok(Value::Vec(xs.clone())),
 
                     // ---- vec/signal <-> mask: nonzero-is-true elementwise
                     // in one direction (`as_mask` only accepts `Mask`/`Vec`,
                     // not `Signal`, so this goes through `to_vec` instead,
                     // which handles both), 0.0/1.0 numeric in the other.
-                    (Value::Vec(_), "mask") | (Value::Signal(_, _), "mask") => {
+                    (Value::Vec(_), "mask") | (Value::Signal(_, _, _), "mask") => {
                         let xs = to_vec(v)?;
                         Ok(Value::Mask(xs.iter().map(|x| *x != 0.0).collect()))
                     }
@@ -27812,7 +30502,7 @@ self.eval_grad(loss, wrt)
                     .map_err(|se| EvalError { msg: se.to_string() })?;
                 let ys = numeric::signal::synthesize_cpu(&plan, &[phase])
                     .map_err(|se| EvalError { msg: se.to_string() })?;
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `multisine(freqs, amps, fs, n, [phases=])` — sum of cosines
             // at the given frequencies/amplitudes, wiring up
@@ -27839,7 +30529,7 @@ self.eval_grad(loss, wrt)
                 };
                 let ys = numeric::signal::synthesize_cpu(&plan, &phases)
                     .map_err(|se| EvalError { msg: se.to_string() })?;
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `chirp(f0, f1, fs, n, [method=])` (alias `sweep`) — a
             // frequency sweep from `f0` to `f1` over `n` samples, reaching
@@ -27859,7 +30549,7 @@ self.eval_grad(loss, wrt)
                     Some("logarithmic") | Some("log") | Some("exponential")
                 );
                 let ys = chirp_wave(f0, f1, fs, n, logarithmic)?;
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `impulse(n, [index=], [amplitude=])` — a Kronecker delta: all
             // zeros except `amplitude` at `index` (default the first
@@ -27898,7 +30588,7 @@ self.eval_grad(loss, wrt)
                 let ys: Vec<f64> = (0..n)
                     .map(|i| if (i as f64 % period) / period < duty { 1.0 } else { -1.0 })
                     .collect();
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `pwm(modulator, carrier_freq, fs, [carrier=])` — natural-
             // sampling pulse-width modulation: `+1` where `modulator`
@@ -27912,7 +30602,7 @@ self.eval_grad(loss, wrt)
                 let fs = positional_num(&args, 2, 1.0, "pwm", "fs")?;
                 let triangle = !matches!(style_str(&style, "carrier").as_deref(), Some("sawtooth") | Some("saw"));
                 let ys = pwm_wave(&modulator, carrier_freq, fs, triangle)?;
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `sawtooth(freq, fs, n)` — a periodic linear ramp from -1 up to
             // (but not including) +1 over each period, then an instant drop
@@ -27935,7 +30625,7 @@ self.eval_grad(loss, wrt)
                         2.0 * frac - 1.0
                     })
                     .collect();
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `triangle(freq, fs, n)` — a periodic, continuous triangle
             // wave: linearly rising from -1 to +1 over the first half of
@@ -27956,7 +30646,7 @@ self.eval_grad(loss, wrt)
                         if frac < 0.5 { 4.0 * frac - 1.0 } else { 3.0 - 4.0 * frac }
                     })
                     .collect();
-                Ok(Value::Signal(ys.into(), fs))
+                Ok(Value::Signal(ys.into(), fs, SigMeta::none()))
             }
             // `hann(n)` — raised-cosine window, `w[i] = 0.5*(1 -
             // cos(2*pi*i/(n-1)))`. **Symmetric** convention (denominator
@@ -28026,7 +30716,11 @@ self.eval_grad(loss, wrt)
                 let xs = to_vec(src)?;
                 let out = sigma_delta_1bit(&xs);
                 match src {
-                    Value::Signal(_, fs) => Ok(Value::Signal(out.into(), *fs)),
+                    // A sigma-delta bitstream is not the input quantity any
+                    // more -- only the instants carry over.
+                    Value::Signal(_, fs, m) => {
+                        Ok(Value::Signal(out.into(), *fs, Arc::new(m.axis_only())))
+                    }
                     _ => Ok(Value::Vec(Arc::new(out))),
                 }
             }
@@ -30312,7 +33006,7 @@ self.eval_grad(loss, wrt)
             // `Signal`-rooted caller what was already true.
             "interpolate_at" => {
                 let (xs, fs) = match arg0(&args)? {
-                    Value::Signal(xs, fs) => (xs.clone(), *fs),
+                    Value::Signal(xs, fs, _) => (xs.clone(), *fs),
                     other => return e(format!(
                         "interpolate_at(sig, t_query, [method]) expects a Signal (with a known Fs) as its first argument, found {} — wrap it first via signal(data, Fs)",
                         other.type_name()
@@ -30324,6 +33018,150 @@ self.eval_grad(loss, wrt)
                 let method = arg_get(&args, 2).map(display_value).unwrap_or_else(|| "linear".to_string());
                 let t: Vec<f64> = (0..xs.len()).map(|i| i as f64 / fs).collect();
                 interp1_eval(&t, xs.as_slice(), tq_val, &method, "interpolate_at")
+            }
+            // `steer_delays(positions, angle_degrees, [c=343])` (§ signal
+            // builtins, v0.3.0) — the geometry half of delay-and-sum, on its
+            // own: the per-element delays `x_m * sin(theta) / c` that steer an
+            // array towards `theta`. Returned as a plain `Vec` (seconds) so it
+            // composes directly with the EXISTING `interpolate_at(sig, t +
+            // delay, method)` — that hand-rolled spelling is what `beamform`
+            // below was factored out of, and it stays a first-class way to do
+            // it when the caller wants a non-uniform per-channel treatment
+            // (different methods, per-channel weights/shading, a subset of
+            // elements) that a single `beamform` call cannot express.
+            "steer_delays" => {
+                let positions = to_vec(arg0(&args)?)?;
+                if positions.is_empty() {
+                    return e(
+                        "steer_delays(positions, angle_degrees, [c]): `positions` is empty \
+                         -- there is no array geometry to steer",
+                    );
+                }
+                if arg_get(&args, 1).is_none() {
+                    return e(
+                        "steer_delays(positions, angle_degrees, [c]) needs at least 2 arguments",
+                    );
+                }
+                let angle = positional_num(&args, 1, 0.0, "steer_delays", "angle_degrees")?;
+                let c = beam_speed(&args, 2, &style, "steer_delays")?;
+                Ok(Value::Vec(Arc::new(steering_delays(&positions, angle, c))))
+            }
+            // `beamform(signals, positions, angle_degrees, [c=343],
+            // [method="nearest"])` (§ signal builtins, v0.3.0) — classic
+            // delay-and-sum: steer each channel by its own geometric delay,
+            // then average. Built ON `steer_delays` + the existing
+            // `interp1_eval` kernel `interpolate_at` uses, not on a private
+            // copy of either, so a hand-written `interpolate_at(sig_m, t +
+            // delays[m], method)` loop and this call are the same arithmetic.
+            //
+            // WHY `method` DEFAULTS TO `"nearest"` RATHER THAN
+            // `interpolate_at`'s OWN `"linear"`:
+            //
+            // Linear interpolation between two samples is a (crude) low-pass
+            // filter — it averages neighbours, which attenuates the broadband
+            // noise sitting between them. On the verified 5-element / 0.08 m
+            // / 1 kHz / 30°-off-broadside audio case, that alone moves the
+            // measured array gain from 7.25 dB ("nearest", against 10*log10(5)
+            // = 6.99 dB of theory) to 8.58 dB — i.e. `"linear"` reports
+            // 1.6 dB of "array gain" that the ARRAY did not produce. A
+            // beamformer's whole purpose is to measure what the geometry
+            // buys, so the default must not quietly add denoising of its own;
+            // `"linear"`/`"spline"` remain available for a caller who wants
+            // sub-sample steering accuracy and knows to account for it.
+            //
+            // Returns a `Value::Signal` at the inputs' own `Fs` — unlike
+            // `interpolate_at`, which must NOT (its query times are arbitrary
+            // instants). Here every query is `t_i + tau_m`, the signal's own
+            // uniform axis shifted by one constant per channel, so the output
+            // is still uniformly sampled at exactly `Fs`; the sample rate it
+            // claims is real.
+            "beamform" => {
+                let who = "beamform(signals, positions, angle_degrees, [c], [method])";
+                let chans: Vec<(Arc<Vec<f64>>, f64)> = match arg0(&args)? {
+                    Value::List(items) => {
+                        let mut out = Vec::with_capacity(items.len());
+                        for (m, it) in items.iter().enumerate() {
+                            match it {
+                                Value::Signal(xs, fs, _) => out.push((xs.clone(), *fs)),
+                                other => return e(format!(
+                                    "beamform: element {m} of `signals` is a {}, not a Signal \
+                                     -- wrap each channel via signal(data, Fs) first, so the \
+                                     sample rate the delays are applied against is known",
+                                    other.type_name()
+                                )),
+                            }
+                        }
+                        out
+                    }
+                    other => return e(format!(
+                        "{who} expects a list of Signals as its first argument, found {} \
+                         -- write [signal(ch0, Fs), signal(ch1, Fs), ...]",
+                        other.type_name()
+                    )),
+                };
+                if chans.is_empty() {
+                    return e("beamform: `signals` is empty -- there is nothing to combine");
+                }
+                let fs = chans[0].1;
+                let n = chans[0].0.len();
+                for (m, (xs, fs_m)) in chans.iter().enumerate() {
+                    if (fs_m - fs).abs() > 1e-9 * fs.abs().max(1.0) {
+                        return e(format!(
+                            "beamform: channel {m} is sampled at {fs_m} Hz but channel 0 at {fs} Hz \
+                             -- one time axis cannot describe both, resample_to a common Fs first"
+                        ));
+                    }
+                    if xs.len() != n {
+                        return e(format!(
+                            "beamform: channel {m} has {} samples but channel 0 has {n} \
+                             -- every element must cover the same record",
+                            xs.len()
+                        ));
+                    }
+                }
+                if n < 2 {
+                    return e("beamform: each channel needs at least 2 samples to steer between");
+                }
+                let positions = match arg_get(&args, 1) {
+                    Some(v) => to_vec(v)?,
+                    None => return e(format!("{who} needs at least 3 arguments")),
+                };
+                if positions.len() != chans.len() {
+                    return e(format!(
+                        "beamform: {} position(s) for {} channel(s) -- the geometry must name \
+                         one coordinate per element, in the same order as `signals`",
+                        positions.len(),
+                        chans.len()
+                    ));
+                }
+                if arg_get(&args, 2).is_none() {
+                    return e(format!("{who} needs at least 3 arguments"));
+                }
+                let angle = positional_num(&args, 2, 0.0, "beamform", "angle_degrees")?;
+                let c = beam_speed(&args, 3, &style, "beamform")?;
+                let method = match arg_get(&args, 4) {
+                    Some(v) => display_value(v),
+                    None => match style_entry(&style, "method") {
+                        Some((_, v)) => display_value(v),
+                        None => "nearest".to_string(),
+                    },
+                };
+                let delays = steering_delays(&positions, angle, c);
+                let t: Vec<f64> = (0..n).map(|i| i as f64 / fs).collect();
+                let mut acc = vec![0.0f64; n];
+                for ((xs, _), tau) in chans.iter().zip(&delays) {
+                    let tq = Value::Vec(Arc::new(t.iter().map(|ti| ti + tau).collect()));
+                    let aligned =
+                        to_vec(&interp1_eval(&t, xs.as_slice(), &tq, &method, "beamform")?)?;
+                    for (a, v) in acc.iter_mut().zip(&aligned) {
+                        *a += v;
+                    }
+                }
+                let m = chans.len() as f64;
+                for a in acc.iter_mut() {
+                    *a /= m;
+                }
+                Ok(Value::Signal(Arc::new(acc), fs, SigMeta::none()))
             }
             // `loglog`/`semilogx`/`semilogy` — thin convenience wrappers:
             // plot the series, then set whichever axes the name implies to
@@ -33584,6 +36422,97 @@ self.eval_grad(loss, wrt)
                 panel.series.extend(placed.series);
                 Ok(Value::Nothing)
             }
+            // `algorigram(name, [file=])` (2026-09-18) — a flowchart of a
+            // user function's control flow (`if`/`else`, `while`/`for`,
+            // `select case`, `try`/`catch`), walked from its own AST. See
+            // `diagram.rs`'s module doc for the full design; this arm is
+            // just argument handling -- the by-name lookup below reuses
+            // the same `self.methods` overload table every other
+            // by-name builtin (`fzero`, `map`, ...) reads through
+            // `text_arg`, so `algorigram` accepts a function's name the
+            // same way they do.
+            "algorigram" => {
+                let name = text_arg(&args, 0)?;
+                let entries = self.methods.get(&name).ok_or_else(|| EvalError {
+                    msg: format!("algorigram: no user function named `{name}`"),
+                })?;
+                if entries.len() != 1 {
+                    return e(format!(
+                        "algorigram: `{name}` has {} overloads -- algorigram only supports a function with a single definition right now",
+                        entries.len()
+                    ));
+                }
+                let params = entries[0].params.clone();
+                let body = match &entries[0].body {
+                    MethodBody::Expr(ex) => FnBody::Expr(Box::new(ex.clone())),
+                    MethodBody::Block(stmts) => FnBody::Block(stmts.clone()),
+                };
+                let svg = diagram::render_algorigram_svg(&name, &params, &body)?;
+                if let Some(path) = style_str(&style, "file") {
+                    diagram::write_diagram_file(&svg, &path)?;
+                }
+                Ok(Value::Str(svg))
+            }
+            // `diagram_pipeline(fn, [file=])` (2026-09-18) — a left-to-right
+            // box diagram of a `|>` pipe chain, one box per stage. Unlike
+            // `algorigram`'s by-name lookup, the pipeline is usually
+            // written INLINE (`diagram_pipeline(() := data |> f() |> g())`)
+            // rather than as a separate named function, so the argument
+            // has to reach here as unevaluated syntax -- a call argument
+            // is otherwise always eagerly evaluated (see `eval_pipe`),
+            // which would just RUN the pipeline instead of describing it.
+            // A lambda is the one existing value shape that carries its
+            // body as AST rather than a result (`Value::Func`'s own doc
+            // comment), so that is what this reads; a plain function name
+            // (string, or an unparenthesized reference) is also accepted
+            // and resolved through `self.methods`, same as `algorigram`.
+            "diagram_pipeline" => {
+                let lookup = |name: &str| -> R<Expr> {
+                    let entries = self.methods.get(name).ok_or_else(|| EvalError {
+                        msg: format!("diagram_pipeline: no user function named `{name}`"),
+                    })?;
+                    if entries.len() != 1 {
+                        return e(format!(
+                            "diagram_pipeline: `{name}` has {} overloads -- pass a lambda directly instead, e.g. `() := data |> f() |> g()`",
+                            entries.len()
+                        ));
+                    }
+                    match &entries[0].body {
+                        MethodBody::Expr(ex) => Ok(ex.clone()),
+                        MethodBody::Block(_) => e(format!(
+                            "diagram_pipeline: `{name}` is a multi-statement function, not a single pipeline expression -- define it as `{name}() := data |> f() |> g()`"
+                        )),
+                    }
+                };
+                let a0 = arg0(&args)?.clone();
+                let pipe_expr: Expr = match &a0 {
+                    Value::Func(fv) => match &fv.body {
+                        Some(FnBody::Expr(ex)) => (**ex).clone(),
+                        Some(FnBody::Block(_)) => {
+                            return e(
+                                "diagram_pipeline: expected a single expression like `() := data |> f() |> g()`, not a multi-statement function"
+                                    .to_string(),
+                            )
+                        }
+                        None => match &fv.name {
+                            Some(name) => lookup(name)?,
+                            None => return e("diagram_pipeline: expected a lambda or a function name".to_string()),
+                        },
+                    },
+                    Value::Str(name) => lookup(name)?,
+                    other => {
+                        return e(format!(
+                            "diagram_pipeline: expected a pipeline -- a lambda like `() := x |> f()`, or a function name -- found {}",
+                            other.type_name()
+                        ))
+                    }
+                };
+                let svg = diagram::render_pipeline_svg(&pipe_expr, None)?;
+                if let Some(path) = style_str(&style, "file") {
+                    diagram::write_diagram_file(&svg, &path)?;
+                }
+                Ok(Value::Str(svg))
+            }
             "savefig" => {
                 let path = text_arg(&args, 0)?;
                 // Publication mode embeds fonts by DEFAULT. Its headline
@@ -34574,6 +37503,65 @@ fn int_arg(args: &[Value], idx: usize) -> R<i64> {
     Ok(n as i64)
 }
 
+/// Reads argument `idx` as a vector of 0/1 bits, for the digital-
+/// communications builtins (`qam_modulate`, `hamming74_*`, `crc*`).
+///
+/// It rejects anything that is not exactly 0 or 1 rather than coercing
+/// by truthiness. A bit vector that picked up a 2 (or a 0.5, from an
+/// averaged or un-thresholded signal) is a real mistake upstream, and
+/// silently reading it as "1" would encode a codeword that no decoder
+/// disagrees with — the error would surface as an unexplained bit error
+/// rate, far from its cause.
+fn bits_arg(args: &[Value], idx: usize, fname: &str) -> R<Vec<u8>> {
+    mark_arg_read(idx);
+    let v = args.get(idx).ok_or_else(|| EvalError {
+        msg: format!("{fname}: expected a vector of 0/1 bits at position {}", idx + 1),
+    })?;
+    let xs = to_cow(v)?;
+    xs.iter()
+        .enumerate()
+        .map(|(i, &x)| match x {
+            0.0 => Ok(0u8),
+            1.0 => Ok(1u8),
+            other => e(format!(
+                "{fname}: bits must be 0 or 1, but element {} is {other}",
+                i + 1
+            )),
+        })
+        .collect()
+}
+
+/// Reads argument `idx` as a CRC generator polynomial, MSB-first with
+/// its leading 1 included.
+///
+/// Two spellings, because both are how people have it written down: a
+/// bit vector (`[1, 0, 1, 1]`) or the integer that spells the same bits
+/// (`11`). The integer form takes its width from the position of its own
+/// top set bit, so `11` is a 3-bit CRC and `0b1_0000_0100_1100_0001_1`
+/// is a 16-bit one — no separate width argument to get out of step.
+fn poly_arg(args: &[Value], idx: usize, fname: &str) -> R<Vec<u8>> {
+    match args.get(idx) {
+        None => e(format!(
+            "{fname}: expected a generator polynomial at position {}",
+            idx + 1
+        )),
+        Some(Value::Num(_)) => {
+            let n = int_arg(args, idx)?;
+            if n <= 0 {
+                return e(format!(
+                    "{fname}: a generator polynomial as a number must be positive, got {n}"
+                ));
+            }
+            let width = 64 - (n as u64).leading_zeros() as usize;
+            Ok((0..width)
+                .rev()
+                .map(|k| ((n as u64 >> k) & 1) as u8)
+                .collect())
+        }
+        Some(_) => bits_arg(args, idx, fname),
+    }
+}
+
 /// Reads argument `idx` as a 0-based, non-negative index, for the
 /// collection builtins (`insert`/`remove`) — a thin wrapper over
 /// `Value::as_index` that names the builtin in a missing-argument error,
@@ -35269,7 +38257,7 @@ fn values_equal(a: &Value, b: &Value) -> bool {
         Value::Table(x) => matches!(b, Value::Table(y) if x == y),
         // The sample rate is part of the signal, not decoration: identical
         // samples at different rates are different signals.
-        Value::Signal(x, rx) => matches!(b, Value::Signal(y, ry) if x == y && rx == ry),
+        Value::Signal(x, rx, _) => matches!(b, Value::Signal(y, ry, _) if x == y && rx == ry),
         // The contract is part of the value: two identical bin arrays that
         // came from different sample rates are not the same spectrum.
         Value::Circuit(x) => matches!(b, Value::Circuit(y) if x == y),
@@ -35371,7 +38359,14 @@ fn values_equal(a: &Value, b: &Value) -> bool {
 /// so their RMS equals their amplitude). `RawTransform` is `1.0` everywhere
 /// -- the identity, so callers don't need to special-case it.
 fn spectrum_norm_factor(k: usize, n: usize, norm: SpectrumNorm) -> f64 {
-    if norm == SpectrumNorm::RawTransform || n == 0 {
+    // `Density` has no factor relating it to the raw transform at all: a
+    // PSD has been squared, averaged over segments and divided by the
+    // window's noise-equivalent bandwidth, which is not an invertible
+    // per-bin scaling. It is listed with `RawTransform` here only so this
+    // function is total; the two callers that could reach it with a density
+    // (`spectrum_normalize`/`spectrum_unnormalize`) both refuse one by name
+    // before getting this far, so the `1.0` is never actually applied.
+    if norm == SpectrumNorm::RawTransform || norm == SpectrumNorm::Density || n == 0 {
         return 1.0;
     }
     let nyquist_bin = if n % 2 == 0 { Some(n / 2) } else { None };
@@ -35381,8 +38376,33 @@ fn spectrum_norm_factor(k: usize, n: usize, norm: SpectrumNorm) -> f64 {
         SpectrumNorm::Amplitude => amp_factor,
         SpectrumNorm::Rms if is_edge => amp_factor,
         SpectrumNorm::Rms => amp_factor / std::f64::consts::SQRT_2,
-        SpectrumNorm::RawTransform => unreachable!(),
+        SpectrumNorm::RawTransform | SpectrumNorm::Density => unreachable!(),
     }
+}
+
+/// Wrap a real one-sided PSD from `welch`/`periodogram`/`psd` as a
+/// `Spectrum` tagged [`SpectrumNorm::Density`] (`toolkit-signal.md` §2,
+/// "Spectra that cannot be misread").
+///
+/// `n` is the SEGMENT length the estimate was computed over -- `nperseg`
+/// for `welch`/`psd`, the whole record for `periodogram` -- not the length
+/// of the input signal and not the number of bins. That is exactly what
+/// `Value::Spectrum`'s third field means everywhere else, and it is what
+/// makes `P.freq` come out as `k * Fs / nperseg`, the true bin spacing of a
+/// Welch estimate. Passing the signal length here instead would produce a
+/// frequency axis too fine by `len(x)/nperseg` -- the precise mislabelling
+/// §2 exists to prevent, so it is worth naming.
+///
+/// The values are real and are stored with a zero imaginary part; `to_cow`
+/// unwraps them straight back to a real vector, which is what keeps every
+/// caller written against the old bare-`Vec` return working untouched.
+fn density_spectrum(v: Vec<f64>, fs: f64, n: usize) -> Value {
+    Value::Spectrum(
+        Arc::new(v.into_iter().map(|x| Complex64 { re: x, im: 0.0 }).collect()),
+        fs,
+        n,
+        SpectrumNorm::Density,
+    )
 }
 
 /// Rescale a one-sided (`rfft`-shaped, DC-to-Nyquist) half-spectrum from
@@ -35431,6 +38451,21 @@ fn unapply_spectrum_norm(v: Vec<Complex64>, n: usize, norm: SpectrumNorm) -> Vec
 /// notice it by. Call `spectrum_unnormalize(X)` first.
 fn reject_scaled_spectrum(f: &str, v: &Value) -> R<()> {
     if let Value::Spectrum(_, _, _, norm) = v {
+        // A density gets its OWN message. Pointing it at
+        // `spectrum_unnormalize` -- which refuses a density in turn -- would
+        // be a dead end dressed up as a next step, and the real answer is
+        // that a PSD is not invertible at all, not that it needs rescaling
+        // first.
+        if *norm == SpectrumNorm::Density {
+            return Err(EvalError {
+                msg: format!(
+                    "{f}: this is a power spectral density (from welch/periodogram/psd), and a \
+                     density cannot be inverted -- the phase was discarded when the bins were \
+                     squared and averaged. Transform the signal with rfft(s) if you need to get \
+                     back to it."
+                ),
+            });
+        }
         if *norm != SpectrumNorm::RawTransform {
             return Err(EvalError {
                 msg: format!(
@@ -35483,7 +38518,7 @@ fn reject_scaled_spectrum(f: &str, v: &Value) -> R<()> {
 fn sample_period(v: &Value) -> f64 {
     match v {
         Value::Tensor(t) => sample_period(&t.value),
-        Value::Signal(_, fs) if fs.is_finite() && *fs > 0.0 => 1.0 / *fs,
+        Value::Signal(_, fs, _) if fs.is_finite() && *fs > 0.0 => 1.0 / *fs,
         _ => 1.0,
     }
 }
@@ -35525,6 +38560,696 @@ fn threshold_kwarg(f: &str, style: &[(String, Value)], xs: &[f64]) -> R<f64> {
     }
 }
 
+/// Builds `find_edges`'s `"edges"` `Model` result from a raw `EdgeSet` --
+/// shared by the `find_edges` builtin (plain signal + `level=`) and the
+/// `Digital.edges()` builtin (§8, a `to_digital(...)` value), so the two
+/// entry points can't silently drift into different field shapes.
+fn edge_set_to_model(set: &numeric::transforms::EdgeSet) -> Value {
+    let rising: Vec<f64> = set
+        .indices
+        .iter()
+        .zip(set.rising.iter())
+        .filter(|(_, &r)| r)
+        .map(|(&i, _)| i as f64)
+        .collect();
+    let falling: Vec<f64> = set
+        .indices
+        .iter()
+        .zip(set.rising.iter())
+        .filter(|(_, &r)| !r)
+        .map(|(&i, _)| i as f64)
+        .collect();
+    Value::Model(Arc::new(ModelHandle::new(
+        "edges",
+        vec![
+            ("indices".to_string(), Value::Vec(Arc::new(set.indices.iter().map(|&i| i as f64).collect()))),
+            (
+                "directions".to_string(),
+                Value::Vec(Arc::new(set.rising.iter().map(|&r| if r { 1.0 } else { -1.0 }).collect())),
+            ),
+            ("positions".to_string(), Value::Vec(Arc::new(set.positions.clone()))),
+            ("rising".to_string(), Value::Vec(Arc::new(rising))),
+            ("falling".to_string(), Value::Vec(Arc::new(falling))),
+            ("count".to_string(), Value::Num(set.indices.len() as f64)),
+        ],
+    )))
+}
+
+/// Unwraps a `to_digital(x, threshold)` result (§8) back to
+/// `(samples, threshold, original_value)` -- the original `Value` is
+/// returned too because `sample_period` (seconds-vs-samples conversion)
+/// needs the `Value::Signal` tag, not just the raw `f64` slice
+/// `to_cow`/`Cow` gives up. A clear, specific error names
+/// `to_digital(...)` as the fix, since a caller who passes a plain
+/// `Signal` here almost certainly wanted `find_edges`/`duty_cycle`
+/// called directly (which take a plain signal + `level=`) and forgot the
+/// `to_digital(...)` step -- or used `edges`/`rising_edges`/`high_time`
+/// (all §8-only, `Digital`-only names) where `find_edges`/`duty_cycle`
+/// (which accept either shape) was what they meant.
+fn digital_parts<'a>(v: &'a Value, fname: &str) -> R<(std::borrow::Cow<'a, [f64]>, f64, &'a Value)> {
+    match v {
+        Value::Model(m) if m.kind == "digital" => {
+            let sig = m
+                .field("signal")
+                .ok_or_else(|| EvalError { msg: format!("{fname}: digital value is missing its signal field") })?;
+            let thr = m
+                .field("threshold")
+                .and_then(|v| v.as_num().ok())
+                .ok_or_else(|| EvalError { msg: format!("{fname}: digital value is missing its threshold field") })?;
+            Ok((to_cow(sig)?, thr, sig))
+        }
+        other => e(format!(
+            "{fname}: expected a Digital value from to_digital(x, threshold), found {} -- call x.to_digital(level) first",
+            other.type_name()
+        )),
+    }
+}
+
+/// A `Digital` value flattened to one BOOLEAN PER SAMPLE -- the form the
+/// §8 protocol decoders read, as opposed to the edge list `edges`/
+/// `rising_edges` build.
+///
+/// Both views are needed and neither replaces the other: a decoder has to
+/// answer "what was the line doing at *this instant*" (UART samples each
+/// bit at its nominal centre, SPI samples the data lines at a clock edge),
+/// which an edge list can only answer by searching it. Deriving the level
+/// with `>=` matches `find_edges`'s own convention exactly (see its
+/// `x[i] >= threshold` seeding), so a level read here and an edge reported
+/// by `edges()` on the same `Digital` value can never disagree about which
+/// side of the threshold a sample was on.
+///
+/// The original `Value` is returned alongside for `sample_period`, for the
+/// same reason `digital_parts` returns it. Thin wrapper over the slice-based
+/// `digital_levels` below (I2C/CAN's own, more general version -- takes an
+/// explicit hysteresis band) with `hysteresis=0.0`, so UART/SPI decoding and
+/// I2C/CAN decoding share one level-extraction implementation rather than
+/// two that could silently disagree at a threshold boundary.
+fn digital_levels_from_value<'a>(v: &'a Value, fname: &str) -> R<(Vec<bool>, &'a Value)> {
+    let (xs, thr, orig) = digital_parts(v, fname)?;
+    Ok((digital_levels(&xs, thr, 0.0), orig))
+}
+
+/// The sample rate of a `Signal`, or `None` for anything else.
+///
+/// Distinct from `sample_period`, which answers `1.0` for BOTH a plain
+/// vector and a `Signal` at 1 Hz -- fine when the result is only a scale
+/// factor, but not when the question is "does this value carry a sample
+/// rate at all", which is what `baud=` has to know before it can convert a
+/// bit rate into samples per bit.
+fn signal_rate(v: &Value) -> Option<f64> {
+    match v {
+        Value::Tensor(t) => signal_rate(&t.value),
+        Value::Signal(_, fs, _) if fs.is_finite() && *fs > 0.0 => Some(*fs),
+        _ => None,
+    }
+}
+
+/// An integer-valued keyword with a range, e.g. `bits=8`, `stop=1`.
+///
+/// Built on `style_num_checked` (not `style_num`) so a non-numeric value is
+/// an error rather than a silent fall-back to the default, then additionally
+/// rejects a non-integral or out-of-range one: `bits=8.5` has no meaning and
+/// truncating it to 8 would decode a whole capture under an assumption the
+/// caller never made.
+fn int_kwarg(func: &str, style: &[(String, Value)], key: &str, default: f64, lo: f64, hi: f64) -> R<usize> {
+    let v = style_num_checked(style, key, default, func)?;
+    if !v.is_finite() || v.fract() != 0.0 {
+        return e(format!("{func}: {key} must be a whole number, found {v}"));
+    }
+    if v < lo || v > hi {
+        return e(format!("{func}: {key} must be between {lo} and {hi}, found {v}"));
+    }
+    Ok(v as usize)
+}
+
+/// UART's `parity=` keyword.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum UartParity {
+    None,
+    Even,
+    Odd,
+}
+
+/// `parity="none"` (default) / `"even"` / `"odd"`. `"mark"`/`"space"`
+/// (a constant 1 or 0 in the parity slot) are deliberately NOT accepted:
+/// they are real but rare, and accepting the spelling while checking them
+/// as even/odd would report parity errors on a correct capture -- a wrong
+/// answer where an unknown-keyword error is a clear one.
+fn uart_parity_kwarg(f: &str, style: &[(String, Value)]) -> R<UartParity> {
+    match style_str(style, "parity").as_deref() {
+        None | Some("none") => Ok(UartParity::None),
+        Some("even") => Ok(UartParity::Even),
+        Some("odd") => Ok(UartParity::Odd),
+        Some(other) => e(format!(
+            "{f}: unknown parity `{other}`, expected \"none\" (the default), \"even\", or \"odd\""
+        )),
+    }
+}
+
+/// How many samples one UART bit lasts: `samples_per_bit=` directly, or
+/// `baud=` converted through the signal's own sample rate.
+///
+/// `baud=` is the natural thing to write and is what the spec names, but it
+/// is only MEANINGFUL on a value that knows its sample rate -- on a plain
+/// vector there is no seconds axis for a bits-per-second figure to refer
+/// to. Rather than silently treating `Fs` as 1 (which would make
+/// `baud=9600` mean 1/9600 of a sample per bit and decode a whole capture
+/// into nonsense without a word), that case is an error naming
+/// `samples_per_bit=` as the fix -- the unit-free form, which is exactly
+/// what a caller with a bare vector has.
+fn uart_samples_per_bit(f: &str, style: &[(String, Value)], orig: &Value) -> R<f64> {
+    let spb = match style_entry(style, "samples_per_bit") {
+        Some((_, v)) => v.as_num().map_err(|_| EvalError {
+            msg: format!("{f}: samples_per_bit must be a number, found {}", v.type_name()),
+        })?,
+        None => {
+            let baud = match style_entry(style, "baud") {
+                Some((_, v)) => v.as_num().map_err(|_| EvalError {
+                    msg: format!("{f}: baud must be a number, found {}", v.type_name()),
+                })?,
+                None => return e(format!("{f}: needs the bit rate -- pass baud= (on a Signal) or samples_per_bit=")),
+            };
+            if !(baud.is_finite() && baud > 0.0) {
+                return e(format!("{f}: baud must be positive and finite, found {baud}"));
+            }
+            match signal_rate(orig) {
+                Some(fs) => fs / baud,
+                None => {
+                    return e(format!(
+                        "{f}: baud= needs a Signal carrying a sample rate; this digital value wraps a plain vector, so pass samples_per_bit= instead"
+                    ))
+                }
+            }
+        }
+    };
+    if !(spb.is_finite() && spb >= 1.0) {
+        return e(format!(
+            "{f}: {spb} samples per bit is below one sample per bit -- the capture is not sampled fast enough to decode (check baud= against the signal's sample rate)"
+        ));
+    }
+    Ok(spb)
+}
+
+/// SPI's clock polarity and phase, as `mode=0..3` or as `cpol=`/`cpha=`.
+///
+/// `mode=` is the spelling a datasheet uses and `cpol`/`cpha` the spelling a
+/// timing diagram uses; both are common enough that supporting only one
+/// would make somebody translate. Giving both is an error rather than a
+/// precedence rule, because "mode 0 but cpha=1" is a contradiction the
+/// caller should resolve, not something to silently pick a winner for.
+fn spi_mode_kwargs(f: &str, style: &[(String, Value)]) -> R<(usize, usize)> {
+    let has_mode = style_entry(style, "mode").is_some();
+    let has_parts = style_entry(style, "cpol").is_some() || style_entry(style, "cpha").is_some();
+    if has_mode && has_parts {
+        return e(format!("{f}: pass either mode= or cpol=/cpha=, not both -- they can contradict each other"));
+    }
+    if has_mode {
+        let m = int_kwarg(f, style, "mode", 0.0, 0.0, 3.0)?;
+        // The standard numbering: mode = (CPOL << 1) | CPHA.
+        return Ok((m >> 1, m & 1));
+    }
+    Ok((int_kwarg(f, style, "cpol", 0.0, 0.0, 1.0)?, int_kwarg(f, style, "cpha", 0.0, 0.0, 1.0)?))
+}
+
+/// SPI's `bit_order=`: `"msb"` (default) or `"lsb"`. Unlike UART, where the
+/// standard fixes LSB-first and there is no knob, both orders are genuinely
+/// in use on SPI peripherals, so this one is real configuration.
+fn spi_bit_order_kwarg(f: &str, style: &[(String, Value)]) -> R<bool> {
+    match style_str(style, "bit_order").as_deref() {
+        None | Some("msb" | "msb_first") => Ok(true),
+        Some("lsb" | "lsb_first") => Ok(false),
+        Some(other) => e(format!(
+            "{f}: unknown bit_order `{other}`, expected \"msb\" (the default) or \"lsb\""
+        )),
+    }
+}
+
+/// Flattens a digitized signal to one boolean level per sample, with an
+/// optional Schmitt band -- the input shape every protocol decoder in §8
+/// actually wants.
+///
+/// The decoders deliberately do NOT go through `find_edges`/`edges()`.
+/// An edge list answers "when did the line change"; a decoder has to ask
+/// "what was the line doing AT this instant" -- the SDA level at an SCL
+/// rising edge, the CAN bus level at a bit centre -- and reconstructing
+/// that from interpolated crossing positions would be a strictly worse
+/// way to recover something the samples already state directly.
+///
+/// With `hysteresis == 0` this is exactly `x[i] >= threshold`, the same
+/// "exactly at the level counts as high" convention `find_edges` and
+/// `find_pulses` use (and that the book documents as the property which
+/// makes rising and falling crossings strictly alternate). With a
+/// positive band it takes `threshold + hysteresis/2` to call high and
+/// `threshold - hysteresis/2` to call low, matching `find_edges`'s
+/// `hysteresis=` exactly, so a noisy capture can be cleaned up the same
+/// way for a decoder as for an edge count. The first sample has no
+/// previous state to hold, so it is seeded from the plain threshold.
+fn digital_levels(xs: &[f64], threshold: f64, hysteresis: f64) -> Vec<bool> {
+    let hi = threshold + hysteresis / 2.0;
+    let lo = threshold - hysteresis / 2.0;
+    let mut out = Vec::with_capacity(xs.len());
+    let mut state = xs.first().map(|&s| s >= threshold).unwrap_or(false);
+    for (i, &s) in xs.iter().enumerate() {
+        if i > 0 {
+            if state {
+                if s < lo {
+                    state = false;
+                }
+            } else if s >= hi {
+                state = true;
+            }
+        }
+        out.push(state);
+    }
+    out
+}
+
+/// Which byte of an I2C transaction the next nine clocks belong to.
+///
+/// 10-bit addressing is the reason this is a phase rather than a byte
+/// counter. A 10-bit address is split across TWO bytes on a write
+/// (`11110xx0` then the low eight bits) but only ONE on the read half of
+/// the transfer (`11110xx1`, after a repeated START -- the low byte was
+/// already established by the write phase that preceded it). So the
+/// number of address bytes is not fixed; it is decided by the R/W bit of
+/// the first one. The `11110xx` prefix is safe to key off because that
+/// range is reserved by the I2C spec -- no plain 7-bit device may answer
+/// to it -- so it cannot collide with a real 7-bit address.
+#[derive(Clone, Copy, PartialEq)]
+enum I2cPhase {
+    Address,
+    AddressLow10,
+    Data,
+}
+
+/// One in-flight I2C transaction segment (§8 `decode_i2c`).
+///
+/// "Segment" rather than "transaction" because a repeated START ends one
+/// of these and begins the next: the bus is never released, but the
+/// address and direction are restated, and flattening both halves of a
+/// register read into a single record would throw away exactly the
+/// framing this decoder exists to preserve.
+struct I2cTxn {
+    start_index: usize,
+    repeated_start: bool,
+    phase: I2cPhase,
+    address: f64,
+    address_complete: bool,
+    ten_bit: bool,
+    read: bool,
+    address_acks: Vec<f64>,
+    data: Vec<f64>,
+    acks: Vec<f64>,
+    bits: u32,
+    nbits: usize,
+}
+
+impl I2cTxn {
+    fn new(start_index: usize, repeated_start: bool) -> Self {
+        I2cTxn {
+            start_index,
+            repeated_start,
+            phase: I2cPhase::Address,
+            address: 0.0,
+            address_complete: false,
+            ten_bit: false,
+            read: false,
+            address_acks: Vec::new(),
+            data: Vec::new(),
+            acks: Vec::new(),
+            bits: 0,
+            nbits: 0,
+        }
+    }
+
+    /// Feeds one SCL-rising-edge sample of SDA in.
+    ///
+    /// Nine clocks make a byte on this bus, not eight: eight data bits
+    /// MSB first, then the ACK slot, in which the *receiver* drives SDA
+    /// low to acknowledge. So SDA LOW at the ninth clock is ACK and HIGH
+    /// is NACK -- inverted relative to the data bits above it, which is
+    /// the detail worth stating out loud rather than reading back off
+    /// the `!bit` below.
+    ///
+    /// `carried_ten_bit` is the most recent complete 10-bit address seen
+    /// earlier in the same capture, used to fill in the low eight bits
+    /// of a `11110xx1` read segment -- see `I2cPhase`.
+    fn push_bit(&mut self, bit: bool, carried_ten_bit: Option<f64>) {
+        if self.nbits < 8 {
+            self.bits = (self.bits << 1) | u32::from(bit);
+            self.nbits += 1;
+            return;
+        }
+        let byte = self.bits;
+        let ack = !bit;
+        self.bits = 0;
+        self.nbits = 0;
+        match self.phase {
+            I2cPhase::Address => {
+                self.read = (byte & 1) == 1;
+                self.address_acks.push(if ack { 1.0 } else { 0.0 });
+                if (byte & 0xF8) == 0xF0 {
+                    // Reserved `11110xx` prefix: a 10-bit address.
+                    self.ten_bit = true;
+                    let high = f64::from((byte >> 1) & 0x03) * 256.0;
+                    if self.read {
+                        // Read half of a 10-bit transfer: no second
+                        // address byte follows. The low eight bits are
+                        // only knowable from the write phase earlier in
+                        // the capture.
+                        match carried_ten_bit {
+                            Some(prev) if (prev - (prev % 256.0) - high).abs() < 0.5 => {
+                                self.address = prev;
+                                self.address_complete = true;
+                            }
+                            _ => {
+                                self.address = high;
+                                self.address_complete = false;
+                            }
+                        }
+                        self.phase = I2cPhase::Data;
+                    } else {
+                        self.address = high;
+                        self.phase = I2cPhase::AddressLow10;
+                    }
+                } else {
+                    self.address = f64::from(byte >> 1);
+                    self.address_complete = true;
+                    self.phase = I2cPhase::Data;
+                }
+            }
+            I2cPhase::AddressLow10 => {
+                self.address += f64::from(byte);
+                self.address_complete = true;
+                self.address_acks.push(if ack { 1.0 } else { 0.0 });
+                self.phase = I2cPhase::Data;
+            }
+            I2cPhase::Data => {
+                self.data.push(f64::from(byte));
+                self.acks.push(if ack { 1.0 } else { 0.0 });
+            }
+        }
+    }
+
+    /// Closes the segment out into the `Model` the caller sees.
+    ///
+    /// `terminator` is a string rather than a `stop` boolean because
+    /// there are genuinely THREE ways a segment can end and collapsing
+    /// them loses information a caller wants: `"stop"` (a real STOP
+    /// condition), `"repeated_start"` (a repeated START -- the transfer
+    /// continues, it is not truncated) and `"truncated"` (the capture
+    /// simply ran out mid-transaction). A truncated segment is still
+    /// reported, with whatever bytes did decode, because a capture that
+    /// clipped a transaction is a normal thing to have and silently
+    /// dropping it would look identical to there being no traffic.
+    fn finish(self, terminator: &str, end_index: usize, dt: f64) -> Value {
+        let byte_count = self.data.len() as f64;
+        let address_ack = !self.address_acks.is_empty() && self.address_acks.iter().all(|&a| a == 1.0);
+        Value::Model(Arc::new(ModelHandle::new(
+            "i2c_transaction",
+            vec![
+                ("address".to_string(), Value::Num(self.address)),
+                ("read".to_string(), Value::Bool(self.read)),
+                (
+                    "direction".to_string(),
+                    Value::Str(if self.read { "read".to_string() } else { "write".to_string() }),
+                ),
+                ("ten_bit".to_string(), Value::Bool(self.ten_bit)),
+                ("address_complete".to_string(), Value::Bool(self.address_complete)),
+                ("address_ack".to_string(), Value::Bool(address_ack)),
+                ("address_acks".to_string(), Value::Vec(Arc::new(self.address_acks))),
+                ("data".to_string(), Value::Vec(Arc::new(self.data))),
+                ("acks".to_string(), Value::Vec(Arc::new(self.acks))),
+                ("byte_count".to_string(), Value::Num(byte_count)),
+                ("repeated_start".to_string(), Value::Bool(self.repeated_start)),
+                ("terminator".to_string(), Value::Str(terminator.to_string())),
+                ("partial_bits".to_string(), Value::Num(self.nbits as f64)),
+                ("start_index".to_string(), Value::Num(self.start_index as f64)),
+                ("stop_index".to_string(), Value::Num(end_index as f64)),
+                ("start_time".to_string(), Value::Num(self.start_index as f64 * dt)),
+                ("stop_time".to_string(), Value::Num(end_index as f64 * dt)),
+            ],
+        )))
+    }
+}
+
+/// Reads CAN bits off a digitized bus line at a fixed nominal bit rate,
+/// resynchronizing on every recessive-to-dominant edge.
+///
+/// `pos` is the start of the next bit, in samples, kept as a float so
+/// that a non-integer `samples_per_bit` (which is the normal case --
+/// nothing makes a capture's sample rate an exact multiple of the bit
+/// rate) does not accumulate a rounding error across the ~130 bits of a
+/// frame. Sampling happens at the bit CENTRE, which is what gives the
+/// decoder its margin against edge placement being slightly off.
+///
+/// The resync is what a real CAN controller does and is not optional
+/// polish: a receiver's clock is only nominally the transmitter's, and
+/// over a full frame even a fraction of a percent of drift walks the
+/// sample point off the bit. Snapping `pos` to an observed dominant edge
+/// whenever one lands within +-0.4 bit of where the boundary was
+/// expected costs nothing on an ideal signal (the edge is already
+/// exactly there, so `pos` does not move) and keeps a jittery one
+/// aligned. The window is deliberately narrower than half a bit so it
+/// can only ever be this bit's own boundary it locks onto.
+struct CanBitReader<'a> {
+    bits: &'a [u8],
+    spb: f64,
+    pos: f64,
+}
+
+impl<'a> CanBitReader<'a> {
+    fn next_raw(&mut self) -> Option<u8> {
+        let n = self.bits.len();
+        let win = self.spb * 0.4;
+        let lo = (self.pos - win).round().max(1.0) as usize;
+        let hi = (self.pos + win).round().max(0.0) as usize;
+        for j in lo..=hi.min(n.saturating_sub(1)) {
+            if self.bits[j] == 0 && self.bits[j - 1] == 1 {
+                self.pos = j as f64;
+                break;
+            }
+        }
+        let centre = self.pos + self.spb / 2.0;
+        let idx = centre.round();
+        if !(idx >= 0.0) || idx as usize >= n {
+            return None;
+        }
+        let b = self.bits[idx as usize];
+        self.pos += self.spb;
+        Some(b)
+    }
+}
+
+/// CAN's bit de-stuffer.
+///
+/// CAN keeps the receiver's clock locked to the transmitter's by
+/// guaranteeing edges: after any five consecutive bits of the same
+/// value the transmitter inserts one bit of the opposite value, which
+/// carries no information and must be removed before any frame field is
+/// read. This is NOT an edge case to handle later -- an 11-bit
+/// identifier or a data byte containing a run of five identical bits is
+/// ordinary traffic, and a decoder that skips de-stuffing does not fail
+/// loudly on it, it silently shifts every field after the run by one bit
+/// and reports a plausible wrong frame.
+///
+/// The stuff bit itself starts the next run (it is a real bit on the
+/// wire, it just is not a frame bit), which is why `run` is reset to 1
+/// rather than 0 when one is discarded.
+///
+/// Stuffing covers SOF through the end of the CRC sequence only; the
+/// CRC delimiter, ACK slot, ACK delimiter and EOF are transmitted
+/// unstuffed, so the caller reads those straight off the reader instead.
+struct CanDeStuffer {
+    last: Option<u8>,
+    run: usize,
+    stuff_bits: usize,
+    stuff_error: bool,
+}
+
+impl CanDeStuffer {
+    fn new() -> Self {
+        CanDeStuffer { last: None, run: 0, stuff_bits: 0, stuff_error: false }
+    }
+
+    fn next(&mut self, r: &mut CanBitReader) -> Option<u8> {
+        loop {
+            let b = r.next_raw()?;
+            if self.run == 5 {
+                if self.last == Some(b) {
+                    // Six identical bits: the transmitter would have
+                    // stuffed. Either this is not a frame or the frame
+                    // is corrupt -- either way, stop decoding it.
+                    self.stuff_error = true;
+                    return None;
+                }
+                self.stuff_bits += 1;
+                self.last = Some(b);
+                self.run = 1;
+                continue;
+            }
+            if self.last == Some(b) {
+                self.run += 1;
+            } else {
+                self.last = Some(b);
+                self.run = 1;
+            }
+            return Some(b);
+        }
+    }
+}
+
+/// CAN's 15-bit CRC, polynomial `0x4599`
+/// (x^15 + x^14 + x^10 + x^8 + x^7 + x^4 + x^3 + 1), computed over the
+/// DE-STUFFED bits from SOF through the end of the data field -- stuff
+/// bits are not part of the checksum, which is the other reason
+/// de-stuffing has to happen before anything else and not as a cleanup
+/// pass afterwards.
+fn can_crc15(bits: &[u8]) -> u16 {
+    let mut crc: u16 = 0;
+    for &b in bits {
+        let nxt = ((crc >> 14) & 1) as u8 ^ b;
+        crc = (crc << 1) & 0x7FFF;
+        if nxt == 1 {
+            crc ^= 0x4599;
+        }
+    }
+    crc
+}
+
+/// One decoded CAN frame, before it becomes a `Model`.
+struct CanFrameRaw {
+    id: u64,
+    extended: bool,
+    rtr: bool,
+    dlc: u64,
+    data: Vec<f64>,
+    crc_rx: u16,
+    crc_ok: bool,
+    crc_delim_ok: bool,
+    ack: bool,
+    ack_delim_ok: bool,
+    eof_ok: bool,
+}
+
+impl CanFrameRaw {
+    fn into_model(self, stuff_bits: usize, sof_index: usize, dt: f64) -> Value {
+        Value::Model(Arc::new(ModelHandle::new(
+            "can_frame",
+            vec![
+                ("id".to_string(), Value::Num(self.id as f64)),
+                ("extended".to_string(), Value::Bool(self.extended)),
+                ("rtr".to_string(), Value::Bool(self.rtr)),
+                ("dlc".to_string(), Value::Num(self.dlc as f64)),
+                ("byte_count".to_string(), Value::Num(self.data.len() as f64)),
+                ("data".to_string(), Value::Vec(Arc::new(self.data))),
+                ("crc".to_string(), Value::Num(f64::from(self.crc_rx))),
+                ("crc_ok".to_string(), Value::Bool(self.crc_ok)),
+                ("crc_delim_ok".to_string(), Value::Bool(self.crc_delim_ok)),
+                ("ack".to_string(), Value::Bool(self.ack)),
+                ("ack_delim_ok".to_string(), Value::Bool(self.ack_delim_ok)),
+                ("eof_ok".to_string(), Value::Bool(self.eof_ok)),
+                ("stuff_bits".to_string(), Value::Num(stuff_bits as f64)),
+                ("start_index".to_string(), Value::Num(sof_index as f64)),
+                ("start_time".to_string(), Value::Num(sof_index as f64 * dt)),
+            ],
+        )))
+    }
+}
+
+/// Pulls one de-stuffed frame bit and records it as CRC input.
+fn can_take(r: &mut CanBitReader, ds: &mut CanDeStuffer, crc_input: &mut Vec<u8>) -> Option<u8> {
+    let b = ds.next(r)?;
+    crc_input.push(b);
+    Some(b)
+}
+
+/// Pulls `k` de-stuffed frame bits, MSB first -- every CAN multi-bit
+/// field is transmitted most-significant bit first.
+fn can_take_n(r: &mut CanBitReader, ds: &mut CanDeStuffer, crc_input: &mut Vec<u8>, k: usize) -> Option<u64> {
+    let mut acc: u64 = 0;
+    for _ in 0..k {
+        acc = (acc << 1) | u64::from(can_take(r, ds, crc_input)?);
+    }
+    Some(acc)
+}
+
+/// Reads one CAN frame from `r`, assuming `r.pos` sits at the start of a
+/// SOF bit. `None` means "this is not a frame" -- a stuff error (check
+/// `ds.stuff_error`), a first bit that is not dominant, or the capture
+/// running out mid-frame -- and the caller resumes scanning.
+///
+/// Written as a plain function taking `&mut` state rather than inline in
+/// the builtin arm so that every field read can use `?` for the
+/// ran-out-of-samples path. The obvious inline alternative, a macro that
+/// `continue`s the scan loop, is a trap: inside the `for` of a multi-bit
+/// field that `continue` binds to the INNER loop and silently reads a
+/// short field instead of abandoning the frame.
+fn can_read_frame(r: &mut CanBitReader, ds: &mut CanDeStuffer) -> Option<CanFrameRaw> {
+    // Every de-stuffed bit from SOF through the end of the data field,
+    // in order -- exactly the CRC input, accumulated as it is read
+    // rather than reassembled afterwards from the parsed fields, which
+    // would be a second and independently wrong way to say the same
+    // thing.
+    let mut crc_input: Vec<u8> = Vec::new();
+    let ci = &mut crc_input;
+    if can_take(r, ds, ci)? != 0 {
+        return None;
+    }
+    let id_a = can_take_n(r, ds, ci, 11)?;
+    let rtr_or_srr = can_take(r, ds, ci)?;
+    let ide = can_take(r, ds, ci)?;
+    let (id, extended, rtr) = if ide == 1 {
+        let id_b = can_take_n(r, ds, ci, 18)?;
+        let rtr = can_take(r, ds, ci)?;
+        let _r1 = can_take(r, ds, ci)?;
+        let _r0 = can_take(r, ds, ci)?;
+        ((id_a << 18) | id_b, true, rtr)
+    } else {
+        let _r0 = can_take(r, ds, ci)?;
+        (id_a, false, rtr_or_srr)
+    };
+    let dlc = can_take_n(r, ds, ci, 4)?;
+    // A remote-transmission-request frame REQUESTS data, it does not
+    // carry any, whatever its DLC says. And classical CAN caps the
+    // payload at 8 bytes: DLC values 9..15 are legal on the wire and
+    // still mean 8, so `dlc` is reported raw and the byte count
+    // separately, rather than silently reconciling the two.
+    let nbytes = if rtr == 1 { 0 } else { dlc.min(8) as usize };
+    let mut data: Vec<f64> = Vec::with_capacity(nbytes);
+    for _ in 0..nbytes {
+        data.push(can_take_n(r, ds, ci, 8)? as f64);
+    }
+    let crc_rx = can_take_n(r, ds, ci, 15)? as u16;
+    // The CRC covers SOF through the data field -- everything read so
+    // far except the 15 CRC bits themselves.
+    let crc_calc = can_crc15(&crc_input[..crc_input.len() - 15]);
+    // Past the CRC sequence the frame is NOT stuffed, so the delimiter,
+    // ACK slot and EOF come straight off the reader.
+    let crc_delim_ok = r.next_raw()? == 1;
+    let ack = r.next_raw()? == 0;
+    let ack_delim_ok = r.next_raw()? == 1;
+    let mut eof_ok = true;
+    for _ in 0..7 {
+        if r.next_raw()? != 1 {
+            eof_ok = false;
+        }
+    }
+    Some(CanFrameRaw {
+        id,
+        extended,
+        rtr: rtr == 1,
+        dlc,
+        data,
+        crc_rx,
+        crc_ok: crc_calc == crc_rx,
+        crc_delim_ok,
+        ack,
+        ack_delim_ok,
+        eof_ok,
+    })
+}
+
 /// The `polarity=` keyword: `"positive"` (default) pairs each rising
 /// edge with the next falling one, `"negative"` the other way round.
 fn polarity_kwarg(f: &str, style: &[(String, Value)]) -> R<bool> {
@@ -35539,7 +39264,7 @@ fn polarity_kwarg(f: &str, style: &[(String, Value)]) -> R<bool> {
 
 fn resolve_fs(f: &str, src: &Value, explicit: Option<f64>, default: Option<f64>) -> R<f64> {
     let carried = match src {
-        Value::Signal(_, fs) => Some(*fs),
+        Value::Signal(_, fs, _) => Some(*fs),
         Value::Spectrum(_, fs, _, _) => Some(*fs),
         _ => None,
     };
@@ -35574,9 +39299,16 @@ fn resolve_fs(f: &str, src: &Value, explicit: Option<f64>, default: Option<f64>)
 /// `Vec` instead rather than re-attaching an `Fs` that is no longer true
 /// (see `remove_outliers`/`remove_nan`, and `interpolate_at`, which made the
 /// same call for the same reason).
+/// Carries the FULL annotation set through, not just the rate -- and that
+/// is the strongest form of the promise in this function's own doc comment
+/// above. Its callers are the operations that return one value per input
+/// sample, still in the same unit: a rolling mean, a dropout fill, an
+/// outlier patch. A rolling RMS of a signal in pascals is in pascals, so
+/// the unit and the calibration are still true of the output, unlike the
+/// arbitrary-function case `SigMeta::axis_only` exists for.
 fn same_rate_as(input: &Value, out: Vec<f64>) -> Value {
     match input {
-        Value::Signal(_, fs) => Value::Signal(Arc::new(out), *fs),
+        Value::Signal(_, fs, m) => Value::Signal(Arc::new(out), *fs, m.clone()),
         _ => Value::Vec(Arc::new(out)),
     }
 }
@@ -35610,7 +39342,24 @@ fn to_cow(v: &Value) -> R<Cow<'_, [f64]>> {
         Value::Bool(b) => Ok(Cow::Owned(vec![if *b { 1.0 } else { 0.0 }])),
         // matrices reduce as their flat column-major buffer
         Value::Mat(m) => Ok(Cow::Borrowed(m.as_slice())),
-        Value::Signal(xs, _) => Ok(Cow::Borrowed(xs.as_slice())),
+        Value::Signal(xs, _, _) => Ok(Cow::Borrowed(xs.as_slice())),
+        // A DENSITY spectrum is a real, non-negative vector that happens to
+        // be stored in the shared complex `Spectrum` representation, so it
+        // reads back as the plain vector it mathematically is. This one arm
+        // is what makes `welch`/`periodogram`/`psd` returning a typed
+        // `Spectrum` a back-compatible change: `length(welch(s))`,
+        // `plot(f, welch(s))`, `max(welch(s))` and every other
+        // vector-consuming builtin keep working on the new return type
+        // without being taught about it -- the same chokepoint trick
+        // `Signal` uses for the time side.
+        //
+        // Restricted to `Density` deliberately. The other conventions have
+        // a meaningful PHASE, and silently handing back only the real parts
+        // of an `Amplitude` spectrum would be a quiet wrong answer rather
+        // than a convenience; those still have to go through `abs`/`mag`.
+        Value::Spectrum(xs, _, _, SpectrumNorm::Density) => {
+            Ok(Cow::Owned(xs.iter().map(|c| c.re).collect()))
+        }
         // A list whose elements are all numbers IS a numeric vector, and
         // refusing it made the natural way to build one -- `xs = ()` then
         // `append` in a loop -- fail at the first function that wanted a
@@ -35904,9 +39653,10 @@ fn apply_threshold(x: &Value, level: f64) -> R<Value> {
             let out = Image::new(img.width, img.height, pixels).map_err(|msg| EvalError { msg })?;
             Ok(Value::Image(Arc::new(out)))
         }
-        Value::Signal(xs, fs) => {
+        Value::Signal(xs, fs, m) => {
             let out: Vec<f64> = xs.iter().map(|&v| if v >= level { 1.0 } else { 0.0 }).collect();
-            Ok(Value::Signal(out.into(), *fs))
+            // 0/1 flags are not pascals: the axis survives, the unit does not.
+            Ok(Value::Signal(out.into(), *fs, Arc::new(m.axis_only())))
         }
         other => compare(">=", other.clone(), Value::Num(level)),
     }
@@ -35942,9 +39692,10 @@ fn apply_multithreshold(x: &Value, levels: &[f64]) -> R<Value> {
             let out = Image::new(img.width, img.height, pixels).map_err(|msg| EvalError { msg })?;
             Ok(Value::Image(Arc::new(out)))
         }
-        Value::Signal(xs, fs) => {
+        Value::Signal(xs, fs, m) => {
             let out: Vec<f64> = xs.iter().map(|&v| band_of(v) as f64).collect();
-            Ok(Value::Signal(out.into(), *fs))
+            // Band indices are not the input quantity; the axis survives.
+            Ok(Value::Signal(out.into(), *fs, Arc::new(m.axis_only())))
         }
         Value::Num(v) => Ok(Value::Num(band_of(*v) as f64)),
         other => {
@@ -37069,38 +40820,45 @@ fn edit_distance(a: &str, b: &str, budget: usize) -> Option<usize> {
 pub const BUILTIN_NAMES: &[&str] = &[
     "DataFrame", "StreamFile", "StreamURL", "ablation_study", "abs", "acf",
     "acos", "acosh", "adadelta", "adagrad", "adam", "adamax", "adamw", "adc",
-    "add", "add_edge", "add_node", "add_noise", "affine_identity",
+    "add", "add_edge", "add_marker", "add_node", "add_noise", "add_region",
+    "affine_identity",
     "affine_rotate", "affine_scale", "affine_shear", "affine_translate",
-    "after", "after_last", "all", "and", "angle", "animate", "annotate", "any",
-    "append", "append_all", "append_text", "apply", "apropos", "ar_model",
+    "after", "after_last", "algorigram", "all", "and", "angle", "animate", "annotate", "any",
+    "append", "append_all", "append_text", "apply", "apply_calibration",
+    "apply_calibration_curve", "apply_gain", "apply_offset", "apropos", "ar_model",
     "arc", "area", "arg", "argmax", "argmean", "argmedian", "argmin",
     "argquantile", "argsort", "argv", "arrow", "arrowtext", "as_text", "asc",
     "asin", "asinh", "astar_mrmr", "at", "atan", "atanh", "available",
-    "avgpool2d", "band_power", "band_zero", "bar", "basin_hopping", "beeswarm",
+    "avgpool2d", "band_power", "band_zero", "bar", "basin_hopping", "beamform",
+    "beeswarm",
     "before", "before_last", "bin2dec", "binomial", "bitand", "bitcmp",
-    "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "block_process", "blur",
-    "blur_backdrop", "bode_magnitude", "bode_phase", "box", "boxplot",
-    "bubble", "builtins", "butter", "bwareaopen", "bwlabel", "capacitor",
+    "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "block_process",
+    "blocks", "blur",
+    "blur_backdrop", "bode", "bode_magnitude", "bode_phase", "box", "boxplot",
+    "bubble", "builtins", "butter", "bwareaopen", "bwlabel", "calibrate", "capacitor",
     "capitalize", "capture", "cast", "cat", "cbrt", "cd", "ceil", "channel",
     "channel_len", "channel_recv", "channel_send", "channel_try_recv", "chars",
     "cheby1", "cheby2", "chi2cdf", "chi2pdf", "chirp", "chisquare", "chol",
     "chr", "circle", "circuit", "circuit_impedance", "clamp", "clip", "close",
     "cm", "cmyk", "coherence", "colorbar", "colormap", "cols", "compare",
     "compile", "complex", "cond", "confusion_matrix", "conj", "contains",
-    "contour", "contourf", "conv", "conv1d", "conv2d", "copy_file", "corr", "corr_heatmap",
+    "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit", "copy_file",
+    "corr", "corr_heatmap",
     "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov",
-    "cpe", "create_file", "crest_factor", "crop", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml",
+    "cpe", "crc", "crc_check", "create_file", "crest_factor", "crop", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml",
     "csvify", "ctranspose", "cumsum", "cur_dir", "curve_fit", "cut",
     "cv_stability", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct",
-    "dec2bin", "dec2hex", "delay", "delta_e", "dense", "dense_layer", "describe", "det",
-    "detect_saturation", "detrend", "device_used", "dft", "diag", "dict", "diff", "dir",
+    "dec2bin", "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart", "delay",
+    "delta_e", "dense", "dense_layer", "describe", "det",
+    "detect_saturation", "detrend", "device_used", "dft", "diag", "diagram_pipeline", "dict", "diff", "dir",
     "dir_exists", "disp", "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
-    "double_buffer", "drop", "drop_row", "dropout", "dropout_layer", "duty_cycle", "dwt",
-    "ecdf", "echo", "eda", "edge_detect", "eig", "elapsed", "elediv", "elemul",
-    "elepow", "ellip", "ellipse", "emd", "emf", "ends_with", "energy", "enob",
+    "double_buffer", "downsample",
+    "drop", "drop_row", "dropout", "dropout_layer", "duty_cycle", "dwt",
+    "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
+    "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exp", "exp2", "explain",
-    "explore", "expm1", "exponential", "eye", "f1", "fall_time", "fft", "fftc", "fftr",
+    "explore", "expm1", "exponential", "eye", "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr",
     "fifo", "figure", "figure_background", "figure_size", "file_exists",
     "file_size", "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
     "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_missing",
@@ -37113,9 +40871,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "goertzel", "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
-    "gru_forward", "gru_init", "hamming", "hampel", "hann", "has_edge",
+    "gru_forward", "gru_init", "hamming", "hamming74_decode",
+    "hamming74_encode", "hampel", "hann", "has_edge",
     "has_key", "havriliak_negami", "head", "heatmap", "help", "hex2dec",
-    "hexbin", "hilbert", "hist", "histeq", "histogram", "hline", "hmm",
+    "hexbin", "high_time", "hilbert", "hist", "histeq", "histogram", "hline", "hmm",
     "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
     "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "idct",
     "identity", "idft", "idwt", "ifft", "im", "imadjust", "imag", "image",
@@ -37132,14 +40891,17 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
     "layer_norm", "lcase", "least_squares", "left", "legend", "len", "length",
     "lfilter", "lgamma", "like", "lines", "linked_list", "linspace",
-    "list_dir", "list_files", "listdir", "listen_pool", "llm_load", "ln",
+    "list_dir", "list_files", "listdir", "listen_pool", "llm_load",
+    "lms_init", "ln",
     "load", "load_image", "load_model", "log", "log10", "log1p", "log2",
-    "logistic_model", "loglog", "logspace", "logsumexp", "lower",
+    "logistic_model", "loglog", "logspace", "logsumexp", "low_time", "lower",
     "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward",
-    "lstm_init", "ltrim", "lu", "mae", "mag2db", "make_file", "map",
+    "lstm_init", "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file", "map",
+    "markers",
     "markov_chain", "matlab_exec", "matmul", "max", "maxpool2d", "md2html",
     "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
-    "mem_usage", "meshgrid", "mid", "min", "minimize", "minutely_profile", "mirror",
+    "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize",
+    "minutely_profile", "mirror",
     "mismatch_loss", "mkdir", "mlp_classifier", "mm", "mmap_len", "mmap_open",
     "mmap_read", "mod", "mode", "monte_carlo", "monthly_profile", "move", "move_file",
     "mse", "mtimes", "mul", "multi_head_attention", "multi_otsu", "multisine",
@@ -37157,11 +40919,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "pipeline", "plot", "pmap", "point", "poisson", "polarplot", "poles",
     "polyfit", "polygon", "polyval", "pool", "pop", "pop_back", "pop_front",
     "porous", "pow", "pow2db", "preciseTimer", "precision", "predict", "print",
-    "printtex", "prod", "profile_end", "profile_start", "profile_stats",
+    "printtex", "process", "processor", "prod", "profile_end", "profile_start",
+    "profile_stats",
     "profiling_mode", "progress",
     "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
     "pump_watches", "push", "push_back", "push_front", "pwd",
-    "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qr", "quantile",
+    "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qam_demodulate",
+    "qam_modulate", "qr", "quantile",
     "quantile_normalize", "queue", "quick_mlp", "raincloud", "rand", "randi",
     "randn", "random_forest_model", "random_walk", "range", "range_decode",
     "range_encode", "rank", "rans_decode", "rans_encode", "re", "read",
@@ -37172,13 +40936,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "read_uint16", "read_uint32", "read_uint64", "read_until", "read_values",
     "real", "recall", "rect", "rectangle", "reduce", "reflection_coefficient",
     "regex_count", "regex_find", "regex_find_all", "regex_groups",
-    "regex_match", "regex_replace", "regex_split", "regionprops", "relu",
+    "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu",
     "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
     "remove_small_blobs", "rename_file", "repeat_str", "replace",
-    "replace_outliers", "resample_to",
+    "replace_outliers", "resample_int", "resample_to",
     "reset", "reshape", "resistor", "resize", "restart", "return_loss",
     "reverse", "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model",
-    "right", "rise_time", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms",
+    "right", "rise_time", "rising_edges", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms",
     "rmse", "rmsprop", "robust_scale", "rolling_max", "rolling_mean",
     "rolling_min", "rolling_rms", "rolling_std",
     "rot90", "round", "row_mean", "row_sum",
@@ -37188,29 +40952,32 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
     "semaphore_available", "semaphore_release", "semilogx", "semilogy",
     "sequential", "sequential_split", "serial_open", "serial_ports", "series",
-    "set", "sfdr", "sgd", "shape", "sharpen", "shell", "shortest_path",
-    "sigma_delta", "sigmoid", "sign", "signal", "signal_slice_time",
+    "set", "set_metadata", "set_start_time", "sfdr", "sgd", "shape", "sharpen",
+    "shell", "shortest_path",
+    "sigma_delta", "sigmoid", "sign", "signal", "signal_slice_time", "signal_unit",
     "simple_cnn", "simple_rnn_classifier", "simulate", "sin", "sinad",
     "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness", "sleep",
     "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter",
     "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
     "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
-    "spectrum_normalize", "spectrum_unnormalize", "spiderplot",
+    "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl",
     "splineplot", "split", "sqrt", "square", "stackbar", "stair", "stamp",
-    "standardize", "start", "starts_with", "stationary", "std", "ste", "stem",
+    "standardize", "start", "start_time", "starts_with", "stationary", "std", "ste",
+    "steer_delays", "stem",
     "step", "stft", "stop", "stop_grad", "str", "stratified_split", "subplot",
     "substr", "subtract", "sum", "svd", "svm_model", "svr_model", "swap",
     "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset",
     "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen", "tcp_port",
     "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n", "theme", "threshold",
-    "tic", "timer", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk",
-    "to_float", "to_hsl", "to_hsv", "to_int", "to_lab", "to_rgb", "to_vec",
+    "tic", "timer", "timestamps", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk", "to_digital",
+    "to_float", "to_hsl", "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec",
     "toc", "tolower", "touch", "toupper", "trace", "track", "train_loop",
-    "train_test_split", "train_val_test_split", "transform",
+    "train_test_split", "train_val_test_split", "transfer_function", "transform",
     "transformer_block", "transpose", "tree_model", "triangle", "trim", "tsne",
     "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number",
     "ui_select", "ui_slider", "ui_text", "undershoot", "uniform", "unique", "unit_scale", "update",
-    "upper", "val", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
+    "upper", "upsample",
+    "val", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
     "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
     "warburg_short", "warn", "waterfall", "welch", "where", "worker_done", "wrap",
     "write", "write_array", "write_bin", "write_bit", "write_byte",
@@ -37380,11 +41147,125 @@ fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &
 
 /// Map a value to a real result with a complex rule for complex inputs and a
 /// real rule for real inputs (`abs`, `angle`, `real`, `imag`).
+/// The complex payload of a value that carries a FREQUENCY AXIS alongside
+/// complex data: `transfer_function`'s `kind="frf"` handle (field `h`) and
+/// measured `impedance`'s `kind="impedance"` handle (field `z`).
+///
+/// `toolkit-signal.md` §11 asks for `Z.real()`/`Z.magnitude()`/`Z.phase()`/
+/// `Z.nyquist()` to work on the result directly. Method-call sugar rewrites
+/// each of those to `real(Z)`/`nyquist(Z)`/... (see `eval_call`), so rather
+/// than teach every one of those builtins about a model kind, the two
+/// complex-promotion paths they all funnel through -- `as_complex_flat`
+/// and `complex_map_to_real` -- unwrap through this single function.
+///
+/// Deliberately narrow: only these two kinds, only when the field really
+/// holds a `CVec`. Every other `Value::Model` keeps erroring exactly as
+/// before, so this cannot quietly make an unrelated model arithmetic.
+fn frequency_carrier_complex(v: &Value) -> Option<Vec<Complex64>> {
+    let Value::Model(m) = v else { return None };
+    let field = match m.kind.as_str() {
+        "frf" => "h",
+        "impedance" => "z",
+        _ => return None,
+    };
+    match m.field(field) {
+        Some(Value::CVec(xs)) => Some(xs.as_ref().clone()),
+        _ => None,
+    }
+}
+
+/// The sample rate of a TWO-recording measurement (`transfer_function`,
+/// measured `impedance`). Either recording may carry it, an explicit
+/// positional `fs` still cross-checks against it, and two carried rates
+/// that DISAGREE are an error rather than a silent pick -- the same
+/// contract `resolve_fs` enforces for one signal, extended to the pair,
+/// because two recordings at different rates are not two views of one
+/// measurement no matter how plausible the arithmetic looks afterwards.
+fn resolve_fs_pair(f: &str, a: &Value, b: &Value, explicit: Option<f64>) -> R<f64> {
+    let carried = |v: &Value| match v {
+        Value::Signal(_, fs, _) => Some(*fs),
+        Value::Spectrum(_, fs, _, _) => Some(*fs),
+        _ => None,
+    };
+    if let (Some(ra), Some(rb)) = (carried(a), carried(b)) {
+        if (ra - rb).abs() > 1e-9 * ra.abs().max(1.0) {
+            return e(format!(
+                "{f}: the two recordings carry different sample rates ({ra} Hz and {rb} Hz) -- \
+                 they cannot be two views of the same measurement. Resample one of them first."
+            ));
+        }
+    }
+    let src = if carried(a).is_some() { a } else { b };
+    resolve_fs(f, src, explicit, None)
+}
+
+/// The Welch-framed FRF estimate shared by `transfer_function` and the
+/// measured branch of `impedance`: parse the common `method=`/`nperseg=`/
+/// `noverlap=`/`window=` keywords, run the estimator, and hand back
+/// `(H, coherence, freq, method, nperseg)`.
+///
+/// `x` is the INPUT and `y` the OUTPUT -- for impedance that is current and
+/// voltage respectively, which is the opposite of `impedance`'s own
+/// `(voltage, current)` argument order; see that arm for why.
+///
+/// The frequency axis is `k * fs / nperseg`, which is exactly
+/// `Value::Spectrum`'s own `k * Fs / N` with `N = nperseg` -- §11 asks the
+/// impedance result to "conform to the same frequency-axis convention
+/// rather than invent its own", and this is that convention, evaluated for
+/// a Welch-framed estimate rather than a whole-record transform.
+#[allow(clippy::type_complexity)]
+fn estimate_frf(
+    f: &str,
+    xs: &[f64],
+    ys: &[f64],
+    fs: f64,
+    style: &[(String, Value)],
+) -> R<(Vec<Complex64>, Vec<f64>, Vec<f64>, String, usize)> {
+    let method = style_str(style, "method").unwrap_or_else(|| "h1".to_string());
+    let estimator = match method.to_ascii_lowercase().as_str() {
+        "h1" => numeric::transforms::TfEstimator::H1,
+        "h2" => numeric::transforms::TfEstimator::H2,
+        "hv" => numeric::transforms::TfEstimator::Hv,
+        other => {
+            return e(format!(
+                "{f}: method must be \"h1\", \"h2\" or \"hv\", not {other:?} -- \
+                 h1 assumes the noise is on the output, h2 that it is on the input, \
+                 and hv is the geometric-mean compromise between the two"
+            ))
+        }
+    };
+    let shorter = xs.len().min(ys.len());
+    let nperseg = style_num_checked(style, "nperseg", shorter.min(256) as f64, f)? as usize;
+    if nperseg == 0 || nperseg > shorter {
+        return e(format!(
+            "{f}: nperseg ({nperseg}) must be between 1 and the shorter recording's length ({shorter})"
+        ));
+    }
+    let noverlap = style_num_checked(style, "noverlap", (nperseg / 2) as f64, f)? as usize;
+    if noverlap >= nperseg {
+        return e(format!(
+            "{f}: noverlap ({noverlap}) must be less than nperseg ({nperseg})"
+        ));
+    }
+    let window_name = style_str(style, "window").unwrap_or_else(|| "hann".to_string());
+    let window = periodic_analysis_window(f, &window_name, nperseg, style)?;
+    let (h, coh) =
+        numeric::transforms::transfer_function(xs, ys, fs, nperseg, noverlap, &window, estimator)
+            .map_err(|ne| EvalError { msg: format!("{f}: {ne}") })?;
+    let freq: Vec<f64> = (0..h.len()).map(|k| k as f64 * fs / nperseg as f64).collect();
+    Ok((h, coh, freq, method.to_ascii_lowercase(), nperseg))
+}
+
 fn complex_map_to_real(
     v: &Value,
     cf: impl Fn(Complex64) -> f64,
     rf: impl Fn(f64) -> f64 + Sync + Send,
 ) -> R<Value> {
+    // `Z.real()`/`H.phase()` -- the frequency-carrying handles read as
+    // their own complex data (see `frequency_carrier_complex`).
+    if let Some(xs) = frequency_carrier_complex(v) {
+        return Ok(Value::Vec(Arc::new(xs.iter().map(|c| cf(*c)).collect())));
+    }
     match v {
         Value::Complex(c) => Ok(Value::Num(cf(*c))),
         Value::CVec(xs) => Ok(Value::Vec(Arc::new(xs.iter().map(|c| cf(*c)).collect()))),
@@ -37442,7 +41323,7 @@ fn shape_of(v: &Value) -> (usize, usize) {
         Value::Spectrum(xs, ..) => (xs.len(), 1),
         // A circuit is a model, not an array -- it has no shape of its own.
         Value::Circuit(_) => (1, 1),
-        Value::Signal(xs, _) => (xs.len(), 1),
+        Value::Signal(xs, _, _) => (xs.len(), 1),
         Value::Num(_) | Value::Bool(_) | Value::Complex(_) => (1, 1),
         // A report handle is one thing, so (1, 1) -- NOT (0, 0).
         //
@@ -38336,7 +42217,23 @@ fn map1(v: Value, g: impl Fn(f64) -> f64 + Sync + Send) -> R<Value> {
         Value::Mat(m) => Ok(Value::Mat(Arc::new(m.map(g)))),
         // elemental math on a signal keeps its Fs (Â§41.2): `sin(x)`, `-x`,
         // `sqrt(x)`, â€¦ are all still sampled at the same rate as `x`.
-        Value::Signal(xs, fs) => Ok(Value::Signal(Arc::new(xs.iter().copied().map(g).collect()), fs)),
+        //
+        // It keeps the SAMPLING contract -- rate, time origin, markers,
+        // regions, metadata -- because none of those are touched by a
+        // per-sample function: sample `i` still happened when it happened.
+        // It DROPS the calibration record, because `g` is an arbitrary
+        // function and `physical = slope*raw + offset` is a precise numeric
+        // claim that an unknown `g` almost certainly falsifies. `spl`
+        // refusing after `sqrt(s)` is the correct outcome; answering from a
+        // slope that no longer describes the samples is not.
+        //
+        // See `SigMeta::axis_only` for the one rule: the time axis survives
+        // a per-sample function, the unit and calibration do not.
+        Value::Signal(xs, fs, m) => Ok(Value::Signal(
+            Arc::new(xs.iter().copied().map(g).collect()),
+            fs,
+            Arc::new(m.axis_only()),
+        )),
         // Mirrors `as_num`'s own `Family`/`Temp` split: a linear-family
         // quantity unwraps silently into a plain `Value::Num` here too
         // (`sqrt(5 kHz)`, ...), same rationale as `as_num`.
@@ -38401,7 +42298,7 @@ fn map1_complex_checked(
         Value::Bool(_) => false,
         Value::Vec(xs) => xs.iter().any(|&x| is_real_pole(x)),
         Value::Mat(m) => m.as_slice().iter().any(|&x| is_real_pole(x)),
-        Value::Signal(xs, _) => xs.iter().any(|&x| is_real_pole(x)),
+        Value::Signal(xs, _, _) => xs.iter().any(|&x| is_real_pole(x)),
         Value::Unit(n, UnitTag::Dim(_, _)) => is_real_pole(*n),
         _ => false,
     };
@@ -38446,7 +42343,7 @@ fn map1_checked(
         Value::Num(x) => is_pole(*x).then_some(*x),
         Value::Vec(xs) => xs.iter().copied().find(|&x| is_pole(x)),
         Value::Mat(m) => m.as_slice().iter().copied().find(|&x| is_pole(x)),
-        Value::Signal(xs, _) => xs.iter().copied().find(|&x| is_pole(x)),
+        Value::Signal(xs, _, _) => xs.iter().copied().find(|&x| is_pole(x)),
         Value::Unit(n, UnitTag::Dim(_, _)) => is_pole(*n).then_some(*n),
         _ => None,
     };
@@ -38497,7 +42394,7 @@ fn map2(a: Value, b: Value, g: impl Fn(f64, f64) -> f64 + Sync + Send) -> R<Valu
 /// (matching this codebase's existing shape-mismatch precedent).
 fn signal_binop(op: &str, a: Value, b: Value) -> R<Value> {
     let fs = match (&a, &b) {
-        (Value::Signal(_, fa), Value::Signal(_, fb)) => {
+        (Value::Signal(_, fa, _), Value::Signal(_, fb, _)) => {
             if (fa - fb).abs() > 1e-9 {
                 return e(format!(
                     "cannot combine signals with different sample rates (Fs={fa} vs Fs={fb})"
@@ -38505,8 +42402,8 @@ fn signal_binop(op: &str, a: Value, b: Value) -> R<Value> {
             }
             *fa
         }
-        (Value::Signal(_, fa), _) => *fa,
-        (_, Value::Signal(_, fb)) => *fb,
+        (Value::Signal(_, fa, _), _) => *fa,
+        (_, Value::Signal(_, fb, _)) => *fb,
         _ => unreachable!("signal_binop called without a Signal operand"),
     };
     let xa = a.as_flat().map_err(|m| EvalError { msg: m })?;
@@ -38530,7 +42427,7 @@ fn signal_binop(op: &str, a: Value, b: Value) -> R<Value> {
         (m, 1) => (0..m).map(|i| g(xa[i], xb[0])).collect(),
         (m, n) => return e(format!("signal length mismatch: {m} vs {n}")),
     };
-    Ok(Value::Signal(out.into(), fs))
+    Ok(Value::Signal(out.into(), fs, SigMeta::none()))
 }
 
 /// Elementwise matrix-boundary op: consumes both operands via `into_matrix`
@@ -41579,6 +45476,76 @@ fn forest_predict_row(trees: &[TreeArrays], row: &[f64], classification: bool) -
     }
 }
 
+/// One LMS sample step — the `update` half of the `lms_init` state
+/// protocol, reached as `state.update(x, d)` with `x` the new input
+/// sample and `d` the desired/reference sample.
+///
+/// Per sample, in exactly this order (the order is the contract, not an
+/// implementation detail):
+///   1. shift `x` into `hist` (newest first; the oldest sample falls off
+///      the end),
+///   2. `y = dot(w, hist)`,
+///   3. `e = d - y`,
+///   4. `w = w + mu * e * hist`.
+///
+/// Because `y` is formed from the window that ALREADY contains `x`, the
+/// 1-tap case reduces exactly to the textbook single-weight recursion
+/// `e = d - w*x; w = w + mu*e*x` — the multi-tap form is a
+/// generalization of it, not a separate algorithm, which is why there is
+/// one code path here and not two. (Forming `y` from the PREVIOUS window
+/// instead is the classic off-by-one in this filter: it still converges,
+/// just to a one-sample-delayed answer, so it looks correct on a plot.)
+///
+/// Returns a NEW state; the receiver is untouched.
+fn lms_update(m: &ModelHandle, args: &[Value]) -> R<Value> {
+    let field = |name: &str| -> R<&Value> {
+        m.field(name)
+            .ok_or_else(|| EvalError { msg: format!("update: lms state is missing its {name} field") })
+    };
+    let w = to_vec(field("w")?)?;
+    let hist_prev = to_vec(field("hist")?)?;
+    let mu = field("mu")?.as_num().map_err(|msg| EvalError { msg })?;
+    let x = arg_get(args, 1)
+        .ok_or_else(|| EvalError {
+            msg: "update(lms_state, x, d) needs an input sample `x` and a desired sample `d`".into(),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })?;
+    let d = arg_get(args, 2)
+        .ok_or_else(|| EvalError {
+            msg: "update(lms_state, x, d) needs a desired sample `d` as its second argument".into(),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })?;
+    if w.len() != hist_prev.len() || w.is_empty() {
+        return e(format!(
+            "update: malformed lms state (w has {} weight(s) but hist has {} sample(s))",
+            w.len(),
+            hist_prev.len()
+        ));
+    }
+
+    // Shift the sliding window: newest sample first, oldest dropped.
+    let mut hist = Vec::with_capacity(hist_prev.len());
+    hist.push(x);
+    hist.extend_from_slice(&hist_prev[..hist_prev.len() - 1]);
+
+    let y: f64 = w.iter().zip(hist.iter()).map(|(wi, hi)| wi * hi).sum();
+    let err = d - y;
+    let w_new: Vec<f64> = w.iter().zip(hist.iter()).map(|(wi, hi)| wi + mu * err * hi).collect();
+
+    Ok(Value::Model(Arc::new(ModelHandle::new(
+        "lms",
+        vec![
+            ("w".to_string(), Value::Vec(Arc::new(w_new))),
+            ("hist".to_string(), Value::Vec(Arc::new(hist))),
+            ("mu".to_string(), Value::Num(mu)),
+            ("y".to_string(), Value::Num(y)),
+            ("e".to_string(), Value::Num(err)),
+        ],
+    ))))
+}
+
 /// Extract a `Value::Model` handle, or a clear type error.
 fn as_model(v: &Value) -> R<Arc<ModelHandle>> {
     match v {
@@ -41695,9 +45662,16 @@ fn scale_value_one_shot(method: &str, x: &Value) -> R<Value> {
             let p = scaler::fit_column(method, xs)?;
             Ok(Value::Vec(Arc::new(scaler::transform_column(&p, xs))))
         }
-        Value::Signal(xs, fs) => {
+        Value::Signal(xs, fs, sm) => {
             let p = scaler::fit_column(method, xs)?;
-            Ok(Value::Signal(Arc::new(scaler::transform_column(&p, xs)), *fs))
+            // Standardised/normalised values are dimensionless scores, not
+            // the physical quantity that went in -- the axis survives, the
+            // unit and the calibration do not.
+            Ok(Value::Signal(
+                Arc::new(scaler::transform_column(&p, xs)),
+                *fs,
+                Arc::new(sm.axis_only()),
+            ))
         }
         Value::Mat(m) => {
             let (rows, cols) = m.shape();
@@ -42403,12 +46377,18 @@ fn apply_fitted_scaler(m: &ModelHandle, new_x: &Value, per_column: impl Fn(&Colu
             let p = scaler_column_params(m, 0)?;
             Ok(Value::Vec(Arc::new(per_column(&p, xs)?)))
         }
-        Value::Signal(xs, fs) => {
+        Value::Signal(xs, fs, sm) => {
             if d != 1 {
                 return e(format!("scaler: fitted on {d} feature column(s), but got a single-column signal"));
             }
             let p = scaler_column_params(m, 0)?;
-            Ok(Value::Signal(Arc::new(per_column(&p, xs)?), *fs))
+            // As in `scale_value_one_shot`: a scaled score is no longer the
+            // input's physical quantity, so only the axis rides along.
+            Ok(Value::Signal(
+                Arc::new(per_column(&p, xs)?),
+                *fs,
+                Arc::new(sm.axis_only()),
+            ))
         }
         Value::Mat(mat) => {
             let (rows, cols) = mat.shape();
@@ -42515,6 +46495,142 @@ fn repr_filt(repr: &FilterRepr, x: &[f64]) -> R<Vec<f64>> {
     }
 }
 
+// ---- shared multirate (sample-rate conversion) filter machinery ----
+//
+// `resample_to`, `upsample`, `downsample` and `resample_int` all need the
+// same thing: one Hamming-windowed linear-phase FIR lowpass, designed and
+// applied causally. They go through the two helpers below rather than each
+// growing its own copy, so there is exactly ONE place where the window, the
+// design call and the application live — and it is the same
+// `numeric::filter::fir1` + `numeric::filter::fir_filt` pair the `fir1(...)`
+// and `sosfilt(...)` builtins themselves dispatch to, not a parallel
+// implementation that could drift from them.
+
+/// Default FIR order for every multirate builtin's anti-alias/interpolation
+/// filter. 60 is long enough for a genuinely useful stopband at the ratios
+/// people actually resample by, and it keeps the group delay an exact whole
+/// number of samples (`order/2 == 30`).
+const MULTIRATE_FIR_ORDER: usize = 60;
+
+/// The order actually used for a length-`n` input.
+///
+/// An FIR filter longer than the signal it is applied to produces nothing
+/// but its own startup transient, so a requested order is reduced to the
+/// largest EVEN order that still fits (`n - 1` or one less). Even, because
+/// an even order has an odd tap count and therefore an exact whole-sample
+/// group delay of `order/2` — which is the number every one of these
+/// builtins documents and every delay-aligned test subtracts. Returns `0`
+/// when the signal is too short for any filter worth designing (`n < 5`),
+/// which the callers read as "pass the samples through unfiltered": below
+/// about five samples there is no band to protect and no filter that would
+/// leave anything but transient behind.
+fn multirate_effective_order(requested: usize, n: usize) -> usize {
+    if n < 5 {
+        return 0;
+    }
+    let fits = requested.min(n - 1);
+    let even = fits - (fits % 2);
+    if even < 2 {
+        0
+    } else {
+        even
+    }
+}
+
+/// Design a Hamming-windowed FIR lowpass of order `order` with the -6 dB
+/// cutoff at `cutoff_hz` for a sample rate of `fs_hz`, and apply it
+/// causally — exactly what `sosfilt(fir1(order, cutoff_hz, kind="low",
+/// fs=fs_hz), x)` does at Qu level, called directly from Rust.
+///
+/// **Causal, so the result is delayed by `order/2` samples** (linear phase,
+/// constant across frequency, by construction of a symmetric FIR). That
+/// delay is deliberate and is documented at each call site rather than
+/// cancelled here: `fir_filtfilt` would remove it, but at the cost of
+/// squaring the magnitude response (double the attenuation, a different
+/// filter than the one the caller asked for) and of smearing transients
+/// backwards in time, which is not a thing a resampler should do silently.
+fn multirate_lowpass(order: usize, cutoff_hz: f64, fs_hz: f64, x: &[f64]) -> R<Vec<f64>> {
+    if order == 0 || x.is_empty() {
+        return Ok(x.to_vec());
+    }
+    let window = raised_cosine_window(order + 1, 0.54, 0.46, 0.0);
+    let b = numeric::filter::fir1(order, numeric::filter::FilterKind::Low, &[cutoff_hz], fs_hz, &window)
+        .map_err(|ne| EvalError { msg: ne.to_string() })?;
+    numeric::filter::fir_filt(&b, x).map_err(|ne| EvalError { msg: ne.to_string() })
+}
+
+/// Read the shared `order=` keyword argument. Must be a positive EVEN
+/// integer, for the whole-sample group delay reason in
+/// `multirate_effective_order`'s own comment — an odd order is rejected
+/// with a message that says which even orders bracket it, rather than
+/// silently rounded (a silently-changed filter order is exactly the kind of
+/// "it ran, so it must have done what I asked" outcome these builtins exist
+/// to remove from `resample_to`).
+fn multirate_order_arg(style: &[(String, Value)], f: &str) -> R<usize> {
+    // `style_num_checked`, not `style_num`: the latter maps a wrong-typed
+    // value to `None`, which would silently fall back to the default order
+    // when someone writes `order="60"`.
+    let v = style_num_checked(style, "order", MULTIRATE_FIR_ORDER as f64, f)?;
+    if !v.is_finite() || v < 2.0 || v.fract() != 0.0 {
+        return e(format!("{f}: order= must be an even integer of at least 2, got {}", fmt_num(v)));
+    }
+    let n = v as usize;
+    if n % 2 != 0 {
+        return e(format!(
+            "{f}: order= must be even (for an exact whole-sample group delay of order/2), got {n} — use {} or {}",
+            n - 1,
+            n + 1
+        ));
+    }
+    Ok(n)
+}
+
+/// Read the shared `fs=` keyword argument, falling back to the input's own
+/// `Fs` when it is a `Signal` and to 1.0 Hz for a plain vector. Only the
+/// RATIO of rates matters to any of these filters' designs, so `fs=` never
+/// changes the numbers a plain vector comes back with — it only sets the
+/// `Fs` the returned `Signal` carries.
+fn multirate_fs_arg(style: &[(String, Value)], x_arg: &Value, f: &str) -> R<f64> {
+    let fallback = match x_arg {
+        Value::Signal(_, fs, _) => *fs,
+        _ => 1.0,
+    };
+    let fs = style_num_checked(style, "fs", fallback, f)?;
+    if !(fs > 0.0) || !fs.is_finite() {
+        return e(format!("{f}: fs= must be a positive sample rate, got {}", fmt_num(fs)));
+    }
+    Ok(fs)
+}
+
+/// Wrap a multirate result to match the shape of its input: a `Signal` in
+/// gives a `Signal` out carrying the NEW rate, a plain `Vec` in gives a
+/// plain `Vec` out. Unlike `sosfilt`/`filtfilt`, which preserve `Fs`
+/// because filtering does not move samples in time, these builtins change
+/// the rate — so the `Fs` that comes out is deliberately not the one that
+/// went in.
+fn signal_or_vec(xs: Vec<f64>, was_signal: bool, fs: f64) -> Value {
+    if was_signal {
+        Value::Signal(Arc::new(xs), fs, SigMeta::none())
+    } else {
+        Value::Vec(Arc::new(xs))
+    }
+}
+
+/// The integer factor argument (`L`/`M`) shared by `upsample`/`downsample`/
+/// `resample_int`: a whole number of at least 1.
+fn multirate_factor_arg(args: &[Value], idx: usize, f: &str, name: &str) -> R<usize> {
+    let v = arg_get(args, idx).ok_or_else(|| EvalError {
+        msg: format!("{f}: needs an integer {name} factor"),
+    })?;
+    let n = v.as_num().map_err(|_| EvalError {
+        msg: format!("{f}: {name} must be a number, got {}", v.type_name()),
+    })?;
+    if !n.is_finite() || n.fract() != 0.0 || n < 1.0 {
+        return e(format!("{f}: {name} must be a whole number of at least 1, got {}", fmt_num(n)));
+    }
+    Ok(n as usize)
+}
+
 fn repr_filtfilt(repr: &FilterRepr, x: &[f64]) -> R<Vec<f64>> {
     match repr {
         FilterRepr::Iir(sos) => Ok(numeric::filter::filtfilt(sos, x)),
@@ -42571,6 +46687,148 @@ fn f64_vec_to_json(xs: &[f64]) -> serde_json::Value {
     serde_json::Value::Array(xs.iter().map(|&x| f64_to_json(x)).collect())
 }
 
+/// A signal's §10 annotations -> JSON, for `save`.
+///
+/// Only called when the metadata is non-empty, and every sub-object is
+/// likewise written only when populated, so the saved form of a signal
+/// nobody annotated is unchanged from before this field existed. That is
+/// what keeps files written by an older Qu loadable by this one AND files
+/// written by this one loadable by an older one, as long as nothing was
+/// annotated -- the ordinary case.
+fn signal_meta_to_json(m: &SigMeta) -> serde_json::Value {
+    use serde_json::json;
+    let mut j = json!({});
+    if m.t0 != 0.0 {
+        j["t0"] = f64_to_json(m.t0);
+    }
+    if let Some(u) = &m.unit {
+        j["unit"] = json!(u);
+    }
+    if let Some(c) = &m.cal {
+        let mut cj = json!({
+            "slope": f64_to_json(c.slope),
+            "offset": f64_to_json(c.offset),
+            "unit": json!(c.unit),
+            "source": json!(c.source),
+        });
+        if let Some(r) = c.reference {
+            cj["reference"] = f64_to_json(r);
+        }
+        j["cal"] = cj;
+    }
+    if !m.fields.is_empty() {
+        j["fields"] = serde_json::Value::Array(
+            m.fields
+                .iter()
+                .filter_map(|(k, v)| {
+                    // Metadata values are restricted to Num/Str/Bool by
+                    // `set_metadata`, all of which serialise, so the
+                    // `Err` arm is unreachable in practice; dropping
+                    // rather than failing the whole `save` is the right
+                    // trade if it ever stops being.
+                    value_to_json(v).ok().map(|vj| json!({"k": k, "v": vj}))
+                })
+                .collect(),
+        );
+    }
+    if !m.markers.is_empty() {
+        j["markers"] = serde_json::Value::Array(
+            m.markers
+                .iter()
+                .map(|k| json!({"t": f64_to_json(k.time), "label": json!(k.label)}))
+                .collect(),
+        );
+    }
+    if !m.regions.is_empty() {
+        j["regions"] = serde_json::Value::Array(
+            m.regions
+                .iter()
+                .map(|r| {
+                    json!({
+                        "a": f64_to_json(r.start),
+                        "b": f64_to_json(r.end),
+                        "label": json!(r.label),
+                    })
+                })
+                .collect(),
+        );
+    }
+    j
+}
+
+/// `signal_meta_to_json`'s inverse.
+///
+/// Every part is OPTIONAL and a missing one means the default, so this also
+/// accepts a `meta` object written by a future Qu that added a field this
+/// build does not know -- it reads what it recognises. That is the right
+/// call here and the opposite of `SpectrumNorm`'s: an unknown NORMALISATION
+/// changes what the numbers mean and must be refused, whereas an unknown
+/// annotation is additional information, and ignoring it loses a label
+/// rather than producing a wrong number.
+fn signal_meta_from_json(j: &serde_json::Value) -> R<SigMeta> {
+    let num = |v: Option<&serde_json::Value>, dflt: f64| -> f64 {
+        match v {
+            Some(serde_json::Value::String(s)) => match s.as_str() {
+                "NaN" => f64::NAN,
+                "Infinity" => f64::INFINITY,
+                "-Infinity" => f64::NEG_INFINITY,
+                _ => dflt,
+            },
+            Some(v) => v.as_f64().unwrap_or(dflt),
+            None => dflt,
+        }
+    };
+    let mut m = SigMeta { t0: num(j.get("t0"), 0.0), ..SigMeta::default() };
+    if let Some(u) = j.get("unit").and_then(|v| v.as_str()) {
+        m.unit = Some(u.to_string());
+    }
+    if let Some(cj) = j.get("cal") {
+        m.cal = Some(signal_meta::Calibration {
+            slope: num(cj.get("slope"), 1.0),
+            offset: num(cj.get("offset"), 0.0),
+            unit: cj.get("unit").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            reference: cj.get("reference").map(|v| num(Some(v), 0.0)),
+            // `source` is provenance text, not behaviour, so an
+            // unrecognised one degrades to "linear" rather than refusing a
+            // file that is otherwise perfectly readable.
+            source: match cj.get("source").and_then(|v| v.as_str()) {
+                Some("sensitivity") => "sensitivity",
+                Some("tone") => "tone",
+                Some("curve") => "curve",
+                _ => "linear",
+            },
+        });
+    }
+    if let Some(arr) = j.get("fields").and_then(|v| v.as_array()) {
+        for f in arr {
+            if let (Some(k), Some(v)) = (f.get("k").and_then(|v| v.as_str()), f.get("v")) {
+                if let (Some(canon), Ok(val)) = (signal_meta::canonical_field(k), json_to_value(v))
+                {
+                    m.set_field(canon, val);
+                }
+            }
+        }
+    }
+    if let Some(arr) = j.get("markers").and_then(|v| v.as_array()) {
+        for k in arr {
+            m.markers.push(signal_meta::Marker {
+                time: num(k.get("t"), 0.0),
+                label: k.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            });
+        }
+    }
+    if let Some(arr) = j.get("regions").and_then(|v| v.as_array()) {
+        for r in arr {
+            m.regions.push(signal_meta::Region {
+                start: num(r.get("a"), 0.0),
+                end: num(r.get("b"), 0.0),
+                label: r.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            });
+        }
+    }
+    Ok(m)
+}
+
 /// `Value` -> JSON, for `save`/`save_all`. A hand-written conversion (not
 /// `#[derive(Serialize)]` on `Value` itself) specifically so
 /// `Worker`/`Mutex`/`Semaphore` — live runtime handles, not data — can
@@ -42616,7 +46874,18 @@ fn value_to_json(v: &Value) -> R<serde_json::Value> {
             let flat: Vec<f64> = m.as_slice().iter().flat_map(|z| [z.re, z.im]).collect();
             json!({"type": "cmat", "rows": rows, "cols": cols, "v": f64_vec_to_json(&flat)})
         }
-        Value::Signal(xs, fs) => json!({"type": "signal", "v": f64_vec_to_json(xs), "fs": f64_to_json(*fs)}),
+        // The §10 annotations are written only when there is something to
+        // write, so a plain signal's JSON is byte-for-byte what it was
+        // before this field existed and every file already on disk still
+        // loads. `meta` absent means `SigMeta::none()`, which is what the
+        // reader assumes.
+        Value::Signal(xs, fs, m) => {
+            let mut j = json!({"type": "signal", "v": f64_vec_to_json(xs), "fs": f64_to_json(*fs)});
+            if !m.is_empty() {
+                j["meta"] = signal_meta_to_json(m);
+            }
+            j
+        }
         Value::Spectrum(xs, fs, n, norm) => {
             let flat: Vec<f64> = xs.iter().flat_map(|c| [c.re, c.im]).collect();
             json!({"type": "spectrum", "v": f64_vec_to_json(&flat), "fs": f64_to_json(*fs), "n": n, "norm": norm.name()})
@@ -42831,7 +47100,10 @@ fn json_to_value(j: &serde_json::Value) -> R<Value> {
         "signal" => {
             let xs = as_f64_vec(field(j, "v")?)?;
             let fs = field(j, "fs")?.as_f64().ok_or_else(|| EvalError { msg: "load: malformed signal".into() })?;
-            Value::Signal(xs.into(), fs)
+            match j.get("meta") {
+                Some(mj) => Value::Signal(xs.into(), fs, Arc::new(signal_meta_from_json(mj)?)),
+                None => Value::Signal(xs.into(), fs, SigMeta::none()),
+            }
         }
         "circuit" => {
             let spec = field(j, "spec")?.as_str().unwrap_or_default().to_string();
@@ -48891,6 +53163,47 @@ fn interp1_eval(x: &[f64], y: &[f64], xq_val: &Value, method: &str, who: &str) -
     }
 }
 
+/// Per-element steering delays for an array: `tau_m = x_m * sin(theta) / c`,
+/// the extra time a plane wave arriving from `theta` needs to reach element
+/// `x_m` relative to the array origin (`x = 0`).
+///
+/// `angle_degrees` is in DEGREES, off broadside — the convention every other
+/// user-facing angle in this codebase already uses (`affine_rotate`,
+/// `imrotate`, `bode_phase`), rather than the radians `sin` itself takes.
+/// `c` is the propagation speed in the same length units the positions are
+/// given in per second (343 m/s in air, ~1500 m/s in water).
+///
+/// Shared verbatim by `steer_delays` and `beamform` so the delay vector a
+/// caller composes with `interpolate_at` by hand can never disagree with the
+/// one `beamform` steers with internally.
+fn steering_delays(positions: &[f64], angle_degrees: f64, c: f64) -> Vec<f64> {
+    let s = angle_degrees.to_radians().sin();
+    positions.iter().map(|x| x * s / c).collect()
+}
+
+/// The propagation speed shared by `steer_delays`/`beamform`: positional at
+/// `idx`, or `c=`, defaulting to 343 (m/s, air).
+///
+/// Refuses the two spellings at once rather than silently preferring one --
+/// a caller who wrote both has a belief about which wins, and a wrong guess
+/// here is a quietly mis-steered array, not an error.
+fn beam_speed(args: &[Value], idx: usize, style: &[(String, Value)], who: &str) -> R<f64> {
+    if args.len() > idx && style_entry(style, "c").is_some() {
+        return e(format!(
+            "{who}: the propagation speed is given twice (positionally and as `c=`) -- pass it once"
+        ));
+    }
+    let default = style_num_checked(style, "c", 343.0, who)?;
+    let c = positional_num(args, idx, default, who, "c")?;
+    if !(c > 0.0) || !c.is_finite() {
+        return e(format!(
+            "{who}: the propagation speed `c` must be positive and finite, found {c} \
+             -- 343 (m/s, air) is the default, use ~1500 for water"
+        ));
+    }
+    Ok(c)
+}
+
 /// Continuous piecewise-linear least-squares fit: each breakpoint gets a
 /// triangular ("hat") basis function of the given `width`, and -- because hat
 /// functions are 1 at their own breakpoint and 0 at every other one -- the
@@ -49106,7 +53419,7 @@ fn value_len(v: &Value) -> usize {
         Value::Mat(m) => m.len(),
         // Pixel count, matching `Mat`'s element count directly above.
         Value::Image(img) => img.width * img.height,
-        Value::Signal(xs, _) => xs.len(),
+        Value::Signal(xs, _, _) => xs.len(),
         // Bin count, not the transform length -- `value_len` answers "how
         // many elements does this hold", which for a half-spectrum is not `N`.
         Value::Spectrum(xs, ..) => xs.len(),
@@ -49893,7 +54206,7 @@ fn truthy(v: &Value) -> bool {
         Value::Complex(value) => value.re != 0.0 || value.im != 0.0,
         Value::CVec(values) => !values.is_empty(),
         Value::CMat(m) => !m.is_empty(),
-        Value::Signal(xs, _) => !xs.is_empty(),
+        Value::Signal(xs, _, _) => !xs.is_empty(),
         Value::Spectrum(xs, ..) => !xs.is_empty(),
         // A circuit always describes something; there is no empty one.
         Value::Circuit(_) => true,
@@ -49974,7 +54287,7 @@ fn value_unchanged(a: &Value, b: &Value) -> bool {
         (Value::Mat(x), Value::Mat(y)) => {
             x.shape() == y.shape() && x.as_slice().iter().zip(y.as_slice()).all(|(p, q)| p.to_bits() == q.to_bits())
         }
-        (Value::Signal(xs, fx), Value::Signal(ys, fy)) => {
+        (Value::Signal(xs, fx, _), Value::Signal(ys, fy, _)) => {
             fx.to_bits() == fy.to_bits() && xs.len() == ys.len() && xs.iter().zip(ys.iter()).all(|(p, q)| p.to_bits() == q.to_bits())
         }
         // Topology AND parameters: two circuits of the same shape with
@@ -50086,7 +54399,7 @@ fn value_unchanged(a: &Value, b: &Value) -> bool {
         | (Value::Semaphore(_), _) | (Value::Serial(_), _)
         | (Value::TcpConn(_), _) | (Value::TcpListener(_), _)
         | (Value::Worker(_), _) | (Value::File(_), _)
-        | (Value::Signal(_, _), _)
+        | (Value::Signal(_, _, _), _)
         | (Value::Spectrum(..), _)
         | (Value::Circuit(_), _)
         // A tagged value compared against anything else -- including
@@ -52488,6 +56801,239 @@ d = max(abs(block_process(x, (b) := sosfilt(lp, b), block = 256) - sosfilt(lp, x
         );
     }
 
+    /// The MIRROR of `block_process_does_not_carry_filter_state_across_blocks`
+    /// directly above, and the reason `processor` exists.
+    ///
+    /// Same 4th-order Butterworth, same 256-sample blocks, same signal. Run
+    /// through `block_process` the biquad state restarts at every boundary
+    /// and the answer is off by ~1.1 on a unit-amplitude input. Threaded
+    /// through a `processor` the state survives, and the blockwise result
+    /// equals the whole-signal filter EXACTLY (0.0, not merely "small" --
+    /// it is the same arithmetic in the same order, just handed over in
+    /// pieces).
+    ///
+    /// Both halves are asserted in one test on purpose. The streamed-equals-
+    /// whole check alone would also pass if the filter had quietly stopped
+    /// filtering, or if `lp` were the identity; pinning the stateless
+    /// distance as LARGE in the same run is what makes the small number
+    /// evidence of state threading rather than evidence of nothing
+    /// happening. A running-sum accumulator was the first probe used while
+    /// building this, but a real IIR is the case that actually motivates
+    /// the feature, so it is the one pinned here.
+    #[test]
+    fn processor_carries_filter_state_across_blocks() {
+        let it = run("n = 0 to 999
+x = sin(2 * pi * 7 .* (n / 1000)) + 0.25 .* cos(2 * pi * 61 .* (n / 1000))
+lp = butter(4, \"low\", 80, 1000)
+whole = sosfilt(lp, x)
+function lp_block(b, st)
+    s = st
+    out = ()
+    for v in b
+        s = filter_next(s, v)
+        out = append(out, s.y)
+    end for
+    return (out, s)
+end function
+p = processor(\"lp_block\", block = 256, state = filter_init(lp))
+streamed = max(abs(process(p, x) - whole))
+stateless = max(abs(block_process(x, (b) := sosfilt(lp, b), block = 256) - whole))
+kept_len = length(process(p, x))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert!(
+            num("streamed") < 1e-9,
+            "a processor MUST carry the filter's biquad state across block boundaries, so the \
+             blockwise result equals the whole-signal filter. Got {}",
+            num("streamed")
+        );
+        assert!(
+            num("stateless") > 0.1,
+            "the stateless `block_process` baseline must still be badly wrong ({} here) -- if it \
+             is not, this test is no longer evidence that state threading is what fixed it",
+            num("stateless")
+        );
+        assert_eq!(
+            num("kept_len"),
+            1000.0,
+            "a length-preserving processor body must return the input's length"
+        );
+    }
+
+    /// `proc.latency` in BOTH units, per §5, and the case the spec does not
+    /// mention: a processor nobody told a sample rate to.
+    ///
+    /// Latency in samples is always knowable (it is the block length -- a
+    /// block cannot be emitted until its last sample arrives). Milliseconds
+    /// are not, and rather than reporting a figure derived from an assumed
+    /// rate, the `latency_ms` field is simply ABSENT, so reading it fails
+    /// naming the fields that do exist. A wrong millisecond number would be
+    /// exactly §0's "an axis kept in the programmer's head".
+    #[test]
+    fn processor_reports_latency_in_samples_and_ms() {
+        let it = run("function f(b, s)
+    return (b, s)
+end function
+p = processor(\"f\", block = 256, state = 0, rate = 48000)
+lat = p.latency
+ms = p.latency_ms
+rate = p.rate
+q = processor(\"f\", block = 256, state = 0)
+qlat = q.latency
+missing = 0
+try
+    zz = q.latency_ms
+catch err
+    missing = 1
+end
+hz_literal = processor(\"f\", block = 480, state = 0, rate = 48 kHz).latency_ms");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("lat"), 256.0, "latency in samples is the block length");
+        assert!(
+            (num("ms") - 256.0 / 48000.0 * 1000.0).abs() < 1e-9,
+            "256 samples at 48 kHz is {} ms, got {}",
+            256.0 / 48000.0 * 1000.0,
+            num("ms")
+        );
+        assert_eq!(num("rate"), 48000.0);
+        assert_eq!(num("qlat"), 256.0, "samples need no rate");
+        assert_eq!(
+            num("missing"),
+            1.0,
+            "a processor with no declared rate must NOT report a latency in ms"
+        );
+        assert!(
+            (num("hz_literal") - 10.0).abs() < 1e-9,
+            "`rate = 48 kHz` must be accepted as a frequency: 480 samples is 10 ms, got {}",
+            num("hz_literal")
+        );
+    }
+
+    /// `blocks(x, n)` sizes by samples or by DURATION, and the duration case
+    /// is the one with a trap in it.
+    ///
+    /// A block length is a COUNT, so `0.5 s` at 8 Hz is 4 samples. The
+    /// inclusive slice convention `s[0 s : 0.5 s]` spans FIVE (indices 0
+    /// through 4), and reusing `signal_time_span` here -- the obvious
+    /// "reuse the §1 indexing work" move -- would have made every
+    /// duration-sized block one sample too long. Pinned because the two
+    /// spellings look interchangeable and are not.
+    #[test]
+    fn blocks_sizes_by_samples_and_by_duration() {
+        let it = run("s = signal([1, 2, 3, 4, 5, 6, 7, 8], 8)
+bs = blocks(s, 3)
+count = length(bs)
+first_len = length(bs[0])
+last_len = length(bs[2])
+kept_fs = bs[0].Fs
+bd = blocks(s, 0.5 s)
+dur_len = length(bd[0])
+dur_count = length(bd)
+slice_len = length(s[0.0 s : 0.5 s])
+overlapped = length(blocks(s, 4, hop = 2))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("count"), 3.0, "8 samples in blocks of 3 is 3 blocks");
+        assert_eq!(num("first_len"), 3.0);
+        assert_eq!(
+            num("last_len"),
+            2.0,
+            "the last block is short, passed as-is and never zero-padded"
+        );
+        assert_eq!(num("kept_fs"), 8.0, "a block of a Signal is a Signal at the same Fs");
+        assert_eq!(
+            num("dur_len"),
+            4.0,
+            "0.5 s at 8 Hz is a LENGTH of 4 samples, not the 5 an inclusive slice spans"
+        );
+        assert_eq!(num("dur_count"), 2.0);
+        assert_eq!(
+            num("slice_len"),
+            5.0,
+            "the inclusive slice really does span 5 -- this is the value `blocks` must NOT use"
+        );
+        assert_eq!(num("overlapped"), 4.0, "hop = 2 over 8 samples starts 4 blocks");
+    }
+
+    /// The two ways to misuse a processor, both refused rather than
+    /// silently producing a plausible-looking signal.
+    ///
+    /// A body that forgets to return its state is the dangerous one: taken
+    /// leniently (say, `first`/`last` of whatever came back) the seed state
+    /// would be reused for every block, reintroducing exactly the
+    /// block-edge bug this builtin exists to remove, in a form that still
+    /// returns a full-length signal and that no length or finiteness check
+    /// would catch.
+    #[test]
+    fn process_refuses_a_wrong_rate_and_a_dropped_state() {
+        let it = run("function f(b, s)
+    return (b, s)
+end function
+function forgets(b, s)
+    return b
+end function
+p = processor(\"f\", block = 4, state = 0, rate = 8)
+rate_err = 0
+try
+    zz = process(p, signal([1, 2, 3, 4], 16))
+catch err
+    rate_err = 1
+end
+drop_err = 0
+bad = processor(\"forgets\", block = 4, state = 0)
+try
+    zz = process(bad, signal([1, 2, 3, 4, 5, 6, 7, 8], 8))
+catch err
+    drop_err = 1
+end
+ok = length(process(p, signal([1, 2, 3, 4, 5, 6, 7, 8], 8)))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(
+            num("rate_err"),
+            1.0,
+            "a processor built for 8 Hz must refuse a 16 Hz signal, naming both rates"
+        );
+        assert_eq!(
+            num("drop_err"),
+            1.0,
+            "a stateful body that returns no new state must be an error, not a silent reset"
+        );
+        assert_eq!(num("ok"), 8.0, "the matching-rate case still runs");
+    }
+
+    /// Without `state=`, a processor is the stateless shape `block_process`
+    /// already had, and must agree with it sample for sample -- the new
+    /// builtin is a superset, not a second dialect.
+    #[test]
+    fn a_stateless_processor_agrees_with_block_process() {
+        let it = run("s = signal([1, 2, 3, 4, 5, 6, 7, 8], 8)
+function dbl(b)
+    return 2 .* b
+end function
+p = processor(\"dbl\", block = 4)
+d = max(abs(process(p, s) - block_process(s, \"dbl\", block = 4)))
+is_stateful = p.stateful");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("d"), 0.0, "a stateless processor must match block_process exactly");
+        match it.get("is_stateful") {
+            Some(Value::Bool(b)) => assert!(!b, "no `state=` means not stateful"),
+            other => panic!("expected a bool, got {other:?}"),
+        }
+    }
+
     /// `gain` is the amplitude convention (20, not 10): -6 dB is a factor
     /// of 0.5012, and the two conventions differ by 2x in dB, so a test
     /// that only checked "smaller" would pass against the wrong one.
@@ -52550,6 +57096,90 @@ keeps_rate = delay(signal(v, 8000), 1).Fs");
         assert_eq!(num("past_end"), 0.0, "shifting clear past the end is all zeros");
         assert_eq!(num("n"), 5.0, "the length is preserved");
         assert_eq!(num("keeps_rate"), 8000.0, "a shift must not touch fs");
+    }
+
+    /// `delay` computed `i as i64 - n` on the raw shift; an extreme `n`
+    /// (from `n_f as i64` saturating to `i64::MIN`/`i64::MAX` for a
+    /// shift far outside `i64`'s range) overflowed that subtraction --
+    /// `attempt to subtract with overflow` in a debug build, confirmed
+    /// against a real `cargo build -p qu-cli` (no `--release`) binary
+    /// before this fix, not just read from source. The fix does the
+    /// arithmetic in `i128`, where neither operand can push it out of
+    /// range, so this must succeed and behave exactly like shifting
+    /// "clear past the end" -- all zeros, same length -- in both
+    /// directions.
+    #[test]
+    fn delay_extreme_shift_does_not_overflow() {
+        let it = run("v = 0 to 999
+neg = max(abs(delay(v, -1e20)))
+pos = max(abs(delay(v, 1e20)))
+neg_len = length(delay(v, -1e20))
+pos_len = length(delay(v, 1e20))");
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for {name}, got {other:?}"),
+        };
+        assert_eq!(num("neg"), 0.0, "a shift far beyond i64 range is still all zeros");
+        assert_eq!(num("pos"), 0.0, "same for an extreme positive shift");
+        assert_eq!(num("neg_len"), 1000.0, "length must still be preserved");
+        assert_eq!(num("pos_len"), 1000.0, "length must still be preserved");
+    }
+
+    /// `gain(x, db)` fed `db` straight into `10f64.powf(db / 20.0)` with
+    /// no NaN check, so `gain(x, 0/0)` silently turned the whole signal
+    /// to NaN instead of erroring -- confirmed against the built release
+    /// binary before this fix (`[NaN, NaN, NaN]`, no error at all).
+    #[test]
+    fn gain_rejects_nan_db() {
+        let err = run_err("x = [1, 2, 3]\ny = gain(x, 0 / 0)");
+        assert!(
+            err.msg.contains("NaN"),
+            "gain must reject a NaN db instead of silently NaNing the signal, got: {}",
+            err.msg
+        );
+    }
+
+    /// `block_process` used to decide Signal-vs-Vec tagging from the
+    /// AGGREGATE output length only (`out.len() == xs.len()` or
+    /// `== n_blocks`), not per-block consistency. Two non-uniform
+    /// per-block outputs (1 sample, then 7) can sum to `len(x) == 8` by
+    /// coincidence without `f` behaving as a real same-rate,
+    /// sample-for-sample function -- confirmed against the built release
+    /// binary before this fix (`type(y)` came back `"signal"`). The fix
+    /// tracks per-block agreement, so this uneven case must fall back to
+    /// a plain `Vec` instead of a same-rate `Signal`.
+    #[test]
+    fn block_process_does_not_mistag_uneven_blocks_as_same_rate() {
+        let it = run("call_i = 0
+
+function uneven(b)
+    global call_i
+    call_i = call_i + 1
+    if call_i == 1 then
+        return b[0:0]
+    else
+        return [b[0], b[1], b[2], b[3], b[3], b[3], b[3]]
+    end if
+end function
+
+n = 0 to 7
+s = signal(n, 1000)
+y = block_process(s, uneven, block = 4)
+out_type = type(y)
+out_len = length(y)");
+        let out_type = match it.get("out_type") {
+            Some(Value::Str(s)) => s.clone(),
+            other => panic!("expected a string for out_type, got {other:?}"),
+        };
+        let out_len = match it.get("out_len") {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected a number for out_len, got {other:?}"),
+        };
+        assert_eq!(
+            out_type, "vector",
+            "non-uniform per-block output must not be mistagged as a same-rate Signal"
+        );
+        assert_eq!(out_len, 8.0, "the two block outputs (1 then 7) still concatenate to length 8");
     }
 
     /// `filter_ba`/`lfilter`, `medfilt` and `savgol` had no test naming
@@ -52710,7 +57340,7 @@ dropped = remove_nan(sn)
 culled = remove_outliers(s, method = \"iqr\")");
         for name in ["kept", "filled"] {
             match it.get(name) {
-                Some(Value::Signal(_, fs)) => assert!(
+                Some(Value::Signal(_, fs, _)) => assert!(
                     (fs - 100.0).abs() < 1e-9,
                     "{name} kept the Signal but lost the rate: {fs}"
                 ),
@@ -54740,7 +59370,19 @@ out = both.x");
     fn vec_of(it: &Interp, name: &str) -> Vec<f64> {
         match it.get(name) {
             Some(Value::Vec(v)) => v.to_vec(),
-            Some(Value::Signal(xs, _)) => xs.to_vec(),
+            Some(Value::Signal(xs, _, _)) => xs.to_vec(),
+            // Mirrors production `to_cow`: a DENSITY spectrum
+            // (`welch`/`periodogram`/`psd`) is a real vector in the shared
+            // complex representation. Adding it here rather than rewriting
+            // the PSD tests is deliberate -- those tests assert numerical
+            // facts about Welch's method, and when `welch` changed from
+            // returning a bare `Vec` to a typed `Spectrum` the NUMBERS did
+            // not change, only the wrapper. Keeping them reading the same
+            // values through the same helper is what makes them evidence
+            // that the retyping was behaviour-preserving.
+            Some(Value::Spectrum(xs, _, _, SpectrumNorm::Density)) => {
+                xs.iter().map(|c| c.re).collect()
+            }
             other => panic!("{name} is not a vector: {other:?}"),
         }
     }
@@ -55124,6 +59766,115 @@ out = both.x");
             .run("s = kalman_init([0, 0], [1,0;0,1])\ns = s.update([1], [2], [1])")
             .unwrap_err();
         assert!(err.msg.contains("measurement-dim"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn lms_single_weight_converges_to_the_closed_form_value_not_merely_near_the_target() {
+        // The single-weight LMS chasing a gain of 0.5 from a constant
+        // input x=1 has an EXACT closed form, so this asserts the number
+        // the recursion must produce rather than "it got close to 0.5":
+        //
+        //   w_{k+1} = w_k + mu*(d - w_k*x)*x, with x=1, d=0.5
+        //           = w_k*(1-mu) + 0.5*mu
+        //   => w_k  = 0.5 * (1 - (1-mu)^k)
+        //
+        // With mu=0.1 and k=50 that is 0.5*(1-0.9^50) = 0.497423112...,
+        // which is where the course's quoted 0.4974 comes from. A test
+        // that only checked `w > 0.49` would pass for a filter with the
+        // wrong step size, the wrong update order, or an off-by-one in
+        // the iteration count; this one fails for all three.
+        let it = run(
+            "s = lms_init(1, 0.1)\n\
+             for i = 1 to 50\n\
+             \x20   s = s.update(1, 0.5)\n\
+             end for\n\
+             w_final = s.w[0]",
+        );
+        let w_final = num(&it, "w_final");
+        let expected = 0.5 * (1.0 - 0.9_f64.powi(50));
+        assert!(
+            (w_final - expected).abs() < 1e-12,
+            "w_final {w_final} should equal the closed form {expected}"
+        );
+        // and the rounded value the course actually quotes
+        assert!(
+            (w_final - 0.4974).abs() < 5e-5,
+            "w_final {w_final} should round to the quoted 0.4974"
+        );
+    }
+
+    #[test]
+    fn lms_one_step_exposes_y_and_e_and_leaves_the_receiver_untouched() {
+        // The immutable-state half of the contract: `s0.update(...)`
+        // returns a new state and must not disturb `s0`. From a zeroed
+        // 1-tap filter, one step with x=1, d=0.5 gives y=0, e=0.5 and
+        // w=0+0.1*0.5*1=0.05 -- all three checked, because a filter that
+        // reported the right `w` but a stale `e` would still look right
+        // in a convergence plot.
+        let it = run(
+            "s0 = lms_init(1, 0.1)\n\
+             s1 = s0.update(1, 0.5)\n\
+             w_before = s0.w[0]\nw_after = s1.w[0]\ny1 = s1.y\ne1 = s1.e\ne_before = s0.e",
+        );
+        assert_eq!(num(&it, "w_before"), 0.0, "update must not mutate its receiver");
+        assert_eq!(num(&it, "e_before"), 0.0, "update must not mutate its receiver");
+        assert!((num(&it, "w_after") - 0.05).abs() < 1e-12);
+        assert!((num(&it, "y1") - 0.0).abs() < 1e-12);
+        assert!((num(&it, "e1") - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn lms_three_tap_identifies_a_known_fir_impulse_response() {
+        // System identification, the canonical multi-tap use: drive both
+        // the unknown FIR h_true=[0.5, 0.3, -0.2] and the adaptive filter
+        // with the same white input, and the weights must converge to
+        // h_true itself -- each tap individually, which is what separates
+        // a real N-tap implementation from one that happens to get the
+        // output right with a smeared weight vector.
+        //
+        // mu=0.05 is inside the stability bound 0 < mu < 2/(N*E[x^2]) =
+        // 2/(3*1) = 0.667 for unit-variance input.
+        let it = run(
+            "s = lms_init(3, 0.05)\n\
+             x = randn(1500, seed=7)\n\
+             xm1 = 0\nxm2 = 0\n\
+             for i = 0 to 1499\n\
+             \x20   xi = x[i]\n\
+             \x20   d = 0.5*xi + 0.3*xm1 - 0.2*xm2\n\
+             \x20   s = s.update(xi, d)\n\
+             \x20   xm2 = xm1\n\
+             \x20   xm1 = xi\n\
+             end for\n\
+             w0 = s.w[0]\nw1 = s.w[1]\nw2 = s.w[2]\ne_last = s.e",
+        );
+        for (name, want) in [("w0", 0.5), ("w1", 0.3), ("w2", -0.2)] {
+            let got = num(&it, name);
+            assert!(
+                (got - want).abs() < 0.02,
+                "{name} converged to {got}, expected {want} (h_true = [0.5, 0.3, -0.2])"
+            );
+        }
+        // Once identified, the residual on a noiseless system must be
+        // essentially zero -- the weights matching is necessary but not
+        // sufficient on its own.
+        assert!(num(&it, "e_last").abs() < 0.05, "residual should be near zero after convergence");
+    }
+
+    #[test]
+    fn lms_init_rejects_a_nonpositive_step_size_and_a_zero_tap_count() {
+        let mut it = Interp::new();
+        let err = it.run("s = lms_init(3, 0)").unwrap_err();
+        assert!(err.msg.contains("mu must be positive"), "got: {}", err.msg);
+        let mut it = Interp::new();
+        let err = it.run("s = lms_init(0, 0.1)").unwrap_err();
+        assert!(err.msg.contains("at least 1"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn lms_update_requires_both_the_input_and_the_desired_sample() {
+        let mut it = Interp::new();
+        let err = it.run("s = lms_init(2, 0.1)\ns = s.update(1)").unwrap_err();
+        assert!(err.msg.contains("desired sample"), "got: {}", err.msg);
     }
 
     #[test]
@@ -55725,6 +60476,639 @@ out = both.x");
         let positive = x.iter().filter(|&&v| v == 1.0).count();
         assert_eq!(positive, 3);
         assert!(x.iter().all(|&v| v == 1.0 || v == -1.0));
+    }
+
+    // ---------------------------------------------------------------
+    // §8 protocol decoders: I2C and CAN.
+    //
+    // Every fixture below is an ENCODER written straight from the
+    // protocol spec -- field order, ACK slots, bit stuffing, CRC -- and
+    // deliberately sharing no code with the decoder it tests. A
+    // round-trip is only evidence when the two directions are
+    // independent; a "round-trip" through one shared helper mostly
+    // proves the helper is self-consistent.
+    // ---------------------------------------------------------------
+
+    /// Renders a 0/1 sample sequence as a Qu vector literal, so the
+    /// fixture goes in through the real parser and the real builtin
+    /// dispatch rather than a back door the language does not have.
+    fn qu_bits(bits: &[u8]) -> String {
+        let mut s = String::from("[");
+        for (i, b) in bits.iter().enumerate() {
+            if i > 0 {
+                s.push(',');
+            }
+            s.push(if *b == 1 { '1' } else { '0' });
+        }
+        s.push(']');
+        s
+    }
+
+    fn decoded_model<'a>(it: &'a Interp, name: &str) -> &'a ModelHandle {
+        match it.get(name) {
+            Some(Value::Model(m)) => m,
+            other => panic!("{name} is not a Model: {other:?}"),
+        }
+    }
+
+    fn f_num(m: &ModelHandle, field: &str) -> f64 {
+        match m.field(field) {
+            Some(Value::Num(v)) => *v,
+            other => panic!("field {field} is not a number: {other:?}"),
+        }
+    }
+
+    fn f_bool(m: &ModelHandle, field: &str) -> bool {
+        match m.field(field) {
+            Some(Value::Bool(v)) => *v,
+            other => panic!("field {field} is not a bool: {other:?}"),
+        }
+    }
+
+    fn f_str(m: &ModelHandle, field: &str) -> String {
+        match m.field(field) {
+            Some(Value::Str(v)) => v.clone(),
+            other => panic!("field {field} is not a string: {other:?}"),
+        }
+    }
+
+    fn f_vec(m: &ModelHandle, field: &str) -> Vec<f64> {
+        match m.field(field) {
+            Some(Value::Vec(v)) => v.to_vec(),
+            other => panic!("field {field} is not a vector: {other:?}"),
+        }
+    }
+
+    fn sub_models(m: &ModelHandle, field: &str) -> Vec<Arc<ModelHandle>> {
+        match m.field(field) {
+            Some(Value::List(items)) => items
+                .iter()
+                .map(|v| match v {
+                    Value::Model(mm) => mm.clone(),
+                    other => panic!("list item is not a Model: {other:?}"),
+                })
+                .collect(),
+            other => panic!("field {field} is not a list: {other:?}"),
+        }
+    }
+
+    /// An I2C bus writer. Eight samples per SCL period: data is set
+    /// while the clock is low and held across the clock-high window, so
+    /// the decoder's sample point (the SCL rising edge) always lands on
+    /// settled data -- which is what the bus specifies and what a real
+    /// master does.
+    struct I2cEnc {
+        scl: Vec<u8>,
+        sda: Vec<u8>,
+    }
+
+    impl I2cEnc {
+        fn new() -> Self {
+            I2cEnc { scl: Vec::new(), sda: Vec::new() }
+        }
+        fn push(&mut self, c: u8, d: u8, n: usize) {
+            for _ in 0..n {
+                self.scl.push(c);
+                self.sda.push(d);
+            }
+        }
+        fn idle(&mut self) {
+            self.push(1, 1, 8);
+        }
+        /// START: SDA falls while SCL is held high.
+        fn start(&mut self) {
+            self.push(1, 1, 4);
+            self.push(1, 0, 4);
+            self.push(0, 0, 2);
+        }
+        /// Repeated START: SDA is released high while the clock is low,
+        /// the clock is taken high, then SDA falls again. The clock's
+        /// rise here is a real edge on the wire but not a data bit --
+        /// see the `partial_bits` assertions below.
+        fn repeated_start(&mut self) {
+            self.push(0, 1, 4);
+            self.push(1, 1, 4);
+            self.push(1, 0, 4);
+            self.push(0, 0, 2);
+        }
+        fn bit(&mut self, b: u8) {
+            self.push(0, b, 2);
+            self.push(1, b, 4);
+            self.push(0, b, 2);
+        }
+        /// Nine clocks: eight data bits MSB first, then the ACK slot in
+        /// which the receiver pulls SDA LOW to acknowledge.
+        fn byte(&mut self, v: u8, ack: bool) {
+            for i in (0..8).rev() {
+                self.bit((v >> i) & 1);
+            }
+            self.bit(if ack { 0 } else { 1 });
+        }
+        /// STOP: SDA rises while SCL is held high.
+        fn stop(&mut self) {
+            self.push(0, 0, 2);
+            self.push(1, 0, 4);
+            self.push(1, 1, 4);
+            self.push(1, 1, 8);
+        }
+        /// Runs `decode_i2c` over this bus and returns the interpreter.
+        fn decode(&self) -> Interp {
+            let src = format!(
+                "scl = to_digital({}, 0.5)\nsda = to_digital({}, 0.5)\nr = decode_i2c(scl, sda)\n",
+                qu_bits(&self.scl),
+                qu_bits(&self.sda)
+            );
+            run(&src)
+        }
+    }
+
+    #[test]
+    fn decode_i2c_reads_back_a_plain_seven_bit_write() {
+        let mut b = I2cEnc::new();
+        b.idle();
+        b.start();
+        b.byte(0x50 << 1, true); // address 0x50, write
+        b.byte(0xA5, true);
+        b.byte(0x3C, true);
+        b.stop();
+        let it = b.decode();
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let t = &sub_models(r, "transactions")[0];
+        assert_eq!(f_num(t, "address"), 0x50 as f64);
+        assert!(!f_bool(t, "read"));
+        assert_eq!(f_str(t, "direction"), "write");
+        assert!(!f_bool(t, "ten_bit"));
+        assert!(f_bool(t, "address_ack"));
+        assert_eq!(f_vec(t, "data"), vec![0xA5 as f64, 0x3C as f64]);
+        assert_eq!(f_vec(t, "acks"), vec![1.0, 1.0]);
+        assert_eq!(f_num(t, "byte_count"), 2.0);
+        assert_eq!(f_str(t, "terminator"), "stop");
+        // The clock edge that forms the STOP condition is a real rising
+        // edge, so it is sampled and then discarded as a partial byte.
+        assert_eq!(f_num(t, "partial_bits"), 1.0);
+    }
+
+    #[test]
+    fn decode_i2c_splits_a_repeated_start_into_two_segments() {
+        let mut b = I2cEnc::new();
+        b.idle();
+        b.start();
+        b.byte(0x1A << 1, true); // write the register pointer
+        b.byte(0x07, true);
+        b.repeated_start();
+        b.byte((0x1A << 1) | 1, true); // read back
+        b.byte(0xDE, true);
+        b.byte(0xAD, false); // master NACKs the final byte, as it must
+        b.stop();
+        let it = b.decode();
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 2.0);
+        let txns = sub_models(r, "transactions");
+
+        let w = &txns[0];
+        assert_eq!(f_num(w, "address"), 0x1A as f64);
+        assert_eq!(f_str(w, "direction"), "write");
+        assert_eq!(f_vec(w, "data"), vec![0x07 as f64]);
+        assert_eq!(f_str(w, "terminator"), "repeated_start");
+        assert!(!f_bool(w, "repeated_start"), "the first segment is not itself preceded by an Sr");
+
+        let rd = &txns[1];
+        assert_eq!(f_num(rd, "address"), 0x1A as f64);
+        assert_eq!(f_str(rd, "direction"), "read");
+        assert!(f_bool(rd, "repeated_start"));
+        assert_eq!(f_vec(rd, "data"), vec![0xDE as f64, 0xAD as f64]);
+        // The deliberate NACK on the last byte must survive as data, not
+        // be smoothed into an error.
+        assert_eq!(f_vec(rd, "acks"), vec![1.0, 0.0]);
+        assert_eq!(f_str(rd, "terminator"), "stop");
+    }
+
+    #[test]
+    fn decode_i2c_reassembles_a_ten_bit_address_across_both_bytes() {
+        let addr: u16 = 0x2A5; // 677
+        let high = ((addr >> 8) & 0x03) as u8;
+        let mut b = I2cEnc::new();
+        b.idle();
+        b.start();
+        b.byte(0xF0 | (high << 1), true); // 11110 A9 A8 W
+        b.byte((addr & 0xFF) as u8, true);
+        b.byte(0x99, true);
+        b.stop();
+        let it = b.decode();
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let t = &sub_models(r, "transactions")[0];
+        assert!(f_bool(t, "ten_bit"));
+        assert!(f_bool(t, "address_complete"));
+        assert_eq!(f_num(t, "address"), 677.0);
+        assert_eq!(f_str(t, "direction"), "write");
+        assert_eq!(f_vec(t, "data"), vec![0x99 as f64]);
+        // Two address bytes, so two address ACKs.
+        assert_eq!(f_vec(t, "address_acks"), vec![1.0, 1.0]);
+    }
+
+    #[test]
+    fn decode_i2c_carries_a_ten_bit_address_into_the_read_half() {
+        // The read half of a 10-bit transfer restates only the two high
+        // address bits (11110xx1) -- the low byte is only knowable from
+        // the write phase before it. This is the case that a decoder
+        // treating "11110xx" as always-two-bytes gets silently wrong.
+        let addr: u16 = 0x2A5;
+        let high = ((addr >> 8) & 0x03) as u8;
+        let mut b = I2cEnc::new();
+        b.idle();
+        b.start();
+        b.byte(0xF0 | (high << 1), true);
+        b.byte((addr & 0xFF) as u8, true);
+        b.repeated_start();
+        b.byte(0xF0 | (high << 1) | 1, true);
+        b.byte(0x5C, false);
+        b.stop();
+        let it = b.decode();
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 2.0);
+        let rd = &sub_models(r, "transactions")[1];
+        assert!(f_bool(rd, "ten_bit"));
+        assert!(f_bool(rd, "read"));
+        assert!(f_bool(rd, "address_complete"), "the low byte should carry over from the write phase");
+        assert_eq!(f_num(rd, "address"), 677.0);
+        assert_eq!(f_vec(rd, "data"), vec![0x5C as f64]);
+    }
+
+    #[test]
+    fn decode_i2c_reports_a_transaction_the_capture_cut_off() {
+        let mut b = I2cEnc::new();
+        b.idle();
+        b.start();
+        b.byte(0x22 << 1, true);
+        b.byte(0x11, true);
+        // no stop -- the capture simply ends
+        let it = b.decode();
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let t = &sub_models(r, "transactions")[0];
+        assert_eq!(f_str(t, "terminator"), "truncated");
+        assert_eq!(f_num(t, "address"), 0x22 as f64);
+        assert_eq!(f_vec(t, "data"), vec![0x11 as f64]);
+    }
+
+    #[test]
+    fn decode_i2c_rejects_a_single_wire_and_mismatched_lengths() {
+        let mut it = Interp::new();
+        let err = it.run("d = to_digital([0,1,0,1], 0.5)\nr = decode_i2c(d)\n").unwrap_err();
+        assert!(err.msg.contains("both wires"), "got: {}", err.msg);
+
+        let mut it2 = Interp::new();
+        let err2 = it2
+            .run("a = to_digital([0,1,0,1], 0.5)\nb = to_digital([0,1,0], 0.5)\nr = decode_i2c(a, b)\n")
+            .unwrap_err();
+        assert!(err2.msg.contains("same length"), "got: {}", err2.msg);
+    }
+
+    // ---- CAN ----
+
+    fn push_bits(m: &mut Vec<u8>, v: u64, k: usize) {
+        for i in (0..k).rev() {
+            m.push(((v >> i) & 1) as u8);
+        }
+    }
+
+    /// The de-stuffed frame bits, SOF through the data field -- exactly
+    /// the CRC's input.
+    fn can_msg_bits(id: u64, extended: bool, rtr: bool, dlc: u64, data: &[u8]) -> Vec<u8> {
+        let mut m = vec![0u8]; // SOF, dominant
+        if extended {
+            push_bits(&mut m, id >> 18, 11); // ID_A
+            m.push(1); // SRR, recessive
+            m.push(1); // IDE, recessive -> extended
+            push_bits(&mut m, id & 0x3FFFF, 18); // ID_B
+            m.push(u8::from(rtr));
+            m.push(0); // r1
+            m.push(0); // r0
+        } else {
+            push_bits(&mut m, id, 11);
+            m.push(u8::from(rtr));
+            m.push(0); // IDE, dominant -> base
+            m.push(0); // r0
+        }
+        push_bits(&mut m, dlc, 4);
+        if !rtr {
+            for &b in data {
+                push_bits(&mut m, u64::from(b), 8);
+            }
+        }
+        m
+    }
+
+    /// CAN's CRC-15 as literal polynomial long division over GF(2):
+    /// append 15 zeros and subtract the generator wherever the leading
+    /// coefficient is 1. Mathematically the same answer as the decoder's
+    /// shift register, arrived at a completely different way -- so if
+    /// the decoder's register is misclocked or its polynomial is one bit
+    /// off, these disagree instead of being wrong together.
+    fn can_crc15_longdiv(msg: &[u8]) -> u16 {
+        // x^15 + x^14 + x^10 + x^8 + x^7 + x^4 + x^3 + 1
+        const G: [u8; 16] = [1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1];
+        let mut rem: Vec<u8> = msg.to_vec();
+        rem.extend(std::iter::repeat(0).take(15));
+        for i in 0..msg.len() {
+            if rem[i] == 1 {
+                for j in 0..16 {
+                    rem[i + j] ^= G[j];
+                }
+            }
+        }
+        let mut v: u16 = 0;
+        for &b in &rem[msg.len()..] {
+            v = (v << 1) | u16::from(b);
+        }
+        v
+    }
+
+    /// Inserts a stuff bit of opposite polarity after every run of five
+    /// identical bits. Returns the wire bits and how many were added.
+    fn can_stuff(m: &[u8]) -> (Vec<u8>, usize) {
+        let mut out = Vec::new();
+        let mut last: Option<u8> = None;
+        let mut run = 0usize;
+        let mut added = 0usize;
+        for &b in m {
+            if run == 5 {
+                let s = 1 - last.unwrap();
+                out.push(s);
+                added += 1;
+                last = Some(s);
+                run = 1;
+            }
+            out.push(b);
+            if last == Some(b) {
+                run += 1;
+            } else {
+                last = Some(b);
+                run = 1;
+            }
+        }
+        (out, added)
+    }
+
+    /// A complete frame on the wire, idle-to-idle. `crc_corrupt` flips
+    /// one bit of the transmitted checksum without touching anything
+    /// else, to prove `crc_ok` is actually checking rather than always
+    /// reporting true.
+    fn can_wire(
+        id: u64,
+        extended: bool,
+        rtr: bool,
+        dlc: u64,
+        data: &[u8],
+        ack: bool,
+        crc_corrupt: bool,
+    ) -> (Vec<u8>, usize, u16) {
+        let mut m = can_msg_bits(id, extended, rtr, dlc, data);
+        let mut crc = can_crc15_longdiv(&m);
+        if crc_corrupt {
+            crc ^= 0x0040;
+        }
+        push_bits(&mut m, u64::from(crc), 15);
+        let (mut w, stuffed) = can_stuff(&m);
+        w.push(1); // CRC delimiter
+        w.push(u8::from(!ack)); // ACK slot: a receiver drives it DOMINANT
+        w.push(1); // ACK delimiter
+        for _ in 0..7 {
+            w.push(1); // EOF
+        }
+        for _ in 0..3 {
+            w.push(1); // interframe space
+        }
+        (w, stuffed, crc)
+    }
+
+    fn can_samples(wire: &[u8], spb: usize) -> Vec<u8> {
+        let mut s = vec![1u8; spb * 4];
+        for &b in wire {
+            for _ in 0..spb {
+                s.push(b);
+            }
+        }
+        s.extend(std::iter::repeat(1).take(spb * 4));
+        s
+    }
+
+    fn decode_can_samples(samples: &[u8], spb: usize) -> Interp {
+        let src = format!(
+            "x = to_digital({}, 0.5)\nr = decode_can(x, samples_per_bit={})\n",
+            qu_bits(samples),
+            spb
+        );
+        run(&src)
+    }
+
+    #[test]
+    fn decode_can_reads_back_a_base_frame() {
+        let data = [0x11u8, 0x22, 0x33];
+        let (wire, _stuffed, _crc) = can_wire(0x123, false, false, 3, &data, true, false);
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0, "expected exactly one frame");
+        assert_eq!(f_num(r, "error_count"), 0.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert_eq!(f_num(fr, "id"), 0x123 as f64);
+        assert!(!f_bool(fr, "extended"));
+        assert!(!f_bool(fr, "rtr"));
+        assert_eq!(f_num(fr, "dlc"), 3.0);
+        assert_eq!(f_vec(fr, "data"), vec![0x11 as f64, 0x22 as f64, 0x33 as f64]);
+        assert!(f_bool(fr, "crc_ok"), "CRC-15 must agree with the long-division encoder");
+        assert!(f_bool(fr, "ack"));
+        assert!(f_bool(fr, "crc_delim_ok"));
+        assert!(f_bool(fr, "ack_delim_ok"));
+        assert!(f_bool(fr, "eof_ok"));
+    }
+
+    #[test]
+    fn decode_can_destuffs_a_frame_full_of_long_runs() {
+        // id 0 makes SOF plus eleven dominant identifier bits -- twelve
+        // in a row before any other field -- and the payload adds runs
+        // of both polarities. A decoder that skips de-stuffing does not
+        // fail loudly here: it shifts every later field by one bit per
+        // missed stuff bit and reports a plausible wrong frame, which is
+        // exactly what makes this worth asserting rather than assuming.
+        let data = [0x00u8, 0xFF, 0x00, 0xFF];
+        let (wire, stuffed, _crc) = can_wire(0x000, false, false, 4, &data, true, false);
+        assert!(stuffed >= 5, "fixture must actually exercise stuffing, got {stuffed}");
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert_eq!(f_num(fr, "id"), 0.0);
+        assert_eq!(f_num(fr, "dlc"), 4.0);
+        assert_eq!(f_vec(fr, "data"), vec![0.0, 255.0, 0.0, 255.0]);
+        assert!(f_bool(fr, "crc_ok"));
+        // The decoder must have removed exactly the bits the encoder
+        // inserted -- not merely "some".
+        assert_eq!(
+            f_num(fr, "stuff_bits"),
+            stuffed as f64,
+            "decoder removed a different number of stuff bits than the encoder inserted"
+        );
+    }
+
+    #[test]
+    fn decode_can_reads_back_an_extended_frame() {
+        let data = [0xDEu8, 0xAD, 0xBE, 0xEF];
+        let (wire, _stuffed, _crc) = can_wire(0x12345678, true, false, 4, &data, true, false);
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert!(f_bool(fr, "extended"));
+        assert_eq!(f_num(fr, "id"), 0x12345678 as f64);
+        assert_eq!(f_vec(fr, "data"), vec![0xDE as f64, 0xAD as f64, 0xBE as f64, 0xEF as f64]);
+        assert!(f_bool(fr, "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_reports_a_remote_frame_as_carrying_no_data() {
+        // An RTR frame states a DLC but transmits no payload; the wire
+        // is shorter than the DLC suggests and a decoder that trusts
+        // the DLC reads the CRC as data.
+        let (wire, _stuffed, _crc) = can_wire(0x0F5, false, true, 8, &[], true, false);
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert!(f_bool(fr, "rtr"));
+        assert_eq!(f_num(fr, "dlc"), 8.0, "the DLC is still reported as sent");
+        assert_eq!(f_num(fr, "byte_count"), 0.0);
+        assert!(f_vec(fr, "data").is_empty());
+        assert!(f_bool(fr, "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_flags_a_corrupt_checksum() {
+        let data = [0x11u8, 0x22, 0x33];
+        let (wire, _stuffed, _crc) = can_wire(0x123, false, false, 3, &data, true, true);
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        // Everything else still decodes; only the checksum disagrees.
+        assert_eq!(f_num(fr, "id"), 0x123 as f64);
+        assert_eq!(f_vec(fr, "data"), vec![0x11 as f64, 0x22 as f64, 0x33 as f64]);
+        assert!(!f_bool(fr, "crc_ok"), "a flipped CRC bit must be caught");
+    }
+
+    #[test]
+    fn decode_can_reads_back_two_frames_in_one_capture() {
+        let (w1, _s1, _c1) = can_wire(0x001, false, false, 1, &[0x5A], true, false);
+        let (w2, _s2, _c2) = can_wire(0x7FF, false, false, 2, &[0x00, 0xFF], true, false);
+        let mut wire = w1;
+        wire.extend_from_slice(&w2);
+        let it = decode_can_samples(&can_samples(&wire, 8), 8);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 2.0, "the scan must resume past the first frame, not inside it");
+        assert_eq!(f_vec(r, "ids"), vec![1.0, 2047.0]);
+        let frames = sub_models(r, "frames");
+        assert_eq!(f_vec(&frames[0], "data"), vec![0x5A as f64]);
+        assert_eq!(f_vec(&frames[1], "data"), vec![0.0, 255.0]);
+        assert!(f_bool(&frames[0], "crc_ok") && f_bool(&frames[1], "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_derives_the_bit_length_from_a_signals_sample_rate() {
+        // The ordinary spelling: a Signal at a known sample rate plus a
+        // standard bit rate. 4 MHz / 500 kbit/s = 8 samples per bit.
+        let data = [0x42u8];
+        let (wire, _stuffed, _crc) = can_wire(0x2AA, false, false, 1, &data, true, false);
+        let samples = can_samples(&wire, 8);
+        let src = format!(
+            "x = signal({}, 4000000)\nd = to_digital(x, 0.5)\nr = decode_can(d, bitrate=500000)\n",
+            qu_bits(&samples)
+        );
+        let it = run(&src);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "samples_per_bit"), 8.0);
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert_eq!(f_num(fr, "id"), 0x2AA as f64);
+        assert_eq!(f_vec(fr, "data"), vec![0x42 as f64]);
+        assert!(f_bool(fr, "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_reads_an_inverted_capture_only_when_told() {
+        let data = [0x3Cu8];
+        let (wire, _stuffed, _crc) = can_wire(0x100, false, false, 1, &data, true, false);
+        let inverted: Vec<u8> = can_samples(&wire, 8).iter().map(|&b| 1 - b).collect();
+        // Left on the default polarity, the complemented stream still
+        // offers recessive-to-dominant transitions, so the scan DOES
+        // find candidate SOFs and can walk a whole frame's worth of
+        // fields off them. What it cannot do is produce a frame whose
+        // CRC checks out -- which is the guarantee worth asserting, and
+        // is weaker than the "no frame is found at all" this test
+        // originally claimed. (It claimed that because it sounded right,
+        // not because it had been run. It had not; the count is 1.)
+        let it = decode_can_samples(&inverted, 8);
+        let wrong = decoded_model(&it, "r");
+        for fr in sub_models(wrong, "frames") {
+            assert!(
+                !f_bool(&fr, "crc_ok"),
+                "a capture read at the wrong polarity must not yield a CRC-valid frame"
+            );
+        }
+
+        let src = format!(
+            "x = to_digital({}, 0.5)\nr = decode_can(x, samples_per_bit=8, polarity=\"inverted\")\n",
+            qu_bits(&inverted)
+        );
+        let it2 = run(&src);
+        let r2 = decoded_model(&it2, "r");
+        assert_eq!(f_num(r2, "count"), 1.0);
+        let fr = &sub_models(r2, "frames")[0];
+        assert_eq!(f_num(fr, "id"), 0x100 as f64);
+        assert_eq!(f_vec(fr, "data"), vec![0x3C as f64]);
+        assert!(f_bool(fr, "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_survives_a_jittered_capture_by_resynchronizing() {
+        // Bit boundaries walked off by up to a quarter of a bit, the
+        // way a real transmitter's clock drifts against the capture's.
+        // Without the resync the sample point slides off the bit over
+        // ~130 bits and the frame decodes to nonsense.
+        let data = [0x00u8, 0xFF, 0x5A];
+        let (wire, _stuffed, _crc) = can_wire(0x0C1, false, false, 3, &data, true, false);
+        let spb = 12usize;
+        let mut samples = vec![1u8; spb * 4];
+        for (k, &b) in wire.iter().enumerate() {
+            // A slow, systematic stretch: every fourth bit gets an extra
+            // sample, i.e. the transmitter running ~8% slow.
+            let n = if k % 4 == 0 { spb + 1 } else { spb };
+            for _ in 0..n {
+                samples.push(b);
+            }
+        }
+        samples.extend(std::iter::repeat(1).take(spb * 4));
+        let it = decode_can_samples(&samples, spb);
+        let r = decoded_model(&it, "r");
+        assert_eq!(f_num(r, "count"), 1.0);
+        let fr = &sub_models(r, "frames")[0];
+        assert_eq!(f_num(fr, "id"), 0x0C1 as f64);
+        assert_eq!(f_vec(fr, "data"), vec![0.0, 255.0, 0x5A as f64]);
+        assert!(f_bool(fr, "crc_ok"));
+    }
+
+    #[test]
+    fn decode_can_needs_to_be_told_the_bit_length() {
+        let mut it = Interp::new();
+        let err = it.run("d = to_digital([0,1,0,1], 0.5)\nr = decode_can(d)\n").unwrap_err();
+        assert!(err.msg.contains("samples_per_bit"), "got: {}", err.msg);
+
+        // bitrate= against a plain vector has no sample rate to work
+        // from, and must say so rather than inventing fs = 1.
+        let mut it2 = Interp::new();
+        let err2 = it2.run("d = to_digital([0,1,0,1], 0.5)\nr = decode_can(d, bitrate=500000)\n").unwrap_err();
+        assert!(err2.msg.contains("Signal"), "got: {}", err2.msg);
     }
 
     #[test]
@@ -57545,6 +62929,108 @@ c = rgba(255, 0, 0, 128)");
         assert_eq!(p.title_align, plotting::Anchor::Start);
         assert_eq!(p.xlabel_align, plotting::Anchor::Middle);
         assert_eq!(p.ylabel_align, plotting::Anchor::Middle);
+    }
+
+    #[test]
+    fn algorigram_renders_if_else_as_a_decision_with_two_labeled_branches() {
+        let it = run(
+            "function classify(x)\n  if x > 0\n    y = 1\n  else\n    y = -1\n  end if\n  return y\nend function\ns = algorigram(\"classify\")",
+        );
+        let svg = match it.get("s") {
+            Some(Value::Str(s)) => s.clone(),
+            other => panic!("expected a string, got {other:?}"),
+        };
+        assert!(svg.starts_with("<svg"), "not an SVG document: {svg}");
+        // The decision diamond is a `Polygon`; the two branch labels and
+        // both assignment boxes must all appear.
+        assert!(svg.contains("<polygon"), "no decision diamond drawn");
+        assert!(svg.contains(">yes<") || svg.contains("yes"), "missing the `yes` branch label");
+        assert!(svg.contains("no"), "missing the `no` branch label");
+        assert!(svg.contains("y ="), "missing the assignment boxes"); // `y =1` / `y =-1` per Stmt::Assign's `op`+`rhs`
+    }
+
+    #[test]
+    fn algorigram_draws_a_back_edge_for_a_while_loop() {
+        let it = run("function count_down(n)\n  while n > 0\n    n = n - 1\n  end while\n  return n\nend function\ns = algorigram(\"count_down\")");
+        let svg = match it.get("s") {
+            Some(Value::Str(s)) => s.clone(),
+            other => panic!("expected a string, got {other:?}"),
+        };
+        assert!(svg.contains("repeat"), "no back-edge label for the loop");
+        assert!(svg.contains("done"), "no exit-edge label once the loop condition is false");
+    }
+
+    #[test]
+    fn algorigram_rejects_an_unknown_or_overloaded_name_clearly() {
+        let mut it = Interp::new();
+        let err = it.run("algorigram(\"no_such_function\")").unwrap_err();
+        assert!(err.msg.contains("no user function named"), "got: {}", err.msg);
+
+        it.run(
+            "function f(x)\n  return x\nend function\nfunction f(x, y)\n  return x + y\nend function",
+        )
+        .unwrap();
+        let err = it.run("algorigram(\"f\")").unwrap_err();
+        assert!(err.msg.contains("overloads"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn diagram_pipeline_renders_one_box_per_pipe_stage() {
+        let it = run("s = diagram_pipeline(() := data |> lowpass(fc=1000) |> fft() |> abs())");
+        let svg = match it.get("s") {
+            Some(Value::Str(s)) => s.clone(),
+            other => panic!("expected a string, got {other:?}"),
+        };
+        assert!(svg.starts_with("<svg"));
+        for stage in ["data", "lowpass(fc=1000)", "fft()", "abs()"] {
+            assert!(svg.contains(stage), "missing stage box `{stage}` in:\n{svg}");
+        }
+        // 4 stages need 3 connecting arrows, each an arrowhead `Polygon`
+        // plus the decision-free path's shaft `Line` -- at minimum the
+        // polygon count must be >= 3.
+        assert!(svg.matches("<polygon").count() >= 3, "expected at least 3 arrowheads");
+    }
+
+    #[test]
+    fn diagram_pipeline_rejects_a_non_pipe_expression() {
+        let mut it = Interp::new();
+        let err = it.run("diagram_pipeline(() := data)").unwrap_err();
+        assert!(err.msg.contains("|>"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn diagram_pipeline_accepts_a_named_one_liner_pipeline_by_name() {
+        let it = run("mypipe() := data |> f() |> g()\ns = diagram_pipeline(\"mypipe\")");
+        let svg = match it.get("s") {
+            Some(Value::Str(s)) => s.clone(),
+            other => panic!("expected a string, got {other:?}"),
+        };
+        assert!(svg.contains("f()") && svg.contains("g()"));
+    }
+
+    #[test]
+    fn diagram_file_writes_svg_and_refuses_png_like_savefig_does() {
+        let mut it = Interp::new();
+        it.run("function f(x)\n  return x\nend function").unwrap();
+        let dir = std::env::temp_dir();
+        let svg_path = dir.join("qu_algorigram_test.svg");
+        let png_path = dir.join("qu_algorigram_test.png");
+        it.run(&format!(
+            "algorigram(\"f\", file=\"{}\")",
+            svg_path.display().to_string().replace('\\', "\\\\")
+        ))
+        .unwrap();
+        let written = std::fs::read_to_string(&svg_path).unwrap();
+        assert!(written.starts_with("<svg"));
+        std::fs::remove_file(&svg_path).ok();
+
+        let err = it
+            .run(&format!(
+                "algorigram(\"f\", file=\"{}\")",
+                png_path.display().to_string().replace('\\', "\\\\")
+            ))
+            .unwrap_err();
+        assert!(err.msg.contains("rasterizer"), "got: {}", err.msg);
     }
 
     #[test]
@@ -60622,18 +66108,233 @@ end for");
 
     #[test]
     fn resample_to_downsamples_and_still_preserves_duration() {
-        // 9 samples at 4 Hz span t = 0..2s; halving to 2 Hz should span the
-        // same t = 0..2s with 5 samples, hitting the same ramp values.
+        // 9 samples at 4 Hz span t = 0..2s; halving to 2 Hz still spans the
+        // same t = 0..2s with 5 samples. The LENGTH/duration contract is
+        // what this test is for and it is unchanged.
+        //
+        // The VALUES deliberately changed on 2026-09-19: downsampling now
+        // runs an anti-alias lowpass first, so this no longer returns the
+        // ramp's own values sample-for-sample. It used to assert exactly
+        // [0, 5, 10, 15, 20]; the filter is causal, so the ramp comes back
+        // delayed by its group delay (order/2 = 4 input samples here, the
+        // order being reduced from the default 60 to 8 because a 9-sample
+        // input cannot carry a 61-tap filter) and smoothed at the edges.
+        // See the `resample_to` arm's own doc comment.
         let it = run(
             "x = signal([0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20], 4)\n\
              y = resample_to(x, 2)",
         );
         let y = vec_of(&it, "y");
         assert_eq!(y.len(), 5);
-        let expected = vec![0.0, 5.0, 10.0, 15.0, 20.0];
-        for (got, want) in y.iter().zip(expected.iter()) {
-            assert!((got - want).abs() < 1e-9, "got {y:?}, want {expected:?}");
+        // The delay is exact and checkable, which is the useful assertion
+        // here: a linear-phase FIR passes a straight line through as a pure
+        // delay once it has filled, so the last output sample (t = 2s) is
+        // the ramp's value one group delay earlier -- 4 input samples at
+        // 4 Hz = 1s back, i.e. the ramp at t = 1s, which is 10.0. Measured,
+        // not assumed: the whole output is
+        // [0, -0.0567, 0.5150, 4.9433, 10.0].
+        assert!((y[0] - 0.0).abs() < 1e-9, "got {y:?}");
+        assert!(
+            (y[4] - 10.0).abs() < 1e-9,
+            "group delay is not the documented order/2 = 4 input samples: {y:?}"
+        );
+        // And it is NOT the old sample-for-sample answer -- if this ever
+        // starts passing, the anti-alias filter has been lost again.
+        assert!(
+            (y[4] - 20.0).abs() > 1e-6,
+            "resample_to looks unfiltered again: {y:?}"
+        );
+    }
+
+    /// The bug this whole change exists for: decimating without a lowpass
+    /// folds everything above the new Nyquist back into the band, and the
+    /// result looks like a perfectly good signal.
+    ///
+    /// The probe is built so it CAN differ both ways: the same grid change
+    /// done by hand with `interp1` (which is literally what `resample_to`
+    /// used to be) is asserted to produce the full-amplitude alias, so a
+    /// passing test means the filter did something, not that the tone was
+    /// too weak to alias in the first place.
+    #[test]
+    fn resample_to_lowpasses_before_decimating_instead_of_aliasing() {
+        // A pure 35 Hz tone at 100 Hz. Decimated to 20 Hz (new Nyquist
+        // 10 Hz) it would fold to |35 - 2*20| = 5 Hz.
+        let it = run(
+            "t = linspace(0, 4.99, 500)\n\
+             x = signal(sin(2*pi*35*t), 100)\n\
+             y = resample_to(x, 20)\n\
+             tq = linspace(0, 5, 101)\n\
+             unfiltered = interp1(t, sin(2*pi*35*t), tq, \"linear\")",
+        );
+        let rms = |v: &[f64]| (v.iter().map(|a| a * a).sum::<f64>() / v.len() as f64).sqrt();
+
+        // Control: the old behavior. A tone that was never in the input,
+        // at very nearly full amplitude.
+        let alias = vec_of(&it, "unfiltered");
+        assert!(
+            rms(&alias[12..]) > 0.3,
+            "control failed -- the unfiltered path did not alias, so this test proves nothing (rms {})",
+            rms(&alias[12..])
+        );
+
+        // The fix: 35 Hz is deep in the stopband, so almost nothing
+        // survives. Skip the first 12 output samples (the 30-input-sample
+        // group delay is 6 output samples; 12 clears the transient).
+        // Measured: 0.754 rms of alias before, 0.00026 after -- ~69 dB.
+        let y = vec_of(&it, "y");
+        // 499/100 s of signal at 20 Hz spans 101 output samples.
+        assert_eq!(y.len(), 101);
+        assert!(
+            rms(&y[12..]) < 0.05,
+            "35 Hz tone aliased through decimation at rms {}",
+            rms(&y[12..])
+        );
+    }
+
+    #[test]
+    fn resample_to_upsampling_is_bit_for_bit_unchanged_by_the_anti_alias_fix() {
+        // Upsampling cannot alias, so it gets no filter, no group delay and
+        // exactly the values it always returned. This is the other half of
+        // the behavior-change contract: only the DOWN direction moved.
+        let it = run("x = signal([0, 10, 20, 30], 1)\ny = resample_to(x, 4)");
+        let y = vec_of(&it, "y");
+        assert_eq!(y.len(), 13);
+        for (i, got) in y.iter().enumerate() {
+            let want = i as f64 * 30.0 / 12.0;
+            assert!((got - want).abs() < 1e-9, "got {y:?}");
         }
+    }
+
+    // ---- `upsample` / `downsample` / `resample_int` ----
+
+    #[test]
+    fn upsample_zero_stuffs_interpolates_and_keeps_amplitude() {
+        // A 2 Hz tone sampled at 50 Hz, upsampled by 4 to 200 Hz. The
+        // interpolation filter's gain of L is what keeps the amplitude at
+        // 1.0 rather than 1/4 of it.
+        let it = run(
+            "t = linspace(0, 3.98, 200)\n\
+             x = signal(sin(2*pi*2*t), 50)\n\
+             y = upsample(x, 4)\n\
+             fy = y.Fs\n\
+             n = len(y)",
+        );
+        assert!(matches!(it.get("fy"), Some(Value::Num(n)) if (*n - 200.0).abs() < 1e-9));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if (*n - 800.0).abs() < 1e-9));
+        let y = vec_of(&it, "y");
+        // Past the 30-sample group delay and the run-out, the peak is the
+        // input's own peak -- not L times it, and not 1/L of it.
+        let peak = y[60..700].iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!((peak - 1.0).abs() < 0.05, "amplitude drifted: peak {peak}");
+    }
+
+    #[test]
+    fn upsample_by_one_is_the_identity_with_no_delay() {
+        let it = run("y = upsample([1, 2, 3, 4], 1)");
+        assert_eq!(vec_of(&it, "y"), vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn downsample_rejects_the_band_that_would_alias() {
+        // Same folding scenario as the `resample_to` test, through the
+        // integer-factor primitive: a 35 Hz tone at 100 Hz, decimated by 5.
+        let it = run(
+            "t = linspace(0, 4.99, 500)\n\
+             x = signal(sin(2*pi*35*t), 100)\n\
+             y = downsample(x, 5)\n\
+             fy = y.Fs",
+        );
+        assert!(matches!(it.get("fy"), Some(Value::Num(n)) if (*n - 20.0).abs() < 1e-9));
+        let y = vec_of(&it, "y");
+        assert_eq!(y.len(), 100); // ceil(500/5)
+        let tail = &y[12..];
+        let rms = (tail.iter().map(|v| v * v).sum::<f64>() / tail.len() as f64).sqrt();
+        assert!(rms < 0.05, "aliased through at rms {rms}");
+    }
+
+    #[test]
+    fn downsample_keeps_a_passband_tone_it_should_not_touch() {
+        // The other side of the same filter: 2 Hz at 100 Hz decimated by 5
+        // (new Nyquist 10 Hz) is well inside the passband and must come
+        // through at full amplitude, delayed by order/2 = 30 input samples
+        // = 6 output samples. Without this, "attenuates everything" would
+        // pass the aliasing test above.
+        let it = run(
+            "t = linspace(0, 4.99, 500)\n\
+             x = signal(sin(2*pi*2*t), 100)\n\
+             y = downsample(x, 5)",
+        );
+        let y = vec_of(&it, "y");
+        // Measured peak 0.955 -- the shortfall is the sampling grid, not
+        // the filter: at 20 Hz a 2 Hz sine is only 10 samples per cycle, so
+        // the output rarely lands exactly on a crest.
+        let peak = y[10..90].iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!((peak - 1.0).abs() < 0.08, "passband tone lost amplitude: peak {peak}");
+    }
+
+    #[test]
+    fn upsample_then_downsample_round_trips_once_delay_aligned() {
+        // Up by 3 then down by 3 on 200 samples. Two order-60 filters, each
+        // contributing 30 samples of group delay at the 3x rate, so the
+        // result is x delayed by 60/3 = 20 samples. Aligned by that known
+        // delay, the round trip is accurate to a few parts in a thousand --
+        // the delay is real and documented, not something the comparison
+        // gets to pretend away.
+        let it = run(
+            "t = linspace(0, 1.99, 200)\n\
+             x = sin(2*pi*2*t) + 0.5*sin(2*pi*5*t)\n\
+             y = downsample(upsample(x, 3), 3)",
+        );
+        let x = vec_of(&it, "x");
+        let y = vec_of(&it, "y");
+        assert_eq!(y.len(), 200);
+        const DELAY: usize = 20;
+        // Compare only where both the input and the delayed output are
+        // past their transients.
+        let n = 200 - 2 * DELAY;
+        let err: f64 = (0..n).map(|k| (y[k + DELAY] - x[k]).powi(2)).sum::<f64>() / n as f64;
+        let rmse = err.sqrt();
+        assert!(rmse < 0.01, "round-trip rmse {rmse} (measured 0.0023 when written)");
+    }
+
+    #[test]
+    fn resample_int_matches_the_two_step_shape_with_half_the_delay() {
+        // L=3, M=2 on a 100-sample, 50 Hz signal -> 150 samples at 75 Hz.
+        let it = run(
+            "t = linspace(0, 1.98, 100)\n\
+             x = signal(sin(2*pi*3*t), 50)\n\
+             y = resample_int(x, 3, 2)\n\
+             fy = y.Fs\n\
+             n = len(y)",
+        );
+        assert!(matches!(it.get("fy"), Some(Value::Num(n)) if (*n - 75.0).abs() < 1e-9));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if (*n - 150.0).abs() < 1e-9));
+        let y = vec_of(&it, "y");
+        // One filter, so the delay is 30 samples at the 150 Hz intermediate
+        // rate = 15 output samples. Amplitude preserved past it.
+        let peak = y[30..130].iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!((peak - 1.0).abs() < 0.06, "amplitude drifted: peak {peak}");
+    }
+
+    #[test]
+    fn resample_int_on_a_plain_vector_returns_a_plain_vector() {
+        let it = run("y = resample_int([1, 2, 3, 4, 5, 6, 7, 8], 2, 2)");
+        assert!(matches!(it.get("y"), Some(Value::Vec(_))), "got {:?}", it.get("y"));
+    }
+
+    #[test]
+    fn multirate_builtins_reject_a_bad_order_or_factor() {
+        let mut it = Interp::new();
+        let odd = it.run("y = upsample([1,2,3,4,5,6], 2, order=61)").unwrap_err();
+        assert!(odd.msg.contains("even"), "got: {}", odd.msg);
+
+        let mut it = Interp::new();
+        let zero = it.run("y = downsample([1,2,3,4,5,6], 0)").unwrap_err();
+        assert!(zero.msg.contains("at least 1"), "got: {}", zero.msg);
+
+        let mut it = Interp::new();
+        let frac = it.run("y = resample_int([1,2,3,4,5,6], 2, 1.5)").unwrap_err();
+        assert!(frac.msg.contains("whole number"), "got: {}", frac.msg);
     }
 
     #[test]
@@ -61064,7 +66765,7 @@ end for");
     #[test]
     fn threshold_on_a_signal_preserves_fs_and_produces_zero_one() {
         let it = run("s = signal([1, 5, 3, 8, 2], 250)\nt = threshold(s, 4)");
-        let Some(Value::Signal(xs, fs)) = it.get("t") else { panic!("expected a signal") };
+        let Some(Value::Signal(xs, fs, _)) = it.get("t") else { panic!("expected a signal") };
         assert_eq!(*fs, 250.0);
         assert_eq!(**xs, vec![0.0, 1.0, 0.0, 1.0, 0.0]);
     }
@@ -61092,7 +66793,7 @@ end for");
     #[test]
     fn multithreshold_on_a_signal_preserves_fs() {
         let it = run("s = signal([1, 15, 25, 35, 45], 500)\nb = multithreshold(s, [10, 30])");
-        let Some(Value::Signal(xs, fs)) = it.get("b") else { panic!("expected a signal") };
+        let Some(Value::Signal(xs, fs, _)) = it.get("b") else { panic!("expected a signal") };
         assert_eq!(*fs, 500.0);
         assert_eq!(**xs, vec![0.0, 1.0, 1.0, 2.0, 2.0]);
     }
@@ -61779,6 +67480,398 @@ end for");
         }
     }
 
+    // ---- §10 calibration, units, metadata, markers -------------------------
+    //
+    // A 1 kHz, 0.5-amplitude tone at 48 kHz is the fixture throughout: its
+    // AC RMS is exactly 0.5/sqrt(2), so every expected level below is a
+    // closed-form number rather than a value read off a previous run.
+    const TONE_48K: &str = "fs = 48000\n\
+         k = 0 to 47999\n\
+         x = 0.5*sin(2*pi*1000*k/fs)\n\
+         s = signal(x, fs)\n";
+
+    fn num_at(it: &Interp, name: &str) -> f64 {
+        match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("expected `{name}` to be a Num, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn spl_refuses_an_uncalibrated_signal_and_answers_in_dbfs_instead() {
+        // §10: "An uncalibrated signal answers in dBFS and says so. It will
+        // not pretend to know Pascals." The refusal is the behaviour under
+        // test, and it has to CARRY the dBFS number -- an error that only
+        // says "not calibrated" sends the reader away empty-handed when the
+        // answer their signal can support was one line of arithmetic.
+        let err = run_err(&format!("{TONE_48K}v = spl(s)"));
+        assert!(err.msg.contains("not calibrated"), "got: {}", err.msg);
+        assert!(err.msg.contains("dBFS"), "must name the unit it CAN answer in: {}", err.msg);
+        assert!(err.msg.contains("-6.0"), "must carry the actual dBFS reading: {}", err.msg);
+        assert!(err.msg.contains("calibrate("), "must say how to fix it: {}", err.msg);
+    }
+
+    #[test]
+    fn a_tone_calibration_reads_back_exactly_the_level_it_was_given() {
+        // The round trip that makes the tone form trustworthy: hand it a
+        // recording and tell it that recording is 94 dB, and `spl` of the
+        // result must be 94 dB. Any error in the reference, the AC-RMS or
+        // the slope shows up here as a level that is not 94.
+        let it = run(&format!("{TONE_48K}c = calibrate(s, tone_level = 94)\nl = spl(c)"));
+        assert!((num_at(&it, "l") - 94.0).abs() < 1e-9, "got {}", num_at(&it, "l"));
+        match it.get("c") {
+            Some(Value::Signal(_, _, m)) => {
+                assert_eq!(m.unit.as_deref(), Some("Pa"));
+                assert_eq!(m.cal.as_ref().map(|c| c.source), Some("tone"));
+            }
+            other => panic!("expected a Signal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_named_tone_frequency_is_checked_against_the_recording() {
+        // `tone_freq` is not decoration: naming a frequency the recording
+        // does not contain means the wrong file was reached for, and every
+        // measurement made afterwards would inherit the error silently.
+        let err = run_err(&format!(
+            "{TONE_48K}c = calibrate(s, tone_level = 94, tone_freq = 5000)"
+        ));
+        assert!(err.msg.contains("5000"), "got: {}", err.msg);
+        assert!(err.msg.contains("does not look like a calibrator"), "got: {}", err.msg);
+        // ...and the matching frequency is accepted and still exact.
+        let it = run(&format!(
+            "{TONE_48K}c = calibrate(s, tone_level = 94, tone_freq = 1000)\nl = spl(c)"
+        ));
+        assert!((num_at(&it, "l") - 94.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_sensitivity_calibration_divides_by_the_datasheet_figure() {
+        // 12.3 mV/Pa on a 0.5 V peak tone: peak pressure is 0.5/0.0123 Pa.
+        // The reciprocal is the step that gets inverted by hand, so it is
+        // pinned to a closed-form expectation here.
+        let it = run(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\n\
+             p = calibrate(v, sensitivity = 12.3)\n\
+             pk = max(p)\n\
+             l = spl(p)"
+        ));
+        assert!((num_at(&it, "pk") - 0.5 / 0.0123).abs() < 1e-6, "got {}", num_at(&it, "pk"));
+        let expected = 20.0 * ((0.5 / std::f64::consts::SQRT_2 / 0.0123) / 20e-6).log10();
+        assert!((num_at(&it, "l") - expected).abs() < 1e-6, "got {}", num_at(&it, "l"));
+    }
+
+    #[test]
+    fn converting_the_unit_leaves_the_level_alone_but_a_gain_does_not() {
+        // The two halves of the one rule `signal_meta::rescale` documents,
+        // asserted together because the bug they guard against is treating
+        // them the same:
+        //
+        //  * Pa -> kPa divides every sample by 1000 without making the sound
+        //    quieter, so the dB reference is re-expressed and `spl` is
+        //    UNCHANGED;
+        //  * a 6 dB gain leaves the unit alone and genuinely doubles the
+        //    pressure, so the reference stays put and `spl` rises by 6.
+        //
+        // The first version of `rescale` scaled the reference in both cases,
+        // which made a gain completely invisible to `spl` -- the level came
+        // back identical no matter how much gain was applied. That is why
+        // this test asserts the 6.0, not merely that the call succeeds.
+        let it = run(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\n\
+             p = calibrate(v, sensitivity = 12.3)\n\
+             base = spl(p)\n\
+             kp = convert_unit(p, \"kPa\")\n\
+             conv = spl(kp)\n\
+             g_db = spl(gain(p, 6))\n\
+             g_lin = spl(apply_gain(p, 1.9952623149688795))"
+        ));
+        let base = num_at(&it, "base");
+        assert!((num_at(&it, "conv") - base).abs() < 1e-9, "unit change moved the level");
+        assert!((num_at(&it, "g_db") - base - 6.0).abs() < 1e-9, "6 dB of gain was not 6 dB");
+        // Both spellings of the same operation must land in the same place;
+        // `gain` routes through `rescale` precisely so they cannot drift.
+        assert!((num_at(&it, "g_lin") - num_at(&it, "g_db")).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_unit_conversion_across_physical_quantities_is_refused_by_name() {
+        let err = run_err(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\np = convert_unit(v, \"Pa\")"
+        ));
+        assert!(err.msg.contains('V') && err.msg.contains("Pa"), "must name both: {}", err.msg);
+        assert!(err.msg.contains("calibrate"), "must point at the real fix: {}", err.msg);
+    }
+
+    #[test]
+    fn an_arbitrary_elementwise_function_drops_the_calibration_but_keeps_the_axis() {
+        // `SigMeta::axis_only`'s rule, on the real dispatch path.
+        let it = run(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\n\
+             p = calibrate(v, sensitivity = 12.3)\n\
+             p = set_start_time(p, 5)\n\
+             q = sqrt(abs(p))\n\
+             cal = q.calibrated\n\
+             t0 = start_time(q)"
+        ));
+        assert!(matches!(it.get("cal"), Some(Value::Bool(false))), "got {:?}", it.get("cal"));
+        assert_eq!(num_at(&it, "t0"), 5.0, "the time origin is not affected by sqrt");
+        // ...and `spl` then correctly refuses again rather than answering
+        // from a slope that no longer describes the samples.
+        let err = run_err(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\n\
+             p = calibrate(v, sensitivity = 12.3)\n\
+             l = spl(sqrt(abs(p)))"
+        ));
+        assert!(err.msg.contains("not calibrated"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn the_time_origin_moves_the_axis_and_defaults_to_the_old_behaviour() {
+        let it = run(
+            "a = signal([1,2,3,4], 2)\n\
+             a0 = start_time(a)\n\
+             ae = end_time(a)\n\
+             b = set_start_time(a, 10)\n\
+             b0 = start_time(b)\n\
+             be = end_time(b)\n\
+             bt = timestamps(b)\n\
+             bf = b.t",
+        );
+        // Default origin is 0, so nothing about an un-annotated signal moved.
+        assert_eq!(num_at(&it, "a0"), 0.0);
+        assert_eq!(num_at(&it, "ae"), 2.0, "4 samples at 2 Hz is 2 s of record");
+        assert_eq!(num_at(&it, "b0"), 10.0);
+        assert_eq!(num_at(&it, "be"), 12.0, "end_time is start + duration");
+        // `timestamps` and the `.t` field accessor must agree -- two
+        // spellings of the axis that disagreed would be exactly the class of
+        // bug §0 exists to prevent.
+        assert_eq!(vec_of(&it, "bt"), vec![10.0, 10.5, 11.0, 11.5]);
+        assert_eq!(vec_of(&it, "bf"), vec![10.0, 10.5, 11.0, 11.5]);
+    }
+
+    #[test]
+    fn set_metadata_refuses_off_schema_keys_and_derived_fields() {
+        let it = run(
+            "a = signal([1,2,3,4], 2)\n\
+             a = set_metadata(a, \"operator\", \"AK\")\n\
+             a = set_metadata(a, \"Instrument\", \"B&K\")\n\
+             m = metadata(a)\n\
+             op = m.operator\n\
+             inst = m.instrument\n\
+             sr = m.sampling_rate",
+        );
+        assert_eq!(it.get("op").map(|v| display_value(v)), Some("AK".to_string()));
+        // Key matching ignores case and underscores, so the spec's own
+        // camelCase spellings work without a second schema.
+        assert_eq!(it.get("inst").map(|v| display_value(v)), Some("B&K".to_string()));
+        // The derived fields are read through from the value itself.
+        assert_eq!(num_at(&it, "sr"), 2.0);
+
+        let err = run_err("a = signal([1,2],2)\na = set_metadata(a, \"colour\", \"red\")");
+        assert!(err.msg.contains("colour"), "got: {}", err.msg);
+        assert!(err.msg.contains("operator"), "must list the schema: {}", err.msg);
+
+        // A derived field is refused with a pointer at its real setter,
+        // rather than stored as a second answer that could disagree.
+        let err = run_err("a = signal([1,2],2)\na = set_metadata(a, \"samplingRate\", 99)");
+        assert!(err.msg.contains("sampling_rate"), "camelCase must resolve: {}", err.msg);
+        assert!(err.msg.contains("signal(x, fs)"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn markers_and_regions_are_kept_sorted_and_bounded_by_the_signal() {
+        let it = run(
+            "a = signal([1,2,3,4], 2)\n\
+             a = add_marker(a, 1.5, \"late\")\n\
+             a = add_marker(a, 0.5, \"early\")\n\
+             a = add_region(a, 0.5, 1.5, \"window\")\n\
+             ms = markers(a)\n\
+             n = len(ms)\n\
+             first = ms[0].label\n\
+             rs = regions(a)\n\
+             rlab = rs[0].label",
+        );
+        assert_eq!(num_at(&it, "n"), 2.0);
+        // Insertion order was late-then-early; the list comes back in time
+        // order so a reader can walk it alongside the samples.
+        assert_eq!(it.get("first").map(|v| display_value(v)), Some("early".to_string()));
+        assert_eq!(it.get("rlab").map(|v| display_value(v)), Some("window".to_string()));
+
+        let err = run_err("a = signal([1,2,3,4], 2)\na = add_marker(a, 99, \"nope\")");
+        assert!(err.msg.contains("outside this signal"), "got: {}", err.msg);
+        let err = run_err("a = signal([1,2,3,4], 2)\na = add_region(a, 1.5, 0.5, \"back\")");
+        assert!(err.msg.contains("must be >="), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn a_calibration_curve_interpolates_and_refuses_to_extrapolate_by_default() {
+        let it = run(
+            "raw = [0, 1, 2]\n\
+             phy = [0, 10, 40]\n\
+             s = signal([0, 0.5, 1, 1.5, 2], 1)\n\
+             out = apply_calibration_curve(s, raw, phy, unit = \"N\")\n\
+             cl = apply_calibration_curve(signal([5], 1), raw, phy, extrapolate = \"clamp\")\n\
+             li = apply_calibration_curve(signal([3], 1), raw, phy, extrapolate = \"linear\")",
+        );
+        // Piecewise-linear between the given points, NOT a single fit
+        // through them: 0.5 sits halfway along the 0->10 leg (5), and 1.5
+        // halfway along the 10->40 leg (25).
+        assert_eq!(vec_of(&it, "out"), vec![0.0, 5.0, 10.0, 25.0, 40.0]);
+        assert_eq!(vec_of(&it, "cl"), vec![40.0]);
+        assert_eq!(vec_of(&it, "li"), vec![70.0], "the 10->40 leg continued one step");
+
+        // The default refuses rather than guessing, and says which sample.
+        let err = run_err(
+            "raw = [0, 1, 2]\nphy = [0, 10, 40]\nq = apply_calibration_curve(signal([5],1), raw, phy)",
+        );
+        assert!(err.msg.contains("outside the curve"), "got: {}", err.msg);
+        assert!(err.msg.contains("extrapolate"), "must name the opt-outs: {}", err.msg);
+
+        // A non-monotonic curve does not define a single physical value.
+        let err = run_err(
+            "q = apply_calibration_curve(signal([0.5],1), [0, 2, 1], [0, 10, 40])",
+        );
+        assert!(err.msg.contains("strictly increasing"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn save_and_load_round_trip_a_signals_annotations() {
+        // The JSON path is the lossless one (the XML writer deliberately is
+        // not), so a calibrated, annotated, dated signal must come back
+        // answering `spl` with the same number.
+        let it = run(&format!(
+            "{TONE_48K}v = signal_unit(s, \"V\")\n\
+             p = calibrate(v, sensitivity = 12.3)\n\
+             p = set_start_time(p, 7.5)\n\
+             p = set_metadata(p, \"operator\", \"AK\")\n\
+             p = add_marker(p, 7.75, \"impact\")\n\
+             before = spl(p)\n\
+             f = tmp_file()\n\
+             save(f, \"p\")\n\
+             p = 0\n\
+             load(f)\n\
+             after = spl(p)\n\
+             t0 = start_time(p)\n\
+             u = signal_unit(p)\n\
+             nm = len(markers(p))\n\
+             op = metadata(p).operator"
+        ));
+        assert_eq!(num_at(&it, "after"), num_at(&it, "before"));
+        assert_eq!(num_at(&it, "t0"), 7.5);
+        assert_eq!(num_at(&it, "nm"), 1.0);
+        assert_eq!(it.get("u").map(|v| display_value(v)), Some("Pa".to_string()));
+        assert_eq!(it.get("op").map(|v| display_value(v)), Some("AK".to_string()));
+    }
+
+    // ---- §2 Spectrum-typed PSD ---------------------------------------------
+
+    #[test]
+    fn welch_returns_a_density_spectrum_carrying_its_own_frequency_axis() {
+        // §2's whole point: the estimate arrives with its axis attached, so
+        // it cannot be plotted against the wrong one. `df` is Fs/nperseg --
+        // the SEGMENT length, not the signal length, which is the
+        // mislabelling this typing exists to prevent.
+        let it = run(&format!(
+            "{TONE_48K}P = welch(s, nperseg = 1024)\n\
+             ty = type(P)\n\
+             nm = P.norm\n\
+             df = P.df\n\
+             bins = P.bins\n\
+             nn = P.N\n\
+             fx = P.freq\n\
+             pk = argmax(P)"
+        ));
+        assert_eq!(it.get("ty").map(|v| display_value(v)), Some("spectrum".to_string()));
+        assert_eq!(it.get("nm").map(|v| display_value(v)), Some("density".to_string()));
+        assert_eq!(num_at(&it, "df"), 48000.0 / 1024.0);
+        assert_eq!(num_at(&it, "bins"), 513.0);
+        assert_eq!(num_at(&it, "nn"), 1024.0, "N is the segment length, not len(x)");
+        let fx = vec_of(&it, "fx");
+        assert_eq!(fx.len(), 513);
+        assert_eq!(fx[0], 0.0);
+        assert!((fx[512] - 24000.0).abs() < 1e-9, "the axis ends at Nyquist");
+        // The 1 kHz tone lands in the bin nearest 1 kHz.
+        let pk = num_at(&it, "pk") as usize;
+        assert!((fx[pk] - 1000.0).abs() <= 48000.0 / 1024.0, "peak at {} Hz", fx[pk]);
+    }
+
+    #[test]
+    fn a_density_spectrum_is_still_usable_everywhere_a_plain_vector_was() {
+        // The back-compat hinge. `welch` used to return a bare `Vec`, and
+        // every caller written against that -- `length`, `max`, arithmetic,
+        // plotting -- must keep working against the typed value, which is
+        // what the `to_cow` arm for `Density` buys.
+        let it = run(&format!(
+            "{TONE_48K}P = welch(s, nperseg = 1024)\n\
+             n = length(P)\n\
+             mx = max(P)\n\
+             sm = sum(P)\n\
+             Q = psd(s, nfft = 1024)\n\
+             d = max(abs(P.mag - Q.mag))"
+        ));
+        assert_eq!(num_at(&it, "n"), 513.0);
+        assert!(num_at(&it, "mx") > 0.0);
+        assert!(num_at(&it, "sm") > 0.0);
+        // `psd` and `welch` share one code path and must stay bit-identical.
+        assert_eq!(num_at(&it, "d"), 0.0);
+    }
+
+    #[test]
+    fn band_power_integrates_a_density_over_the_named_band() {
+        // §2: "Integrating a PSD over a band returns V^2, whose square root
+        // is the band RMS in volts." A 0.5-amplitude sine's mean-square
+        // power is 0.5^2/2 = 0.125, and essentially all of it is inside
+        // 900-1100 Hz.
+        let it = run(&format!(
+            "{TONE_48K}P = welch(s, nperseg = 1024)\n\
+             bp = band_power(P, 900, 1100)\n\
+             rms_band = sqrt(bp)"
+        ));
+        let bp = num_at(&it, "bp");
+        assert!((bp - 0.125).abs() / 0.125 < 0.01, "got {bp}");
+        // ...and the square root really is the band RMS in the signal's unit.
+        let rms = num_at(&it, "rms_band");
+        assert!((rms - 0.5 / std::f64::consts::SQRT_2).abs() < 1e-3, "got {rms}");
+    }
+
+    #[test]
+    fn a_density_refuses_to_be_inverted_or_unnormalised() {
+        // A PSD discarded its phase, so there is nothing to invert. Both
+        // refusals must say so rather than sending the reader round a loop:
+        // the `ifft` message used to point at `spectrum_unnormalize`, which
+        // refuses a density in turn.
+        let err = run_err(&format!("{TONE_48K}P = welch(s, nperseg=1024)\nz = ifft(P)"));
+        assert!(err.msg.contains("density"), "got: {}", err.msg);
+        assert!(err.msg.contains("cannot be inverted"), "got: {}", err.msg);
+        assert!(
+            !err.msg.contains("spectrum_unnormalize"),
+            "must not point at a call that also refuses: {}",
+            err.msg
+        );
+        let err = run_err(&format!(
+            "{TONE_48K}P = welch(s, nperseg=1024)\nz = spectrum_unnormalize(P)"
+        ));
+        assert!(err.msg.contains("density"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn a_density_spectrum_survives_save_and_load_with_its_convention_intact() {
+        let it = run(&format!(
+            "{TONE_48K}P = welch(s, nperseg = 1024)\n\
+             f = tmp_file()\n\
+             save(f, \"P\")\n\
+             P = 0\n\
+             load(f)\n\
+             nm = P.norm\n\
+             df = P.df\n\
+             n = length(P)"
+        ));
+        assert_eq!(it.get("nm").map(|v| display_value(v)), Some("density".to_string()));
+        assert_eq!(num_at(&it, "df"), 48000.0 / 1024.0);
+        assert_eq!(num_at(&it, "n"), 513.0);
+    }
+
     #[test]
     fn signal_slice_time_converts_seconds_to_the_expected_sample_indices() {
         // fs=100 -> sample i is at time i/100; slicing [0.5s, 1.5s] gives
@@ -61801,7 +67894,7 @@ end for");
         assert_eq!(sliced[0], 50.0, "0.5s * 100Hz = sample index 50");
         assert_eq!(sliced[sliced.len() - 1], 150.0, "1.5s * 100Hz = sample index 150");
         // the result stays a Signal at the same Fs.
-        assert!(matches!(it.get("sliced"), Some(Value::Signal(_, fs)) if (*fs - 100.0).abs() < 1e-9));
+        assert!(matches!(it.get("sliced"), Some(Value::Signal(_, fs, _)) if (*fs - 100.0).abs() < 1e-9));
     }
 
     #[test]
@@ -62221,7 +68314,7 @@ end for");
         assert_eq!(trimmed.len(), 101);
         assert_eq!(trimmed[0], 50.0);
         assert_eq!(trimmed[trimmed.len() - 1], 150.0);
-        assert!(matches!(it.get("trimmed"), Some(Value::Signal(_, fs)) if (*fs - 100.0).abs() < 1e-9));
+        assert!(matches!(it.get("trimmed"), Some(Value::Signal(_, fs, _)) if (*fs - 100.0).abs() < 1e-9));
     }
 
     #[test]
@@ -63833,6 +69926,191 @@ end for");
         assert!(err.msg.contains("Signal"), "got: {}", err.msg);
     }
 
+    // ---- `steer_delays` / `beamform` — delay-and-sum ----
+
+    #[test]
+    fn steer_delays_matches_the_hand_computed_array_geometry() {
+        // 5 mics, 0.08 m spacing, origin-centred, steered 30 deg off
+        // broadside in air: sin(30 deg) = 0.5 exactly, so the outermost
+        // element's delay is 0.16 * 0.5 / 343 = 2.3323615e-4 s, the next
+        // one in is half of that, and the centre element (x = 0) is
+        // undelayed no matter where the array is pointed.
+        let it = run(
+            "mics = [-2, -1, 0, 1, 2] .* 0.08\n\
+             taus = steer_delays(mics, 30, 343)\n\
+             broad = steer_delays(mics, 0)",
+        );
+        let taus = vec_of(&it, "taus");
+        let expect = 0.16 * 0.5 / 343.0;
+        assert!((taus[4] - expect).abs() < 1e-15, "got {taus:?}");
+        assert!((taus[3] - expect / 2.0).abs() < 1e-15, "got {taus:?}");
+        assert!(taus[2].abs() < 1e-18, "centre element must be undelayed: {taus:?}");
+        assert!((taus[0] + expect).abs() < 1e-15, "got {taus:?}");
+        // Broadside (0 deg) is the degenerate case the whole thing must get
+        // right: every element is equidistant, so every delay is zero --
+        // and the default c=343 is what fills in here.
+        assert!(vec_of(&it, "broad").iter().all(|v| v.abs() < 1e-18));
+    }
+
+    #[test]
+    fn beamform_reconstructs_a_noiseless_tone_exactly_when_the_delays_are_whole_samples() {
+        // Spacing chosen so every steering delay is an EXACT whole number of
+        // samples (d = c/(2*Fs*sin(30 deg)) -> tau_m = m/Fs), which makes
+        // "nearest" steering exact rather than approximate. Each channel
+        // carries the same tone shifted by its own geometric delay; steering
+        // then averaging must return the undelayed tone itself. Compared
+        // away from the ends, where a query falls off the record and
+        // `nearest` clamps to the boundary sample (real, documented
+        // extrapolation behaviour, not a beamforming error).
+        let it = run(
+            "fs = 48000\n\
+             d = 343 / 24000\n\
+             mics = [-2, -1, 0, 1, 2] .* d\n\
+             taus = steer_delays(mics, 30, 343)\n\
+             t = (0 to 199) ./ fs\n\
+             ref = sin(2 * pi * 1200 .* t)\n\
+             c0 = signal(sin(2 * pi * 1200 .* (t - taus[0])), fs)\n\
+             c1 = signal(sin(2 * pi * 1200 .* (t - taus[1])), fs)\n\
+             c2 = signal(sin(2 * pi * 1200 .* (t - taus[2])), fs)\n\
+             c3 = signal(sin(2 * pi * 1200 .* (t - taus[3])), fs)\n\
+             c4 = signal(sin(2 * pi * 1200 .* (t - taus[4])), fs)\n\
+             beam = beamform([c0, c1, c2, c3, c4], mics, 30)\n\
+             err = sum((beam[5:194] - ref[5:194]) .^ 2)",
+        );
+        assert!(matches!(it.get("err"), Some(Value::Num(n)) if *n < 1e-20), "residual: {:?}", it.get("err"));
+        // The output is a Signal at the inputs' own Fs -- the claim the doc
+        // comment makes about why this one MAY re-wrap where
+        // `interpolate_at` may not.
+        assert!(matches!(it.get("beam"), Some(Value::Signal(xs, fs, _)) if xs.len() == 200 && (*fs - 48000.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn beamform_is_exactly_the_hand_rolled_steer_delays_plus_interpolate_at_loop() {
+        // The composability claim in `steer_delays`' docs, checked rather
+        // than asserted: three channels with DIFFERENT content (so a bug
+        // that mixed up which delay goes with which channel cannot cancel
+        // out), steered by hand through the existing `interpolate_at` and
+        // averaged, against the single `beamform` call.
+        let it = run(
+            "fs = 8000\n\
+             mics = [0, 0.1, 0.2]\n\
+             taus = steer_delays(mics, 40, 343)\n\
+             t = (0 to 99) ./ fs\n\
+             s0 = signal(sin(2 * pi * 300 .* t), fs)\n\
+             s1 = signal(cos(2 * pi * 180 .* t) + 0.1, fs)\n\
+             s2 = signal(sin(2 * pi * 90 .* t) .* 2, fs)\n\
+             manual = (interpolate_at(s0, t + taus[0], \"nearest\") \
+                     + interpolate_at(s1, t + taus[1], \"nearest\") \
+                     + interpolate_at(s2, t + taus[2], \"nearest\")) ./ 3\n\
+             beam = beamform([s0, s1, s2], mics, 40)\n\
+             gap = sum((beam - manual) .^ 2)\n\
+             spread = sum((manual - s0) .^ 2)",
+        );
+        assert!(matches!(it.get("gap"), Some(Value::Num(n)) if *n < 1e-24), "gap: {:?}", it.get("gap"));
+        // Guard against the probe being unable to differ: if the three
+        // channels were somehow identical, `gap` would be 0 for the wrong
+        // reason. `spread` proves the combined result is genuinely NOT just
+        // channel 0 passed through.
+        assert!(matches!(it.get("spread"), Some(Value::Num(n)) if *n > 1.0), "spread: {:?}", it.get("spread"));
+    }
+
+    #[test]
+    fn beamform_array_gain_tracks_10log10_of_the_element_count() {
+        // The verified case: 5 mics, 0.08 m, a 1 kHz tone 30 deg off
+        // broadside, c = 343, independent noise per element. Delay-and-sum
+        // adds the steered tone coherently and the noise incoherently, so
+        // the SNR must improve by about 10*log10(5) = 6.99 dB.
+        //
+        // A BAND, not a fixed number: the exact figure depends on the noise
+        // realisation, and `randn` is not guaranteed to reproduce bit-for-
+        // bit across machines. The band is still tight enough to fail if
+        // the steering were wrong -- a mis-steered array LOSES SNR (the
+        // tone then adds incoherently too), it does not land at +6.9 dB.
+        let it = run(
+            "fs = 48000\n\
+             n = 4800\n\
+             mics = [-2, -1, 0, 1, 2] .* 0.08\n\
+             taus = steer_delays(mics, 30, 343)\n\
+             t = (0 to n - 1) ./ fs\n\
+             ref = sin(2 * pi * 1000 .* t)\n\
+             c0 = signal(sin(2 * pi * 1000 .* (t - taus[0])) + 0.8038 .* randn(1, n, seed = 1), fs)\n\
+             c1 = signal(sin(2 * pi * 1000 .* (t - taus[1])) + 0.8038 .* randn(1, n, seed = 2), fs)\n\
+             c2 = signal(sin(2 * pi * 1000 .* (t - taus[2])) + 0.8038 .* randn(1, n, seed = 3), fs)\n\
+             c3 = signal(sin(2 * pi * 1000 .* (t - taus[3])) + 0.8038 .* randn(1, n, seed = 4), fs)\n\
+             c4 = signal(sin(2 * pi * 1000 .* (t - taus[4])) + 0.8038 .* randn(1, n, seed = 5), fs)\n\
+             truth = ref[5:4794]\n\
+             p = sum(truth .^ 2)\n\
+             single = interpolate_at(c0, t + taus[0], \"nearest\")\n\
+             snr_one = 10 * log10(p / sum((single[5:4794] - truth) .^ 2))\n\
+             near = beamform([c0, c1, c2, c3, c4], mics, 30)\n\
+             snr_near = 10 * log10(p / sum((near[5:4794] - truth) .^ 2))\n\
+             lin = beamform([c0, c1, c2, c3, c4], mics, 30, 343, \"linear\")\n\
+             snr_lin = 10 * log10(p / sum((lin[5:4794] - truth) .^ 2))\n\
+             gain_near = snr_near - snr_one\n\
+             gain_lin = snr_lin - snr_one\n\
+             wrong = beamform([c0, c1, c2, c3, c4], mics, -30)\n\
+             gain_wrong = 10 * log10(p / sum((wrong[5:4794] - truth) .^ 2)) - snr_one",
+        );
+        let num = |name: &str| match it.get(name) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("{name}: {other:?}"),
+        };
+        let gain_near = num("gain_near");
+        assert!(
+            (5.5..8.5).contains(&gain_near),
+            "nearest-steered array gain {gain_near} dB is nowhere near 10*log10(5) = 6.99 dB"
+        );
+        // `"linear"` measures HIGHER than `"nearest"` because interpolating
+        // between samples low-pass-filters the noise -- that gap is exactly
+        // why `"nearest"` is the default, and if it ever closed, the reason
+        // documented on the default would have stopped being true.
+        assert!(
+            num("gain_lin") > gain_near + 0.5,
+            "linear {} vs nearest {gain_near} -- the interpolation-denoising gap the default is chosen to avoid has vanished",
+            num("gain_lin")
+        );
+        // Steering the same data at the mirror-image angle must NOT pay: it
+        // is the control that makes the number above evidence about the
+        // geometry rather than about averaging five channels.
+        assert!(
+            num("gain_wrong") < gain_near - 1.0,
+            "steering at -30 deg gained {} dB, as much as steering correctly -- the angle is not being used",
+            num("gain_wrong")
+        );
+    }
+
+    #[test]
+    fn beamform_refuses_channels_it_cannot_honestly_combine() {
+        // A plain vector in the list: no Fs, so there is no time axis to
+        // apply a delay against.
+        let err = run_err("beamform([signal([1,2,3,4], 8), [1,2,3,4]], [0, 0.1], 30)");
+        assert!(err.msg.contains("not a Signal"), "got: {}", err.msg);
+        // Geometry that does not match the channel count -- the silent
+        // wrong answer this guard exists for is steering 3 mics with 2
+        // coordinates.
+        let err = run_err(
+            "a = signal([1,2,3,4], 8)\nbeamform([a, a, a], [0, 0.1], 30)",
+        );
+        assert!(err.msg.contains("position"), "got: {}", err.msg);
+        // Mixed sample rates: one time axis cannot describe both.
+        let err = run_err(
+            "beamform([signal([1,2,3,4], 8), signal([1,2,3,4], 16)], [0, 0.1], 30)",
+        );
+        assert!(err.msg.contains("sampled at"), "got: {}", err.msg);
+        // Ragged records.
+        let err = run_err(
+            "beamform([signal([1,2,3,4], 8), signal([1,2,3], 8)], [0, 0.1], 30)",
+        );
+        assert!(err.msg.contains("samples"), "got: {}", err.msg);
+        // A propagation speed of zero would divide by it.
+        let err = run_err("steer_delays([0, 0.1], 30, 0)");
+        assert!(err.msg.contains("positive"), "got: {}", err.msg);
+        // Both spellings of c at once: a caller who wrote both believes one
+        // of them wins, and guessing which is a mis-steered array.
+        let err = run_err("steer_delays([0, 0.1], 30, 343, c = 1500)");
+        assert!(err.msg.contains("twice"), "got: {}", err.msg);
+    }
+
     // ---- `apply(x, fnName)` — elementwise map preserving the container ----
 
     #[test]
@@ -63843,7 +70121,7 @@ end for");
              out = apply(sig, \"double\")",
         );
         assert_eq!(vec_of(&it, "out"), vec![2.0, 4.0, 6.0, 8.0]);
-        assert!(matches!(it.get("out"), Some(Value::Signal(_, fs)) if (*fs - 8.0).abs() < 1e-9));
+        assert!(matches!(it.get("out"), Some(Value::Signal(_, fs, _)) if (*fs - 8.0).abs() < 1e-9));
         // the input itself is untouched (apply is pure, like every other
         // Qu collection builtin).
         assert_eq!(vec_of(&it, "sig"), vec![1.0, 2.0, 3.0, 4.0]);
@@ -63857,7 +70135,7 @@ end for");
              out = sig.apply(\"square\")",
         );
         assert_eq!(vec_of(&it, "out"), vec![1.0, 4.0, 9.0]);
-        assert!(matches!(it.get("out"), Some(Value::Signal(_, fs)) if (*fs - 5.0).abs() < 1e-9));
+        assert!(matches!(it.get("out"), Some(Value::Signal(_, fs, _)) if (*fs - 5.0).abs() < 1e-9));
     }
 
     #[test]
@@ -65408,7 +71686,7 @@ end for");
         assert!(matches!(it2.get("cv"), Some(Value::CVec(_))));
         assert!(matches!(it2.get("CM"), Some(Value::CMat(_))));
         match it2.get("sig") {
-            Some(Value::Signal(xs, fs)) => {
+            Some(Value::Signal(xs, fs, _)) => {
                 assert_eq!(xs.len(), 8);
                 assert!((fs - 100.0).abs() < 1e-9, "signal Fs must survive the round trip");
             }

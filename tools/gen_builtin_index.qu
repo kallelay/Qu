@@ -238,11 +238,50 @@ mod_at = index_of(mod_body, "pub const MODULE_EXPORTS") ?? -1
 if mod_at >= 0
     mod_body = substr(mod_body, mod_at, len(mod_body) - mod_at)
     mod_body = substr(mod_body, 0, index_of(mod_body, "];") ?? len(mod_body))
-    for line in lines(mod_body)
-        if not contains(line, "(\"")
-            continue
+    # Skip past the type annotation (`&[(&str, &[&str])]`) to the value
+    # list itself -- it has its own `(` `)` that would otherwise be
+    # read as a (bogus) first entry by the scan below.
+    assign_at = index_of(mod_body, "= &[") ?? -1
+    if assign_at >= 0
+        mod_body = substr(mod_body, assign_at + 4, len(mod_body) - assign_at - 4)
+    end if
+
+    # Each module is one `("ns", &["a", "b", ...])` tuple. Scanned by
+    # PAREN DEPTH rather than by line: rustfmt is free to wrap a long
+    # entry across several lines (as it did to `codec`'s on
+    # 2026-09-18), and the previous line-based scan silently dropped
+    # any entry that got wrapped -- no single line then contained `("`,
+    # the whole module vanished from this page, and the tool still
+    # exited 0 with a plausible-looking count, because that count
+    # describes `BUILTIN_NAMES`, not this list. Depth-scanning tolerates
+    # whatever wrapping rustfmt chooses.
+    entries = ()
+    depth = 0
+    cur = ""
+    for k in 0 to len(mod_body) - 1
+        c = substr(mod_body, k, 1)
+        if c == "("
+            if depth > 0
+                cur = cur + c
+            end if
+            depth = depth + 1
         end if
-        cells = split(line, "\"")
+        if c == ")"
+            depth = depth - 1
+            if depth == 0
+                entries = append(entries, cur)
+                cur = ""
+            else
+                cur = cur + c
+            end if
+        end if
+        if c != "(" and c != ")" and depth > 0
+            cur = cur + c
+        end if
+    end for
+
+    for entry in entries
+        cells = split(entry, "\"")
         ns = ""
         k = 1
         while k < len(cells)
@@ -256,6 +295,14 @@ if mod_at >= 0
             k = k + 2
         end while
     end for
+
+    # A parser that silently matches nothing looks exactly like a
+    # module list that is genuinely empty, and this one never is.
+    # Refuse to write a page quietly missing modules rather than trust
+    # a parse that found none.
+    if len(entries) == 0 or len(mod_names) == 0
+        error("gen_builtin_index: found MODULE_EXPORTS but parsed zero module entries out of it -- the parser no longer matches its format, fix it before regenerating the page")
+    end if
 end if
 
 if len(mod_names) > 0

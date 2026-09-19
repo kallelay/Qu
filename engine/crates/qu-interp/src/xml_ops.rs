@@ -448,7 +448,13 @@ fn value_to_xml_node(v: &Value) -> R<XmlNode> {
                 .with_attr("rows", rows.to_string())
                 .with_attr("cols", cols.to_string())
         }
-        Value::Signal(xs, fs) => {
+        // Samples and rate only. A signal's §10 annotations -- time origin,
+        // sample unit, calibration, metadata fields, markers -- have no
+        // element in this XML schema and do NOT survive a round trip
+        // through it. `save`/`load` (JSON) is the lossless path and does
+        // carry them; this format is for interchange with readers that know
+        // nothing about any of it.
+        Value::Signal(xs, fs, _) => {
             XmlNode::container("signal", xs.iter().map(|&x| XmlNode::leaf("item", xml_num_text(x))).collect())
                 .with_attr("fs", xml_num_text(*fs))
         }
@@ -735,7 +741,11 @@ fn xml_node_to_value(n: &XmlNode) -> R<Value> {
         }
         "signal" => {
             let fs = xml_parse_f64(n.attr("fs")?, "signal fs")?;
-            Value::Signal(Arc::new(xml_children_as_f64_vec(n, "signal item")?), fs)
+            Value::Signal(
+                Arc::new(xml_children_as_f64_vec(n, "signal item")?),
+                fs,
+                crate::signal_meta::SigMeta::none(),
+            )
         }
         "circuit" => {
             let spec = n.attr("spec")?.to_string();

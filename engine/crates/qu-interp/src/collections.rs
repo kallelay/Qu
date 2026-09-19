@@ -269,12 +269,15 @@ pub fn apply_named(interp: &mut Interp, args: &[Value]) -> R<Value> {
             }
             Ok(Value::Vec(Arc::new(out)))
         }
-        Value::Signal(xs, fs) => {
+        // Same rule as `map1`'s `Signal` arm in `lib.rs`, via the same
+        // helper: an arbitrary per-sample user function leaves the time
+        // axis intact and falsifies the unit and the calibration.
+        Value::Signal(xs, fs, m) => {
             let mut out = Vec::with_capacity(xs.len());
             for &x in xs.iter() {
                 out.push(call_one(interp, x)?);
             }
-            Ok(Value::Signal(Arc::new(out), fs))
+            Ok(Value::Signal(Arc::new(out), fs, Arc::new(m.axis_only())))
         }
         Value::Mat(m) => {
             let (rows, cols) = m.shape();

@@ -9512,7 +9512,7 @@ fn render_math_svg(text: &str, base_size: f64) -> String {
 /// publication mode scaled the type up: tick numbers crossed 16px and came
 /// out bold, which no journal figure does. Passing the figure's own tick
 /// size keeps the distinction where it belongs at any scale.
-fn write_svg_op(out: &mut String, op: &DrawOp, bold_above: f64) {
+pub(crate) fn write_svg_op(out: &mut String, op: &DrawOp, bold_above: f64) {
     match op {
         // The clip rectangle is inlined per group rather than hoisted into
         // `<defs>`: SVG allows a `clipPath` anywhere, ids would have to be

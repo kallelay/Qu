@@ -815,7 +815,7 @@ fn signal_diff_and_slice_preserve_the_wrapper() {
          elem = x[0]",
     );
     match it.get("d") {
-        Some(Value::Signal(v, _)) => assert_eq!(**v, vec![1.0, 2.0, 4.0, 8.0]),
+        Some(Value::Signal(v, _, _)) => assert_eq!(**v, vec![1.0, 2.0, 4.0, 8.0]),
         other => panic!("x.diff() should stay a Signal, got {other:?}"),
     }
     assert_eq!(num(&it, "dfs"), 100.0);
@@ -842,7 +842,7 @@ fn capitalized_signal_array_aliases_work() {
     // matches the spelling from the original feature request.
     let it = run("x = [1,2,3]\nx := Signal(x, 10)\ny := Array(x)");
     match it.get("x") {
-        Some(Value::Signal(_, fs)) => assert_eq!(*fs, 10.0),
+        Some(Value::Signal(_, fs, _)) => assert_eq!(*fs, 10.0),
         other => panic!("expected a Signal, got {other:?}"),
     }
     match it.get("y") {
@@ -5019,7 +5019,7 @@ fn table_and_timer_remain_usable_as_plain_variables_end_to_end() {
 
 fn signal_samples(it: &Interp, name: &str) -> Vec<f64> {
     match it.get(name) {
-        Some(Value::Signal(xs, _fs)) => xs.as_ref().clone(),
+        Some(Value::Signal(xs, _fs, _)) => xs.as_ref().clone(),
         other => panic!("expected {name} to be a Signal, got {other:?}"),
     }
 }
