@@ -686,6 +686,7 @@ pub static BUILTIN_DOCS: &[BuiltinDoc] = &[
     BuiltinDoc { name: "read_csv", signature: "read_csv(path, [headers=true], [sep=\",\"], [decimal=\".\"])", summary: "Reads a CSV file into a `Table`", chapter: "file-io" },
     BuiltinDoc { name: "read_double", signature: "read_double(f, [endian=])", summary: "Reads a 64-bit IEEE-754 float from `f` (file handle, opened readable)", chapter: "file-io" },
     BuiltinDoc { name: "read_float", signature: "read_float(f, [endian=])", summary: "Reads a 32-bit IEEE-754 float from `f` (file handle, opened readable)", chapter: "file-io" },
+    BuiltinDoc { name: "read_input", signature: "read_input([prompt])", summary: "Reads one line of interactive input, returned as a string with its trailing newline stripped", chapter: "file-io" },
     BuiltinDoc { name: "read_int", signature: "read_int(f, [bytes=4], [signed=true], [endian=\"little\"])", summary: "The width-as-a-value counterpart of the fixed-width family above: reads `bytes` (a number, `1`/`2`/`4`/`8` only) from `f` (file handle, opened readable) and decodes them as an integer, with..", chapter: "file-io" },
     BuiltinDoc { name: "read_int16", signature: "read_int16(f, [endian=])", summary: "Reads a signed 16-bit integer from `f` (file handle, opened readable)", chapter: "file-io" },
     BuiltinDoc { name: "read_int32", signature: "read_int32(f, [endian=])", summary: "Reads a signed 32-bit integer from `f` (file handle, opened readable)", chapter: "file-io" },

@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Read as _;
 use std::io::Write as _;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::sync::{Arc, Condvar, Mutex as StdMutex};
 
 /// SFNT parsing for the PDF backend's font embedding (`pdf_font::parse`).
@@ -167,6 +168,11 @@ fn mat_to_value(v: &matfile::MatValue) -> Value {
 /// module (see its own module doc comment) rather than folded into this
 /// file's already-large builtin match, specifically to minimize collision
 /// with concurrent work also touching this file.
+pub mod bytes_ops;
+pub mod ml_honesty;
+pub mod regions_ops;
+pub mod surgery_ops;
+pub mod text_ops;
 pub mod fs_ops;
 
 /// § process execution (2026-09-09) — `exec(program, [args])` runs a
@@ -2966,6 +2972,57 @@ pub fn input_looks_complete(src: &str) -> bool {
     block_depth <= 0 && bracket_depth <= 0
 }
 
+/// Picks a readable SI-prefixed spelling for a scalar `Value::Unit` already
+/// normalised to its base unit -- e.g. `(3.3e-6, "F")` displays as
+/// `(3.3, "uF")` rather than `3.3e-6 F`. Ahmed's ruling, 2026-09-16: base-
+/// unit-plus-scientific-notation is dimensionally correct but is not how a
+/// practicing EE reads a component value off a multimeter, scope, or SPICE
+/// netlist, which auto-range to a prefix instead. `apply_unit`'s own scale
+/// table, inverted, restricted to the spellings that table (and `UNITS` in
+/// qu-lexer) actually enumerates -- this only picks among spellings the
+/// PARSER already accepts, so the result always round-trips back through
+/// the same literal syntax it is shown in.
+///
+/// Each family's table is sorted by DESCENDING scale; the chosen entry is
+/// the largest scale whose magnitude still leaves the mantissa `>= 1`, the
+/// same rule a multimeter's auto-range uses. A magnitude smaller than the
+/// smallest available prefix (sub-picofarad, say) falls through to that
+/// smallest prefix and lets `fmt_num`'s own scientific-notation fallback
+/// take it from there, rather than inventing a prefix nothing parses back.
+/// Exactly zero shows in the base unit -- picking a prefix for `0` has no
+/// principled answer and the base unit is the least surprising one.
+fn best_unit_spelling(v: f64, family: &'static str) -> (f64, &'static str) {
+    let table: &[(f64, &'static str)] = match family {
+        "Hz" => &[(1e9, "GHz"), (1e6, "MHz"), (1e3, "kHz"), (1.0, "Hz")],
+        "s" => &[(1.0, "s"), (1e-3, "ms"), (1e-6, "us"), (1e-9, "ns")],
+        "V" => &[(1e3, "kV"), (1.0, "V"), (1e-3, "mV")],
+        "A" => &[(1.0, "A"), (1e-3, "mA"), (1e-6, "uA")],
+        "Ohm" => &[(1e6, "MOhm"), (1e3, "kOhm"), (1.0, "Ohm"), (1e-3, "mOhm")],
+        "F" => &[(1.0, "F"), (1e-6, "uF"), (1e-9, "nF"), (1e-12, "pF")],
+        "H" => &[(1.0, "H"), (1e-3, "mH"), (1e-6, "uH")],
+        "W" => &[(1e3, "kW"), (1.0, "W"), (1e-3, "mW")],
+        "m" => &[(1e3, "km"), (1.0, "m"), (1e-2, "cm"), (1e-3, "mm"), (1e-6, "um"), (1e-9, "nm")],
+        // Every `UnitTag::Family` value is constructed from one of the
+        // names above (see `unit_family`) -- this arm is unreachable in
+        // practice, kept only so an unrecognised family degrades to the
+        // old base-unit behaviour instead of panicking.
+        _ => return (v, family),
+    };
+    if v == 0.0 {
+        let base = table.iter().find(|(s, _)| *s == 1.0).copied().unwrap_or(table[table.len() - 1]);
+        return (0.0, base.1);
+    }
+    let av = v.abs();
+    match table.iter().find(|(scale, _)| av >= *scale) {
+        Some(&(scale, name)) => (v / scale, name),
+        // Smaller than every available prefix: use the smallest one.
+        None => {
+            let (scale, name) = *table.last().unwrap();
+            (v / scale, name)
+        }
+    }
+}
+
 pub fn display_value(v: &Value) -> String {
     match v {
         // `[1, 2] V` -- the value as it would print untagged, then what it
@@ -3305,7 +3362,24 @@ pub fn display_value(v: &Value) -> String {
             }
         }
         Value::Unit(n, UnitTag::Temp(scale)) => format!("{} {}", fmt_num(*n), scale.unit_name()),
-        Value::Unit(n, tag @ UnitTag::Dim(..)) => format!("{} {}", fmt_num(*n), unit_tag_name(tag)),
+        // Autoscaled to a readable SI prefix when the tag is still at its
+        // dimension's own canonical spelling (a bare literal like `3.3 uF`
+        // always carries `Some("F")`, per `UnitTag::family` -- there is no
+        // untagged "just canonical, no opinion" state to test for instead)
+        // -- see `best_unit_spelling`'s own doc comment for why `3.3 uF`
+        // printing as `3.3e-6 F` was the wrong call for this audience. A
+        // spelling that differs from the canonical name means the caller
+        // asked for it explicitly (`X in mm`/`X in kHz`, which stores the
+        // literal requested unit, not the family) and that exact request
+        // is honored, not autoscaled over.
+        Value::Unit(n, tag @ UnitTag::Dim(d, spelling)) => match spelling {
+            Some(s) if Some(*s) == name_for_dim(*d) => {
+                let fam = name_for_dim(*d).expect("just matched Some above");
+                let (scaled, suffix) = best_unit_spelling(*n, fam);
+                format!("{} {}", fmt_num(scaled), suffix)
+            }
+            _ => format!("{} {}", fmt_num(*n), unit_tag_name(tag)),
+        },
     }
 }
 
@@ -3344,15 +3418,21 @@ fn fmt_num(n: f64) -> String {
     }
 }
 
+// `j`, not `i` -- Ahmed's ruling, 2026-09-16 ("2+14j is what we usually
+// write"): Qu's target audience is EE/DSP, where `i` already names current
+// and `j` is the imaginary unit for exactly that reason. The lexer has
+// accepted `j` as an input alias for `i` since before this change: this
+// only makes the OUTPUT match the spelling the audience actually writes,
+// input still accepts both.
 fn fmt_complex(c: Complex64) -> String {
     if c.im == 0.0 {
         fmt_num(c.re)
     } else if c.re == 0.0 {
-        format!("{}i", fmt_num(c.im))
+        format!("{}j", fmt_num(c.im))
     } else if c.im < 0.0 {
-        format!("{} - {}i", fmt_num(c.re), fmt_num(-c.im))
+        format!("{} - {}j", fmt_num(c.re), fmt_num(-c.im))
     } else {
-        format!("{} + {}i", fmt_num(c.re), fmt_num(c.im))
+        format!("{} + {}j", fmt_num(c.re), fmt_num(c.im))
     }
 }
 
@@ -3369,15 +3449,18 @@ fn fmt_num_tex(n: f64) -> String {
     }
 }
 
+// Matches `fmt_complex`'s own `j` -- a value's `tex(...)` form should not
+// disagree with its `print(...)` form about which letter is the imaginary
+// unit.
 fn fmt_complex_tex(c: Complex64) -> String {
     if c.im == 0.0 {
         fmt_num_tex(c.re)
     } else if c.re == 0.0 {
-        format!("{}i", fmt_num_tex(c.im))
+        format!("{}j", fmt_num_tex(c.im))
     } else if c.im < 0.0 {
-        format!("{} - {}i", fmt_num_tex(c.re), fmt_num_tex(-c.im))
+        format!("{} - {}j", fmt_num_tex(c.re), fmt_num_tex(-c.im))
     } else {
-        format!("{} + {}i", fmt_num_tex(c.re), fmt_num_tex(c.im))
+        format!("{} + {}j", fmt_num_tex(c.re), fmt_num_tex(c.im))
     }
 }
 
@@ -3549,6 +3632,16 @@ fn shape_random_output(rows: usize, cols: usize, out: Vec<f64>) -> Value {
 /// kernel (more than the actual `.* + sin cos abs` math combined, once
 /// that math was itself parallelized — see BOARD.md).
 const PARALLEL_RNG_THRESHOLD: usize = 1 << 16;
+
+/// How many iterations `run_fast_for`/`run_fast_while` run between polls of
+/// `interrupt`. Neither loop goes through `exec_block` (that's the whole
+/// point of the register fast path), so `exec_block`'s own per-statement
+/// interrupt check never fires for them -- each has to poll the flag
+/// itself, and an atomic load every single iteration would eat into the
+/// ~5 ns/iteration the fast path exists for. This stride keeps the poll
+/// amortized to effectively free while still noticing an interrupt within
+/// a few thousand iterations (microseconds, even at fast-path speed).
+const FAST_LOOP_INTERRUPT_STRIDE: u64 = 4096;
 
 /// Draw `n` samples (`normal` selects `randn` vs `rand`). Above
 /// [`PARALLEL_RNG_THRESHOLD`], splits into chunks generated on a rayon
@@ -3914,6 +4007,22 @@ pub struct Interp {
     /// Files already brought in by `import`, canonicalised. A file runs
     /// once per session -- see `exec_import`.
     imported: std::collections::HashSet<String>,
+    /// Sources bundled INTO a binary built by `qu build`, keyed by path
+    /// relative to `bundle_root`, forward-slash separated.
+    ///
+    /// A built binary has no source tree beside it: `qu build` used to
+    /// embed only the entry script, so any project with `import
+    /// "lib/x.qu"` built fine, ran fine in its own source directory, and
+    /// failed only once the binary was copied somewhere else -- the one
+    /// place the failure is expensive. `exec_import` consults this map
+    /// before touching the filesystem, so a bundled module resolves from
+    /// inside the executable. Empty for every ordinary `qu run`, and
+    /// checked with one hash lookup, so nothing else pays for it.
+    bundled_sources: HashMap<String, String>,
+    /// Directory the `bundled_sources` keys are relative to -- the built
+    /// binary's own directory, which is what `set_script_path` puts at the
+    /// bottom of `import_dirs` for an embedded script.
+    bundle_root: Option<std::path::PathBuf>,
     /// Native modules brought in by `import`, in the order they arrived.
     ///
     /// `import` both BINDS a namespace and OPENS its names, the way VB's
@@ -4014,6 +4123,43 @@ pub struct Interp {
     /// caller of `Interp::new`/`run` (every test, the REPL, `qu run`
     /// without a live flag) sees zero behavior change.
     pub on_print: Option<Box<dyn FnMut(&str) + Send>>,
+    /// Backs the `read_line(prompt)` builtin: called with the prompt
+    /// string, blocks (from the builtin's point of view) until it returns
+    /// the line the user typed. `None` by default, in which case
+    /// `read_line` falls back to real `std::io::stdin()` — the right
+    /// default for `qu run`/`qu repl` in an actual terminal, and exactly
+    /// what a host with no interactive concept of its own (a plain script
+    /// runner) should keep doing. A host that IS interactive but not a
+    /// terminal (a Jupyter kernel, running the interpreter on its own
+    /// worker thread) sets this to something that round-trips through its
+    /// own UI instead — same "optional hook, zero change unless a caller
+    /// opts in" shape as `on_print` just above.
+    pub on_input: Option<Box<dyn FnMut(&str) -> String + Send>>,
+    /// Cooperative cancellation flag, checked once per statement in
+    /// `exec_block` (the slow tree-walking path's funnel for loop bodies,
+    /// function bodies and blocks — see its own comment). The register
+    /// fast path (`run_fast_for`/`run_fast_while`) does NOT run through
+    /// `exec_block` at all — it iterates via `run_fast_stmts` directly —
+    /// so those two poll this flag themselves, on their own stride; see
+    /// `FAST_LOOP_INTERRUPT_STRIDE`. (Soft-compiled function bodies,
+    /// `compiled_funcs`, don't need their own poll: `FastStmt`/`FastExpr`
+    /// have no loop or user-call variant, so one compiled call is a
+    /// bounded, straight-line register program — any loop calling it
+    /// still gets checked at that loop's own level.) `None` by default,
+    /// same "zero behavior change unless a caller opts in" shape as
+    /// `on_print` above. A host sets this once (e.g. a Jupyter kernel
+    /// keeps one `Arc<AtomicBool>` per session, flips it on
+    /// `interrupt_request`, and resets it to `false` before the next
+    /// cell) rather than passing a fresh flag per call, so a long-running
+    /// or infinite script can actually be stopped without killing the
+    /// whole process — the only option before this existed (see
+    /// `qu-cli`'s `--max-time`/sandboxing).
+    ///
+    /// Checked with `Relaxed` ordering: this is a plain stop signal with no
+    /// data it needs to synchronize-with, so the cheapest ordering that's
+    /// still guaranteed to become visible is correct — the same reasoning
+    /// as any interpreter safepoint poll.
+    pub interrupt: Option<Arc<AtomicBool>>,
     pub figures: usize,
     /// the current figure's panel/axes/legend/annotation state (Â§ plotting) --
     /// built up by `plot`/`xlabel`/`legend`/â€¦ and exported by `savefig`.
@@ -6074,6 +6220,8 @@ impl Interp {
             reports: Vec::new(),
             frames: Vec::new(),
             imported: std::collections::HashSet::new(),
+            bundled_sources: HashMap::new(),
+            bundle_root: None,
             open_modules: Vec::new(),
             meter_mode: None,
             warned_deprecated: std::collections::HashSet::new(),
@@ -6093,6 +6241,8 @@ impl Interp {
             loop_depth: 0,
             out: String::new(),
             on_print: None,
+            on_input: None,
+            interrupt: None,
             screen_export_warned: false,
             legend_fit_warned: false,
             script_args: Vec::new(),
@@ -6153,6 +6303,19 @@ impl Interp {
             self.import_dirs.clear();
             self.import_dirs.push(dir);
         }
+    }
+
+    /// Install the sources `qu build` bundled into this binary, keyed by
+    /// path relative to `root` with forward slashes. Call after
+    /// `set_script_path` (whose directory `root` should match); see
+    /// `bundled_sources`.
+    pub fn set_bundled_sources(
+        &mut self,
+        root: &std::path::Path,
+        sources: HashMap<String, String>,
+    ) {
+        self.bundle_root = Some(root.to_path_buf());
+        self.bundled_sources = sources;
     }
 
     pub fn set_sandboxed(&mut self, on: bool) {
@@ -6738,6 +6901,11 @@ impl Interp {
 
     fn exec_block(&mut self, stmts: &[Stmt]) -> R<()> {
         for s in stmts {
+            if let Some(flag) = &self.interrupt {
+                if flag.load(AtomicOrdering::Relaxed) {
+                    return e("interrupted");
+                }
+            }
             self.exec(s)?;
             if self.ret.is_some() {
                 break; // a `return` unwinds the enclosing function body
@@ -7326,12 +7494,32 @@ impl Interp {
     /// trading "cannot count past a million" for "counts past a million,
     /// slowly", which is a worse trade than it sounds when the fast path
     /// is ~5 ns/iteration.
+    ///
+    /// See `FAST_LOOP_INTERRUPT_STRIDE` for why this loop polls `interrupt`
+    /// on its own instead of relying on `exec_block`.
     fn run_fast_for(&mut self, mut plan: FastForPlan, seq: impl Iterator<Item = f64>) -> R<()> {
+        // The register fast path never goes through `exec_block`, so its
+        // own interrupt check there never runs here — without this, a
+        // long all-numeric `for` (exactly what qualifies for this path)
+        // could spin past an `interrupt` flip forever. Checked every
+        // `FAST_LOOP_INTERRUPT_STRIDE` iterations rather than every one,
+        // since the fast path's whole point is ~5 ns/iteration and an
+        // atomic load every iteration would erode that.
+        let mut i: u64 = 0;
         for x in seq {
             plan.regs[0] = x;
             if let FastFlow::Return(_) = run_fast_stmts(&plan.body, &mut plan.regs, &mut plan.array_regs) {
                 self.flush_fast_locals(&plan);
-                break;
+                return Ok(());
+            }
+            i += 1;
+            if i % FAST_LOOP_INTERRUPT_STRIDE == 0 {
+                if let Some(flag) = &self.interrupt {
+                    if flag.load(AtomicOrdering::Relaxed) {
+                        self.flush_fast_locals(&plan);
+                        return e("interrupted");
+                    }
+                }
             }
         }
         self.flush_fast_locals(&plan);
@@ -7375,6 +7563,11 @@ impl Interp {
         // for parity — the fast path can obviously blow through 10M
         // iterations much sooner in wall-clock time, so a runaway/buggy
         // condition still gets stopped rather than spinning forever.
+        //
+        // Like `run_fast_for`, this loop never goes through `exec_block`
+        // so it must poll `interrupt` itself — every
+        // `FAST_LOOP_INTERRUPT_STRIDE` iterations, not every one, to keep
+        // the fast path's per-iteration cost near its unchecked baseline.
         let mut guard = 0u64;
         while eval_fast_cond(&plan.cond, &plan.regs, &[]) {
             if let FastFlow::Return(_) = run_fast_stmts(&plan.body, &mut plan.regs, &mut []) {
@@ -7384,6 +7577,16 @@ impl Interp {
                 break;
             }
             guard += 1;
+            if guard % FAST_LOOP_INTERRUPT_STRIDE == 0 {
+                if let Some(flag) = &self.interrupt {
+                    if flag.load(AtomicOrdering::Relaxed) {
+                        for (name, val) in plan.locals.iter().zip(plan.regs.iter()) {
+                            self.var_set(name, Value::Num(*val));
+                        }
+                        return e("interrupted");
+                    }
+                }
+            }
             if guard > 10_000_000 {
                 for (name, val) in plan.locals.iter().zip(plan.regs.iter()) {
                     self.var_set(name, Value::Num(*val));
@@ -9664,9 +9867,16 @@ impl Interp {
                     " Type conversion is not implemented -- this position accepted \
                      `as int` and friends silently and did nothing."
                 } else {
+                    // Was: "... so `5 km` is `5000 m` with or without the
+                    // `as`." That stopped being true once display started
+                    // autoscaling to a readable prefix (2026-09-16, Ahmed's
+                    // ruling) -- `5 km` now prints `5 km` again. The point
+                    // survives without a concrete before/after pair that can
+                    // go stale a second time.
                     " Unit conversion (`as m`, `as kHz`) is not implemented either; \
-                     a unit literal already normalises on its own, so `5 km` is \
-                     `5000 m` with or without the `as`."
+                     a unit literal already normalises to its base unit and \
+                     displays in whatever unit reads best on its own, with or \
+                     without the `as`."
                 };
                 e(format!(
                     "`as {other}` is not a shape contract. Known: `vector`, `vector(n)`, \
@@ -13345,6 +13555,85 @@ impl Interp {
     /// import would re-execute its top level, which for a module that
     /// plots or writes a file is not idempotent, and for a pair of files
     /// that import each other would not terminate at all.
+/// Lexically resolve `.` and `..` in `p` -- WITHOUT touching the disk.
+///
+/// `Path::canonicalize` is the usual answer and is wrong here by
+/// construction: a module bundled inside a built binary has no file to
+/// canonicalise. Purely textual resolution is also the *correct* semantics
+/// for a bundle key, since `qu build` computed the key the same way from
+/// the same joins. A leading `..` that would escape the root is kept (there
+/// is nothing above it to cancel against), so it can still be compared.
+pub fn lexical_normalize(p: &std::path::Path) -> std::path::PathBuf {
+    use std::path::Component;
+    let mut out: Vec<Component> = Vec::new();
+    for c in p.components() {
+        match c {
+            Component::CurDir => {}
+            Component::ParentDir => match out.last() {
+                Some(Component::Normal(_)) => {
+                    out.pop();
+                }
+                // Nothing to cancel, or already at a root/prefix: keep it.
+                _ => out.push(c),
+            },
+            other => out.push(other),
+        }
+    }
+    out.iter().collect()
+}
+
+/// The `bundled_sources` key for `full` relative to `root`, or `None` when
+/// the two share no common base (different drive letters, say).
+///
+/// Forward slashes always, including on Windows, so a bundle built on one
+/// platform keys identically on another -- the cross-compilation case this
+/// whole format exists to serve. A path above `root` keeps its `..`
+/// segments rather than being rejected: `import "../shared/x.qu"` is a
+/// real, ordinary layout, and dropping it silently would under-bundle
+/// exactly the way the old single-file build did.
+pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<String> {
+    use std::path::Component;
+    let root = Self::lexical_normalize(root);
+    let full = Self::lexical_normalize(full);
+    let mut r: Vec<Component> = root.components().collect();
+    let mut f: Vec<Component> = full.components().collect();
+    // Drop the shared prefix; whatever is left of `root` becomes one `..`
+    // each, and whatever is left of `full` is the tail.
+    let mut i = 0;
+    while i < r.len() && i < f.len() && r[i] == f[i] {
+        i += 1;
+    }
+    // No overlap at all between two ABSOLUTE paths means different roots,
+    // which `..` cannot bridge.
+    if i == 0 && root.is_absolute() != full.is_absolute() {
+        return None;
+    }
+    if i == 0 && root.is_absolute() && full.is_absolute() {
+        return None;
+    }
+    r.drain(..i);
+    f.drain(..i);
+    let mut parts: Vec<String> = Vec::new();
+    for c in &r {
+        // A prefix/root left over on the root side cannot be climbed out of.
+        match c {
+            Component::Normal(_) => parts.push("..".to_string()),
+            _ => return None,
+        }
+    }
+    for c in &f {
+        match c {
+            Component::Normal(n) => parts.push(n.to_string_lossy().to_string()),
+            Component::ParentDir => parts.push("..".to_string()),
+            _ => return None,
+        }
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    Some(parts.join("/"))
+}
+
     fn exec_import(&mut self, source: &ImportSource, alias: Option<&str>) -> R<()> {
         match source {
             ImportSource::Native(name) => {
@@ -13367,21 +13656,42 @@ impl Interp {
                     _ => asked.to_path_buf(),
                 };
                 let full = resolved.as_path();
-                let key = full
-                    .canonicalize()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| path.clone());
+                // A binary built by `qu build` carries its modules inside
+                // itself (see `bundled_sources`); that overlay is consulted
+                // before the filesystem, so the same `import "lib/x.qu"`
+                // resolves whether the project is run from its source tree
+                // or as a copied-anywhere executable. Falls through to the
+                // filesystem when this isn't a built binary (the map is
+                // empty) or the path isn't one of the bundled ones.
+                let bundled = self
+                    .bundle_root
+                    .as_deref()
+                    .and_then(|root| Self::bundle_key(root, full))
+                    .filter(|k| self.bundled_sources.contains_key(k));
+                let key = match &bundled {
+                    // Not a filesystem path at all, so `canonicalize`'s
+                    // fallback (the *written* path) would collide across
+                    // two directories that both say `import "util.qu"`.
+                    Some(k) => format!("bundle:{k}"),
+                    None => full
+                        .canonicalize()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|_| path.clone()),
+                };
                 let already = self.imported.contains(&key);
                 if !already {
-                    let src = std::fs::read_to_string(full).map_err(|err| EvalError {
-                        // Name what was written AND where it was looked
-                        // for: with file-relative resolution those differ,
-                        // and the difference is the whole answer.
-                        msg: format!(
-                            "import \"{path}\": {err} (looked in {})",
-                            full.display()
-                        ),
-                    })?;
+                    let src = match &bundled {
+                        Some(k) => self.bundled_sources[k].clone(),
+                        None => std::fs::read_to_string(full).map_err(|err| EvalError {
+                            // Name what was written AND where it was looked
+                            // for: with file-relative resolution those differ,
+                            // and the difference is the whole answer.
+                            msg: format!(
+                                "import \"{path}\": {err} (looked in {})",
+                                full.display()
+                            ),
+                        })?,
+                    };
                     self.imported.insert(key);
                     // Functions defined by the file land in `methods` the
                     // same way the importing script's own do; running it
@@ -17293,12 +17603,20 @@ self.eval_grad(loss, wrt)
                 // so it is read as the bare `seed` binding here, NOT via
                 // `style_num(&style, "seed")` (which would silently always
                 // return `None`, since `style` can never contain a `seed`
-                // entry). `particle_filter_init`'s own `seed=` handling
-                // reads `style_num(&style, "seed")` instead and is
-                // consequently dead code that never actually reseeds —
-                // found while debugging this exact mistake in an earlier
-                // draft of this same line, not fixed here since it's a
-                // separate, pre-existing builtin outside this task's scope.
+                // entry).
+                //
+                // This comment used to go on to name `particle_filter_init`
+                // as having that bug. It does not: it reads the dispatcher's
+                // `seed` binding, and five distinct seeds produce five
+                // distinct particle draws. The claim was removed on
+                // 2026-09-16 after it had cost two sessions a bug report and
+                // a disproof. A comment that documents a defect in a
+                // DIFFERENT function is a claim with no owner -- nobody
+                // rereads it when that function changes, so it keeps
+                // asserting the bug long after it is gone. Deleted rather
+                // than corrected, because a corrected cross-reference decays
+                // exactly the same way. Describe the mechanism here; test
+                // the other function over there.
                 if let Some(s) = seed {
                     self.rng = Rng::new(s);
                 }
@@ -18134,6 +18452,43 @@ self.eval_grad(loss, wrt)
                     cb(&text);
                 }
                 Ok(Value::Nothing)
+            }
+            // `read_input([prompt])` — reads one line of interactive input.
+            // Neither `input` (already the ML pipeline's input-layer
+            // builtin, `input(dim)`, see its own arm above) nor `read_line`
+            // (already "read one line from an open file/URL-stream/serial
+            // handle", dispatched on `arg0`'s type a few hundred lines
+            // below) were available — both are real collisions with an
+            // unrelated existing meaning, not just similar names, so this
+            // needed a name of its own rather than shadowing either.
+            //
+            // `on_input` is a host hook (mirrors `on_print`): a Jupyter
+            // kernel round-trips the prompt through its own stdin channel;
+            // with no host wired up (a plain `qu run`/`qu repl` in a real
+            // terminal), the default below reads real stdin directly, so
+            // this works out of the box with zero wiring for the common
+            // case.
+            "read_input" => {
+                let prompt = if args.is_empty() { String::new() } else { text_arg(&args, 0)? };
+                if let Some(cb) = self.on_input.as_mut() {
+                    Ok(Value::Str(cb(&prompt)))
+                } else {
+                    if !prompt.is_empty() {
+                        print!("{prompt}");
+                        std::io::stdout().flush().ok();
+                    }
+                    let mut line = String::new();
+                    std::io::stdin()
+                        .read_line(&mut line)
+                        .map_err(|err| EvalError { msg: format!("read_line: {err}") })?;
+                    if line.ends_with('\n') {
+                        line.pop();
+                        if line.ends_with('\r') {
+                            line.pop();
+                        }
+                    }
+                    Ok(Value::Str(line))
+                }
             }
             // `error(msg)` raises — an ordinary `EvalError`, catchable by an
             // enclosing `try`/`catch` (§18.B). `warn(msg)` is non-fatal.
@@ -37040,6 +37395,29 @@ self.eval_grad(loss, wrt)
             | "remove_file" | "remove_dir" | "rename_file" | "move_file" | "copy_file"
             | "create_file" => fs_ops::call(f, arg_all(&args), &style),
 
+            // § bytes, encodings and binary layout (2026-09-16). One arm for
+            // the whole module, same reasoning as the fs_ops arm above.
+            "bytes_read" | "bytes_write" | "hexdump" | "hex_encode" | "hex_decode"
+            | "base64_encode" | "base64_decode" | "crc32" | "sha256" | "entropy"
+            | "pack" | "unpack" => bytes_ops::call(f, arg_all(&args), &style),
+
+            // § text: codepoints, distance, folding and layout (2026-09-16).
+            "codepoints" | "nbytes" | "casefold" | "levenshtein" | "similar"
+            | "word_wrap" | "dedent" | "indent" | "strip_ansi" => text_ops::call(f, arg_all(&args), &style),
+
+            // § text surgery: positions, lines, offset-safe batched edits.
+            "line_count" | "line_at" | "line_range" | "line_set" | "line_insert"
+            | "line_delete" | "pos_of" | "line_col" | "slice_at" | "splice"
+            | "apply_edits" => surgery_ops::call(f, arg_all(&args), &style),
+
+            // § the ML honesty layer (2026-09-16): leakage-aware splits,
+            // metrics with intervals, conformal bounds and coverage checks.
+            "kfold" | "split_time" | "r2" | "accuracy" | "roc_auc" | "brier"
+            | "conformal" | "coverage" | "residual_acf" | "bootstrap_ci" => ml_honesty::call(f, arg_all(&args), &style, seed),
+
+            // § image measurement in physical units (2026-09-16).
+            "image_regions" => regions_ops::call(f, arg_all(&args), &style),
+
             // § process execution (2026-09-09, `proc_ops.rs`) — see that
             // module's own doc comment for why running a program and
             // launching one are two builtins rather than one.
@@ -40818,176 +41196,182 @@ fn edit_distance(a: &str, b: &str, budget: usize) -> Option<usize> {
 }
 
 pub const BUILTIN_NAMES: &[&str] = &[
-    "DataFrame", "StreamFile", "StreamURL", "ablation_study", "abs", "acf",
-    "acos", "acosh", "adadelta", "adagrad", "adam", "adamax", "adamw", "adc",
-    "add", "add_edge", "add_marker", "add_node", "add_noise", "add_region",
-    "affine_identity",
-    "affine_rotate", "affine_scale", "affine_shear", "affine_translate",
-    "after", "after_last", "algorigram", "all", "and", "angle", "animate", "annotate", "any",
+    "DataFrame", "StreamFile", "StreamURL", "ablation_study", "abs",
+    "accuracy", "acf", "acos", "acosh", "adadelta", "adagrad", "adam",
+    "adamax", "adamw", "adc", "add", "add_edge", "add_marker", "add_node",
+    "add_noise", "add_region", "affine_identity", "affine_rotate",
+    "affine_scale", "affine_shear", "affine_translate", "after", "after_last",
+    "algorigram", "all", "and", "angle", "animate", "annotate", "any",
     "append", "append_all", "append_text", "apply", "apply_calibration",
-    "apply_calibration_curve", "apply_gain", "apply_offset", "apropos", "ar_model",
-    "arc", "area", "arg", "argmax", "argmean", "argmedian", "argmin",
-    "argquantile", "argsort", "argv", "arrow", "arrowtext", "as_text", "asc",
-    "asin", "asinh", "astar_mrmr", "at", "atan", "atanh", "available",
-    "avgpool2d", "band_power", "band_zero", "bar", "basin_hopping", "beamform",
-    "beeswarm",
+    "apply_calibration_curve", "apply_edits", "apply_gain", "apply_offset",
+    "apropos", "ar_model", "arc", "area", "arg", "argmax", "argmean",
+    "argmedian", "argmin", "argquantile", "argsort", "argv", "arrow",
+    "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan",
+    "atanh", "available", "avgpool2d", "band_power", "band_zero", "bar",
+    "base64_decode", "base64_encode", "basin_hopping", "beamform", "beeswarm",
     "before", "before_last", "bin2dec", "binomial", "bitand", "bitcmp",
     "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "block_process",
-    "blocks", "blur",
-    "blur_backdrop", "bode", "bode_magnitude", "bode_phase", "box", "boxplot",
-    "bubble", "builtins", "butter", "bwareaopen", "bwlabel", "calibrate", "capacitor",
-    "capitalize", "capture", "cast", "cat", "cbrt", "cd", "ceil", "channel",
-    "channel_len", "channel_recv", "channel_send", "channel_try_recv", "chars",
-    "cheby1", "cheby2", "chi2cdf", "chi2pdf", "chirp", "chisquare", "chol",
-    "chr", "circle", "circuit", "circuit_impedance", "clamp", "clip", "close",
-    "cm", "cmyk", "coherence", "colorbar", "colormap", "cols", "compare",
-    "compile", "complex", "cond", "confusion_matrix", "conj", "contains",
-    "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit", "copy_file",
-    "corr", "corr_heatmap",
-    "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov",
-    "cpe", "crc", "crc_check", "create_file", "crest_factor", "crop", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml",
-    "csvify", "ctranspose", "cumsum", "cur_dir", "curve_fit", "cut",
-    "cv_stability", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct",
-    "dec2bin", "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart", "delay",
-    "delta_e", "dense", "dense_layer", "describe", "det",
-    "detect_saturation", "detrend", "device_used", "dft", "diag", "diagram_pipeline", "dict", "diff", "dir",
-    "dir_exists", "disp", "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
-    "double_buffer", "downsample",
-    "drop", "drop_row", "dropout", "dropout_layer", "duty_cycle", "dwt",
-    "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
-    "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
-    "enob_estimate", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
-    "estimate", "estimate_complexity", "estimate_frequency", "exec", "exp", "exp2", "explain",
-    "explore", "expm1", "exponential", "eye", "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr",
-    "fifo", "figure", "figure_background", "figure_size", "file_exists",
-    "file_size", "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
-    "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_missing",
-    "find_outliers", "find_peaks", "find_pulses", "find_trigger",
-    "find_zero_crossings", "findpeaks", "fir1",
-    "firls", "first", "fit", "fit_scaler", "flatten", "flip", "fliplr",
-    "flipud", "floor", "fold", "fontfamily", "fontsize", "fopen",
-    "foreground_mask", "format", "forward", "freqz", "fvtool", "fzero",
-    "gain", "gamma", "generate", "gerischer", "get", "getenv", "glob", "gmm_model",
-    "goertzel", "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
+    "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude", "bode_phase",
+    "bootstrap_ci", "box", "boxplot", "brier", "bubble", "builtins", "butter",
+    "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate",
+    "capacitor", "capitalize", "capture", "casefold", "cast", "cat", "cbrt",
+    "cd", "ceil", "channel", "channel_len", "channel_recv", "channel_send",
+    "channel_try_recv", "chars", "cheby1", "cheby2", "chi2cdf", "chi2pdf",
+    "chirp", "chisquare", "chol", "chr", "circle", "circuit",
+    "circuit_impedance", "clamp", "clip", "close", "cm", "cmyk", "codepoints",
+    "coherence", "colorbar", "colormap", "cols", "compare", "compile",
+    "complex", "cond", "conformal", "confusion_matrix", "conj", "contains",
+    "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit",
+    "copy_file", "corr", "corr_heatmap", "corrcoef", "corrmat", "corrplot",
+    "cos", "cosh", "coth", "count", "cov", "coverage", "cpe", "crc", "crc32",
+    "crc_check", "create_file", "crest_factor", "crop", "cs_guarantee",
+    "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
+    "cumsum", "cur_dir", "curve_fit", "cut", "cv_stability", "daily_profile",
+    "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin",
+    "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart",
+    "dedent", "delay", "delta_e", "dense", "dense_layer", "describe", "det",
+    "detect_saturation", "detrend", "device_used", "dft", "diag",
+    "diagram_pipeline", "dict", "diff", "dir", "dir_exists", "disp",
+    "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
+    "double_buffer", "downsample", "drop", "drop_row", "dropout",
+    "dropout_layer", "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect",
+    "edges", "eig", "elapsed", "elediv", "elemul", "elepow", "ellip",
+    "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
+    "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error",
+    "errorbar", "estimate", "estimate_complexity", "estimate_frequency",
+    "exec", "exp", "exp2", "explain", "explore", "expm1", "exponential", "eye",
+    "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr", "fifo",
+    "figure", "figure_background", "figure_size", "file_exists", "file_size",
+    "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
+    "filter_next", "filtfilt", "find", "find_clipping", "find_edges",
+    "find_missing", "find_outliers", "find_peaks", "find_pulses",
+    "find_trigger", "find_zero_crossings", "findpeaks", "fir1", "firls",
+    "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud",
+    "floor", "fold", "fontfamily", "fontsize", "fopen", "foreground_mask",
+    "format", "forward", "freqz", "fvtool", "fzero", "gain", "gamma",
+    "generate", "gerischer", "get", "getenv", "glob", "gmm_model", "goertzel",
+    "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
     "gru_forward", "gru_init", "hamming", "hamming74_decode",
-    "hamming74_encode", "hampel", "hann", "has_edge",
-    "has_key", "havriliak_negami", "head", "heatmap", "help", "hex2dec",
-    "hexbin", "high_time", "hilbert", "hist", "histeq", "histogram", "hline", "hmm",
-    "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
-    "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "idct",
-    "identity", "idft", "idwt", "ifft", "im", "imadjust", "imag", "image",
-    "image_from_matrix", "image_new", "imagesc", "imbothat", "imclose",
-    "imdilate", "imequalize", "imerode", "imfilter", "imhist", "imnoise",
-    "imopen", "impedance", "impedance_from_reflection", "impulse", "imrotate",
-    "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "index",
-    "index_of", "indexof", "inductor", "input", "insert", "insert_column",
-    "insert_row", "interp1", "interp2", "interpolate_at", "interpolate_nan", "inv",
-    "inverse_transform", "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_stable",
-    "items", "join", "js_exec", "json2csv", "json2xml", "jsonify", "k_fold",
-    "kaiser", "kalman_init", "kapur_threshold", "keys", "kmeans",
+    "hamming74_encode", "hampel", "hann", "has_edge", "has_key",
+    "havriliak_negami", "head", "heatmap", "help", "hex2dec", "hex_decode",
+    "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist",
+    "histeq", "histogram", "hline", "hmm", "hourly_profile", "hsl", "hstack",
+    "hsv", "html2md", "http_get", "huffman_decode", "huffman_encode", "hum",
+    "hurst_exponent", "idct", "identity", "idft", "idwt", "ifft", "im",
+    "imadjust", "imag", "image", "image_from_matrix", "image_new",
+    "image_regions", "imagesc",
+    "imbothat", "imclose", "imdilate", "imequalize", "imerode", "imfilter",
+    "imhist", "imnoise", "imopen", "impedance", "impedance_from_reflection",
+    "impulse", "imrotate", "imscale", "imshow", "imtophat", "imtranslate",
+    "imwarp", "inch", "indent", "index", "index_of", "indexof", "inductor",
+    "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
+    "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "iqr",
+    "irfft", "is_clipped", "is_empty", "is_full", "is_stable", "items", "join",
+    "js_exec", "json2csv", "json2xml", "jsonify", "k_fold", "kaiser",
+    "kalman_init", "kapur_threshold", "keys", "kfold", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
     "layer_norm", "lcase", "least_squares", "left", "legend", "len", "length",
-    "lfilter", "lgamma", "like", "lines", "linked_list", "linspace",
-    "list_dir", "list_files", "listdir", "listen_pool", "llm_load",
-    "lms_init", "ln",
-    "load", "load_image", "load_model", "log", "log10", "log1p", "log2",
-    "logistic_model", "loglog", "logspace", "logsumexp", "low_time", "lower",
-    "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward",
-    "lstm_init", "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file", "map",
-    "markers",
-    "markov_chain", "matlab_exec", "matmul", "max", "maxpool2d", "md2html",
-    "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
+    "levenshtein", "lfilter", "lgamma", "like", "line_at", "line_col",
+    "line_count", "line_delete", "line_insert", "line_range", "line_set",
+    "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
+    "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image",
+    "load_model", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
+    "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau",
+    "lse", "lstm_cell", "lstm_forward", "lstm_init", "ltrim", "lu", "mae",
+    "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain",
+    "matlab_exec", "matmul", "max", "maxpool2d", "md2html", "mean",
+    "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
     "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize",
-    "minutely_profile", "mirror",
-    "mismatch_loss", "mkdir", "mlp_classifier", "mm", "mmap_len", "mmap_open",
-    "mmap_read", "mod", "mode", "monte_carlo", "monthly_profile", "move", "move_file",
-    "mse", "mtimes", "mul", "multi_head_attention", "multi_otsu", "multisine",
-    "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set",
-    "mutex_update", "mutual_info_classif", "mvnpdf", "nadam",
-    "naive_bayes_model", "nand", "ncol", "neighbors", "nesterov_sgd", "newton",
-    "nnls", "nor", "norm", "normal", "normalize", "normpdf", "now", "nrow",
-    "numel", "nyquist", "ols_model", "ones", "ones_like", "optimizer_step",
-    "or", "ord", "otsu", "otsu_threshold", "overshoot", "pad_left", "pad_right", "palette",
-    "panel", "parallel", "param", "parse_as", "parse_csv", "parse_json",
-    "parse_xml", "particle_filter", "particle_filter_init", "pause", "pca",
-    "pca_components", "pca_explained_variance", "pca_model", "peak", "peek",
-    "peek_byte", "peek_char", "peek_line", "percentile", "periodic_profile",
-    "periodogram", "permutation_importance", "phase", "pie", "pinv",
-    "pipeline", "plot", "pmap", "point", "poisson", "polarplot", "poles",
-    "polyfit", "polygon", "polyval", "pool", "pop", "pop_back", "pop_front",
-    "porous", "pow", "pow2db", "preciseTimer", "precision", "predict", "print",
-    "printtex", "process", "processor", "prod", "profile_end", "profile_start",
-    "profile_stats",
-    "profiling_mode", "progress",
-    "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
-    "pump_watches", "push", "push_back", "push_front", "pwd",
+    "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier",
+    "mm", "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "monte_carlo",
+    "monthly_profile", "move", "move_file", "mse", "mtimes", "mul",
+    "multi_head_attention", "multi_otsu", "multisine", "multithreshold",
+    "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
+    "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
+    "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nnls", "nor",
+    "norm", "normal", "normalize", "normpdf", "now", "nrow", "numel",
+    "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
+    "otsu", "otsu_threshold", "overshoot", "pack", "pad_left", "pad_right",
+    "palette", "panel", "parallel", "param", "parse_as", "parse_csv",
+    "parse_json", "parse_xml", "particle_filter", "particle_filter_init",
+    "pause", "pca", "pca_components", "pca_explained_variance", "pca_model",
+    "peak", "peek", "peek_byte", "peek_char", "peek_line", "percentile",
+    "periodic_profile", "periodogram", "permutation_importance", "phase",
+    "pie", "pinv", "pipeline", "plot", "pmap", "point", "poisson", "polarplot",
+    "poles", "polyfit", "polygon", "polyval", "pool", "pop", "pop_back",
+    "pop_front", "porous", "pos_of", "pow", "pow2db", "preciseTimer",
+    "precision", "predict", "print", "printtex", "process", "processor",
+    "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
+    "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period",
+    "pulse_width", "pump_watches", "push", "push_back", "push_front", "pwd",
     "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qam_demodulate",
-    "qam_modulate", "qr", "quantile",
-    "quantile_normalize", "queue", "quick_mlp", "raincloud", "rand", "randi",
-    "randn", "random_forest_model", "random_walk", "range", "range_decode",
+    "qam_modulate", "qr", "quantile", "quantile_normalize", "queue",
+    "quick_mlp", "r2", "raincloud", "rand", "randi", "randn",
+    "random_forest_model", "random_walk", "range", "range_decode",
     "range_encode", "rank", "rans_decode", "rans_encode", "re", "read",
     "read_all", "read_all_text", "read_array", "read_bin", "read_bit",
     "read_byte", "read_bytes", "read_char", "read_chars", "read_csv",
-    "read_double", "read_float", "read_int", "read_int16", "read_int32",
-    "read_int64", "read_line", "read_mat", "read_struct", "read_structs",
-    "read_uint16", "read_uint32", "read_uint64", "read_until", "read_values",
-    "real", "recall", "rect", "rectangle", "reduce", "reflection_coefficient",
-    "regex_count", "regex_find", "regex_find_all", "regex_groups",
-    "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu",
-    "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
-    "remove_small_blobs", "rename_file", "repeat_str", "replace",
-    "replace_outliers", "resample_int", "resample_to",
-    "reset", "reshape", "resistor", "resize", "restart", "return_loss",
-    "reverse", "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model",
-    "right", "rise_time", "rising_edges", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms",
-    "rmse", "rmsprop", "robust_scale", "rolling_max", "rolling_mean",
-    "rolling_min", "rolling_rms", "rolling_std",
-    "rot90", "round", "row_mean", "row_sum",
-    "rows", "rtrim", "run_for", "sandbox_mode", "sarsa", "save", "save_all",
-    "save_image", "save_model", "savefig", "savgol", "sawtooth",
+    "read_double", "read_float", "read_input", "read_int", "read_int16",
+    "read_int32", "read_int64", "read_line", "read_mat", "read_struct",
+    "read_structs", "read_uint16", "read_uint32", "read_uint64", "read_until",
+    "read_values", "real", "recall", "rect", "rectangle", "reduce",
+    "reflection_coefficient", "regex_count", "regex_find", "regex_find_all",
+    "regex_groups", "regex_match", "regex_replace", "regex_split",
+    "regionprops", "regions", "relu", "remove", "remove_dir", "remove_file",
+    "remove_nan", "remove_noise", "remove_outliers", "remove_small_blobs",
+    "rename_file", "repeat_str", "replace", "replace_outliers", "resample_int",
+    "resample_to", "reset", "reshape", "residual_acf", "resistor", "resize",
+    "restart", "return_loss", "reverse", "rewind", "rfe", "rfft", "rgb",
+    "rgba", "ridge", "ridge_model", "right", "rise_time", "rising_edges",
+    "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
+    "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean",
+    "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
+    "row_sum", "rows", "rtrim", "run_for", "sandbox_mode", "sarsa", "save",
+    "save_all", "save_image", "save_model", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score",
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
     "semaphore_available", "semaphore_release", "semilogx", "semilogy",
     "sequential", "sequential_split", "serial_open", "serial_ports", "series",
-    "set", "set_metadata", "set_start_time", "sfdr", "sgd", "shape", "sharpen",
-    "shell", "shortest_path",
-    "sigma_delta", "sigmoid", "sign", "signal", "signal_slice_time", "signal_unit",
-    "simple_cnn", "simple_rnn_classifier", "simulate", "sin", "sinad",
-    "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness", "sleep",
-    "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter",
+    "set", "set_metadata", "set_start_time", "sfdr", "sgd", "sha256", "shape",
+    "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign",
+    "signal", "signal_slice_time", "signal_unit", "similar", "simple_cnn",
+    "simple_rnn_classifier", "simulate", "sin", "sinad", "sinad_estimate",
+    "sine", "sinh", "size", "sizeof", "skewness", "sleep", "slice_at", "smith",
+    "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter",
     "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
-    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
-    "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl",
-    "splineplot", "split", "sqrt", "square", "stackbar", "stair", "stamp",
-    "standardize", "start", "start_time", "starts_with", "stationary", "std", "ste",
-    "steer_delays", "stem",
-    "step", "stft", "stop", "stop_grad", "str", "stratified_split", "subplot",
-    "substr", "subtract", "sum", "svd", "svm_model", "svr_model", "swap",
-    "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset",
-    "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen", "tcp_port",
-    "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n", "theme", "threshold",
-    "tic", "timer", "timestamps", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk", "to_digital",
-    "to_float", "to_hsl", "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec",
-    "toc", "tolower", "touch", "toupper", "trace", "track", "train_loop",
-    "train_test_split", "train_val_test_split", "transfer_function", "transform",
-    "transformer_block", "transpose", "tree_model", "triangle", "trim", "tsne",
-    "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number",
-    "ui_select", "ui_slider", "ui_text", "undershoot", "uniform", "unique", "unit_scale", "update",
-    "upper", "upsample",
-    "val", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
+    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum",
+    "spectrum_at", "spectrum_normalize", "spectrum_unnormalize", "spiderplot",
+    "spl", "splice", "splineplot", "split", "split_time", "sqrt", "square",
+    "stackbar", "stair", "stamp", "standardize", "start", "start_time",
+    "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step",
+    "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi",
+    "subplot", "substr", "subtract", "sum", "svd", "svm_model", "svr_model",
+    "swap", "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh",
+    "tape_reset", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
+    "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
+    "theme", "threshold", "tic", "timer", "timestamps", "title", "tkeo",
+    "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
+    "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc",
+    "tolower", "touch", "toupper", "trace", "track", "train_loop",
+    "train_test_split", "train_val_test_split", "transfer_function",
+    "transform", "transformer_block", "transpose", "tree_model", "triangle",
+    "trim", "tsne", "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox",
+    "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot", "uniform",
+    "unique", "unit_scale", "unpack", "update", "upper", "upsample", "val",
+    "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
     "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
-    "warburg_short", "warn", "waterfall", "welch", "where", "worker_done", "wrap",
-    "write", "write_array", "write_bin", "write_bit", "write_byte",
-    "write_char", "write_csv", "write_double", "write_float", "write_int",
-    "write_int16", "write_int32", "write_int64", "write_line", "write_report",
-    "write_text", "write_uint16", "write_uint32", "write_uint64", "writeline",
-    "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json", "xmlify",
-    "xor", "xscale", "xspan", "xticklabels", "xticks", "ybreak", "ylabel",
-    "ylim", "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like",
-    "zip", "zlib_decompress", "zoom_inset",
+    "warburg_short", "warn", "waterfall", "welch", "where", "word_wrap",
+    "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
+    "write_byte", "write_char", "write_csv", "write_double", "write_float",
+    "write_int", "write_int16", "write_int32", "write_int64", "write_line",
+    "write_report", "write_text", "write_uint16", "write_uint32",
+    "write_uint64", "writeline", "xbreak", "xcorr", "xlabel", "xlim",
+    "xml2csv", "xml2json", "xmlify", "xor", "xscale", "xspan", "xticklabels",
+    "xticks", "ybreak", "ylabel", "ylim", "yscale", "yspan", "yticklabels",
+    "yticks", "zeros", "zeros_like", "zip", "zlib_decompress", "zoom_inset",
 ];
 
 fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &[(String, Value)]) -> R<Value> {
@@ -54665,6 +55049,53 @@ mod tests {
         }
     }
 
+    /// `exec_block`'s interrupt check is bypassed entirely by the register
+    /// fast path (`run_fast_for`/`run_fast_while` iterate via
+    /// `run_fast_stmts` directly, never through `exec`/`exec_block`) — an
+    /// all-numeric loop that qualifies for that path could spin past an
+    /// `interrupt` flip forever. Uses a plain scalar `for` over a huge
+    /// range (qualifies for `try_fast_for_plan`) so this test fails loudly
+    /// if the fast path ever regresses back to ignoring `interrupt`.
+    #[test]
+    fn interrupt_flag_stops_a_fast_path_for_loop() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let mut it = Interp::new();
+        it.interrupt = Some(flag.clone());
+
+        let flag_for_thread = flag.clone();
+        let flipper = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            flag_for_thread.store(true, AtomicOrdering::Relaxed);
+        });
+
+        let result = it.run("s = 0\nfor i = 1 to 2000000000\n  s = s + i\nend");
+        flipper.join().unwrap();
+
+        let err = result.expect_err("a fast-path for-loop must be stopped by the interrupt flag, not run to completion");
+        assert!(err.to_string().ends_with("interrupted"), "unexpected error: {err}");
+    }
+
+    /// Same gap, `while` flavor: `run_fast_while` also loops via
+    /// `run_fast_stmts` with no `exec_block` in the path.
+    #[test]
+    fn interrupt_flag_stops_a_fast_path_while_loop() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let mut it = Interp::new();
+        it.interrupt = Some(flag.clone());
+
+        let flag_for_thread = flag.clone();
+        let flipper = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            flag_for_thread.store(true, AtomicOrdering::Relaxed);
+        });
+
+        let result = it.run("s = 0\nn = 0\nwhile n < 2000000000\n  s = s + n\n  n = n + 1\nend");
+        flipper.join().unwrap();
+
+        let err = result.expect_err("a fast-path while-loop must be stopped by the interrupt flag, not run to completion");
+        assert!(err.to_string().ends_with("interrupted"), "unexpected error: {err}");
+    }
+
     // `try_selfrebind_append` (2026-09-10): `lines = append(lines, x)` is
     // the standard way to grow a collection and was quadratic (a full
     // clone of the backing store on every call). This pins CORRECTNESS
@@ -58788,6 +59219,31 @@ out = both.x");
                 it.get(name)
             );
         }
+    }
+
+    /// Ahmed's ruling, 2026-09-16: a quantity always normalises to its base
+    /// SI unit internally (unchanged -- `5 km == 5000` above still depends
+    /// on that), but DISPLAY now autoscales to whichever known prefix keeps
+    /// the mantissa in `[1, 1000)`, the same rule a multimeter/scope
+    /// auto-ranges by. `3.3 uF` used to print `3.3e-6 F`; picking a prefix
+    /// only changes what a reader sees, never the stored magnitude, which
+    /// is exactly why `==`/`contains` above are untouched by this.
+    #[test]
+    fn quantities_display_with_a_readable_si_prefix_not_always_the_base_unit() {
+        let it = run(
+            "a = \"\" + (3.3 uF)\n\
+             b = \"\" + (1500 Hz)\n\
+             c = \"\" + (0.002 A)\n\
+             d = \"\" + (500 mOhm)\n\
+             e = \"\" + (5 km)\n\
+             f = \"\" + (0 F)",
+        );
+        assert_eq!(it.get("a").map(display_value).as_deref(), Some("3.3 uF"));
+        assert_eq!(it.get("b").map(display_value).as_deref(), Some("1.5 kHz"));
+        assert_eq!(it.get("c").map(display_value).as_deref(), Some("2 mA"));
+        assert_eq!(it.get("d").map(display_value).as_deref(), Some("500 mOhm"));
+        assert_eq!(it.get("e").map(display_value).as_deref(), Some("5 km"));
+        assert_eq!(it.get("f").map(display_value).as_deref(), Some("0 F"), "zero shows in the base unit");
     }
 
     /// A search answers; it does not abort part-way through.
@@ -71986,6 +72442,29 @@ end for");
         );
         assert!(num(&it, "err3") < 1e-9, "err3 = {}", num(&it, "err3"));
         assert!(num(&it, "err7") < 1e-9, "err7 = {}", num(&it, "err7"));
+    }
+
+    #[test]
+    fn complex_numbers_print_with_j_not_i() {
+        // Ahmed's ruling, 2026-09-16 ("2+14j is what we usually write"):
+        // Qu's audience is EE/DSP, where `i` already names current. Both
+        // spellings still PARSE (`1i` and `1j` are lexer aliases of each
+        // other) -- only the OUTPUT convention changed.
+        let it = run(
+            "a = 2 + 14j\n\
+             b = 2 + 14i\n\
+             a_str = \"\" + a\n\
+             b_str = \"\" + b\n\
+             z = conj(3 + 4j)\n\
+             z_str = \"\" + z",
+        );
+        assert_eq!(it.get("a_str").map(display_value).as_deref(), Some("2 + 14j"));
+        assert_eq!(
+            it.get("b_str").map(display_value).as_deref(),
+            Some("2 + 14j"),
+            "the `i` spelling must still parse to the same value and print the same way"
+        );
+        assert_eq!(it.get("z_str").map(display_value).as_deref(), Some("3 - 4j"));
     }
 
     #[test]

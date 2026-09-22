@@ -52,14 +52,12 @@ the cell finishes. Any figure the cell drew — with or without an explicit
 rasterizer yet; SVG is what Jupyter's rich-display protocol wants anyway).
 Tab completion works against the session's current variable bindings.
 
+Interrupting a runaway cell (Jupyter's "interrupt kernel") works: `qu_interp::Interp::interrupt` is a shared flag checked once per statement in `exec_block`, the slow tree-walking path's funnel for loop bodies and function bodies, so a `while true` or an infinite recursion actually stops, mid-run, without killing the kernel process. An all-numeric loop that qualifies for the register fast path (`run_fast_for`/`run_fast_while`) never runs through `exec_block` at all, so those two poll the same flag themselves every `FAST_LOOP_INTERRUPT_STRIDE` iterations instead.
+
+`read_input([prompt])` prompts interactively: the frontend pops up an input box (VS Code/JupyterLab both do this natively for `input_request`), and the cell blocks until you answer. The kernel learns which peer to send the prompt to from the stdin socket's own `SocketEvent::Accepted` at connect time, since a frontend's stdin DEALER never sends anything unprompted (see `kernel.rs`'s own comment on that if you're touching it).
+
 ## What's not implemented yet
 
-- **Interrupt**: `interrupt_request` is acknowledged but can't actually stop
-  a running cell — Qu's tree-walking evaluator has no cooperative
-  cancellation point today. A runaway cell can still be stopped by killing
-  the kernel process (Jupyter's "restart kernel").
-- **stdin/`input()`**: the stdin channel is bound (so frontends that probe it
-  don't error) but not serviced — Qu has no `input()`-style builtin yet.
 - **PNG output**: figures are SVG-only, inherited from `qu-interp` itself
   (`savefig(..., "png")` errors there too, for the same reason).
 - **ipywidgets / comm messages**: `comm_info_request` stubs an empty reply;

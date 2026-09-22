@@ -117,6 +117,12 @@ pub struct ExecuteResponse {
     /// real gain from threading an opt-in flag through `ExecuteRequest` --
     /// QuStudio's normal Code/DSP/ML tabs simply never read this field.
     pub data: Vec<PlotVar>,
+    /// HTML reports this run wrote (see `collect_report_outputs`), oldest
+    /// first. Raw markup, not a `data:` URI like `plots`: the frontend
+    /// injects its own bundled MathJax before printing, because the report
+    /// builder's own CDN option needs the network and a desktop app
+    /// should not.
+    pub reports: Vec<String>,
 }
 
 /// One numeric top-level binding, in full, for QuStudio's Interactive Mode
@@ -556,6 +562,51 @@ fn collect_plot_outputs(dir: &Path) -> Vec<String> {
 }
 
 
+
+/// The HTML reports a run produced, newest last, as raw markup.
+///
+/// Same model as `collect_plot_outputs`: a script writing
+/// `flush(r, "report.html")` uses a relative path, which lands in the
+/// run's own directory, so Studio finds what the script wrote without
+/// being told the filename. That directory is deleted moments later, which
+/// is why this has to happen here rather than being read on demand.
+///
+/// Returned as MARKUP, not a `data:` URI like figures: the frontend has to
+/// inject its own locally-bundled MathJax script before printing. The
+/// report builder's own `MathJax::Cdn` option emits a jsdelivr tag whose
+/// doc comment says "Needs the network" -- fine for a file you mail
+/// someone, useless in a desktop app offline, and it would present as a
+/// printing bug rather than a network one.
+fn collect_report_outputs(dir: &Path) -> Vec<String> {
+    let mut files: Vec<(std::time::SystemTime, PathBuf)> = match std::fs::read_dir(dir) {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                matches!(
+                    p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
+                    Some("html") | Some("htm")
+                )
+            })
+            .map(|p| {
+                let modified = std::fs::metadata(&p)
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                (modified, p)
+            })
+            .collect(),
+        Err(_) => return Vec::new(),
+    };
+    // Oldest first, same ordering rule and same numeric tie-break as
+    // figures, so "the report this run produced" means the last one when a
+    // script writes several.
+    files.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| natural_cmp(&a.1, &b.1)));
+    files
+        .into_iter()
+        .filter_map(|(_, path)| std::fs::read_to_string(&path).ok())
+        .collect()
+}
+
 /// One figure to write: a filename and its bytes as a `data:` URI.
 #[derive(Debug, Clone, Deserialize)]
 pub struct FigureFile {
@@ -651,6 +702,7 @@ async fn execute_code(
             plots: Vec::new(),
             variables: Vec::new(),
             data: Vec::new(),
+            reports: Vec::new(),
         });
     }
 
@@ -665,6 +717,7 @@ async fn execute_code(
             plots: Vec::new(),
             variables: Vec::new(),
             data: Vec::new(),
+            reports: Vec::new(),
         });
     }
     let emit_figure_path = run_dir.join(AUTO_FIGURE_NAME);
@@ -690,6 +743,7 @@ async fn execute_code(
     let plots = collect_plot_outputs(&run_dir);
     let variables = read_vars_output(&run_dir);
     let data = read_data_output(&run_dir);
+    let reports = collect_report_outputs(&run_dir);
     let _ = std::fs::remove_dir_all(&run_dir);
 
     match outcome {
@@ -701,6 +755,7 @@ async fn execute_code(
             plots,
             variables,
             data,
+            reports,
         }),
         Err(e) => Ok(ExecuteResponse {
             success: false,
@@ -710,6 +765,7 @@ async fn execute_code(
             plots: Vec::new(),
             variables: Vec::new(),
             data: Vec::new(),
+            reports: Vec::new(),
         }),
     }
 }
@@ -1485,6 +1541,39 @@ mod tests {
         assert_eq!(stat.mtime_ms, None);
         assert_eq!(stat.len, 0);
 
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // `collect_report_outputs` is what makes "print the report this run
+    // produced" possible: the run directory is deleted moments after the
+    // script exits, so anything not collected here is gone.
+    #[test]
+    fn collect_report_outputs_returns_markup_oldest_first() {
+        let dir = make_temp_dir("collect_reports");
+        std::fs::write(dir.join("first.html"), b"<h1>one</h1>").unwrap();
+        // A distinct mtime, so the ordering is actually exercised rather
+        // than falling through to the filename tie-break.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(dir.join("second.html"), b"<h1>two</h1>").unwrap();
+        // Must be ignored: figures live in the same directory.
+        std::fs::write(dir.join("figure_1.svg"), b"<svg/>").unwrap();
+
+        let reports = collect_report_outputs(&dir);
+        assert_eq!(reports.len(), 2, "svg must not be collected as a report");
+        assert_eq!(reports[0], "<h1>one</h1>");
+        assert_eq!(reports[1], "<h1>two</h1>", "newest must be last");
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn collect_report_outputs_is_empty_when_a_run_wrote_none() {
+        // The common case by far -- most scripts never build a report --
+        // and it must be an empty list, not an error, or every ordinary
+        // run would report a failure it did not have.
+        let dir = make_temp_dir("collect_reports_none");
+        std::fs::write(dir.join("figure_1.svg"), b"<svg/>").unwrap();
+        assert!(collect_report_outputs(&dir).is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

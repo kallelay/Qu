@@ -21,6 +21,12 @@ Three same-code ports, one per target:
   common install dirs) despite being expected — worth installing if an
   Octave data point matters; matty vendors an Octave *source* tree under
   `matty/octave-9.4.0/` but it isn't built.
+- `bench_fair.qu` / `bench_fair.py` / `bench_fair.m` — the same five kernels,
+  measured so the per-kernel numbers describe the per-kernel labels: data
+  built OUTSIDE the timed region, one warm-up run discarded, best of three
+  reported. Use THESE for any per-kernel claim; `bench.*` keeps its single
+  cold trial with data generation inside the clock, which is a legitimate
+  end-to-end "how long does this script take" figure and nothing more.
 - `run_via_matty_jax.py` — drives matty's own `BenchmarkSuite` against its
   `JAXBackend` (CPU; GPU not exercised here), using matty's project-local
   venv. Run from `matty/`: `./.venv/Scripts/python.exe
@@ -65,6 +71,67 @@ a real regression or improvement between runs; a same-moment comparison
 like the one above is the only fair read at this scale. `loop_performance`
 is sub-millisecond for both Qu and MATLAB now, so its spread is pure noise
 too, not a real difference in either direction.)
+
+## Fair-method results (`bench_fair.*`, re-measured 2026-09-16)
+
+Qu built from `master` `ccd105cb`. Method: three interleaved rounds
+Qu -> Python -> MATLAB R2025b, each script internally discarding a warm-up and
+reporting best-of-three; the table is the minimum across rounds. Interleaving
+matters on this shared box — machine-wide drift then hits all three languages
+roughly equally instead of penalising whichever ran last. All nine runs exited
+0 and all three printed `result = 60000003` from the loop kernel, which is the
+cross-language correctness check.
+
+| kernel | Qu | numpy 2.4.5 | MATLAB R2025b | Qu vs MATLAB |
+|---|---:|---:|---:|---|
+| matrix_multiply (1000×1000) | **0.0075 s** | 0.0051 s | 0.0090 s | **Qu 1.20x faster** |
+| element_wise_ops (3000×3000) | 0.0678 s | 0.1586 s | **0.0378 s** | MATLAB 1.79x faster |
+| fft (100000-pt) | 0.0021 s | 0.0033 s | **0.0009 s** | MATLAB 2.33x faster |
+| array_creation (5000×5000 ×3) | **0.0255 s** | 0.0281 s | 0.0285 s | **Qu 1.12x faster** |
+| loop_performance (20e6, non-foldable) | 0.4465 s | 1.1276 s | **0.0610 s** | MATLAB 7.3x faster |
+| **four bulk-array kernels** | 0.1029 s | 0.1951 s | **0.0762 s** | MATLAB 1.35x faster |
+| total (incl. loop) | 0.5494 s | 1.3227 s | **0.1372 s** | MATLAB 4.0x faster |
+
+Read the **bulk-array subtotal**, not the total, for anything about array
+throughput: the loop kernel is now 20,000,000 iterations and dominates the
+total by construction. On bulk array work Qu is **1.35x behind MATLAB and
+1.90x ahead of numpy**, winning `matrix_multiply` and `array_creation`
+outright. On scalar loops Qu is **7.3x behind MATLAB and 2.5x ahead of
+CPython**.
+
+**Quote the ratios, not the absolute seconds.** Re-running the Qu column a few
+hours later on a loaded box gave element_wise 0.1292 s and loop 0.8601 s — about
+1.9x worse than the table above, which looks like a regression and is not.
+MATLAB, whose code did not change, degraded by 2.2-2.9x in the same window
+(element_wise 0.0378 -> 0.1094 s, loop 0.0610 -> 0.1357 s), and the Qu:MATLAB
+ratios held or improved. Absolute seconds on this machine are only meaningful
+against a baseline measured in the same window; that is what the interleaving
+is for. If you see numbers unlike these, re-measure MATLAB before concluding
+anything about Qu.
+
+### Why `loop_performance` changed shape
+
+The old kernel — 100,000 iterations of `result = result + i` — could not
+support a claim in either direction, for two separately measured reasons:
+
+1. **No headroom.** At n=100k all three languages land in the 0.2-1.9 ms band,
+   at or near timer resolution. A saturated kernel can only ever show a
+   regression.
+2. **MATLAB's JIT folds the closed-form sum.** At n=20e6, `result = result + i`
+   runs in **0.0117 s** (1.7e9 iterations/s, ~2 cycles/iteration) while
+   `result = result + mod(i,7)` takes **0.5462 s** — **47x apart at the same
+   trip count**. The plain-sum baseline was measuring constant folding, not
+   loop throughput.
+
+So the kernel is now n=20e6 with the body `result + i - 7*floor(i/7)`,
+identical in all three ports and verified by all three printing
+`result = 60000003`. (`mod(i, 7)` is not available in Qu: `mod` is a KEYWORD,
+so it is a parse error in an expression — `unexpected Keyword("mod") in
+expression`.)
+
+Together these two distortions had been pulling the published number in
+opposite directions: the small-N row read as a 4x MATLAB lead, the folded
+n=20e6 baseline as 17x. Neither is right; **7.3x** is.
 
 ## Reading it
 
@@ -111,24 +178,52 @@ too, not a real difference in either direction.)
   scalar per-iteration interpretation cost (a `String` allocation plus a
   `HashMap` probe on every read/write) — not the array-copy cost the
   `Arc`-COW pass had just fixed. Call-stack-frames + slot-resolved-fast-loop
-  work (Ahmed: "go ahead", BOARD.md) took it from 0.060s to ~0.0008s — now
-  matching MATLAB's own JIT-compiled loop (both land in the same
-  0.0007-0.01s noise band) and ~800x faster than matty's own interpreter.
+  work (Ahmed: "go ahead", BOARD.md) took it from 0.060s to ~0.0008s — a real
+  and large win, and ~800x faster than matty's own interpreter.
+  **CORRECTED 2026-09-16: the follow-on claim that this "matches MATLAB's own
+  JIT-compiled loop" does not survive measurement.** Both landing in the same
+  0.0007-0.01s band at n=100k was an artifact of a kernel with no headroom
+  plus a MATLAB baseline its JIT was constant-folding — see "Why
+  `loop_performance` changed shape" above. Measured at n=20e6 with a
+  non-foldable body, **MATLAB is 7.3x faster than Qu** on scalar loops. Qu
+  does beat CPython there by 2.5x. Scalar loop throughput is an open gap, not
+  a closed one.
 
 ## Re-running
 
 ```bash
 # Qu (release build recommended -- debug is markedly slower)
-$env:CARGO_TARGET_DIR = "<temp dir>"   # Windows/Dropbox: avoid target-dir file locks
-cargo build --manifest-path engine/Cargo.toml -p qu-cli --release
-& "$env:CARGO_TARGET_DIR/release/qu.exe" run benchmarks/matty_suite/bench.qu
+#
+# `tools/build_qu.sh` is the canonical entry point (Qu-Build, 2026-09-16): it
+# works from any directory in the checkout, refuses to build from a parked
+# tree, verifies the artifact by RUNNING it rather than trusting cargo's
+# summary line, and prints the exe path and profile on success.
+#
+# It exists because the obvious spelling fails: the `qu` bin is NOT in the
+# repo-root workspace. The root Cargo.toml is a legacy workspace
+# (qu-core/qu-dsp/qu-data/qu-ml/qu-gpu/qu-wasm) and
+# `cargo build --release --bin qu` there dies with
+#   error: no bin target named `qu` in default-run packages
+# The CLI lives in engine/crates/qu-cli, a separate workspace under engine/.
+bash tools/build_qu.sh              # release (default); --debug for debug
+#
+# Use the exe path the script prints. The `run` subcommand is required -- a
+# bare path argument is rejected with a did-you-mean rather than executed.
+<printed-exe-path> run benchmarks/matty_suite/bench_fair.qu
 
 # numpy
-python benchmarks/matty_suite/bench.py
+python benchmarks/matty_suite/bench_fair.py
 
-# MATLAB (pick whichever install has a valid license)
-matlab -batch "run('benchmarks/matty_suite/bench.m')"
-# or, with multiple installs: "/c/Program Files/MATLAB/R2025b/bin/matlab" -batch "..."
+# MATLAB -- use R2025b EXPLICITLY. `matlab` on PATH resolves to R2026a, whose
+# trial license is expired (Licensing Error 10 / -10.2). That failure prints to
+# stdout and STILL EXITS 0, so a wrapper gating on the exit code will record an
+# expired license as a successful run and silently drop MATLAB from the table.
+# Assert on the output, not on $?.
+"/c/Program Files/MATLAB/R2025b/bin/matlab" -sd "$(cygpath -w benchmarks/matty_suite)" -batch "bench_fair"
+
+# All three must print `result = 60000003` from loop_performance. If one does
+# not, that language did not actually run -- check its exit code per language,
+# not just the combined runner's.
 
 # matty (JAX backend, CPU)
 cd matty

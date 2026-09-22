@@ -13,3 +13,11 @@ declare module '*?worker' {
   };
   export default WorkerConstructor;
 }
+
+// Vite's `?url` suffix: the import resolves to the emitted asset's URL.
+// Declared for the same reason as `?worker` above -- it is a build-time
+// transform, not a module `tsc` can resolve.
+declare module '*?url' {
+  const url: string;
+  export default url;
+}

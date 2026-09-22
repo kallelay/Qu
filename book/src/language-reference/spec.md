@@ -386,8 +386,8 @@ Floating point:
 Complex numbers:
 
 ```qu
-1i
-3 + 4i
+1j
+3 + 4j
 complex(3, 4)
 ```
 
@@ -428,10 +428,19 @@ for the value's type.
 Built-in constants:
 
 ```text
-pi, e, inf, nan, i
+pi, tau, e, inf, nan
 ```
 
-`i` is the imaginary unit unless shadowed by a local variable. Code that needs a loop variable named `i` may use `1i` or `complex(0, 1)` for clarity.
+CORRECTION (2026-09-16): this used to list `i` here too and say it was
+"the imaginary unit unless shadowed by a local variable." Checked
+against `Interp::new`'s actual constant table (`pi`/`tau`/`e`/`inf`/
+`nan` — five, not the four this page listed either) and there never was
+a bare `i` constant to shadow; the imaginary unit is only ever a
+numeric SUFFIX, `1j`/`1i` (both parse; `j` is what Qu prints back, per
+the target audience's own convention) or `complex(0, 1)`. Whether a
+bare-constant `i`/`j` should exist at all is an open question, not
+settled here — `i`/`j` are two of the most common loop-variable names
+there are, so it is not free of a shadowing-rules cost either way.
 
 ## 7.A. Preprocessor Directives
 
@@ -3150,7 +3159,7 @@ deferred dataflow value (§11). One operator, one mental model: a named rule the
 planner may inline, fuse, cache, or evaluate on demand.
 
 ```qu
-zof(fr)  := R0 + R1 ./ (1 + 2i*pi*fr*tau1) + R2 ./ (1 + 2i*pi*fr*tau2)
+zof(fr)  := R0 + R1 ./ (1 + 2j*pi*fr*tau1) + R2 ./ (1 + 2j*pi*fr*tau2)
 crest(x) := max(abs(x)) / rms(x)
 db(g)    := 20 * log10(g)
 
@@ -3561,7 +3570,7 @@ whole specification follows:
    carry no runtime cost (§42.2); notation adds zero execution overhead.
 
 So the canonical multisine is `x = sum(A[k]*cos(2*pi*f[k]*t + phi[k]) for k in
-0..K-1)` and the canonical impedance is `Z = R0 + R1/(1 + 2i*pi*f*tau1)` — every
+0..K-1)` and the canonical impedance is `Z = R0 + R1/(1 + 2j*pi*f*tau1)` — every
 token typable on any keyboard. A reader who prefers `x = ∑ k : A[k]·cos(2·π·f[k]·t +
 φ[k])` may write that, and it means exactly the same thing. Earlier chapters show
 the Unicode surface to demonstrate it; the ASCII surface is what Qu defaults to.

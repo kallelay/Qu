@@ -35,6 +35,26 @@ import { cn } from '@qu/ui-components';
 /** Resolves `catalogMeta`'s icon NAMES to real lucide components. Kept here
  *  rather than in `catalogMeta.ts` so that file stays plain data (no JSX,
  *  unit-testable on its own). */
+
+/** The printable innards of a report document: its `<head>` styles plus its
+ *  `<body>`.
+ *
+ *  A report is a complete HTML document, so injecting it whole would nest
+ *  `<html>`/`<head>` inside a div -- the browser discards those tags and
+ *  the report prints unstyled, which looks like the report builder emitting
+ *  no CSS rather than this function throwing it away. */
+function reportBodyForPrint(html: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const styles = Array.from(doc.head.querySelectorAll('style'))
+      .map((s) => s.outerHTML)
+      .join('\n');
+    return styles + doc.body.innerHTML;
+  } catch {
+    // Better to print the raw markup than nothing at all.
+    return html;
+  }
+}
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   AudioWaveform, Radio, Network, BarChart3, Layers, Binary, Activity, Cpu, Database, Sparkles, FileCode,
 };
@@ -44,6 +64,16 @@ import { GuiDesignerPanel } from './GuiDesignerPanel';
 import { DspWorkbenchPanel } from './DspWorkbenchPanel';
 import { LlmProviderSettings } from './LlmProviderSettings';
 import { groupCatalog, catalogTitle, CATEGORY_ICON, type CatalogCategory } from './catalogMeta';
+// MathJax is vendored under `public/vendor/mathjax/` and served from the
+// app's own origin, never a CDN -- `report_builder`'s own MathJax option
+// emits a jsdelivr tag whose doc comment reads "Needs the network", which
+// is wrong for a desktop app and would print raw TeX offline.
+//
+// In `public/` rather than imported: Vite copies that directory verbatim,
+// whereas importing the 1.2 MB minified bundle puts it through the dev
+// transform pipeline and froze the page hard enough that `1+1` in the
+// console timed out.
+const MATHJAX_URL = '/vendor/mathjax/tex-mml-chtml.js';
 
 /** Small self-dismissing banner naming which AI Assist backend answered the
  *  last request -- see the brief's "make the fallback visible to the user,
@@ -238,6 +268,13 @@ interface ExecuteResponse {
   // `read_vars_output`/`VariableInfo` in src-tauri/src/main.rs). Empty when
   // the run produced none or the emitted file couldn't be read/parsed.
   variables: Variable[];
+  // Raw HTML of any reports the run wrote, oldest first (see
+  // `collect_report_outputs`). Markup rather than a data: URI because the
+  // frontend injects its own BUNDLED MathJax before printing -- the report
+  // builder's own MathJax option emits a CDN script tag whose doc comment
+  // says "Needs the network", which is not a thing a desktop app can rely
+  // on.
+  reports: string[];
   // The script's final `number`/`bool`/`vector`/`matrix` bindings as
   // UNTRUNCATED numeric data, from `--emit-data` (see
   // `read_data_output`/`PlotVar` in src-tauri/src/main.rs). This is what
@@ -1105,6 +1142,12 @@ function App() {
       setFigureImages(plots);
       setVariables(response.variables ?? []);
       setNumericVariables(response.data ?? []);
+      // "The report this run produced" -- the LAST one, matching how a
+      // script that writes several ends with the one it means. Kept from
+      // the previous run when this run wrote none, so Ctrl+Alt+P after an
+      // unrelated re-run still prints the report you were looking at.
+      const producedReports = response.reports ?? [];
+      if (producedReports.length > 0) setReportHtml(producedReports[producedReports.length - 1]);
 
       // Show output
       if (response.output) {
@@ -1495,7 +1538,11 @@ function App() {
   // `#qu-print-area` below) rather than opening a window or an iframe:
   // a WebView is not a browser, `window.open` is not dependable in one,
   // and a popup blocked silently would look like a dead key.
-  const [printMode, setPrintMode] = useState<'code' | 'figures'>('figures');
+  const [printMode, setPrintMode] = useState<'code' | 'figures' | 'report'>('figures');
+  // The last HTML report a run produced. Held in state rather than re-read
+  // on demand: the run's directory is deleted moments after the script
+  // exits, so if it is not captured then it is gone.
+  const [reportHtml, setReportHtml] = useState<string | null>(null);
   // Bumped to ask for a print. The actual `window.print()` happens in an
   // effect keyed on this, because `printMode` must be RENDERED before the
   // print dialog snapshots the page -- calling print() in the same tick
@@ -1518,10 +1565,98 @@ function App() {
     );
   }, [figureImages, code, currentTab]);
 
+  // Ctrl+Alt+P: print the report this run produced, with maths rendered.
+  //
+  // MathJax is BUNDLED and loaded from the app's own assets, never the
+  // CDN. `report_builder`'s `MathJax::Cdn` emits a jsdelivr script tag
+  // whose own doc comment reads "Needs the network" -- which is correct
+  // for a file you mail someone and wrong for a desktop app, where it
+  // would print raw TeX offline and read as a printing bug rather than a
+  // network one. That is the exact defect this app removed when Monaco
+  // stopped being fetched at runtime, so re-introducing it here would be
+  // careless. ~1.2 MB, against the ~3 MB Monaco bundling already added.
+  const mathjaxReadyRef = useRef<Promise<void> | null>(null);
+  const ensureMathJax = useCallback(() => {
+    if (mathjaxReadyRef.current) return mathjaxReadyRef.current;
+    mathjaxReadyRef.current = new Promise<void>((resolve) => {
+      // Configured BEFORE the script loads -- MathJax reads
+      // `window.MathJax` at startup, so setting it afterwards is ignored.
+      (window as any).MathJax = {
+        tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+        startup: { typeset: false },
+        options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea'] },
+      };
+      const el = document.createElement('script');
+      el.src = MATHJAX_URL;
+      el.async = true;
+      // `onload` means the SCRIPT arrived, not that MathJax is ready --
+      // its own startup is separately async, and `typesetPromise` exists
+      // but never settles if called before that finishes. Measured: the
+      // report rendered no maths and the print never fired, because the
+      // await chain simply stopped here. `startup.promise` is the real
+      // signal.
+      //
+      // Resolve on failure too, and on a timeout: a report with unrendered
+      // TeX still prints, and a print key that hangs forever is worse than
+      // one that prints something imperfect.
+      const done = () => {
+        const startup = (window as any).MathJax?.startup?.promise;
+        if (startup && typeof startup.then === 'function') {
+          startup.then(() => resolve()).catch(() => resolve());
+        } else {
+          resolve();
+        }
+      };
+      el.onload = done;
+      el.onerror = () => resolve();
+      window.setTimeout(resolve, 8000);
+      document.head.appendChild(el);
+    });
+    return mathjaxReadyRef.current;
+  }, []);
+
+  const handlePrintReport = useCallback(async () => {
+    if (!reportHtml) {
+      addTerminalLine(
+        'no report from this session yet -- build one with report(...) and flush(r, "name.html"), then run',
+      );
+      return;
+    }
+    setPrintMode('report');
+    setPrintRequest((n) => n + 1);
+    addTerminalLine('printing the report');
+  }, [reportHtml]);
+
   useEffect(() => {
     if (printRequest === 0) return;
-    window.print();
-  }, [printRequest]);
+    let cancelled = false;
+    (async () => {
+      // A report needs its maths typeset before the page is snapshotted,
+      // and that can only happen once React has COMMITTED the report into
+      // the print area -- which is exactly what this effect running means.
+      //
+      // Deliberately not driven by `requestAnimationFrame`: rAF does not
+      // fire in a backgrounded or hidden document, so the whole chain
+      // silently stalled and the key did nothing. A minimised Studio would
+      // have hit the same thing.
+      if (printMode === 'report') {
+        await ensureMathJax();
+        const area = document.getElementById('qu-print-area');
+        const MJ = (window as any).MathJax;
+        if (area && MJ?.typesetPromise) {
+          try {
+            await MJ.typesetPromise([area]);
+          } catch {
+            // Unrenderable maths is not a reason to refuse to print.
+          }
+        }
+      }
+      if (!cancelled) window.print();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [printRequest, printMode, ensureMathJax]);
 
   // ---- "changed on disk" detection ----
   // Deliberately a poll, not a watcher: see `utils/diskWatch.ts` for why,
@@ -1809,11 +1944,11 @@ function App() {
   // `onRunCellRef` and `bufferForDiskCheckRef`.
   const keymapActionsRef = useRef({
     executeCode, handleNewFile, handleSaveAs, reloadFromDisk,
-    handleExportFigures, handlePrint,
+    handleExportFigures, handlePrint, handlePrintReport,
   });
   keymapActionsRef.current = {
     executeCode, handleNewFile, handleSaveAs, reloadFromDisk,
-    handleExportFigures, handlePrint,
+    handleExportFigures, handlePrint, handlePrintReport,
   };
 
   useEffect(() => {
@@ -1849,6 +1984,14 @@ function App() {
         return;
       }
 
+      // Ctrl+Alt+P, BEFORE the guard below, which rejects anything with
+      // Alt held. Prints the report this run produced.
+      if (event.altKey && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        event.stopPropagation();
+        void keymapActionsRef.current.handlePrintReport();
+        return;
+      }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === 'r' && !event.shiftKey) {
@@ -2778,6 +2921,14 @@ function App() {
         {printMode === 'figures' && figureImages.map((src, i) => (
           <img key={i} src={src} alt={`Figure ${i + 1}`} />
         ))}
+        {printMode === 'report' && reportHtml && (
+          // The report is a whole HTML document; only its body belongs
+          // here. `DOMParser` rather than a regex because the report
+          // builder emits real markup and the `<style>` block it carries
+          // in <head> has to come with it, or the printed report loses
+          // every bit of its own formatting.
+          <div dangerouslySetInnerHTML={{ __html: reportBodyForPrint(reportHtml) }} />
+        )}
         {printMode === 'code' && (
           <>
             <h1>{currentTab?.name ?? 'untitled.qu'}</h1>

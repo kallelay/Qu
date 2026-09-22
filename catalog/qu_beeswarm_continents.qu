@@ -1,0 +1,87 @@
+# qu_beeswarm_continents.qu — a categorical dot plot with per-group means
+# and a shared reference line, in the shape of Cedric Scherer's well-known
+# "Evolution of a ggplot" student:teacher-ratio animation.
+#
+# Borrows the TECHNIQUE (jittered points per category, a bigger mean marker
+# connected back by a short stem, one vertical line for the pooled average)
+# without cloning the original's palette or fonts -- see
+# book/src/stdlib/plotting.md's "Colours" section: `palette(n)` is Qu's own
+# hue-spaced categorical set, used here instead of picking six colours by
+# hand.
+#
+# The data is SYNTHETIC and illustrative only -- randn() draws per
+# "continent", shaped to roughly the same story the original chart tells
+# (Europe low and tight, Africa high and spread with one dramatic outlier)
+# -- not the real UNESCO figures the original used. Swap `continent_data`
+# for a real table and everything downstream is unchanged.
+#
+# Exercises:
+#   randn(), uniform(), clip() — synthetic per-group samples and jitter
+#   scatter(), plot()          — the swarm points and each mean's stem
+#   yticks()/yticklabels()     — a categorical axis out of numeric y positions
+#   vline(), text(), palette() — the shared reference line and its label
+
+backend auto
+
+#%% One row per "continent", bottom to top
+names = ("Africa", "Oceania", "South America", "North America", "Asia", "Europe")
+means  = (34,        20,       21,              16,              23,     14)
+stds   = (11,         6,        5,               3,               8,      3)
+counts = (32,        14,       15,              13,              30,     26)
+colors = palette(len(names))
+
+#%% Build each group's synthetic sample and the figure's pooled mean
+function continent_data(n, m, s, seed)
+    return clip(randn(n, seed = seed) * s + m, 3)
+end function
+
+group_samples = ()
+for i in 0 to len(names) - 1
+    xs = continent_data(counts[i], means[i], stds[i], 200 + i)
+    if names[i] == "Africa"
+        # One exaggerated outlier, echoing the original chart's single
+        # extreme country without claiming to BE that country.
+        xs = [xs, [86]]
+    end if
+    group_samples = append(group_samples, xs)
+end for
+
+# Pooled across every group -- built by concatenating Vec onto Vec, not
+# starting from an empty `()` list, which `[a, b]` handles as generic list
+# concatenation instead of a numeric hstack.
+pooled = group_samples[0]
+for i in 1 to len(group_samples) - 1
+    pooled = [pooled, group_samples[i]]
+end for
+overall_avg = mean(pooled)
+
+#%% Draw
+figure()
+figure_size(760, 480)
+fontfamily("sans")
+
+for i in 0 to len(names) - 1
+    xs = group_samples[i]
+    n = len(xs)
+    ys = i + uniform(-0.16, 0.16, n, seed = 900 + i)
+    scatter(xs, ys, color = colors[i], alpha = 0.45, ms = 5)
+    m = mean(xs)
+    plot([min(xs), m], [i, i], color = colors[i], width = 1.6)
+    scatter([m], [i], color = colors[i], ms = 13, fill = true, edge = "#ffffff")
+end for
+
+vline(overall_avg, color = "#444444")
+text(overall_avg + 1.5, len(names) - 0.4, "Worldwide average: {round(overall_avg, 1)}", color = "#444444")
+
+xlim(0, 95)
+ylim(-0.7, len(names) - 0.3)
+yticks(0 to len(names) - 1)
+yticklabels(names[0], names[1], names[2], names[3], names[4], names[5])
+xlabel("Student-to-teacher ratio (synthetic data)")
+title("The evolution of a beeswarm", align = "left")
+grid off
+
+savefig("catalog/qu_beeswarm_continents.svg")
+print("wrote catalog/qu_beeswarm_continents.svg, worldwide average = {round(overall_avg, 1)}")
+
+show plot

@@ -150,7 +150,7 @@ program, and a misspelled call suggests the nearest match.
 | [`cols`](../fn/cols.html) | Row / column count of `A`. On a `Vec` (shape `(n, 1)`), a `Mat`/`Signal` (shape `(r, c)`), or a bare scalar (shape `(1, 1)`), returns the corresponding dimension as a scalar `Num` | [Core maths](core-math.md) |
 | [`compare`](../fn/compare.html) | Returns a `number`: −1, 0 or 1, so it can drive a sort directly | [Collections & strings](collections-strings.md) |
 | [`compile`](../fn/compile.html) | Attaches an optimizer Record (from `sgd`/`adam`/etc., default `adam()`) and a loss name string (`"mse"` or `"cross_entropy"`, default `"mse"`) to an `input(n) \|> dense(...) \|> ...`.. | [Statistics & ML](statistics-ml.md) |
-| [`complex`](../fn/complex.html) | Returns a `Complex`. `3 + 4i` is the literal form; this is for computed components | [Collections & strings](collections-strings.md) |
+| [`complex`](../fn/complex.html) | Returns a `Complex`. `3 + 4j` is the literal form; this is for computed components | [Collections & strings](collections-strings.md) |
 | [`cond`](../fn/cond.html) | The 2-norm condition number of `A` (an `r×c` `Mat` or `CMat`) — the ratio of its largest to smallest singular value | [Core maths](core-math.md) |
 | [`confusion_matrix`](../fn/confusion_matrix.html) | Draws a confusion-matrix heatmap comparing a length-`N` vector of true labels `actual` against a length-`N` vector of predicted labels `predicted`, over an optional integer `n_classes`.. | [Statistics & ML](statistics-ml.md) |
 | [`conj`](../fn/conj.html) | Complex conjugate (negates the imaginary part); passes a real `x` through unchanged | [Core maths](core-math.md) |

@@ -67,6 +67,16 @@ result.
 | `write_line` | `write_line(f, s)` | Writes `s` (string) to `f` (file handle, opened writable/appendable) plus a trailing `\n`. Returns `Nothing`. |
 | `write_char` | `write_char(f, s)` | Writes `s` (string) to `f` (file handle, opened writable/appendable) with no newline added. Returns `Nothing`. |
 
+## Interactive input
+
+Not a file handle at all — reads one line typed by whoever is running the
+script right now, the way MATLAB's `input`/Python's `input()` do. Added in
+v0.3.0.
+
+| Function | Signature | Description |
+|---|---|---|
+| `read_input` | `read_input([prompt])` | Reads one line of interactive input, returned as a string with its trailing newline stripped. `prompt` (string, optional), if given, is printed first with no added newline. In a real terminal (`qu run`/`qu repl`) this reads real stdin directly; a host that isn't a terminal (e.g. a Jupyter kernel) can wire its own prompt/reply round-trip instead — see that host's own documentation for what "interactive" means there. Not called `input` (already the machine-learning pipeline's input-layer builtin) or `read_line` (already "read one line from an open file/URL-stream/serial handle") — both are unrelated existing meanings, not available for this. |
+
 Writing to a handle opened in `"r"` mode errors clearly rather than
 silently no-op'ing or panicking; the same holds for every write builtin
 below.
@@ -806,7 +816,7 @@ env = jsonify(3 + 4j)
 back = parse_json(env)
 print(env)          # {"type":"complex","re":3.0,"im":4.0}
 print(type(back))   # complex
-print(back)         # 3 + 4i
+print(back)         # 3 + 4j
 ```
 
 #### Case: ordinary JSON, no envelope

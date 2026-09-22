@@ -161,7 +161,7 @@ print(conj(5))   # 5
 alone.
 
 ```qu
-print(conj(3 + 4j))   # 3 - 4i
+print(conj(3 + 4j))   # 3 - 4j
 ```
 
 #### `sign`'s exact-zero case
@@ -261,7 +261,7 @@ the one reduction in this table that changes its own return *type* based
 on its input, rather than just its shape.
 
 ```qu
-print(sum([1 + 1j, 2 + 2j]))   # 3 + 3i
+print(sum([1 + 1j, 2 + 2j]))   # 3 + 3j
 ```
 
 #### Overloads: `max`

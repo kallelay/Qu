@@ -4643,8 +4643,8 @@ fn zero_regression_matrix_for_every_existing_binop_operand_type_combination() {
          [T, T]\n\
          [2, 3; 4, 5]\n\
          [1, 2; 3, 4]\n\
-         2 + 3i\n\
-         -5 + 10i\n\
+         2 + 3j\n\
+         -5 + 10j\n\
          xy\n\
          true\n\
          true\n"

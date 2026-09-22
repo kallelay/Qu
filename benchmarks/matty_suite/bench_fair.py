@@ -7,6 +7,7 @@ header for why: bench.py's per-kernel numbers include their own `randn`
 support a per-kernel claim.
 """
 
+import math
 import time
 
 import numpy as np
@@ -53,14 +54,26 @@ t_ac = best_of(make_arrays)
 print(f"array_creation    : {t_ac:.4f} s   (no rand, best of {REPS})")
 
 
+# Two deliberate departures from bench.py's loop kernel, both measured; see
+# bench_fair.qu's loop_performance comment for the numbers. Short version:
+# n=100_000 is at timer resolution, and MATLAB's JIT folds the closed-form
+# sum (47x apart from a non-foldable body at the same trip count), so a
+# plain `r += i` loop measures constant folding rather than throughput.
+# All three ports must print result = 60000003.
+N_LP = 20_000_000
+
+
 def loop():
     r = 0
-    for i in range(1, 100001):
-        r += i
+    for i in range(1, N_LP + 1):
+        r += i - 7 * math.floor(i / 7)
     return r
 
 
 t_lp = best_of(loop)
-print(f"loop_performance  : {t_lp:.4f} s   (best of {REPS}, result = {loop()})")
+print(
+    f"loop_performance  : {t_lp:.4f} s   "
+    f"(n={N_LP}, non-foldable, best of {REPS}, result = {loop()})"
+)
 
 print(f"total             : {t_mm + t_ew + t_fft + t_ac + t_lp:.4f} s")

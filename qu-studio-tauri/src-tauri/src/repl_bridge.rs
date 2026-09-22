@@ -190,6 +190,11 @@ fn parse_run_response(v: serde_json::Value, elapsed_ms: f64) -> ExecuteResponse 
         plots,
         variables,
         data,
+        // The persistent REPL kernel has no scratch run directory to scan
+        // (`collect_report_outputs` needs one) -- reports are a one-shot
+        // `qu run` artifact, not something the kernel protocol emits.
+        // Interactive Mode's Run button has no report-print surface yet.
+        reports: Vec::new(),
     }
 }
 
@@ -241,6 +246,7 @@ pub async fn repl_run(code: String, state: State<'_, ReplState>) -> Result<Execu
                 plots: Vec::new(),
                 variables: Vec::new(),
                 data: Vec::new(),
+                reports: Vec::new(),
             })
         }
     }

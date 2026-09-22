@@ -176,8 +176,17 @@ fn run() -> ExitCode {
     // plain `qu` binary has no footer, so this is a fast negative), which is
     // cheap next to the process startup it already pays.
     if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(script_bytes) = read_embedded_script(&exe_path) {
-            let result = run_embedded_script(&exe_path, script_bytes, args);
+        // Bundle format first (what `qu build` writes today), then the
+        // older single-script footer, so a binary built by an earlier `qu`
+        // keeps running unchanged.
+        let embedded = read_embedded_bundle(&exe_path)
+            .map(Embedded::Bundle)
+            .or_else(|| read_embedded_script(&exe_path).map(Embedded::Script));
+        if let Some(embedded) = embedded {
+            let result = match embedded {
+                Embedded::Bundle(b) => run_embedded_bundle(&exe_path, b, args),
+                Embedded::Script(s) => run_embedded_script(&exe_path, s, args),
+            };
             return match result {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(msg) => {
@@ -240,6 +249,154 @@ fn run() -> ExitCode {
     }
 }
 
+/// What a built binary found appended to itself, if anything.
+enum Embedded {
+    Bundle(Vec<(String, String)>),
+    Script(Vec<u8>),
+}
+
+/// Magic marker for a `qu build` BUNDLE footer — the current format.
+///
+/// A bundle carries the entry script *and every `.qu` file it transitively
+/// imports*, so the built binary is self-contained. `BUILD_FOOTER_MAGIC`
+/// below is the older single-script format, still read (never written) so
+/// a binary built by an older `qu` keeps running.
+const BUNDLE_FOOTER_MAGIC: &[u8; 8] = b"QUBUNDL\0";
+
+/// Serialise `files` as the bundle payload: a count, then per entry a
+/// length-prefixed forward-slash key and a length-prefixed source.
+///
+/// Hand-rolled rather than JSON because the reader runs on EVERY ordinary
+/// `qu` startup (the footer probe below), and because sources are
+/// arbitrary UTF-8 that a JSON escape pass would have to rewrite twice for
+/// no gain. All lengths are little-endian and fixed-width, so the format
+/// is byte-identical whatever platform builds it — which is what lets a
+/// bundle built on Windows be read by a Linux stub later.
+fn encode_bundle(files: &[(String, String)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&(files.len() as u64).to_le_bytes());
+    for (key, src) in files {
+        out.extend_from_slice(&(key.len() as u64).to_le_bytes());
+        out.extend_from_slice(key.as_bytes());
+        out.extend_from_slice(&(src.len() as u64).to_le_bytes());
+        out.extend_from_slice(src.as_bytes());
+    }
+    out
+}
+
+/// Inverse of `encode_bundle`. Returns `None` for anything malformed
+/// rather than panicking: this parses bytes found at the tail of an
+/// executable, which may be a foreign file that merely happens to end in
+/// the magic. Every length is bounds-checked against what is actually
+/// left, so a truncated or hostile payload cannot over-read.
+fn decode_bundle(bytes: &[u8]) -> Option<Vec<(String, String)>> {
+    fn take<'a>(b: &mut &'a [u8], n: usize) -> Option<&'a [u8]> {
+        if b.len() < n {
+            return None;
+        }
+        let (head, rest) = b.split_at(n);
+        *b = rest;
+        Some(head)
+    }
+    fn take_u64(b: &mut &[u8]) -> Option<u64> {
+        Some(u64::from_le_bytes(take(b, 8)?.try_into().ok()?))
+    }
+    let mut b = bytes;
+    let count = take_u64(&mut b)?;
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let klen = take_u64(&mut b)? as usize;
+        let key = String::from_utf8(take(&mut b, klen)?.to_vec()).ok()?;
+        let slen = take_u64(&mut b)? as usize;
+        let src = String::from_utf8(take(&mut b, slen)?.to_vec()).ok()?;
+        out.push((key, src));
+    }
+    Some(out)
+}
+
+/// Walk the transitive `import "..."` graph from `entry`, returning the
+/// entry script FIRST and then every file it reaches, each keyed relative
+/// to the entry's own directory.
+///
+/// Uses the real lexer and matches exactly what `qu-syntax` accepts as a
+/// file import — `import` (a true keyword) immediately followed by a
+/// `Str` token. Deliberately NOT an AST walk: `import` is an ordinary
+/// statement, so it can sit inside an `if` or a loop body, and a
+/// top-level-only walk would silently under-bundle exactly the case this
+/// whole change exists to fix. Scanning tokens over-approximates instead
+/// (it would also follow an import in dead code), and over-bundling is
+/// harmless where under-bundling ships a broken binary.
+///
+/// `RawStr` is not matched, because the parser does not accept it either:
+/// `import r"x.qu"` is read as a *native module name* and errors. Matching
+/// it here would bundle a file the interpreter will never ask for.
+fn collect_bundle(entry: &std::path::Path) -> Result<Vec<(String, String)>, String> {
+    use qu_lexer::Tok;
+    let root = entry
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .map(|d| d.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let entry_key = entry
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .ok_or_else(|| format!("{} has no file name", entry.display()))?;
+
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // (path on disk, key, directory its own imports resolve against)
+    let mut queue: Vec<(std::path::PathBuf, String)> = vec![(entry.to_path_buf(), entry_key)];
+
+    while let Some((path, key)) = queue.pop() {
+        if !seen.insert(key.clone()) {
+            continue;
+        }
+        let src = std::fs::read_to_string(&path)
+            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let dir = path
+            .parent()
+            .filter(|d| !d.as_os_str().is_empty())
+            .map(|d| d.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+        let toks = qu_lexer::lex(&src);
+        for w in toks.windows(2) {
+            let imported = match (&w[0].tok, &w[1].tok) {
+                (Tok::Keyword("import"), Tok::Str(p)) => p,
+                _ => continue,
+            };
+            let asked = std::path::Path::new(imported);
+            let full = if asked.is_relative() { dir.join(asked) } else { asked.to_path_buf() };
+            // The SAME function the interpreter will use at run time to
+            // turn a resolved path back into a key. Sharing it is the
+            // point: a build-time key and a run-time key computed by two
+            // different rules would miss, and miss silently.
+            let Some(k) = qu_interp::Interp::bundle_key(&root, &full) else {
+                return Err(format!(
+                    "import \"{imported}\" in {} resolves to {}, which is not reachable \
+                     from the project directory {} -- move it under the project, or \
+                     build from a directory that contains both",
+                    path.display(),
+                    full.display(),
+                    root.display()
+                ));
+            };
+            queue.push((full, k));
+        }
+        out.push((key, src));
+    }
+
+    // `out` came off a stack, so the entry script is not necessarily first
+    // -- and the runtime reads entry-first. Put it back where it belongs.
+    let entry_pos = out
+        .iter()
+        .position(|(k, _)| Some(k.as_str()) == entry.file_name().and_then(|n| n.to_str()))
+        .unwrap_or(0);
+    out.swap(0, entry_pos);
+    Ok(out)
+}
+
 /// Magic marker for a `qu build` footer — see `cmd_build`'s doc comment.
 /// 8 bytes, so it sits at a fixed offset from EOF alongside the following
 /// 8-byte little-endian script length (16-byte footer total).
@@ -255,6 +412,17 @@ const BUILD_FOOTER_MAGIC: &[u8; 8] = b"QUBUILD\0";
 /// corrupt/foreign file are treated the same way, since neither is a
 /// footer this build produced.
 fn read_embedded_script(exe_path: &std::path::Path) -> Option<Vec<u8>> {
+    read_footer_payload(exe_path, BUILD_FOOTER_MAGIC)
+}
+
+/// The bundle `qu build` appended to this binary, if it is a built one.
+/// Same 16-byte footer shape as the legacy single-script format, just a
+/// different magic and a structured payload -- see `decode_bundle`.
+fn read_embedded_bundle(exe_path: &std::path::Path) -> Option<Vec<(String, String)>> {
+    decode_bundle(&read_footer_payload(exe_path, BUNDLE_FOOTER_MAGIC)?)
+}
+
+fn read_footer_payload(exe_path: &std::path::Path, magic: &[u8; 8]) -> Option<Vec<u8>> {
     use std::io::{Read, Seek, SeekFrom};
     let mut f = std::fs::File::open(exe_path).ok()?;
     let file_len = f.metadata().ok()?.len();
@@ -265,7 +433,7 @@ fn read_embedded_script(exe_path: &std::path::Path) -> Option<Vec<u8>> {
     f.seek(SeekFrom::End(-(FOOTER_LEN as i64))).ok()?;
     let mut footer = [0u8; FOOTER_LEN as usize];
     f.read_exact(&mut footer).ok()?;
-    if &footer[0..8] != BUILD_FOOTER_MAGIC {
+    if &footer[0..8] != magic {
         return None;
     }
     let script_len = u64::from_le_bytes(footer[8..16].try_into().ok()?);
@@ -289,6 +457,36 @@ fn read_embedded_script(exe_path: &std::path::Path) -> Option<Vec<u8>> {
 /// is given the EXE's own path, not a source file's — imports in a built
 /// script resolve next to the binary, which is the only "beside the
 /// script" location that still exists once distributed.
+fn run_embedded_bundle(
+    exe_path: &std::path::Path,
+    bundle: Vec<(String, String)>,
+    script_args: Vec<String>,
+) -> Result<(), String> {
+    let mut files = bundle;
+    if files.is_empty() {
+        return Err("embedded bundle is empty".into());
+    }
+    // Entry first, by construction in `collect_bundle`.
+    let (_, entry_src) = files.remove(0);
+    let root = exe_path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .map(|d| d.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let mut it = qu_interp::Interp::new();
+    it.script_args = script_args;
+    // Still the exe's own directory: an `import` that is NOT in the bundle
+    // (added beside the binary after the fact) keeps resolving from disk
+    // exactly as before. The bundle is an overlay, not a replacement.
+    it.set_script_path(exe_path);
+    it.set_bundled_sources(&root, files.into_iter().collect());
+    it.run(&entry_src).map_err(|e| e.to_string())?;
+    print!("{}", it.out);
+    io::stdout().flush().ok();
+    Ok(())
+}
+
 fn run_embedded_script(exe_path: &std::path::Path, script_bytes: Vec<u8>, script_args: Vec<String>) -> Result<(), String> {
     let src = String::from_utf8(script_bytes)
         .map_err(|e| format!("embedded script is not valid UTF-8: {e}"))?;
@@ -330,7 +528,14 @@ fn cmd_build(args: &[String]) -> Result<(), String> {
         i += 1;
     }
     let path = path.ok_or("expected a file path")?;
-    let script_bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    // Every `.qu` the entry script transitively imports travels WITH it.
+    // Embedding only the entry script (the previous behaviour) produced a
+    // binary that ran correctly in its own source directory and failed
+    // anywhere else -- a build that reports success on the build machine
+    // and breaks on the target machine.
+    let bundle = collect_bundle(std::path::Path::new(path))?;
+    let module_count = bundle.len() - 1;
+    let payload = encode_bundle(&bundle);
 
     // `current_exe()` here is always a plain (footer-less) `qu` binary:
     // `run()` checks for a footer before argv dispatch ever reaches this
@@ -345,9 +550,9 @@ fn cmd_build(args: &[String]) -> Result<(), String> {
     let output_path = output.map(String::from).unwrap_or_else(|| default_build_output_path(path));
 
     let mut out_bytes = stub;
-    out_bytes.extend_from_slice(&script_bytes);
-    out_bytes.extend_from_slice(BUILD_FOOTER_MAGIC);
-    out_bytes.extend_from_slice(&(script_bytes.len() as u64).to_le_bytes());
+    out_bytes.extend_from_slice(&payload);
+    out_bytes.extend_from_slice(BUNDLE_FOOTER_MAGIC);
+    out_bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
 
     std::fs::write(&output_path, &out_bytes)
         .map_err(|e| format!("cannot write {output_path}: {e}"))?;
@@ -366,8 +571,77 @@ fn cmd_build(args: &[String]) -> Result<(), String> {
         }
     }
 
-    println!("wrote {output_path}");
+    // Naming the module count is not decoration: it is the one number
+    // that tells the user whether their `import`s were actually picked up.
+    match module_count {
+        0 => println!("wrote {output_path}"),
+        1 => println!("wrote {output_path} (1 imported module bundled)"),
+        n => println!("wrote {output_path} ({n} imported modules bundled)"),
+    }
+
+    // Say WHAT was embedded, not just that something was. The stub is a
+    // copy of the running `qu`, so the artifact silently inherits this
+    // binary's optimisation level and compiled-in features -- two choices
+    // the user never made here and cannot see by looking at the result.
+    println!("  interpreter: {}", stub_profile());
+    if cfg!(debug_assertions) {
+        // A warning rather than a note: the difference is large, it is
+        // invisible in the artifact, and it is inherited from whichever
+        // `qu` happened to be on PATH rather than chosen.
+        //
+        // Measured 2026-09-16, SAME tree and commit, the two binaries
+        // built minutes apart, interleaved in one window, best-of-3 on a
+        // 4M-iteration loop: total wall 664 ms debug vs 392 ms release
+        // (~1.7x); with process startup subtracted, the loop work itself
+        // is 519 ms vs 83 ms. Quote the range, not a single figure --
+        // release's own startup measured consistently HIGHER (259-308 ms
+        // vs 144-179 ms), which is unexplained and makes the subtracted
+        // number the noisier of the two. An earlier cross-vintage
+        // measurement of the same thing gave 438/237 and is superseded by
+        // this one; on this shared box absolute timings only mean
+        // anything against a baseline taken in the same window.
+        eprintln!("  warning: this is a DEBUG build of qu, so the artifact ships a debug");
+        eprintln!("           interpreter and will run markedly slower. Build with a");
+        eprintln!("           release qu (bash tools/build_qu.sh) to avoid this.");
+    }
     Ok(())
+}
+
+/// Human-readable description of the stub this `qu` would copy: its
+/// optimisation level and the optional modules compiled into it.
+///
+/// `qu build` copies `std::env::current_exe()`, so these are properties of
+/// the RUNNING binary, fixed at its own compile time -- which is why
+/// `cfg!` answers them correctly here, and why the artifact cannot differ
+/// from what this reports.
+fn stub_profile() -> String {
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+    let mut features: Vec<&str> = Vec::new();
+    if cfg!(feature = "xlsx") {
+        features.push("xlsx");
+    }
+    if cfg!(feature = "codec") {
+        features.push("codec");
+    }
+    if cfg!(feature = "gpu") {
+        features.push("gpu");
+    }
+    if cfg!(feature = "backend-torch") {
+        features.push("backend-torch");
+    }
+    if cfg!(feature = "h5-models") {
+        features.push("h5-models");
+    }
+    if cfg!(feature = "llm") {
+        features.push("llm");
+    }
+    let feat = if features.is_empty() { "none".to_string() } else { features.join(", ") };
+    // Naming an ABSENT capability that people actually reach for matters
+    // as much as naming the present ones: `gpu` is off by default, so a
+    // user wondering why their built tool has no GPU path needs to see it
+    // was never compiled in, rather than assume a runtime fallback.
+    let gpu_note = if cfg!(feature = "gpu") { "" } else { " (no gpu)" };
+    format!("qu {} {profile}, features: {feat}{gpu_note}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Default `qu build` output path: `<dir>/name.qu` -> `<dir>/name.exe` on

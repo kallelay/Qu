@@ -23,6 +23,9 @@ qu-interp = { path = "../qu-interp" }
 zeromq = { version = "0.6", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "signal"] }
 bytes = "1"
+# `StreamExt` for `stdin_sock.monitor()`'s event stream (`zeromq` already
+# depends on this internally, so it adds nothing new to the build).
+futures-util = { version = "0.3", default-features = false }
 
 serde = { version = "1", features = ["derive"] }
 # Same version qu-interp/qu-cli already pin, so this adds nothing new to the

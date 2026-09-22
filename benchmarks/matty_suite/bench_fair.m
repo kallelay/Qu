@@ -48,13 +48,19 @@ for r = 1:reps
 end
 fprintf('array_creation    : %.4f s   (no rand, best of %d)\n', best_ac, reps);
 
-% loop
-warm = 0; for i = 1:100000, warm = warm + i; end                      %#ok<NASGU>
+% loop -- non-foldable body at n = 20e6. See bench_fair.qu's loop_performance
+% comment. MATLAB is the reason this kernel changed: its JIT folds the
+% closed-form sum, so `result = result + i` at n=20e6 measures 0.0117 s
+% (~2 cycles/iteration) against 0.5462 s for `result = result + mod(i,7)` --
+% 47x apart at the same trip count. `i - 7*floor(i/7)` is the identical body
+% used in all three ports; all three must print result = 60000003.
+n_lp = 20000000;
+warm = 0; for i = 1:1000, warm = warm + i - 7*floor(i/7); end
 best_lp = inf;
 for r = 1:reps
-    tic; result = 0; for i = 1:100000, result = result + i; end; t = toc;
+    tic; result = 0; for i = 1:n_lp, result = result + i - 7*floor(i/7); end; t = toc;
     best_lp = min(best_lp, t);
 end
-fprintf('loop_performance  : %.4f s   (best of %d, result = %d)\n', best_lp, reps, result);
+fprintf('loop_performance  : %.4f s   (n=%d, non-foldable, best of %d, result = %d)\n', best_lp, n_lp, reps, result);
 
 fprintf('total             : %.4f s\n', best_mm + best_ew + best_fft + best_ac + best_lp);
