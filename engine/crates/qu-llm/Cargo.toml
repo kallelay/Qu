@@ -26,35 +26,41 @@ candle-transformers = "0.11"
 # `onig` affects actual pretokenizer *behavior* (not just training speed)
 # and `progressbar` is a real (if cosmetic) download-progress feature.
 tokenizers = { version = "0.22", default-features = false, features = ["onig", "progressbar"] }
-# Sync-only (`ureq`-backed) HF Hub client, for the one file this crate DOES
-# hand to it -- the big LFS-tracked `.gguf` blob, which downloads fine
-# through hf-hub's normal metadata/redirect path (LFS files redirect to a
-# fully-qualified CloudFront URL). hf-hub 0.3.2's DEFAULT feature is
-# `online` (ureq-backed sync client only) -- there's a SEPARATE, non-default
-# `tokio` feature for an async reqwest-based client, which this crate never
-# enables: no reason to pull an async runtime into `qu-interp`'s dependency
-# tree just for a model download. See `lib.rs`'s `fetch_tokenizer_json` doc
-# comment for why the tokenizer file is fetched by hand instead of through
-# this same client.
-hf-hub = "1.0"
-# Used directly (not just transitively via hf-hub's `ureq` feature) to fetch
-# `tokenizer.json` by hand -- see `lib.rs`'s `fetch_tokenizer_json` doc
-# comment for the hf-hub 0.3.2 bug this works around (its own redirect-
-# metadata code fails on a small, non-LFS file's relative `Location`
-# header; a plain `ureq::get(...).call()` follows the SAME redirect
-# correctly since it doesn't hand-parse the header at all).
+# `hf-hub` is NOT a dependency here (was, up to 0.3.2) -- 1.0.0 rewrote it
+# around an async-by-default `HFClient` (`reqwest`+`hyper`+`tokio`+`futures`
+# UNCONDITIONALLY in its Cargo.toml, even with default-features off; the
+# `blocking` feature only adds a sync wrapper on top of that same stack, via
+# `tokio/rt` -- checked hf-hub 1.0.0's own Cargo.toml before concluding
+# this, not guessed). That's exactly the async-runtime weight this crate
+# has always deliberately avoided (see `lib.rs`'s module doc comment), and
+# it doesn't buy anything this crate needs: `fetch_tokenizer_json` (below)
+# already proved a plain `ureq::get` fetches BOTH file classes this crate
+# downloads correctly by hand -- the tokenizer file since hf-hub 0.3.2 had
+# its own bug there, and per that same investigation the big LFS-tracked
+# `.gguf` blob's redirect (a fully-qualified CloudFront URL) was never
+# hf-hub-specific to begin with. `lib.rs` now fetches both files the same
+# way; hf-hub bought nothing beyond a cache-path convention this crate
+# replicates itself via `dirs` below.
 ureq = "3"
+# Only for `dirs::home_dir()`, to replicate hf-hub's own `$HF_HOME` (else
+# `~/.cache/huggingface/hub`) cache-root convention by hand -- see
+# `lib.rs`'s `hf_cache_root` doc comment. Tiny, sync, no transitive HTTP or
+# runtime dependencies of its own.
+dirs = "5"
 
-# hf-hub -> native-tls -> openssl-sys, for musl only (see below).
+# Historical note, kept because it's cheap insurance, not because qu-llm
+# itself needs it any more: this existed for hf-hub 0.3.2's native-tls ->
+# openssl-sys chain. hf-hub is gone from this crate's deps (see the `ureq`
+# comment above) and ureq 3's OWN default features are `["rustls",
+# "gzip"]` -- checked ureq 3.4.2's Cargo.toml -- so qu-llm's own musl build
+# needs no OpenSSL at all any more. Left in place because openssl-sys is
+# STILL in this workspace's Cargo.lock, via `tensorflow-sys` -> `curl-sys`
+# (the `backend-tensorflow` feature on `qu-interp`, off by default -- see
+# that feature's own doc comment) -- so if anyone ever builds this
+# workspace for musl WITH that feature on, this is what makes openssl-sys
+# vendor instead of failing to find a system OpenSSL. Not verified with a
+# real musl+backend-tensorflow build (that feature needs a real libtensorflow
+# install to build at all, on any target); if it turns out unnecessary,
+# removing it is safe on its own, no coupling to anything above.
 [target.'cfg(target_env = "musl")'.dependencies]
-# musl cross-compilation has no system OpenSSL for openssl-sys to link
-# against, and native-tls doesn't expose a "vendored" passthrough feature
-# of its own. Depending on `openssl` directly with `vendored` here turns
-# on openssl-sys's own vendored/build-from-source feature for this target
-# via Cargo's per-target feature unification (same openssl-sys version
-# already in the graph via native-tls) -- musl gets a real, statically
-# linked OpenSSL instead of failing to find one. Scoped to musl so other
-# targets (which don't hit this at all -- Windows/macOS native-tls uses
-# schannel/Security.framework, and glibc Linux has a system OpenSSL) don't
-# pay for a from-source OpenSSL build they don't need.
 openssl = { version = "0.10", features = ["vendored"] }

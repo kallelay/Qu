@@ -42,22 +42,13 @@
 //! different size/license tradeoff is wanted later -- swapping
 //! [`KnownModel`] entries is the only change needed, no architecture work.
 //!
-//! **The hf-hub redirect bug worked around here.** `hf-hub` 0.3.2's own
-//! `Api::get`/`download` path failed with "relative URL without a base" --
-//! NOT for the big GGUF model file (which downloaded fine) but for the
-//! small `tokenizer.json` fetched from a separate, non-GGUF repo. Traced by
-//! hand (`curl -sI` on the real resolve URL) to a genuine difference in how
-//! the HF Hub serves the two file classes: large LFS blobs 307-redirect to
-//! a fully-qualified CloudFront URL, while small non-LFS files now
-//! redirect to a *relative* `/api/resolve-cache/...` path. hf-hub's own
-//! metadata-probing code hand-parses the `Location` header as if it were
-//! already absolute and chokes on the relative case; a plain `ureq::get`
-//! (which resolves the redirect itself instead of hand-parsing the header)
-//! has no such bug -- confirmed by running both against the real network
-//! before picking this design (see [`fetch_tokenizer_json`]'s own doc
-//! comment). So: the big model file goes through `hf_hub::api::sync::Api`
-//! as normal; the tokenizer file is fetched by hand and cached next to
-//! hf-hub's own cache root.
+//! **No `hf-hub` dependency** (there was one, up to 0.3.2). Both files this
+//! crate downloads (the GGUF model blob and the tokenizer) go through a
+//! single hand-rolled `ureq` fetch, [`fetch_hf_file`] -- see its own doc
+//! comment for why: a real bug in hf-hub 0.3.2's own download path for one
+//! of the two file classes, and hf-hub 1.0's unconditional async-runtime
+//! dependency weight for the other, between them left nothing hf-hub was
+//! still buying this crate.
 //!
 //! **Lazy, on-demand loading.** Nothing in this crate touches the network,
 //! the filesystem beyond a cache-dir check, or allocates any model memory
@@ -73,7 +64,6 @@
 use candle_core::quantized::gguf_file;
 use candle_core::{Device, Tensor};
 use candle_transformers::models::quantized_llama::ModelWeights;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tokenizers::Tokenizer;
@@ -182,12 +172,8 @@ pub fn load(model_name_or_path: &str) -> Result<LlmModel, String> {
 }
 
 fn load_known(km: &KnownModel) -> Result<(PathBuf, Tokenizer), String> {
-    let api = hf_hub::api::sync::Api::new()
-        .map_err(|err| format!("llm_load: couldn't set up the Hugging Face cache: {err}"))?;
-    let gguf_path = api.model(km.gguf_repo.to_string()).get(km.gguf_file).map_err(|err| {
-        format!("llm_load: couldn't download `{}/{}`: {err}", km.gguf_repo, km.gguf_file)
-    })?;
-    let tok_path = fetch_tokenizer_json(km.tokenizer_repo, km.tokenizer_file)?;
+    let gguf_path = fetch_hf_file(km.gguf_repo, km.gguf_file)?;
+    let tok_path = fetch_hf_file(km.tokenizer_repo, km.tokenizer_file)?;
     let tokenizer = Tokenizer::from_file(&tok_path)
         .map_err(|err| format!("llm_load: couldn't parse tokenizer `{}`: {err}", tok_path.display()))?;
     Ok((gguf_path, tokenizer))
@@ -210,36 +196,73 @@ fn load_local(gguf_path_str: &str) -> Result<(PathBuf, Tokenizer), String> {
     Ok((gguf_path, tokenizer))
 }
 
-/// Downloads `tokenizer_file` from `repo`'s `main` branch with a plain
-/// blocking `ureq::get` instead of `hf_hub::api::sync::Api::get`.
+/// Where this crate caches its downloads. Replicates hf-hub 0.3.2's own
+/// `Cache::default()` path by hand (`$HF_HOME` if set, else
+/// `~/.cache/huggingface`, then `hub` -- checked hf-hub 0.3.2's own source
+/// before matching it, not guessed) now that hf-hub itself isn't a
+/// dependency any more (see [`fetch_hf_file`]'s doc comment for why) --
+/// matched so a custom `HF_HOME` is still respected, and files land next
+/// to wherever hf-hub itself would have put things, under this crate's own
+/// `qu-llm` subdirectory (see `fetch_hf_file` for why that's a flat layout
+/// rather than hf-hub's own snapshot/blob scheme).
+fn hf_cache_root() -> PathBuf {
+    let mut path = match std::env::var("HF_HOME") {
+        Ok(home) => PathBuf::from(home),
+        Err(_) => {
+            let mut cache = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+            cache.push(".cache");
+            cache.push("huggingface");
+            cache
+        }
+    };
+    path.push("hub");
+    path.push("qu-llm");
+    path
+}
+
+/// Downloads `file` from `repo`'s `main` branch with a plain blocking
+/// `ureq::get`, caching it under [`hf_cache_root`]. Used for BOTH files
+/// this crate downloads -- the tokenizer and the big GGUF model blob --
+/// which used to go through two different paths (hf-hub's own client for
+/// the model, this function only for the tokenizer) before hf-hub was
+/// dropped as a dependency entirely:
 ///
-/// hf-hub 0.3.2's own download path failed here with "relative URL without
-/// a base" -- confirmed by running it against the real network while
-/// building this crate (2026-08-27), for THIS file specifically, even
-/// though the same crate's API happily downloaded the much bigger GGUF
-/// model file moments earlier. `curl -sI` on the real resolve URL explained
-/// why: large LFS-tracked blobs 307-redirect to a fully-qualified
-/// CloudFront URL, but small, non-LFS files (like a plain `tokenizer.json`)
-/// now redirect to a *relative* path (`Location: /api/resolve-cache/...`).
-/// hf-hub's own redirect-metadata code calls `Url::parse` directly on that
-/// header as though it were already absolute, which is exactly what
-/// `RelativeUrlWithoutBase` means. A bare `ureq::get(...).call()` resolves
-/// the SAME redirect correctly (confirmed against the real URL) because it
-/// joins the `Location` header against the request's own base internally
-/// instead of hand-parsing it -- so this function just does that, and skips
-/// `hf_hub` entirely for this one file.
+/// - hf-hub 0.3.2's own `Api::get`/`download` path failed with "relative
+///   URL without a base" for the tokenizer file specifically (confirmed
+///   against the real network, 2026-08-27), even though the same call
+///   downloaded the much bigger GGUF model file moments earlier without
+///   issue. `curl -sI` on the real resolve URL explained why: large
+///   LFS-tracked blobs 307-redirect to a fully-qualified CloudFront URL,
+///   but small non-LFS files (a plain `tokenizer.json`) redirect to a
+///   *relative* path (`Location: /api/resolve-cache/...`). hf-hub's own
+///   redirect-metadata code calls `Url::parse` directly on that header as
+///   though it were already absolute, which is exactly what
+///   `RelativeUrlWithoutBase` means. A bare `ureq::get(...).call()`
+///   resolves the SAME redirect correctly for both file classes, because
+///   it joins the `Location` header against the request's own base
+///   internally instead of hand-parsing it.
+/// - hf-hub 1.0 rewrote the crate around an async-by-default `HFClient`.
+///   Checked hf-hub 1.0.0's own `Cargo.toml` before concluding this:
+///   `reqwest`+`hyper`+`tokio`+`futures` are unconditional dependencies
+///   even with default-features off, and the `blocking` feature only adds
+///   a sync wrapper on the SAME stack (`tokio/rt`) rather than avoiding
+///   it. That's exactly the async-runtime weight this crate has always
+///   deliberately avoided (see this module's own doc comment) -- and once
+///   the tokenizer fetch already had to be hand-rolled anyway, there was
+///   nothing left for hf-hub to buy the model-file fetch either.
 ///
-/// Cached by hand under a `qu-llm-tokenizers` directory next to hf-hub's
-/// own cache root (so it still respects a custom `HF_HOME`), keyed by repo
-/// name, so a second `load` call for the same known model doesn't
-/// re-download it.
-fn fetch_tokenizer_json(repo: &str, file: &str) -> Result<PathBuf, String> {
-    let cache_root = hf_hub::Cache::default()
-        .path()
-        .parent()
-        .map(|p| p.join("qu-llm-tokenizers"))
-        .unwrap_or_else(|| PathBuf::from(".qu-llm-tokenizers"));
-    let dest_dir = cache_root.join(repo.replace('/', "--"));
+/// **Cache layout note:** flat (`hf_cache_root()/{repo with `/` -> `--`}/
+/// {file}`), not hf-hub's own snapshot/blob/symlink scheme -- this cache is
+/// private to this crate (nothing else reads it) and only ever holds one
+/// model's worth of files, so there's no revision history or cross-repo
+/// blob-dedup to gain from replicating that generality. One real,
+/// understood cost: anyone who already had the GGUF model cached via
+/// hf-hub 0.3.2's own layout gets an orphaned old cache entry and a
+/// one-time re-download under the new flat layout -- accepted rather than
+/// reimplementing hf-hub's snapshot scheme by hand for a cache that never
+/// needed it.
+fn fetch_hf_file(repo: &str, file: &str) -> Result<PathBuf, String> {
+    let dest_dir = hf_cache_root().join(repo.replace('/', "--"));
     let dest = dest_dir.join(file);
     if dest.exists() {
         return Ok(dest);
@@ -247,10 +270,18 @@ fn fetch_tokenizer_json(repo: &str, file: &str) -> Result<PathBuf, String> {
     std::fs::create_dir_all(&dest_dir)
         .map_err(|err| format!("llm_load: couldn't create cache dir `{}`: {err}", dest_dir.display()))?;
     let url = format!("https://huggingface.co/{repo}/resolve/main/{file}");
-    let resp = ureq::get(&url).call().map_err(|err| format!("llm_load: couldn't download `{url}`: {err}"))?;
-    let mut bytes = Vec::new();
-    resp.into_reader()
-        .read_to_end(&mut bytes)
+    let mut resp = ureq::get(&url).call().map_err(|err| format!("llm_load: couldn't download `{url}`: {err}"))?;
+    // ureq 3's `Body::read_to_vec()` caps at 10MB by default (a real
+    // `request limit` error, caught by actually running this against the
+    // network -- the ~669MB GGUF blob is 65x over it; the tokenizer file
+    // is small enough it would never have hit this). 2GB is comfortably
+    // above any GGUF this crate's `KNOWN_MODELS` table is likely to name
+    // while still refusing to buffer an unbounded response into memory.
+    let bytes = resp
+        .body_mut()
+        .with_config()
+        .limit(2 * 1024 * 1024 * 1024)
+        .read_to_vec()
         .map_err(|err| format!("llm_load: couldn't read the response body from `{url}`: {err}"))?;
     std::fs::write(&dest, &bytes).map_err(|err| format!("llm_load: couldn't write `{}`: {err}", dest.display()))?;
     Ok(dest)
