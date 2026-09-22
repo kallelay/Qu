@@ -900,6 +900,11 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
         io::stdout().flush().ok();
     }
 
+    // Dispatch-phase breakdown (`QU_DPROF=1`, see `qu_interp::dprof`).
+    // stderr, so it can never contaminate a script's own stdout; the
+    // empty string when the variable is unset.
+    eprint!("{}", qu_interp::dprof::report());
+
     if let Some(fig_path) = emit_figure {
         // Every figure the script produced, not just the last one. A script
         // that draws, says `show`, then draws again has made TWO figures;

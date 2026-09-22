@@ -343,6 +343,11 @@ pub mod gpu_probe;
 #[cfg(feature = "llm")]
 pub mod llm_bridge;
 
+/// Dispatch-phase profiler (`QU_DPROF=1`), measurement scaffolding for the
+/// `claude/dispatch-cost-breakdown` lane -- see its own module doc comment.
+/// Inert unless the environment variable is set.
+pub mod dprof;
+
 /// Shared native/WASM numerical semantics. Interpreter builtins migrate to
 /// these functions instead of growing a second implementation.
 pub use qu_core as numeric;
@@ -8009,7 +8014,10 @@ impl Interp {
                     })?;
                     self.binop(op, cur, v)?
                 };
-                self.var_set(name, v);
+                {
+                    let _dp = dprof::region(dprof::p::ASSIGN_STORE);
+                    self.var_set(name, v);
+                }
                 Ok(())
             }
             Stmt::IndexAssign {
@@ -9324,8 +9332,15 @@ impl Interp {
                     let right = self.eval(rhs)?;
                     return Ok(Value::Bool(truthy(&right)));
                 }
-                let a = self.eval(lhs)?;
-                let b = self.eval(rhs)?;
+                let _dp_bin = dprof::region(dprof::p::BIN_OTHER);
+                let a = {
+                    let _dp = dprof::region(dprof::p::BIN_OPERANDS);
+                    self.eval(lhs)
+                }?;
+                let b = {
+                    let _dp = dprof::region(dprof::p::BIN_OPERANDS);
+                    self.eval(rhs)
+                }?;
                 if matches!(a, Value::Tensor(_)) || matches!(b, Value::Tensor(_)) {
                     self.tensor_binop(op, a, b)
                 } else if is_operator_overload_candidate(&a) || is_operator_overload_candidate(&b) {
@@ -9359,7 +9374,10 @@ impl Interp {
                 let a = self.eval(lhs)?;
                 if matches!(a, Value::Nothing) { self.eval(rhs) } else { Ok(a) }
             }
-            Expr::Call { callee, args } => self.eval_call(callee, args),
+            Expr::Call { callee, args } => {
+                let _dp = dprof::region(dprof::p::CALL_OTHER);
+                self.eval_call(callee, args)
+            }
             Expr::Index { value, indices } => self.eval_index(value, indices),
             Expr::Field { value, name } => {
                 let v = self.eval(value)?;
@@ -10220,6 +10238,7 @@ impl Interp {
     /// columns straight from this list, and column order must be
     /// deterministic (a `HashMap`'s iteration order isn't).
     fn eval_call_args(&mut self, args: &[Arg]) -> R<(Vec<Value>, Option<u64>, Option<usize>, Vec<(String, Value)>)> {
+        let _dp = dprof::region(dprof::p::CALL_ARGS);
         let mut argv = Vec::new();
         let mut seed: Option<u64> = None;
         let mut axis: Option<usize> = None;
@@ -11864,6 +11883,7 @@ impl Interp {
     }
 
     fn binop(&self, op: &str, a: Value, b: Value) -> R<Value> {
+        let _dp = dprof::region(dprof::p::BIN_BINOP);
         // String concatenation: `+` with either side a `Str` renders the
         // other side the same way `print` would, rather than falling into
         // the numeric `map2` path below (which would reject a `Str` operand
@@ -15103,13 +15123,19 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         if let Some(q) = self.open_module_name(f).map_err(|msg| EvalError { msg })? {
             return self.call_builtin(&q, args, seed, style);
         }
+        let dp_pro = dprof::region(dprof::p::CALL_PROLOGUE);
         self.warn_deprecated(f);
         let n_pos = args.len();
         let keys: Vec<String> = style.iter().map(|(k, _)| k.clone()).collect();
         take_color_error();
         let pos = ArgFrame::push();
         let kw = StyleFrame::push();
-        let out = self.dispatch_builtin(f, args, seed, style);
+        drop(dp_pro);
+        let out = {
+            let _dp = dprof::region(dprof::p::CALL_DISPATCH);
+            self.dispatch_builtin(f, args, seed, style)
+        };
+        let _dp_epi = dprof::region(dprof::p::CALL_EPILOGUE);
         if out.is_ok() {
             let read = kw.keys_read();
             let reads = pos.reads();
@@ -18554,13 +18580,16 @@ self.eval_grad(loss, wrt)
             // the same `tic()` (matches MATLAB, useful for lap-timing a loop).
             "tic" => {
                 self.tic_start = Some(std::time::Instant::now());
+                dprof::lap_start();
                 Ok(Value::Nothing)
             }
             "toc" => {
                 let start = self.tic_start.ok_or_else(|| EvalError {
                     msg: "toc() called before tic()".into(),
                 })?;
-                Ok(Value::Num(start.elapsed().as_secs_f64()))
+                let elapsed = start.elapsed().as_secs_f64();
+                dprof::lap_end(elapsed);
+                Ok(Value::Num(elapsed))
             }
             // `profile_start()`/`profile_end(handle)` -- a named-window
             // counterpart to `tic`/`toc` above. `tic`/`toc` are a single
@@ -42598,7 +42627,10 @@ fn map1(v: Value, g: impl Fn(f64) -> f64 + Sync + Send) -> R<Value> {
         Value::Num(x) => Ok(Value::Num(g(x))),
         Value::Bool(b) => Ok(Value::Num(g(if b { 1.0 } else { 0.0 }))),
         Value::Vec(xs) => Ok(Value::Vec(Arc::new(xs.iter().copied().map(g).collect()))),
-        Value::Mat(m) => Ok(Value::Mat(Arc::new(m.map(g)))),
+        Value::Mat(m) => Ok(Value::Mat(Arc::new({
+            let _dp = dprof::region(dprof::p::MAP1_KERNEL);
+            m.map(g)
+        }))),
         // elemental math on a signal keeps its Fs (Â§41.2): `sin(x)`, `-x`,
         // `sqrt(x)`, â€¦ are all still sampled at the same rate as `x`.
         //
@@ -42820,14 +42852,93 @@ fn signal_binop(op: &str, a: Value, b: Value) -> R<Value> {
 /// not a closure capturing `a`/`b`: each `matrix_binop` match arm below
 /// needs to move `a`/`b` independently (some call this, some don't, some
 /// pattern-match on them first), which a shared capturing closure can't do.
+/// Either a borrow of a `Value::Mat`'s existing buffer or a freshly built
+/// one. Exists ONLY for the `QU_EW_BORROW=1` intervention experiment
+/// described on `matrix_ew`.
+enum EwOperand<'a> {
+    Borrowed(&'a Matrix),
+    Owned(Matrix),
+}
+
+impl std::ops::Deref for EwOperand<'_> {
+    type Target = Matrix;
+    fn deref(&self) -> &Matrix {
+        match self {
+            EwOperand::Borrowed(m) => m,
+            EwOperand::Owned(m) => m,
+        }
+    }
+}
+
+/// `QU_EW_BORROW=1` — an INTERVENTION, not a proposed fix.
+///
+/// `orient_vec_for_broadcast` returns an owned `Matrix`, and for a
+/// `Value::Mat` that means `Arc::try_unwrap(...).unwrap_or_else(clone)`:
+/// a full deep copy whenever the `Arc` is still held by a live variable,
+/// which is exactly what `A .* B` on two named variables does. But
+/// `Matrix::broadcast` only ever takes `&Matrix`. So the copy buys
+/// nothing, and switching it off is the cleanest way to test whether the
+/// profiler's `orient` bucket is causally responsible for the time it is
+/// charged: if it is, turning this on must remove that bucket AND the
+/// matching slice of wall time together.
+fn ew_borrow_enabled() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("QU_EW_BORROW").is_some())
+}
+
 fn matrix_ew(a: Value, b: Value, f: fn(f64, f64) -> f64) -> R<Value> {
+    let _dp = dprof::region(dprof::p::EW_OTHER);
     let (b_rows, b_cols) = shape_of(&b);
     let (a_rows, a_cols) = shape_of(&a);
-    let am = orient_vec_for_broadcast(a, b_rows, b_cols).map_err(|m| EvalError { msg: m })?;
-    let bm = orient_vec_for_broadcast(b, a_rows, a_cols).map_err(|m| EvalError { msg: m })?;
-    let out = am.broadcast(&bm, f).map_err(|se| EvalError {
+    if ew_borrow_enabled() {
+        // Same two probes in the same two places, so the A/B comparison
+        // is like-for-like: only the copy is gone.
+        let am = {
+            let _dp = dprof::region(dprof::p::EW_ORIENT_L);
+            match &a {
+                Value::Mat(m) => EwOperand::Borrowed(m.as_ref()),
+                other => EwOperand::Owned(
+                    orient_vec_for_broadcast(other.clone(), b_rows, b_cols)
+                        .map_err(|m| EvalError { msg: m })?,
+                ),
+            }
+        };
+        let bm = {
+            let _dp = dprof::region(dprof::p::EW_ORIENT_R);
+            match &b {
+                Value::Mat(m) => EwOperand::Borrowed(m.as_ref()),
+                other => EwOperand::Owned(
+                    orient_vec_for_broadcast(other.clone(), a_rows, a_cols)
+                        .map_err(|m| EvalError { msg: m })?,
+                ),
+            }
+        };
+        let out = {
+            let _dp = dprof::region(dprof::p::EW_KERNEL);
+            am.broadcast(&bm, f)
+        }
+        .map_err(|se| EvalError { msg: se.to_string() })?;
+        let _dp_wrap = dprof::region(dprof::p::EW_WRAP);
+        return Ok(mat_value(out));
+    }
+    let am = {
+        let _dp = dprof::region(dprof::p::EW_ORIENT_L);
+        orient_vec_for_broadcast(a, b_rows, b_cols)
+    }
+    .map_err(|m| EvalError { msg: m })?;
+    let bm = {
+        let _dp = dprof::region(dprof::p::EW_ORIENT_R);
+        orient_vec_for_broadcast(b, a_rows, a_cols)
+    }
+    .map_err(|m| EvalError { msg: m })?;
+    let out = {
+        let _dp = dprof::region(dprof::p::EW_KERNEL);
+        am.broadcast(&bm, f)
+    }
+    .map_err(|se| EvalError {
         msg: se.to_string(),
     })?;
+    let _dp_wrap = dprof::region(dprof::p::EW_WRAP);
     Ok(mat_value(out))
 }
 
