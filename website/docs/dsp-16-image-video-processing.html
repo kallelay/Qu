@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image & Video Processing — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html" class="here">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Image & Video Processing</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">The limit of a still image</a></nav>
+<p>A photograph is a signal like any other in this course, carried on two axes instead of one. A grayscale image is a value — brightness — that varies across row and column; a colour image stacks three of those. Nothing about convolution, filtering, or frequency content required that the independent variable be time.</p>
+<h2 id="s0">The idea</h2>
+<p><strong>Two-dimensional convolution.</strong> An LTI system is a moving weighted sum of a signal's neighbours. A 2-D kernel \(h\) runs that same operation across both axes of an image \(x\) at once:</p>
+<p>\[ y[r,c] = \sum_{i}\sum_{j} h[i,j]\, x[r-i,\, c-j] \]</p>
+<p>Every output pixel is a weighted sum of a small neighbourhood of input pixels, the weights fixed by \(h\). A kernel of nine equal, positive weights averages a 3x3 neighbourhood — the 2-D counterpart of a moving-average low-pass filter. A kernel built from the discrete Laplacian, which subtracts each pixel's neighbours from itself, is a high-pass filter: flat regions cancel to near zero, sudden intensity changes do not.</p>
+<p>\[ \nabla^2 x[r,c] \;\approx\; x[r+1,c] + x[r-1,c] + x[r,c+1] + x[r,c-1] - 4\,x[r,c] \]</p>
+<p>Run over a whole image, that subtraction *is* edge detection: the same high-pass idea from earlier lessons, carrying a second subscript.</p>
+<p><strong>Segmentation.</strong> Once a feature like an edge is enhanced, three generic steps turn pixels into objects: <strong>threshold</strong> the image into foreground and background, <strong>label</strong> each connected group of foreground pixels with its own integer, and <strong>measure</strong> each region's area, centroid, and bounding box. This segment-then-measure pipeline is the same one that turns a microscopy slide into a cell count, or a satellite photo into a field boundary map — the underlying arithmetic does not know or care what the blobs represent.</p>
+<p>The threshold is often chosen automatically rather than hand-picked. Nobuyuki Otsu's 1979 method treats every possible cut point as a candidate split of the image's own brightness histogram into two classes, and picks the one that minimizes the intensity variance within each class while maximizing the variance between them — no manual tuning, no assumption about the scene beyond "two classes exist." A threshold chosen this way adapts automatically to a brighter room, a dirtier lens, or a different exposure, which a fixed hand-picked cutoff cannot.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">1</span>)
+M = <span class="f">zeros</span>(<span class="n">9</span>, <span class="n">9</span>)
+<span class="k">for</span> r = <span class="n">0</span> <span class="k">to</span> <span class="n">8</span>
+    <span class="k">for</span> c = <span class="n">0</span> <span class="k">to</span> <span class="n">8</span>
+        M[r, c] = <span class="n">40</span>
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="k">for</span> r = <span class="n">3</span> <span class="k">to</span> <span class="n">5</span>
+    <span class="k">for</span> c = <span class="n">3</span> <span class="k">to</span> <span class="n">5</span>
+        M[r, c] = <span class="n">220</span>
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+img = <span class="f">image_from_matrix</span>(M)
+<span class="f">imshow</span>(img)
+<span class="f">xlabel</span>(<span class="s">"column (px)"</span>)
+<span class="f">ylabel</span>(<span class="s">"row (px)"</span>)
+</code></pre>
+<figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="244.61" y="48.00" width="480.84" height="480.84" href="data:image/bmp;base64,Qk0yAQAAAAAAADYAAAAoAAAACQAAAAkAAAABABgAAAAAAPwAAAATCwAAEwsAAAAAAAAAAAAAKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgAKCgoKCgoKCgo3Nzc3Nzc3NzcKCgoKCgoKCgoACgoKCgoKCgoKNzc3Nzc3Nzc3CgoKCgoKCgoKAAoKCgoKCgoKCjc3Nzc3Nzc3NwoKCgoKCgoKCgAKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgA" preserveAspectRatio="none"/>
+</svg></figure></div>
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">imshow</span>(<span class="f">blur</span>(img))
+<span class="f">xlabel</span>(<span class="s">"column (px)"</span>)
+<span class="f">ylabel</span>(<span class="s">"row (px)"</span>)
+<span class="f">title</span>(<span class="s">"blur kernel"</span>)
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">imshow</span>(<span class="f">edge_detect</span>(img))
+<span class="f">xlabel</span>(<span class="s">"column (px)"</span>)
+<span class="f">ylabel</span>(<span class="s">"row (px)"</span>)
+<span class="f">title</span>(<span class="s">"edge kernel"</span>)
+</code></pre>
+<figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="104.06" y="127.95" width="320.94" height="320.94" href="data:image/bmp;base64,Qk0yAQAAAAAAADYAAAAoAAAACQAAAAkAAAABABgAAAAAAPwAAAATCwAAEwsAAAAAAAAAAAAAKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCg8PDxQUFBkZGRQUFA8PDwoKCgoKCgAKCgoKCgoUFBQeHh4oKCgeHh4UFBQKCgoKCgoACgoKCgoKGRkZKCgoNzc3KCgoGRkZCgoKCgoKAAoKCgoKChQUFB4eHigoKB4eHhQUFAoKCgoKCgAKCgoKCgoPDw8UFBQZGRkUFBQPDw8KCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgA" preserveAspectRatio="none"/>
+<text x="264.53" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">blur kernel</text>
+<image x="545.06" y="127.95" width="320.94" height="320.94" href="data:image/bmp;base64,Qk0yAQAAAAAAADYAAAAoAAAACQAAAAkAAAABABgAAAAAAPwAAAATCwAAEwsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////tLS0////AAAAAAAAAAAAAAAAAAAAAAAAALS0tAAAALS0tAAAAAAAAAAAAAAAAAAAAAAAAAD///+0tLT///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" preserveAspectRatio="none"/>
+<text x="705.53" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">edge kernel</text>
+</svg></figure></div>
+<p>One synthetic image, two kernels: the box-average kernel spreads the bright square's energy into its surroundings, while the Laplacian kernel keeps only its boundary. Both are the same equation above, read off with different weights.</p>
+<h2 id="s26">In Qu</h2>
+<p>Build a 40x40 field with a filled 16x16 bright square, run Qu's built-in Laplacian kernel (<code>edge_detect</code>), then segment and measure what survives, rather than eyeballing it:</p>
+<div class="example hasout"><pre class="hl"><code>w = <span class="n">40</span>
+h = <span class="n">40</span>
+bg = <span class="n">30</span>
+fg = <span class="n">220</span>
+
+M = <span class="f">zeros</span>(h, w)
+<span class="k">for</span> r <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> h - <span class="n">1</span>
+    <span class="k">for</span> c <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> w - <span class="n">1</span>
+        M[r, c] = bg
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="k">for</span> r <span class="k">in</span> <span class="n">12</span> <span class="k">to</span> <span class="n">27</span>
+    <span class="k">for</span> c <span class="k">in</span> <span class="n">12</span> <span class="k">to</span> <span class="n">27</span>
+        M[r, c] = fg
+    <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+
+img = <span class="f">image_from_matrix</span>(M)
+edges = <span class="f">edge_detect</span>(img)
+<span class="f">imshow</span>(edges)
+<span class="f">xlabel</span>(<span class="s">"column (px)"</span>)
+<span class="f">ylabel</span>(<span class="s">"row (px)"</span>)
+
+level = <span class="f">otsu_threshold</span>(edges)
+mask = <span class="f">threshold</span>(edges, level)
+labeled = <span class="f">bwlabel</span>(mask)
+stats = <span class="f">regionprops</span>(labeled)
+
+square_area = <span class="n">16</span> * <span class="n">16</span>
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> labeled.count
+    r = stats[i - <span class="n">1</span>]
+    <span class="f">print</span>(<span class="s">"blob {r.label}: {r.area} px, centroid ({r.centroid_x}, {r.centroid_y})"</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"filled square interior: {square_area} px"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>blob 1: 60 px, centroid (19.5, 19.5)
+filled square interior: 256 px</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="104.06" y="127.95" width="320.94" height="320.94" href="data:image/bmp;base64,Qk0yAQAAAAAAADYAAAAoAAAACQAAAAkAAAABABgAAAAAAPwAAAATCwAAEwsAAAAAAAAAAAAAKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCg8PDxQUFBkZGRQUFA8PDwoKCgoKCgAKCgoKCgoUFBQeHh4oKCgeHh4UFBQKCgoKCgoACgoKCgoKGRkZKCgoNzc3KCgoGRkZCgoKCgoKAAoKCgoKChQUFB4eHigoKB4eHhQUFAoKCgoKCgAKCgoKCgoPDw8UFBQZGRkUFBQPDw8KCgoKCgoACgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgA" preserveAspectRatio="none"/>
+<text x="264.53" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">blur kernel</text>
+<image x="545.06" y="127.95" width="320.94" height="320.94" href="data:image/bmp;base64,Qk32EgAAAAAAADYAAAAoAAAAKAAAACgAAAABABgAAAAAAMASAAATCwAAEwsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvr6+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" preserveAspectRatio="none"/>
+<text x="705.53" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">edge kernel</text>
+</svg></figure></div>
+<pre><code>blob 1: 60 px, centroid (19.5, 19.5)
+filled square interior: 256 px
+</code></pre>
+<p>The source square holds 256 filled pixels; edge detection followed by Otsu's threshold kept exactly 60 of them — a single connected ring, roughly the square's perimeter (4x16 minus double-counted corners) — and discarded the 196-pixel flat interior, where \(\nabla^2 x = 0\) and nothing distinguishes one pixel from its neighbour. <code>bwlabel</code> assigned that ring one connected-component label; <code>regionprops</code> measured its centroid at \((19.5,\ 19.5)\), the exact geometric centre of the original 12-to-27 block, computed from under a quarter of the original pixel budget. For a task like locating an object, the interior was never carrying information the boundary didn't already have.</p>
+<p>Not every task wants edges. If the goal were contrast rather than shape, the tool would be <code>imadjust</code> or <code>histeq</code> instead of <code>edge_detect</code> — both documented alongside it, both measurable the same way, by comparing <code>imhist</code> before and after. One worked example cannot carry every kernel in the library; what it can show is that they all resolve to the convolution equation above, read off differently.</p>
+<h2 id="s50">The limit of a still image</h2>
+<p>Everything above ran on one frame. Qu's image chapter reads and writes exactly two file formats, PNG and BMP — both still-frame formats — and the standard library has no <code>Video</code> type, no <code>load_video</code>, no codec, no frame iterator. Every operation in this lesson is something you would run once per frame, in a loop; Qu offers no help with anything that spans frames — tracking a blob across time, or finding what changed between one frame and the next. That gap points at the next kind of signal this course turns to: one that changes its own frequency content every 20 to 40 milliseconds, whether or not anyone is watching in real time. Lesson 17 opens a microphone.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

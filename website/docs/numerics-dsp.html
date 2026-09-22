@@ -61,6 +61,34 @@
 <li><a href="tour.html">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
@@ -331,7 +359,7 @@ er = <span class="f">eig</span>(rot)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>eigenvalues = [2, 3]
 eigenvectors = [1, 0; 0, 1]
-complex eigenvalues = [1i, -1i]
+complex eigenvalues = [1j, -1j]
 eigenvectors = none</pre></div></div>
 <h2 id="s107">3. Complex matrices</h2>
 <p>Complex literals inside a matrix promote the whole literal to complex:</p>
@@ -344,7 +372,7 @@ D <span class="k">as</span> <span class="f">vector</span>(<span class="n">2</spa
 E2 = (C.H * C)^-<span class="n">1</span> * C.H * D
 <span class="f">print</span>(<span class="s">"E2 = {E2}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>E2 = [-1.25 - 3.5i; 0.75 + 1i]</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>E2 = [-1.25 - 3.5j; 0.75 + 1j]</pre></div></div>
 <pre><code>E2 = [-1.25 - 3.5i; 0.75 + 1i]
 </code></pre>
 <p><strong>A genuine mathematical trap, not a Qu bug:</strong> if your data matrix has fewer independent rows than columns, <code>AᴴA</code> is rank-deficient and its inverse does not exist — Qu raises a clear "matrix is singular" error rather than a silently wrong answer. This is correct behavior: a single 2-element row vector <code>C = [1+2j, 3+4j]</code> has <code>CᵀC</code> as a rank-1 outer product, which a 2×2 inverse cannot resolve, regardless of what language you're doing the algebra in.</p>

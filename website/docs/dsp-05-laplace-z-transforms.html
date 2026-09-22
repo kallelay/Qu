@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laplace & Z-Transforms — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html" class="here">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Laplace & Z-Transforms</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>A plucked guitar string rings and dies away. A microphone held too close to its own speaker rings and grows, into feedback. Both are the natural response of a system left alone after a single disturbance; one decays toward silence, the other explodes.</p>
+<p>Lesson 4 built everything from \(e^{-j2\pi ft}\), a complex exponential that only spins in place at constant radius — a pure, undying tone. It has no way to represent decay or growth. Give it a partner: a plain real exponential \(e^{\sigma t}\), which shrinks when \(\sigma &lt; 0\) and grows when \(\sigma &gt; 0\), and multiply the two:</p>
+<p>\[ e^{\sigma t}\, e^{j\omega t} = e^{(\sigma + j\omega)t} \]</p>
+<p>The result is a spiral rather than a circle — still turning at rate \(\omega\), but its radius shrinking or growing at rate \(\sigma\) as it turns. A decaying string is a spiral winding inward; feedback is a spiral winding outward; a pure Fourier tone is the special case \(\sigma = 0\), where the spiral degenerates back into a circle.</p>
+<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">200</span>) / <span class="n">200</span> * <span class="n">2</span>
+decaying = <span class="f">exp</span>(-<span class="n">2</span> * t) .* <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+steady = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+growing = <span class="f">exp</span>(<span class="n">0.8</span> * t) .* <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)
+<span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t, decaying, <span class="a">label</span> = <span class="s">"sigma &lt; 0"</span>)
+<span class="f">plot</span>(t, steady, <span class="a">label</span> = <span class="s">"sigma = 0"</span>)
+<span class="f">plot</span>(t, growing, <span class="a">label</span> = <span class="s">"sigma &gt; 0"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+
+theta = (<span class="n">0</span> <span class="k">to</span> <span class="n">100</span>) / <span class="n">100</span> * <span class="n">2</span> * pi
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">plot</span>(<span class="f">cos</span>(theta), <span class="f">sin</span>(theta), <span class="a">label</span> = <span class="s">"unit circle"</span>)
+<span class="f">scatter</span>([<span class="n">0.7</span>], [<span class="n">0</span>], <span class="a">label</span> = <span class="s">"stable pole"</span>)
+<span class="f">scatter</span>([<span class="n">1.2</span>, <span class="n">1.2</span>], [<span class="n">0.3</span>, -<span class="n">0.3</span>], <span class="a">label</span> = <span class="s">"unstable poles"</span>)
+<span class="f">xlabel</span>(<span class="s">"Re"</span>)
+<span class="f">ylabel</span>(<span class="s">"Im"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (201 points)
+· plot: figure 2 (201 points)
+· plot: figure 3 (201 points)
+· plot: figure 4 (101 points)
+· scatter: figure 5 (1 points)
+· scatter: figure 6 (2 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="526.62" x2="425.00" y2="526.62" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="526.62" x2="104.06" y2="526.62" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="532.29" font-size="16.2" text-anchor="end" fill="#4d4d4d">-5</text>
+<line x1="104.06" y1="480.73" x2="425.00" y2="480.73" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="480.73" x2="104.06" y2="480.73" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="486.40" font-size="16.2" text-anchor="end" fill="#4d4d4d">-4</text>
+<line x1="104.06" y1="434.84" x2="425.00" y2="434.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="434.84" x2="104.06" y2="434.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="440.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">-3</text>
+<line x1="104.06" y1="388.94" x2="425.00" y2="388.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="388.94" x2="104.06" y2="388.94" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="394.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">-2</text>
+<line x1="104.06" y1="343.05" x2="425.00" y2="343.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="343.05" x2="104.06" y2="343.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="348.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1</text>
+<line x1="104.06" y1="297.16" x2="425.00" y2="297.16" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="297.16" x2="104.06" y2="297.16" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="302.83" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="251.27" x2="425.00" y2="251.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="251.27" x2="104.06" y2="251.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="256.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">1</text>
+<line x1="104.06" y1="205.38" x2="425.00" y2="205.38" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="205.38" x2="104.06" y2="205.38" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="211.05" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
+<line x1="104.06" y1="159.48" x2="425.00" y2="159.48" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="159.48" x2="104.06" y2="159.48" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="165.15" font-size="16.2" text-anchor="end" fill="#4d4d4d">3</text>
+<line x1="104.06" y1="113.59" x2="425.00" y2="113.59" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="113.59" x2="104.06" y2="113.59" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="119.26" font-size="16.2" text-anchor="end" fill="#4d4d4d">4</text>
+<line x1="104.06" y1="67.70" x2="425.00" y2="67.70" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="67.70" x2="104.06" y2="67.70" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="73.37" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="195.76" y1="48.00" x2="195.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="195.76" y1="528.84" x2="195.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="195.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="287.46" y1="48.00" x2="287.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="287.46" y1="528.84" x2="287.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="287.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.2</text>
+<line x1="379.15" y1="48.00" x2="379.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="379.15" y1="528.84" x2="379.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="379.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.8</text>
+<line x1="104.06" y1="528.84" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="425.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="425.00" y1="48.00" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-32094-48084"><rect x="104.06" y="48.00" width="320.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-32094-48084)">
+<polyline points="104.06,251.27 105.59,254.38 107.12,261.49 108.65,271.76 110.18,284.07 111.70,297.16 113.23,309.74 114.76,320.61 116.29,328.80 117.82,333.62 119.35,334.73 120.87,332.19 122.40,326.37 123.93,317.96 125.46,307.88 126.99,297.16 128.51,286.86 130.04,277.96 131.57,271.26 133.10,267.31 134.63,266.40 136.16,268.48 137.68,273.25 139.21,280.13 140.74,288.38 142.27,297.16 143.80,305.59 145.33,312.88 146.85,318.37 148.38,321.60 149.91,322.35 151.44,320.64 152.97,316.74 154.50,311.10 156.02,304.34 157.55,297.16 159.08,290.26 160.61,284.29 162.14,279.80 163.67,277.15 165.19,276.54 166.72,277.94 168.25,281.13 169.78,285.75 171.31,291.28 172.83,297.16 174.36,302.81 175.89,307.70 177.42,311.38 178.95,313.54 180.48,314.04 182.00,312.90 183.53,310.28 185.06,306.51 186.59,301.98 188.12,297.16 189.65,292.53 191.17,288.53 192.70,285.52 194.23,283.75 195.76,283.34 197.29,284.27 198.82,286.42 200.34,289.51 201.87,293.22 203.40,297.16 204.93,300.95 206.46,304.22 207.99,306.69 209.51,308.14 211.04,308.48 212.57,307.71 214.10,305.96 215.63,303.42 217.15,300.39 218.68,297.16 220.21,294.06 221.74,291.38 223.27,289.36 224.80,288.17 226.32,287.89 227.85,288.52 229.38,289.96 230.91,292.03 232.44,294.52 233.97,297.16 235.49,299.70 237.02,301.89 238.55,303.55 240.08,304.52 241.61,304.75 243.14,304.23 244.66,303.06 246.19,301.36 247.72,299.32 249.25,297.16 250.78,295.08 252.31,293.28 253.83,291.93 255.36,291.13 256.89,290.95 258.42,291.37 259.95,292.33 261.47,293.72 263.00,295.39 264.53,297.16 266.06,298.86 267.59,300.33 269.12,301.44 270.64,302.09 272.17,302.24 273.70,301.90 275.23,301.11 276.76,299.97 278.29,298.61 279.81,297.16 281.34,295.77 282.87,294.56 284.40,293.65 285.93,293.12 287.46,293.00 288.98,293.28 290.51,293.92 292.04,294.86 293.57,295.97 295.10,297.16 296.62,298.30 298.15,299.29 299.68,300.03 301.21,300.47 302.74,300.57 304.27,300.34 305.79,299.81 307.32,299.05 308.85,298.13 310.38,297.16 311.91,296.23 313.44,295.42 314.96,294.81 316.49,294.45 318.02,294.37 319.55,294.56 321.08,294.99 322.61,295.62 324.13,296.36 325.66,297.16 327.19,297.92 328.72,298.59 330.25,299.08 331.78,299.38 333.30,299.44 334.83,299.29 336.36,298.94 337.89,298.42 339.42,297.81 340.94,297.16 342.47,296.53 344.00,295.99 345.53,295.58 347.06,295.34 348.59,295.29 350.11,295.42 351.64,295.71 353.17,296.12 354.70,296.63 356.23,297.16 357.76,297.67 359.28,298.12 360.81,298.45 362.34,298.65 363.87,298.69 365.40,298.59 366.93,298.35 368.45,298.01 369.98,297.60 371.51,297.16 373.04,296.74 374.57,296.38 376.10,296.10 377.62,295.94 379.15,295.91 380.68,295.99 382.21,296.19 383.74,296.47 385.26,296.80 386.79,297.16 388.32,297.50 389.85,297.80 391.38,298.02 392.91,298.16 394.43,298.19 395.96,298.12 397.49,297.96 399.02,297.73 400.55,297.45 402.08,297.16 403.60,296.88 405.13,296.64 406.66,296.45 408.19,296.34 409.72,296.32" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,251.27 105.59,253.51 107.12,260.03 108.65,270.19 110.18,282.98 111.70,297.16 113.23,311.34 114.76,324.13 116.29,334.29 117.82,340.81 119.35,343.05 120.87,340.81 122.40,334.29 123.93,324.13 125.46,311.34 126.99,297.16 128.51,282.98 130.04,270.19 131.57,260.03 133.10,253.51 134.63,251.27 136.16,253.51 137.68,260.03 139.21,270.19 140.74,282.98 142.27,297.16 143.80,311.34 145.33,324.13 146.85,334.29 148.38,340.81 149.91,343.05 151.44,340.81 152.97,334.29 154.50,324.13 156.02,311.34 157.55,297.16 159.08,282.98 160.61,270.19 162.14,260.03 163.67,253.51 165.19,251.27 166.72,253.51 168.25,260.03 169.78,270.19 171.31,282.98 172.83,297.16 174.36,311.34 175.89,324.13 177.42,334.29 178.95,340.81 180.48,343.05 182.00,340.81 183.53,334.29 185.06,324.13 186.59,311.34 188.12,297.16 189.65,282.98 191.17,270.19 192.70,260.03 194.23,253.51 195.76,251.27 197.29,253.51 198.82,260.03 200.34,270.19 201.87,282.98 203.40,297.16 204.93,311.34 206.46,324.13 207.99,334.29 209.51,340.81 211.04,343.05 212.57,340.81 214.10,334.29 215.63,324.13 217.15,311.34 218.68,297.16 220.21,282.98 221.74,270.19 223.27,260.03 224.80,253.51 226.32,251.27 227.85,253.51 229.38,260.03 230.91,270.19 232.44,282.98 233.97,297.16 235.49,311.34 237.02,324.13 238.55,334.29 240.08,340.81 241.61,343.05 243.14,340.81 244.66,334.29 246.19,324.13 247.72,311.34 249.25,297.16 250.78,282.98 252.31,270.19 253.83,260.03 255.36,253.51 256.89,251.27 258.42,253.51 259.95,260.03 261.47,270.19 263.00,282.98 264.53,297.16 266.06,311.34 267.59,324.13 269.12,334.29 270.64,340.81 272.17,343.05 273.70,340.81 275.23,334.29 276.76,324.13 278.29,311.34 279.81,297.16 281.34,282.98 282.87,270.19 284.40,260.03 285.93,253.51 287.46,251.27 288.98,253.51 290.51,260.03 292.04,270.19 293.57,282.98 295.10,297.16 296.62,311.34 298.15,324.13 299.68,334.29 301.21,340.81 302.74,343.05 304.27,340.81 305.79,334.29 307.32,324.13 308.85,311.34 310.38,297.16 311.91,282.98 313.44,270.19 314.96,260.03 316.49,253.51 318.02,251.27 319.55,253.51 321.08,260.03 322.61,270.19 324.13,282.98 325.66,297.16 327.19,311.34 328.72,324.13 330.25,334.29 331.78,340.81 333.30,343.05 334.83,340.81 336.36,334.29 337.89,324.13 339.42,311.34 340.94,297.16 342.47,282.98 344.00,270.19 345.53,260.03 347.06,253.51 348.59,251.27 350.11,253.51 351.64,260.03 353.17,270.19 354.70,282.98 356.23,297.16 357.76,311.34 359.28,324.13 360.81,334.29 362.34,340.81 363.87,343.05 365.40,340.81 366.93,334.29 368.45,324.13 369.98,311.34 371.51,297.16 373.04,282.98 374.57,270.19 376.10,260.03 377.62,253.51 379.15,251.27 380.68,253.51 382.21,260.03 383.74,270.19 385.26,282.98 386.79,297.16 388.32,311.34 389.85,324.13 391.38,334.29 392.91,340.81 394.43,343.05 395.96,340.81 397.49,334.29 399.02,324.13 400.55,311.34 402.08,297.16 403.60,282.98 405.13,270.19 406.66,260.03 408.19,253.51 409.72,251.27" fill="none" stroke="#228833" stroke-width="1.5"/>
+<polyline points="104.06,251.27 105.59,253.16 107.12,259.43 108.65,269.53 110.18,282.52 111.70,297.16 113.23,312.04 114.76,325.69 116.29,336.74 117.82,344.06 119.35,346.87 120.87,344.82 122.40,338.03 123.93,327.09 125.46,313.02 126.99,297.16 128.51,281.04 130.04,266.26 131.57,254.28 133.10,246.35 134.63,243.31 136.16,245.53 137.68,252.89 139.21,264.74 140.74,279.98 142.27,297.16 143.80,314.62 145.33,330.64 146.85,343.61 148.38,352.20 149.91,355.50 151.44,353.09 152.97,345.12 154.50,332.28 156.02,315.77 157.55,297.16 159.08,278.25 160.61,260.89 162.14,246.84 163.67,237.53 165.19,233.96 166.72,236.57 168.25,245.21 169.78,259.11 171.31,277.00 172.83,297.16 174.36,317.65 175.89,336.45 177.42,351.67 178.95,361.75 180.48,365.62 182.00,362.79 183.53,353.44 185.06,338.38 186.59,319.00 188.12,297.16 189.65,274.96 191.17,254.60 192.70,238.11 194.23,227.19 195.76,223.00 197.29,226.06 198.82,236.19 200.34,252.51 201.87,273.50 203.40,297.16 204.93,321.20 206.46,343.26 207.99,361.13 209.51,372.96 211.04,377.50 212.57,374.18 214.10,363.21 215.63,345.53 217.15,322.79 218.68,297.16 220.21,271.11 221.74,247.22 223.27,227.87 224.80,215.05 226.32,210.13 227.85,213.72 229.38,225.61 230.91,244.76 232.44,269.39 233.97,297.16 235.49,325.38 237.02,351.26 238.55,372.22 240.08,386.11 241.61,391.44 243.14,387.55 244.66,374.67 246.19,353.92 247.72,327.24 249.25,297.16 250.78,266.59 252.31,238.55 253.83,215.84 255.36,200.80 256.89,195.03 258.42,199.24 259.95,213.20 261.47,235.67 263.00,264.57 264.53,297.16 266.06,330.27 267.59,360.65 269.12,385.25 270.64,401.55 272.17,407.80 273.70,403.23 275.23,388.11 276.76,363.77 278.29,332.46 279.81,297.16 281.34,261.29 282.87,228.38 284.40,201.73 285.93,184.08 287.46,177.30 288.98,182.26 290.51,198.63 292.04,225.00 293.57,258.92 295.10,297.16 296.62,336.02 298.15,371.67 299.68,400.53 301.21,419.66 302.74,427.00 304.27,421.63 305.79,403.89 307.32,375.33 308.85,338.59 310.38,297.16 311.91,255.06 313.44,216.45 314.96,185.18 316.49,164.46 318.02,156.51 319.55,162.32 321.08,181.54 322.61,212.48 324.13,252.28 325.66,297.16 327.19,342.76 328.72,384.59 330.25,418.47 331.78,440.91 333.30,449.53 334.83,443.23 336.36,422.41 337.89,388.89 339.42,345.77 340.94,297.16 342.47,247.76 344.00,202.44 345.53,165.75 347.06,141.43 348.59,132.10 350.11,138.92 351.64,161.47 353.17,197.79 354.70,244.50 356.23,297.16 357.76,350.67 359.28,399.77 360.81,439.52 362.34,465.86 363.87,475.96 365.40,468.58 366.93,444.15 368.45,404.81 369.98,354.21 371.51,297.16 373.04,239.19 374.57,186.01 376.10,142.94 377.62,114.41 379.15,103.46 380.68,111.47 382.21,137.93 383.74,180.54 385.26,235.36 386.79,297.16 388.32,359.96 389.85,417.57 391.38,464.22 392.91,495.13 394.43,506.99 395.96,498.32 397.49,469.65 399.02,423.49 400.55,364.11 402.08,297.16 403.60,229.13 405.13,166.72 406.66,116.19 408.19,82.70 409.72,69.86" fill="none" stroke="#FF5C5C" stroke-width="1.5"/>
+</g>
+<text x="264.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">time (s)</text>
+<text x="65.90" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 65.90 288.42)">amplitude</text>
+<line x1="545.06" y1="506.99" x2="866.00" y2="506.99" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="506.99" x2="545.06" y2="506.99" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="512.66" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="545.06" y1="463.27" x2="866.00" y2="463.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="463.27" x2="545.06" y2="463.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="468.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.8</text>
+<line x1="545.06" y1="419.56" x2="866.00" y2="419.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="419.56" x2="545.06" y2="419.56" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="425.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.6</text>
+<line x1="545.06" y1="375.85" x2="866.00" y2="375.85" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="375.85" x2="545.06" y2="375.85" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="381.52" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.4</text>
+<line x1="545.06" y1="332.13" x2="866.00" y2="332.13" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="332.13" x2="545.06" y2="332.13" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="337.80" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.2</text>
+<line x1="545.06" y1="288.42" x2="866.00" y2="288.42" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="288.42" x2="545.06" y2="288.42" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="294.09" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="545.06" y1="244.71" x2="866.00" y2="244.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="244.71" x2="545.06" y2="244.71" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="250.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="545.06" y1="201.00" x2="866.00" y2="201.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="201.00" x2="545.06" y2="201.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="206.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="545.06" y1="157.28" x2="866.00" y2="157.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="157.28" x2="545.06" y2="157.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="162.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="545.06" y1="113.57" x2="866.00" y2="113.57" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="113.57" x2="545.06" y2="113.57" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="119.24" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="545.06" y1="69.86" x2="866.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="69.86" x2="545.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="612.70" y1="48.00" x2="612.70" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.70" y1="528.84" x2="612.70" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.70" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-0.6</text>
+<line x1="692.27" y1="48.00" x2="692.27" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="692.27" y1="528.84" x2="692.27" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="692.27" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="771.84" y1="48.00" x2="771.84" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="771.84" y1="528.84" x2="771.84" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="771.84" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="851.41" y1="48.00" x2="851.41" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="851.41" y1="528.84" x2="851.41" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="851.41" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.2</text>
+<line x1="545.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="48.00" x2="545.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-54506-4800-32094-48084"><rect x="545.06" y="48.00" width="320.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-54506-4800-32094-48084)">
+<polyline points="824.89,288.42 824.63,274.70 823.84,261.03 822.54,247.47 820.72,234.07 818.40,220.88 815.58,207.96 812.27,195.36 808.48,183.13 804.24,171.31 799.56,159.95 794.45,149.10 788.94,138.80 783.05,129.09 776.80,120.01 770.22,111.60 763.33,103.88 756.16,96.89 748.74,90.66 741.09,85.20 733.25,80.55 725.25,76.72 717.12,73.73 708.89,71.58 700.60,70.29 692.27,69.86 683.94,70.29 675.65,71.58 667.42,73.73 659.29,76.72 651.29,80.55 643.45,85.20 635.80,90.66 628.38,96.89 621.21,103.88 614.32,111.60 607.73,120.01 601.49,129.09 595.59,138.80 590.08,149.10 584.98,159.95 580.30,171.31 576.05,183.13 572.27,195.36 568.96,207.96 566.14,220.88 563.82,234.07 562.00,247.47 560.70,261.03 559.91,274.70 559.65,288.42 559.91,302.15 560.70,315.82 562.00,329.38 563.82,342.78 566.14,355.96 568.96,368.88 572.27,381.48 576.05,393.72 580.30,405.54 584.98,416.89 590.08,427.74 595.59,438.04 601.49,447.75 607.73,456.83 614.32,465.24 621.21,472.96 628.38,479.95 635.80,486.19 643.45,491.64 651.29,496.29 659.29,500.12 667.42,503.12 675.65,505.26 683.94,506.56 692.27,506.99 700.60,506.56 708.89,505.26 717.12,503.12 725.25,500.12 733.25,496.29 741.09,491.64 748.74,486.19 756.16,479.95 763.33,472.96 770.22,465.24 776.80,456.83 783.05,447.75 788.94,438.04 794.45,427.74 799.56,416.89 804.24,405.54 808.48,393.72 812.27,381.48 815.58,368.88 818.40,355.96 820.72,342.78 822.54,329.38 823.84,315.82 824.63,302.15 824.89,288.42" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<circle cx="785.10" cy="288.42" r="4.05" fill="none" stroke="#228833"><title>x=0.7, y=0</title></circle>
+<circle cx="851.41" cy="222.85" r="4.05" fill="none" stroke="#FF5C5C"><title>x=1.2, y=0.3</title></circle>
+<circle cx="851.41" cy="353.99" r="4.05" fill="none" stroke="#FF5C5C"><title>x=1.2, y=-0.3</title></circle>
+</g>
+<text x="705.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">Re</text>
+<text x="492.01" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 492.01 288.42)">Im</text>
+</svg></figure></div>
+<p>Plot every value \(s = \sigma + j\omega\) on a plane — \(\sigma\) horizontal, \(\omega\) vertical — and you get the <strong>s-plane</strong>. Its vertical axis (\(\sigma = 0\)) is exactly Fourier's territory: pure oscillation, neither growing nor decaying. Left of it is decay; right of it is growth. The Laplace transform is the Fourier integral with this second axis restored:</p>
+<p>\[ X(s) = \int_{0}^{\infty} x(t)\, e^{-st}\, dt, \qquad s = \sigma + j\omega \]</p>
+<p>Set \(\sigma = 0\) and this collapses exactly to Lesson 4's Fourier transform: Fourier is not a separate idea, it is Laplace evaluated on one particular line of the s-plane.</p>
+<p>Sampled systems get the same treatment, built the same way the DFT was built from the continuous integral — sum instead of integrate, over a variable <code>z</code> instead of <code>s</code>:</p>
+<p>\[ X(z) = \sum_{n=0}^{\infty} x[n]\, z^{-n}, \qquad z = e^{sT} \]</p>
+<p><code>T</code> is the sampling period. This substitution reshapes the whole picture: the s-plane's imaginary axis maps to \(|z| = 1\), the <strong>unit circle</strong>. The left half-plane (decay) maps to *inside* the circle; the right half (growth) maps to *outside*. A right-hand illustration above places two example poles this way — one inside the circle, stable, and a pair outside it, unstable — before any real filter has entered the picture at all.</p>
+<p>A transfer function \(H(z) = B(z)/A(z)\) has <strong>zeros</strong>, where the numerator vanishes (frequencies the system blocks), and <strong>poles</strong>, where the denominator vanishes (frequencies the system rings at on its own, even with no input). <strong>Stability rule:</strong> every pole must sit strictly inside the unit circle (discrete-time) or strictly left of the imaginary axis (continuous-time). A pole exactly on the boundary rings forever, neither growing nor decaying — an idealized tuning fork, never realized exactly by anything physical.</p>
+<h2 id="s26">In Qu</h2>
+<p>Qu does not yet expose a general continuous-time transfer-function tool — no <code>s</code>-domain <code>tf()</code> sitting next to the filter designers — but its discrete-time toolkit turns pole location from algebra into numbers you can read off a real design:</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+lp_wide = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+lp_narrow = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"low"</span>, <span class="n">10</span>, fs)
+
+pw = <span class="f">poles</span>(lp_wide)
+pn = <span class="f">poles</span>(lp_narrow)
+<span class="f">print</span>(<span class="s">"wide-band poles: {pw:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"narrow-band poles: {pn:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"wide |pole| = {abs(pw[0]):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"narrow |pole| = {abs(pn[0]):.4f}"</span>)
+<span class="f">print</span>(<span class="s">"wide stable: {is_stable(lp_wide)}, narrow stable: {is_stable(lp_narrow)}"</span>)
+
+theta = (<span class="n">0</span> <span class="k">to</span> <span class="n">100</span>) / <span class="n">100</span> * <span class="n">2</span> * pi
+<span class="f">figure</span>()
+<span class="f">plot</span>(<span class="f">cos</span>(theta), <span class="f">sin</span>(theta), <span class="a">label</span> = <span class="s">"unit circle"</span>)
+<span class="f">scatter</span>(<span class="f">real</span>(pw), <span class="f">imag</span>(pw), <span class="a">label</span> = <span class="s">"wide poles"</span>)
+<span class="f">scatter</span>(<span class="f">real</span>(pn), <span class="f">imag</span>(pn), <span class="a">label</span> = <span class="s">"narrow poles"</span>)
+<span class="f">xlabel</span>(<span class="s">"Re"</span>)
+<span class="f">ylabel</span>(<span class="s">"Im"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>wide-band poles: [0.57149 + 0.293599j, 0.57149 - 0.293599j]
+narrow-band poles: [0.955599 + 0.042512j, 0.955599 - 0.042512j]
+wide |pole| = 0.6425
+narrow |pole| = 0.9565
+wide stable: true, narrow stable: true
+· plot: figure 7 (101 points)
+· scatter: figure 8 (2 points)
+· scatter: figure 9 (2 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="506.99" x2="866.00" y2="506.99" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="506.99" x2="104.06" y2="506.99" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="512.66" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="463.27" x2="866.00" y2="463.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="463.27" x2="104.06" y2="463.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="468.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.8</text>
+<line x1="104.06" y1="419.56" x2="866.00" y2="419.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="419.56" x2="104.06" y2="419.56" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="425.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.6</text>
+<line x1="104.06" y1="375.85" x2="866.00" y2="375.85" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="375.85" x2="104.06" y2="375.85" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="381.52" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.4</text>
+<line x1="104.06" y1="332.13" x2="866.00" y2="332.13" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="332.13" x2="104.06" y2="332.13" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="337.80" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.2</text>
+<line x1="104.06" y1="288.42" x2="866.00" y2="288.42" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="288.42" x2="104.06" y2="288.42" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="294.09" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="244.71" x2="866.00" y2="244.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="244.71" x2="104.06" y2="244.71" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="250.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="201.00" x2="866.00" y2="201.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="201.00" x2="104.06" y2="201.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="206.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="157.28" x2="866.00" y2="157.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="157.28" x2="104.06" y2="157.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="162.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="113.57" x2="866.00" y2="113.57" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="113.57" x2="104.06" y2="113.57" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="119.24" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="69.86" x2="866.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="69.86" x2="104.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="138.70" y1="48.00" x2="138.70" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="138.70" y1="528.84" x2="138.70" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="138.70" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-1.0</text>
+<line x1="207.96" y1="48.00" x2="207.96" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="207.96" y1="528.84" x2="207.96" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="207.96" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-0.8</text>
+<line x1="277.23" y1="48.00" x2="277.23" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="277.23" y1="528.84" x2="277.23" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="277.23" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-0.6</text>
+<line x1="346.50" y1="48.00" x2="346.50" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="346.50" y1="528.84" x2="346.50" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="346.50" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-0.4</text>
+<line x1="415.76" y1="48.00" x2="415.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="415.76" y1="528.84" x2="415.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="415.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">-0.2</text>
+<line x1="485.03" y1="48.00" x2="485.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.03" y1="528.84" x2="485.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="554.30" y1="48.00" x2="554.30" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="554.30" y1="528.84" x2="554.30" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="554.30" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="623.57" y1="48.00" x2="623.57" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="623.57" y1="528.84" x2="623.57" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="623.57" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="692.83" y1="48.00" x2="692.83" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="692.83" y1="528.84" x2="692.83" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="692.83" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="762.10" y1="48.00" x2="762.10" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="762.10" y1="528.84" x2="762.10" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="762.10" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="831.37" y1="48.00" x2="831.37" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="831.37" y1="528.84" x2="831.37" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="831.37" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="831.37,288.42 830.68,274.70 828.64,261.03 825.23,247.47 820.49,234.07 814.42,220.88 807.05,207.96 798.40,195.36 788.53,183.13 777.45,171.31 765.22,159.95 751.89,149.10 737.50,138.80 722.11,129.09 705.79,120.01 688.60,111.60 670.61,103.88 651.88,96.89 632.49,90.66 612.53,85.20 592.05,80.55 571.16,76.72 549.93,73.73 528.44,71.58 506.78,70.29 485.03,69.86 463.28,70.29 441.62,71.58 420.13,73.73 398.90,76.72 378.01,80.55 357.54,85.20 337.57,90.66 318.18,96.89 299.46,103.88 281.46,111.60 264.27,120.01 247.95,129.09 232.56,138.80 218.18,149.10 204.84,159.95 192.61,171.31 181.54,183.13 171.66,195.36 163.02,207.96 155.65,220.88 149.58,234.07 144.83,247.47 141.43,261.03 139.38,274.70 138.70,288.42 139.38,302.15 141.43,315.82 144.83,329.38 149.58,342.78 155.65,355.96 163.02,368.88 171.66,381.48 181.54,393.72 192.61,405.54 204.84,416.89 218.18,427.74 232.56,438.04 247.95,447.75 264.27,456.83 281.46,465.24 299.46,472.96 318.18,479.95 337.57,486.19 357.54,491.64 378.01,496.29 398.90,500.12 420.13,503.12 441.62,505.26 463.28,506.56 485.03,506.99 506.78,506.56 528.44,505.26 549.93,503.12 571.16,500.12 592.05,496.29 612.53,491.64 632.49,486.19 651.88,479.95 670.61,472.96 688.60,465.24 705.79,456.83 722.11,447.75 737.50,438.04 751.89,427.74 765.22,416.89 777.45,405.54 788.53,393.72 798.40,381.48 807.05,368.88 814.42,355.96 820.49,342.78 825.23,329.38 828.64,315.82 830.68,302.15 831.37,288.42" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<circle cx="682.96" cy="224.25" r="4.05" fill="none" stroke="#228833"><title>x=0.571, y=0.294</title></circle>
+<circle cx="682.96" cy="352.59" r="4.05" fill="none" stroke="#228833"><title>x=0.571, y=-0.294</title></circle>
+<circle cx="815.99" cy="279.13" r="4.05" fill="none" stroke="#FF5C5C"><title>x=0.956, y=0.043</title></circle>
+<circle cx="815.99" cy="297.71" r="4.05" fill="none" stroke="#FF5C5C"><title>x=0.956, y=-0.043</title></circle>
+</g>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">Re</text>
+<text x="51.01" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.01 288.42)">Im</text>
+</svg></figure></div>
+<pre><code>wide-band poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]
+narrow-band poles: [0.955599 + 0.042512i, 0.955599 - 0.042512i]
+wide |pole| = 0.6425
+narrow |pole| = 0.9565
+wide stable: true, narrow stable: true
+</code></pre>
+<p>Both designs are stable — <code>butter</code> never hands you an unstable filter — but not equally close to trouble. Narrowing the passband from 100 Hz to 10 Hz, out of the same 1000 Hz sample rate, pulls the pole magnitude from <code>0.64</code> to <code>0.96</code>, dragging it toward the unit circle's edge. A pole near that edge means a longer, more sharply resonant impulse response: the filter rings more and settles more slowly. This is the general shape of the trade-off between selectivity and stability margin, visible directly in a printed number rather than asserted.</p>
+<p><code>poles</code>/<code>is_stable</code> describe an existing design. You can also watch decay versus growth happen, by building the two one-pole systems this lesson opened with and feeding each an impulse:</p>
+<div class="example hasout"><pre class="hl"><code>impulse_x = <span class="f">impulse</span>(<span class="n">12</span>)
+decay = <span class="f">filter_ba</span>([<span class="n">1</span>], [<span class="n">1</span>, -<span class="n">0.8</span>], impulse_x)
+grow  = <span class="f">filter_ba</span>([<span class="n">1</span>], [<span class="n">1</span>, -<span class="n">1.2</span>], impulse_x)
+<span class="f">print</span>(<span class="s">"decaying (pole at 0.8): {decay:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"growing (pole at 1.2): {grow:.4f}"</span>)
+
+n = <span class="n">0</span> <span class="k">to</span> <span class="n">11</span>
+<span class="f">figure</span>()
+<span class="f">plot</span>(n, decay, <span class="a">label</span> = <span class="s">"pole at 0.8"</span>)
+<span class="f">plot</span>(n, grow, <span class="a">label</span> = <span class="s">"pole at 1.2"</span>)
+<span class="f">xlabel</span>(<span class="s">"sample index n"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>decaying (pole at 0.8): [1, 0.8, 0.64, 0.512, 0.4096, 0.32768, 0.262144, 0.209715, ... (12 elements)]
+growing (pole at 1.2): [1, 1.2, 1.44, 1.728, 2.0736, 2.48832, 2.985984, 3.583181, ... (12 elements)]
+· plot: figure 10 (12 points)
+· plot: figure 11 (12 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="467.18" x2="866.00" y2="467.18" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="467.18" x2="104.06" y2="467.18" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="472.85" font-size="16.2" text-anchor="end" fill="#4d4d4d">1</text>
+<line x1="104.06" y1="405.51" x2="866.00" y2="405.51" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="405.51" x2="104.06" y2="405.51" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="411.18" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
+<line x1="104.06" y1="343.84" x2="866.00" y2="343.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="343.84" x2="104.06" y2="343.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="349.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">3</text>
+<line x1="104.06" y1="282.17" x2="866.00" y2="282.17" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="282.17" x2="104.06" y2="282.17" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="287.84" font-size="16.2" text-anchor="end" fill="#4d4d4d">4</text>
+<line x1="104.06" y1="220.50" x2="866.00" y2="220.50" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="220.50" x2="104.06" y2="220.50" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="226.17" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
+<line x1="104.06" y1="158.84" x2="866.00" y2="158.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="158.84" x2="104.06" y2="158.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="164.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">6</text>
+<line x1="104.06" y1="97.17" x2="866.00" y2="97.17" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="97.17" x2="104.06" y2="97.17" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="102.84" font-size="16.2" text-anchor="end" fill="#4d4d4d">7</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="170.03" y1="48.00" x2="170.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="170.03" y1="528.84" x2="170.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="170.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1</text>
+<line x1="236.00" y1="48.00" x2="236.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="236.00" y1="528.84" x2="236.00" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="236.00" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
+<line x1="301.97" y1="48.00" x2="301.97" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="301.97" y1="528.84" x2="301.97" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="301.97" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">3</text>
+<line x1="367.94" y1="48.00" x2="367.94" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="367.94" y1="528.84" x2="367.94" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="367.94" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="433.91" y1="48.00" x2="433.91" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="433.91" y1="528.84" x2="433.91" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="433.91" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">5</text>
+<line x1="499.87" y1="48.00" x2="499.87" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="499.87" y1="528.84" x2="499.87" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="499.87" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
+<line x1="565.84" y1="48.00" x2="565.84" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="565.84" y1="528.84" x2="565.84" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="565.84" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">7</text>
+<line x1="631.81" y1="48.00" x2="631.81" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="631.81" y1="528.84" x2="631.81" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="631.81" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="697.78" y1="48.00" x2="697.78" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="697.78" y1="528.84" x2="697.78" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="697.78" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">9</text>
+<line x1="763.75" y1="48.00" x2="763.75" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="763.75" y1="528.84" x2="763.75" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="763.75" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">11</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,467.18 170.03,479.51 236.00,489.38 301.97,497.27 367.94,503.58 433.91,508.64 499.87,512.68 565.84,515.91 631.81,518.50 697.78,520.57 763.75,522.22 829.72,523.55" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,467.18 170.03,454.84 236.00,440.04 301.97,422.28 367.94,400.97 433.91,375.39 499.87,344.70 565.84,307.88 631.81,263.68 697.78,210.65 763.75,147.01 829.72,70.65" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">sample index n</text>
+<text x="73.35" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 73.35 288.42)">amplitude</text>
+</svg></figure></div>
+<pre><code>decaying (pole at 0.8): [1, 0.8, 0.64, 0.512, 0.4096, 0.32768, 0.262144, 0.209715, ... (12 elements)]
+growing (pole at 1.2): [1, 1.2, 1.44, 1.728, 2.0736, 2.48832, 2.985984, 3.583181, ... (12 elements)]
+</code></pre>
+<p><code>filter_ba(b, a, x)</code> runs <code>y[n] = x[n] + 0.8*y[n-1]</code> in the first case and <code>y[n] = x[n] + 1.2*y[n-1]</code> in the second — the difference equation behind a single real pole at <code>z = 0.8</code> and <code>z = 1.2</code>. One sits inside the unit circle and the response is a guitar string, each sample <code>0.8</code> times the last, approaching zero. The other sits outside, each sample <code>1.2</code> times the last, forever: mic feedback, laid out as plain numbers. Nothing here needed a spectrum — the pole location alone predicted the shape of the answer before a single sample was computed.</p>
+<p>Every claim in this lesson assumed a linear, time-invariant system with poles fixed in place for all time. That describes a designed filter well. It does not describe a chirp sweeping from 20 Hz to 20 kHz, a spoken word, or a bird call, where the frequency content is not one fixed set of poles but something that changes while you listen. The s-plane and z-plane answer "will this system's own behavior blow up," and cannot answer "what is happening in this signal right now, compared to a moment ago." Lesson 6 takes on that question directly.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

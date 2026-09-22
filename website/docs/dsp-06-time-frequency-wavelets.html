@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time-Frequency & Wavelets — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html" class="here">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Time-Frequency & Wavelets</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>An ambulance siren does not have a frequency. It has a frequency *right now*, a different one a second ago, and a different one a second from now — the rising-then-falling wail your ear uses to tell whether it is approaching or receding. Ask "what frequency is the siren" and there is no single number to give back.</p>
+<p>Lesson 5 closed on exactly this gap: the DFT, the FFT, poles sitting fixed on the s-plane or z-plane all describe signals and systems that hold still. A single Fourier transform of a whole recording collapses every instant into one spectrum, discarding whatever timing distinguished an early frequency from a later one in the same step that built the frequency axis.</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">100</span>
+N = <span class="n">200</span>
+t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) / fs
+low_then_high = <span class="f">cat</span>(<span class="n">1</span>, <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">4</span> * t[<span class="n">0</span>:<span class="n">99</span>]), <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">18</span> * t[<span class="n">100</span>:<span class="n">199</span>]))
+<span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t, low_then_high)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+mag = <span class="f">abs</span>(<span class="f">rfft</span>(low_then_high))
+f = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(mag) - <span class="n">1</span>) * fs / N
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">plot</span>(f, mag)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"magnitude"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (200 points)
+· plot: figure 2 (101 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="506.99" x2="425.00" y2="506.99" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="506.99" x2="104.06" y2="506.99" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="512.66" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="463.27" x2="425.00" y2="463.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="463.27" x2="104.06" y2="463.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="468.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.8</text>
+<line x1="104.06" y1="419.56" x2="425.00" y2="419.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="419.56" x2="104.06" y2="419.56" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="425.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.6</text>
+<line x1="104.06" y1="375.85" x2="425.00" y2="375.85" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="375.85" x2="104.06" y2="375.85" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="381.52" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.4</text>
+<line x1="104.06" y1="332.13" x2="425.00" y2="332.13" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="332.13" x2="104.06" y2="332.13" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="337.80" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.2</text>
+<line x1="104.06" y1="288.42" x2="425.00" y2="288.42" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="288.42" x2="104.06" y2="288.42" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="294.09" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="244.71" x2="425.00" y2="244.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="244.71" x2="104.06" y2="244.71" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="250.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="201.00" x2="425.00" y2="201.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="201.00" x2="104.06" y2="201.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="206.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="157.28" x2="425.00" y2="157.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="157.28" x2="104.06" y2="157.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="162.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="113.57" x2="425.00" y2="113.57" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="113.57" x2="104.06" y2="113.57" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="119.24" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="69.86" x2="425.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="69.86" x2="104.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="196.22" y1="48.00" x2="196.22" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="196.22" y1="528.84" x2="196.22" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="196.22" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="288.38" y1="48.00" x2="288.38" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="288.38" y1="528.84" x2="288.38" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="288.38" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.2</text>
+<line x1="380.53" y1="48.00" x2="380.53" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="380.53" y1="528.84" x2="380.53" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="380.53" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.8</text>
+<line x1="104.06" y1="528.84" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="425.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="425.00" y1="48.00" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-32094-48084"><rect x="104.06" y="48.00" width="320.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-32094-48084)">
+<polyline points="104.06,69.86 105.60,69.86 107.13,76.72 108.67,195.36 110.21,96.89 111.74,427.74 113.28,129.09 114.81,500.12 116.35,171.31 117.89,329.38 119.42,220.88 120.96,111.60 122.49,274.70 124.03,96.89 125.57,329.38 127.10,302.15 128.64,381.48 130.17,491.64 131.71,427.74 133.25,447.75 134.78,465.24 136.32,220.88 137.85,491.64 139.39,71.58 140.93,505.26 142.46,171.31 144.00,505.26 145.53,405.54 147.07,491.64 148.61,505.26 150.14,465.24 151.68,355.96 153.21,427.74 154.75,129.09 156.28,381.48 157.82,85.20 159.36,329.38 160.89,274.70 162.43,274.70 163.96,479.95 165.50,220.88 167.04,465.24 168.57,171.31 170.11,247.47 171.64,129.09 173.18,76.72 174.72,96.89 176.25,149.10 177.79,76.72 179.32,381.48 180.86,69.86 182.40,506.99 183.93,76.72 185.47,381.48 187.00,96.89 188.54,149.10 190.08,129.09 191.61,76.72 193.15,171.31 194.68,247.47 196.22,220.88 197.76,465.24 199.29,274.70 200.83,479.95 202.36,329.38 203.90,274.70 205.44,381.48 206.97,85.20 208.51,427.74 210.04,129.09 211.58,465.24 213.12,355.96 214.65,491.64 216.19,505.26 217.72,505.26 219.26,405.54 220.79,505.26 222.33,171.31 223.87,491.64 225.40,71.58 226.94,465.24 228.47,220.88 230.01,427.74 231.55,447.75 233.08,381.48 234.62,491.64 236.15,329.38 237.69,302.15 239.23,274.70 240.76,96.89 242.30,220.88 243.83,111.60 245.37,171.31 246.91,329.38 248.44,129.09 249.98,500.12 251.51,96.89 253.05,427.74 254.59,76.72 256.12,195.36 257.66,69.86 259.19,69.86 260.73,76.72 262.27,195.36 263.80,96.89 265.34,427.74 266.87,129.09 268.41,500.12 269.95,171.31 271.48,329.38 273.02,220.88 274.55,111.60 276.09,274.70 277.63,96.89 279.16,329.38 280.70,302.15 282.23,381.48 283.77,491.64 285.31,427.74 286.84,447.75 288.38,465.24 289.91,220.88 291.45,491.64 292.98,71.58 294.52,505.26 296.06,171.31 297.59,505.26 299.13,405.54 300.66,491.64 302.20,505.26 303.74,465.24 305.27,355.96 306.81,427.74 308.34,129.09 309.88,381.48 311.42,85.20 312.95,329.38 314.49,274.70 316.02,274.70 317.56,479.95 319.10,220.88 320.63,465.24 322.17,171.31 323.70,247.47 325.24,129.09 326.78,76.72 328.31,96.89 329.85,149.10 331.38,76.72 332.92,381.48 334.46,69.86 335.99,506.99 337.53,76.72 339.06,381.48 340.60,96.89 342.14,149.10 343.67,129.09 345.21,76.72 346.74,171.31 348.28,247.47 349.82,220.88 351.35,465.24 352.89,274.70 354.42,479.95 355.96,329.38 357.49,274.70 359.03,381.48 360.57,85.20 362.10,427.74 363.64,129.09 365.17,465.24 366.71,355.96 368.25,491.64 369.78,505.26 371.32,505.26 372.85,405.54 374.39,505.26 375.93,171.31 377.46,491.64 379.00,71.58 380.53,465.24 382.07,220.88 383.61,427.74 385.14,447.75 386.68,381.48 388.21,491.64 389.75,329.38 391.29,302.15 392.82,274.70 394.36,96.89 395.89,220.88 397.43,111.60 398.97,171.31 400.50,329.38 402.04,129.09 403.57,500.12 405.11,96.89 406.65,427.74 408.18,76.72 409.72,195.36" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="264.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">time (s)</text>
+<text x="51.01" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.01 288.42)">amplitude</text>
+<line x1="545.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="528.84" x2="545.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="545.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="483.05" x2="545.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
+<line x1="545.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="437.25" x2="545.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">10</text>
+<line x1="545.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="391.46" x2="545.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">15</text>
+<line x1="545.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="345.67" x2="545.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">20</text>
+<line x1="545.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="299.87" x2="545.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">25</text>
+<line x1="545.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="254.08" x2="545.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">30</text>
+<line x1="545.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="208.28" x2="545.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">35</text>
+<line x1="545.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="162.49" x2="545.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">40</text>
+<line x1="545.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="116.69" x2="545.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">45</text>
+<line x1="545.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="70.90" x2="545.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">50</text>
+<line x1="545.06" y1="48.00" x2="545.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="528.84" x2="545.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="545.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="636.76" y1="48.00" x2="636.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="636.76" y1="528.84" x2="636.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="636.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">15</text>
+<line x1="728.46" y1="48.00" x2="728.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="728.46" y1="528.84" x2="728.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="728.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="820.15" y1="48.00" x2="820.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="820.15" y1="528.84" x2="820.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="820.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">45</text>
+<line x1="545.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="48.00" x2="545.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-54506-4800-32094-48084"><rect x="545.06" y="48.00" width="320.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-54506-4800-32094-48084)">
+<polyline points="545.06,528.84 548.12,528.84 551.18,528.84 554.23,528.84 557.29,70.90 560.35,528.84 563.40,528.84 566.46,528.84 569.51,528.84 572.57,528.84 575.63,528.84 578.68,528.84 581.74,528.84 584.80,528.84 587.85,528.84 590.91,528.84 593.97,528.84 597.02,528.84 600.08,70.90 603.14,528.84 606.19,528.84 609.25,528.84 612.31,528.84 615.36,528.84 618.42,528.84 621.48,528.84 624.53,528.84 627.59,528.84 630.65,528.84 633.70,528.84 636.76,528.84 639.82,528.84 642.87,528.84 645.93,528.84 648.99,528.84 652.04,528.84 655.10,528.84 658.15,528.84 661.21,528.84 664.27,528.84 667.32,528.84 670.38,528.84 673.44,528.84 676.49,528.84 679.55,528.84 682.61,528.84 685.66,528.84 688.72,528.84 691.78,528.84 694.83,528.84 697.89,528.84 700.95,528.84 704.00,528.84 707.06,528.84 710.12,528.84 713.17,528.84 716.23,528.84 719.29,528.84 722.34,528.84 725.40,528.84 728.46,528.84 731.51,528.84 734.57,528.84 737.62,528.84 740.68,528.84 743.74,528.84 746.79,528.84 749.85,528.84 752.91,528.84 755.96,528.84 759.02,528.84 762.08,528.84 765.13,528.84 768.19,528.84 771.25,528.84 774.30,528.84 777.36,528.84 780.42,528.84 783.47,528.84 786.53,528.84 789.59,528.84 792.64,528.84 795.70,70.90 798.76,528.84 801.81,528.84 804.87,528.84 807.93,528.84 810.98,528.84 814.04,528.84 817.10,528.84 820.15,528.84 823.21,528.84 826.26,528.84 829.32,528.84 832.38,528.84 835.43,528.84 838.49,70.90 841.55,528.84 844.60,528.84 847.66,528.84 850.72,528.84" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="705.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="504.13" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 504.13 288.42)">magnitude</text>
+</svg></figure></div>
+<p>A 4 Hz tone followed by an 18 Hz tone (left) produces a spectrum (right) with two peaks and no indication that one happened before the other — the same signal, played in the opposite order, would give an identical picture.</p>
+<p>The fix: instead of transforming the whole recording at once, slide a short window along it and take a separate spectrum of each slice. Line the spectra up side by side — time across, frequency up, brightness for energy — and you get a two-dimensional picture instead of a single curve. This is the <strong>short-time Fourier transform</strong> (STFT); the picture it produces is a <strong>spectrogram</strong>:</p>
+<p>\[ X(t, f) = \int x(\tau)\, w(\tau - t)\, e^{-j2\pi f \tau}\, d\tau \]</p>
+<p><code>w(\tau - t)</code> is the window, large near \(\tau = t\) and fading to zero away from it, sliding as <code>t</code> advances. Discretely this is nothing more exotic than a windowed FFT computed once per hop across the recording.</p>
+<p>The window length is not a free choice. Dennis Gabor showed, in 1946, that time resolution and frequency resolution trade off against each other by a fixed lower bound that no window shape escapes: a narrow window localizes *when* well and *what* poorly; a wide window does the reverse.</p>
+<p>Wavelets are the standard answer to wanting both at once — short windows for high frequencies, which change quickly and need fine time resolution, and long windows for low frequencies, which change slowly and need fine frequency resolution instead. A single family of basis functions is stretched and shifted rather than kept at one fixed width:</p>
+<p>\[ W(a, b) = \frac{1}{\sqrt{|a|}} \int x(t)\, \psi\!\left(\frac{t - b}{a}\right) dt \]</p>
+<p><code>a</code> scales the wavelet \(\psi\) (wide <code>a</code> for low frequencies, narrow <code>a</code> for high ones) and <code>b</code> slides it along the signal, giving a multi-resolution picture rather than one fixed window size.</p>
+<h2 id="s26">In Qu</h2>
+<p>Run a real sweep through the same whole-signal FFT to make the problem concrete, then fix it:</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">200</span>
+n = <span class="n">400</span>
+x = <span class="f">chirp</span>(<span class="n">5</span>, <span class="n">45</span>, fs, n)
+whole = <span class="f">abs</span>(<span class="f">rfft</span>(x))
+<span class="f">print</span>(<span class="s">"magnitude at 5, 15, 25, 35, 45 Hz: {whole[10]:.2f}, {whole[30]:.2f}, {whole[50]:.2f}, {whole[70]:.2f}, {whole[90]:.2f}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>magnitude at 5, 15, 25, 35, 45 Hz: 11.75, 23.49, 21.52, 23.66, 11.11</pre></div></div>
+<pre><code>magnitude at 5, 15, 25, 35, 45 Hz: 11.75, 23.49, 21.52, 23.66, 11.11
+</code></pre>
+<p><code>chirp</code> sweeps linearly from 5 Hz to 45 Hz. All five frequencies show substantial energy and none dominates — technically correct, since the sweep passed through all of them, and useless for the question that actually matters: in what order. Qu's <code>spectrogram</code> performs the windowed-FFT framing directly and hands back the underlying data alongside the plot it draws:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
+r = <span class="f">spectrogram</span>(x, <span class="n">64</span>, <span class="n">32</span>, fs)
+<span class="f">print</span>(<span class="s">"db shape = {shape(r.db)}"</span>)
+
+peak_rows = <span class="f">argmax</span>(r.db, <span class="a">axis</span> = <span class="n">0</span>)
+peak_freqs = r.freq[peak_rows]
+<span class="f">print</span>(<span class="s">"peak_freqs = {peak_freqs:.2f}"</span>)
+<span class="f">print</span>(<span class="s">"first frame: {peak_freqs[0]:.2f} Hz, last frame: {peak_freqs[length(peak_freqs) - 1]:.2f} Hz"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>db shape = [33, 11]
+peak_freqs = [9.375, 12.5, 15.625, 18.75, 21.875, 25, 28.125, 31.25, ... (11 elements)]
+first frame: 9.38 Hz, last frame: 40.62 Hz</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="192.66" y="48.00" width="61.21" height="13.04" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>100, 0: -77.914</title></rect>
+<rect x="253.87" y="48.00" width="61.21" height="13.04" rx="0" fill="#ddebf7" stroke="none" opacity="1"><title>-78.988</title></rect>
+<rect x="315.08" y="48.00" width="61.21" height="13.04" rx="0" fill="#f7fbff" stroke="none" opacity="1"><title>100, 0.32: -96.53</title></rect>
+<rect x="376.30" y="48.00" width="61.21" height="13.04" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>-75.819</title></rect>
+<rect x="437.51" y="48.00" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>100, 0.64: -69.454</title></rect>
+<rect x="498.72" y="48.00" width="61.21" height="13.04" rx="0" fill="#d0e1f2" stroke="none" opacity="1"><title>-69.05</title></rect>
+<rect x="559.93" y="48.00" width="61.21" height="13.04" rx="0" fill="#e0ecf8" stroke="none" opacity="1"><title>100, 0.96: -80.788</title></rect>
+<rect x="621.15" y="48.00" width="61.21" height="13.04" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-69.792</title></rect>
+<rect x="682.36" y="48.00" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>100, 1.28: -66.439</title></rect>
+<rect x="743.57" y="48.00" width="61.21" height="13.04" rx="0" fill="#e4eff9" stroke="none" opacity="1"><title>-83.456</title></rect>
+<rect x="804.79" y="48.00" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>100, 1.6: -66.496</title></rect>
+<rect x="192.66" y="61.04" width="61.21" height="13.04" rx="0" fill="#dce9f6" stroke="none" opacity="1"><title>-77.68</title></rect>
+<rect x="253.87" y="61.04" width="61.21" height="13.04" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>-78.232</title></rect>
+<rect x="315.08" y="61.04" width="61.21" height="13.04" rx="0" fill="#e5eff9" stroke="none" opacity="1"><title>-83.931</title></rect>
+<rect x="376.30" y="61.04" width="61.21" height="13.04" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-75.203</title></rect>
+<rect x="437.51" y="61.04" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>-69.327</title></rect>
+<rect x="498.72" y="61.04" width="61.21" height="13.04" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-68.916</title></rect>
+<rect x="559.93" y="61.04" width="61.21" height="13.04" rx="0" fill="#ddeaf7" stroke="none" opacity="1"><title>-78.547</title></rect>
+<rect x="621.15" y="61.04" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>-69.518</title></rect>
+<rect x="682.36" y="61.04" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.298</title></rect>
+<rect x="743.57" y="61.04" width="61.21" height="13.04" rx="0" fill="#deebf7" stroke="none" opacity="1"><title>-79.016</title></rect>
+<rect x="804.79" y="61.04" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.29</title></rect>
+<rect x="192.66" y="74.07" width="61.21" height="13.04" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-77.024</title></rect>
+<rect x="253.87" y="74.07" width="61.21" height="13.04" rx="0" fill="#dae8f6" stroke="none" opacity="1"><title>-76.487</title></rect>
+<rect x="315.08" y="74.07" width="61.21" height="13.04" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>-77.988</title></rect>
+<rect x="376.30" y="74.07" width="61.21" height="13.04" rx="0" fill="#d6e6f4" stroke="none" opacity="1"><title>-73.707</title></rect>
+<rect x="437.51" y="74.07" width="61.21" height="13.04" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-68.955</title></rect>
+<rect x="498.72" y="74.07" width="61.21" height="13.04" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-68.52</title></rect>
+<rect x="559.93" y="74.07" width="61.21" height="13.04" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-74.987</title></rect>
+<rect x="621.15" y="74.07" width="61.21" height="13.04" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-68.751</title></rect>
+<rect x="682.36" y="74.07" width="61.21" height="13.04" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-65.879</title></rect>
+<rect x="743.57" y="74.07" width="61.21" height="13.04" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-74.153</title></rect>
+<rect x="804.79" y="74.07" width="61.21" height="13.04" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-65.683</title></rect>
+<rect x="192.66" y="87.11" width="61.21" height="13.04" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>-76.061</title></rect>
+<rect x="253.87" y="87.11" width="61.21" height="13.04" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-74.482</title></rect>
+<rect x="315.08" y="87.11" width="61.21" height="13.04" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-74.323</title></rect>
+<rect x="376.30" y="87.11" width="61.21" height="13.04" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-71.887</title></rect>
+<rect x="437.51" y="87.11" width="61.21" height="13.04" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-68.355</title></rect>
+<rect x="498.72" y="87.11" width="61.21" height="13.04" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-67.881</title></rect>
+<rect x="559.93" y="87.11" width="61.21" height="13.04" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-71.918</title></rect>
+<rect x="621.15" y="87.11" width="61.21" height="13.04" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-67.616</title></rect>
+<rect x="682.36" y="87.11" width="61.21" height="13.04" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-65.191</title></rect>
+<rect x="743.57" y="87.11" width="61.21" height="13.04" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-70.547</title></rect>
+<rect x="804.79" y="87.11" width="61.21" height="13.04" rx="0" fill="#caddf0" stroke="none" opacity="1"><title>-64.709</title></rect>
+<rect x="192.66" y="100.15" width="61.21" height="13.04" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-74.904</title></rect>
+<rect x="253.87" y="100.15" width="61.21" height="13.04" rx="0" fill="#d4e5f4" stroke="none" opacity="1"><title>-72.53</title></rect>
+<rect x="315.08" y="100.15" width="61.21" height="13.04" rx="0" fill="#d3e4f3" stroke="none" opacity="1"><title>-71.585</title></rect>
+<rect x="376.30" y="100.15" width="61.21" height="13.04" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-70.034</title></rect>
+<rect x="437.51" y="100.15" width="61.21" height="13.04" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-67.552</title></rect>
+<rect x="498.72" y="100.15" width="61.21" height="13.04" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-67.023</title></rect>
+<rect x="559.93" y="100.15" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>-69.319</title></rect>
+<rect x="621.15" y="100.15" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.232</title></rect>
+<rect x="682.36" y="100.15" width="61.21" height="13.04" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-64.246</title></rect>
+<rect x="743.57" y="100.15" width="61.21" height="13.04" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-67.596</title></rect>
+<rect x="804.79" y="100.15" width="61.21" height="13.04" rx="0" fill="#c8dcf0" stroke="none" opacity="1"><title>-63.406</title></rect>
+<rect x="192.66" y="113.18" width="61.21" height="13.04" rx="0" fill="#d6e6f4" stroke="none" opacity="1"><title>-73.634</title></rect>
+<rect x="253.87" y="113.18" width="61.21" height="13.04" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-70.696</title></rect>
+<rect x="315.08" y="113.18" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>-69.326</title></rect>
+<rect x="376.30" y="113.18" width="61.21" height="13.04" rx="0" fill="#cee1f2" stroke="none" opacity="1"><title>-68.238</title></rect>
+<rect x="437.51" y="113.18" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.571</title></rect>
+<rect x="498.72" y="113.18" width="61.21" height="13.04" rx="0" fill="#cbdff1" stroke="none" opacity="1"><title>-65.97</title></rect>
+<rect x="559.93" y="113.18" width="61.21" height="13.04" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-67.015</title></rect>
+<rect x="621.15" y="113.18" width="61.21" height="13.04" rx="0" fill="#caddf0" stroke="none" opacity="1"><title>-64.682</title></rect>
+<rect x="682.36" y="113.18" width="61.21" height="13.04" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-63.056</title></rect>
+<rect x="743.57" y="113.18" width="61.21" height="13.04" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-64.963</title></rect>
+<rect x="804.79" y="113.18" width="61.21" height="13.04" rx="0" fill="#c5dbef" stroke="none" opacity="1"><title>-61.806</title></rect>
+<rect x="192.66" y="126.22" width="61.21" height="13.04" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-72.298</title></rect>
+<rect x="253.87" y="126.22" width="61.21" height="13.04" rx="0" fill="#d0e1f2" stroke="none" opacity="1"><title>-68.966</title></rect>
+<rect x="315.08" y="126.22" width="61.21" height="13.04" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-67.34</title></rect>
+<rect x="376.30" y="126.22" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.505</title></rect>
+<rect x="437.51" y="126.22" width="61.21" height="13.04" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-65.433</title></rect>
+<rect x="498.72" y="126.22" width="61.21" height="13.04" rx="0" fill="#caddf0" stroke="none" opacity="1"><title>-64.744</title></rect>
+<rect x="559.93" y="126.22" width="61.21" height="13.04" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-64.88</title></rect>
+<rect x="621.15" y="126.22" width="61.21" height="13.04" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-63.005</title></rect>
+<rect x="682.36" y="126.22" width="61.21" height="13.04" rx="0" fill="#c5daef" stroke="none" opacity="1"><title>-61.631</title></rect>
+<rect x="743.57" y="126.22" width="61.21" height="13.04" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>-62.466</title></rect>
+<rect x="804.79" y="126.22" width="61.21" height="13.04" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-59.927</title></rect>
+<rect x="192.66" y="139.26" width="61.21" height="13.04" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-70.917</title></rect>
+<rect x="253.87" y="139.26" width="61.21" height="13.04" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-67.311</title></rect>
+<rect x="315.08" y="139.26" width="61.21" height="13.04" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-65.515</title></rect>
+<rect x="376.30" y="139.26" width="61.21" height="13.04" rx="0" fill="#caddf0" stroke="none" opacity="1"><title>-64.814</title></rect>
+<rect x="437.51" y="139.26" width="61.21" height="13.04" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-64.153</title></rect>
+<rect x="498.72" y="139.26" width="61.21" height="13.04" rx="0" fill="#c8dcf0" stroke="none" opacity="1"><title>-63.358</title></rect>
+<rect x="559.93" y="139.26" width="61.21" height="13.04" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-62.826</title></rect>
+<rect x="621.15" y="139.26" width="61.21" height="13.04" rx="0" fill="#c4daee" stroke="none" opacity="1"><title>-61.214</title></rect>
+<rect x="682.36" y="139.26" width="61.21" height="13.04" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-59.977</title></rect>
+<rect x="743.57" y="139.26" width="61.21" height="13.04" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-59.988</title></rect>
+<rect x="804.79" y="139.26" width="61.21" height="13.04" rx="0" fill="#bcd7eb" stroke="none" opacity="1"><title>-57.769</title></rect>
+<rect x="192.66" y="152.30" width="61.21" height="13.04" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>75, 0: -69.499</title></rect>
+<rect x="253.87" y="152.30" width="61.21" height="13.04" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-65.7</title></rect>
+<rect x="315.08" y="152.30" width="61.21" height="13.04" rx="0" fill="#c8ddf0" stroke="none" opacity="1"><title>75, 0.32: -63.781</title></rect>
+<rect x="376.30" y="152.30" width="61.21" height="13.04" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-63.141</title></rect>
+<rect x="437.51" y="152.30" width="61.21" height="13.04" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>75, 0.64: -62.739</title></rect>
+<rect x="498.72" y="152.30" width="61.21" height="13.04" rx="0" fill="#c5dbef" stroke="none" opacity="1"><title>-61.821</title></rect>
+<rect x="559.93" y="152.30" width="61.21" height="13.04" rx="0" fill="#c3daee" stroke="none" opacity="1"><title>75, 0.96: -60.788</title></rect>
+<rect x="621.15" y="152.30" width="61.21" height="13.04" rx="0" fill="#bfd8ed" stroke="none" opacity="1"><title>-59.304</title></rect>
+<rect x="682.36" y="152.30" width="61.21" height="13.04" rx="0" fill="#bdd7ec" stroke="none" opacity="1"><title>75, 1.28: -58.091</title></rect>
+<rect x="743.57" y="152.30" width="61.21" height="13.04" rx="0" fill="#bbd6eb" stroke="none" opacity="1"><title>-57.441</title></rect>
+<rect x="804.79" y="152.30" width="61.21" height="13.04" rx="0" fill="#b6d4e9" stroke="none" opacity="1"><title>75, 1.6: -55.312</title></rect>
+<rect x="192.66" y="165.33" width="61.21" height="13.04" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-68.04</title></rect>
+<rect x="253.87" y="165.33" width="61.21" height="13.04" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-64.106</title></rect>
+<rect x="315.08" y="165.33" width="61.21" height="13.04" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>-62.091</title></rect>
+<rect x="376.30" y="165.33" width="61.21" height="13.04" rx="0" fill="#c4daee" stroke="none" opacity="1"><title>-61.46</title></rect>
+<rect x="437.51" y="165.33" width="61.21" height="13.04" rx="0" fill="#c4daee" stroke="none" opacity="1"><title>-61.194</title></rect>
+<rect x="498.72" y="165.33" width="61.21" height="13.04" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-60.135</title></rect>
+<rect x="559.93" y="165.33" width="61.21" height="13.04" rx="0" fill="#bed8ec" stroke="none" opacity="1"><title>-58.718</title></rect>
+<rect x="621.15" y="165.33" width="61.21" height="13.04" rx="0" fill="#bbd6eb" stroke="none" opacity="1"><title>-57.256</title></rect>
+<rect x="682.36" y="165.33" width="61.21" height="13.04" rx="0" fill="#b8d5ea" stroke="none" opacity="1"><title>-55.963</title></rect>
+<rect x="743.57" y="165.33" width="61.21" height="13.04" rx="0" fill="#b5d4e9" stroke="none" opacity="1"><title>-54.751</title></rect>
+<rect x="804.79" y="165.33" width="61.21" height="13.04" rx="0" fill="#b0d1e7" stroke="none" opacity="1"><title>-52.521</title></rect>
+<rect x="192.66" y="178.37" width="61.21" height="13.04" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-66.534</title></rect>
+<rect x="253.87" y="178.37" width="61.21" height="13.04" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>-62.505</title></rect>
+<rect x="315.08" y="178.37" width="61.21" height="13.04" rx="0" fill="#c2d9ee" stroke="none" opacity="1"><title>-60.408</title></rect>
+<rect x="376.30" y="178.37" width="61.21" height="13.04" rx="0" fill="#c0d9ed" stroke="none" opacity="1"><title>-59.746</title></rect>
+<rect x="437.51" y="178.37" width="61.21" height="13.04" rx="0" fill="#c0d8ed" stroke="none" opacity="1"><title>-59.514</title></rect>
+<rect x="498.72" y="178.37" width="61.21" height="13.04" rx="0" fill="#bdd7ec" stroke="none" opacity="1"><title>-58.295</title></rect>
+<rect x="559.93" y="178.37" width="61.21" height="13.04" rx="0" fill="#b9d5ea" stroke="none" opacity="1"><title>-56.57</title></rect>
+<rect x="621.15" y="178.37" width="61.21" height="13.04" rx="0" fill="#b5d4e9" stroke="none" opacity="1"><title>-55.043</title></rect>
+<rect x="682.36" y="178.37" width="61.21" height="13.04" rx="0" fill="#b2d2e8" stroke="none" opacity="1"><title>-53.571</title></rect>
+<rect x="743.57" y="178.37" width="61.21" height="13.04" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-51.841</title></rect>
+<rect x="804.79" y="178.37" width="61.21" height="13.04" rx="0" fill="#a8cee5" stroke="none" opacity="1"><title>-49.333</title></rect>
+<rect x="192.66" y="191.41" width="61.21" height="13.04" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-64.971</title></rect>
+<rect x="253.87" y="191.41" width="61.21" height="13.04" rx="0" fill="#c3daee" stroke="none" opacity="1"><title>-60.875</title></rect>
+<rect x="315.08" y="191.41" width="61.21" height="13.04" rx="0" fill="#bed8ec" stroke="none" opacity="1"><title>-58.703</title></rect>
+<rect x="376.30" y="191.41" width="61.21" height="13.04" rx="0" fill="#bcd7ec" stroke="none" opacity="1"><title>-57.975</title></rect>
+<rect x="437.51" y="191.41" width="61.21" height="13.04" rx="0" fill="#bcd7eb" stroke="none" opacity="1"><title>-57.689</title></rect>
+<rect x="498.72" y="191.41" width="61.21" height="13.04" rx="0" fill="#b8d5ea" stroke="none" opacity="1"><title>-56.287</title></rect>
+<rect x="559.93" y="191.41" width="61.21" height="13.04" rx="0" fill="#b4d3e9" stroke="none" opacity="1"><title>-54.3</title></rect>
+<rect x="621.15" y="191.41" width="61.21" height="13.04" rx="0" fill="#b0d2e7" stroke="none" opacity="1"><title>-52.627</title></rect>
+<rect x="682.36" y="191.41" width="61.21" height="13.04" rx="0" fill="#acd0e6" stroke="none" opacity="1"><title>-50.877</title></rect>
+<rect x="743.57" y="191.41" width="61.21" height="13.04" rx="0" fill="#a6cee4" stroke="none" opacity="1"><title>-48.623</title></rect>
+<rect x="804.79" y="191.41" width="61.21" height="13.04" rx="0" fill="#a0cbe2" stroke="none" opacity="1"><title>-45.657</title></rect>
+<rect x="192.66" y="204.44" width="61.21" height="13.04" rx="0" fill="#c8dcf0" stroke="none" opacity="1"><title>-63.339</title></rect>
+<rect x="253.87" y="204.44" width="61.21" height="13.04" rx="0" fill="#bfd8ed" stroke="none" opacity="1"><title>-59.197</title></rect>
+<rect x="315.08" y="204.44" width="61.21" height="13.04" rx="0" fill="#bad6eb" stroke="none" opacity="1"><title>-56.949</title></rect>
+<rect x="376.30" y="204.44" width="61.21" height="13.04" rx="0" fill="#b8d5ea" stroke="none" opacity="1"><title>-56.123</title></rect>
+<rect x="437.51" y="204.44" width="61.21" height="13.04" rx="0" fill="#b7d5ea" stroke="none" opacity="1"><title>-55.706</title></rect>
+<rect x="498.72" y="204.44" width="61.21" height="13.04" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>-54.095</title></rect>
+<rect x="559.93" y="204.44" width="61.21" height="13.04" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-51.862</title></rect>
+<rect x="621.15" y="204.44" width="61.21" height="13.04" rx="0" fill="#aacfe5" stroke="none" opacity="1"><title>-49.958</title></rect>
+<rect x="682.36" y="204.44" width="61.21" height="13.04" rx="0" fill="#a5cde3" stroke="none" opacity="1"><title>-47.824</title></rect>
+<rect x="743.57" y="204.44" width="61.21" height="13.04" rx="0" fill="#9ecae1" stroke="none" opacity="1"><title>-44.987</title></rect>
+<rect x="804.79" y="204.44" width="61.21" height="13.04" rx="0" fill="#93c4df" stroke="none" opacity="1"><title>-41.355</title></rect>
+<rect x="192.66" y="217.48" width="61.21" height="13.04" rx="0" fill="#c5daef" stroke="none" opacity="1"><title>-61.624</title></rect>
+<rect x="253.87" y="217.48" width="61.21" height="13.04" rx="0" fill="#bbd6eb" stroke="none" opacity="1"><title>-57.448</title></rect>
+<rect x="315.08" y="217.48" width="61.21" height="13.04" rx="0" fill="#b6d4e9" stroke="none" opacity="1"><title>-55.12</title></rect>
+<rect x="376.30" y="217.48" width="61.21" height="13.04" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>-54.162</title></rect>
+<rect x="437.51" y="217.48" width="61.21" height="13.04" rx="0" fill="#b2d2e8" stroke="none" opacity="1"><title>-53.543</title></rect>
+<rect x="498.72" y="217.48" width="61.21" height="13.04" rx="0" fill="#aed1e6" stroke="none" opacity="1"><title>-51.689</title></rect>
+<rect x="559.93" y="217.48" width="61.21" height="13.04" rx="0" fill="#a8cee4" stroke="none" opacity="1"><title>-49.2</title></rect>
+<rect x="621.15" y="217.48" width="61.21" height="13.04" rx="0" fill="#a3cce3" stroke="none" opacity="1"><title>-46.969</title></rect>
+<rect x="682.36" y="217.48" width="61.21" height="13.04" rx="0" fill="#9cc9e1" stroke="none" opacity="1"><title>-44.324</title></rect>
+<rect x="743.57" y="217.48" width="61.21" height="13.04" rx="0" fill="#92c3de" stroke="none" opacity="1"><title>-40.781</title></rect>
+<rect x="804.79" y="217.48" width="61.21" height="13.04" rx="0" fill="#84bcdb" stroke="none" opacity="1"><title>-36.215</title></rect>
+<rect x="192.66" y="230.52" width="61.21" height="13.04" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-59.811</title></rect>
+<rect x="253.87" y="230.52" width="61.21" height="13.04" rx="0" fill="#b7d5ea" stroke="none" opacity="1"><title>-55.609</title></rect>
+<rect x="315.08" y="230.52" width="61.21" height="13.04" rx="0" fill="#b1d2e8" stroke="none" opacity="1"><title>-53.19</title></rect>
+<rect x="376.30" y="230.52" width="61.21" height="13.04" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-52.061</title></rect>
+<rect x="437.51" y="230.52" width="61.21" height="13.04" rx="0" fill="#acd0e6" stroke="none" opacity="1"><title>-51.17</title></rect>
+<rect x="498.72" y="230.52" width="61.21" height="13.04" rx="0" fill="#a7cee4" stroke="none" opacity="1"><title>-49.03</title></rect>
+<rect x="559.93" y="230.52" width="61.21" height="13.04" rx="0" fill="#a1cbe2" stroke="none" opacity="1"><title>-46.245</title></rect>
+<rect x="621.15" y="230.52" width="61.21" height="13.04" rx="0" fill="#9ac8e0" stroke="none" opacity="1"><title>-43.565</title></rect>
+<rect x="682.36" y="230.52" width="61.21" height="13.04" rx="0" fill="#90c2de" stroke="none" opacity="1"><title>-40.246</title></rect>
+<rect x="743.57" y="230.52" width="61.21" height="13.04" rx="0" fill="#83bbdb" stroke="none" opacity="1"><title>-35.78</title></rect>
+<rect x="804.79" y="230.52" width="61.21" height="13.04" rx="0" fill="#71b1d7" stroke="none" opacity="1"><title>-29.889</title></rect>
+<rect x="192.66" y="243.55" width="61.21" height="13.04" rx="0" fill="#bcd7ec" stroke="none" opacity="1"><title>-57.88</title></rect>
+<rect x="253.87" y="243.55" width="61.21" height="13.04" rx="0" fill="#b2d3e8" stroke="none" opacity="1"><title>-53.654</title></rect>
+<rect x="315.08" y="243.55" width="61.21" height="13.04" rx="0" fill="#acd0e6" stroke="none" opacity="1"><title>-51.127</title></rect>
+<rect x="376.30" y="243.55" width="61.21" height="13.04" rx="0" fill="#a9cfe5" stroke="none" opacity="1"><title>-49.784</title></rect>
+<rect x="437.51" y="243.55" width="61.21" height="13.04" rx="0" fill="#a6cee4" stroke="none" opacity="1"><title>-48.547</title></rect>
+<rect x="498.72" y="243.55" width="61.21" height="13.04" rx="0" fill="#a1cbe2" stroke="none" opacity="1"><title>-46.062</title></rect>
+<rect x="559.93" y="243.55" width="61.21" height="13.04" rx="0" fill="#98c7e0" stroke="none" opacity="1"><title>-42.902</title></rect>
+<rect x="621.15" y="243.55" width="61.21" height="13.04" rx="0" fill="#8ec1de" stroke="none" opacity="1"><title>-39.61</title></rect>
+<rect x="682.36" y="243.55" width="61.21" height="13.04" rx="0" fill="#82badb" stroke="none" opacity="1"><title>-35.379</title></rect>
+<rect x="743.57" y="243.55" width="61.21" height="13.04" rx="0" fill="#70b1d7" stroke="none" opacity="1"><title>-29.627</title></rect>
+<rect x="804.79" y="243.55" width="61.21" height="13.04" rx="0" fill="#5da4d0" stroke="none" opacity="1"><title>-21.794</title></rect>
+<rect x="192.66" y="256.59" width="61.21" height="13.04" rx="0" fill="#b7d5ea" stroke="none" opacity="1"><title>50, 0: -55.81</title></rect>
+<rect x="253.87" y="256.59" width="61.21" height="13.04" rx="0" fill="#add1e6" stroke="none" opacity="1"><title>-51.556</title></rect>
+<rect x="315.08" y="256.59" width="61.21" height="13.04" rx="0" fill="#a7cee4" stroke="none" opacity="1"><title>50, 0.32: -48.897</title></rect>
+<rect x="376.30" y="256.59" width="61.21" height="13.04" rx="0" fill="#a3cce3" stroke="none" opacity="1"><title>-47.284</title></rect>
+<rect x="437.51" y="256.59" width="61.21" height="13.04" rx="0" fill="#9fcbe2" stroke="none" opacity="1"><title>50, 0.64: -45.619</title></rect>
+<rect x="498.72" y="256.59" width="61.21" height="13.04" rx="0" fill="#97c6e0" stroke="none" opacity="1"><title>-42.702</title></rect>
+<rect x="559.93" y="256.59" width="61.21" height="13.04" rx="0" fill="#8cc0dd" stroke="none" opacity="1"><title>50, 0.96: -39.035</title></rect>
+<rect x="621.15" y="256.59" width="61.21" height="13.04" rx="0" fill="#80badb" stroke="none" opacity="1"><title>-34.893</title></rect>
+<rect x="682.36" y="256.59" width="61.21" height="13.04" rx="0" fill="#70b1d7" stroke="none" opacity="1"><title>50, 1.28: -29.38</title></rect>
+<rect x="743.57" y="256.59" width="61.21" height="13.04" rx="0" fill="#5da4d0" stroke="none" opacity="1"><title>-21.729</title></rect>
+<rect x="804.79" y="256.59" width="61.21" height="13.04" rx="0" fill="#4393c6" stroke="none" opacity="1"><title>50, 1.6: -11.037</title></rect>
+<rect x="192.66" y="269.63" width="61.21" height="13.04" rx="0" fill="#b2d3e8" stroke="none" opacity="1"><title>-53.575</title></rect>
+<rect x="253.87" y="269.63" width="61.21" height="13.04" rx="0" fill="#a8cee5" stroke="none" opacity="1"><title>-49.28</title></rect>
+<rect x="315.08" y="269.63" width="61.21" height="13.04" rx="0" fill="#a1cbe2" stroke="none" opacity="1"><title>-46.454</title></rect>
+<rect x="376.30" y="269.63" width="61.21" height="13.04" rx="0" fill="#9dc9e1" stroke="none" opacity="1"><title>-44.5</title></rect>
+<rect x="437.51" y="269.63" width="61.21" height="13.04" rx="0" fill="#96c6df" stroke="none" opacity="1"><title>-42.305</title></rect>
+<rect x="498.72" y="269.63" width="61.21" height="13.04" rx="0" fill="#8cc0dd" stroke="none" opacity="1"><title>-38.828</title></rect>
+<rect x="559.93" y="269.63" width="61.21" height="13.04" rx="0" fill="#7fb9da" stroke="none" opacity="1"><title>-34.436</title></rect>
+<rect x="621.15" y="269.63" width="61.21" height="13.04" rx="0" fill="#6fb0d7" stroke="none" opacity="1"><title>-29.07</title></rect>
+<rect x="682.36" y="269.63" width="61.21" height="13.04" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-21.662</title></rect>
+<rect x="743.57" y="269.63" width="61.21" height="13.04" rx="0" fill="#4393c7" stroke="none" opacity="1"><title>-11.178</title></rect>
+<rect x="804.79" y="269.63" width="61.21" height="13.04" rx="0" fill="#2878b9" stroke="none" opacity="1"><title>2.807</title></rect>
+<rect x="192.66" y="282.66" width="61.21" height="13.04" rx="0" fill="#acd0e6" stroke="none" opacity="1"><title>-51.142</title></rect>
+<rect x="253.87" y="282.66" width="61.21" height="13.04" rx="0" fill="#a2cce2" stroke="none" opacity="1"><title>-46.784</title></rect>
+<rect x="315.08" y="282.66" width="61.21" height="13.04" rx="0" fill="#9ac8e0" stroke="none" opacity="1"><title>-43.738</title></rect>
+<rect x="376.30" y="282.66" width="61.21" height="13.04" rx="0" fill="#93c4df" stroke="none" opacity="1"><title>-41.348</title></rect>
+<rect x="437.51" y="282.66" width="61.21" height="13.04" rx="0" fill="#8bbfdd" stroke="none" opacity="1"><title>-38.484</title></rect>
+<rect x="498.72" y="282.66" width="61.21" height="13.04" rx="0" fill="#7eb9da" stroke="none" opacity="1"><title>-34.245</title></rect>
+<rect x="559.93" y="282.66" width="61.21" height="13.04" rx="0" fill="#6eb0d7" stroke="none" opacity="1"><title>-28.767</title></rect>
+<rect x="621.15" y="282.66" width="61.21" height="13.04" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-21.555</title></rect>
+<rect x="682.36" y="282.66" width="61.21" height="13.04" rx="0" fill="#4493c7" stroke="none" opacity="1"><title>-11.312</title></rect>
+<rect x="743.57" y="282.66" width="61.21" height="13.04" rx="0" fill="#2979b9" stroke="none" opacity="1"><title>2.503</title></rect>
+<rect x="804.79" y="282.66" width="61.21" height="13.04" rx="0" fill="#1256a1" stroke="none" opacity="1"><title>17.117</title></rect>
+<rect x="192.66" y="295.70" width="61.21" height="13.04" rx="0" fill="#a6cde4" stroke="none" opacity="1"><title>-48.471</title></rect>
+<rect x="253.87" y="295.70" width="61.21" height="13.04" rx="0" fill="#9bc8e0" stroke="none" opacity="1"><title>-44.011</title></rect>
+<rect x="315.08" y="295.70" width="61.21" height="13.04" rx="0" fill="#91c3de" stroke="none" opacity="1"><title>-40.668</title></rect>
+<rect x="376.30" y="295.70" width="61.21" height="13.04" rx="0" fill="#88bedc" stroke="none" opacity="1"><title>-37.704</title></rect>
+<rect x="437.51" y="295.70" width="61.21" height="13.04" rx="0" fill="#7db8da" stroke="none" opacity="1"><title>-33.97</title></rect>
+<rect x="498.72" y="295.70" width="61.21" height="13.04" rx="0" fill="#6dafd7" stroke="none" opacity="1"><title>-28.631</title></rect>
+<rect x="559.93" y="295.70" width="61.21" height="13.04" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-21.447</title></rect>
+<rect x="621.15" y="295.70" width="61.21" height="13.04" rx="0" fill="#4493c7" stroke="none" opacity="1"><title>-11.428</title></rect>
+<rect x="682.36" y="295.70" width="61.21" height="13.04" rx="0" fill="#2979b9" stroke="none" opacity="1"><title>2.197</title></rect>
+<rect x="743.57" y="295.70" width="61.21" height="13.04" rx="0" fill="#1257a1" stroke="none" opacity="1"><title>16.782</title></rect>
+<rect x="804.79" y="295.70" width="61.21" height="13.04" rx="0" fill="#084594" stroke="none" opacity="1"><title>23.754</title></rect>
+<rect x="192.66" y="308.74" width="61.21" height="13.04" rx="0" fill="#9fcbe1" stroke="none" opacity="1"><title>-45.505</title></rect>
+<rect x="253.87" y="308.74" width="61.21" height="13.04" rx="0" fill="#92c3de" stroke="none" opacity="1"><title>-40.882</title></rect>
+<rect x="315.08" y="308.74" width="61.21" height="13.04" rx="0" fill="#87bddc" stroke="none" opacity="1"><title>-37.125</title></rect>
+<rect x="376.30" y="308.74" width="61.21" height="13.04" rx="0" fill="#7cb7da" stroke="none" opacity="1"><title>-33.38</title></rect>
+<rect x="437.51" y="308.74" width="61.21" height="13.04" rx="0" fill="#6dafd6" stroke="none" opacity="1"><title>-28.449</title></rect>
+<rect x="498.72" y="308.74" width="61.21" height="13.04" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-21.421</title></rect>
+<rect x="559.93" y="308.74" width="61.21" height="13.04" rx="0" fill="#4494c7" stroke="none" opacity="1"><title>-11.543</title></rect>
+<rect x="621.15" y="308.74" width="61.21" height="13.04" rx="0" fill="#2a7aba" stroke="none" opacity="1"><title>1.894</title></rect>
+<rect x="682.36" y="308.74" width="61.21" height="13.04" rx="0" fill="#1358a2" stroke="none" opacity="1"><title>16.439</title></rect>
+<rect x="743.57" y="308.74" width="61.21" height="13.04" rx="0" fill="#084594" stroke="none" opacity="1"><title>23.72</title></rect>
+<rect x="804.79" y="308.74" width="61.21" height="13.04" rx="0" fill="#0e509c" stroke="none" opacity="1"><title>19.52</title></rect>
+<rect x="192.66" y="321.78" width="61.21" height="13.04" rx="0" fill="#96c5df" stroke="none" opacity="1"><title>-42.171</title></rect>
+<rect x="253.87" y="321.78" width="61.21" height="13.04" rx="0" fill="#87bddc" stroke="none" opacity="1"><title>-37.284</title></rect>
+<rect x="315.08" y="321.78" width="61.21" height="13.04" rx="0" fill="#7ab6d9" stroke="none" opacity="1"><title>-32.924</title></rect>
+<rect x="376.30" y="321.78" width="61.21" height="13.04" rx="0" fill="#6caed6" stroke="none" opacity="1"><title>-28.065</title></rect>
+<rect x="437.51" y="321.78" width="61.21" height="13.04" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-21.371</title></rect>
+<rect x="498.72" y="321.78" width="61.21" height="13.04" rx="0" fill="#4594c7" stroke="none" opacity="1"><title>-11.687</title></rect>
+<rect x="559.93" y="321.78" width="61.21" height="13.04" rx="0" fill="#2b7bba" stroke="none" opacity="1"><title>1.584</title></rect>
+<rect x="621.15" y="321.78" width="61.21" height="13.04" rx="0" fill="#1359a3" stroke="none" opacity="1"><title>16.089</title></rect>
+<rect x="682.36" y="321.78" width="61.21" height="13.04" rx="0" fill="#084594" stroke="none" opacity="1"><title>23.679</title></rect>
+<rect x="743.57" y="321.78" width="61.21" height="13.04" rx="0" fill="#0e4f9c" stroke="none" opacity="1"><title>19.777</title></rect>
+<rect x="804.79" y="321.78" width="61.21" height="13.04" rx="0" fill="#2373b6" stroke="none" opacity="1"><title>5.437</title></rect>
+<rect x="192.66" y="334.81" width="61.21" height="13.04" rx="0" fill="#8abfdd" stroke="none" opacity="1"><title>-38.359</title></rect>
+<rect x="253.87" y="334.81" width="61.21" height="13.04" rx="0" fill="#7bb7d9" stroke="none" opacity="1"><title>-33.041</title></rect>
+<rect x="315.08" y="334.81" width="61.21" height="13.04" rx="0" fill="#6baed6" stroke="none" opacity="1"><title>-27.761</title></rect>
+<rect x="376.30" y="334.81" width="61.21" height="13.04" rx="0" fill="#5ba3d0" stroke="none" opacity="1"><title>-21.213</title></rect>
+<rect x="437.51" y="334.81" width="61.21" height="13.04" rx="0" fill="#4594c7" stroke="none" opacity="1"><title>-11.818</title></rect>
+<rect x="498.72" y="334.81" width="61.21" height="13.04" rx="0" fill="#2b7bba" stroke="none" opacity="1"><title>1.265</title></rect>
+<rect x="559.93" y="334.81" width="61.21" height="13.04" rx="0" fill="#145aa3" stroke="none" opacity="1"><title>15.729</title></rect>
+<rect x="621.15" y="334.81" width="61.21" height="13.04" rx="0" fill="#084594" stroke="none" opacity="1"><title>23.63</title></rect>
+<rect x="682.36" y="334.81" width="61.21" height="13.04" rx="0" fill="#0d4f9b" stroke="none" opacity="1"><title>20.027</title></rect>
+<rect x="743.57" y="334.81" width="61.21" height="13.04" rx="0" fill="#2272b6" stroke="none" opacity="1"><title>5.798</title></rect>
+<rect x="804.79" y="334.81" width="61.21" height="13.04" rx="0" fill="#3f8fc4" stroke="none" opacity="1"><title>-8.925</title></rect>
+<rect x="192.66" y="347.85" width="61.21" height="13.04" rx="0" fill="#7db8da" stroke="none" opacity="1"><title>-33.902</title></rect>
+<rect x="253.87" y="347.85" width="61.21" height="13.04" rx="0" fill="#6baed6" stroke="none" opacity="1"><title>-27.863</title></rect>
+<rect x="315.08" y="347.85" width="61.21" height="13.04" rx="0" fill="#5ba3d0" stroke="none" opacity="1"><title>-21.1</title></rect>
+<rect x="376.30" y="347.85" width="61.21" height="13.04" rx="0" fill="#4594c7" stroke="none" opacity="1"><title>-11.908</title></rect>
+<rect x="437.51" y="347.85" width="61.21" height="13.04" rx="0" fill="#2c7cbb" stroke="none" opacity="1"><title>0.95</title></rect>
+<rect x="498.72" y="347.85" width="61.21" height="13.04" rx="0" fill="#145aa4" stroke="none" opacity="1"><title>15.363</title></rect>
+<rect x="559.93" y="347.85" width="61.21" height="13.04" rx="0" fill="#084594" stroke="none" opacity="1"><title>23.574</title></rect>
+<rect x="621.15" y="347.85" width="61.21" height="13.04" rx="0" fill="#0d4e9b" stroke="none" opacity="1"><title>20.268</title></rect>
+<rect x="682.36" y="347.85" width="61.21" height="13.04" rx="0" fill="#2272b5" stroke="none" opacity="1"><title>6.165</title></rect>
+<rect x="743.57" y="347.85" width="61.21" height="13.04" rx="0" fill="#3e8ec4" stroke="none" opacity="1"><title>-8.516</title></rect>
+<rect x="804.79" y="347.85" width="61.21" height="13.04" rx="0" fill="#59a2cf" stroke="none" opacity="1"><title>-20.251</title></rect>
+<rect x="192.66" y="360.89" width="61.21" height="13.04" rx="0" fill="#6dafd6" stroke="none" opacity="1"><title>25, 0: -28.525</title></rect>
+<rect x="253.87" y="360.89" width="61.21" height="13.04" rx="0" fill="#5ba3d0" stroke="none" opacity="1"><title>-21.236</title></rect>
+<rect x="315.08" y="360.89" width="61.21" height="13.04" rx="0" fill="#4594c7" stroke="none" opacity="1"><title>25, 0.32: -12.026</title></rect>
+<rect x="376.30" y="360.89" width="61.21" height="13.04" rx="0" fill="#2c7cbb" stroke="none" opacity="1"><title>0.637</title></rect>
+<rect x="437.51" y="360.89" width="61.21" height="13.04" rx="0" fill="#155ba5" stroke="none" opacity="1"><title>25, 0.64: 14.991</title></rect>
+<rect x="498.72" y="360.89" width="61.21" height="13.04" rx="0" fill="#084694" stroke="none" opacity="1"><title>23.511</title></rect>
+<rect x="559.93" y="360.89" width="61.21" height="13.04" rx="0" fill="#0d4d9a" stroke="none" opacity="1"><title>25, 0.96: 20.5</title></rect>
+<rect x="621.15" y="360.89" width="61.21" height="13.04" rx="0" fill="#2171b5" stroke="none" opacity="1"><title>6.546</title></rect>
+<rect x="682.36" y="360.89" width="61.21" height="13.04" rx="0" fill="#3d8dc4" stroke="none" opacity="1"><title>25, 1.28: -8.099</title></rect>
+<rect x="743.57" y="360.89" width="61.21" height="13.04" rx="0" fill="#58a1cf" stroke="none" opacity="1"><title>-19.753</title></rect>
+<rect x="804.79" y="360.89" width="61.21" height="13.04" rx="0" fill="#6eb0d7" stroke="none" opacity="1"><title>25, 1.6: -28.746</title></rect>
+<rect x="192.66" y="373.92" width="61.21" height="13.04" rx="0" fill="#5da4d0" stroke="none" opacity="1"><title>-21.74</title></rect>
+<rect x="253.87" y="373.92" width="61.21" height="13.04" rx="0" fill="#4695c8" stroke="none" opacity="1"><title>-12.269</title></rect>
+<rect x="315.08" y="373.92" width="61.21" height="13.04" rx="0" fill="#2d7dbb" stroke="none" opacity="1"><title>0.302</title></rect>
+<rect x="376.30" y="373.92" width="61.21" height="13.04" rx="0" fill="#155ca6" stroke="none" opacity="1"><title>14.609</title></rect>
+<rect x="437.51" y="373.92" width="61.21" height="13.04" rx="0" fill="#084695" stroke="none" opacity="1"><title>23.438</title></rect>
+<rect x="498.72" y="373.92" width="61.21" height="13.04" rx="0" fill="#0c4d9a" stroke="none" opacity="1"><title>20.724</title></rect>
+<rect x="559.93" y="373.92" width="61.21" height="13.04" rx="0" fill="#2070b4" stroke="none" opacity="1"><title>6.936</title></rect>
+<rect x="621.15" y="373.92" width="61.21" height="13.04" rx="0" fill="#3c8cc3" stroke="none" opacity="1"><title>-7.658</title></rect>
+<rect x="682.36" y="373.92" width="61.21" height="13.04" rx="0" fill="#57a0ce" stroke="none" opacity="1"><title>-19.277</title></rect>
+<rect x="743.57" y="373.92" width="61.21" height="13.04" rx="0" fill="#6caed6" stroke="none" opacity="1"><title>-28.079</title></rect>
+<rect x="804.79" y="373.92" width="61.21" height="13.04" rx="0" fill="#82badb" stroke="none" opacity="1"><title>-35.378</title></rect>
+<rect x="192.66" y="386.96" width="61.21" height="13.04" rx="0" fill="#4795c8" stroke="none" opacity="1"><title>-12.698</title></rect>
+<rect x="253.87" y="386.96" width="61.21" height="13.04" rx="0" fill="#2e7ebc" stroke="none" opacity="1"><title>-0.08</title></rect>
+<rect x="315.08" y="386.96" width="61.21" height="13.04" rx="0" fill="#165da6" stroke="none" opacity="1"><title>14.214</title></rect>
+<rect x="376.30" y="386.96" width="61.21" height="13.04" rx="0" fill="#094695" stroke="none" opacity="1"><title>23.359</title></rect>
+<rect x="437.51" y="386.96" width="61.21" height="13.04" rx="0" fill="#0c4c99" stroke="none" opacity="1"><title>20.942</title></rect>
+<rect x="498.72" y="386.96" width="61.21" height="13.04" rx="0" fill="#206fb4" stroke="none" opacity="1"><title>7.326</title></rect>
+<rect x="559.93" y="386.96" width="61.21" height="13.04" rx="0" fill="#3b8bc3" stroke="none" opacity="1"><title>-7.171</title></rect>
+<rect x="621.15" y="386.96" width="61.21" height="13.04" rx="0" fill="#569fce" stroke="none" opacity="1"><title>-18.815</title></rect>
+<rect x="682.36" y="386.96" width="61.21" height="13.04" rx="0" fill="#6aaed6" stroke="none" opacity="1"><title>-27.515</title></rect>
+<rect x="743.57" y="386.96" width="61.21" height="13.04" rx="0" fill="#7fb9da" stroke="none" opacity="1"><title>-34.453</title></rect>
+<rect x="804.79" y="386.96" width="61.21" height="13.04" rx="0" fill="#92c3de" stroke="none" opacity="1"><title>-40.828</title></rect>
+<rect x="192.66" y="400.00" width="61.21" height="13.04" rx="0" fill="#2f7fbc" stroke="none" opacity="1"><title>-0.516</title></rect>
+<rect x="253.87" y="400.00" width="61.21" height="13.04" rx="0" fill="#165ea7" stroke="none" opacity="1"><title>13.811</title></rect>
+<rect x="315.08" y="400.00" width="61.21" height="13.04" rx="0" fill="#094695" stroke="none" opacity="1"><title>23.276</title></rect>
+<rect x="376.30" y="400.00" width="61.21" height="13.04" rx="0" fill="#0c4c99" stroke="none" opacity="1"><title>21.15</title></rect>
+<rect x="437.51" y="400.00" width="61.21" height="13.04" rx="0" fill="#1f6eb3" stroke="none" opacity="1"><title>7.725</title></rect>
+<rect x="498.72" y="400.00" width="61.21" height="13.04" rx="0" fill="#3a8ac2" stroke="none" opacity="1"><title>-6.701</title></rect>
+<rect x="559.93" y="400.00" width="61.21" height="13.04" rx="0" fill="#549ecd" stroke="none" opacity="1"><title>-18.19</title></rect>
+<rect x="621.15" y="400.00" width="61.21" height="13.04" rx="0" fill="#69add5" stroke="none" opacity="1"><title>-27.112</title></rect>
+<rect x="682.36" y="400.00" width="61.21" height="13.04" rx="0" fill="#7db8da" stroke="none" opacity="1"><title>-33.777</title></rect>
+<rect x="743.57" y="400.00" width="61.21" height="13.04" rx="0" fill="#8ec1de" stroke="none" opacity="1"><title>-39.518</title></rect>
+<rect x="804.79" y="400.00" width="61.21" height="13.04" rx="0" fill="#9fcbe1" stroke="none" opacity="1"><title>-45.53</title></rect>
+<rect x="192.66" y="413.03" width="61.21" height="13.04" rx="0" fill="#175fa8" stroke="none" opacity="1"><title>13.415</title></rect>
+<rect x="253.87" y="413.03" width="61.21" height="13.04" rx="0" fill="#094695" stroke="none" opacity="1"><title>23.187</title></rect>
+<rect x="315.08" y="413.03" width="61.21" height="13.04" rx="0" fill="#0c4b99" stroke="none" opacity="1"><title>21.345</title></rect>
+<rect x="376.30" y="413.03" width="61.21" height="13.04" rx="0" fill="#1f6db2" stroke="none" opacity="1"><title>8.148</title></rect>
+<rect x="437.51" y="413.03" width="61.21" height="13.04" rx="0" fill="#3a8ac2" stroke="none" opacity="1"><title>-6.289</title></rect>
+<rect x="498.72" y="413.03" width="61.21" height="13.04" rx="0" fill="#539dcd" stroke="none" opacity="1"><title>-17.596</title></rect>
+<rect x="559.93" y="413.03" width="61.21" height="13.04" rx="0" fill="#67abd5" stroke="none" opacity="1"><title>-26.229</title></rect>
+<rect x="621.15" y="413.03" width="61.21" height="13.04" rx="0" fill="#7cb8da" stroke="none" opacity="1"><title>-33.648</title></rect>
+<rect x="682.36" y="413.03" width="61.21" height="13.04" rx="0" fill="#8bc0dd" stroke="none" opacity="1"><title>-38.695</title></rect>
+<rect x="743.57" y="413.03" width="61.21" height="13.04" rx="0" fill="#9ac8e0" stroke="none" opacity="1"><title>-43.628</title></rect>
+<rect x="804.79" y="413.03" width="61.21" height="13.04" rx="0" fill="#a9cfe5" stroke="none" opacity="1"><title>-49.814</title></rect>
+<rect x="192.66" y="426.07" width="61.21" height="13.04" rx="0" fill="#094795" stroke="none" opacity="1"><title>23.091</title></rect>
+<rect x="253.87" y="426.07" width="61.21" height="13.04" rx="0" fill="#0b4b98" stroke="none" opacity="1"><title>21.527</title></rect>
+<rect x="315.08" y="426.07" width="61.21" height="13.04" rx="0" fill="#1e6cb1" stroke="none" opacity="1"><title>8.595</title></rect>
+<rect x="376.30" y="426.07" width="61.21" height="13.04" rx="0" fill="#3989c1" stroke="none" opacity="1"><title>-5.845</title></rect>
+<rect x="437.51" y="426.07" width="61.21" height="13.04" rx="0" fill="#529dcc" stroke="none" opacity="1"><title>-17.358</title></rect>
+<rect x="498.72" y="426.07" width="61.21" height="13.04" rx="0" fill="#65aad4" stroke="none" opacity="1"><title>-25.304</title></rect>
+<rect x="559.93" y="426.07" width="61.21" height="13.04" rx="0" fill="#78b5d9" stroke="none" opacity="1"><title>-32.28</title></rect>
+<rect x="621.15" y="426.07" width="61.21" height="13.04" rx="0" fill="#8dc1dd" stroke="none" opacity="1"><title>-39.289</title></rect>
+<rect x="682.36" y="426.07" width="61.21" height="13.04" rx="0" fill="#97c6df" stroke="none" opacity="1"><title>-42.574</title></rect>
+<rect x="743.57" y="426.07" width="61.21" height="13.04" rx="0" fill="#a3cce3" stroke="none" opacity="1"><title>-46.949</title></rect>
+<rect x="804.79" y="426.07" width="61.21" height="13.04" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>-54.018</title></rect>
+<rect x="192.66" y="439.11" width="61.21" height="13.04" rx="0" fill="#0b4a98" stroke="none" opacity="1"><title>21.701</title></rect>
+<rect x="253.87" y="439.11" width="61.21" height="13.04" rx="0" fill="#1d6bb0" stroke="none" opacity="1"><title>9.035</title></rect>
+<rect x="315.08" y="439.11" width="61.21" height="13.04" rx="0" fill="#3888c1" stroke="none" opacity="1"><title>-5.174</title></rect>
+<rect x="376.30" y="439.11" width="61.21" height="13.04" rx="0" fill="#529dcc" stroke="none" opacity="1"><title>-17.318</title></rect>
+<rect x="437.51" y="439.11" width="61.21" height="13.04" rx="0" fill="#66aad4" stroke="none" opacity="1"><title>-25.538</title></rect>
+<rect x="498.72" y="439.11" width="61.21" height="13.04" rx="0" fill="#73b3d8" stroke="none" opacity="1"><title>-30.61</title></rect>
+<rect x="559.93" y="439.11" width="61.21" height="13.04" rx="0" fill="#86bddc" stroke="none" opacity="1"><title>-36.93</title></rect>
+<rect x="621.15" y="439.11" width="61.21" height="13.04" rx="0" fill="#9ecae1" stroke="none" opacity="1"><title>-44.857</title></rect>
+<rect x="682.36" y="439.11" width="61.21" height="13.04" rx="0" fill="#9fcbe1" stroke="none" opacity="1"><title>-45.498</title></rect>
+<rect x="743.57" y="439.11" width="61.21" height="13.04" rx="0" fill="#a9cee5" stroke="none" opacity="1"><title>-49.501</title></rect>
+<rect x="804.79" y="439.11" width="61.21" height="13.04" rx="0" fill="#bed8ec" stroke="none" opacity="1"><title>-58.665</title></rect>
+<rect x="192.66" y="452.14" width="61.21" height="13.04" rx="0" fill="#1d6ab0" stroke="none" opacity="1"><title>9.175</title></rect>
+<rect x="253.87" y="452.14" width="61.21" height="13.04" rx="0" fill="#3585bf" stroke="none" opacity="1"><title>-3.883</title></rect>
+<rect x="315.08" y="452.14" width="61.21" height="13.04" rx="0" fill="#4f9bcb" stroke="none" opacity="1"><title>-16.126</title></rect>
+<rect x="376.30" y="452.14" width="61.21" height="13.04" rx="0" fill="#6aaed6" stroke="none" opacity="1"><title>-27.553</title></rect>
+<rect x="437.51" y="452.14" width="61.21" height="13.04" rx="0" fill="#76b4d8" stroke="none" opacity="1"><title>-31.638</title></rect>
+<rect x="498.72" y="452.14" width="61.21" height="13.04" rx="0" fill="#7db8da" stroke="none" opacity="1"><title>-33.837</title></rect>
+<rect x="559.93" y="452.14" width="61.21" height="13.04" rx="0" fill="#90c2de" stroke="none" opacity="1"><title>-40.198</title></rect>
+<rect x="621.15" y="452.14" width="61.21" height="13.04" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-51.964</title></rect>
+<rect x="682.36" y="452.14" width="61.21" height="13.04" rx="0" fill="#a4cce3" stroke="none" opacity="1"><title>-47.379</title></rect>
+<rect x="743.57" y="452.14" width="61.21" height="13.04" rx="0" fill="#acd0e6" stroke="none" opacity="1"><title>-51.167</title></rect>
+<rect x="804.79" y="452.14" width="61.21" height="13.04" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-65.092</title></rect>
+<rect x="192.66" y="465.18" width="61.21" height="13.04" rx="0" fill="#2f7fbc" stroke="none" opacity="1"><title>0, 0: -0.47</title></rect>
+<rect x="253.87" y="465.18" width="61.21" height="13.04" rx="0" fill="#4191c5" stroke="none" opacity="1"><title>-9.906</title></rect>
+<rect x="315.08" y="465.18" width="61.21" height="13.04" rx="0" fill="#5da4d0" stroke="none" opacity="1"><title>0, 0.32: -21.832</title></rect>
+<rect x="376.30" y="465.18" width="61.21" height="13.04" rx="0" fill="#a9cfe5" stroke="none" opacity="1"><title>-49.603</title></rect>
+<rect x="437.51" y="465.18" width="61.21" height="13.04" rx="0" fill="#7fb9da" stroke="none" opacity="1"><title>0, 0.64: -34.476</title></rect>
+<rect x="498.72" y="465.18" width="61.21" height="13.04" rx="0" fill="#80badb" stroke="none" opacity="1"><title>-34.937</title></rect>
+<rect x="559.93" y="465.18" width="61.21" height="13.04" rx="0" fill="#94c4df" stroke="none" opacity="1"><title>0, 0.96: -41.465</title></rect>
+<rect x="621.15" y="465.18" width="61.21" height="13.04" rx="0" fill="#cee1f2" stroke="none" opacity="1"><title>-68.12</title></rect>
+<rect x="682.36" y="465.18" width="61.21" height="13.04" rx="0" fill="#a5cde3" stroke="none" opacity="1"><title>0, 1.28: -48.038</title></rect>
+<rect x="743.57" y="465.18" width="61.21" height="13.04" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-51.756</title></rect>
+<rect x="804.79" y="465.18" width="61.21" height="13.04" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>0, 1.6: -76.083</title></rect>
+<text x="182.94" y="60.19" font-size="16.2" text-anchor="end" fill="#444444">100</text>
+<text x="182.94" y="164.48" font-size="16.2" text-anchor="end" fill="#444444">75</text>
+<text x="182.94" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">50</text>
+<text x="182.94" y="373.07" font-size="16.2" text-anchor="end" fill="#444444">25</text>
+<text x="182.94" y="477.37" font-size="16.2" text-anchor="end" fill="#444444">0</text>
+<text x="223.26" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 223.26 504.14)">0</text>
+<text x="345.69" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 345.69 504.14)">0.32</text>
+<text x="468.12" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 468.12 504.14)">0.64</text>
+<text x="590.54" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 590.54 504.14)">0.96</text>
+<text x="712.97" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 712.97 504.14)">1.28</text>
+<text x="835.39" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 835.39 504.14)">1.6</text>
+</svg></figure></div>
+<pre><code>db shape = [33, 11]
+peak_freqs = [9.375, 12.5, 15.625, 18.75, 21.875, 25, 28.125, 31.25, ... (11 elements)]
+first frame: 9.38 Hz, last frame: 40.62 Hz
+</code></pre>
+<p>Eleven frames, each a 64-sample slice, and the loudest frequency per frame climbs steadily from 9.4 Hz to 40.6 Hz — coarse, at 3.125 Hz per bin, but tracking the sweep in order. This is what the whole-signal FFT could not give at any resolution.</p>
+<p>The window length here, 64 samples, was not free. Try both extremes on the same chirp:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
+short = <span class="f">spectrogram</span>(x, <span class="n">16</span>, <span class="n">8</span>, fs)
+<span class="f">figure</span>()
+long  = <span class="f">spectrogram</span>(x, <span class="n">128</span>, <span class="n">64</span>, fs)
+<span class="f">print</span>(<span class="s">"short: {shape(short.db)}, resolution {short.freq[1] - short.freq[0]:.3f} Hz"</span>)
+<span class="f">print</span>(<span class="s">"long:  {shape(long.db)}, resolution {long.freq[1] - long.freq[0]:.3f} Hz"</span>)
+
+sp = short.freq[<span class="f">argmax</span>(short.db, <span class="a">axis</span> = <span class="n">0</span>)]
+lp = long.freq[<span class="f">argmax</span>(long.db, <span class="a">axis</span> = <span class="n">0</span>)]
+<span class="f">print</span>(<span class="s">"short-window peaks: {sp:.2f}"</span>)
+<span class="f">print</span>(<span class="s">"long-window peaks: {lp:.2f}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>short: [9, 49], resolution 12.500 Hz
+long:  [65, 5], resolution 1.562 Hz
+short-window peaks: [0, 12.5, 0, 12.5, 12.5, 0, 0, 12.5, ... (49 elements)]
+long-window peaks: [10.9375, 17.1875, 25, 31.25, 37.5]</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<rect x="192.66" y="48.00" width="134.67" height="6.62" rx="0" fill="#f7fbff" stroke="none" opacity="1"><title>100, 0: -91.05</title></rect>
+<rect x="327.32" y="48.00" width="134.67" height="6.62" rx="0" fill="#e8f2fa" stroke="none" opacity="1"><title>100, 0.32: -81.131</title></rect>
+<rect x="461.99" y="48.00" width="134.67" height="6.62" rx="0" fill="#edf5fc" stroke="none" opacity="1"><title>100, 0.64: -84.257</title></rect>
+<rect x="596.66" y="48.00" width="134.67" height="6.62" rx="0" fill="#e2eef8" stroke="none" opacity="1"><title>100, 0.96: -76.972</title></rect>
+<rect x="731.33" y="48.00" width="134.67" height="6.62" rx="0" fill="#dce9f6" stroke="none" opacity="1"><title>100, 1.28: -72.508</title></rect>
+<rect x="192.66" y="54.62" width="134.67" height="6.62" rx="0" fill="#f7fbff" stroke="none" opacity="1"><title>-90.907</title></rect>
+<rect x="327.32" y="54.62" width="134.67" height="6.62" rx="0" fill="#e8f2fa" stroke="none" opacity="1"><title>-81.095</title></rect>
+<rect x="461.99" y="54.62" width="134.67" height="6.62" rx="0" fill="#edf4fc" stroke="none" opacity="1"><title>-84.056</title></rect>
+<rect x="596.66" y="54.62" width="134.67" height="6.62" rx="0" fill="#e2eef8" stroke="none" opacity="1"><title>-76.911</title></rect>
+<rect x="731.33" y="54.62" width="134.67" height="6.62" rx="0" fill="#dce9f6" stroke="none" opacity="1"><title>-72.468</title></rect>
+<rect x="192.66" y="61.24" width="134.67" height="6.62" rx="0" fill="#f6faff" stroke="none" opacity="1"><title>-90.501</title></rect>
+<rect x="327.32" y="61.24" width="134.67" height="6.62" rx="0" fill="#e8f1fa" stroke="none" opacity="1"><title>-80.986</title></rect>
+<rect x="461.99" y="61.24" width="134.67" height="6.62" rx="0" fill="#ecf4fb" stroke="none" opacity="1"><title>-83.5</title></rect>
+<rect x="596.66" y="61.24" width="134.67" height="6.62" rx="0" fill="#e2edf8" stroke="none" opacity="1"><title>-76.73</title></rect>
+<rect x="731.33" y="61.24" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-72.35</title></rect>
+<rect x="192.66" y="67.86" width="134.67" height="6.62" rx="0" fill="#f5fafe" stroke="none" opacity="1"><title>-89.889</title></rect>
+<rect x="327.32" y="67.86" width="134.67" height="6.62" rx="0" fill="#e8f1fa" stroke="none" opacity="1"><title>-80.808</title></rect>
+<rect x="461.99" y="67.86" width="134.67" height="6.62" rx="0" fill="#ebf3fb" stroke="none" opacity="1"><title>-82.69</title></rect>
+<rect x="596.66" y="67.86" width="134.67" height="6.62" rx="0" fill="#e1edf8" stroke="none" opacity="1"><title>-76.436</title></rect>
+<rect x="731.33" y="67.86" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-72.153</title></rect>
+<rect x="192.66" y="74.47" width="134.67" height="6.62" rx="0" fill="#f4f9fe" stroke="none" opacity="1"><title>-89.138</title></rect>
+<rect x="327.32" y="74.47" width="134.67" height="6.62" rx="0" fill="#e7f1fa" stroke="none" opacity="1"><title>-80.563</title></rect>
+<rect x="461.99" y="74.47" width="134.67" height="6.62" rx="0" fill="#e9f2fb" stroke="none" opacity="1"><title>-81.734</title></rect>
+<rect x="596.66" y="74.47" width="134.67" height="6.62" rx="0" fill="#e1edf8" stroke="none" opacity="1"><title>-76.039</title></rect>
+<rect x="731.33" y="74.47" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-71.878</title></rect>
+<rect x="192.66" y="81.09" width="134.67" height="6.62" rx="0" fill="#f3f8fe" stroke="none" opacity="1"><title>-88.305</title></rect>
+<rect x="327.32" y="81.09" width="134.67" height="6.62" rx="0" fill="#e7f1fa" stroke="none" opacity="1"><title>-80.256</title></rect>
+<rect x="461.99" y="81.09" width="134.67" height="6.62" rx="0" fill="#e8f1fa" stroke="none" opacity="1"><title>-80.711</title></rect>
+<rect x="596.66" y="81.09" width="134.67" height="6.62" rx="0" fill="#e0ecf8" stroke="none" opacity="1"><title>-75.553</title></rect>
+<rect x="731.33" y="81.09" width="134.67" height="6.62" rx="0" fill="#dae8f6" stroke="none" opacity="1"><title>-71.528</title></rect>
+<rect x="192.66" y="87.71" width="134.67" height="6.62" rx="0" fill="#f2f8fd" stroke="none" opacity="1"><title>-87.432</title></rect>
+<rect x="327.32" y="87.71" width="134.67" height="6.62" rx="0" fill="#e6f0fa" stroke="none" opacity="1"><title>-79.892</title></rect>
+<rect x="461.99" y="87.71" width="134.67" height="6.62" rx="0" fill="#e6f0fa" stroke="none" opacity="1"><title>-79.67</title></rect>
+<rect x="596.66" y="87.71" width="134.67" height="6.62" rx="0" fill="#dfecf7" stroke="none" opacity="1"><title>-74.989</title></rect>
+<rect x="731.33" y="87.71" width="134.67" height="6.62" rx="0" fill="#dae8f6" stroke="none" opacity="1"><title>-71.103</title></rect>
+<rect x="192.66" y="94.33" width="134.67" height="6.62" rx="0" fill="#f0f7fd" stroke="none" opacity="1"><title>-86.546</title></rect>
+<rect x="327.32" y="94.33" width="134.67" height="6.62" rx="0" fill="#e6f0f9" stroke="none" opacity="1"><title>-79.476</title></rect>
+<rect x="461.99" y="94.33" width="134.67" height="6.62" rx="0" fill="#e5eff9" stroke="none" opacity="1"><title>-78.634</title></rect>
+<rect x="596.66" y="94.33" width="134.67" height="6.62" rx="0" fill="#deebf7" stroke="none" opacity="1"><title>-74.359</title></rect>
+<rect x="731.33" y="94.33" width="134.67" height="6.62" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>-70.605</title></rect>
+<rect x="192.66" y="100.95" width="134.67" height="6.62" rx="0" fill="#eff6fc" stroke="none" opacity="1"><title>-85.66</title></rect>
+<rect x="327.32" y="100.95" width="134.67" height="6.62" rx="0" fill="#e5f0f9" stroke="none" opacity="1"><title>-79.012</title></rect>
+<rect x="461.99" y="100.95" width="134.67" height="6.62" rx="0" fill="#e3eef9" stroke="none" opacity="1"><title>-77.615</title></rect>
+<rect x="596.66" y="100.95" width="134.67" height="6.62" rx="0" fill="#ddeaf7" stroke="none" opacity="1"><title>-73.672</title></rect>
+<rect x="731.33" y="100.95" width="134.67" height="6.62" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-70.036</title></rect>
+<rect x="192.66" y="107.57" width="134.67" height="6.62" rx="0" fill="#eef5fc" stroke="none" opacity="1"><title>-84.784</title></rect>
+<rect x="327.32" y="107.57" width="134.67" height="6.62" rx="0" fill="#e4eff9" stroke="none" opacity="1"><title>-78.506</title></rect>
+<rect x="461.99" y="107.57" width="134.67" height="6.62" rx="0" fill="#e2edf8" stroke="none" opacity="1"><title>-76.617</title></rect>
+<rect x="596.66" y="107.57" width="134.67" height="6.62" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>-72.936</title></rect>
+<rect x="731.33" y="107.57" width="134.67" height="6.62" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-69.396</title></rect>
+<rect x="192.66" y="114.19" width="134.67" height="6.62" rx="0" fill="#ecf4fc" stroke="none" opacity="1"><title>-83.919</title></rect>
+<rect x="327.32" y="114.19" width="134.67" height="6.62" rx="0" fill="#e4eff9" stroke="none" opacity="1"><title>-77.961</title></rect>
+<rect x="461.99" y="114.19" width="134.67" height="6.62" rx="0" fill="#e0ecf8" stroke="none" opacity="1"><title>-75.637</title></rect>
+<rect x="596.66" y="114.19" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-72.157</title></rect>
+<rect x="731.33" y="114.19" width="134.67" height="6.62" rx="0" fill="#d6e6f4" stroke="none" opacity="1"><title>-68.688</title></rect>
+<rect x="192.66" y="120.81" width="134.67" height="6.62" rx="0" fill="#ebf3fb" stroke="none" opacity="1"><title>-83.067</title></rect>
+<rect x="327.32" y="120.81" width="134.67" height="6.62" rx="0" fill="#e3eef9" stroke="none" opacity="1"><title>-77.38</title></rect>
+<rect x="461.99" y="120.81" width="134.67" height="6.62" rx="0" fill="#dfebf7" stroke="none" opacity="1"><title>-74.673</title></rect>
+<rect x="596.66" y="120.81" width="134.67" height="6.62" rx="0" fill="#dae8f6" stroke="none" opacity="1"><title>-71.338</title></rect>
+<rect x="731.33" y="120.81" width="134.67" height="6.62" rx="0" fill="#d5e5f4" stroke="none" opacity="1"><title>-67.911</title></rect>
+<rect x="192.66" y="127.43" width="134.67" height="6.62" rx="0" fill="#eaf3fb" stroke="none" opacity="1"><title>-82.225</title></rect>
+<rect x="327.32" y="127.43" width="134.67" height="6.62" rx="0" fill="#e2edf8" stroke="none" opacity="1"><title>-76.766</title></rect>
+<rect x="461.99" y="127.43" width="134.67" height="6.62" rx="0" fill="#ddebf7" stroke="none" opacity="1"><title>-73.72</title></rect>
+<rect x="596.66" y="127.43" width="134.67" height="6.62" rx="0" fill="#d9e7f5" stroke="none" opacity="1"><title>-70.482</title></rect>
+<rect x="731.33" y="127.43" width="134.67" height="6.62" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-67.066</title></rect>
+<rect x="192.66" y="134.04" width="134.67" height="6.62" rx="0" fill="#e9f2fa" stroke="none" opacity="1"><title>-81.392</title></rect>
+<rect x="327.32" y="134.04" width="134.67" height="6.62" rx="0" fill="#e1edf8" stroke="none" opacity="1"><title>-76.12</title></rect>
+<rect x="461.99" y="134.04" width="134.67" height="6.62" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>-72.774</title></rect>
+<rect x="596.66" y="134.04" width="134.67" height="6.62" rx="0" fill="#d7e7f5" stroke="none" opacity="1"><title>-69.59</title></rect>
+<rect x="731.33" y="134.04" width="134.67" height="6.62" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-66.152</title></rect>
+<rect x="192.66" y="140.66" width="134.67" height="6.62" rx="0" fill="#e7f1fa" stroke="none" opacity="1"><title>-80.566</title></rect>
+<rect x="327.32" y="140.66" width="134.67" height="6.62" rx="0" fill="#e0ecf8" stroke="none" opacity="1"><title>-75.445</title></rect>
+<rect x="461.99" y="140.66" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-71.83</title></rect>
+<rect x="596.66" y="140.66" width="134.67" height="6.62" rx="0" fill="#d6e6f4" stroke="none" opacity="1"><title>-68.661</title></rect>
+<rect x="731.33" y="140.66" width="134.67" height="6.62" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-65.169</title></rect>
+<rect x="192.66" y="147.28" width="134.67" height="6.62" rx="0" fill="#e6f0fa" stroke="none" opacity="1"><title>-79.743</title></rect>
+<rect x="327.32" y="147.28" width="134.67" height="6.62" rx="0" fill="#dfebf7" stroke="none" opacity="1"><title>-74.742</title></rect>
+<rect x="461.99" y="147.28" width="134.67" height="6.62" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>-70.884</title></rect>
+<rect x="596.66" y="147.28" width="134.67" height="6.62" rx="0" fill="#d5e5f4" stroke="none" opacity="1"><title>-67.696</title></rect>
+<rect x="731.33" y="147.28" width="134.67" height="6.62" rx="0" fill="#d0e1f2" stroke="none" opacity="1"><title>-64.113</title></rect>
+<rect x="192.66" y="153.90" width="134.67" height="6.62" rx="0" fill="#e5eff9" stroke="none" opacity="1"><title>75, 0: -78.92</title></rect>
+<rect x="327.32" y="153.90" width="134.67" height="6.62" rx="0" fill="#deebf7" stroke="none" opacity="1"><title>75, 0.32: -74.01</title></rect>
+<rect x="461.99" y="153.90" width="134.67" height="6.62" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>75, 0.64: -69.931</title></rect>
+<rect x="596.66" y="153.90" width="134.67" height="6.62" rx="0" fill="#d3e4f3" stroke="none" opacity="1"><title>75, 0.96: -66.692</title></rect>
+<rect x="731.33" y="153.90" width="134.67" height="6.62" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>75, 1.28: -62.983</title></rect>
+<rect x="192.66" y="160.52" width="134.67" height="6.62" rx="0" fill="#e4eff9" stroke="none" opacity="1"><title>-78.096</title></rect>
+<rect x="327.32" y="160.52" width="134.67" height="6.62" rx="0" fill="#ddeaf7" stroke="none" opacity="1"><title>-73.249</title></rect>
+<rect x="461.99" y="160.52" width="134.67" height="6.62" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-68.967</title></rect>
+<rect x="596.66" y="160.52" width="134.67" height="6.62" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-65.647</title></rect>
+<rect x="731.33" y="160.52" width="134.67" height="6.62" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-61.775</title></rect>
+<rect x="192.66" y="167.14" width="134.67" height="6.62" rx="0" fill="#e3eef8" stroke="none" opacity="1"><title>-77.267</title></rect>
+<rect x="327.32" y="167.14" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-72.46</title></rect>
+<rect x="461.99" y="167.14" width="134.67" height="6.62" rx="0" fill="#d5e5f4" stroke="none" opacity="1"><title>-67.988</title></rect>
+<rect x="596.66" y="167.14" width="134.67" height="6.62" rx="0" fill="#d0e2f2" stroke="none" opacity="1"><title>-64.557</title></rect>
+<rect x="731.33" y="167.14" width="134.67" height="6.62" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-60.483</title></rect>
+<rect x="192.66" y="173.76" width="134.67" height="6.62" rx="0" fill="#e1edf8" stroke="none" opacity="1"><title>-76.43</title></rect>
+<rect x="327.32" y="173.76" width="134.67" height="6.62" rx="0" fill="#dae9f6" stroke="none" opacity="1"><title>-71.641</title></rect>
+<rect x="461.99" y="173.76" width="134.67" height="6.62" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-66.989</title></rect>
+<rect x="596.66" y="173.76" width="134.67" height="6.62" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-63.42</title></rect>
+<rect x="731.33" y="173.76" width="134.67" height="6.62" rx="0" fill="#c8ddf0" stroke="none" opacity="1"><title>-59.101</title></rect>
+<rect x="192.66" y="180.38" width="134.67" height="6.62" rx="0" fill="#e0ecf8" stroke="none" opacity="1"><title>-75.583</title></rect>
+<rect x="327.32" y="180.38" width="134.67" height="6.62" rx="0" fill="#d9e8f5" stroke="none" opacity="1"><title>-70.791</title></rect>
+<rect x="461.99" y="180.38" width="134.67" height="6.62" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-65.966</title></rect>
+<rect x="596.66" y="180.38" width="134.67" height="6.62" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-62.229</title></rect>
+<rect x="731.33" y="180.38" width="134.67" height="6.62" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>-57.621</title></rect>
+<rect x="192.66" y="186.99" width="134.67" height="6.62" rx="0" fill="#dfebf7" stroke="none" opacity="1"><title>-74.724</title></rect>
+<rect x="327.32" y="186.99" width="134.67" height="6.62" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-69.909</title></rect>
+<rect x="461.99" y="186.99" width="134.67" height="6.62" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-64.913</title></rect>
+<rect x="596.66" y="186.99" width="134.67" height="6.62" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-60.98</title></rect>
+<rect x="731.33" y="186.99" width="134.67" height="6.62" rx="0" fill="#c3daee" stroke="none" opacity="1"><title>-56.032</title></rect>
+<rect x="192.66" y="193.61" width="134.67" height="6.62" rx="0" fill="#ddebf7" stroke="none" opacity="1"><title>-73.849</title></rect>
+<rect x="327.32" y="193.61" width="134.67" height="6.62" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-68.993</title></rect>
+<rect x="461.99" y="193.61" width="134.67" height="6.62" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-63.827</title></rect>
+<rect x="596.66" y="193.61" width="134.67" height="6.62" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-59.665</title></rect>
+<rect x="731.33" y="193.61" width="134.67" height="6.62" rx="0" fill="#bfd8ec" stroke="none" opacity="1"><title>-54.323</title></rect>
+<rect x="192.66" y="200.23" width="134.67" height="6.62" rx="0" fill="#dceaf6" stroke="none" opacity="1"><title>-72.956</title></rect>
+<rect x="327.32" y="200.23" width="134.67" height="6.62" rx="0" fill="#d5e5f4" stroke="none" opacity="1"><title>-68.041</title></rect>
+<rect x="461.99" y="200.23" width="134.67" height="6.62" rx="0" fill="#cee0f2" stroke="none" opacity="1"><title>-62.702</title></rect>
+<rect x="596.66" y="200.23" width="134.67" height="6.62" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-58.278</title></rect>
+<rect x="731.33" y="200.23" width="134.67" height="6.62" rx="0" fill="#bad6eb" stroke="none" opacity="1"><title>-52.476</title></rect>
+<rect x="192.66" y="206.85" width="134.67" height="6.62" rx="0" fill="#dbe9f6" stroke="none" opacity="1"><title>-72.042</title></rect>
+<rect x="327.32" y="206.85" width="134.67" height="6.62" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-67.05</title></rect>
+<rect x="461.99" y="206.85" width="134.67" height="6.62" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-61.532</title></rect>
+<rect x="596.66" y="206.85" width="134.67" height="6.62" rx="0" fill="#c5daef" stroke="none" opacity="1"><title>-56.809</title></rect>
+<rect x="731.33" y="206.85" width="134.67" height="6.62" rx="0" fill="#b6d4e9" stroke="none" opacity="1"><title>-50.473</title></rect>
+<rect x="192.66" y="213.47" width="134.67" height="6.62" rx="0" fill="#dae8f6" stroke="none" opacity="1"><title>-71.105</title></rect>
+<rect x="327.32" y="213.47" width="134.67" height="6.62" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-66.017</title></rect>
+<rect x="461.99" y="213.47" width="134.67" height="6.62" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-60.31</title></rect>
+<rect x="596.66" y="213.47" width="134.67" height="6.62" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-55.246</title></rect>
+<rect x="731.33" y="213.47" width="134.67" height="6.62" rx="0" fill="#b0d2e7" stroke="none" opacity="1"><title>-48.287</title></rect>
+<rect x="192.66" y="220.09" width="134.67" height="6.62" rx="0" fill="#d8e7f5" stroke="none" opacity="1"><title>-70.14</title></rect>
+<rect x="327.32" y="220.09" width="134.67" height="6.62" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-64.939</title></rect>
+<rect x="461.99" y="220.09" width="134.67" height="6.62" rx="0" fill="#c8ddf0" stroke="none" opacity="1"><title>-59.03</title></rect>
+<rect x="596.66" y="220.09" width="134.67" height="6.62" rx="0" fill="#bdd7ec" stroke="none" opacity="1"><title>-53.578</title></rect>
+<rect x="731.33" y="220.09" width="134.67" height="6.62" rx="0" fill="#abcfe5" stroke="none" opacity="1"><title>-45.887</title></rect>
+<rect x="192.66" y="226.71" width="134.67" height="6.62" rx="0" fill="#d7e6f5" stroke="none" opacity="1"><title>-69.146</title></rect>
+<rect x="327.32" y="226.71" width="134.67" height="6.62" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>-63.813</title></rect>
+<rect x="461.99" y="226.71" width="134.67" height="6.62" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>-57.683</title></rect>
+<rect x="596.66" y="226.71" width="134.67" height="6.62" rx="0" fill="#b9d5ea" stroke="none" opacity="1"><title>-51.786</title></rect>
+<rect x="731.33" y="226.71" width="134.67" height="6.62" rx="0" fill="#a4cde3" stroke="none" opacity="1"><title>-43.231</title></rect>
+<rect x="192.66" y="233.33" width="134.67" height="6.62" rx="0" fill="#d5e5f4" stroke="none" opacity="1"><title>-68.118</title></rect>
+<rect x="327.32" y="233.33" width="134.67" height="6.62" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-62.632</title></rect>
+<rect x="461.99" y="233.33" width="134.67" height="6.62" rx="0" fill="#c3daee" stroke="none" opacity="1"><title>-56.259</title></rect>
+<rect x="596.66" y="233.33" width="134.67" height="6.62" rx="0" fill="#b4d3e9" stroke="none" opacity="1"><title>-49.851</title></rect>
+<rect x="731.33" y="233.33" width="134.67" height="6.62" rx="0" fill="#9dcae1" stroke="none" opacity="1"><title>-40.263</title></rect>
+<rect x="192.66" y="239.94" width="134.67" height="6.62" rx="0" fill="#d4e4f4" stroke="none" opacity="1"><title>-67.052</title></rect>
+<rect x="327.32" y="239.94" width="134.67" height="6.62" rx="0" fill="#ccdff1" stroke="none" opacity="1"><title>-61.393</title></rect>
+<rect x="461.99" y="239.94" width="134.67" height="6.62" rx="0" fill="#c0d8ed" stroke="none" opacity="1"><title>-54.748</title></rect>
+<rect x="596.66" y="239.94" width="134.67" height="6.62" rx="0" fill="#afd1e7" stroke="none" opacity="1"><title>-47.748</title></rect>
+<rect x="731.33" y="239.94" width="134.67" height="6.62" rx="0" fill="#93c4df" stroke="none" opacity="1"><title>-36.912</title></rect>
+<rect x="192.66" y="246.56" width="134.67" height="6.62" rx="0" fill="#d2e3f3" stroke="none" opacity="1"><title>-65.946</title></rect>
+<rect x="327.32" y="246.56" width="134.67" height="6.62" rx="0" fill="#cadef0" stroke="none" opacity="1"><title>-60.089</title></rect>
+<rect x="461.99" y="246.56" width="134.67" height="6.62" rx="0" fill="#bcd7eb" stroke="none" opacity="1"><title>-53.135</title></rect>
+<rect x="596.66" y="246.56" width="134.67" height="6.62" rx="0" fill="#aacfe5" stroke="none" opacity="1"><title>-45.445</title></rect>
+<rect x="731.33" y="246.56" width="134.67" height="6.62" rx="0" fill="#87bedc" stroke="none" opacity="1"><title>-33.082</title></rect>
+<rect x="192.66" y="253.18" width="134.67" height="6.62" rx="0" fill="#d1e2f3" stroke="none" opacity="1"><title>-64.792</title></rect>
+<rect x="327.32" y="253.18" width="134.67" height="6.62" rx="0" fill="#c8dcf0" stroke="none" opacity="1"><title>-58.712</title></rect>
+<rect x="461.99" y="253.18" width="134.67" height="6.62" rx="0" fill="#b8d5ea" stroke="none" opacity="1"><title>-51.405</title></rect>
+<rect x="596.66" y="253.18" width="134.67" height="6.62" rx="0" fill="#a4cce3" stroke="none" opacity="1"><title>-42.899</title></rect>
+<rect x="731.33" y="253.18" width="134.67" height="6.62" rx="0" fill="#7ab6d9" stroke="none" opacity="1"><title>-28.651</title></rect>
+<rect x="192.66" y="259.80" width="134.67" height="6.62" rx="0" fill="#cfe1f2" stroke="none" opacity="1"><title>50, 0: -63.588</title></rect>
+<rect x="327.32" y="259.80" width="134.67" height="6.62" rx="0" fill="#c6dbef" stroke="none" opacity="1"><title>50, 0.32: -57.255</title></rect>
+<rect x="461.99" y="259.80" width="134.67" height="6.62" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>50, 0.64: -49.537</title></rect>
+<rect x="596.66" y="259.80" width="134.67" height="6.62" rx="0" fill="#9cc9e1" stroke="none" opacity="1"><title>50, 0.96: -40.057</title></rect>
+<rect x="731.33" y="259.80" width="134.67" height="6.62" rx="0" fill="#6aaed6" stroke="none" opacity="1"><title>50, 1.28: -23.475</title></rect>
+<rect x="192.66" y="266.42" width="134.67" height="6.62" rx="0" fill="#cde0f1" stroke="none" opacity="1"><title>-62.327</title></rect>
+<rect x="327.32" y="266.42" width="134.67" height="6.62" rx="0" fill="#c2d9ee" stroke="none" opacity="1"><title>-55.706</title></rect>
+<rect x="461.99" y="266.42" width="134.67" height="6.62" rx="0" fill="#afd1e7" stroke="none" opacity="1"><title>-47.507</title></rect>
+<rect x="596.66" y="266.42" width="134.67" height="6.62" rx="0" fill="#93c4df" stroke="none" opacity="1"><title>-36.845</title></rect>
+<rect x="731.33" y="266.42" width="134.67" height="6.62" rx="0" fill="#5ca4d0" stroke="none" opacity="1"><title>-17.426</title></rect>
+<rect x="192.66" y="273.04" width="134.67" height="6.62" rx="0" fill="#cbdef1" stroke="none" opacity="1"><title>-61.001</title></rect>
+<rect x="327.32" y="273.04" width="134.67" height="6.62" rx="0" fill="#bed8ec" stroke="none" opacity="1"><title>-54.054</title></rect>
+<rect x="461.99" y="273.04" width="134.67" height="6.62" rx="0" fill="#a9cfe5" stroke="none" opacity="1"><title>-45.283</title></rect>
+<rect x="596.66" y="273.04" width="134.67" height="6.62" rx="0" fill="#88bedc" stroke="none" opacity="1"><title>-33.169</title></rect>
+<rect x="731.33" y="273.04" width="134.67" height="6.62" rx="0" fill="#4b98c9" stroke="none" opacity="1"><title>-10.47</title></rect>
+<rect x="192.66" y="279.66" width="134.67" height="6.62" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-59.604</title></rect>
+<rect x="327.32" y="279.66" width="134.67" height="6.62" rx="0" fill="#bad6eb" stroke="none" opacity="1"><title>-52.282</title></rect>
+<rect x="461.99" y="279.66" width="134.67" height="6.62" rx="0" fill="#a3cce3" stroke="none" opacity="1"><title>-42.824</title></rect>
+<rect x="596.66" y="279.66" width="134.67" height="6.62" rx="0" fill="#7bb7d9" stroke="none" opacity="1"><title>-28.906</title></rect>
+<rect x="731.33" y="279.66" width="134.67" height="6.62" rx="0" fill="#3a8ac2" stroke="none" opacity="1"><title>-2.772</title></rect>
+<rect x="192.66" y="286.27" width="134.67" height="6.62" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-58.126</title></rect>
+<rect x="327.32" y="286.27" width="134.67" height="6.62" rx="0" fill="#b5d4e9" stroke="none" opacity="1"><title>-50.374</title></rect>
+<rect x="461.99" y="286.27" width="134.67" height="6.62" rx="0" fill="#9dc9e1" stroke="none" opacity="1"><title>-40.077</title></rect>
+<rect x="596.66" y="286.27" width="134.67" height="6.62" rx="0" fill="#6caed6" stroke="none" opacity="1"><title>-23.907</title></rect>
+<rect x="731.33" y="286.27" width="134.67" height="6.62" rx="0" fill="#2a7aba" stroke="none" opacity="1"><title>5.262</title></rect>
+<rect x="192.66" y="292.89" width="134.67" height="6.62" rx="0" fill="#c4daee" stroke="none" opacity="1"><title>-56.557</title></rect>
+<rect x="327.32" y="292.89" width="134.67" height="6.62" rx="0" fill="#b0d2e7" stroke="none" opacity="1"><title>-48.304</title></rect>
+<rect x="461.99" y="292.89" width="134.67" height="6.62" rx="0" fill="#93c4df" stroke="none" opacity="1"><title>-36.972</title></rect>
+<rect x="596.66" y="292.89" width="134.67" height="6.62" rx="0" fill="#5da5d1" stroke="none" opacity="1"><title>-18.033</title></rect>
+<rect x="731.33" y="292.89" width="134.67" height="6.62" rx="0" fill="#1c69af" stroke="none" opacity="1"><title>13.024</title></rect>
+<rect x="192.66" y="299.51" width="134.67" height="6.62" rx="0" fill="#c0d8ed" stroke="none" opacity="1"><title>-54.885</title></rect>
+<rect x="327.32" y="299.51" width="134.67" height="6.62" rx="0" fill="#abd0e6" stroke="none" opacity="1"><title>-46.043</title></rect>
+<rect x="461.99" y="299.51" width="134.67" height="6.62" rx="0" fill="#88bedc" stroke="none" opacity="1"><title>-33.414</title></rect>
+<rect x="596.66" y="299.51" width="134.67" height="6.62" rx="0" fill="#4d99ca" stroke="none" opacity="1"><title>-11.229</title></rect>
+<rect x="731.33" y="299.51" width="134.67" height="6.62" rx="0" fill="#1257a2" stroke="none" opacity="1"><title>19.764</title></rect>
+<rect x="192.66" y="306.13" width="134.67" height="6.62" rx="0" fill="#bcd7eb" stroke="none" opacity="1"><title>-53.092</title></rect>
+<rect x="327.32" y="306.13" width="134.67" height="6.62" rx="0" fill="#a5cde3" stroke="none" opacity="1"><title>-43.552</title></rect>
+<rect x="461.99" y="306.13" width="134.67" height="6.62" rx="0" fill="#7cb7da" stroke="none" opacity="1"><title>-29.281</title></rect>
+<rect x="596.66" y="306.13" width="134.67" height="6.62" rx="0" fill="#3c8cc3" stroke="none" opacity="1"><title>-3.63</title></rect>
+<rect x="731.33" y="306.13" width="134.67" height="6.62" rx="0" fill="#0b4b98" stroke="none" opacity="1"><title>24.625</title></rect>
+<rect x="192.66" y="312.75" width="134.67" height="6.62" rx="0" fill="#b7d5ea" stroke="none" opacity="1"><title>-51.162</title></rect>
+<rect x="327.32" y="312.75" width="134.67" height="6.62" rx="0" fill="#9fcae1" stroke="none" opacity="1"><title>-40.781</title></rect>
+<rect x="461.99" y="312.75" width="134.67" height="6.62" rx="0" fill="#6dafd6" stroke="none" opacity="1"><title>-24.424</title></rect>
+<rect x="596.66" y="312.75" width="134.67" height="6.62" rx="0" fill="#2c7cbb" stroke="none" opacity="1"><title>4.384</title></rect>
+<rect x="731.33" y="312.75" width="134.67" height="6.62" rx="0" fill="#084594" stroke="none" opacity="1"><title>26.758</title></rect>
+<rect x="192.66" y="319.37" width="134.67" height="6.62" rx="0" fill="#b2d3e8" stroke="none" opacity="1"><title>-49.07</title></rect>
+<rect x="327.32" y="319.37" width="134.67" height="6.62" rx="0" fill="#95c5df" stroke="none" opacity="1"><title>-37.662</title></rect>
+<rect x="461.99" y="319.37" width="134.67" height="6.62" rx="0" fill="#5fa6d1" stroke="none" opacity="1"><title>-18.696</title></rect>
+<rect x="596.66" y="319.37" width="134.67" height="6.62" rx="0" fill="#1e6bb1" stroke="none" opacity="1"><title>12.219</title></rect>
+<rect x="731.33" y="319.37" width="134.67" height="6.62" rx="0" fill="#094795" stroke="none" opacity="1"><title>26.114</title></rect>
+<rect x="192.66" y="325.99" width="134.67" height="6.62" rx="0" fill="#add0e6" stroke="none" opacity="1"><title>-46.786</title></rect>
+<rect x="327.32" y="325.99" width="134.67" height="6.62" rx="0" fill="#8abfdd" stroke="none" opacity="1"><title>-34.105</title></rect>
+<rect x="461.99" y="325.99" width="134.67" height="6.62" rx="0" fill="#4e9bcb" stroke="none" opacity="1"><title>-12.02</title></rect>
+<rect x="596.66" y="325.99" width="134.67" height="6.62" rx="0" fill="#1359a3" stroke="none" opacity="1"><title>19.127</title></rect>
+<rect x="731.33" y="325.99" width="134.67" height="6.62" rx="0" fill="#0e509c" stroke="none" opacity="1"><title>22.679</title></rect>
+<rect x="192.66" y="332.61" width="134.67" height="6.62" rx="0" fill="#a7cee4" stroke="none" opacity="1"><title>-44.274</title></rect>
+<rect x="327.32" y="332.61" width="134.67" height="6.62" rx="0" fill="#7eb8da" stroke="none" opacity="1"><title>-29.99</title></rect>
+<rect x="461.99" y="332.61" width="134.67" height="6.62" rx="0" fill="#3d8dc4" stroke="none" opacity="1"><title>-4.504</title></rect>
+<rect x="596.66" y="332.61" width="134.67" height="6.62" rx="0" fill="#0c4c99" stroke="none" opacity="1"><title>24.232</title></rect>
+<rect x="731.33" y="332.61" width="134.67" height="6.62" rx="0" fill="#175fa7" stroke="none" opacity="1"><title>16.859</title></rect>
+<rect x="192.66" y="339.23" width="134.67" height="6.62" rx="0" fill="#a0cbe2" stroke="none" opacity="1"><title>-41.484</title></rect>
+<rect x="327.32" y="339.23" width="134.67" height="6.62" rx="0" fill="#6fb0d7" stroke="none" opacity="1"><title>-25.173</title></rect>
+<rect x="461.99" y="339.23" width="134.67" height="6.62" rx="0" fill="#2e7ebb" stroke="none" opacity="1"><title>3.499</title></rect>
+<rect x="596.66" y="339.23" width="134.67" height="6.62" rx="0" fill="#084594" stroke="none" opacity="1"><title>26.662</title></rect>
+<rect x="731.33" y="339.23" width="134.67" height="6.62" rx="0" fill="#2272b5" stroke="none" opacity="1"><title>9.493</title></rect>
+<rect x="192.66" y="345.84" width="134.67" height="6.62" rx="0" fill="#97c6e0" stroke="none" opacity="1"><title>-38.35</title></rect>
+<rect x="327.32" y="345.84" width="134.67" height="6.62" rx="0" fill="#61a7d2" stroke="none" opacity="1"><title>-19.501</title></rect>
+<rect x="461.99" y="345.84" width="134.67" height="6.62" rx="0" fill="#1f6db2" stroke="none" opacity="1"><title>11.408</title></rect>
+<rect x="596.66" y="345.84" width="134.67" height="6.62" rx="0" fill="#094695" stroke="none" opacity="1"><title>26.314</title></rect>
+<rect x="731.33" y="345.84" width="134.67" height="6.62" rx="0" fill="#3282be" stroke="none" opacity="1"><title>1.434</title></rect>
+<rect x="192.66" y="352.46" width="134.67" height="6.62" rx="0" fill="#8cc0dd" stroke="none" opacity="1"><title>-34.786</title></rect>
+<rect x="327.32" y="352.46" width="134.67" height="6.62" rx="0" fill="#519ccc" stroke="none" opacity="1"><title>-12.884</title></rect>
+<rect x="461.99" y="352.46" width="134.67" height="6.62" rx="0" fill="#145ba4" stroke="none" opacity="1"><title>18.471</title></rect>
+<rect x="596.66" y="352.46" width="134.67" height="6.62" rx="0" fill="#0d4e9b" stroke="none" opacity="1"><title>23.179</title></rect>
+<rect x="731.33" y="352.46" width="134.67" height="6.62" rx="0" fill="#4191c6" stroke="none" opacity="1"><title>-6.588</title></rect>
+<rect x="192.66" y="359.08" width="134.67" height="6.62" rx="0" fill="#80badb" stroke="none" opacity="1"><title>-30.678</title></rect>
+<rect x="327.32" y="359.08" width="134.67" height="6.62" rx="0" fill="#3f8fc4" stroke="none" opacity="1"><title>-5.403</title></rect>
+<rect x="461.99" y="359.08" width="134.67" height="6.62" rx="0" fill="#0c4d9a" stroke="none" opacity="1"><title>23.807</title></rect>
+<rect x="596.66" y="359.08" width="134.67" height="6.62" rx="0" fill="#165da6" stroke="none" opacity="1"><title>17.557</title></rect>
+<rect x="731.33" y="359.08" width="134.67" height="6.62" rx="0" fill="#539ecd" stroke="none" opacity="1"><title>-14.03</title></rect>
+<rect x="192.66" y="365.70" width="134.67" height="6.62" rx="0" fill="#72b2d7" stroke="none" opacity="1"><title>25, 0: -25.885</title></rect>
+<rect x="327.32" y="365.70" width="134.67" height="6.62" rx="0" fill="#2f7fbc" stroke="none" opacity="1"><title>25, 0.32: 2.613</title></rect>
+<rect x="461.99" y="365.70" width="134.67" height="6.62" rx="0" fill="#084694" stroke="none" opacity="1"><title>25, 0.64: 26.535</title></rect>
+<rect x="596.66" y="365.70" width="134.67" height="6.62" rx="0" fill="#2070b4" stroke="none" opacity="1"><title>25, 0.96: 10.307</title></rect>
+<rect x="731.33" y="365.70" width="134.67" height="6.62" rx="0" fill="#63a9d3" stroke="none" opacity="1"><title>25, 1.28: -20.594</title></rect>
+<rect x="192.66" y="372.32" width="134.67" height="6.62" rx="0" fill="#63a8d3" stroke="none" opacity="1"><title>-20.256</title></rect>
+<rect x="327.32" y="372.32" width="134.67" height="6.62" rx="0" fill="#206fb4" stroke="none" opacity="1"><title>10.596</title></rect>
+<rect x="461.99" y="372.32" width="134.67" height="6.62" rx="0" fill="#084695" stroke="none" opacity="1"><title>26.483</title></rect>
+<rect x="596.66" y="372.32" width="134.67" height="6.62" rx="0" fill="#3080bd" stroke="none" opacity="1"><title>2.304</title></rect>
+<rect x="731.33" y="372.32" width="134.67" height="6.62" rx="0" fill="#73b2d8" stroke="none" opacity="1"><title>-26.228</title></rect>
+<rect x="192.66" y="378.94" width="134.67" height="6.62" rx="0" fill="#539dcc" stroke="none" opacity="1"><title>-13.693</title></rect>
+<rect x="327.32" y="378.94" width="134.67" height="6.62" rx="0" fill="#155ca6" stroke="none" opacity="1"><title>17.8</title></rect>
+<rect x="461.99" y="378.94" width="134.67" height="6.62" rx="0" fill="#0d4d9a" stroke="none" opacity="1"><title>23.648</title></rect>
+<rect x="596.66" y="378.94" width="134.67" height="6.62" rx="0" fill="#4090c5" stroke="none" opacity="1"><title>-5.707</title></rect>
+<rect x="731.33" y="378.94" width="134.67" height="6.62" rx="0" fill="#81badb" stroke="none" opacity="1"><title>-31.03</title></rect>
+<rect x="192.66" y="385.56" width="134.67" height="6.62" rx="0" fill="#4191c5" stroke="none" opacity="1"><title>-6.257</title></rect>
+<rect x="327.32" y="385.56" width="134.67" height="6.62" rx="0" fill="#0d4e9b" stroke="none" opacity="1"><title>23.348</title></rect>
+<rect x="461.99" y="385.56" width="134.67" height="6.62" rx="0" fill="#155ba5" stroke="none" opacity="1"><title>18.236</title></rect>
+<rect x="596.66" y="385.56" width="134.67" height="6.62" rx="0" fill="#519ccc" stroke="none" opacity="1"><title>-13.16</title></rect>
+<rect x="731.33" y="385.56" width="134.67" height="6.62" rx="0" fill="#8ec1dd" stroke="none" opacity="1"><title>-35.152</title></rect>
+<rect x="192.66" y="392.18" width="134.67" height="6.62" rx="0" fill="#3181bd" stroke="none" opacity="1"><title>1.751</title></rect>
+<rect x="327.32" y="392.18" width="134.67" height="6.62" rx="0" fill="#094695" stroke="none" opacity="1"><title>26.377</title></rect>
+<rect x="461.99" y="392.18" width="134.67" height="6.62" rx="0" fill="#1f6eb3" stroke="none" opacity="1"><title>11.122</title></rect>
+<rect x="596.66" y="392.18" width="134.67" height="6.62" rx="0" fill="#61a7d2" stroke="none" opacity="1"><title>-19.731</title></rect>
+<rect x="731.33" y="392.18" width="134.67" height="6.62" rx="0" fill="#98c7e0" stroke="none" opacity="1"><title>-38.732</title></rect>
+<rect x="192.66" y="398.79" width="134.67" height="6.62" rx="0" fill="#2171b5" stroke="none" opacity="1"><title>9.782</title></rect>
+<rect x="327.32" y="398.79" width="134.67" height="6.62" rx="0" fill="#084594" stroke="none" opacity="1"><title>26.621</title></rect>
+<rect x="461.99" y="398.79" width="134.67" height="6.62" rx="0" fill="#2e7ebc" stroke="none" opacity="1"><title>3.185</title></rect>
+<rect x="596.66" y="398.79" width="134.67" height="6.62" rx="0" fill="#70b1d7" stroke="none" opacity="1"><title>-25.344</title></rect>
+<rect x="731.33" y="398.79" width="134.67" height="6.62" rx="0" fill="#a1cbe2" stroke="none" opacity="1"><title>-41.882</title></rect>
+<rect x="192.66" y="405.41" width="134.67" height="6.62" rx="0" fill="#165ea7" stroke="none" opacity="1"><title>17.105</title></rect>
+<rect x="327.32" y="405.41" width="134.67" height="6.62" rx="0" fill="#0c4c99" stroke="none" opacity="1"><title>24.086</title></rect>
+<rect x="461.99" y="405.41" width="134.67" height="6.62" rx="0" fill="#3e8ec4" stroke="none" opacity="1"><title>-4.829</title></rect>
+<rect x="596.66" y="405.41" width="134.67" height="6.62" rx="0" fill="#7eb9da" stroke="none" opacity="1"><title>-30.086</title></rect>
+<rect x="731.33" y="405.41" width="134.67" height="6.62" rx="0" fill="#a8cee4" stroke="none" opacity="1"><title>-44.687</title></rect>
+<rect x="192.66" y="412.03" width="134.67" height="6.62" rx="0" fill="#0e4f9c" stroke="none" opacity="1"><title>22.859</title></rect>
+<rect x="327.32" y="412.03" width="134.67" height="6.62" rx="0" fill="#145aa3" stroke="none" opacity="1"><title>18.895</title></rect>
+<rect x="461.99" y="412.03" width="134.67" height="6.62" rx="0" fill="#4f9bcb" stroke="none" opacity="1"><title>-12.349</title></rect>
+<rect x="596.66" y="412.03" width="134.67" height="6.62" rx="0" fill="#8abfdd" stroke="none" opacity="1"><title>-34.102</title></rect>
+<rect x="731.33" y="412.03" width="134.67" height="6.62" rx="0" fill="#aed1e7" stroke="none" opacity="1"><title>-47.209</title></rect>
+<rect x="192.66" y="418.65" width="134.67" height="6.62" rx="0" fill="#094695" stroke="none" opacity="1"><title>26.19</title></rect>
+<rect x="327.32" y="418.65" width="134.67" height="6.62" rx="0" fill="#1e6cb1" stroke="none" opacity="1"><title>11.931</title></rect>
+<rect x="461.99" y="418.65" width="134.67" height="6.62" rx="0" fill="#60a6d2" stroke="none" opacity="1"><title>-19.04</title></rect>
+<rect x="596.66" y="418.65" width="134.67" height="6.62" rx="0" fill="#95c5df" stroke="none" opacity="1"><title>-37.527</title></rect>
+<rect x="731.33" y="418.65" width="134.67" height="6.62" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>-49.493</title></rect>
+<rect x="192.66" y="425.27" width="134.67" height="6.62" rx="0" fill="#084594" stroke="none" opacity="1"><title>26.726</title></rect>
+<rect x="327.32" y="425.27" width="134.67" height="6.62" rx="0" fill="#2c7cbb" stroke="none" opacity="1"><title>4.08</title></rect>
+<rect x="461.99" y="425.27" width="134.67" height="6.62" rx="0" fill="#6eb0d7" stroke="none" opacity="1"><title>-24.822</title></rect>
+<rect x="596.66" y="425.27" width="134.67" height="6.62" rx="0" fill="#9ecae1" stroke="none" opacity="1"><title>-40.465</title></rect>
+<rect x="731.33" y="425.27" width="134.67" height="6.62" rx="0" fill="#b8d5ea" stroke="none" opacity="1"><title>-51.57</title></rect>
+<rect x="192.66" y="431.89" width="134.67" height="6.62" rx="0" fill="#0b4b98" stroke="none" opacity="1"><title>24.492</title></rect>
+<rect x="327.32" y="431.89" width="134.67" height="6.62" rx="0" fill="#3c8cc3" stroke="none" opacity="1"><title>-3.902</title></rect>
+<rect x="461.99" y="431.89" width="134.67" height="6.62" rx="0" fill="#7db8da" stroke="none" opacity="1"><title>-29.801</title></rect>
+<rect x="596.66" y="431.89" width="134.67" height="6.62" rx="0" fill="#a4cce3" stroke="none" opacity="1"><title>-42.986</title></rect>
+<rect x="731.33" y="431.89" width="134.67" height="6.62" rx="0" fill="#bdd7ec" stroke="none" opacity="1"><title>-53.459</title></rect>
+<rect x="192.66" y="438.51" width="134.67" height="6.62" rx="0" fill="#1358a2" stroke="none" opacity="1"><title>19.545</title></rect>
+<rect x="327.32" y="438.51" width="134.67" height="6.62" rx="0" fill="#4d9aca" stroke="none" opacity="1"><title>-11.413</title></rect>
+<rect x="461.99" y="438.51" width="134.67" height="6.62" rx="0" fill="#8bbfdd" stroke="none" opacity="1"><title>-34.167</title></rect>
+<rect x="596.66" y="438.51" width="134.67" height="6.62" rx="0" fill="#a9cfe5" stroke="none" opacity="1"><title>-45.133</title></rect>
+<rect x="731.33" y="438.51" width="134.67" height="6.62" rx="0" fill="#c1d9ed" stroke="none" opacity="1"><title>-55.162</title></rect>
+<rect x="192.66" y="445.12" width="134.67" height="6.62" rx="0" fill="#1d6ab0" stroke="none" opacity="1"><title>12.716</title></rect>
+<rect x="327.32" y="445.12" width="134.67" height="6.62" rx="0" fill="#5da5d1" stroke="none" opacity="1"><title>-18.065</title></rect>
+<rect x="461.99" y="445.12" width="134.67" height="6.62" rx="0" fill="#97c6df" stroke="none" opacity="1"><title>-38.132</title></rect>
+<rect x="596.66" y="445.12" width="134.67" height="6.62" rx="0" fill="#add0e6" stroke="none" opacity="1"><title>-46.923</title></rect>
+<rect x="731.33" y="445.12" width="134.67" height="6.62" rx="0" fill="#c4daee" stroke="none" opacity="1"><title>-56.669</title></rect>
+<rect x="192.66" y="451.74" width="134.67" height="6.62" rx="0" fill="#2b7bba" stroke="none" opacity="1"><title>4.859</title></rect>
+<rect x="327.32" y="451.74" width="134.67" height="6.62" rx="0" fill="#6baed6" stroke="none" opacity="1"><title>-23.687</title></rect>
+<rect x="461.99" y="451.74" width="134.67" height="6.62" rx="0" fill="#a1cbe2" stroke="none" opacity="1"><title>-41.914</title></rect>
+<rect x="596.66" y="451.74" width="134.67" height="6.62" rx="0" fill="#b1d2e7" stroke="none" opacity="1"><title>-48.352</title></rect>
+<rect x="731.33" y="451.74" width="134.67" height="6.62" rx="0" fill="#c7dcef" stroke="none" opacity="1"><title>-57.945</title></rect>
+<rect x="192.66" y="458.36" width="134.67" height="6.62" rx="0" fill="#3b8bc2" stroke="none" opacity="1"><title>-3.188</title></rect>
+<rect x="327.32" y="458.36" width="134.67" height="6.62" rx="0" fill="#79b5d9" stroke="none" opacity="1"><title>-28.2</title></rect>
+<rect x="461.99" y="458.36" width="134.67" height="6.62" rx="0" fill="#aacfe5" stroke="none" opacity="1"><title>-45.734</title></rect>
+<rect x="596.66" y="458.36" width="134.67" height="6.62" rx="0" fill="#b3d3e8" stroke="none" opacity="1"><title>-49.402</title></rect>
+<rect x="731.33" y="458.36" width="134.67" height="6.62" rx="0" fill="#c8dcf0" stroke="none" opacity="1"><title>-58.936</title></rect>
+<rect x="192.66" y="464.98" width="134.67" height="6.62" rx="0" fill="#4a98c9" stroke="none" opacity="1"><title>-10.24</title></rect>
+<rect x="327.32" y="464.98" width="134.67" height="6.62" rx="0" fill="#82bbdb" stroke="none" opacity="1"><title>-31.361</title></rect>
+<rect x="461.99" y="464.98" width="134.67" height="6.62" rx="0" fill="#b3d3e9" stroke="none" opacity="1"><title>-49.595</title></rect>
+<rect x="596.66" y="464.98" width="134.67" height="6.62" rx="0" fill="#b5d4e9" stroke="none" opacity="1"><title>-50.048</title></rect>
+<rect x="731.33" y="464.98" width="134.67" height="6.62" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>-59.572</title></rect>
+<rect x="192.66" y="471.60" width="134.67" height="6.62" rx="0" fill="#529dcc" stroke="none" opacity="1"><title>0, 0: -13.522</title></rect>
+<rect x="327.32" y="471.60" width="134.67" height="6.62" rx="0" fill="#86bddc" stroke="none" opacity="1"><title>0, 0.32: -32.561</title></rect>
+<rect x="461.99" y="471.60" width="134.67" height="6.62" rx="0" fill="#b9d5ea" stroke="none" opacity="1"><title>0, 0.64: -51.789</title></rect>
+<rect x="596.66" y="471.60" width="134.67" height="6.62" rx="0" fill="#b5d4e9" stroke="none" opacity="1"><title>0, 0.96: -50.267</title></rect>
+<rect x="731.33" y="471.60" width="134.67" height="6.62" rx="0" fill="#c9ddf0" stroke="none" opacity="1"><title>0, 1.28: -59.793</title></rect>
+<text x="182.94" y="56.98" font-size="16.2" text-anchor="end" fill="#444444">100</text>
+<text x="182.94" y="162.88" font-size="16.2" text-anchor="end" fill="#444444">75</text>
+<text x="182.94" y="268.78" font-size="16.2" text-anchor="end" fill="#444444">50</text>
+<text x="182.94" y="374.68" font-size="16.2" text-anchor="end" fill="#444444">25</text>
+<text x="182.94" y="480.58" font-size="16.2" text-anchor="end" fill="#444444">0</text>
+<text x="259.99" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 259.99 504.14)">0</text>
+<text x="394.66" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 394.66 504.14)">0.32</text>
+<text x="529.33" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 529.33 504.14)">0.64</text>
+<text x="664.00" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 664.00 504.14)">0.96</text>
+<text x="798.67" y="504.14" font-size="16.2" text-anchor="middle" fill="#444444" transform="rotate(-30 798.67 504.14)">1.28</text>
+</svg></figure></div>
+<pre><code>short: [9, 49], resolution 12.500 Hz
+long:  [65, 5], resolution 1.562 Hz
+short-window peaks: [0, 12.5, 0, 12.5, 12.5, 0, 0, 12.5, ... (49 elements)]
+long-window peaks: [10.9375, 17.1875, 25, 31.25, 37.5]
+</code></pre>
+<p>The 16-sample window gives 49 time frames but only 12.5 Hz frequency resolution — so coarse that the tracked peak jumps uselessly between 0 and 12.5 Hz instead of tracing a sweep. The 128-sample window gives a clean, believable rise (10.9 to 37.5 Hz) at 1.6 Hz resolution, but only 5 frames to describe 400 samples of sweep, throwing away the timing precision the short window had. This is Gabor's bound, not a setting to tune away.</p>
+<p>Qu's own wavelet support is real but narrow, and worth stating plainly: <code>dwt</code>/<code>idwt</code> implement exactly one wavelet family, the Haar wavelet — the simplest orthogonal wavelet there is, and the only one shipped so far. Daubechies, Morlet, and the rest are not implemented; nothing quietly stands in for them.</p>
+<div class="example hasout"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]
+D = <span class="f">dwt</span>(x)
+approx = D[<span class="n">0</span>, :]
+detail = D[<span class="n">1</span>, :]
+<span class="f">print</span>(<span class="s">"approx = {approx:.6f}"</span>)
+<span class="f">print</span>(<span class="s">"detail = {detail:.6f}"</span>)
+
+xr = <span class="f">idwt</span>(D)
+<span class="f">print</span>(<span class="s">"reconstructed = {xr}"</span>)
+<span class="f">print</span>(<span class="s">"max reconstruction error = {max(abs(xr - x)):.2e}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>approx = [2.12132, 4.949747]
+detail = [-0.707107, -0.707107]
+reconstructed = [1, 2, 3, 4]
+max reconstruction error = 8.88e-16</pre></div></div>
+<pre><code>approx = [2.12132, 4.949747]
+detail = [-0.707107, -0.707107]
+reconstructed = [1, 2, 3, 4]
+max reconstruction error = 8.88e-16
+</code></pre>
+<p>One level of Haar splits a length-4 signal into a length-2 "approx" band (each pair's sum, scaled by \(1/\sqrt{2}\)) and a length-2 "detail" band (each pair's difference) — orthogonal, so <code>idwt</code> reconstructs the original exactly, to floating-point precision. Run it again on the approx band and you get a coarser decomposition layered on top, the genuine multi-resolution structure a fixed STFT window cannot give. What one wavelet shape does not buy you is the smoothness and frequency selectivity real audio and image work usually wants — Haar's sharp rectangular shape shows up as blocky artifacts wherever a signal is smooth. Treat today's <code>dwt</code> as a correct, honestly limited first tool, not a finished wavelet library.</p>
+<p>You can now see *what* is in a signal (Lesson 4), *whether a system stays under control* (Lesson 5), and *when* content occurs (this lesson). None of that has let you act — remove the hum, keep the speech, reject the interference. Every transform so far has been a way of looking. Lesson 7 starts building the tools that reach into a signal and change it.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

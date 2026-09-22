@@ -11220,6 +11220,35 @@ impl Interp {
                     }
                 }
             }
+            // A DENSITY spectrum (`welch`/`periodogram`/`psd`) is a real,
+            // non-negative vector in the shared complex `Spectrum`
+            // representation -- see `to_cow`'s identical arm for why this is
+            // restricted to `Density` (the other conventions carry a
+            // meaningful phase, so silently indexing into only the real part
+            // would be a quiet wrong answer). Found via the DSP course's own
+            // `pw[f < 100]` -- indexing wasn't taught about `Spectrum` at
+            // all, so a mask that works on `mean(pw)`/`plot(f, pw)` (both go
+            // through `to_cow`) failed only on `pw[mask]`. Converts to a
+            // plain `Vec` and reuses the exact indexing logic above rather
+            // than reimplementing selection for a second type.
+            Value::Spectrum(xs, _, _, SpectrumNorm::Density) => {
+                if indices.len() != 1 {
+                    return e("a spectrum takes a single index");
+                }
+                let xs: Vec<f64> = xs.iter().map(|c| c.re).collect();
+                match self.resolve_sel(&indices[0], xs.len())? {
+                    Sel::Scalar(i) => xs.get(i).copied().map(Value::Num).ok_or_else(|| EvalError {
+                        msg: format!("index {i} out of bounds (len {})", xs.len()),
+                    }),
+                    Sel::Many(idxs) => {
+                        let out =
+                            numeric::selection::gather(&xs, &idxs).map_err(|se| EvalError {
+                                msg: se.to_string(),
+                            })?;
+                        Ok(Value::Vec(Arc::new(out)))
+                    }
+                }
+            }
             Value::Signal(xs, fs, _) => {
                 if indices.len() != 1 {
                     return e("a signal takes a single index");
@@ -11928,6 +11957,23 @@ impl Interp {
         if matches!(a, Value::Unit(..)) || matches!(b, Value::Unit(..)) {
             return unit_binop(op, a, b);
         }
+        // A DENSITY spectrum (`welch`/`periodogram`/`psd`) is a real,
+        // non-negative vector in the shared complex `Spectrum`
+        // representation -- see `to_cow`'s identical arm for why this is
+        // restricted to `Density`. Normalized to a plain `Vec` here, before
+        // `is_complexish` below would otherwise route it nowhere (Spectrum
+        // isn't complexish, isn't a matrix, isn't a Signal, so it fell
+        // through to the bottom `compare`/`map2` match with no case for it
+        // at all: "expected a number, found spectrum"). Found via the DSP
+        // course's own `pw > 100` building a mask for `pw[mask]`.
+        let densify = |v: Value| match v {
+            Value::Spectrum(xs, _, _, SpectrumNorm::Density) => {
+                Value::Vec(Arc::new(xs.iter().map(|c| c.re).collect()))
+            }
+            other => other,
+        };
+        let a = densify(a);
+        let b = densify(b);
         // Complex + 2-D takes priority over both the flat-complex and the
         // real-matrix paths: either operand is a genuine complex matrix, or a
         // complex value (scalar/vector) meets a real matrix (e.g. a complex
@@ -41682,6 +41728,14 @@ fn complex_map_to_real(
     match v {
         Value::Complex(c) => Ok(Value::Num(cf(*c))),
         Value::CVec(xs) => Ok(Value::Vec(Arc::new(xs.iter().map(|c| cf(*c)).collect()))),
+        // `rfft`/`fft` on a `Signal` return `Spectrum`, not `CVec` (that's
+        // what a plain `Vec` input gets) -- found via the DSP course's own
+        // `abs(rfft(a_chirp_signal))`, which errored "cannot apply the
+        // operation to spectrum" even though `abs(rfft(a_plain_vector))`
+        // already worked. Same real-valued-magnitude result either way;
+        // Spectrum's own Fs/N/norm metadata does not carry over, matching
+        // CVec's own abs() above (its result is a plain Vec too).
+        Value::Spectrum(xs, ..) => Ok(Value::Vec(Arc::new(xs.iter().map(|c| cf(*c)).collect()))),
         Value::CMat(m) => {
             let (r, c) = m.shape();
             let data: Vec<f64> = m.as_slice().iter().map(|&z| cf(z)).collect();
@@ -68420,6 +68474,54 @@ end for");
             "{TONE_48K}P = welch(s, nperseg=1024)\nz = spectrum_unnormalize(P)"
         ));
         assert!(err.msg.contains("density"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn abs_of_an_amplitude_spectrum_from_a_signal_matches_the_plain_vector_path() {
+        // `rfft` on a `Signal` returns `Value::Spectrum`; on a plain `Vec`
+        // it returns `Value::CVec`. `abs()`/`magnitude()` already handled
+        // `CVec` but had no arm for `Spectrum` at all -- found via the DSP
+        // course's own `abs(rfft(a_chirp_signal))`, which errored "cannot
+        // apply the operation to spectrum" while the Vec-input equivalent
+        // worked. Both paths must agree on the same signal's content.
+        let it = run(
+            "n = 64\nfs = 8\nt = (0 to n - 1) / fs\nx = sin(2 * pi * 1 * t)\n\
+             from_signal = abs(rfft(x as signal(fs)))\n\
+             from_vector = abs(rfft(x as vector))",
+        );
+        let a = match it.get("from_signal") {
+            Some(Value::Vec(xs)) => xs.clone(),
+            other => panic!("from_signal must be a vector, got {other:?}"),
+        };
+        let b = match it.get("from_vector") {
+            Some(Value::Vec(xs)) => xs.clone(),
+            other => panic!("from_vector must be a vector, got {other:?}"),
+        };
+        assert_eq!(a.len(), b.len());
+        for (x, y) in a.iter().zip(b.iter()) {
+            assert!((x - y).abs() < 1e-9, "from_signal={x} from_vector={y}");
+        }
+    }
+
+    #[test]
+    fn a_density_spectrum_supports_comparison_and_boolean_mask_indexing() {
+        // `welch`/`periodogram`/`psd` return a DENSITY `Spectrum`, which
+        // `to_cow` already treats as a plain real vector for functions like
+        // `mean`/`length`/`plot`. Comparison (`pw > x`, building a mask) and
+        // `[]` indexing by that mask had no case for `Spectrum` at all and
+        // fell through to "expected a number, found spectrum" -- found via
+        // the DSP course's own `pw[f < 100]`.
+        let it = run(
+            "x = randn(64, seed = 1)\npw = welch(x, 8, nperseg = 16)\n\
+             mask = pw > 0\n\
+             above = pw[mask]\n\
+             n_above = length(above)\n\
+             one = pw[0]",
+        );
+        let n_above = num_at(&it, "n_above");
+        assert!(n_above >= 1.0 && n_above <= 9.0, "got {n_above}");
+        let one = num_at(&it, "one");
+        assert!(one.is_finite() && one >= 0.0, "got {one}");
     }
 
     #[test]

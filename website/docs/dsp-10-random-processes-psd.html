@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random Processes & PSD — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html" class="here">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Random Processes & PSD</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<p>Put a hand against a wall that shares a room with a running air conditioner and a street outside: one sound is a flat, textureless hiss, the other a rumble that sits low in the chest. Neither repeats, neither is predictable sample to sample, and yet they are obviously different kinds of noise. The difference is not loudness — it is where each one's power sits across frequency, and that is a number you can measure.</p>
+<h2 id="s0">The idea</h2>
+<p>A <strong>random process</strong> is a signal whose value at any instant is a random variable rather than a fixed number: you cannot say what sample \(n\) will be, only how it behaves statistically. That is still useful, because the process can have a stable mean, a stable variance, and a relationship between one sample and its neighbors a few steps away. For that relationship to be a fixed, measurable property of the process rather than something that changes every time you record it, the process must be <strong>wide-sense stationary</strong>: its mean and its autocorrelation depend only on the *lag* between two samples, never on absolute time,</p>
+<p>\[ E[x[n]] = \mu, \qquad R_{xx}[k] = E\big[x[n]\,x[n+k]\big] \text{ independent of } n. \]</p>
+<p><code>R_xx[k]</code> is the <strong>autocorrelation</strong>: how strongly a sample predicts one <code>k</code> steps away. In white noise it is a spike at <code>k = 0</code> and nothing elsewhere — no sample tells you anything about its neighbor. In colored noise it decays smoothly, which is exactly what makes a signal *feel* slow and heavy rather than textureless.</p>
+<p>Norbert Wiener (1930) and Aleksandr Khinchin (1934) independently proved that for a stationary process the autocorrelation and a frequency-domain quantity, the <strong>power spectral density</strong>, are a Fourier transform pair — the Wiener–Khinchin theorem:</p>
+<p>\[ S_{xx}(f) = \sum_{k=-\infty}^{\infty} R_{xx}[k]\, e^{-j 2\pi f k}. \]</p>
+<p><code>S_xx(f)</code> answers, with an equation, the question an ear answers instantly: how much power sits in a narrow band around frequency <code>f</code>. White noise has a flat PSD by definition — every frequency carries equal power, the acoustic analogy to white light. Colored noise has a PSD that is not flat; a common family falls off as \(1/f^\alpha\), with <code>α = 0</code> giving white noise, <code>α = 1</code> "pink" noise (semiconductor flicker, drift in long measurements), and <code>α = 2</code> a random walk (Brownian/red noise, baseline wander in a slowly sagging instrument).</p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">linspace</span>(<span class="n">1</span>, <span class="n">500</span>, <span class="n">200</span>)
+white = <span class="f">ones</span>(<span class="f">length</span>(f))
+pink  = <span class="n">1</span> / f
+brown = <span class="n">1</span> / (f .^ <span class="n">2</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, white, <span class="a">label</span> = <span class="s">"white: flat"</span>)
+<span class="f">plot</span>(f, pink, <span class="a">label</span> = <span class="s">"pink: 1/f"</span>)
+<span class="f">plot</span>(f, brown, <span class="a">label</span> = <span class="s">"brownian: 1/f^2"</span>)
+axis scale y log
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"power spectral density"</span>)
+<span class="f">title</span>(<span class="s">"Idealized noise PSD shapes"</span>)
+<span class="f">legend</span>()
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (200 points)
+· plot: figure 2 (200 points)
+· plot: figure 3 (200 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="474.76" x2="866.00" y2="474.76" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="474.76" x2="104.06" y2="474.76" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="480.43" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−⁵"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−5</tspan></text>
+<line x1="104.06" y1="393.78" x2="866.00" y2="393.78" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="393.78" x2="104.06" y2="393.78" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="399.45" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−⁴"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−4</tspan></text>
+<line x1="104.06" y1="312.80" x2="866.00" y2="312.80" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="312.80" x2="104.06" y2="312.80" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="318.47" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−³"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−3</tspan></text>
+<line x1="104.06" y1="231.82" x2="866.00" y2="231.82" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="231.82" x2="104.06" y2="231.82" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="237.49" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−²"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−2</tspan></text>
+<line x1="104.06" y1="150.84" x2="866.00" y2="150.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="150.84" x2="104.06" y2="150.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="156.51" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−¹"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−1</tspan></text>
+<line x1="104.06" y1="69.86" x2="866.00" y2="69.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="69.86" x2="104.06" y2="69.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="75.53" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10⁰"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">0</tspan></text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="249.21" y1="48.00" x2="249.21" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.21" y1="528.84" x2="249.21" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.21" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="321.78" y1="48.00" x2="321.78" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.78" y1="528.84" x2="321.78" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.78" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">150</text>
+<line x1="394.35" y1="48.00" x2="394.35" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.35" y1="528.84" x2="394.35" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.35" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="466.92" y1="48.00" x2="466.92" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.92" y1="528.84" x2="466.92" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.92" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">250</text>
+<line x1="539.50" y1="48.00" x2="539.50" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.50" y1="528.84" x2="539.50" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.50" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">300</text>
+<line x1="612.07" y1="48.00" x2="612.07" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.07" y1="528.84" x2="612.07" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.07" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">350</text>
+<line x1="684.64" y1="48.00" x2="684.64" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.64" y1="528.84" x2="684.64" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.64" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="757.21" y1="48.00" x2="757.21" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.21" y1="528.84" x2="757.21" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.21" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">450</text>
+<line x1="829.79" y1="48.00" x2="829.79" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.79" y1="528.84" x2="829.79" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.79" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">500</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="105.51,69.86 109.15,69.86 112.79,69.86 116.43,69.86 120.07,69.86 123.71,69.86 127.35,69.86 130.99,69.86 134.63,69.86 138.27,69.86 141.91,69.86 145.55,69.86 149.19,69.86 152.83,69.86 156.47,69.86 160.11,69.86 163.75,69.86 167.39,69.86 171.03,69.86 174.67,69.86 178.31,69.86 181.94,69.86 185.58,69.86 189.22,69.86 192.86,69.86 196.50,69.86 200.14,69.86 203.78,69.86 207.42,69.86 211.06,69.86 214.70,69.86 218.34,69.86 221.98,69.86 225.62,69.86 229.26,69.86 232.90,69.86 236.54,69.86 240.18,69.86 243.82,69.86 247.46,69.86 251.10,69.86 254.74,69.86 258.38,69.86 262.02,69.86 265.65,69.86 269.29,69.86 272.93,69.86 276.57,69.86 280.21,69.86 283.85,69.86 287.49,69.86 291.13,69.86 294.77,69.86 298.41,69.86 302.05,69.86 305.69,69.86 309.33,69.86 312.97,69.86 316.61,69.86 320.25,69.86 323.89,69.86 327.53,69.86 331.17,69.86 334.81,69.86 338.45,69.86 342.09,69.86 345.72,69.86 349.36,69.86 353.00,69.86 356.64,69.86 360.28,69.86 363.92,69.86 367.56,69.86 371.20,69.86 374.84,69.86 378.48,69.86 382.12,69.86 385.76,69.86 389.40,69.86 393.04,69.86 396.68,69.86 400.32,69.86 403.96,69.86 407.60,69.86 411.24,69.86 414.88,69.86 418.52,69.86 422.16,69.86 425.80,69.86 429.43,69.86 433.07,69.86 436.71,69.86 440.35,69.86 443.99,69.86 447.63,69.86 451.27,69.86 454.91,69.86 458.55,69.86 462.19,69.86 465.83,69.86 469.47,69.86 473.11,69.86 476.75,69.86 480.39,69.86 484.03,69.86 487.67,69.86 491.31,69.86 494.95,69.86 498.59,69.86 502.23,69.86 505.87,69.86 509.51,69.86 513.14,69.86 516.78,69.86 520.42,69.86 524.06,69.86 527.70,69.86 531.34,69.86 534.98,69.86 538.62,69.86 542.26,69.86 545.90,69.86 549.54,69.86 553.18,69.86 556.82,69.86 560.46,69.86 564.10,69.86 567.74,69.86 571.38,69.86 575.02,69.86 578.66,69.86 582.30,69.86 585.94,69.86 589.58,69.86 593.21,69.86 596.85,69.86 600.49,69.86 604.13,69.86 607.77,69.86 611.41,69.86 615.05,69.86 618.69,69.86 622.33,69.86 625.97,69.86 629.61,69.86 633.25,69.86 636.89,69.86 640.53,69.86 644.17,69.86 647.81,69.86 651.45,69.86 655.09,69.86 658.73,69.86 662.37,69.86 666.01,69.86 669.65,69.86 673.29,69.86 676.92,69.86 680.56,69.86 684.20,69.86 687.84,69.86 691.48,69.86 695.12,69.86 698.76,69.86 702.40,69.86 706.04,69.86 709.68,69.86 713.32,69.86 716.96,69.86 720.60,69.86 724.24,69.86 727.88,69.86 731.52,69.86 735.16,69.86 738.80,69.86 742.44,69.86 746.08,69.86 749.72,69.86 753.36,69.86 757.00,69.86 760.63,69.86 764.27,69.86 767.91,69.86 771.55,69.86 775.19,69.86 778.83,69.86 782.47,69.86 786.11,69.86 789.75,69.86 793.39,69.86 797.03,69.86 800.67,69.86 804.31,69.86 807.95,69.86 811.59,69.86 815.23,69.86 818.87,69.86 822.51,69.86 826.15,69.86 829.79,69.86" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="105.51,69.86 109.15,113.99 112.79,132.96 116.43,145.22 120.07,154.29 123.71,161.49 127.35,167.47 130.99,172.57 134.63,177.03 138.27,180.99 141.91,184.54 145.55,187.77 149.19,190.73 152.83,193.46 156.47,195.99 160.11,198.35 163.75,200.56 167.39,202.65 171.03,204.61 174.67,206.47 178.31,208.24 181.94,209.92 185.58,211.53 189.22,213.07 192.86,214.54 196.50,215.95 200.14,217.31 203.78,218.62 207.42,219.88 211.06,221.09 214.70,222.27 218.34,223.41 221.98,224.51 225.62,225.58 229.26,226.62 232.90,227.63 236.54,228.61 240.18,229.56 243.82,230.49 247.46,231.39 251.10,232.27 254.74,233.13 258.38,233.97 262.02,234.79 265.65,235.59 269.29,236.38 272.93,237.14 276.57,237.89 280.21,238.63 283.85,239.35 287.49,240.05 291.13,240.74 294.77,241.42 298.41,242.09 302.05,242.74 305.69,243.38 309.33,244.01 312.97,244.63 316.61,245.23 320.25,245.83 323.89,246.42 327.53,247.00 331.17,247.56 334.81,248.12 338.45,248.67 342.09,249.21 345.72,249.75 349.36,250.27 353.00,250.79 356.64,251.30 360.28,251.81 363.92,252.30 367.56,252.79 371.20,253.27 374.84,253.75 378.48,254.22 382.12,254.68 385.76,255.14 389.40,255.59 393.04,256.04 396.68,256.48 400.32,256.91 403.96,257.34 407.60,257.77 411.24,258.18 414.88,258.60 418.52,259.01 422.16,259.41 425.80,259.81 429.43,260.21 433.07,260.60 436.71,260.99 440.35,261.37 443.99,261.75 447.63,262.12 451.27,262.49 454.91,262.86 458.55,263.22 462.19,263.58 465.83,263.94 469.47,264.29 473.11,264.64 476.75,264.98 480.39,265.33 484.03,265.66 487.67,266.00 491.31,266.33 494.95,266.66 498.59,266.99 502.23,267.31 505.87,267.63 509.51,267.95 513.14,268.26 516.78,268.57 520.42,268.88 524.06,269.19 527.70,269.49 531.34,269.79 534.98,270.09 538.62,270.39 542.26,270.68 545.90,270.97 549.54,271.26 553.18,271.54 556.82,271.83 560.46,272.11 564.10,272.39 567.74,272.67 571.38,272.94 575.02,273.21 578.66,273.49 582.30,273.75 585.94,274.02 589.58,274.28 593.21,274.55 596.85,274.81 600.49,275.07 604.13,275.32 607.77,275.58 611.41,275.83 615.05,276.08 618.69,276.33 622.33,276.58 625.97,276.83 629.61,277.07 633.25,277.31 636.89,277.56 640.53,277.79 644.17,278.03 647.81,278.27 651.45,278.50 655.09,278.74 658.73,278.97 662.37,279.20 666.01,279.43 669.65,279.65 673.29,279.88 676.92,280.10 680.56,280.33 684.20,280.55 687.84,280.77 691.48,280.99 695.12,281.20 698.76,281.42 702.40,281.63 706.04,281.85 709.68,282.06 713.32,282.27 716.96,282.48 720.60,282.69 724.24,282.89 727.88,283.10 731.52,283.30 735.16,283.51 738.80,283.71 742.44,283.91 746.08,284.11 749.72,284.31 753.36,284.51 757.00,284.70 760.63,284.90 764.27,285.09 767.91,285.29 771.55,285.48 775.19,285.67 778.83,285.86 782.47,286.05 786.11,286.24 789.75,286.43 793.39,286.61 797.03,286.80 800.67,286.98 804.31,287.17 807.95,287.35 811.59,287.53 815.23,287.71 818.87,287.89 822.51,288.07 826.15,288.25 829.79,288.42" fill="none" stroke="#228833" stroke-width="1.5"/>
+<polyline points="105.51,69.86 109.15,158.13 112.79,196.06 116.43,220.57 120.07,238.72 123.71,253.12 127.35,265.08 130.99,275.29 134.63,284.21 138.27,292.12 141.91,299.23 145.55,305.69 149.19,311.61 152.83,317.06 156.47,322.12 160.11,326.85 163.75,331.27 167.39,335.44 171.03,339.37 174.67,343.09 178.31,346.63 181.94,349.99 185.58,353.20 189.22,356.28 192.86,359.22 196.50,362.05 200.14,364.76 203.78,367.38 207.42,369.90 211.06,372.33 214.70,374.69 218.34,376.96 221.98,379.17 225.62,381.31 229.26,383.38 232.90,385.40 236.54,387.36 240.18,389.26 243.82,391.12 247.46,392.93 251.10,394.69 254.74,396.41 258.38,398.09 262.02,399.73 265.65,401.33 269.29,402.90 272.93,404.43 276.57,405.93 280.21,407.40 283.85,408.84 287.49,410.25 291.13,411.63 294.77,412.98 298.41,414.31 302.05,415.62 305.69,416.90 309.33,418.16 312.97,419.39 316.61,420.61 320.25,421.80 323.89,422.98 327.53,424.13 331.17,425.27 334.81,426.39 338.45,427.49 342.09,428.57 345.72,429.64 349.36,430.69 353.00,431.73 356.64,432.75 360.28,433.75 363.92,434.75 367.56,435.73 371.20,436.69 374.84,437.64 378.48,438.58 382.12,439.51 385.76,440.42 389.40,441.33 393.04,442.22 396.68,443.10 400.32,443.97 403.96,444.83 407.60,445.67 411.24,446.51 414.88,447.34 418.52,448.16 422.16,448.97 425.80,449.77 429.43,450.56 433.07,451.34 436.71,452.12 440.35,452.88 443.99,453.64 447.63,454.39 451.27,455.13 454.91,455.86 458.55,456.59 462.19,457.31 465.83,458.02 469.47,458.72 473.11,459.42 476.75,460.11 480.39,460.79 484.03,461.47 487.67,462.14 491.31,462.81 494.95,463.46 498.59,464.12 502.23,464.76 505.87,465.40 509.51,466.04 513.14,466.67 516.78,467.29 520.42,467.91 524.06,468.52 527.70,469.12 531.34,469.73 534.98,470.32 538.62,470.91 542.26,471.50 545.90,472.08 549.54,472.66 553.18,473.23 556.82,473.80 560.46,474.36 564.10,474.92 567.74,475.48 571.38,476.03 575.02,476.57 578.66,477.11 582.30,477.65 585.94,478.18 589.58,478.71 593.21,479.24 596.85,479.76 600.49,480.28 604.13,480.79 607.77,481.30 611.41,481.81 615.05,482.31 618.69,482.81 622.33,483.31 625.97,483.80 629.61,484.29 633.25,484.77 636.89,485.25 640.53,485.73 644.17,486.21 647.81,486.68 651.45,487.15 655.09,487.62 658.73,488.08 662.37,488.54 666.01,489.00 669.65,489.45 673.29,489.90 676.92,490.35 680.56,490.80 684.20,491.24 687.84,491.68 691.48,492.12 695.12,492.55 698.76,492.98 702.40,493.41 706.04,493.84 709.68,494.26 713.32,494.68 716.96,495.10 720.60,495.52 724.24,495.93 727.88,496.34 731.52,496.75 735.16,497.16 738.80,497.56 742.44,497.97 746.08,498.37 749.72,498.76 753.36,499.16 757.00,499.55 760.63,499.94 764.27,500.33 767.91,500.72 771.55,501.10 775.19,501.49 778.83,501.87 782.47,502.25 786.11,502.62 789.75,503.00 793.39,503.37 797.03,503.74 800.67,504.11 804.31,504.47 807.95,504.84 811.59,505.20 815.23,505.56 818.87,505.92 822.51,506.28 826.15,506.63 829.79,506.99" fill="none" stroke="#FF5C5C" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Idealized noise PSD shapes</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="31.50" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 31.50 288.42)">power spectral density</text>
+<rect x="112.06" y="430.23" width="166.94" height="90.62" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="120.92" y1="451.23" x2="146.23" y2="451.23" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="153.83" y="454.73" font-size="16.2" text-anchor="start" fill="#222">white: flat</text>
+<line x1="120.92" y1="475.53" x2="146.23" y2="475.53" stroke="#228833" stroke-width="2.2"/>
+<text x="153.83" y="479.03" font-size="16.2" text-anchor="start" fill="#222">pink: 1/f</text>
+<line x1="120.92" y1="499.83" x2="146.23" y2="499.83" stroke="#FF5C5C" stroke-width="2.2"/>
+<text x="153.83" y="503.33" font-size="16.2" text-anchor="start" fill="#222">brownian: 1/f^2</text>
+</svg></figure></div>
+<p>You never get <code>R_xx[k]</code> from one finite recording without averaging, and the obvious estimator — the squared magnitude of one FFT, the *periodogram* — is notoriously noisy: it does not improve as the recording gets longer, only as it gets *repeated*. Peter Welch's 1967 fix, still the workhorse today, slices the recording into overlapping segments, windows and transforms each one, and averages the results. More segments trade frequency resolution for a cleaner estimate — the one real knob being turned. The same white-versus-colored contrast, this time in the time domain rather than frequency, looks like this:</p>
+<div class="example hasout"><pre class="hl"><code>t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">300</span>)
+hiss = <span class="f">randn</span>(<span class="n">300</span>, <span class="a">seed</span> = <span class="n">1</span>)
+lp = <span class="f">butter</span>(<span class="n">3</span>, <span class="s">"low"</span>, <span class="n">8</span>, <span class="n">300</span>)
+rumble = <span class="f">filtfilt</span>(lp, <span class="f">randn</span>(<span class="n">300</span>, <span class="a">seed</span> = <span class="n">2</span>))
+
+<span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">plot</span>(t, hiss, <span class="a">color</span> = <span class="s">"#0f172a"</span>)
+<span class="f">title</span>(<span class="s">"White noise (hiss): flat spectrum"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+
+<span class="f">subplot</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
+<span class="f">plot</span>(t, rumble, <span class="a">color</span> = <span class="s">"#e11d48"</span>)
+<span class="f">title</span>(<span class="s">"Colored noise (rumble): power concentrated at low frequency"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 4 (300 points)
+· plot: figure 5 (300 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="225.76" x2="866.00" y2="225.76" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="225.76" x2="104.06" y2="225.76" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="231.43" font-size="16.2" text-anchor="end" fill="#4d4d4d">-3</text>
+<line x1="104.06" y1="199.64" x2="866.00" y2="199.64" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="199.64" x2="104.06" y2="199.64" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="205.31" font-size="16.2" text-anchor="end" fill="#4d4d4d">-2</text>
+<line x1="104.06" y1="173.52" x2="866.00" y2="173.52" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="173.52" x2="104.06" y2="173.52" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="179.19" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1</text>
+<line x1="104.06" y1="147.40" x2="866.00" y2="147.40" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="147.40" x2="104.06" y2="147.40" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="153.07" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="121.28" x2="866.00" y2="121.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="121.28" x2="104.06" y2="121.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="126.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">1</text>
+<line x1="104.06" y1="95.16" x2="866.00" y2="95.16" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="95.16" x2="104.06" y2="95.16" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="100.83" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
+<line x1="104.06" y1="69.04" x2="866.00" y2="69.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="69.04" x2="104.06" y2="69.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="74.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">3</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="237.84" x2="104.06" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="237.84" x2="176.63" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="237.84" x2="249.19" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="237.84" x2="321.76" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="237.84" x2="394.32" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="237.84" x2="466.89" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="237.84" x2="539.46" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="237.84" x2="612.02" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="237.84" x2="684.59" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="237.84" x2="757.15" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="237.84" x2="829.72" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="237.84" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-18984"><rect x="104.06" y="48.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-18984)">
+<polyline points="104.06,127.73 106.49,178.65 108.92,133.61 111.34,153.98 113.77,162.02 116.20,172.52 118.62,174.48 121.05,177.60 123.48,154.34 125.90,135.54 128.33,205.88 130.76,159.69 133.19,211.48 135.61,126.76 138.04,148.83 140.47,168.94 142.89,148.09 145.32,175.74 147.75,139.15 150.17,132.25 152.60,145.54 155.03,131.11 157.46,154.37 159.88,108.04 162.31,150.97 164.74,171.48 167.16,154.60 169.59,192.47 172.02,98.72 174.44,160.68 176.87,146.51 179.30,152.81 181.72,106.87 184.15,212.98 186.58,119.07 189.01,131.35 191.43,167.97 193.86,170.22 196.29,142.48 198.71,179.84 201.14,187.55 203.57,152.47 205.99,147.37 208.42,123.89 210.85,143.53 213.27,117.91 215.70,154.05 218.13,112.31 220.56,132.18 222.98,150.89 225.41,161.08 227.84,177.99 230.26,149.72 232.69,107.39 235.12,155.97 237.54,180.78 239.97,136.86 242.40,91.51 244.82,182.03 247.25,157.10 249.68,127.50 252.11,140.83 254.53,108.26 256.96,144.92 259.39,145.45 261.81,172.93 264.24,204.51 266.67,181.37 269.09,89.35 271.52,168.06 273.95,164.80 276.38,123.57 278.80,128.05 281.23,133.31 283.66,146.14 286.08,141.13 288.51,145.38 290.94,116.73 293.36,125.57 295.79,137.84 298.22,156.07 300.64,151.98 303.07,123.75 305.50,172.86 307.93,202.66 310.35,113.54 312.78,153.46 315.21,97.03 317.63,113.23 320.06,153.66 322.49,122.68 324.91,161.70 327.34,128.44 329.77,150.22 332.19,168.14 334.62,133.14 337.05,127.32 339.48,143.25 341.90,175.88 344.33,124.34 346.76,178.74 349.18,125.98 351.61,115.91 354.04,113.22 356.46,137.19 358.89,160.87 361.32,152.84 363.74,134.67 366.17,133.10 368.60,158.24 371.03,209.19 373.45,123.60 375.88,193.96 378.31,164.80 380.73,148.77 383.16,190.84 385.59,166.11 388.01,133.37 390.44,184.33 392.87,129.84 395.30,136.12 397.72,171.60 400.15,189.23 402.58,165.20 405.00,108.32 407.43,145.43 409.86,128.51 412.28,181.65 414.71,204.37 417.14,148.68 419.56,191.55 421.99,161.77 424.42,64.40 426.85,151.16 429.27,171.99 431.70,168.13 434.13,139.62 436.55,142.94 438.98,166.54 441.41,168.26 443.83,187.12 446.26,182.52 448.69,177.18 451.11,135.52 453.54,103.33 455.97,189.03 458.40,158.16 460.82,113.97 463.25,155.87 465.68,153.62 468.10,178.61 470.53,162.24 472.96,165.62 475.38,156.14 477.81,154.30 480.24,137.52 482.66,165.37 485.09,129.66 487.52,134.21 489.95,134.09 492.37,127.77 494.80,146.59 497.23,125.33 499.65,162.23 502.08,148.01 504.51,122.16 506.93,181.27 509.36,106.87 511.79,155.66 514.22,118.11 516.64,101.88 519.07,122.96 521.50,189.48 523.92,152.18 526.35,132.89 528.78,150.03 531.20,188.68 533.63,150.53 536.06,159.51 538.48,174.05 540.91,153.97 543.34,165.69 545.77,117.08 548.19,132.66 550.62,141.89 553.05,208.66 555.47,170.56 557.90,156.64 560.33,180.81 562.75,153.34 565.18,160.44 567.61,166.80 570.03,165.93 572.46,162.42 574.89,132.14 577.32,127.31 579.74,202.33 582.17,135.39 584.60,132.63 587.02,131.23 589.45,119.03 591.88,156.50 594.30,160.80 596.73,144.56 599.16,135.13 601.58,134.27 604.01,115.18 606.44,120.21 608.87,93.59 611.29,105.94 613.72,144.40 616.15,124.28 618.57,158.35 621.00,158.73 623.43,119.96 625.85,192.52 628.28,141.70 630.71,148.82 633.14,151.01 635.56,203.14 637.99,125.60 640.42,155.32 642.84,162.66 645.27,189.25 647.70,147.21 650.12,168.67 652.55,140.89 654.98,153.45 657.40,143.46 659.83,124.62 662.26,133.28 664.69,160.78 667.11,173.79 669.54,184.97 671.97,159.84 674.39,158.87 676.82,76.00 679.25,182.50 681.67,106.77 684.10,209.89 686.53,229.21 688.95,125.29 691.38,156.11 693.81,128.78 696.24,145.10 698.66,129.09 701.09,127.51 703.52,160.72 705.94,155.35 708.37,154.43 710.80,129.82 713.22,153.75 715.65,181.93 718.08,186.71 720.51,177.20 722.93,111.66 725.36,113.33 727.79,137.96 730.21,148.33 732.64,184.33 735.07,145.88 737.49,116.45 739.92,149.63 742.35,130.21 744.77,180.50 747.20,191.83 749.63,139.94 752.06,169.43 754.48,147.99 756.91,144.76 759.34,146.76 761.76,140.08 764.19,118.08 766.62,100.28 769.04,132.73 771.47,174.08 773.90,171.26 776.32,138.87 778.75,163.71 781.18,172.96 783.61,171.03 786.03,167.43 788.46,56.63 790.89,198.48 793.31,104.03 795.74,162.92 798.17,133.43 800.59,132.96 803.02,161.02 805.45,137.95 807.87,164.90 810.30,137.77 812.73,149.95 815.16,137.32 817.58,148.40 820.01,154.67 822.44,146.72 824.86,166.17 827.29,108.92 829.72,137.78" fill="none" stroke="#0f172a" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">White noise (hiss): flat spectrum</text>
+<text x="66.35" y="142.92" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 66.35 142.92)">amplitude</text>
+<line x1="104.06" y1="507.90" x2="866.00" y2="507.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="507.90" x2="104.06" y2="507.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="513.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.4</text>
+<line x1="104.06" y1="469.97" x2="866.00" y2="469.97" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="469.97" x2="104.06" y2="469.97" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="475.64" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.2</text>
+<line x1="104.06" y1="432.05" x2="866.00" y2="432.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="432.05" x2="104.06" y2="432.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="437.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="394.12" x2="866.00" y2="394.12" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="394.12" x2="104.06" y2="394.12" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="399.79" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="356.20" x2="866.00" y2="356.20" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="356.20" x2="104.06" y2="356.20" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="361.87" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="339.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="339.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="249.19" y1="339.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="321.76" y1="339.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
+<line x1="394.32" y1="339.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="466.89" y1="339.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="539.46" y1="339.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="612.02" y1="339.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
+<line x1="684.59" y1="339.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="757.15" y1="339.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
+<line x1="829.72" y1="339.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="866.00" y2="339.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="339.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-33900-76194-18984"><rect x="104.06" y="339.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-33900-76194-18984)">
+<polyline points="104.06,434.53 106.49,429.79 108.92,424.38 111.34,418.35 113.77,411.79 116.20,404.81 118.62,397.55 121.05,390.16 123.48,382.82 125.90,375.72 128.33,369.04 130.76,362.97 133.19,357.69 135.61,353.37 138.04,350.17 140.47,348.22 142.89,347.63 145.32,348.46 147.75,350.74 150.17,354.47 152.60,359.59 155.03,366.00 157.46,373.56 159.88,382.10 162.31,391.42 164.74,401.34 167.16,411.64 169.59,422.13 172.02,432.63 174.44,442.99 176.87,453.06 179.30,462.70 181.72,471.80 184.15,480.23 186.58,487.91 189.01,494.76 191.43,500.74 193.86,505.85 196.29,510.09 198.71,513.51 201.14,516.15 203.57,518.09 205.99,519.38 208.42,520.07 210.85,520.21 213.27,519.84 215.70,518.98 218.13,517.65 220.56,515.88 222.98,513.69 225.41,511.10 227.84,508.14 230.26,504.81 232.69,501.14 235.12,497.12 237.54,492.76 239.97,488.07 242.40,483.05 244.82,477.70 247.25,472.03 249.68,466.05 252.11,459.77 254.53,453.20 256.96,446.39 259.39,439.38 261.81,432.22 264.24,424.98 266.67,417.74 269.09,410.59 271.52,403.61 273.95,396.89 276.38,390.52 278.80,384.60 281.23,379.21 283.66,374.44 286.08,370.34 288.51,366.96 290.94,364.35 293.36,362.52 295.79,361.45 298.22,361.13 300.64,361.50 303.07,362.50 305.50,364.08 307.93,366.18 310.35,368.74 312.78,371.72 315.21,375.10 317.63,378.86 320.06,382.99 322.49,387.50 324.91,392.37 327.34,397.60 329.77,403.16 332.19,409.00 334.62,415.06 337.05,421.27 339.48,427.55 341.90,433.77 344.33,439.83 346.76,445.60 349.18,450.97 351.61,455.83 354.04,460.06 356.46,463.60 358.89,466.37 361.32,468.33 363.74,469.45 366.17,469.74 368.60,469.25 371.03,468.04 373.45,466.22 375.88,463.90 378.31,461.22 380.73,458.33 383.16,455.37 385.59,452.47 388.01,449.74 390.44,447.25 392.87,445.07 395.30,443.24 397.72,441.77 400.15,440.64 402.58,439.84 405.00,439.30 407.43,438.98 409.86,438.79 412.28,438.65 414.71,438.49 417.14,438.23 419.56,437.81 421.99,437.18 424.42,436.30 426.85,435.17 429.27,433.80 431.70,432.21 434.13,430.46 436.55,428.60 438.98,426.73 441.41,424.92 443.83,423.23 446.26,421.76 448.69,420.55 451.11,419.66 453.54,419.17 455.97,419.11 458.40,419.55 460.82,420.52 463.25,422.05 465.68,424.13 468.10,426.73 470.53,429.80 472.96,433.24 475.38,436.94 477.81,440.80 480.24,444.68 482.66,448.48 485.09,452.11 487.52,455.52 489.95,458.64 492.37,461.44 494.80,463.89 497.23,465.98 499.65,467.69 502.08,469.04 504.51,470.03 506.93,470.67 509.36,471.01 511.79,471.06 514.22,470.87 516.64,470.48 519.07,469.93 521.50,469.26 523.92,468.51 526.35,467.68 528.78,466.79 531.20,465.84 533.63,464.79 536.06,463.61 538.48,462.27 540.91,460.72 543.34,458.91 545.77,456.83 548.19,454.46 550.62,451.79 553.05,448.86 555.47,445.69 557.90,442.31 560.33,438.75 562.75,435.06 565.18,431.28 567.61,427.45 570.03,423.61 572.46,419.80 574.89,416.06 577.32,412.41 579.74,408.87 582.17,405.46 584.60,402.17 587.02,399.02 589.45,396.03 591.88,393.24 594.30,390.69 596.73,388.44 599.16,386.57 601.58,385.16 604.01,384.30 606.44,384.05 608.87,384.45 611.29,385.56 613.72,387.36 616.15,389.83 618.57,392.91 621.00,396.52 623.43,400.54 625.85,404.86 628.28,409.33 630.71,413.84 633.14,418.27 635.56,422.50 637.99,426.45 640.42,430.05 642.84,433.24 645.27,435.98 647.70,438.26 650.12,440.06 652.55,441.39 654.98,442.29 657.40,442.79 659.83,442.96 662.26,442.90 664.69,442.68 667.11,442.40 669.54,442.17 671.97,442.06 674.39,442.17 676.82,442.58 679.25,443.33 681.67,444.50 684.10,446.11 686.53,448.18 688.95,450.73 691.38,453.72 693.81,457.11 696.24,460.84 698.66,464.82 701.09,468.94 703.52,473.09 705.94,477.15 708.37,481.01 710.80,484.57 713.22,487.73 715.65,490.43 718.08,492.61 720.51,494.26 722.93,495.35 725.36,495.90 727.79,495.93 730.21,495.45 732.64,494.50 735.07,493.10 737.49,491.30 739.92,489.12 742.35,486.58 744.77,483.73 747.20,480.58 749.63,477.18 752.06,473.55 754.48,469.75 756.91,465.80 759.34,461.76 761.76,457.68 764.19,453.61 766.62,449.62 769.04,445.78 771.47,442.16 773.90,438.82 776.32,435.80 778.75,433.14 781.18,430.86 783.61,428.96 786.03,427.45 788.46,426.32 790.89,425.53 793.31,425.08 795.74,424.93 798.17,425.04 800.59,425.39 803.02,425.92 805.45,426.61 807.87,427.39 810.30,428.22 812.73,429.06 815.16,429.84 817.58,430.53 820.01,431.10 822.44,431.54 824.86,431.82 827.29,431.98 829.72,432.04" fill="none" stroke="#e11d48" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="322.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Colored noise (rumble): power concentrated at low frequency</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">time (s)</text>
+<text x="51.01" y="433.92" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.01 433.92)">amplitude</text>
+</svg></figure></div>
+<p>Both traces look equally "random" by eye. Only their PSDs tell them apart, which is the entire reason the PSD, not the waveform, is the object worth computing.</p>
+<h2 id="s26">In Qu</h2>
+<p>Build 4096 samples of white noise at 2 kHz, then produce a colored version of the *exact same record* by running it through a lowpass filter. Nothing about sample-to-sample unpredictability changes; only where the power lives does. <code>welch</code> estimates the PSD of each, and the two curves plotted together are the measurement a wall and an ear made for free in the opening paragraph:</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">2000</span>
+n  = <span class="n">4096</span>
+white   = <span class="f">randn</span>(n, <span class="a">seed</span> = <span class="n">10</span>)
+lp      = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+colored = <span class="f">filtfilt</span>(lp, white)
+
+pw = <span class="f">welch</span>(white, fs)
+pc = <span class="f">welch</span>(colored, fs)
+f  = <span class="f">linspace</span>(<span class="n">0</span>, fs / <span class="n">2</span>, <span class="f">length</span>(pw))
+
+below = f &lt; <span class="n">100</span>
+above = f &gt;= <span class="n">100</span>
+
+<span class="f">print</span>(<span class="s">"white:   mean below 100 Hz {mean(pw[below]):.2e}, mean above {mean(pw[above]):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"colored: mean below 100 Hz {mean(pc[below]):.2e}, mean above {mean(pc[above]):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"colored power ratio (below/above): {(mean(pc[below]) / mean(pc[above])):.1f}"</span>)
+<span class="f">print</span>(<span class="s">"white   power ratio (below/above): {(mean(pw[below]) / mean(pw[above])):.2f}"</span>)
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, pw, <span class="a">label</span> = <span class="s">"white"</span>)
+<span class="f">plot</span>(f, pc, <span class="a">label</span> = <span class="s">"colored (lowpass @ 100 Hz)"</span>)
+axis scale y log
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"PSD (Welch)"</span>)
+<span class="f">title</span>(<span class="s">"Measured PSD: white vs colored noise"</span>)
+<span class="f">legend</span>()
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>white:   mean below 100 Hz 9.94e-4, mean above 1.01e-3
+colored: mean below 100 Hz 8.63e-4, mean above 4.52e-6
+colored power ratio (below/above): 190.8
+white   power ratio (below/above): 0.99
+· plot: figure 6 (129 points)
+· plot: figure 7 (129 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="472.96" x2="866.00" y2="472.96" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="472.96" x2="104.06" y2="472.96" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="478.63" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−¹⁶"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−16</tspan></text>
+<line x1="104.06" y1="411.72" x2="866.00" y2="411.72" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="411.72" x2="104.06" y2="411.72" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="417.39" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−¹⁴"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−14</tspan></text>
+<line x1="104.06" y1="350.49" x2="866.00" y2="350.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="350.49" x2="104.06" y2="350.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="356.16" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−¹²"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−12</tspan></text>
+<line x1="104.06" y1="289.25" x2="866.00" y2="289.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="289.25" x2="104.06" y2="289.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="294.92" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−¹⁰"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−10</tspan></text>
+<line x1="104.06" y1="228.02" x2="866.00" y2="228.02" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="228.02" x2="104.06" y2="228.02" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="233.69" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−⁸"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−8</tspan></text>
+<line x1="104.06" y1="166.78" x2="866.00" y2="166.78" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="166.78" x2="104.06" y2="166.78" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="172.45" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−⁶"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−6</tspan></text>
+<line x1="104.06" y1="105.55" x2="866.00" y2="105.55" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="105.55" x2="104.06" y2="105.55" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="111.22" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="10−⁴"><tspan font-size="16.20">10</tspan><tspan dy="-0.350em" font-size="11.66">−4</tspan></text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">300</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">500</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">600</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">700</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">800</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">900</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1000</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,84.91 109.73,74.69 115.40,77.17 121.07,76.12 126.74,73.72 132.41,75.51 138.08,76.16 143.75,77.96 149.42,73.16 155.09,73.84 160.75,70.84 166.42,73.90 172.09,72.00 177.76,71.64 183.43,73.01 189.10,72.88 194.77,76.68 200.44,79.37 206.11,78.51 211.78,75.83 217.45,73.35 223.12,78.95 228.78,75.02 234.45,70.92 240.12,72.26 245.79,73.15 251.46,73.10 257.13,72.36 262.80,73.49 268.47,77.71 274.14,76.60 279.81,72.06 285.48,73.97 291.15,76.54 296.81,75.52 302.48,73.51 308.15,72.64 313.82,70.79 319.49,74.18 325.16,77.31 330.83,76.41 336.50,75.42 342.17,75.76 347.84,77.47 353.51,73.13 359.18,73.17 364.84,70.93 370.51,71.14 376.18,75.12 381.85,76.17 387.52,74.51 393.19,75.82 398.86,79.76 404.53,76.17 410.20,72.97 415.87,76.01 421.54,82.45 427.21,78.59 432.87,73.09 438.54,72.58 444.21,74.48 449.88,75.82 455.55,77.00 461.22,73.79 466.89,74.44 472.56,74.40 478.23,76.09 483.90,73.06 489.57,72.24 495.24,74.09 500.90,76.23 506.57,72.48 512.24,74.61 517.91,76.99 523.58,71.44 529.25,74.26 534.92,74.59 540.59,74.52 546.26,77.46 551.93,74.57 557.60,72.43 563.27,71.81 568.94,74.47 574.60,77.92 580.27,80.01 585.94,74.91 591.61,71.97 597.28,73.88 602.95,71.89 608.62,73.25 614.29,73.67 619.96,73.93 625.63,75.98 631.30,73.08 636.97,71.31 642.63,73.88 648.30,75.80 653.97,76.58 659.64,76.84 665.31,74.72 670.98,72.52 676.65,75.39 682.32,77.18 687.99,79.02 693.66,75.23 699.33,73.99 705.00,76.69 710.66,74.41 716.33,75.21 722.00,75.02 727.67,75.11 733.34,75.75 739.01,72.59 744.68,69.86 750.35,73.53 756.02,76.21 761.69,74.50 767.36,76.85 773.03,74.78 778.69,74.90 784.36,78.45 790.03,76.09 795.70,76.85 801.37,76.81 807.04,79.07 812.71,79.34 818.38,77.17 824.05,80.96 829.72,92.54" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,84.91 109.73,74.69 115.40,77.17 121.07,76.12 126.74,73.73 132.41,75.52 138.08,76.23 143.75,78.24 149.42,73.83 155.09,75.49 160.75,74.43 166.42,80.45 172.09,84.51 177.76,91.18 183.43,101.38 189.10,112.51 194.77,125.74 200.44,141.84 206.11,152.99 211.78,162.64 217.45,170.23 223.12,184.62 228.78,194.62 234.45,198.72 240.12,209.09 245.79,219.73 251.46,228.75 257.13,236.33 262.80,245.45 268.47,257.74 274.14,265.93 279.81,269.18 285.48,276.50 291.15,287.50 296.81,293.74 302.48,299.10 308.15,304.28 313.82,310.30 319.49,316.72 325.16,329.13 330.83,332.45 336.50,339.12 342.17,344.16 347.84,349.85 353.51,353.79 359.18,356.05 364.84,361.93 370.51,365.59 376.18,368.66 381.85,377.35 387.52,377.89 393.19,381.30 398.86,385.09 404.53,386.91 410.20,387.98 415.87,391.32 421.54,393.36 427.21,396.69 432.87,394.83 438.54,399.54 444.21,399.32 449.88,402.34 455.55,402.42 461.22,404.70 466.89,406.20 472.56,407.53 478.23,408.88 483.90,409.84 489.57,412.01 495.24,412.81 500.90,413.99 506.57,415.54 512.24,416.75 517.91,417.96 523.58,419.21 529.25,420.46 534.92,421.60 540.59,422.95 546.26,424.04 551.93,425.28 557.60,426.42 563.27,427.59 568.94,428.82 574.60,429.93 580.27,431.11 585.94,432.25 591.61,433.43 597.28,434.57 602.95,435.70 608.62,436.87 614.29,438.03 619.96,439.17 625.63,440.33 631.30,441.50 636.97,442.67 642.63,443.84 648.30,445.03 653.97,446.22 659.64,447.43 665.31,448.65 670.98,449.88 676.65,451.14 682.32,452.41 687.99,453.70 693.66,455.02 699.33,456.36 705.00,457.74 710.66,459.14 716.33,460.59 722.00,462.07 727.67,463.60 733.34,465.18 739.01,466.81 744.68,468.51 750.35,470.27 756.02,472.11 761.69,474.02 767.36,476.02 773.03,478.11 778.69,480.30 784.36,482.58 790.03,484.95 795.70,487.37 801.37,489.81 807.04,492.18 812.71,494.35 818.38,496.14 824.05,497.35 829.72,506.99" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Measured PSD: white vs colored noise</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="31.50" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 31.50 288.42)">PSD (Welch)</text>
+<rect x="112.06" y="454.52" width="265.41" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="120.92" y1="475.53" x2="146.23" y2="475.53" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="153.83" y="479.03" font-size="16.2" text-anchor="start" fill="#222">white</text>
+<line x1="120.92" y1="499.83" x2="146.23" y2="499.83" stroke="#228833" stroke-width="2.2"/>
+<text x="153.83" y="503.33" font-size="16.2" text-anchor="start" fill="#222">colored (lowpass @ 100 Hz)</text>
+</svg></figure></div>
+<pre><code>white:   mean below 100 Hz 9.94e-4, mean above 1.01e-3
+colored: mean below 100 Hz 8.63e-4, mean above 4.52e-6
+colored power ratio (below/above): 190.8
+white   power ratio (below/above): 0.99
+</code></pre>
+<p>White noise's power below 100 Hz and above it are within a percent of each other — flat, as promised, up to the estimate's own wobble. The colored version, the same underlying random draw only lowpass-filtered, has 190 times more power below 100 Hz than above it. Nothing about the noise's unpredictability changed; everything about where its energy sits did, and the plotted curves make the 190:1 gap visible at a glance where the printed ratio only states it.</p>
+<p>Look again at that white-noise ratio: 0.99, not 1.00. The true PSD of white noise is exactly flat with no wiggle room in the theory, and yet the measured curve is not quite. That is not a flaw in <code>welch</code> — running more segments would shrink the gap further but never erase it, because every finite estimate of a random process's statistics carries its own uncertainty. You have just been handed a PSD and asked, implicitly, to trust it. The next lesson asks the harder question directly: given a measurement corrupted by exactly this kind of noise, how do you tell whether something you care about is really there, and how much does an estimate's reliability actually depend on how much data you were willing to collect?</p>
+<p><strong>Next: <a href="11-detection-estimation.html">Lesson 11 — Detection &amp; Estimation</a>.</strong></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -61,6 +61,34 @@
 <li><a href="tour.html">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
@@ -467,7 +495,7 @@ iir = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">"l
 <span class="f">print</span>(<span class="s">"IIR poles: {poles(iir)}"</span>)
 <span class="c"># IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>IIR poles: [0.57149 + 0.293599i, 0.57149 - 0.293599i]</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>IIR poles: [0.57149 + 0.293599j, 0.57149 - 0.293599j]</pre></div></div>
 <h4>Case: FIR filter (<code>b</code>)</h4>
 <p><code>filt</code> a <code>Model</code> built by <code>fir1</code>/<code>firls</code> (a <code>b</code> field, no <code>sos</code>). An FIR filter has no feedback at all, so every pole sits at the origin regardless of the design — the same fact <code>is_stable</code>'s "an FIR filter is always stable" relies on.</p>
 <div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
@@ -2399,7 +2427,7 @@ target = <span class="f">logspace</span>(-<span class="n">1</span>, <span class=
 Z_ext = <span class="f">rlkk_extrapolate</span>(Z, freqs, target, <span class="a">lambda</span>=<span class="n">1e-4</span>)
 <span class="f">print</span>(<span class="s">"extrapolated {length(Z_ext)} points, first = {Z_ext[0]}, last = {Z_ext[9]}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>extrapolated 10 points, first = 100.003341 + 0.005947i, last = 0.110709 - 2.404278i</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>extrapolated 10 points, first = 100.003341 + 0.005947j, last = 0.110709 - 2.404278j</pre></div></div>
 <h3>ADC signal-quality metrics: THD, SNR, SINAD, SFDR, ENOB</h3>
 <p><code>thd</code>, <code>snr</code>, <code>sinad</code>, <code>sfdr</code>, and <code>enob</code> (see <a href="#more-functions">More functions</a> below for their full parameter list, including the <code>tones=</code>/<code>bins=</code>/<code>leak=</code> options for multisine excitations) all characterize how cleanly a sampled record represents its input, each from a different angle: distortion power, noise power, the combination of both, the worst single spurious tone, and the resolution a converter is actually delivering. <code>sinad(x)</code> alone returns the whole breakdown as one record, which is usually more convenient than calling each metric separately. The example below builds a coherently-sampled tone with a known third-harmonic distortion component and background noise, reads off every metric, and compares the measured ENOB against <code>enob_estimate</code>'s closed-form prediction for an ideal 12-bit converter.</p>
 <div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>

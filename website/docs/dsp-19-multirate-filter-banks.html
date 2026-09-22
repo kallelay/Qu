@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multirate DSP and Filter Banks — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html" class="here">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Multirate DSP and Filter Banks</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>A sampled signal carries an implicit contract: so many numbers per second, fixed at capture time. Two systems in a chain rarely agree on that number — a sensor logs at whatever rate the physics demands, a codec ships at whatever rate its channel affords — so converting a signal from one sample rate to another, without distorting it, is one of the most common operations in practical DSP.</p>
+<p>Rate conversion by an integer factor decomposes into exactly two primitive operations.</p>
+<p><strong>Upsampling</strong> by \(L\) raises the rate by inserting new samples between the existing ones. Guessing their values is not an option; the well-defined version inserts zeros (zero-stuffing) and then low-pass filters:</p>
+<p>\[ v[n] = \begin{cases} x[n/L] &amp; n \bmod L = 0 \\ 0 &amp; \text{otherwise} \end{cases}, \qquad y[n] = L \cdot (v * h_{\text{lp}})[n] \]</p>
+<p><code>h_lp</code> cuts off at the original Nyquist frequency, expressed relative to the new, higher rate. Zero-stuffing alone divides the signal's average power by \(L\) (most samples are now exactly zero); the filter interpolates smooth values between them, and multiplying by \(L\) afterward restores the amplitude.</p>
+<p><strong>Downsampling</strong> by \(M\) lowers the rate by discarding samples — but only after low-pass filtering to the new Nyquist frequency:</p>
+<p>\[ y[n] = (x * h_{\text{lp}})[nM], \qquad h_{\text{lp}} \text{ cutoff } = \frac{f_s}{2M} \]</p>
+<p>Skip that filter and any energy above the new Nyquist folds back and reappears as a lower frequency that was never in the original signal — aliasing, from Lesson 3, triggered this time by throwing samples away rather than by under-sampling in the first place.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">2</span>)
+fs = <span class="n">400</span>
+n = <span class="n">400</span>
+t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">30</span>*t) + <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">140</span>*t)
+M = <span class="n">4</span>
+fs_new = fs / M
+
+naive = <span class="f">zeros</span>(n / M)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n/M - <span class="n">1</span>
+    naive[i] = x[i * M]
+<span class="k">end</span> <span class="k">for</span>
+
+aa = <span class="f">fir1</span>(<span class="n">60</span>, fs_new/<span class="n">2</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs)
+xf = <span class="f">sosfilt</span>(aa, x)
+clean = <span class="f">zeros</span>(n / M)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n/M - <span class="n">1</span>
+    clean[i] = xf[i * M]
+<span class="k">end</span> <span class="k">for</span>
+
+mag_naive = <span class="f">abs</span>(<span class="f">rfft</span>(naive))
+mag_clean = <span class="f">abs</span>(<span class="f">rfft</span>(clean))
+f_new = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(mag_naive)-<span class="n">1</span>) * fs_new / (n/M)
+bin40 = <span class="f">round</span>(<span class="n">40</span> / (fs_new / (n/M)))
+<span class="f">print</span>(<span class="s">"new Nyquist: {fs_new/2} Hz"</span>)
+<span class="f">print</span>(<span class="s">"energy near 40 Hz (aliased 140 Hz tone) -- no filter: {round(mag_naive[bin40],3)}, with filter: {round(mag_clean[bin40],3)}"</span>)
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(f_new, mag_naive, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"decimated, no anti-alias filter"</span>)
+<span class="f">plot</span>(f_new, mag_clean, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"decimated, with anti-alias filter"</span>)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"|X(f)|"</span>)
+<span class="f">title</span>(<span class="s">"Decimation by 4: a 140 Hz tone above the new 50 Hz Nyquist"</span>)
+<span class="f">legend</span>()
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>new Nyquist: 50 Hz
+energy near 40 Hz (aliased 140 Hz tone) -- no filter: 50, with filter: 0.561
+· plot: figure 1 (51 points)
+· plot: figure 2 (51 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">10</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">15</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">20</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">25</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">30</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">35</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">40</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">45</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">50</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">5</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">15</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">25</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">35</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">45</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,528.84 118.58,528.84 133.09,528.84 147.60,528.84 162.11,528.84 176.63,528.84 191.14,528.84 205.65,528.84 220.17,528.84 234.68,528.84 249.19,528.84 263.71,528.84 278.22,528.84 292.73,528.84 307.25,528.84 321.76,528.84 336.27,528.84 350.79,528.84 365.30,528.84 379.81,528.84 394.32,528.84 408.84,528.84 423.35,528.84 437.86,528.84 452.38,528.84 466.89,528.84 481.40,528.84 495.92,528.84 510.43,528.84 524.94,528.84 539.46,70.90 553.97,528.84 568.48,528.84 582.99,528.84 597.51,528.84 612.02,528.84 626.53,528.84 641.05,528.84 655.56,528.84 670.07,528.84 684.59,70.90 699.10,528.84 713.61,528.84 728.13,528.84 742.64,528.84 757.15,528.84 771.66,528.84 786.18,528.84 800.69,528.84 815.20,528.84 829.72,528.84" fill="none" stroke="#e11d48" stroke-width="2"/>
+<polyline points="104.06,518.91 118.58,519.23 133.09,520.17 147.60,521.68 162.11,523.67 176.63,525.99 191.14,528.05 205.65,526.16 220.17,523.61 234.68,521.26 249.19,519.29 263.71,517.86 278.22,517.07 292.73,517.01 307.25,517.75 321.76,519.28 336.27,521.61 350.79,524.64 365.30,527.91 379.81,524.93 394.32,520.37 408.84,515.58 423.35,510.74 437.86,506.06 452.38,501.70 466.89,497.83 481.40,494.59 495.92,492.11 510.43,490.46 524.94,489.70 539.46,109.35 553.97,490.91 568.48,492.80 582.99,495.45 597.51,498.74 612.02,502.52 626.53,506.66 641.05,510.98 655.56,515.31 670.07,519.49 684.59,523.70 699.10,526.43 713.61,526.72 728.13,524.84 742.64,523.31 757.15,522.42 771.66,522.20 786.18,522.53 800.69,523.23 815.20,523.95 829.72,524.27" fill="none" stroke="#0f172a" stroke-width="2"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Decimation by 4: a 140 Hz tone above the new 50 Hz Nyquist</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="63.13" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 63.13 288.42)">|X(f)|</text>
+<rect x="112.06" y="56.00" width="286.13" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="120.92" y1="77.01" x2="146.23" y2="77.01" stroke="#e11d48" stroke-width="2.2"/>
+<text x="153.83" y="80.51" font-size="16.2" text-anchor="start" fill="#222">decimated, no anti-alias filter</text>
+<line x1="120.92" y1="101.31" x2="146.23" y2="101.31" stroke="#0f172a" stroke-width="2.2"/>
+<text x="153.83" y="104.81" font-size="16.2" text-anchor="start" fill="#222">decimated, with anti-alias filter</text>
+</svg></figure></div>
+<pre><code>new Nyquist: 50 Hz
+energy near 40 Hz (aliased 140 Hz tone) -- no filter: 50, with filter: 0.561
+</code></pre>
+<p>A 30 Hz tone and a 140 Hz tone, decimated by 4 to a 100 Hz rate whose Nyquist is 50 Hz. Skipping the anti-alias filter leaves the 140 Hz tone folded down to \(|140 - 100| = 40\) Hz, indistinguishable from a real 40 Hz signal — energy 50 at that bin. Filtering first removes it almost completely — energy 0.561, nearly two orders of magnitude down.</p>
+<p>Chaining decimators, narrow-band filters, and expanders together into a <strong>filter bank</strong> lets each sub-band run at its own, lower rate instead of the shared input rate — part of why an MP3 encoder can spend more bits where the ear is more sensitive. Ronald Crochiere and Lawrence Rabiner worked out efficient multirate structures at Bell Labs through the 1970s and collected the field in their 1983 book, *Multirate Digital Signal Processing*.</p>
+<h2 id="s26">In Qu</h2>
+<p>Qu's standard library has no <code>upsample</code>, <code>downsample</code>, or <code>polyphase</code> builtin — the two primitives above are built directly from <code>fir1</code> and <code>sosfilt</code>. Take a 1000 Hz signal carrying two tones and upsample it to 3000 Hz, then decimate it straight back down, comparing the round trip against the original:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">1</span>)
+fs_lo = <span class="n">1000</span>
+L = <span class="n">3</span>
+fs_hi = fs_lo * L
+n = <span class="n">200</span>
+t = (<span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>) / fs_lo
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">90</span>*t) + <span class="n">0.3</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">310</span>*t)
+
+up = <span class="f">zeros</span>(n * L)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+    up[i * L] = x[i]
+<span class="k">end</span> <span class="k">for</span>
+interp_filt = <span class="f">fir1</span>(<span class="n">60</span>, fs_lo/<span class="n">2</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs_hi)
+y_up = L * <span class="f">sosfilt</span>(interp_filt, up)
+
+aa_filt = <span class="f">fir1</span>(<span class="n">60</span>, fs_lo/<span class="n">2</span>, <span class="a">kind</span>=<span class="s">"low"</span>, <span class="a">fs</span>=fs_hi)
+filtered = <span class="f">sosfilt</span>(aa_filt, y_up)
+y_down = <span class="f">zeros</span>(n)
+<span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> n - <span class="n">1</span>
+    y_down[i] = filtered[i * L]
+<span class="k">end</span> <span class="k">for</span>
+
+delay = <span class="n">20</span>
+err = <span class="f">rmse</span>(x[<span class="n">0</span>:n-delay-<span class="n">1</span>], y_down[delay:n-<span class="n">1</span>])
+<span class="f">print</span>(<span class="s">"upsampled length: {length(y_up)} (expect {n*L})"</span>)
+<span class="f">print</span>(<span class="s">"round-trip rmse (delay-aligned): {round(err, 5)}"</span>)
+
+zoom_lo = <span class="n">0</span>
+zoom_hi = <span class="n">60</span>
+t_hi = (<span class="n">0</span> <span class="k">to</span> n*L - <span class="n">1</span>) / fs_hi
+<span class="f">figure</span>()
+<span class="f">plot</span>(t[zoom_lo:zoom_hi], x[zoom_lo:zoom_hi], <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"original (1000 Hz)"</span>)
+<span class="f">plot</span>(t_hi[zoom_lo*L:zoom_hi*L], y_up[zoom_lo*L:zoom_hi*L], <span class="a">color</span> = <span class="s">"#5B7CFA"</span>, <span class="a">width</span> = <span class="n">1</span>, <span class="a">label</span> = <span class="s">"upsampled (3000 Hz)"</span>)
+<span class="f">plot</span>(t[zoom_lo:zoom_hi-delay], y_down[zoom_lo+delay:zoom_hi], <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"round-tripped"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Upsample by 3, then downsample by 3"</span>)
+<span class="f">legend</span>()
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>upsampled length: 600 (expect 600)
+round-trip rmse (delay-aligned): 0.00249
+· plot: figure 3 (61 points)
+· plot: figure 4 (181 points)
+· plot: figure 5 (41 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="474.91" x2="866.00" y2="474.91" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="474.91" x2="104.06" y2="474.91" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="480.58" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="405.37" x2="866.00" y2="405.37" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="405.37" x2="104.06" y2="405.37" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="411.04" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.5</text>
+<line x1="104.06" y1="335.83" x2="866.00" y2="335.83" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="335.83" x2="104.06" y2="335.83" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="341.50" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="266.29" x2="866.00" y2="266.29" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="266.29" x2="104.06" y2="266.29" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="271.96" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="196.75" x2="866.00" y2="196.75" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="196.75" x2="104.06" y2="196.75" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="202.42" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="127.21" x2="866.00" y2="127.21" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="127.21" x2="104.06" y2="127.21" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="132.88" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="104.06" y1="57.67" x2="866.00" y2="57.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="57.67" x2="104.06" y2="57.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="63.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="225.00" y1="48.00" x2="225.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="225.00" y1="528.84" x2="225.00" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="225.00" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1</text>
+<line x1="345.95" y1="48.00" x2="345.95" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="345.95" y1="528.84" x2="345.95" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="345.95" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">3</text>
+<line x1="587.83" y1="48.00" x2="587.83" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="587.83" y1="528.84" x2="587.83" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="587.83" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="708.77" y1="48.00" x2="708.77" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="708.77" y1="528.84" x2="708.77" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="708.77" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">5</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
+<text x="866.00" y="567.72" font-size="16.2" text-anchor="end" fill="#4d4d4d" aria-label="×10−²"><tspan font-size="16.20">×10</tspan><tspan dy="-0.350em" font-size="11.66">−2</tspan></text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,335.83 116.16,222.51 128.25,238.55 140.35,215.61 152.44,187.02 164.53,305.74 176.63,402.56 188.72,400.65 200.82,467.21 212.91,505.55 225.00,393.05 237.10,322.20 249.19,309.81 261.29,206.13 273.38,161.80 285.48,257.07 297.57,295.01 309.66,320.49 321.76,451.13 333.85,497.13 345.95,428.42 358.04,427.10 370.14,391.01 382.23,246.20 394.32,203.04 406.42,238.47 418.51,203.04 430.61,246.20 442.70,391.01 454.80,427.10 466.89,428.42 478.98,497.13 491.08,451.13 503.17,320.49 515.27,295.01 527.36,257.07 539.46,161.80 551.55,206.13 563.64,309.81 575.74,322.20 587.83,393.05 599.93,505.55 612.02,467.21 624.12,400.65 636.21,402.56 648.30,305.74 660.40,187.02 672.49,215.61 684.59,238.55 696.68,222.51 708.77,335.83 720.87,449.14 732.96,433.11 745.06,456.04 757.15,484.63 769.25,365.91 781.34,269.09 793.43,271.01 805.53,204.44 817.62,166.10 829.72,278.60" fill="none" stroke="#0f172a" stroke-width="2"/>
+<polyline points="104.06,335.83 108.09,335.83 112.13,335.83 116.16,335.83 120.19,336.09 124.22,336.13 128.25,335.83 132.28,335.62 136.31,335.56 140.35,335.83 144.38,336.55 148.41,336.68 152.44,335.83 156.47,334.96 160.50,334.77 164.53,335.83 168.57,337.39 172.60,337.65 176.63,335.83 180.66,333.24 184.69,332.85 188.72,335.83 192.75,339.66 196.79,340.29 200.82,335.83 204.85,329.32 208.88,328.04 212.91,335.83 216.94,347.45 220.97,351.24 225.00,335.83 229.04,300.01 233.07,256.09 237.10,222.36 241.13,211.26 245.16,221.21 249.19,238.41 253.22,246.74 257.26,237.84 261.29,215.45 265.32,191.96 269.35,179.84 273.38,186.82 277.41,214.27 281.44,256.74 285.48,305.70 289.51,351.55 293.54,385.37 297.57,402.66 301.60,405.40 305.63,401.31 309.66,400.74 313.70,411.68 317.73,435.74 321.76,467.39 325.79,495.99 329.82,511.11 333.85,505.79 337.88,479.14 341.92,438.02 345.95,393.13 349.98,355.13 354.01,331.31 358.04,322.19 362.07,321.89 366.10,320.76 370.14,309.77 374.17,284.58 378.20,247.21 382.23,205.96 386.26,172.63 390.29,156.34 394.32,161.56 398.36,186.61 402.39,222.11 406.42,256.96 410.45,282.33 414.48,294.02 418.51,294.95 422.54,293.61 426.58,299.73 430.61,320.47 434.64,357.18 438.67,404.27 442.70,451.29 446.73,486.38 450.76,502.23 454.80,497.35 458.83,476.35 462.86,449.95 466.89,428.55 470.92,418.29 474.95,419.88 478.98,427.22 483.02,430.06 487.05,419.56 491.08,391.09 495.11,346.45 499.14,294.26 503.17,246.07 507.20,212.66 511.24,198.81 515.27,202.86 519.30,217.76 523.33,232.48 527.36,238.34 531.39,232.48 535.42,217.76 539.46,202.86 543.49,198.81 547.52,212.66 551.55,246.07 555.58,294.26 559.61,346.45 563.64,391.09 567.68,419.56 571.71,430.06 575.74,427.22 579.77,419.88 583.80,418.29 587.83,428.55 591.86,449.95 595.90,476.35 599.93,497.35 603.96,502.23 607.99,486.38 612.02,451.29 616.05,404.27 620.08,357.18 624.12,320.47 628.15,299.73 632.18,293.61 636.21,294.95 640.24,294.02 644.27,282.33 648.30,256.96 652.33,222.11 656.37,186.61 660.40,161.56 664.43,156.34 668.46,172.63 672.49,205.96 676.52,247.21 680.55,284.58 684.59,309.77 688.62,320.76 692.65,321.89 696.68,322.19 700.71,331.31 704.74,355.13 708.77,393.13 712.81,438.02 716.84,479.14 720.87,505.79 724.90,510.84 728.93,495.69 732.96,467.39 736.99,435.94 741.03,411.95 745.06,400.74 749.09,400.59 753.12,404.54 757.15,402.66 761.18,386.24 765.21,352.61 769.25,305.70 773.28,255.17 777.31,212.45 781.34,186.82 785.37,182.43 789.40,194.94 793.43,215.45 797.47,234.01 801.50,242.28 805.53,238.41 809.56,227.71 813.59,219.05 817.62,222.36 821.65,244.46 825.69,284.60 829.72,335.83" fill="none" stroke="#5b7cfa" stroke-width="1"/>
+<polyline points="104.06,333.73 116.16,224.22 128.25,236.42 140.35,217.20 152.44,185.33 164.53,307.07 176.63,401.75 188.72,401.65 200.82,466.85 212.91,506.14 225.00,392.87 237.10,322.32 249.19,309.72 261.29,206.11 273.38,161.71 285.48,257.03 297.57,294.98 309.66,320.50 321.76,451.18 333.85,497.20 345.95,428.47 358.04,427.14 370.14,391.02 382.23,246.17 394.32,202.99 406.42,238.41 418.51,202.99 430.61,246.17 442.70,391.02 454.80,427.14 466.89,428.47 478.98,497.20 491.08,451.18 503.17,320.50 515.27,294.98 527.36,257.02 539.46,161.73 551.55,206.08 563.64,309.78 575.74,322.21 587.83,393.09" fill="none" stroke="#e11d48" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Upsample by 3, then downsample by 3</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">time (s)</text>
+<text x="51.86" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.86 288.42)">amplitude</text>
+<rect x="640.25" y="56.00" width="217.75" height="90.62" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="649.11" y1="77.01" x2="674.42" y2="77.01" stroke="#0f172a" stroke-width="2.2"/>
+<text x="682.01" y="80.51" font-size="16.2" text-anchor="start" fill="#222">original (1000 Hz)</text>
+<line x1="649.11" y1="101.31" x2="674.42" y2="101.31" stroke="#5b7cfa" stroke-width="2.2"/>
+<text x="682.01" y="104.81" font-size="16.2" text-anchor="start" fill="#222">upsampled (3000 Hz)</text>
+<line x1="649.11" y1="125.61" x2="674.42" y2="125.61" stroke="#e11d48" stroke-width="2.2"/>
+<text x="682.01" y="129.11" font-size="16.2" text-anchor="start" fill="#222">round-tripped</text>
+</svg></figure></div>
+<pre><code>upsampled length: 600 (expect 600)
+round-trip rmse (delay-aligned): 0.00249
+</code></pre>
+<p>The round trip does not land on exactly zero error, and <code>delay = 20</code> is why: each order-60 FIR filter delays a signal by half its order, 30 samples at the 3000 Hz rate, which is 20 samples once rescaled back to 1000 Hz. Compared against the original shifted by that known delay, the recovered signal comes back within a quarter of one percent — windowing and finite-order error, not a bug, shrinking further at higher filter order. The two waveforms overlay almost exactly once that shift is accounted for; the spectrum tells the same story more bluntly:</p>
+<div class="example hasout"><pre class="hl"><code>mag_orig = <span class="f">abs</span>(<span class="f">rfft</span>(x))
+mag_rec = <span class="f">abs</span>(<span class="f">rfft</span>(y_down[delay:n-<span class="n">1</span>]))
+f_orig = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(mag_orig)-<span class="n">1</span>) * fs_lo / n
+f_rec = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(mag_rec)-<span class="n">1</span>) * fs_lo / (n - delay)
+<span class="f">figure</span>()
+<span class="f">plot</span>(f_orig, mag_orig, <span class="a">color</span> = <span class="s">"#0f172a"</span>, <span class="a">width</span> = <span class="n">2</span>, <span class="a">label</span> = <span class="s">"original spectrum"</span>)
+<span class="f">plot</span>(f_rec, mag_rec, <span class="a">color</span> = <span class="s">"#e11d48"</span>, <span class="a">width</span> = <span class="n">1.5</span>, <span class="a">label</span> = <span class="s">"round-tripped spectrum"</span>)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"|X(f)|"</span>)
+<span class="f">title</span>(<span class="s">"Spectral content survives the round trip"</span>)
+<span class="f">legend</span>()
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 6 (101 points)
+· plot: figure 7 (91 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">10</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">20</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">30</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">40</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">50</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">60</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">70</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">80</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">90</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">100</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">150</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">250</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">300</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">350</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">450</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">500</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,528.84 111.32,528.84 118.58,528.84 125.83,528.84 133.09,528.84 140.35,528.84 147.60,528.84 154.86,528.84 162.11,528.84 169.37,528.84 176.63,528.84 183.88,528.84 191.14,528.84 198.40,528.84 205.65,528.84 212.91,528.84 220.17,528.84 227.42,528.84 234.68,70.90 241.94,528.84 249.19,528.84 256.45,528.84 263.71,528.84 270.96,528.84 278.22,528.84 285.48,528.84 292.73,528.84 299.99,528.84 307.25,528.84 314.50,528.84 321.76,528.84 329.02,528.84 336.27,528.84 343.53,528.84 350.79,528.84 358.04,528.84 365.30,528.84 372.55,528.84 379.81,528.84 387.07,528.84 394.32,528.84 401.58,528.84 408.84,528.84 416.09,528.84 423.35,528.84 430.61,528.84 437.86,528.84 445.12,528.84 452.38,528.84 459.63,528.84 466.89,528.84 474.15,528.84 481.40,528.84 488.66,528.84 495.92,528.84 503.17,528.84 510.43,528.84 517.69,528.84 524.94,528.84 532.20,528.84 539.46,528.84 546.71,528.84 553.97,391.46 561.22,528.84 568.48,528.84 575.74,528.84 582.99,528.84 590.25,528.84 597.51,528.84 604.76,528.84 612.02,528.84 619.28,528.84 626.53,528.84 633.79,528.84 641.05,528.84 648.30,528.84 655.56,528.84 662.82,528.84 670.07,528.84 677.33,528.84 684.59,528.84 691.84,528.84 699.10,528.84 706.36,528.84 713.61,528.84 720.87,528.84 728.13,528.84 735.38,528.84 742.64,528.84 749.90,528.84 757.15,528.84 764.41,528.84 771.66,528.84 778.92,528.84 786.18,528.84 793.43,528.84 800.69,528.84 807.95,528.84 815.20,528.84 822.46,528.84 829.72,528.84" fill="none" stroke="#0f172a" stroke-width="2"/>
+<polyline points="104.06,524.57 112.13,524.52 120.19,524.37 128.25,524.13 136.31,523.78 144.38,523.31 152.44,522.71 160.50,521.94 168.57,520.95 176.63,519.66 184.69,517.95 192.75,515.56 200.82,512.03 208.88,506.28 216.94,495.32 225.00,466.09 233.07,144.63 241.13,430.89 249.19,484.47 257.26,499.79 265.32,507.04 273.38,511.28 281.44,514.05 289.51,516.02 297.57,517.47 305.63,518.60 313.70,519.50 321.76,520.23 329.82,520.84 337.88,521.35 345.95,521.79 354.01,522.17 362.07,522.50 370.14,522.79 378.20,523.04 386.26,523.26 394.32,523.46 402.39,523.63 410.45,523.78 418.51,523.91 426.58,524.03 434.64,524.12 442.70,524.19 450.76,524.24 458.83,524.27 466.89,524.27 474.95,524.24 483.02,524.16 491.08,524.01 499.14,523.77 507.20,523.40 515.27,522.78 523.33,521.73 531.39,519.79 539.46,515.43 547.52,499.60 555.58,413.26 563.64,509.45 571.71,518.01 579.77,521.12 587.83,522.68 595.90,523.59 603.96,524.19 612.02,524.60 620.08,524.89 628.15,525.12 636.21,525.29 644.27,525.43 652.33,525.54 660.40,525.63 668.46,525.71 676.52,525.78 684.59,525.83 692.65,525.88 700.71,525.93 708.77,525.97 716.84,526.01 724.90,526.05 732.96,526.09 741.03,526.14 749.09,526.18 757.15,526.23 765.21,526.29 773.28,526.34 781.34,526.40 789.40,526.45 797.47,526.51 805.53,526.55 813.59,526.58 821.65,526.61 829.72,526.61" fill="none" stroke="#e11d48" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Spectral content survives the round trip</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="56.78" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 56.78 288.42)">|X(f)|</text>
+<rect x="623.62" y="56.00" width="234.38" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="632.48" y1="77.01" x2="657.79" y2="77.01" stroke="#0f172a" stroke-width="2.2"/>
+<text x="665.39" y="80.51" font-size="16.2" text-anchor="start" fill="#222">original spectrum</text>
+<line x1="632.48" y1="101.31" x2="657.79" y2="101.31" stroke="#e11d48" stroke-width="2.2"/>
+<text x="665.39" y="104.81" font-size="16.2" text-anchor="start" fill="#222">round-tripped spectrum</text>
+</svg></figure></div>
+<p>Both peaks, 90 Hz and 310 Hz, land in the same place before and after — upsampling then downsampling by the same factor is lossy only at the sub-percent level measured above, not in the frequencies it carries.</p>
+<p>Qu does provide one higher-level function outside this hand-built pair: <code>resample_to(signal, new_fs)</code>.</p>
+<div class="example hasout"><pre class="hl"><code>sig = <span class="f">signal</span>(x, fs_lo)
+r = <span class="f">resample_to</span>(sig, <span class="n">3000</span>)
+<span class="f">print</span>(<span class="s">"resample_to length: {length(r)} (zero-stuff+filter gave {n*L})"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>resample_to length: 598 (zero-stuff+filter gave 600)</pre></div></div>
+<pre><code>resample_to length: 598 (zero-stuff+filter gave 600)
+</code></pre>
+<p>Not 600 — <code>resample_to</code> spans the same duration with new instants rather than inserting <code>L</code> samples per old one, and it does so by evaluating a linear interpolant, with no anti-aliasing step at all. Going up in rate that is a soft but tolerable approximation; going *down*, it performs no filtering before re-evaluating the signal more sparsely. Feed it a wideband signal and ask for a lower rate, and whatever lives above the new Nyquist limit aliases silently — exactly the failure this lesson built machinery to avoid. <code>resample_to</code> is the right tool for a slight clock correction; it is not a decimator.</p>
+<p>Everything here assumed you get to choose how much to sample and discard part of it afterward. The next lesson asks the sharper question: what if acquiring at the full rate is the expensive, or impossible, part? If a signal is sparse enough, most of those samples were never needed at all.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

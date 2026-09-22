@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coding and Compression — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html" class="here">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Coding and Compression</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>Even a well-equalized channel occasionally hands back a wrong bit — information genuinely destroyed in transit. Two kinds of deliberately added redundancy deal with what a channel leaves behind, in opposite directions:</p>
+<ul>
+<li><strong>Error-correcting codes</strong> add structure a message didn't have, so damage in transit can be detected and reversed without a retransmission.</li>
+<li><strong>Compression</strong> removes structure a message already had but didn't need, because real signals are far more predictable than a raw, sample-by-sample listing suggests.</li>
+</ul>
+<p><strong>Coding.</strong> Richard Hamming, working at Bell Labs in 1947 with a computer that halted on any parity error and waited for a human to restart it, reasoned that a machine which can already tell *that* an error occurred has almost enough information to say *where*. Hamming(7,4), published in 1950, appends 3 parity bits to 4 data bits, each parity bit covering a different subset of the 7 transmitted bits:</p>
+<p>\[ p_1 = d_1 \oplus d_2 \oplus d_4, \qquad p_2 = d_1 \oplus d_3 \oplus d_4, \qquad p_4 = d_2 \oplus d_3 \oplus d_4 \]</p>
+<p>sent as codeword \([p_1, p_2, d_1, p_4, d_2, d_3, d_4]\). At the receiver, each parity check is recomputed; the pattern of *which* checks disagree forms a 3-bit syndrome that names the exact bit position that flipped, or zero if none did. Three extra bits buy the ability to survive any single flip in seven — a 75% overhead that looks wasteful only to someone who has not just lost a weekend of computation to one.</p>
+<p><strong>Compression.</strong> A smooth, structured signal doesn't need every sample treated as independent information. Transform coding exploits this: pass the signal through a basis, such as the Discrete Cosine Transform (DCT), chosen so that most of the signal's energy lands in a handful of low-frequency coefficients,</p>
+<p>\[ X_k = \sum_{n=0}^{N-1} x_n \cos\!\left[\frac{\pi}{N}\left(n+\tfrac12\right)k\right], \]</p>
+<p>keep only the largest coefficients, and discard the rest. The idealized picture — most of a transform's energy concentrated in the first few coefficients, the remainder trailing off — looks like this for any smooth, low-frequency-dominated signal:</p>
+<div class="example hasout"><pre class="hl"><code>k = <span class="n">0</span> <span class="k">to</span> <span class="n">15</span>
+mag = <span class="n">10</span> * <span class="f">exp</span>(-<span class="n">0.5</span>*k)
+<span class="f">figure</span>()
+<span class="f">stem</span>(k, mag)
+<span class="f">xlabel</span>(<span class="s">"coefficient index k"</span>)
+<span class="f">ylabel</span>(<span class="s">"|coefficient|"</span>)
+<span class="f">title</span>(<span class="s">"Idealized transform-coefficient energy decay"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· stem: figure 1 (16 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">1</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">2</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">3</text>
+<line x1="104.06" y1="345.66" x2="866.00" y2="345.66" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.66" x2="104.06" y2="345.66" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.33" font-size="16.2" text-anchor="end" fill="#4d4d4d">4</text>
+<line x1="104.06" y1="299.86" x2="866.00" y2="299.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.86" x2="104.06" y2="299.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">5</text>
+<line x1="104.06" y1="254.07" x2="866.00" y2="254.07" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.07" x2="104.06" y2="254.07" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.74" font-size="16.2" text-anchor="end" fill="#4d4d4d">6</text>
+<line x1="104.06" y1="208.27" x2="866.00" y2="208.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.27" x2="104.06" y2="208.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">7</text>
+<line x1="104.06" y1="162.48" x2="866.00" y2="162.48" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.48" x2="104.06" y2="162.48" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.15" font-size="16.2" text-anchor="end" fill="#4d4d4d">8</text>
+<line x1="104.06" y1="116.68" x2="866.00" y2="116.68" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.68" x2="104.06" y2="116.68" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.35" font-size="16.2" text-anchor="end" fill="#4d4d4d">9</text>
+<line x1="104.06" y1="70.89" x2="866.00" y2="70.89" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.89" x2="104.06" y2="70.89" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.56" font-size="16.2" text-anchor="end" fill="#4d4d4d">10</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="200.82" y1="48.00" x2="200.82" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="200.82" y1="528.84" x2="200.82" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="200.82" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
+<line x1="297.57" y1="48.00" x2="297.57" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="297.57" y1="528.84" x2="297.57" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="297.57" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
+<line x1="491.08" y1="48.00" x2="491.08" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="491.08" y1="528.84" x2="491.08" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="491.08" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="587.83" y1="48.00" x2="587.83" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="587.83" y1="528.84" x2="587.83" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="587.83" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">12</text>
+<line x1="781.34" y1="48.00" x2="781.34" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="781.34" y1="528.84" x2="781.34" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="781.34" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">14</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<line x1="104.06" y1="528.84" x2="104.06" y2="70.89" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="104.06" cy="70.89" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="152.44" y1="528.84" x2="152.44" y2="251.08" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="152.44" cy="251.08" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="200.82" y1="528.84" x2="200.82" y2="360.37" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="200.82" cy="360.37" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="426.66" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="249.19" cy="426.66" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="297.57" y1="528.84" x2="297.57" y2="466.87" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="297.57" cy="466.87" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="345.95" y1="528.84" x2="345.95" y2="491.25" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="345.95" cy="491.25" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="506.04" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="394.32" cy="506.04" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="442.70" y1="528.84" x2="442.70" y2="515.01" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="442.70" cy="515.01" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="491.08" y1="528.84" x2="491.08" y2="520.46" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="491.08" cy="520.46" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="523.76" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="539.46" cy="523.76" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="587.83" y1="528.84" x2="587.83" y2="525.76" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="587.83" cy="525.76" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="636.21" y1="528.84" x2="636.21" y2="526.97" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="636.21" cy="526.97" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="527.71" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="684.59" cy="527.71" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="732.96" y1="528.84" x2="732.96" y2="528.16" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="732.96" cy="528.16" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="781.34" y1="528.84" x2="781.34" y2="528.43" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="781.34" cy="528.43" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="528.59" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="829.72" cy="528.59" r="2.6" fill="#5B7CFA" stroke="none"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Idealized transform-coefficient energy decay</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">coefficient index k</text>
+<text x="67.00" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 67.00 288.42)">|coefficient|</text>
+</svg></figure></div>
+<p>This is the actual mechanism behind JPEG (1992), which splits an image into 8x8 blocks and quantizes each block's 2-D DCT most aggressively where the eye is least sensitive, and MP3 (1993), which runs a close relative, the Modified DCT, on overlapping windows of audio for the same reason: concentrate the energy, then spend bits where the energy actually is.</p>
+<h2 id="s26">In Qu</h2>
+<p><strong>Hamming(7,4) from bitwise primitives.</strong> Qu has no built-in Hamming or CRC codec — this is structure added by hand, from <code>bitxor</code>, <code>bitor</code>, and <code>bitshift</code>:</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">hamming_encode</span>(d)
+    d1 = d[<span class="n">0</span>]
+    d2 = d[<span class="n">1</span>]
+    d3 = d[<span class="n">2</span>]
+    d4 = d[<span class="n">3</span>]
+    p1 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(d1, d2), d4)
+    p2 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(d1, d3), d4)
+    p4 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(d2, d3), d4)
+    <span class="k">return</span> [p1, p2, d1, p4, d2, d3, d4]
+<span class="k">end</span> <span class="k">function</span>
+
+d = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
+codeword = <span class="f">hamming_encode</span>(d)
+<span class="f">print</span>(<span class="s">"data = {d}, codeword = {codeword}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>data = [1, 0, 1, 1], codeword = [0, 1, 1, 0, 0, 1, 1]</pre></div></div>
+<pre><code>data = [1, 0, 1, 1], codeword = [0, 1, 1, 0, 0, 1, 1]
+</code></pre>
+<p><code>bitshift(s4, 2)</code> and <code>bitshift(s2, 1)</code> below pack the three syndrome bits into one integer, the same trick as writing a decimal number digit by digit, done with shifts instead of powers of ten:</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">hamming_syndrome</span>(c)
+    s1 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(<span class="f">bitxor</span>(c[<span class="n">0</span>], c[<span class="n">2</span>]), c[<span class="n">4</span>]), c[<span class="n">6</span>])
+    s2 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(<span class="f">bitxor</span>(c[<span class="n">1</span>], c[<span class="n">2</span>]), c[<span class="n">5</span>]), c[<span class="n">6</span>])
+    s4 = <span class="f">bitxor</span>(<span class="f">bitxor</span>(<span class="f">bitxor</span>(c[<span class="n">3</span>], c[<span class="n">4</span>]), c[<span class="n">5</span>]), c[<span class="n">6</span>])
+    <span class="k">return</span> <span class="f">bitor</span>(<span class="f">bitshift</span>(s4, <span class="n">2</span>), <span class="f">bitor</span>(<span class="f">bitshift</span>(s2, <span class="n">1</span>), s1))
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="k">function</span> <span class="f">hamming_correct</span>(c)
+    s = <span class="f">hamming_syndrome</span>(c)
+    fixed = c
+    <span class="k">if</span> s &gt; <span class="n">0</span> <span class="k">then</span>
+        fixed[s - <span class="n">1</span>] = <span class="f">bitxor</span>(c[s - <span class="n">1</span>], <span class="n">1</span>)
+    <span class="k">end</span> <span class="k">if</span>
+    <span class="k">return</span> fixed
+<span class="k">end</span> <span class="k">function</span>
+
+<span class="f">data_bits</span>(c) := [c[<span class="n">2</span>], c[<span class="n">4</span>], c[<span class="n">5</span>], c[<span class="n">6</span>]]
+
+total_ok = <span class="n">0</span>
+<span class="k">for</span> flip = <span class="n">0</span> <span class="k">to</span> <span class="n">6</span>
+    corrupted = codeword
+    corrupted[flip] = <span class="f">bitxor</span>(corrupted[flip], <span class="n">1</span>)
+    fixed = <span class="f">hamming_correct</span>(corrupted)
+    recovered = <span class="f">data_bits</span>(fixed)
+    ok = <span class="f">sum</span>(<span class="f">abs</span>(recovered - d)) == <span class="n">0</span>
+    <span class="f">print</span>(<span class="s">"flip bit {flip}: syndrome = {hamming_syndrome(corrupted)}, recovered = {recovered}, correct = {ok}"</span>)
+    <span class="k">if</span> ok <span class="k">then</span>
+        total_ok += <span class="n">1</span>
+    <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"corrected {total_ok} / 7 single-bit errors"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>flip bit 0: syndrome = 1, recovered = [1, 0, 1, 1], correct = true
+flip bit 1: syndrome = 2, recovered = [1, 0, 1, 1], correct = true
+flip bit 2: syndrome = 3, recovered = [1, 0, 1, 1], correct = true
+flip bit 3: syndrome = 4, recovered = [1, 0, 1, 1], correct = true
+flip bit 4: syndrome = 5, recovered = [1, 0, 1, 1], correct = true
+flip bit 5: syndrome = 6, recovered = [1, 0, 1, 1], correct = true
+flip bit 6: syndrome = 7, recovered = [1, 0, 1, 1], correct = true
+corrected 7 / 7 single-bit errors</pre></div></div>
+<pre><code>flip bit 0: syndrome = 1, recovered = [1, 0, 1, 1], correct = true
+flip bit 1: syndrome = 2, recovered = [1, 0, 1, 1], correct = true
+flip bit 2: syndrome = 3, recovered = [1, 0, 1, 1], correct = true
+flip bit 3: syndrome = 4, recovered = [1, 0, 1, 1], correct = true
+flip bit 4: syndrome = 5, recovered = [1, 0, 1, 1], correct = true
+flip bit 5: syndrome = 6, recovered = [1, 0, 1, 1], correct = true
+flip bit 6: syndrome = 7, recovered = [1, 0, 1, 1], correct = true
+corrected 7 / 7 single-bit errors
+</code></pre>
+<p>Every syndrome equals the 1-indexed position of the flipped bit, and all seven possible single-bit errors are corrected exactly.</p>
+<p><strong>DCT energy compaction, measured.</strong> Two sinusoids and a trace of noise, 64 samples, run through Qu's <code>dct</code>:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">4</span>)
+n = <span class="n">0</span> <span class="k">to</span> <span class="n">63</span>
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*n/<span class="n">64</span>) + <span class="n">0.5</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">2</span>*n/<span class="n">64</span>) + <span class="n">0.02</span>*<span class="f">randn</span>(<span class="n">64</span>)
+c = <span class="f">dct</span>(x)
+<span class="f">print</span>(<span class="s">"c[0:7] = {c[0:7]}"</span>)
+
+energy_total = <span class="f">sum</span>(c.^<span class="n">2</span>)
+energy_top8 = <span class="f">sum</span>(c[<span class="n">0</span>:<span class="n">7</span>].^<span class="n">2</span>)
+<span class="f">print</span>(<span class="s">"energy fraction in first 8 of 64 coefficients = {100*energy_top8/energy_total:.2f}%"</span>)
+
+<span class="f">figure</span>()
+<span class="f">stem</span>(n, <span class="f">abs</span>(c))
+<span class="f">xlabel</span>(<span class="s">"DCT coefficient index"</span>)
+<span class="f">ylabel</span>(<span class="s">"|coefficient|"</span>)
+<span class="f">title</span>(<span class="s">"DCT coefficient magnitudes: energy concentrates at low index"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>c[0:7] = [-0.02223, 5.747685, -0.27347, -0.836483, -0.294924, -2.229977, 0.018975, -0.71191]
+energy fraction in first 8 of 64 coefficients = 99.17%
+· stem: figure 2 (64 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="489.01" x2="866.00" y2="489.01" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="489.01" x2="104.06" y2="489.01" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="494.68" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="449.17" x2="866.00" y2="449.17" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="449.17" x2="104.06" y2="449.17" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="454.84" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="409.33" x2="866.00" y2="409.33" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="409.33" x2="104.06" y2="409.33" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="415.00" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="104.06" y1="369.49" x2="866.00" y2="369.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="369.49" x2="104.06" y2="369.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="375.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.0</text>
+<line x1="104.06" y1="329.66" x2="866.00" y2="329.66" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="329.66" x2="104.06" y2="329.66" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="335.33" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.5</text>
+<line x1="104.06" y1="289.82" x2="866.00" y2="289.82" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="289.82" x2="104.06" y2="289.82" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="295.49" font-size="16.2" text-anchor="end" fill="#4d4d4d">3.0</text>
+<line x1="104.06" y1="249.98" x2="866.00" y2="249.98" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="249.98" x2="104.06" y2="249.98" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="255.65" font-size="16.2" text-anchor="end" fill="#4d4d4d">3.5</text>
+<line x1="104.06" y1="210.14" x2="866.00" y2="210.14" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="210.14" x2="104.06" y2="210.14" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="215.81" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.0</text>
+<line x1="104.06" y1="170.31" x2="866.00" y2="170.31" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="170.31" x2="104.06" y2="170.31" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="175.98" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.5</text>
+<line x1="104.06" y1="130.47" x2="866.00" y2="130.47" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="130.47" x2="104.06" y2="130.47" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="136.14" font-size="16.2" text-anchor="end" fill="#4d4d4d">5.0</text>
+<line x1="104.06" y1="90.63" x2="866.00" y2="90.63" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="90.63" x2="104.06" y2="90.63" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="96.30" font-size="16.2" text-anchor="end" fill="#4d4d4d">5.5</text>
+<line x1="104.06" y1="50.79" x2="866.00" y2="50.79" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="50.79" x2="104.06" y2="50.79" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="56.46" font-size="16.2" text-anchor="end" fill="#4d4d4d">6.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="219.25" y1="48.00" x2="219.25" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="219.25" y1="528.84" x2="219.25" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="219.25" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="334.43" y1="48.00" x2="334.43" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="334.43" y1="528.84" x2="334.43" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="334.43" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="449.61" y1="48.00" x2="449.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="449.61" y1="528.84" x2="449.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="449.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="564.80" y1="48.00" x2="564.80" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="564.80" y1="528.84" x2="564.80" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="564.80" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="679.98" y1="48.00" x2="679.98" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="679.98" y1="528.84" x2="679.98" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="679.98" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="795.16" y1="48.00" x2="795.16" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="795.16" y1="528.84" x2="795.16" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="795.16" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<line x1="104.06" y1="528.84" x2="104.06" y2="527.07" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="104.06" cy="527.07" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="115.58" y1="528.84" x2="115.58" y2="70.90" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="115.58" cy="70.90" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="127.10" y1="528.84" x2="127.10" y2="507.06" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="127.10" cy="507.06" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="138.62" y1="528.84" x2="138.62" y2="462.20" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="138.62" cy="462.20" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="150.14" y1="528.84" x2="150.14" y2="505.35" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="150.14" cy="505.35" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="161.65" y1="528.84" x2="161.65" y2="351.17" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="161.65" cy="351.17" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="173.17" y1="528.84" x2="173.17" y2="527.33" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="173.17" cy="527.33" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="184.69" y1="528.84" x2="184.69" y2="472.12" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="184.69" cy="472.12" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="196.21" y1="528.84" x2="196.21" y2="528.17" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="196.21" cy="528.17" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="207.73" y1="528.84" x2="207.73" y2="496.57" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="207.73" cy="496.57" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="219.25" y1="528.84" x2="219.25" y2="527.27" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="219.25" cy="527.27" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="230.76" y1="528.84" x2="230.76" y2="508.97" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="230.76" cy="508.97" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="242.28" y1="528.84" x2="242.28" y2="527.18" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="242.28" cy="527.18" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="253.80" y1="528.84" x2="253.80" y2="513.06" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="253.80" cy="513.06" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="265.32" y1="528.84" x2="265.32" y2="527.28" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="265.32" cy="527.28" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="276.84" y1="528.84" x2="276.84" y2="518.44" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="276.84" cy="518.44" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="288.36" y1="528.84" x2="288.36" y2="528.75" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="288.36" cy="528.75" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="299.87" y1="528.84" x2="299.87" y2="522.73" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="299.87" cy="522.73" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="311.39" y1="528.84" x2="311.39" y2="527.77" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="311.39" cy="527.77" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="322.91" y1="528.84" x2="322.91" y2="523.43" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="322.91" cy="523.43" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="334.43" y1="528.84" x2="334.43" y2="528.20" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="334.43" cy="528.20" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="345.95" y1="528.84" x2="345.95" y2="522.23" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="345.95" cy="522.23" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="357.47" y1="528.84" x2="357.47" y2="528.24" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="357.47" cy="528.24" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="368.98" y1="528.84" x2="368.98" y2="525.08" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="368.98" cy="525.08" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="380.50" y1="528.84" x2="380.50" y2="528.30" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="380.50" cy="528.30" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="392.02" y1="528.84" x2="392.02" y2="522.24" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="392.02" cy="522.24" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="403.54" y1="528.84" x2="403.54" y2="528.42" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="403.54" cy="528.42" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="415.06" y1="528.84" x2="415.06" y2="525.04" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="415.06" cy="525.04" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="426.58" y1="528.84" x2="426.58" y2="525.98" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="426.58" cy="525.98" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="438.09" y1="528.84" x2="438.09" y2="527.35" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="438.09" cy="527.35" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="449.61" y1="528.84" x2="449.61" y2="526.85" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="449.61" cy="526.85" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="461.13" y1="528.84" x2="461.13" y2="528.45" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="461.13" cy="528.45" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="472.65" y1="528.84" x2="472.65" y2="526.60" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="472.65" cy="526.60" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="484.17" y1="528.84" x2="484.17" y2="525.08" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="484.17" cy="525.08" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="495.69" y1="528.84" x2="495.69" y2="527.79" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="495.69" cy="527.79" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="507.20" y1="528.84" x2="507.20" y2="525.75" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="507.20" cy="525.75" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="518.72" y1="528.84" x2="518.72" y2="527.29" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="518.72" cy="527.29" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="530.24" y1="528.84" x2="530.24" y2="527.19" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="530.24" cy="527.19" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="541.76" y1="528.84" x2="541.76" y2="527.92" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="541.76" cy="527.92" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="553.28" y1="528.84" x2="553.28" y2="527.45" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="553.28" cy="527.45" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="564.80" y1="528.84" x2="564.80" y2="527.12" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="564.80" cy="527.12" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="576.31" y1="528.84" x2="576.31" y2="528.77" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="576.31" cy="528.77" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="587.83" y1="528.84" x2="587.83" y2="527.80" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="587.83" cy="527.80" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="599.35" y1="528.84" x2="599.35" y2="527.88" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="599.35" cy="527.88" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="610.87" y1="528.84" x2="610.87" y2="528.64" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="610.87" cy="528.64" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="622.39" y1="528.84" x2="622.39" y2="528.63" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="622.39" cy="528.63" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="633.91" y1="528.84" x2="633.91" y2="527.72" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="633.91" cy="527.72" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="645.42" y1="528.84" x2="645.42" y2="527.70" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="645.42" cy="527.70" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="656.94" y1="528.84" x2="656.94" y2="526.58" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="656.94" cy="526.58" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="668.46" y1="528.84" x2="668.46" y2="528.77" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="668.46" cy="528.77" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="679.98" y1="528.84" x2="679.98" y2="528.65" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="679.98" cy="528.65" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="691.50" y1="528.84" x2="691.50" y2="525.79" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="691.50" cy="525.79" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="703.02" y1="528.84" x2="703.02" y2="527.90" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="703.02" cy="527.90" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="714.53" y1="528.84" x2="714.53" y2="527.85" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="714.53" cy="527.85" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="726.05" y1="528.84" x2="726.05" y2="528.50" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="726.05" cy="528.50" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="737.57" y1="528.84" x2="737.57" y2="527.40" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="737.57" cy="527.40" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="749.09" y1="528.84" x2="749.09" y2="528.78" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="749.09" cy="528.78" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="760.61" y1="528.84" x2="760.61" y2="528.31" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="760.61" cy="528.31" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="772.13" y1="528.84" x2="772.13" y2="525.65" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="772.13" cy="525.65" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="783.64" y1="528.84" x2="783.64" y2="525.09" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="783.64" cy="525.09" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="795.16" y1="528.84" x2="795.16" y2="528.82" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="795.16" cy="528.82" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="806.68" y1="528.84" x2="806.68" y2="527.85" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="806.68" cy="527.85" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="818.20" y1="528.84" x2="818.20" y2="525.39" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="818.20" cy="525.39" r="2.6" fill="#5B7CFA" stroke="none"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="527.53" stroke="#5B7CFA" stroke-width="1.2"/>
+<circle cx="829.72" cy="527.53" r="2.6" fill="#5B7CFA" stroke="none"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">DCT coefficient magnitudes: energy concentrates at low index</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">DCT coefficient index</text>
+<text x="58.46" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 288.42)">|coefficient|</text>
+</svg></figure></div>
+<pre><code>c[0:7] = [-0.02223, 5.747685, -0.27347, -0.836483, -0.294924, -2.229977, 0.018975, -0.71191]
+energy fraction in first 8 of 64 coefficients = 99.17%
+</code></pre>
+<p>99.17% of the energy sits in the first 8 of 64 coefficients. Zero the other 56 — an 8x reduction in storage — and reconstruct with <code>idct</code>:</p>
+<div class="example hasout"><pre class="hl"><code>c_trunc = c
+<span class="k">for</span> k = <span class="n">8</span> <span class="k">to</span> <span class="n">63</span>
+    c_trunc[k] = <span class="n">0</span>
+<span class="k">end</span> <span class="k">for</span>
+xr = <span class="f">idct</span>(c_trunc)
+err = <span class="f">rms</span>(xr - x) / <span class="f">rms</span>(x)
+<span class="f">print</span>(<span class="s">"relative reconstruction error, keeping 8/64 coefficients = {err:.4f}"</span>)
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(n, x)
+<span class="f">plot</span>(n, xr)
+<span class="f">xlabel</span>(<span class="s">"sample n"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Original vs. reconstruction from 8/64 DCT coefficients"</span>)
+<span class="f">legend</span>(<span class="s">"original x"</span>, <span class="s">"reconstructed (8 coeffs)"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>relative reconstruction error, keeping 8/64 coefficients = 0.0914
+· plot: figure 3 (64 points)
+· plot: figure 4 (64 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="452.71" x2="866.00" y2="452.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="452.71" x2="104.06" y2="452.71" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="458.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="371.04" x2="866.00" y2="371.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="371.04" x2="104.06" y2="371.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="376.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.5</text>
+<line x1="104.06" y1="289.38" x2="866.00" y2="289.38" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="289.38" x2="104.06" y2="289.38" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="295.05" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="207.71" x2="866.00" y2="207.71" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="207.71" x2="104.06" y2="207.71" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.38" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="126.04" x2="866.00" y2="126.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="126.04" x2="104.06" y2="126.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="131.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="219.25" y1="48.00" x2="219.25" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="219.25" y1="528.84" x2="219.25" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="219.25" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="334.43" y1="48.00" x2="334.43" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="334.43" y1="528.84" x2="334.43" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="334.43" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="449.61" y1="48.00" x2="449.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="449.61" y1="528.84" x2="449.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="449.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="564.80" y1="48.00" x2="564.80" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="564.80" y1="528.84" x2="564.80" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="564.80" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="679.98" y1="48.00" x2="679.98" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="679.98" y1="528.84" x2="679.98" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="679.98" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="795.16" y1="48.00" x2="795.16" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="795.16" y1="528.84" x2="795.16" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="795.16" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,288.39 115.58,260.50 127.10,223.30 138.62,194.87 150.14,168.13 161.65,147.15 173.17,121.48 184.69,107.39 196.21,91.77 207.73,87.38 219.25,85.54 230.76,83.81 242.28,82.05 253.80,87.70 265.32,95.20 276.84,114.76 288.36,121.48 299.87,144.08 311.39,160.13 322.91,178.60 334.43,195.54 345.95,210.41 357.47,225.28 368.98,239.58 380.50,255.08 392.02,269.86 403.54,275.04 415.06,278.85 426.58,282.77 438.09,293.27 449.61,290.97 461.13,293.23 472.65,287.07 484.17,289.92 495.69,292.16 507.20,295.68 518.72,288.64 530.24,303.64 541.76,306.53 553.28,313.61 564.80,324.47 576.31,335.04 587.83,356.28 599.35,362.81 610.87,383.85 622.39,397.06 633.91,419.24 645.42,438.84 656.94,454.45 668.46,458.86 679.98,487.25 691.50,490.27 703.02,496.65 714.53,497.33 726.05,500.34 737.57,496.64 749.09,482.29 760.61,474.89 772.13,453.45 783.64,433.02 795.16,407.01 806.68,388.66 818.20,355.04 829.72,324.54" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,247.99 115.58,241.31 127.10,228.49 138.62,210.52 150.14,188.81 161.65,165.01 173.17,140.93 184.69,118.32 196.21,98.80 207.73,83.67 219.25,73.86 230.76,69.86 242.28,71.71 253.80,79.03 265.32,91.11 276.84,106.93 288.36,125.36 299.87,145.20 311.39,165.34 322.91,184.81 334.43,202.85 345.95,218.95 357.47,232.87 368.98,244.59 380.50,254.25 392.02,262.13 403.54,268.59 415.06,273.97 426.58,278.56 438.09,282.59 449.61,286.20 461.13,289.48 472.65,292.44 484.17,295.12 495.69,297.58 507.20,299.96 518.72,302.49 530.24,305.49 541.76,309.42 553.28,314.73 564.80,321.92 576.31,331.40 587.83,343.47 599.35,358.19 610.87,375.43 622.39,394.72 633.91,415.37 645.42,436.42 656.94,456.72 668.46,475.04 679.98,490.18 691.50,501.05 703.02,506.81 714.53,506.99 726.05,501.49 737.57,490.68 749.09,475.36 760.61,456.73 772.13,436.28 783.64,415.67 795.16,396.61 806.68,380.70 818.20,369.28 829.72,363.31" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Original vs. reconstruction from 8/64 DCT coefficients</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">sample n</text>
+<text x="51.86" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.86 288.42)">amplitude</text>
+<rect x="619.94" y="56.00" width="238.06" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="628.80" y1="77.01" x2="654.11" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="661.70" y="80.51" font-size="16.2" text-anchor="start" fill="#222">original x</text>
+<line x1="628.80" y1="101.31" x2="654.11" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="661.70" y="104.81" font-size="16.2" text-anchor="start" fill="#222">reconstructed (8 coeffs)</text>
+</svg></figure></div>
+<pre><code>relative reconstruction error, keeping 8/64 coefficients = 0.0914
+</code></pre>
+<p>9.14% relative error for an 87.5% cut in data is a genuine trade, not a free lunch — and the error does not vanish with more coefficients kept, because 0.02 of it is the injected noise itself, which the DCT correctly refuses to compact. Noise has no structure to concentrate.</p>
+<p>A Hamming code spends bits to buy resilience; a DCT truncation spends accuracy to buy economy. Neither one asks what kind of signal it is protecting or compressing — Hamming(7,4) corrects a flipped bit whether it came from a voice call or a sensor log, and the DCT compacts energy whether the samples came from a microphone or a photograph. Every signal in this course so far has unfolded along one axis: time. An image is not that — it carries two axes at once, and reasoning about it means asking what convolution, sampling, and frequency mean when there is a "sideways" as well as a "forward."</p>
+<p><strong>Next: <a href="16-image-video-processing.html">Lesson 16 — Image and video processing</a>.</strong></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

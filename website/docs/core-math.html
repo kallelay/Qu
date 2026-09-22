@@ -61,6 +61,34 @@
 <li><a href="tour.html">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
@@ -164,9 +192,9 @@ df = <span class="f">table</span>(<span class="a">price</span> = [<span class="n
 <div class="out"><span class="lbl">output</span><pre>5</pre></div></div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>Complex</code> value. Negates the imaginary part, leaving the real part alone.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3 - 4i</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">conj</span>(<span class="n">3</span> + <span class="n">4j</span>))   <span class="c"># 3 - 4j</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3 - 4i</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>3 - 4j</pre></div></div>
 <h4><code>sign</code>'s exact-zero case</h4>
 <p><code>sign</code> has its own exact-zero edge case worth seeing separately: it returns <code>+1</code>, never <code>0</code>, per Rust's <code>f64::signum</code>.</p>
 <div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sign</span>([-<span class="n">2</span>, -<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">2</span>]))   <span class="c"># [-1, -1, 1, 1] — sign(0) would be +1, never 0</span>
@@ -186,7 +214,7 @@ z = <span class="n">3</span> + <span class="n">4j</span>
 <div class="out"><span class="lbl">output</span><pre>tan=0.546302  asin=0.523599  acos=1.047198  atan=0.463648
 sinh=0.521095  cosh=1.127626  tanh=0.462117
 ln(e^2)=2  log(e^2)=2  log2(8)=3
-arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4i
+arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4j
 3</pre></div></div>
 <h2 id="s65">Reductions &amp; Descriptive Statistics</h2>
 <p>Basic order-statistic and spread reductions. <code>corr</code>, <code>cov</code>, <code>mode</code>, <code>skewness</code>, and <code>kurtosis</code> are documented in <a href="statistics-ml.html">Statistics &amp; Machine Learning</a>. Several of the pure reductions below (<code>sum</code>, <code>prod</code>, <code>mean</code>, <code>std</code>, <code>var</code>, <code>max</code>, <code>min</code>, <code>argmax</code>, <code>argmin</code>, <code>median</code>, <code>quantile</code>) additionally accept an <code>axis=</code> keyword when <code>x</code> is a <code>Mat</code>: <code>axis=0</code> collapses each column to one number (a length-<code>cols</code> <code>Vec</code>), <code>axis=1</code> collapses each row (a length-<code>rows</code> <code>Vec</code>), instead of flattening the whole matrix to a single scalar.</p>
@@ -225,9 +253,9 @@ arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4i
 <div class="out"><span class="lbl">output</span><pre>6</pre></div></div>
 <h4>Case: complex</h4>
 <p><code>x</code> a <code>CVec</code> or <code>CMat</code>. Returns a <code>Complex</code> scalar instead of a <code>Num</code> — the one reduction in this table that changes its own return *type* based on its input, rather than just its shape.</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span> + <span class="n">2j</span>]))   <span class="c"># 3 + 3i</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">sum</span>([<span class="n">1</span> + <span class="n">1j</span>, <span class="n">2</span> + <span class="n">2j</span>]))   <span class="c"># 3 + 3j</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>3 + 3i</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>3 + 3j</pre></div></div>
 <h4>Overloads: <code>max</code></h4>
 <div class="tablewrap"><table>
 <tr><td>Call</td><td>What it returns</td></tr>

@@ -61,6 +61,34 @@
 <li><a href="tour.html" class="here">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
@@ -101,7 +129,7 @@ s  = hello
 hi world, x=42
 v  = [1, 2, 3]
 M  = [1, 2; 3, 4]
-z  = 3 + 4i</pre></div></div>
+z  = 3 + 4j</pre></div></div>
 <p>Output:</p>
 <pre><code>x  = 42
 y  = 3.14
@@ -129,7 +157,7 @@ sig = <span class="f">signal</span>([<span class="n">1</span>,<span class="n">2<
 <div class="out"><span class="lbl">output</span><pre>r = {x = 1, y = 2}
 r.x = 1
 parts = ("a", "b", "c")
-X = [10, -2 + 2i, -2, -2 - 2i]
+X = [10, -2 + 2j, -2, -2 - 2j]
 sig = signal(Fs=100) [1, 2, 3, 4]</pre></div></div>
 <p>Output:</p>
 <pre><code>r = {x = 1, y = 2}
@@ -151,8 +179,8 @@ sig = signal(Fs=100) [1, 2, 3, 4]
 cm = [<span class="n">1</span>+<span class="n">1i</span>, <span class="n">2</span>; <span class="n">3</span>, <span class="n">4</span>-<span class="n">2i</span>]
 <span class="f">print</span>(<span class="s">"cm = {cm}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>cv = [1 + 2i, 3 - 1i, 1i]
-cm = [1 + 1i, 2; 3, 4 - 2i]</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>cv = [1 + 2j, 3 - 1j, 1j]
+cm = [1 + 1j, 2; 3, 4 - 2j]</pre></div></div>
 <p>Output:</p>
 <pre><code>cv = [1 + 2i, 3 - 1i, 1i]
 cm = [1 + 1i, 2; 3, 4 - 2i]
@@ -215,7 +243,7 @@ a /= 2 -&gt; 12
 <div class="example hasout"><pre class="hl"><code>Fs = <span class="n">5</span> kHz
 <span class="f">print</span>(<span class="s">"Fs = {Fs}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Fs = 5000 Hz</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>Fs = 5 kHz</pre></div></div>
 <pre><code>Fs = 5000
 </code></pre>
 <p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>.*=</code>/<code>./=</code>/<code>^=</code> failing to parse (<code>unexpected Op("=") &gt; in expression</code>) despite the spec documenting them — root cause was two &gt; bugs at once: the lexer's <code>match_operator</code> only ever compared an &gt; operator's first two characters (so a genuine 3-char token like <code>.*=</code> &gt; could never match), and <code>^=</code>/<code>.* =</code>/<code>./=</code> weren't in the <code>OPERATORS</code> &gt; table at all. Both fixed; all three now work, wired through the exact &gt; same compound-assign desugaring <code>+=</code>/<code>-=</code>/<code>*=</code>/<code>/=</code> already used, so &gt; they inherit <code>binop</code>'s real semantics automatically: &gt; <code></code><code>qu &gt; M = [1,2;3,4] &gt; M ^= 2          # real matrix power, not elementwise &gt; print(M)        # [7, 10; 15, 22] &gt; v = [1,2,3] &gt; v .*= [10,20,30] &gt; print(v)        # [10, 40, 90] &gt; </code><code></code> &gt; Verified live — both outputs shown are real.</p>
@@ -669,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000611
+stop returns: 0.001746
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -803,11 +831,10 @@ results = run q on workers            <span class="c"># some jobs run locally, s
 <hr>
 <h2 id="s788">16. <code>cast</code> and <code>resample_to</code></h2>
 <p>Added the same day as this section, alongside the <code>-&gt;</code> reshape operator and <code>table.</code>/<code>timer.</code> sugar (§12). <code>cast(value, tag)</code> converts between Qu's real existing types — using the same <code>TypeTag</code> vocabulary multiple dispatch already uses (<code>num</code>, <code>str</code>, <code>bool</code>, <code>vec</code>, ...), not a separate casting vocabulary, and deliberately NOT the <code>as</code> keyword (which already means something else — a shape-validation contract, <code>x as vector(3)</code>, unrelated to type conversion):</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>((<span class="n">42</span>).<span class="f">cast</span>(<span class="s">"str"</span>))
+<div class="example"><pre class="hl"><code><span class="f">print</span>((<span class="n">42</span>).<span class="f">cast</span>(<span class="s">"str"</span>))
 <span class="f">print</span>(<span class="s">"42"</span>.<span class="f">cast</span>(<span class="s">"num"</span>))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>42
-42</pre></div></div>
+</div>
 <pre><code>42
 42
 </code></pre>

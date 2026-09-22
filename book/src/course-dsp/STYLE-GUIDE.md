@@ -31,7 +31,7 @@ lesson. Never end on a summary of what was covered.
 **Visuals are not optional, and one is a minimum, not a target.** Every
 lesson needs at least 2-3 real generated figures, produced by actual Qu
 plotting calls (`plot`, `spectrogram`, `imshow`, `nyquist`,
-`bode_magnitude`, `subplot`, etc.) inside ```qu code blocks — the build
+`bode_magnitude`, `subplot`, etc.) inside fenced Qu code blocks — the build
 pipeline auto-captures whatever a block draws, no `savefig` needed. Default
 to showing, not just telling: a "before vs. after," a waveform next to its
 spectrum, a filter's response curve, two panels compared side by side.

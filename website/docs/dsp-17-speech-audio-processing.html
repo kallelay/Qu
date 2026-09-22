@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speech & Audio Processing — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html" class="here">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Speech & Audio Processing</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">What one microphone cannot tell you</a></nav>
+<p>A vowel's pitch comes from how fast the vocal folds buzz; the vowel itself comes from a resonant cavity, the vocal tract, reshaping that buzz on its way out.</p>
+<h2 id="s0">The idea</h2>
+<p><strong>The source-filter model.</strong> Speech treats voice production as an ordinary LTI system: a fast, roughly periodic source \(s(t)\) (the vocal folds' buzz, or turbulent noise for unvoiced sounds) passed through a slower-changing filter \(h(t)\) (the vocal tract's current shape):</p>
+<p>\[ y(t) = h(t) * s(t) \]</p>
+<p>The peaks in that filter's frequency response are the <strong>formants</strong>, conventionally numbered \(F_1, F_2, F_3\) from lowest to highest. They are essentially the whole reason one vowel is distinguishable from another regardless of who is speaking or at what pitch: change the tract's shape, move the peaks, hear a different vowel.</p>
+<p><strong>Short-time stationarity.</strong> A single Fourier transform over a whole recording assumes the system stayed fixed for its entire duration. Speech breaks that assumption every 20 to 40 milliseconds, as the vocal tract reshapes itself for the next phoneme — a global FFT would average dozens of different filters together and report almost nothing usable. The weaker, still useful claim is that *within* any one such window the filter barely moves, so an ordinary FFT taken there is meaningful. The <strong>short-time Fourier transform</strong> formalizes this: slide a window of length \(N\) by a hop of \(H\) samples and take a fresh FFT in each position,</p>
+<p>\[ X[k,m] = \sum_{n=0}^{N-1} x[n + mH]\, w[n]\, e^{-j 2\pi kn/N} \]</p>
+<p>trading one global spectrum for a sequence of local ones. \(|X[k,m]|\) plotted against frame \(m\) and bin \(k\) is a <strong>spectrogram</strong> — a picture of a signal's frequency content changing over time.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">2</span>)
+Fs = <span class="n">4000</span>
+N = <span class="n">2000</span>
+n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t = n / Fs
+x1 = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">300</span>*t[<span class="n">0</span>:<span class="n">999</span>])
+x2 = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">900</span>*t[<span class="n">1000</span>:<span class="n">1999</span>])
+x = <span class="f">cat</span>(<span class="n">1</span>, x1, x2)
+
+X = <span class="f">rfft</span>(x)
+mag = <span class="f">abs</span>(X)
+f = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(mag) - <span class="n">1</span>) * Fs / N
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, mag)
+<span class="f">title</span>(<span class="s">"One FFT over the whole record"</span>)
+<span class="f">xlabel</span>(<span class="s">"frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"magnitude"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (1001 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">50</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">100</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">150</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">200</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">250</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">300</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">350</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">400</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">450</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">500</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">600</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">800</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1000</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1200</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1400</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1600</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1800</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2000</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,528.84 104.79,528.84 105.51,528.84 106.24,528.84 106.97,528.84 107.69,528.84 108.42,528.84 109.14,528.84 109.87,528.84 110.59,528.84 111.32,528.84 112.04,528.84 112.77,528.84 113.50,528.84 114.22,528.84 114.95,528.84 115.67,528.84 116.40,528.84 117.12,528.84 117.85,528.84 118.58,528.84 119.30,528.84 120.03,528.84 120.75,528.84 121.48,528.84 122.20,528.84 122.93,528.84 123.66,528.84 124.38,528.84 125.11,528.84 125.83,528.84 126.56,528.84 127.28,528.84 128.01,528.84 128.73,528.84 129.46,528.84 130.19,528.84 130.91,528.84 131.64,528.84 132.36,528.84 133.09,528.84 133.81,528.84 134.54,528.84 135.27,528.84 135.99,528.84 136.72,528.84 137.44,528.84 138.17,528.84 138.89,528.84 139.62,528.84 140.35,528.84 141.07,528.84 141.80,528.84 142.52,528.84 143.25,528.84 143.97,528.84 144.70,528.84 145.42,528.84 146.15,528.84 146.88,528.84 147.60,528.84 148.33,528.84 149.05,528.84 149.78,528.84 150.50,528.84 151.23,528.84 151.96,528.84 152.68,528.84 153.41,528.84 154.13,528.84 154.86,528.84 155.58,528.84 156.31,528.84 157.04,528.84 157.76,528.84 158.49,70.90 159.21,528.84 159.94,528.84 160.66,528.84 161.39,528.84 162.11,528.84 162.84,528.84 163.57,528.84 164.29,528.84 165.02,528.84 165.74,528.84 166.47,528.84 167.19,528.84 167.92,528.84 168.65,528.84 169.37,528.84 170.10,528.84 170.82,528.84 171.55,528.84 172.27,528.84 173.00,528.84 173.73,528.84 174.45,528.84 175.18,528.84 175.90,528.84 176.63,528.84 177.35,528.84 178.08,528.84 178.80,528.84 179.53,528.84 180.26,528.84 180.98,528.84 181.71,528.84 182.43,528.84 183.16,528.84 183.88,528.84 184.61,528.84 185.34,528.84 186.06,528.84 186.79,528.84 187.51,528.84 188.24,528.84 188.96,528.84 189.69,528.84 190.42,528.84 191.14,528.84 191.87,528.84 192.59,528.84 193.32,528.84 194.04,528.84 194.77,528.84 195.49,528.84 196.22,528.84 196.95,528.84 197.67,528.84 198.40,528.84 199.12,528.84 199.85,528.84 200.57,528.84 201.30,528.84 202.03,528.84 202.75,528.84 203.48,528.84 204.20,528.84 204.93,528.84 205.65,528.84 206.38,528.84 207.11,528.84 207.83,528.84 208.56,528.84 209.28,528.84 210.01,528.84 210.73,528.84 211.46,528.84 212.19,528.84 212.91,528.84 213.64,528.84 214.36,528.84 215.09,528.84 215.81,528.84 216.54,528.84 217.26,528.84 217.99,528.84 218.72,528.84 219.44,528.84 220.17,528.84 220.89,528.84 221.62,528.84 222.34,528.84 223.07,528.84 223.80,528.84 224.52,528.84 225.25,528.84 225.97,528.84 226.70,528.84 227.42,528.84 228.15,528.84 228.88,528.84 229.60,528.84 230.33,528.84 231.05,528.84 231.78,528.84 232.50,528.84 233.23,528.84 233.95,528.84 234.68,528.84 235.41,528.84 236.13,528.84 236.86,528.84 237.58,528.84 238.31,528.84 239.03,528.84 239.76,528.84 240.49,528.84 241.21,528.84 241.94,528.84 242.66,528.84 243.39,528.84 244.11,528.84 244.84,528.84 245.57,528.84 246.29,528.84 247.02,528.84 247.74,528.84 248.47,528.84 249.19,528.84 249.92,528.84 250.64,528.84 251.37,528.84 252.10,528.84 252.82,528.84 253.55,528.84 254.27,528.84 255.00,528.84 255.72,528.84 256.45,528.84 257.18,528.84 257.90,528.84 258.63,528.84 259.35,528.84 260.08,528.84 260.80,528.84 261.53,528.84 262.26,528.84 262.98,528.84 263.71,528.84 264.43,528.84 265.16,528.84 265.88,528.84 266.61,528.84 267.33,70.90 268.06,528.84 268.79,528.84 269.51,528.84 270.24,528.84 270.96,528.84 271.69,528.84 272.41,528.84 273.14,528.84 273.87,528.84 274.59,528.84 275.32,528.84 276.04,528.84 276.77,528.84 277.49,528.84 278.22,528.84 278.95,528.84 279.67,528.84 280.40,528.84 281.12,528.84 281.85,528.84 282.57,528.84 283.30,528.84 284.02,528.84 284.75,528.84 285.48,528.84 286.20,528.84 286.93,528.84 287.65,528.84 288.38,528.84 289.10,528.84 289.83,528.84 290.56,528.84 291.28,528.84 292.01,528.84 292.73,528.84 293.46,528.84 294.18,528.84 294.91,528.84 295.64,528.84 296.36,528.84 297.09,528.84 297.81,528.84 298.54,528.84 299.26,528.84 299.99,528.84 300.71,528.84 301.44,528.84 302.17,528.84 302.89,528.84 303.62,528.84 304.34,528.84 305.07,528.84 305.79,528.84 306.52,528.84 307.25,528.84 307.97,528.84 308.70,528.84 309.42,528.84 310.15,528.84 310.87,528.84 311.60,528.84 312.33,528.84 313.05,528.84 313.78,528.84 314.50,528.84 315.23,528.84 315.95,528.84 316.68,528.84 317.41,528.84 318.13,528.84 318.86,528.84 319.58,528.84 320.31,528.84 321.03,528.84 321.76,528.84 322.48,528.84 323.21,528.84 323.94,528.84 324.66,528.84 325.39,528.84 326.11,528.84 326.84,528.84 327.56,528.84 328.29,528.84 329.02,528.84 329.74,528.84 330.47,528.84 331.19,528.84 331.92,528.84 332.64,528.84 333.37,528.84 334.10,528.84 334.82,528.84 335.55,528.84 336.27,528.84 337.00,528.84 337.72,528.84 338.45,528.84 339.17,528.84 339.90,528.84 340.63,528.84 341.35,528.84 342.08,528.84 342.80,528.84 343.53,528.84 344.25,528.84 344.98,528.84 345.71,528.84 346.43,528.84 347.16,528.84 347.88,528.84 348.61,528.84 349.33,528.84 350.06,528.84 350.79,528.84 351.51,528.84 352.24,528.84 352.96,528.84 353.69,528.84 354.41,528.84 355.14,528.84 355.86,528.84 356.59,528.84 357.32,528.84 358.04,528.84 358.77,528.84 359.49,528.84 360.22,528.84 360.94,528.84 361.67,528.84 362.40,528.84 363.12,528.84 363.85,528.84 364.57,528.84 365.30,528.84 366.02,528.84 366.75,528.84 367.48,528.84 368.20,528.84 368.93,528.84 369.65,528.84 370.38,528.84 371.10,528.84 371.83,528.84 372.55,528.84 373.28,528.84 374.01,528.84 374.73,528.84 375.46,528.84 376.18,528.84 376.91,528.84 377.63,528.84 378.36,528.84 379.09,528.84 379.81,528.84 380.54,528.84 381.26,528.84 381.99,528.84 382.71,528.84 383.44,528.84 384.17,528.84 384.89,528.84 385.62,528.84 386.34,528.84 387.07,528.84 387.79,528.84 388.52,528.84 389.24,528.84 389.97,528.84 390.70,528.84 391.42,528.84 392.15,528.84 392.87,528.84 393.60,528.84 394.32,528.84 395.05,528.84 395.78,528.84 396.50,528.84 397.23,528.84 397.95,528.84 398.68,528.84 399.40,528.84 400.13,528.84 400.86,528.84 401.58,528.84 402.31,528.84 403.03,528.84 403.76,528.84 404.48,528.84 405.21,528.84 405.93,528.84 406.66,528.84 407.39,528.84 408.11,528.84 408.84,528.84 409.56,528.84 410.29,528.84 411.01,528.84 411.74,528.84 412.47,528.84 413.19,528.84 413.92,528.84 414.64,528.84 415.37,528.84 416.09,528.84 416.82,528.84 417.55,528.84 418.27,528.84 419.00,528.84 419.72,528.84 420.45,528.84 421.17,528.84 421.90,528.84 422.62,528.84 423.35,528.84 424.08,528.84 424.80,528.84 425.53,528.84 426.25,528.84 426.98,528.84 427.70,528.84 428.43,528.84 429.16,528.84 429.88,528.84 430.61,528.84 431.33,528.84 432.06,528.84 432.78,528.84 433.51,528.84 434.24,528.84 434.96,528.84 435.69,528.84 436.41,528.84 437.14,528.84 437.86,528.84 438.59,528.84 439.31,528.84 440.04,528.84 440.77,528.84 441.49,528.84 442.22,528.84 442.94,528.84 443.67,528.84 444.39,528.84 445.12,528.84 445.85,528.84 446.57,528.84 447.30,528.84 448.02,528.84 448.75,528.84 449.47,528.84 450.20,528.84 450.93,528.84 451.65,528.84 452.38,528.84 453.10,528.84 453.83,528.84 454.55,528.84 455.28,528.84 456.01,528.84 456.73,528.84 457.46,528.84 458.18,528.84 458.91,528.84 459.63,528.84 460.36,528.84 461.08,528.84 461.81,528.84 462.54,528.84 463.26,528.84 463.99,528.84 464.71,528.84 465.44,528.84 466.16,528.84 466.89,528.84 467.62,528.84 468.34,528.84 469.07,528.84 469.79,528.84 470.52,528.84 471.24,528.84 471.97,528.84 472.70,528.84 473.42,528.84 474.15,528.84 474.87,528.84 475.60,528.84 476.32,528.84 477.05,528.84 477.77,528.84 478.50,528.84 479.23,528.84 479.95,528.84 480.68,528.84 481.40,528.84 482.13,528.84 482.85,528.84 483.58,528.84 484.31,528.84 485.03,528.84 485.76,528.84 486.48,528.84 487.21,528.84 487.93,528.84 488.66,528.84 489.39,528.84 490.11,528.84 490.84,528.84 491.56,528.84 492.29,528.84 493.01,528.84 493.74,528.84 494.46,528.84 495.19,528.84 495.92,528.84 496.64,528.84 497.37,528.84 498.09,528.84 498.82,528.84 499.54,528.84 500.27,528.84 501.00,528.84 501.72,528.84 502.45,528.84 503.17,528.84 503.90,528.84 504.62,528.84 505.35,528.84 506.08,528.84 506.80,528.84 507.53,528.84 508.25,528.84 508.98,528.84 509.70,528.84 510.43,528.84 511.15,528.84 511.88,528.84 512.61,528.84 513.33,528.84 514.06,528.84 514.78,528.84 515.51,528.84 516.23,528.84 516.96,528.84 517.69,528.84 518.41,528.84 519.14,528.84 519.86,528.84 520.59,528.84 521.31,528.84 522.04,528.84 522.77,528.84 523.49,528.84 524.22,528.84 524.94,528.84 525.67,528.84 526.39,528.84 527.12,528.84 527.84,528.84 528.57,528.84 529.30,528.84 530.02,528.84 530.75,528.84 531.47,528.84 532.20,528.84 532.92,528.84 533.65,528.84 534.38,528.84 535.10,528.84 535.83,528.84 536.55,528.84 537.28,528.84 538.00,528.84 538.73,528.84 539.46,528.84 540.18,528.84 540.91,528.84 541.63,528.84 542.36,528.84 543.08,528.84 543.81,528.84 544.53,528.84 545.26,528.84 545.99,528.84 546.71,528.84 547.44,528.84 548.16,528.84 548.89,528.84 549.61,528.84 550.34,528.84 551.07,528.84 551.79,528.84 552.52,528.84 553.24,528.84 553.97,528.84 554.69,528.84 555.42,528.84 556.15,528.84 556.87,528.84 557.60,528.84 558.32,528.84 559.05,528.84 559.77,528.84 560.50,528.84 561.22,528.84 561.95,528.84 562.68,528.84 563.40,528.84 564.13,528.84 564.85,528.84 565.58,528.84 566.30,528.84 567.03,528.84 567.76,528.84 568.48,528.84 569.21,528.84 569.93,528.84 570.66,528.84 571.38,528.84 572.11,528.84 572.84,528.84 573.56,528.84 574.29,528.84 575.01,528.84 575.74,528.84 576.46,528.84 577.19,528.84 577.92,528.84 578.64,528.84 579.37,528.84 580.09,528.84 580.82,528.84 581.54,528.84 582.27,528.84 582.99,528.84 583.72,528.84 584.45,528.84 585.17,528.84 585.90,528.84 586.62,528.84 587.35,528.84 588.07,528.84 588.80,528.84 589.53,528.84 590.25,528.84 590.98,528.84 591.70,528.84 592.43,528.84 593.15,528.84 593.88,528.84 594.61,528.84 595.33,528.84 596.06,528.84 596.78,528.84 597.51,528.84 598.23,528.84 598.96,528.84 599.68,528.84 600.41,528.84 601.14,528.84 601.86,528.84 602.59,528.84 603.31,528.84 604.04,528.84 604.76,528.84 605.49,528.84 606.22,528.84 606.94,528.84 607.67,528.84 608.39,528.84 609.12,528.84 609.84,528.84 610.57,528.84 611.30,528.84 612.02,528.84 612.75,528.84 613.47,528.84 614.20,528.84 614.92,528.84 615.65,528.84 616.37,528.84 617.10,528.84 617.83,528.84 618.55,528.84 619.28,528.84 620.00,528.84 620.73,528.84 621.45,528.84 622.18,528.84 622.91,528.84 623.63,528.84 624.36,528.84 625.08,528.84 625.81,528.84 626.53,528.84 627.26,528.84 627.99,528.84 628.71,528.84 629.44,528.84 630.16,528.84 630.89,528.84 631.61,528.84 632.34,528.84 633.06,528.84 633.79,528.84 634.52,528.84 635.24,528.84 635.97,528.84 636.69,528.84 637.42,528.84 638.14,528.84 638.87,528.84 639.60,528.84 640.32,528.84 641.05,528.84 641.77,528.84 642.50,528.84 643.22,528.84 643.95,528.84 644.68,528.84 645.40,528.84 646.13,528.84 646.85,528.84 647.58,528.84 648.30,528.84 649.03,528.84 649.75,528.84 650.48,528.84 651.21,528.84 651.93,528.84 652.66,528.84 653.38,528.84 654.11,528.84 654.83,528.84 655.56,528.84 656.29,528.84 657.01,528.84 657.74,528.84 658.46,528.84 659.19,528.84 659.91,528.84 660.64,528.84 661.37,528.84 662.09,528.84 662.82,528.84 663.54,528.84 664.27,528.84 664.99,528.84 665.72,528.84 666.44,70.90 667.17,528.84 667.90,528.84 668.62,528.84 669.35,528.84 670.07,528.84 670.80,528.84 671.52,528.84 672.25,528.84 672.98,528.84 673.70,528.84 674.43,528.84 675.15,528.84 675.88,528.84 676.60,528.84 677.33,528.84 678.06,528.84 678.78,528.84 679.51,528.84 680.23,528.84 680.96,528.84 681.68,528.84 682.41,528.84 683.13,528.84 683.86,528.84 684.59,528.84 685.31,528.84 686.04,528.84 686.76,528.84 687.49,528.84 688.21,528.84 688.94,528.84 689.67,528.84 690.39,528.84 691.12,528.84 691.84,528.84 692.57,528.84 693.29,528.84 694.02,528.84 694.75,528.84 695.47,528.84 696.20,528.84 696.92,528.84 697.65,528.84 698.37,528.84 699.10,528.84 699.83,528.84 700.55,528.84 701.28,528.84 702.00,528.84 702.73,528.84 703.45,528.84 704.18,528.84 704.90,528.84 705.63,528.84 706.36,528.84 707.08,528.84 707.81,528.84 708.53,528.84 709.26,528.84 709.98,528.84 710.71,528.84 711.44,528.84 712.16,528.84 712.89,528.84 713.61,528.84 714.34,528.84 715.06,528.84 715.79,528.84 716.52,528.84 717.24,528.84 717.97,528.84 718.69,528.84 719.42,528.84 720.14,528.84 720.87,528.84 721.59,528.84 722.32,528.84 723.05,528.84 723.77,528.84 724.50,528.84 725.22,528.84 725.95,528.84 726.67,528.84 727.40,528.84 728.13,528.84 728.85,528.84 729.58,528.84 730.30,528.84 731.03,528.84 731.75,528.84 732.48,528.84 733.21,528.84 733.93,528.84 734.66,528.84 735.38,528.84 736.11,528.84 736.83,528.84 737.56,528.84 738.28,528.84 739.01,528.84 739.74,528.84 740.46,528.84 741.19,528.84 741.91,528.84 742.64,528.84 743.36,528.84 744.09,528.84 744.82,528.84 745.54,528.84 746.27,528.84 746.99,528.84 747.72,528.84 748.44,528.84 749.17,528.84 749.90,528.84 750.62,528.84 751.35,528.84 752.07,528.84 752.80,528.84 753.52,528.84 754.25,528.84 754.97,528.84 755.70,528.84 756.43,528.84 757.15,528.84 757.88,528.84 758.60,528.84 759.33,528.84 760.05,528.84 760.78,528.84 761.51,528.84 762.23,528.84 762.96,528.84 763.68,528.84 764.41,528.84 765.13,528.84 765.86,528.84 766.59,528.84 767.31,528.84 768.04,528.84 768.76,528.84 769.49,528.84 770.21,528.84 770.94,528.84 771.66,528.84 772.39,528.84 773.12,528.84 773.84,528.84 774.57,528.84 775.29,70.90 776.02,528.84 776.74,528.84 777.47,528.84 778.20,528.84 778.92,528.84 779.65,528.84 780.37,528.84 781.10,528.84 781.82,528.84 782.55,528.84 783.28,528.84 784.00,528.84 784.73,528.84 785.45,528.84 786.18,528.84 786.90,528.84 787.63,528.84 788.35,528.84 789.08,528.84 789.81,528.84 790.53,528.84 791.26,528.84 791.98,528.84 792.71,528.84 793.43,528.84 794.16,528.84 794.89,528.84 795.61,528.84 796.34,528.84 797.06,528.84 797.79,528.84 798.51,528.84 799.24,528.84 799.97,528.84 800.69,528.84 801.42,528.84 802.14,528.84 802.87,528.84 803.59,528.84 804.32,528.84 805.05,528.84 805.77,528.84 806.50,528.84 807.22,528.84 807.95,528.84 808.67,528.84 809.40,528.84 810.12,528.84 810.85,528.84 811.58,528.84 812.30,528.84 813.03,528.84 813.75,528.84 814.48,528.84 815.20,528.84 815.93,528.84 816.66,528.84 817.38,528.84 818.11,528.84 818.83,528.84 819.56,528.84 820.28,528.84 821.01,528.84 821.74,528.84 822.46,528.84 823.19,528.84 823.91,528.84 824.64,528.84 825.36,528.84 826.09,528.84 826.81,528.84 827.54,528.84 828.27,528.84 828.99,528.84 829.72,528.84" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">One FFT over the whole record</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">frequency (Hz)</text>
+<text x="52.91" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 52.91 288.42)">magnitude</text>
+</svg></figure></div>
+<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<span class="f">spectrogram</span>(x, <span class="n">256</span>, <span class="n">32</span>, Fs)
+<span class="f">title</span>(<span class="s">"Short-time Fourier transform of the same signal"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+</code></pre>
+</div>
+<p>A tone that switches from 300 Hz to 900 Hz halfway through produces one FFT with two smeared peaks and no timing information at all; the STFT of the identical signal shows the switch, and exactly when it happens.</p>
+<h2 id="s26">In Qu</h2>
+<p>Build a toy vowel: three sustained tones standing in for three formants, sounding for 200 milliseconds inside half a second of noisy near-silence. First find *when* it happens using short-time energy, then read off *what* frequencies it carries from the STFT frame at that moment.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">3</span>)
+Fs = <span class="n">8000</span>
+N = <span class="n">4000</span>
+n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
+t = n / Fs
+
+active = <span class="f">abs</span>(t - <span class="n">0.25</span>) &lt;= <span class="n">0.10</span>
+env = <span class="f">where</span>(active, <span class="n">1</span>, <span class="n">0</span>)
+voice = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">700</span>*t) + <span class="n">0.6</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">1200</span>*t) + <span class="n">0.3</span>*<span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">2600</span>*t)
+x = env .* voice + <span class="n">0.02</span> * <span class="f">randn</span>(N)
+
+win = <span class="n">256</span>
+hop = <span class="n">64</span>
+<span class="f">figure</span>()
+<span class="f">spectrogram</span>(x, win, hop, Fs)
+<span class="f">title</span>(<span class="s">"A synthetic 200 ms 'vowel'"</span>)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"frequency (Hz)"</span>)
+
+e = <span class="f">ste</span>(x, win, hop)
+voiced_frame = <span class="f">argmax</span>(e)
+<span class="f">print</span>(<span class="s">"voiced frame: {voiced_frame} at t = {voiced_frame * hop / Fs:.3f} s"</span>)
+
+S = <span class="f">stft</span>(x, win, hop)
+col = <span class="f">abs</span>(S[<span class="n">0</span>:win/<span class="n">2</span>, voiced_frame])
+f = (<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(col) - <span class="n">1</span>) * Fs / win
+
+peaks = <span class="f">find_peaks</span>(col, <span class="a">min_height</span>=<span class="f">max</span>(col)*<span class="n">0.2</span>, <span class="a">min_distance</span>=<span class="n">3</span>)
+<span class="f">print</span>(<span class="s">"formant bins: {peaks}"</span>)
+<span class="f">print</span>(<span class="s">"formant frequencies (Hz): {f[peaks]}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>voiced frame: 27 at t = 0.216 s
+formant bins: [22, 38, 83]
+formant frequencies (Hz): [687.5, 1187.5, 2593.75]</pre></div></div>
+<pre><code>voiced frame: 27 at t = 0.216 s
+formant bins: [22, 38, 83]
+formant frequencies (Hz): [687.5, 1187.5, 2593.75]
+</code></pre>
+<p><code>ste</code> slides a 256-sample window across <code>x</code> and reports the energy in each one; the frame with the most energy lands at t = 0.216 s, comfortably inside the true 0.15-to-0.35 s voiced region, found without ever telling the code where that region was. That frame's STFT column, run through <code>find_peaks</code>, recovers three peaks at 687.5, 1187.5, and 2593.75 Hz against true formants of 700, 1200, and 2600 Hz — every one within 13 Hz. That gap is not measurement noise; it is the FFT's frequency grid. At <code>nfft = 256</code> and 8000 Hz, each bin covers <code>8000/256 = 31.25</code> Hz, so no reading can land closer than half a bin, 15.6 Hz, to the truth.</p>
+<p><code>ste</code> found the voiced region to within one 64-sample hop — plenty of precision for reading formants, not enough to pin an onset. The Teager-Kaiser energy operator tracks energy sample by sample instead of window by window, with no averaging to smear a sharp transition:</p>
+<p>\[ \psi[x[n]] = x[n]^2 - x[n-1]\,x[n+1] \]</p>
+<div class="example hasout"><pre class="hl"><code>psi = <span class="f">tkeo</span>(x)
+thresh = <span class="f">max</span>(psi) * <span class="n">0.1</span>
+onset_sample = <span class="f">find</span>(psi &gt; thresh)[<span class="n">0</span>]
+<span class="f">print</span>(<span class="s">"tkeo onset: sample {onset_sample}, t = {onset_sample / Fs:.4f} s (true onset: 0.1500 s)"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>tkeo onset: sample 1200, t = 0.1500 s (true onset: 0.1500 s)</pre></div></div>
+<pre><code>tkeo onset: sample 1200, t = 0.1500 s (true onset: 0.1500 s)
+</code></pre>
+<p>That lands on the true onset exactly, because this synthetic vowel switches on like a light switch; a real recording's onset is gradual and <code>tkeo</code> would show a ramp rather than a step, but the mechanism is the one a real onset detector uses: track something nonlinear in the energy, threshold it, take the first crossing. Qu has no dedicated formant tracker, no LPC, and no phoneme classifier — searching the signal-processing chapter for anything speech-specific turns up exactly <code>stft</code> and <code>find_peaks</code>, used above. That absence is not a hole so much as a fact worth stating: this *is* how a formant tracker starts. It is also, essentially, what Homer Dudley's vocoder did at Bell Labs in 1939, analysing a voice into a handful of resonance bands and re-synthesising speech from that description, decades before anyone had a Fourier transform fast enough to do it digitally.</p>
+<h2 id="s50">What one microphone cannot tell you</h2>
+<p>Every number above came from a single channel: one microphone, one waveform, one STFT. It could say *when* the vowel started and *what* frequencies it carried, but it had no way to answer a question just as basic — *where* did the sound come from? A single sensor collapses every direction in space onto the same one-dimensional trace, no matter how cleverly you window or transform it. The fix is not a better transform; it is more microphones. Lesson 18 turns space itself into an axis you can process.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

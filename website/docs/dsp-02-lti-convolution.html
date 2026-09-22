@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LTI Systems and Convolution — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html" class="here">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>LTI Systems and Convolution</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>A concrete stairwell returns more than the clap sent into it — copies of that same clap, delayed and shrunk by each wall. Talk in the stairwell instead, and every syllable gets the identical treatment.</p>
+<p>A <strong>system</strong> takes a signal in and returns a signal out: a stairwell, a microphone, a moving average, a car suspension. Two properties, independent of each other, decide whether that system is tractable.</p>
+<p><strong>Linearity.</strong> Scaling the input scales the output by the same factor, and the response to a sum of inputs is the sum of the responses:</p>
+<p>\[ S(a\,x_1[n] + b\,x_2[n]) = a\,S(x_1[n]) + b\,S(x_2[n]). \]</p>
+<p><strong>Time-invariance.</strong> Delaying the input only delays the output, unchanged: if \(S(x[n]) = y[n]\), then \(S(x[n-d]) = y[n-d]\).</p>
+<p>A system with both is <strong>LTI</strong>, and nearly everything not deliberately built otherwise qualifies, at least over the range it is used in. The payoff is an equivalence: any discrete signal is a sum of scaled, shifted impulses — that is what a list of numbers *means*. By time-invariance, the system's response to a unit impulse at sample \(k\) is its <strong>impulse response</strong> \(h[n]\), shifted by \(k\). By linearity, the response to any input is a sum of shifted, scaled copies of \(h[n]\):</p>
+<p>\[ y[n] = \sum_{k=-\infty}^{\infty} h[k]\,x[n-k] = (x * h)[n]. \]</p>
+<p>This operation is <strong>convolution</strong>. Flip one sequence, slide it to position \(n\), multiply the overlap, sum — once per output sample. The German name, *Faltung*, means folding, and the fold is visible in the formula: as \(k\) runs forward through \(h\), the index into \(x\) runs backward.</p>
+<div class="example hasout"><pre class="hl"><code>n = <span class="n">0</span> <span class="k">to</span> <span class="n">15</span>
+h = <span class="n">0.7</span> .^ n
+
+<span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>)
+<span class="f">stem</span>(n, h, <span class="a">color</span> = <span class="s">"royalblue"</span>)
+<span class="f">title</span>(<span class="s">"A generic impulse response h[n]"</span>)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"h[n]"</span>)
+
+a = <span class="f">zeros</span>(<span class="n">16</span>)
+a[<span class="n">3</span>:<span class="n">7</span>] = <span class="n">1.0</span>
+c = <span class="f">conv</span>(a, a)
+<span class="f">subplot</span>(<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>)
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(c)-<span class="n">1</span>, c, <span class="a">color</span> = <span class="s">"seagreen"</span>)
+<span class="f">title</span>(<span class="s">"Two rectangular pulses convolved: a triangle"</span>)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· stem: figure 1 (16 points)
+· stem: figure 2 (31 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="425.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="485.34" x2="425.00" y2="485.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="485.34" x2="104.06" y2="485.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="491.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="104.06" y1="441.84" x2="425.00" y2="441.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="441.84" x2="104.06" y2="441.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="447.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="398.34" x2="425.00" y2="398.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="398.34" x2="104.06" y2="398.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="404.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="104.06" y1="354.84" x2="425.00" y2="354.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="354.84" x2="104.06" y2="354.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="360.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="311.34" x2="425.00" y2="311.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="311.34" x2="104.06" y2="311.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="317.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="267.84" x2="425.00" y2="267.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="267.84" x2="104.06" y2="267.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="273.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="224.34" x2="425.00" y2="224.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="224.34" x2="104.06" y2="224.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="230.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="104.06" y1="180.84" x2="425.00" y2="180.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="180.84" x2="104.06" y2="180.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="186.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="137.34" x2="425.00" y2="137.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="137.34" x2="104.06" y2="137.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="143.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="104.06" y1="93.84" x2="425.00" y2="93.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="93.84" x2="104.06" y2="93.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="99.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="72.19" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="185.57" y1="72.19" x2="185.57" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="185.57" y1="528.84" x2="185.57" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="185.57" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="267.08" y1="72.19" x2="267.08" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="267.08" y1="528.84" x2="267.08" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="267.08" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="348.59" y1="72.19" x2="348.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="348.59" y1="528.84" x2="348.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="348.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">12</text>
+<line x1="104.06" y1="528.84" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="72.19" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="72.19" x2="425.00" y2="72.19" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="425.00" y1="72.19" x2="425.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-7219-32094-45665"><rect x="104.06" y="72.19" width="320.94" height="456.65"/></clipPath><g clip-path="url(#qu-clip-10406-7219-32094-45665)">
+<line x1="104.06" y1="528.84" x2="104.06" y2="93.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="104.06" cy="93.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="124.44" y1="528.84" x2="124.44" y2="224.34" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="124.44" cy="224.34" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="144.82" y1="528.84" x2="144.82" y2="315.69" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="144.82" cy="315.69" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="165.19" y1="528.84" x2="165.19" y2="379.64" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="165.19" cy="379.64" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="185.57" y1="528.84" x2="185.57" y2="424.40" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="185.57" cy="424.40" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="205.95" y1="528.84" x2="205.95" y2="455.73" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="205.95" cy="455.73" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="226.32" y1="528.84" x2="226.32" y2="477.67" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="226.32" cy="477.67" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="246.70" y1="528.84" x2="246.70" y2="493.02" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="246.70" cy="493.02" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="267.08" y1="528.84" x2="267.08" y2="503.77" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="267.08" cy="503.77" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="287.46" y1="528.84" x2="287.46" y2="511.29" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="287.46" cy="511.29" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="307.83" y1="528.84" x2="307.83" y2="516.56" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="307.83" cy="516.56" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="328.21" y1="528.84" x2="328.21" y2="520.24" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="328.21" cy="520.24" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="348.59" y1="528.84" x2="348.59" y2="522.82" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="348.59" cy="522.82" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="368.96" y1="528.84" x2="368.96" y2="524.63" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="368.96" cy="524.63" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="389.34" y1="528.84" x2="389.34" y2="525.89" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="389.34" cy="525.89" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="409.72" y1="528.84" x2="409.72" y2="526.78" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="409.72" cy="526.78" r="2.6" fill="#4169e1" stroke="none"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">A generic impulse response</text>
+<text x="104.06" y="55.69" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">h[n]</text>
+<text x="264.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="58.46" y="300.52" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 300.52)">h[n]</text>
+<line x1="545.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="528.84" x2="545.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="545.06" y1="485.35" x2="866.00" y2="485.35" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="485.35" x2="545.06" y2="485.35" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="491.02" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="545.06" y1="441.86" x2="866.00" y2="441.86" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="441.86" x2="545.06" y2="441.86" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="447.53" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="545.06" y1="398.37" x2="866.00" y2="398.37" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="398.37" x2="545.06" y2="398.37" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="404.04" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="545.06" y1="354.88" x2="866.00" y2="354.88" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="354.88" x2="545.06" y2="354.88" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="360.55" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.0</text>
+<line x1="545.06" y1="311.39" x2="866.00" y2="311.39" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="311.39" x2="545.06" y2="311.39" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="317.06" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.5</text>
+<line x1="545.06" y1="267.90" x2="866.00" y2="267.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="267.90" x2="545.06" y2="267.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="273.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">3.0</text>
+<line x1="545.06" y1="224.41" x2="866.00" y2="224.41" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="224.41" x2="545.06" y2="224.41" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="230.08" font-size="16.2" text-anchor="end" fill="#4d4d4d">3.5</text>
+<line x1="545.06" y1="180.92" x2="866.00" y2="180.92" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="180.92" x2="545.06" y2="180.92" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="186.59" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.0</text>
+<line x1="545.06" y1="137.43" x2="866.00" y2="137.43" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="137.43" x2="545.06" y2="137.43" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="143.10" font-size="16.2" text-anchor="end" fill="#4d4d4d">4.5</text>
+<line x1="545.06" y1="93.94" x2="866.00" y2="93.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="540.56" y1="93.94" x2="545.06" y2="93.94" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="533.81" y="99.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">5.0</text>
+<line x1="545.06" y1="72.19" x2="545.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="528.84" x2="545.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="545.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="646.95" y1="72.19" x2="646.95" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="646.95" y1="528.84" x2="646.95" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="646.95" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="748.83" y1="72.19" x2="748.83" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="748.83" y1="528.84" x2="748.83" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="748.83" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="850.72" y1="72.19" x2="850.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="850.72" y1="528.84" x2="850.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="850.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="545.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="72.19" x2="545.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="545.06" y1="72.19" x2="866.00" y2="72.19" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="72.19" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-54506-7219-32094-45665"><rect x="545.06" y="72.19" width="320.94" height="456.65"/></clipPath><g clip-path="url(#qu-clip-54506-7219-32094-45665)">
+<line x1="545.06" y1="528.84" x2="545.06" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="545.06" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="555.25" y1="528.84" x2="555.25" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="555.25" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="565.44" y1="528.84" x2="565.44" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="565.44" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="575.63" y1="528.84" x2="575.63" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="575.63" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="585.82" y1="528.84" x2="585.82" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="585.82" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="596.00" y1="528.84" x2="596.00" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="596.00" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="606.19" y1="528.84" x2="606.19" y2="441.86" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="606.19" cy="441.86" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="616.38" y1="528.84" x2="616.38" y2="354.88" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="616.38" cy="354.88" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="626.57" y1="528.84" x2="626.57" y2="267.90" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="626.57" cy="267.90" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="636.76" y1="528.84" x2="636.76" y2="180.92" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="636.76" cy="180.92" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="646.95" y1="528.84" x2="646.95" y2="93.94" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="646.95" cy="93.94" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="657.14" y1="528.84" x2="657.14" y2="180.92" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="657.14" cy="180.92" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="667.32" y1="528.84" x2="667.32" y2="267.90" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="667.32" cy="267.90" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="677.51" y1="528.84" x2="677.51" y2="354.88" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="677.51" cy="354.88" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="687.70" y1="528.84" x2="687.70" y2="441.86" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="687.70" cy="441.86" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="697.89" y1="528.84" x2="697.89" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="697.89" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="708.08" y1="528.84" x2="708.08" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="708.08" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="718.27" y1="528.84" x2="718.27" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="718.27" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="728.46" y1="528.84" x2="728.46" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="728.46" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="738.64" y1="528.84" x2="738.64" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="738.64" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="748.83" y1="528.84" x2="748.83" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="748.83" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="759.02" y1="528.84" x2="759.02" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="759.02" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="769.21" y1="528.84" x2="769.21" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="769.21" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="779.40" y1="528.84" x2="779.40" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="779.40" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="789.59" y1="528.84" x2="789.59" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="789.59" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="799.77" y1="528.84" x2="799.77" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="799.77" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="809.96" y1="528.84" x2="809.96" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="809.96" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="820.15" y1="528.84" x2="820.15" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="820.15" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="830.34" y1="528.84" x2="830.34" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="830.34" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="840.53" y1="528.84" x2="840.53" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="840.53" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+<line x1="850.72" y1="528.84" x2="850.72" y2="528.84" stroke="#2e8b57" stroke-width="1.2"/>
+<circle cx="850.72" cy="528.84" r="2.6" fill="#2e8b57" stroke="none"/>
+</g>
+<text x="545.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Two rectangular pulses</text>
+<text x="545.06" y="55.69" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">convolved: a triangle</text>
+<text x="705.53" y="577.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="499.46" y="300.52" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 499.46 300.52)">amplitude</text>
+</svg></figure></div>
+<p>The exponential decay on the left is a plausible \(h[n]\) — a system that remembers its recent past and forgets it geometrically. The triangle on the right is what convolving two identical rectangular pulses always produces: overlap grows linearly to a peak, then shrinks the same way.</p>
+<p>Two structural facts follow directly from \(h[n]\), and both matter later. A system is <strong>causal</strong> — it does not respond before it is struck — exactly when \(h[n] = 0\) for all \(n &lt; 0\). It is <strong>stable</strong>, meaning a bounded input can never produce an unbounded output, exactly when \(\sum_n |h[n]| &lt; \infty\).</p>
+<h2 id="s26">In Qu</h2>
+<p>A stairwell with two walls, written literally — direct sound, one reflection three samples later at 60% amplitude, a second seven samples later at 30%:</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">room</span>(x)
+    n = <span class="f">length</span>(x)
+    y = <span class="f">zeros</span>(n)
+    <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> n-<span class="n">1</span>
+        y[i] = x[i]
+        <span class="k">if</span> i &gt;= <span class="n">3</span> <span class="k">then</span>
+            y[i] += <span class="n">0.6</span> * x[i-<span class="n">3</span>]
+        <span class="k">end</span> <span class="k">if</span>
+        <span class="k">if</span> i &gt;= <span class="n">7</span> <span class="k">then</span>
+            y[i] += <span class="n">0.3</span> * x[i-<span class="n">7</span>]
+        <span class="k">end</span> <span class="k">if</span>
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> y
+<span class="k">end</span> <span class="k">function</span>
+
+clap = <span class="f">impulse</span>(<span class="n">8</span>)
+h    = <span class="f">room</span>(clap)
+<span class="f">print</span>(<span class="s">"clap = {clap}"</span>)
+<span class="f">print</span>(<span class="s">"h    = {h}"</span>)
+
+<span class="f">figure</span>()
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">7</span>, h, <span class="a">color</span> = <span class="s">"royalblue"</span>)
+<span class="f">title</span>(<span class="s">"The room's impulse response h[n], measured with one clap"</span>)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"h[n]"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>clap = [1, 0, 0, 0, 0, 0, 0, 0]
+h    = [1, 0, 0, 0.6, 0, 0, 0, 0.3]
+· stem: figure 3 (8 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="207.73" y1="48.00" x2="207.73" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="207.73" y1="528.84" x2="207.73" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="207.73" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1</text>
+<line x1="311.39" y1="48.00" x2="311.39" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="311.39" y1="528.84" x2="311.39" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="311.39" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
+<line x1="415.06" y1="48.00" x2="415.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="415.06" y1="528.84" x2="415.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="415.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">3</text>
+<line x1="518.72" y1="48.00" x2="518.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="518.72" y1="528.84" x2="518.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="518.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="622.39" y1="48.00" x2="622.39" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="622.39" y1="528.84" x2="622.39" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="622.39" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">5</text>
+<line x1="726.05" y1="48.00" x2="726.05" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="726.05" y1="528.84" x2="726.05" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="726.05" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">7</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<line x1="104.06" y1="528.84" x2="104.06" y2="70.90" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="104.06" cy="70.90" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="207.73" y1="528.84" x2="207.73" y2="528.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="207.73" cy="528.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="311.39" y1="528.84" x2="311.39" y2="528.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="311.39" cy="528.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="415.06" y1="528.84" x2="415.06" y2="254.08" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="415.06" cy="254.08" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="518.72" y1="528.84" x2="518.72" y2="528.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="518.72" cy="528.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="622.39" y1="528.84" x2="622.39" y2="528.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="622.39" cy="528.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="726.05" y1="528.84" x2="726.05" y2="528.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="726.05" cy="528.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="391.46" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="829.72" cy="391.46" r="2.6" fill="#4169e1" stroke="none"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">The room's impulse response h[n], measured with one clap</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="58.46" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 288.42)">h[n]</text>
+</svg></figure></div>
+<pre><code>clap = [1, 0, 0, 0, 0, 0, 0, 0]
+h    = [1, 0, 0, 0.6, 0, 0, 0, 0.3]
+</code></pre>
+<p>That output is the floor plan of the room, read straight off a single measurement. Check both defining properties before trusting anything built on them:</p>
+<div class="example hasout"><pre class="hl"><code>a2 = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">2</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>]
+b  = <span class="f">randn</span>(<span class="n">12</span>, <span class="a">seed</span> = <span class="n">3</span>)
+lhs = <span class="f">room</span>(<span class="n">2</span>*a2 - <span class="n">5</span>*b)
+rhs = <span class="n">2</span>*<span class="f">room</span>(a2) - <span class="n">5</span>*<span class="f">room</span>(b)
+<span class="f">print</span>(<span class="s">"linearity, worst difference: {max(abs(lhs - rhs)):.2e}"</span>)
+
+p = <span class="f">impulse</span>(<span class="n">20</span>, <span class="a">index</span> = <span class="n">2</span>)
+r = <span class="f">impulse</span>(<span class="n">20</span>, <span class="a">index</span> = <span class="n">9</span>)
+yp = <span class="f">room</span>(p)
+yr = <span class="f">room</span>(r)
+<span class="f">print</span>(<span class="s">"time invariance, worst difference: {max(abs(yr[7:19] - yp[0:12])):.2e}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>linearity, worst difference: 4.44e-16
+time invariance, worst difference: 0.00e0</pre></div></div>
+<pre><code>linearity, worst difference: 4.44e-16
+time invariance, worst difference: 0.00e0
+</code></pre>
+<p>Four parts in ten quadrillion is double-precision rounding. The second result is exactly zero, because delaying a tap and delaying the answer are the same shuffle of the same numbers.</p>
+<p>Watch the pile-of-copies argument work on two claps, one of them louder and later:</p>
+<div class="example hasout"><pre class="hl"><code>x2 = <span class="f">zeros</span>(<span class="n">24</span>)
+x2[<span class="n">0</span>]  = <span class="n">1</span>
+x2[<span class="n">12</span>] = <span class="n">0.7</span>
+y2 = <span class="f">room</span>(x2)
+
+<span class="f">figure</span>()
+<span class="f">subplot</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">1</span>)
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">23</span>, x2, <span class="a">color</span> = <span class="s">"royalblue"</span>)
+<span class="f">title</span>(<span class="s">"Input: two claps"</span>)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"x[n]"</span>)
+<span class="f">subplot</span>(<span class="n">2</span>, <span class="n">1</span>, <span class="n">2</span>)
+<span class="f">stem</span>(<span class="n">0</span> <span class="k">to</span> <span class="n">23</span>, y2, <span class="a">color</span> = <span class="s">"crimson"</span>)
+<span class="f">title</span>(<span class="s">"Output: each clap dragging its own pair of echoes"</span>)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"y[n]"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· stem: figure 4 (24 points)
+· stem: figure 5 (24 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="237.84" x2="866.00" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="237.84" x2="104.06" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="243.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="201.68" x2="866.00" y2="201.68" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="201.68" x2="104.06" y2="201.68" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="207.35" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="165.52" x2="866.00" y2="165.52" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="165.52" x2="104.06" y2="165.52" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="171.19" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="129.36" x2="866.00" y2="129.36" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="129.36" x2="104.06" y2="129.36" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="135.03" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="93.20" x2="866.00" y2="93.20" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="93.20" x2="104.06" y2="93.20" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="98.87" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="57.04" x2="866.00" y2="57.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="57.04" x2="104.06" y2="57.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="62.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="237.84" x2="104.06" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="230.26" y1="48.00" x2="230.26" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="230.26" y1="237.84" x2="230.26" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="230.26" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="356.46" y1="48.00" x2="356.46" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="356.46" y1="237.84" x2="356.46" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="356.46" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="482.66" y1="48.00" x2="482.66" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="482.66" y1="237.84" x2="482.66" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="482.66" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">12</text>
+<line x1="608.87" y1="48.00" x2="608.87" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="608.87" y1="237.84" x2="608.87" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="608.87" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">16</text>
+<line x1="735.07" y1="48.00" x2="735.07" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="735.07" y1="237.84" x2="735.07" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="735.07" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="861.27" y1="48.00" x2="861.27" y2="237.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="861.27" y1="237.84" x2="861.27" y2="242.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="861.27" y="258.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">24</text>
+<line x1="104.06" y1="237.84" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="237.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-18984"><rect x="104.06" y="48.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-18984)">
+<line x1="104.06" y1="237.84" x2="104.06" y2="57.04" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="104.06" cy="57.04" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="135.61" y1="237.84" x2="135.61" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="135.61" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="167.16" y1="237.84" x2="167.16" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="167.16" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="198.71" y1="237.84" x2="198.71" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="198.71" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="230.26" y1="237.84" x2="230.26" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="230.26" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="261.81" y1="237.84" x2="261.81" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="261.81" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="293.36" y1="237.84" x2="293.36" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="293.36" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="324.91" y1="237.84" x2="324.91" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="324.91" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="356.46" y1="237.84" x2="356.46" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="356.46" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="388.01" y1="237.84" x2="388.01" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="388.01" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="419.56" y1="237.84" x2="419.56" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="419.56" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="451.11" y1="237.84" x2="451.11" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="451.11" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="482.66" y1="237.84" x2="482.66" y2="111.28" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="482.66" cy="111.28" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="514.22" y1="237.84" x2="514.22" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="514.22" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="545.77" y1="237.84" x2="545.77" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="545.77" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="577.32" y1="237.84" x2="577.32" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="577.32" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="608.87" y1="237.84" x2="608.87" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="608.87" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="640.42" y1="237.84" x2="640.42" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="640.42" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="671.97" y1="237.84" x2="671.97" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="671.97" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="703.52" y1="237.84" x2="703.52" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="703.52" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="735.07" y1="237.84" x2="735.07" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="735.07" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="766.62" y1="237.84" x2="766.62" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="766.62" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="798.17" y1="237.84" x2="798.17" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="798.17" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+<line x1="829.72" y1="237.84" x2="829.72" y2="237.84" stroke="#4169e1" stroke-width="1.2"/>
+<circle cx="829.72" cy="237.84" r="2.6" fill="#4169e1" stroke="none"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Input: two claps</text>
+<text x="485.03" y="286.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="58.46" y="142.92" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 142.92)">x[n]</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="492.68" x2="866.00" y2="492.68" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="492.68" x2="104.06" y2="492.68" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="498.35" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="456.52" x2="866.00" y2="456.52" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="456.52" x2="104.06" y2="456.52" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="462.19" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="420.36" x2="866.00" y2="420.36" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="420.36" x2="104.06" y2="420.36" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="426.03" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="384.20" x2="866.00" y2="384.20" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="384.20" x2="104.06" y2="384.20" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="389.87" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="348.04" x2="866.00" y2="348.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="348.04" x2="104.06" y2="348.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="353.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="339.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="230.26" y1="339.00" x2="230.26" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="230.26" y1="528.84" x2="230.26" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="230.26" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="356.46" y1="339.00" x2="356.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="356.46" y1="528.84" x2="356.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="356.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="482.66" y1="339.00" x2="482.66" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="482.66" y1="528.84" x2="482.66" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="482.66" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">12</text>
+<line x1="608.87" y1="339.00" x2="608.87" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="608.87" y1="528.84" x2="608.87" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="608.87" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">16</text>
+<line x1="735.07" y1="339.00" x2="735.07" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="735.07" y1="528.84" x2="735.07" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="735.07" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="861.27" y1="339.00" x2="861.27" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="861.27" y1="528.84" x2="861.27" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="861.27" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">24</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="339.00" x2="866.00" y2="339.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="339.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-33900-76194-18984"><rect x="104.06" y="339.00" width="761.94" height="189.84"/></clipPath><g clip-path="url(#qu-clip-10406-33900-76194-18984)">
+<line x1="104.06" y1="528.84" x2="104.06" y2="348.04" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="104.06" cy="348.04" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="135.61" y1="528.84" x2="135.61" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="135.61" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="167.16" y1="528.84" x2="167.16" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="167.16" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="198.71" y1="528.84" x2="198.71" y2="420.36" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="198.71" cy="420.36" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="230.26" y1="528.84" x2="230.26" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="230.26" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="261.81" y1="528.84" x2="261.81" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="261.81" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="293.36" y1="528.84" x2="293.36" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="293.36" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="324.91" y1="528.84" x2="324.91" y2="474.60" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="324.91" cy="474.60" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="356.46" y1="528.84" x2="356.46" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="356.46" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="388.01" y1="528.84" x2="388.01" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="388.01" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="419.56" y1="528.84" x2="419.56" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="419.56" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="451.11" y1="528.84" x2="451.11" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="451.11" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="482.66" y1="528.84" x2="482.66" y2="402.28" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="482.66" cy="402.28" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="514.22" y1="528.84" x2="514.22" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="514.22" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="545.77" y1="528.84" x2="545.77" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="545.77" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="577.32" y1="528.84" x2="577.32" y2="452.91" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="577.32" cy="452.91" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="608.87" y1="528.84" x2="608.87" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="608.87" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="640.42" y1="528.84" x2="640.42" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="640.42" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="671.97" y1="528.84" x2="671.97" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="671.97" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="703.52" y1="528.84" x2="703.52" y2="490.88" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="703.52" cy="490.88" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="735.07" y1="528.84" x2="735.07" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="735.07" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="766.62" y1="528.84" x2="766.62" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="766.62" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="798.17" y1="528.84" x2="798.17" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="798.17" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="528.84" stroke="#dc143c" stroke-width="1.2"/>
+<circle cx="829.72" cy="528.84" r="2.6" fill="#dc143c" stroke="none"/>
+</g>
+<text x="104.06" y="322.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Output: each clap dragging its own pair of echoes</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="58.46" y="433.92" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 433.92)">y[n]</text>
+</svg></figure></div>
+<p>Each clap in the top panel produces its own scaled, shifted copy of \(h[n]\) in the bottom panel, and the two copies add where they overlap. Nothing else is possible once linearity and time-invariance hold.</p>
+<p>The hand-written reflection loop never called <code>conv</code>, and it did not need to:</p>
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>]
+g  = [<span class="n">0.5</span>, <span class="n">1</span>, <span class="n">0.5</span>]
+<span class="f">print</span>(<span class="s">"conv(xs, g) = {conv(xs, g)}"</span>)
+<span class="f">print</span>(<span class="s">"y[3] by hand = {xs[3]*g[0] + xs[2]*g[1] + xs[1]*g[2]}"</span>)
+
+v = <span class="f">randn</span>(<span class="n">64</span>, <span class="a">seed</span> = <span class="n">11</span>)
+<span class="f">print</span>(<span class="s">"room vs conv, worst difference: {max(abs(room(v) - conv(v, h)[0:63])):.2e}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>conv(xs, g) = [0.5, 2, 4, 6, 5.5, 2]
+y[3] by hand = 6
+room vs conv, worst difference: 4.44e-16</pre></div></div>
+<pre><code>conv(xs, g) = [0.5, 2, 4, 6, 5.5, 2]
+y[3] by hand = 6
+room vs conv, worst difference: 4.44e-16
+</code></pre>
+<p>The hand calculation is \(0.5\cdot4 + 1\cdot3 + 0.5\cdot2 = 6\), matching the vector's fourth entry. Sixty-four random samples through the loop and through <code>conv</code> against the measured \(h\) agree to the last bit but one. Every LTI system is a convolution with its own impulse response, and every convolution is an LTI system — the same object, seen from different sides. That is why commercial reverb plug-ins ship as libraries of impulse responses of real cathedrals: clap once, and any voice can be put into that room.</p>
+<p>Every line above took the input for granted — a list of numbers standing in for a wave, faithfully. Test that assumption directly:</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+t  = (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / fs
+low  = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">100</span>*t)
+high = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">900</span>*t)
+<span class="f">print</span>(<span class="s">"100 Hz and 900 Hz sequences, worst difference from being exact negatives: {max(abs(high + low)):.2e}"</span>)
+<span class="f">print</span>(<span class="s">"through the room:  worst difference: {max(abs(room(high) + room(low))):.2e}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>100 Hz and 900 Hz sequences, worst difference from being exact negatives: 1.07e-13
+through the room:  worst difference: 1.03e-13</pre></div></div>
+<pre><code>100 Hz and 900 Hz sequences, worst difference from being exact negatives: 1.07e-13
+through the room:  worst difference: 1.03e-13
+</code></pre>
+<p>A 900 Hz tone and a 100 Hz tone, sampled at 1000 Hz, are the same sequence with a minus sign — not similar, identical to thirteen decimal places. The room, behaving perfectly, returns one answer for two completely different sounds, and no processing afterwards can recover which one arrived. Convolution did nothing wrong here. The damage happened earlier, in the act of turning a wave into a list — which is exactly what Lesson 3 examines.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -61,6 +61,34 @@
 <li><a href="tour.html">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
@@ -700,7 +728,7 @@ false
 <tr><td><code>to_int</code></td><td><code>to_int(x)</code></td><td><code>x</code> is a number, or a <code>Str</code> that parses as one. Rounds to the nearest whole number, ties away from zero — the same primitive <code>round</code> uses, so the two agree by construction rather than by coincidence. MATLAB's <code>int32</code> rounds; C's cast truncates; this rounds, and says so. A string that is not a number is a clear error, never a silent <code>0</code>. Returns a <code>Num</code>.</td></tr>
 <tr><td><code>to_float</code></td><td><code>to_float(x)</code></td><td><code>x</code> is a number, a <code>Bool</code> (giving <code>1</code>/<code>0</code>), or a <code>Str</code> that parses as one. The parsing half of <code>to_int</code> without the rounding — mostly for turning text read from a file or an instrument into a number. A string that is not a number, or a value of any other type, is a clear error rather than a <code>0</code>. Returns a <code>Num</code>.</td></tr>
 <tr><td><code>to_bool</code></td><td><code>to_bool(x)</code></td><td>For a <code>Str</code>, <code>x</code> is <strong>parsed</strong>, not weighed: <code>"true"</code>/<code>"false"</code> (any case) and any number spelling work, and anything else errors — because a config file holding <code>"false"</code> means false, and truthiness would call that non-empty string true. For every other type this is exactly Qu's own truthiness, the same rule <code>if</code> and <code>while</code> use. Returns a <code>Bool</code>.</td></tr>
-<tr><td><code>complex</code></td><td><code>complex(re, im)</code></td><td><code>re</code>/<code>im</code> are numbers (real and imaginary parts). Returns a <code>Complex</code>. <code>3 + 4i</code> is the literal form; this is for computed components.</td></tr>
+<tr><td><code>complex</code></td><td><code>complex(re, im)</code></td><td><code>re</code>/<code>im</code> are numbers (real and imaginary parts). Returns a <code>Complex</code>. <code>3 + 4j</code> is the literal form; this is for computed components.</td></tr>
 <tr><td><code>all</code>, <code>any</code></td><td><code>all(xs, predicate)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined. Returns a <code>bool</code>: whether every (<code>all</code>) or at least one (<code>any</code>) element satisfies it. As a <strong>quoted name</strong> a builtin is refused, because a string is indistinguishable from a typo; passed as a <strong>value</strong>, without quotes, it is allowed.</td></tr>
 <tr><td><code>first</code>, <code>last</code></td><td><code>first(xs)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>. Returns the first (<code>first</code>) or last (<code>last</code>) element (same element type as <code>xs</code> holds), or <code>none</code> when <code>xs</code> is empty. Check for <code>none</code> if an empty input is possible; nothing further down will do it for you.</td></tr>
 <tr><td><code>take</code>, <code>drop</code></td><td><code>take(xs, n)</code></td><td><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>n</code> is a number of elements. Returns the same type as <code>xs</code>: the first <code>n</code> elements (<code>take</code>) or everything after them (<code>drop</code>). <code>n</code> beyond the length is clamped, not an error.</td></tr>

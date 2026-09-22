@@ -61,11 +61,39 @@
 <li><a href="tour.html">Language Tour</a></li>
 <li><a href="spec.html">Language Specification</a></li>
 </ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
 </nav>
 
 <main class="docmain">
 <h1>File I/O</h1>
-<nav class="onthispage"><a href="#s0">Opening &amp; Closing Files</a><a href="#s45">Text I/O</a><a href="#s72">Position Control &amp; Non-Advancing Peeks</a><a href="#s133">Binary I/O</a><a href="#s163">Compression &amp; Entropy Coding</a><a href="#s215">Directories &amp; Paths</a><a href="#s258">Running Other Programs</a><a href="#s300">Memory-Mapped Files</a><a href="#s339">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></a><a href="#s428">CSV</a><a href="#s451">Native Modules: <code>xlsx</code> and <code>codec</code></a><a href="#s527">Data-Format Conversion (JSON / CSV / XML)</a><a href="#s588">Worked examples</a><a href="#s623">More functions</a></nav>
+<nav class="onthispage"><a href="#s0">Opening &amp; Closing Files</a><a href="#s45">Text I/O</a><a href="#s72">Interactive input</a><a href="#s108">Position Control &amp; Non-Advancing Peeks</a><a href="#s170">Binary I/O</a><a href="#s200">Compression &amp; Entropy Coding</a><a href="#s252">Directories &amp; Paths</a><a href="#s295">Running Other Programs</a><a href="#s337">Memory-Mapped Files</a><a href="#s376">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></a><a href="#s465">CSV</a><a href="#s488">Native Modules: <code>xlsx</code> and <code>codec</code></a><a href="#s564">Data-Format Conversion (JSON / CSV / XML)</a><a href="#s625">Worked examples</a><a href="#s660">More functions</a></nav>
 <p>The tables below are generated from the interpreter's own builtin dispatch table (the <code>fn call_builtin</code> match statement in <code>engine/crates/qu-interp/src/lib.rs</code>), not written speculatively ahead of the implementation — every function listed here runs today.</p>
 <p>&gt; <strong>Note — WASM has no filesystem at all.</strong> Qu's browser target &gt; (<code>wasm32-unknown-unknown</code>) has no native filesystem access — that's an &gt; Emscripten-target feature, not this one. Every builtin on this page that &gt; touches a PATH (<code>fopen</code>, <code>read_csv</code>, <code>write_csv</code>, ...) is native-only; a &gt; browser build can only reach files through JS-mediated mechanisms like the &gt; File System Access API or a plain <code>&lt;input type=file&gt;</code> read. See Book 3, "A &gt; hard platform boundary," for the full reasoning. The "Data-Format &gt; Conversion" builtins below (<code>jsonify</code>/<code>csvify</code>/<code>xmlify</code>/<code>parse_json</code>/ &gt; <code>parse_csv</code>/<code>parse_xml</code> and the pairwise converters) are the one exception &gt; on this page: they only ever touch in-memory strings, no path/file &gt; involved, so this platform boundary doesn't apply to them.</p>
 <h2 id="s0">Opening &amp; Closing Files</h2>
@@ -90,8 +118,14 @@
 <tr><td><code>write_line</code></td><td><code>write_line(f, s)</code></td><td>Writes <code>s</code> (string) to <code>f</code> (file handle, opened writable/appendable) plus a trailing <code>\n</code>. Returns <code>Nothing</code>.</td></tr>
 <tr><td><code>write_char</code></td><td><code>write_char(f, s)</code></td><td>Writes <code>s</code> (string) to <code>f</code> (file handle, opened writable/appendable) with no newline added. Returns <code>Nothing</code>.</td></tr>
 </table></div>
+<h2 id="s72">Interactive input</h2>
+<p>Not a file handle at all — reads one line typed by whoever is running the script right now, the way MATLAB's <code>input</code>/Python's <code>input()</code> do. Added in v0.3.0.</p>
+<div class="tablewrap"><table>
+<tr><td>Function</td><td>Signature</td><td>Description</td></tr>
+<tr><td><code>read_input</code></td><td><code>read_input([prompt])</code></td><td>Reads one line of interactive input, returned as a string with its trailing newline stripped. <code>prompt</code> (string, optional), if given, is printed first with no added newline. In a real terminal (<code>qu run</code>/<code>qu repl</code>) this reads real stdin directly; a host that isn't a terminal (e.g. a Jupyter kernel) can wire its own prompt/reply round-trip instead — see that host's own documentation for what "interactive" means there. Not called <code>input</code> (already the machine-learning pipeline's input-layer builtin) or <code>read_line</code> (already "read one line from an open file/URL-stream/serial handle") — both are unrelated existing meanings, not available for this.</td></tr>
+</table></div>
 <p>Writing to a handle opened in <code>"r"</code> mode errors clearly rather than silently no-op'ing or panicking; the same holds for every write builtin below.</p>
-<h2 id="s72">Position Control &amp; Non-Advancing Peeks</h2>
+<h2 id="s108">Position Control &amp; Non-Advancing Peeks</h2>
 <p><code>seek</code>/<code>tell</code>/<code>rewind</code>/<code>eof</code> control a readable handle's read cursor directly; <code>peek_line</code>/<code>peek_char</code>/<code>peek_byte</code> (§ 2026-09-01) read the next unit exactly the way <code>read_line</code>/<code>read_char</code>/<code>read_byte</code> would, WITHOUT moving that cursor — a second <code>peek_*</code> call, or the very next real <code>read_*</code> call, sees the identical data again. Implemented as a real save-position/read/restore-position round trip around the same buffered reader <code>seek</code>/<code>tell</code> already control (not a hand-rolled one-item lookahead buffer), so it composes correctly with everything else that touches the cursor.</p>
 <p>All of these are restricted to <strong>readable</strong> handles (the same restriction <code>seek</code>/<code>tell</code>/<code>rewind</code> already have) — a write-only or append-mode handle has no tracked read cursor to save/restore or report.</p>
 <div class="tablewrap"><table>
@@ -144,7 +178,7 @@ rest        = <span class="f">read_all</span>(g)          <span class="c"># "orl
 <span class="c"># Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</span>
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>Hello peeked=e next_byte=44 before_comma="" w_byte=87 rest=orld</pre></div></div>
-<h2 id="s133">Binary I/O</h2>
+<h2 id="s170">Binary I/O</h2>
 <p>Typed reads/writes accept an <code>endian=</code> keyword argument (<code>"little"</code> default, or <code>"big"</code>), implemented with Rust's own <code>from_le_bytes</code>/<code>to_le_bytes</code> (and their <code>_be_</code> counterparts) — no hand-rolled byte shuffling. A typed read returns <code>Nothing</code> if fewer bytes remain than the type needs.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -228,7 +262,7 @@ back = <span class="f">read_array</span>(<span class="s">"matrix.bin"</span>, <s
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>-123456789012 9007199254740992
 [1, 2, 3; 4, 5, 6]</pre></div></div>
-<h2 id="s163">Compression &amp; Entropy Coding</h2>
+<h2 id="s200">Compression &amp; Entropy Coding</h2>
 <p>Three from-scratch entropy coders — Huffman, adaptive range coding, and rANS — plus the zlib/DEFLATE decoder <code>read_mat</code> and <code>load_image</code> already carried internally, exposed as script-callable builtins rather than left as an implementation detail only those two readers could reach.</p>
 <p>All four take their input the same way: a <code>Str</code> (its UTF-8 bytes) or a <code>Vec</code> of numbers in <code>0..=255</code>. All four decoders hand bytes back the same way too — a <code>Vec</code> of 0-255 numbers by default, or the decoded text as a <code>Str</code> with <code>as_str = true</code>. An encoder returns a <code>Record</code> rather than a bare byte string because a decoder needs the model as well as the payload; pass the whole record straight back to the matching decoder.</p>
 <p>There is no compressor to pair with <code>zlib_decompress</code> yet. That is a real gap, named here rather than implied away.</p>
@@ -250,7 +284,7 @@ enc = <span class="f">rans_encode</span>(s)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>18
 true</pre></div></div>
-<h2 id="s215">Directories &amp; Paths</h2>
+<h2 id="s252">Directories &amp; Paths</h2>
 <p>A script that reads a file usually has to find it first. These are the builtins that answer "where am I", "what is in here" and "which of these files do I actually want" — the last of which is <code>list_files</code>, and it is the one worth reading about.</p>
 <p><code>list_dir</code> and <code>list_files</code> divide the work between them. <code>list_dir</code> gives the bare names inside one directory, files and subdirectories alike, and stops there. <code>list_files</code> takes a whole-path pattern, walks as deep as the pattern tells it to, returns <strong>paths you can open</strong>, and never returns a directory. The second is what you want for <code>"every HTML page under website/"</code>; the first is what you want when you are about to look at each entry and decide.</p>
 <div class="tablewrap"><table>
@@ -319,7 +353,7 @@ blank = <span class="f">list_files</span>(<span class="s">"list_demo/*"</span>, 
 <div class="out"><span class="lbl">output</span><pre>2 Qu files
 carries the needle: list_demo\notes.txt
 1 empty file</pre></div></div>
-<h2 id="s258">Running Other Programs</h2>
+<h2 id="s295">Running Other Programs</h2>
 <p>Qu could already run *code* in another language — <code>python_exec</code>, <code>js_exec</code>, <code>matlab_exec</code> — but not a *program*. That is a strange hole for a language whose own build tooling is written in itself: the shell scripts under <code>tools/</code> exist largely because the Qu program inside each one could not ask git a question.</p>
 <p>Two builtins, because there are two different jobs and one call does not do both well.</p>
 <div class="tablewrap"><table>
@@ -341,7 +375,7 @@ failed = <span class="f">exec</span>(<span class="s">"exit 3"</span>, <span clas
 <div class="out"><span class="lbl">output</span><pre>said: hello from a program
 success true, exit code 0
 a failure is data, not an error: success false, code 3</pre></div></div>
-<h2 id="s300">Memory-Mapped Files</h2>
+<h2 id="s337">Memory-Mapped Files</h2>
 <p>Read-only, random-access mapping of a file's bytes via the <code>memmap2</code> crate, without loading the file into a <code>Vec</code> up front — useful for jumping around inside a large file (a header at a known offset, a fixed-width record at an arbitrary index) without either an eager full read or a chain of <code>seek</code> calls on a <code>fopen</code> handle. Distinct from <code>Value::File</code>: an <code>mmap</code> handle has no read cursor to advance — every <code>mmap_read</code> call takes an explicit byte range. Writable mapping is out of scope; use <code>fopen</code>/the write builtins above for writing.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -366,7 +400,7 @@ record5 = <span class="f">mmap_read</span>(m, <span class="n">5</span> * <span c
 <div class="out"><span class="lbl">output</span><pre>512
 [0, 1, 2, 3, 4, 5, 6, 7, ... (16 elements)]
 [255, 255, 255, 255, 255, 255, 255, 255, ... (64 elements)]</pre></div></div>
-<h2 id="s339">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></h2>
+<h2 id="s376">Polymorphic Streams: <code>StreamFile</code> / <code>StreamURL</code></h2>
 <p><code>StreamFile(path, [mode])</code> and <code>StreamURL(url)</code> (§ StreamFile/StreamURL polymorphic streams, 2026-08-31) are two constructors that produce values exposing the <strong>same</strong> method names — <code>read_line</code>/<code>read_all</code>/<code>eof</code>/<code>close</code> — so code written against "a stream" doesn't need to know or check which concrete kind it was handed:</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -401,7 +435,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>line one|line two|
 true</pre></div></div>
-<h2 id="s428">CSV</h2>
+<h2 id="s465">CSV</h2>
 <p><code>read_csv</code>/<code>write_csv</code> operate directly on a path — no <code>fopen</code> handle involved; they open/read/write the file internally in one call.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -409,7 +443,7 @@ true</pre></div></div>
 <tr><td><code>write_csv</code></td><td><code>write_csv(df, path)</code></td><td>Writes a <code>Table</code> to a CSV file. <code>df</code> (Table) is the data to write. <code>path</code> (string) is the destination file. Returns <code>Nothing</code>. <code>table.write(df, path)</code> is sugar for this — same argument order.</td></tr>
 </table></div>
 <p><code>table.load</code>/<code>table.write</code> are part of a small, closed <code>table.</code>/<code>timer.</code> "namespace-dot" alias set (§ ergonomic API layer, 2026-08-31): the parser recognizes exactly the token sequence <code>table . load (</code> / <code>table . write (</code> and rewrites it, at parse time, straight to <code>read_csv(...)</code>/<code>write_csv(...)</code> — evaluation is byte-identical, since it's literally the same call. <code>table</code> is not a real namespace value; it still works as an ordinary variable name (<code>table = 5</code>) and the existing <code>table(...)</code> table-constructor call is completely unaffected (that's a different token shape — no <code>.</code> involved).</p>
-<h2 id="s451">Native Modules: <code>xlsx</code> and <code>codec</code></h2>
+<h2 id="s488">Native Modules: <code>xlsx</code> and <code>codec</code></h2>
 <p>These are not builtins, and <code>builtins()</code> does not list them. They are modules compiled into the engine, and a program reaches them through <code>import</code>, which opens their names and leaves the qualified path available at the same time:</p>
 <div class="example norun"><pre class="hl"><code><span class="k">import</span> xlsx
 names = <span class="f">sheets</span>(<span class="s">"book.xlsx"</span>)        <span class="c"># opened by the import</span>
@@ -509,7 +543,7 @@ a = codec.<span class="f">decode_flac</span>(<span class="s">"stereo.flac"</span
 <span class="f">welch</span>(a.channels[<span class="n">0</span>])
 </code></pre>
 </div>
-<h2 id="s527">Data-Format Conversion (JSON / CSV / XML)</h2>
+<h2 id="s564">Data-Format Conversion (JSON / CSV / XML)</h2>
 <p><code>read_csv</code>/<code>write_csv</code> above and <code>save</code>/<code>save_all</code>/<code>load</code> (see <a href="collections-strings.html">Collections, Strings &amp; Data Frames</a> for the <code>json_to_value</code>/<code>"type"</code>-tag shape <code>save</code>/<code>load</code> use) all read/write a FILE. The builtins below (§ data-format conversion builtins, 2026-09-01) are the same conversions as plain in-memory STRINGS instead — for building a request body, embedding data in another format's document, or converting between formats without ever touching disk. Two primitives per format (<code>xify(value) -&gt; str</code> / <code>parse_x(str) -&gt; value</code>), plus six pairwise converters. Four of the six are one-line compositions of those primitives — e.g. <code>json2csv(s)</code> is exactly <code>csvify(parse_json(s))</code> — not four independent implementations. The other two, <code>csv2json</code> and <code>xml2json</code>, deliberately do <strong>not</strong> go through <code>jsonify</code>: they produce a plain JSON array of row objects (the shape most external JSON consumers expect) rather than <code>jsonify</code>'s own <code>{"type":"table", ...}</code> envelope — see their table entries below for the exact contract. A conversion that doesn't make sense for the input's shape (a bare number has no CSV shape; a live handle like a worker or mutex has no meaning in any of these formats) is a clear, named error, not a panic or a silently wrong result.</p>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
@@ -533,11 +567,11 @@ a = codec.<span class="f">decode_flac</span>(<span class="s">"stereo.flac"</span
 back = <span class="f">parse_json</span>(env)
 <span class="f">print</span>(env)          <span class="c"># {"type":"complex","re":3.0,"im":4.0}</span>
 <span class="f">print</span>(<span class="f">type</span>(back))   <span class="c"># complex</span>
-<span class="f">print</span>(back)         <span class="c"># 3 + 4i</span>
+<span class="f">print</span>(back)         <span class="c"># 3 + 4j</span>
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>{"type":"complex","re":3.0,"im":4.0}
 complex
-3 + 4i</pre></div></div>
+3 + 4j</pre></div></div>
 <h4>Case: ordinary JSON, no envelope</h4>
 <p><code>str</code> is plain JSON from anywhere else — an HTTP API response, hand-written JSON, or the same envelope with its <code>"type"</code> tag stripped off. Mapped in generically instead: a bare object becomes a record field-for-field, so the identical <code>re</code>/<code>im</code> pair that named a <code>Complex</code> above comes back as a plain record once the tag naming it is gone.</p>
 <div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
@@ -624,7 +658,7 @@ Gadget,4.5
 
 2</pre></div></div>
 <p>See <code>catalog/qu_format_conversion.qu</code> for a fuller worked demo (JSON/CSV/XML round trips plus two pairwise converters on real sample data, with printed output proving correctness field-by-field).</p>
-<h2 id="s588">Worked examples</h2>
+<h2 id="s625">Worked examples</h2>
 <p>The most basic file-writing pattern in Qu: open a handle in <code>"w"</code> mode (truncate-or-create), write one line at a time with <code>write_line</code>, and close the handle when done to flush it to disk. This is the shape almost every logging or report-writing script starts from. The example prints <code>file_size</code> afterward just to make the write's effect on disk visible:</p>
 <div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_line</span>(f, <span class="s">"run started"</span>)
@@ -786,7 +820,7 @@ js = <span class="f">js_exec</span>(<span class="s">"const fs = require('fs'); f
 42
 2</pre></div></div>
 <p><code>matlab_exec</code> follows the exact same contract — <code>matlab_exec(code, [vars=])</code>, same <code>{stdout, stderr, success, exit_code, result}</code> return shape, <code>code</code> writing its result to the injected <code>qu_output_path</code> variable — but actually running it requires a working local MATLAB installation with a valid license, which this environment does not currently have (the license here has expired), so no runnable example is included for it. A failed run does not panic: <code>success</code> comes back <code>false</code> and <code>stderr</code> carries MATLAB's own error text (a license error, in this environment's case), the same "describe the failure, don't crash" contract every other guest-language failure follows.</p>
-<h2 id="s623">More functions</h2>
+<h2 id="s660">More functions</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>save</code></td><td><code>save(path, name1, [name2, ...])</code></td><td>Writes the named variables — <code>path</code> (string, destination file) plus one or more variable names (strings) given explicitly as extra arguments — to a JSON file, each tagged with its own type. Returns <code>Nothing</code>. Unlike <code>save_all</code>, <code>save</code> only ever writes the variables it is explicitly told to; there is no implicit "the whole workspace" behavior.</td></tr>

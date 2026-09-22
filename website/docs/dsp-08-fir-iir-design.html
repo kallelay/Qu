@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIR and IIR Design — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html" class="here">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>FIR and IIR Design</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">The question this lesson has not asked</a></nav>
+<p>A microphone held too close to a speaker produces a rising shriek out of nowhere. Nothing was played — a loop formed between speaker and microphone, and whether that loop dies out or runs away depends on one number: whether a trip around it makes the signal a little smaller or a little bigger than it started. That number is also the entire question of digital filter stability.</p>
+<h2 id="s0">The idea</h2>
+<p>A digital filter is non-recursive or recursive, and the distinction is whether the formula that computes \(y[n]\) is ever allowed to look at its own past output.</p>
+<p>A <strong>FIR</strong> filter (finite impulse response) computes its output purely from present and past input:</p>
+<p>\[ y[n] = \sum_{k=0}^{M} b_k\, x[n-k]. \]</p>
+<p>This is the convolution sum, unchanged. Nothing about it can ever feed back on itself, because \(y\) never appears on the right. Its impulse response has exactly \(M+1\) nonzero samples, hence "finite."</p>
+<p>An <strong>IIR</strong> filter (infinite impulse response) adds a second sum, over its own past output:</p>
+<p>\[ a_0\, y[n] = \sum_{k=0}^{M} b_k\, x[n-k] \;-\; \sum_{k=1}^{N} a_k\, y[n-k]. \]</p>
+<p>That second sum is the microphone-and-speaker loop, written as arithmetic. "Infinite" describes the *shape* of a well-designed response — it rings and decays, in principle forever — not a warning that it necessarily grows. It grows only when the loop gain is wrong, and that is exactly one line to build:</p>
+<div class="example hasout"><pre class="hl"><code>b = [<span class="n">1</span>]
+a = [<span class="n">1</span>, -<span class="n">1.5</span>]                 <span class="c"># y[n] = x[n] + 1.5*y[n-1]</span>
+x = <span class="f">impulse</span>(<span class="n">20</span>)
+y = <span class="f">filter_ba</span>(b, a, x)
+<span class="f">figure</span>()
+<span class="f">plot</span>(y)
+<span class="f">xlabel</span>(<span class="s">"n"</span>)
+<span class="f">ylabel</span>(<span class="s">"y[n]"</span>)
+<span class="f">title</span>(<span class="s">"An unstable IIR impulse response"</span>)
+<span class="f">print</span>(<span class="s">"y[0:5]   = {y[0:5]}"</span>)
+<span class="f">print</span>(<span class="s">"y[15:20] = {y[15:20]}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (20 points)
+y[0:5]   = [1, 1.5, 2.25, 3.375, 5.0625, 7.59375]
+y[15:20] = [437.89389, 656.840836, 985.261253, 1477.89188, 2216.83782]</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="487.53" x2="866.00" y2="487.53" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="487.53" x2="104.06" y2="487.53" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="493.20" font-size="16.2" text-anchor="end" fill="#4d4d4d">200</text>
+<line x1="104.06" y1="446.21" x2="866.00" y2="446.21" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="446.21" x2="104.06" y2="446.21" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="451.88" font-size="16.2" text-anchor="end" fill="#4d4d4d">400</text>
+<line x1="104.06" y1="404.90" x2="866.00" y2="404.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="404.90" x2="104.06" y2="404.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="410.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">600</text>
+<line x1="104.06" y1="363.58" x2="866.00" y2="363.58" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="363.58" x2="104.06" y2="363.58" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="369.25" font-size="16.2" text-anchor="end" fill="#4d4d4d">800</text>
+<line x1="104.06" y1="322.26" x2="866.00" y2="322.26" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="322.26" x2="104.06" y2="322.26" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="327.93" font-size="16.2" text-anchor="end" fill="#4d4d4d">1000</text>
+<line x1="104.06" y1="280.95" x2="866.00" y2="280.95" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="280.95" x2="104.06" y2="280.95" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="286.62" font-size="16.2" text-anchor="end" fill="#4d4d4d">1200</text>
+<line x1="104.06" y1="239.63" x2="866.00" y2="239.63" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="239.63" x2="104.06" y2="239.63" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="245.30" font-size="16.2" text-anchor="end" fill="#4d4d4d">1400</text>
+<line x1="104.06" y1="198.31" x2="866.00" y2="198.31" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="198.31" x2="104.06" y2="198.31" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="203.98" font-size="16.2" text-anchor="end" fill="#4d4d4d">1600</text>
+<line x1="104.06" y1="157.00" x2="866.00" y2="157.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="157.00" x2="104.06" y2="157.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="162.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">1800</text>
+<line x1="104.06" y1="115.68" x2="866.00" y2="115.68" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="115.68" x2="104.06" y2="115.68" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="121.35" font-size="16.2" text-anchor="end" fill="#4d4d4d">2000</text>
+<line x1="104.06" y1="74.37" x2="866.00" y2="74.37" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="74.37" x2="104.06" y2="74.37" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="80.04" font-size="16.2" text-anchor="end" fill="#4d4d4d">2200</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="180.45" y1="48.00" x2="180.45" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="180.45" y1="528.84" x2="180.45" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="180.45" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">2</text>
+<line x1="256.83" y1="48.00" x2="256.83" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="256.83" y1="528.84" x2="256.83" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="256.83" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">4</text>
+<line x1="333.22" y1="48.00" x2="333.22" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="333.22" y1="528.84" x2="333.22" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="333.22" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">6</text>
+<line x1="409.60" y1="48.00" x2="409.60" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="409.60" y1="528.84" x2="409.60" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="409.60" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">8</text>
+<line x1="485.99" y1="48.00" x2="485.99" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.99" y1="528.84" x2="485.99" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.99" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="562.37" y1="48.00" x2="562.37" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="562.37" y1="528.84" x2="562.37" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="562.37" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">12</text>
+<line x1="638.76" y1="48.00" x2="638.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="638.76" y1="528.84" x2="638.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="638.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">14</text>
+<line x1="715.14" y1="48.00" x2="715.14" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="715.14" y1="528.84" x2="715.14" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="715.14" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">16</text>
+<line x1="791.52" y1="48.00" x2="791.52" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="791.52" y1="528.84" x2="791.52" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="791.52" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">18</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,528.64 142.25,528.53 180.45,528.38 218.64,528.15 256.83,527.80 295.02,527.28 333.22,526.49 371.41,525.31 409.60,523.55 447.79,520.90 485.99,516.93 524.18,510.98 562.37,502.04 600.56,488.64 638.76,468.54 676.95,438.38 715.14,393.15 753.33,325.31 791.52,223.54 829.72,70.89" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">An unstable IIR impulse response</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">n</text>
+<text x="43.27" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 43.27 288.42)">y[n]</text>
+</svg></figure></div>
+<pre><code>y[0:5]   = [1, 1.5, 2.25, 3.375, 5.0625, 7.59375]
+y[15:20] = [437.89389, 656.840836, 985.261253, 1477.89188, 2216.83782]
+</code></pre>
+<p>Every sample is 1.5 times the last, because that is exactly what <code>y[n] = x[n] + 1.5 y[n-1]</code> says to do. This filter has a single pole at \(z = 1.5\), outside the unit circle — outside the unit circle is the entire, exact stability boundary for a digital IIR filter. An FIR filter has every pole sitting at the origin regardless of design, which is the formal way of saying it cannot do this, ever.</p>
+<p><code>butter</code>, <code>ellip</code>, <code>cheby1</code>, and <code>cheby2</code> all place their poles correctly, every time, so ordinary IIR design never reproduces the runaway above. What buys that convenience is visible at matched order:</p>
+<div class="example hasout"><pre class="hl"><code>fs  = <span class="n">1000</span>
+iir = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+fir = <span class="f">fir1</span>(<span class="n">4</span>, <span class="n">100</span>, <span class="a">kind</span> = <span class="s">"low"</span>, <span class="a">fs</span> = fs)
+f   = <span class="f">linspace</span>(<span class="n">0</span>, fs / <span class="n">2</span>, <span class="n">512</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, <span class="f">mag2db</span>(<span class="f">abs</span>(<span class="f">freqz</span>(iir, <span class="n">512</span>))), <span class="a">label</span> = <span class="s">"IIR (order 4)"</span>)
+<span class="f">plot</span>(f, <span class="f">mag2db</span>(<span class="f">abs</span>(<span class="f">freqz</span>(fir, <span class="n">512</span>))), <span class="a">label</span> = <span class="s">"FIR (order 4)"</span>)
+<span class="f">xlabel</span>(<span class="s">"Frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Magnitude (dB)"</span>)
+<span class="f">ylim</span>(-<span class="n">80</span>, <span class="n">5</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"Same order, different sharpness"</span>)
+<span class="f">print</span>(<span class="s">"IIR sections: {shape(iir.sos)[0]}"</span>)
+<span class="f">print</span>(<span class="s">"FIR taps: {length(fir.b)}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 2 (512 points)
+· plot: figure 3 (512 points)
+IIR sections: 2
+FIR taps: 5</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">-80</text>
+<line x1="104.06" y1="472.27" x2="866.00" y2="472.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="472.27" x2="104.06" y2="472.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="477.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">-70</text>
+<line x1="104.06" y1="415.70" x2="866.00" y2="415.70" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="415.70" x2="104.06" y2="415.70" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="421.37" font-size="16.2" text-anchor="end" fill="#4d4d4d">-60</text>
+<line x1="104.06" y1="359.13" x2="866.00" y2="359.13" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="359.13" x2="104.06" y2="359.13" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="364.80" font-size="16.2" text-anchor="end" fill="#4d4d4d">-50</text>
+<line x1="104.06" y1="302.56" x2="866.00" y2="302.56" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="302.56" x2="104.06" y2="302.56" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="308.23" font-size="16.2" text-anchor="end" fill="#4d4d4d">-40</text>
+<line x1="104.06" y1="245.99" x2="866.00" y2="245.99" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="245.99" x2="104.06" y2="245.99" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="251.66" font-size="16.2" text-anchor="end" fill="#4d4d4d">-30</text>
+<line x1="104.06" y1="189.42" x2="866.00" y2="189.42" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="189.42" x2="104.06" y2="189.42" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="195.09" font-size="16.2" text-anchor="end" fill="#4d4d4d">-20</text>
+<line x1="104.06" y1="132.85" x2="866.00" y2="132.85" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="132.85" x2="104.06" y2="132.85" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="138.52" font-size="16.2" text-anchor="end" fill="#4d4d4d">-10</text>
+<line x1="104.06" y1="76.28" x2="866.00" y2="76.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="76.28" x2="104.06" y2="76.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="81.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">150</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">250</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">300</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">350</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">400</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">450</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">500</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,76.28 105.48,76.28 106.90,76.28 108.32,76.28 109.74,76.28 111.16,76.28 112.58,76.28 114.00,76.28 115.42,76.28 116.84,76.28 118.26,76.28 119.68,76.28 121.10,76.28 122.52,76.28 123.94,76.28 125.36,76.28 126.78,76.28 128.20,76.28 129.62,76.28 131.04,76.28 132.46,76.28 133.88,76.28 135.30,76.29 136.72,76.29 138.14,76.29 139.56,76.29 140.98,76.29 142.40,76.29 143.82,76.29 145.24,76.29 146.66,76.29 148.08,76.29 149.50,76.29 150.92,76.29 152.34,76.29 153.76,76.29 155.18,76.29 156.61,76.29 158.03,76.29 159.45,76.29 160.87,76.30 162.29,76.30 163.71,76.30 165.13,76.30 166.55,76.31 167.97,76.31 169.39,76.32 170.81,76.32 172.23,76.33 173.65,76.34 175.07,76.35 176.49,76.36 177.91,76.38 179.33,76.39 180.75,76.41 182.17,76.43 183.59,76.45 185.01,76.47 186.43,76.50 187.85,76.54 189.27,76.57 190.69,76.61 192.11,76.66 193.53,76.71 194.95,76.77 196.37,76.84 197.79,76.91 199.21,76.99 200.63,77.08 202.05,77.18 203.47,77.29 204.89,77.42 206.31,77.55 207.73,77.70 209.15,77.86 210.57,78.04 211.99,78.24 213.41,78.45 214.83,78.69 216.25,78.94 217.67,79.22 219.09,79.52 220.51,79.84 221.93,80.19 223.35,80.57 224.77,80.98 226.19,81.41 227.61,81.88 229.03,82.38 230.45,82.91 231.87,83.48 233.29,84.08 234.71,84.71 236.13,85.39 237.55,86.10 238.97,86.84 240.39,87.63 241.81,88.45 243.23,89.31 244.65,90.21 246.07,91.14 247.49,92.11 248.91,93.11 250.33,94.15 251.75,95.22 253.17,96.32 254.59,97.46 256.01,98.62 257.43,99.82 258.85,101.04 260.27,102.29 261.69,103.56 263.11,104.86 264.53,106.18 265.95,107.51 267.37,108.87 268.79,110.25 270.21,111.64 271.63,113.04 273.05,114.46 274.47,115.90 275.89,117.34 277.31,118.79 278.73,120.26 280.15,121.73 281.57,123.20 282.99,124.69 284.41,126.18 285.83,127.67 287.25,129.17 288.67,130.67 290.09,132.17 291.51,133.68 292.93,135.18 294.35,136.69 295.77,138.19 297.19,139.70 298.61,141.20 300.03,142.71 301.45,144.21 302.87,145.71 304.29,147.21 305.71,148.70 307.13,150.19 308.55,151.68 309.97,153.17 311.39,154.65 312.81,156.13 314.23,157.61 315.65,159.08 317.07,160.55 318.49,162.02 319.91,163.48 321.33,164.94 322.75,166.39 324.17,167.84 325.59,169.28 327.01,170.72 328.43,172.16 329.85,173.59 331.27,175.02 332.69,176.44 334.11,177.86 335.53,179.28 336.95,180.69 338.37,182.09 339.79,183.49 341.21,184.89 342.63,186.28 344.05,187.67 345.47,189.06 346.89,190.44 348.31,191.81 349.73,193.19 351.15,194.56 352.57,195.92 353.99,197.28 355.41,198.64 356.83,199.99 358.25,201.34 359.67,202.68 361.09,204.03 362.51,205.36 363.93,206.70 365.36,208.03 366.78,209.36 368.20,210.68 369.62,212.00 371.04,213.32 372.46,214.63 373.88,215.94 375.30,217.25 376.72,218.55 378.14,219.86 379.56,221.15 380.98,222.45 382.40,223.74 383.82,225.03 385.24,226.32 386.66,227.60 388.08,228.88 389.50,230.16 390.92,231.44 392.34,232.71 393.76,233.98 395.18,235.25 396.60,236.51 398.02,237.78 399.44,239.04 400.86,240.30 402.28,241.55 403.70,242.81 405.12,244.06 406.54,245.31 407.96,246.56 409.38,247.81 410.80,249.05 412.22,250.29 413.64,251.54 415.06,252.77 416.48,254.01 417.90,255.25 419.32,256.48 420.74,257.72 422.16,258.95 423.58,260.18 425.00,261.41 426.42,262.63 427.84,263.86 429.26,265.08 430.68,266.31 432.10,267.53 433.52,268.75 434.94,269.97 436.36,271.19 437.78,272.41 439.20,273.62 440.62,274.84 442.04,276.06 443.46,277.27 444.88,278.48 446.30,279.70 447.72,280.91 449.14,282.12 450.56,283.33 451.98,284.54 453.40,285.75 454.82,286.96 456.24,288.17 457.66,289.38 459.08,290.59 460.50,291.80 461.92,293.01 463.34,294.22 464.76,295.43 466.18,296.63 467.60,297.84 469.02,299.05 470.44,300.26 471.86,301.47 473.28,302.68 474.70,303.88 476.12,305.09 477.54,306.30 478.96,307.51 480.38,308.72 481.80,309.93 483.22,311.14 484.64,312.36 486.06,313.57 487.48,314.78 488.90,315.99 490.32,317.21 491.74,318.42 493.16,319.64 494.58,320.86 496.00,322.07 497.42,323.29 498.84,324.51 500.26,325.73 501.68,326.95 503.10,328.18 504.52,329.40 505.94,330.62 507.36,331.85 508.78,333.08 510.20,334.31 511.62,335.54 513.04,336.77 514.46,338.00 515.88,339.24 517.30,340.48 518.72,341.71 520.14,342.95 521.56,344.20 522.98,345.44 524.40,346.69 525.82,347.93 527.24,349.18 528.66,350.44 530.08,351.69 531.50,352.95 532.92,354.20 534.34,355.46 535.76,356.73 537.18,357.99 538.60,359.26 540.02,360.53 541.44,361.80 542.86,363.08 544.28,364.36 545.70,365.64 547.12,366.92 548.54,368.21 549.96,369.50 551.38,370.79 552.80,372.09 554.22,373.38 555.64,374.69 557.06,375.99 558.48,377.30 559.90,378.61 561.32,379.93 562.74,381.25 564.16,382.57 565.58,383.89 567.00,385.22 568.42,386.56 569.84,387.89 571.26,389.23 572.68,390.58 574.11,391.93 575.53,393.28 576.95,394.64 578.37,396.00 579.79,397.37 581.21,398.74 582.63,400.11 584.05,401.49 585.47,402.88 586.89,404.27 588.31,405.66 589.73,407.06 591.15,408.47 592.57,409.88 593.99,411.29 595.41,412.71 596.83,414.14 598.25,415.57 599.67,417.01 601.09,418.45 602.51,419.90 603.93,421.35 605.35,422.81 606.77,424.28 608.19,425.75 609.61,427.23 611.03,428.72 612.45,430.21 613.87,431.71 615.29,433.21 616.71,434.73 618.13,436.25 619.55,437.77 620.97,439.31 622.39,440.85 623.81,442.40 625.23,443.95 626.65,445.52 628.07,447.09 629.49,448.67 630.91,450.26 632.33,451.86 633.75,453.47 635.17,455.08 636.59,456.71 638.01,458.34 639.43,459.98 640.85,461.63 642.27,463.29 643.69,464.96 645.11,466.64 646.53,468.34 647.95,470.04 649.37,471.75 650.79,473.47 652.21,475.20 653.63,476.95 655.05,478.70 656.47,480.47 657.89,482.25 659.31,484.04 660.73,485.84 662.15,487.66 663.57,489.48 664.99,491.32 666.41,493.18 667.83,495.04 669.25,496.92 670.67,498.82 672.09,500.73 673.51,502.65 674.93,504.59 676.35,506.54 677.77,508.51 679.19,510.50 680.61,512.50 682.03,514.51 683.45,516.55 684.87,518.60 686.29,520.66 687.71,522.75 689.13,524.85 690.55,526.98 691.97,529.12 693.39,531.28 694.81,533.46 696.23,535.66 697.65,537.89 699.07,540.13 700.49,542.40 701.91,544.68 703.33,546.99 704.75,549.33 706.17,551.69 707.59,554.07 709.01,556.48 710.43,558.91 711.85,561.37 713.27,563.86 714.69,566.38 716.11,568.92 717.53,571.49 718.95,574.10 720.37,576.73 721.79,579.40 723.21,582.10 724.63,584.83 726.05,587.60 727.47,590.40 728.89,593.24 730.31,596.12 731.73,599.03 733.15,601.99 734.57,604.99 735.99,608.03 737.41,611.11 738.83,614.24 740.25,617.41 741.67,620.64 743.09,623.91 744.51,627.23 745.93,630.61 747.35,634.05 748.77,637.54 750.19,641.09 751.61,644.70 753.03,648.37 754.45,652.11 755.87,655.92 757.29,659.80 758.71,663.76 760.13,667.79 761.55,671.90 762.97,676.10 764.39,680.39 765.81,684.76 767.23,689.24 768.65,693.81 770.07,698.49 771.49,703.27 772.91,708.18 774.33,713.20 775.75,718.36 777.17,723.65 778.59,729.08 780.01,734.66 781.43,740.40 782.86,746.31 784.28,752.39 785.70,758.67 787.12,765.16 788.54,771.86 789.96,778.79 791.38,785.97 792.80,793.42 794.22,801.16 795.64,809.22 797.06,817.61 798.48,826.37 799.90,835.54 801.32,845.16 802.74,855.26 804.16,865.91 805.58,877.17 807.00,889.11 808.42,901.81 809.84,915.39 811.26,929.97 812.68,945.72 814.10,962.83 815.52,981.58 816.94,1002.30 818.36,1025.46 819.78,1051.71 821.20,1082.02 822.62,1117.86 824.04,1161.72 825.46,1218.27 826.88,1297.96 828.30,1434.20" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,76.28 105.48,76.29 106.90,76.29 108.32,76.29 109.74,76.30 111.16,76.30 112.58,76.31 114.00,76.32 115.42,76.33 116.84,76.34 118.26,76.35 119.68,76.36 121.10,76.38 122.52,76.39 123.94,76.41 125.36,76.43 126.78,76.45 128.20,76.47 129.62,76.50 131.04,76.52 132.46,76.55 133.88,76.57 135.30,76.60 136.72,76.63 138.14,76.66 139.56,76.69 140.98,76.73 142.40,76.76 143.82,76.80 145.24,76.83 146.66,76.87 148.08,76.91 149.50,76.95 150.92,76.99 152.34,77.04 153.76,77.08 155.18,77.13 156.61,77.18 158.03,77.23 159.45,77.28 160.87,77.33 162.29,77.38 163.71,77.43 165.13,77.49 166.55,77.55 167.97,77.60 169.39,77.66 170.81,77.72 172.23,77.79 173.65,77.85 175.07,77.91 176.49,77.98 177.91,78.05 179.33,78.12 180.75,78.19 182.17,78.26 183.59,78.33 185.01,78.40 186.43,78.48 187.85,78.55 189.27,78.63 190.69,78.71 192.11,78.79 193.53,78.87 194.95,78.96 196.37,79.04 197.79,79.13 199.21,79.21 200.63,79.30 202.05,79.39 203.47,79.48 204.89,79.57 206.31,79.67 207.73,79.76 209.15,79.86 210.57,79.96 211.99,80.06 213.41,80.16 214.83,80.26 216.25,80.36 217.67,80.46 219.09,80.57 220.51,80.68 221.93,80.78 223.35,80.89 224.77,81.00 226.19,81.12 227.61,81.23 229.03,81.34 230.45,81.46 231.87,81.58 233.29,81.70 234.71,81.82 236.13,81.94 237.55,82.06 238.97,82.18 240.39,82.31 241.81,82.44 243.23,82.56 244.65,82.69 246.07,82.82 247.49,82.96 248.91,83.09 250.33,83.22 251.75,83.36 253.17,83.50 254.59,83.64 256.01,83.78 257.43,83.92 258.85,84.06 260.27,84.20 261.69,84.35 263.11,84.50 264.53,84.64 265.95,84.79 267.37,84.94 268.79,85.10 270.21,85.25 271.63,85.40 273.05,85.56 274.47,85.72 275.89,85.88 277.31,86.04 278.73,86.20 280.15,86.36 281.57,86.52 282.99,86.69 284.41,86.86 285.83,87.02 287.25,87.19 288.67,87.37 290.09,87.54 291.51,87.71 292.93,87.89 294.35,88.06 295.77,88.24 297.19,88.42 298.61,88.60 300.03,88.78 301.45,88.96 302.87,89.15 304.29,89.34 305.71,89.52 307.13,89.71 308.55,89.90 309.97,90.09 311.39,90.28 312.81,90.48 314.23,90.67 315.65,90.87 317.07,91.07 318.49,91.27 319.91,91.47 321.33,91.67 322.75,91.88 324.17,92.08 325.59,92.29 327.01,92.49 328.43,92.70 329.85,92.91 331.27,93.13 332.69,93.34 334.11,93.55 335.53,93.77 336.95,93.99 338.37,94.21 339.79,94.43 341.21,94.65 342.63,94.87 344.05,95.09 345.47,95.32 346.89,95.55 348.31,95.78 349.73,96.01 351.15,96.24 352.57,96.47 353.99,96.70 355.41,96.94 356.83,97.18 358.25,97.41 359.67,97.65 361.09,97.89 362.51,98.14 363.93,98.38 365.36,98.63 366.78,98.87 368.20,99.12 369.62,99.37 371.04,99.62 372.46,99.87 373.88,100.13 375.30,100.38 376.72,100.64 378.14,100.89 379.56,101.15 380.98,101.41 382.40,101.68 383.82,101.94 385.24,102.20 386.66,102.47 388.08,102.74 389.50,103.01 390.92,103.28 392.34,103.55 393.76,103.82 395.18,104.10 396.60,104.37 398.02,104.65 399.44,104.93 400.86,105.21 402.28,105.49 403.70,105.77 405.12,106.06 406.54,106.34 407.96,106.63 409.38,106.92 410.80,107.21 412.22,107.50 413.64,107.80 415.06,108.09 416.48,108.39 417.90,108.68 419.32,108.98 420.74,109.28 422.16,109.58 423.58,109.89 425.00,110.19 426.42,110.50 427.84,110.80 429.26,111.11 430.68,111.42 432.10,111.73 433.52,112.05 434.94,112.36 436.36,112.68 437.78,112.99 439.20,113.31 440.62,113.63 442.04,113.95 443.46,114.28 444.88,114.60 446.30,114.93 447.72,115.26 449.14,115.58 450.56,115.91 451.98,116.25 453.40,116.58 454.82,116.91 456.24,117.25 457.66,117.59 459.08,117.92 460.50,118.26 461.92,118.61 463.34,118.95 464.76,119.29 466.18,119.64 467.60,119.99 469.02,120.34 470.44,120.69 471.86,121.04 473.28,121.39 474.70,121.74 476.12,122.10 477.54,122.46 478.96,122.82 480.38,123.18 481.80,123.54 483.22,123.90 484.64,124.27 486.06,124.63 487.48,125.00 488.90,125.37 490.32,125.74 491.74,126.11 493.16,126.48 494.58,126.86 496.00,127.23 497.42,127.61 498.84,127.99 500.26,128.37 501.68,128.75 503.10,129.13 504.52,129.52 505.94,129.90 507.36,130.29 508.78,130.68 510.20,131.07 511.62,131.46 513.04,131.85 514.46,132.25 515.88,132.64 517.30,133.04 518.72,133.44 520.14,133.84 521.56,134.24 522.98,134.64 524.40,135.04 525.82,135.45 527.24,135.86 528.66,136.26 530.08,136.67 531.50,137.08 532.92,137.50 534.34,137.91 535.76,138.33 537.18,138.74 538.60,139.16 540.02,139.58 541.44,140.00 542.86,140.42 544.28,140.84 545.70,141.27 547.12,141.69 548.54,142.12 549.96,142.55 551.38,142.98 552.80,143.41 554.22,143.84 555.64,144.28 557.06,144.71 558.48,145.15 559.90,145.59 561.32,146.03 562.74,146.47 564.16,146.91 565.58,147.35 567.00,147.79 568.42,148.24 569.84,148.69 571.26,149.13 572.68,149.58 574.11,150.03 575.53,150.49 576.95,150.94 578.37,151.39 579.79,151.85 581.21,152.31 582.63,152.76 584.05,153.22 585.47,153.68 586.89,154.14 588.31,154.61 589.73,155.07 591.15,155.53 592.57,156.00 593.99,156.47 595.41,156.94 596.83,157.41 598.25,157.88 599.67,158.35 601.09,158.82 602.51,159.29 603.93,159.77 605.35,160.24 606.77,160.72 608.19,161.20 609.61,161.68 611.03,162.16 612.45,162.64 613.87,163.12 615.29,163.60 616.71,164.09 618.13,164.57 619.55,165.06 620.97,165.54 622.39,166.03 623.81,166.52 625.23,167.01 626.65,167.50 628.07,167.99 629.49,168.48 630.91,168.97 632.33,169.46 633.75,169.96 635.17,170.45 636.59,170.94 638.01,171.44 639.43,171.94 640.85,172.43 642.27,172.93 643.69,173.43 645.11,173.92 646.53,174.42 647.95,174.92 649.37,175.42 650.79,175.92 652.21,176.42 653.63,176.92 655.05,177.42 656.47,177.93 657.89,178.43 659.31,178.93 660.73,179.43 662.15,179.93 663.57,180.44 664.99,180.94 666.41,181.44 667.83,181.94 669.25,182.45 670.67,182.95 672.09,183.45 673.51,183.95 674.93,184.45 676.35,184.96 677.77,185.46 679.19,185.96 680.61,186.46 682.03,186.96 683.45,187.46 684.87,187.96 686.29,188.46 687.71,188.95 689.13,189.45 690.55,189.95 691.97,190.44 693.39,190.94 694.81,191.43 696.23,191.93 697.65,192.42 699.07,192.91 700.49,193.40 701.91,193.89 703.33,194.37 704.75,194.86 706.17,195.35 707.59,195.83 709.01,196.31 710.43,196.79 711.85,197.27 713.27,197.74 714.69,198.22 716.11,198.69 717.53,199.16 718.95,199.63 720.37,200.10 721.79,200.56 723.21,201.02 724.63,201.48 726.05,201.94 727.47,202.39 728.89,202.84 730.31,203.29 731.73,203.74 733.15,204.18 734.57,204.62 735.99,205.05 737.41,205.49 738.83,205.92 740.25,206.34 741.67,206.77 743.09,207.18 744.51,207.60 745.93,208.01 747.35,208.42 748.77,208.82 750.19,209.22 751.61,209.62 753.03,210.01 754.45,210.39 755.87,210.77 757.29,211.15 758.71,211.52 760.13,211.89 761.55,212.25 762.97,212.60 764.39,212.95 765.81,213.30 767.23,213.64 768.65,213.97 770.07,214.30 771.49,214.62 772.91,214.94 774.33,215.25 775.75,215.56 777.17,215.85 778.59,216.14 780.01,216.43 781.43,216.71 782.86,216.98 784.28,217.24 785.70,217.50 787.12,217.75 788.54,218.00 789.96,218.23 791.38,218.46 792.80,218.68 794.22,218.90 795.64,219.10 797.06,219.30 798.48,219.49 799.90,219.68 801.32,219.85 802.74,220.02 804.16,220.18 805.58,220.33 807.00,220.47 808.42,220.60 809.84,220.73 811.26,220.85 812.68,220.96 814.10,221.06 815.52,221.15 816.94,221.23 818.36,221.31 819.78,221.37 821.20,221.43 822.62,221.48 824.04,221.52 825.46,221.55 826.88,221.57 828.30,221.58 829.72,221.59" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Same order, different sharpness</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">Frequency (Hz)</text>
+<text x="55.68" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 55.68 288.42)">Magnitude (dB)</text>
+<rect x="710.36" y="56.00" width="147.64" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="719.22" y1="77.01" x2="744.54" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="752.13" y="80.51" font-size="16.2" text-anchor="start" fill="#222">IIR (order 4)</text>
+<line x1="719.22" y1="101.31" x2="744.54" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="752.13" y="104.81" font-size="16.2" text-anchor="start" fill="#222">FIR (order 4)</text>
+</svg></figure></div>
+<pre><code>IIR sections: 2
+FIR taps: 5
+</code></pre>
+<p>At equal order the IIR curve already falls faster. FIR pays for its unconditional stability and something Lesson 9 needs unbroken — <strong>exactly linear phase</strong> (every frequency delayed by the same number of samples) — with more coefficients per unit of sharpness. Kaiser's estimate for a windowed-sinc FIR length is \(N \approx (A_{stop} - 8) / (2.285\,\Delta\omega)\), \(\Delta\omega\) the transition width in radians; the Butterworth order needed for the same spec is \(N \geq \log_{10}\!\big[(10^{A_s/10}-1)/(10^{A_p/10}-1)\big] / \big(2\log_{10}(\omega_s/\omega_p)\big)\). Neither is simulation — both are closed-form estimates you can evaluate before designing anything.</p>
+<h2 id="s26">In Qu</h2>
+<p>Take an actual spec: pass everything below 100 Hz, stop everything above 110 Hz, at least 40 dB of stopband rejection — a demanding 10 Hz transition. The two formulas above put the FIR order near 223 and the Butterworth order near 56. Ask Qu for both:</p>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
+fir_sharp = <span class="f">fir1</span>(<span class="n">223</span>, <span class="n">100</span>, <span class="a">kind</span> = <span class="s">"low"</span>, <span class="a">fs</span> = fs)
+iir_sharp = <span class="f">butter</span>(<span class="n">56</span>, <span class="s">"low"</span>, <span class="n">100</span>, fs)
+
+f = <span class="f">linspace</span>(<span class="n">0</span>, fs / <span class="n">2</span>, <span class="n">512</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, <span class="f">mag2db</span>(<span class="f">abs</span>(<span class="f">freqz</span>(fir_sharp, <span class="n">512</span>))), <span class="a">label</span> = <span class="s">"FIR order 223"</span>)
+<span class="f">plot</span>(f, <span class="f">mag2db</span>(<span class="f">abs</span>(<span class="f">freqz</span>(iir_sharp, <span class="n">512</span>))), <span class="a">label</span> = <span class="s">"IIR order 56"</span>)
+<span class="f">xlim</span>(<span class="n">0</span>, <span class="n">200</span>)
+<span class="f">ylim</span>(-<span class="n">100</span>, <span class="n">5</span>)
+<span class="f">xlabel</span>(<span class="s">"Frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Magnitude (dB)"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"Matching a 10 Hz transition: FIR vs IIR"</span>)
+<span class="f">print</span>(<span class="s">"FIR taps: {length(fir_sharp.b)}"</span>)
+<span class="f">print</span>(<span class="s">"IIR sections: {shape(iir_sharp.sos)[0]} ({shape(iir_sharp.sos)[0] * 5} multiply-adds/sample)"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 4 (512 points)
+· plot: figure 5 (512 points)
+FIR taps: 224
+IIR sections: 28 (140 multiply-adds/sample)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">-100</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">-90</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">-80</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">-70</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">-60</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">-50</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">-40</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">-30</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">-20</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">-10</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="180.26" y1="48.00" x2="180.26" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="180.26" y1="528.84" x2="180.26" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="180.26" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="256.45" y1="48.00" x2="256.45" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="256.45" y1="528.84" x2="256.45" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="256.45" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="332.64" y1="48.00" x2="332.64" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="332.64" y1="528.84" x2="332.64" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="332.64" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="408.84" y1="48.00" x2="408.84" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="408.84" y1="528.84" x2="408.84" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="408.84" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">80</text>
+<line x1="485.03" y1="48.00" x2="485.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.03" y1="528.84" x2="485.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="561.22" y1="48.00" x2="561.22" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="561.22" y1="528.84" x2="561.22" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="561.22" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">120</text>
+<line x1="637.42" y1="48.00" x2="637.42" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="637.42" y1="528.84" x2="637.42" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="637.42" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">140</text>
+<line x1="713.61" y1="48.00" x2="713.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="713.61" y1="528.84" x2="713.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="713.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">160</text>
+<line x1="789.81" y1="48.00" x2="789.81" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="789.81" y1="528.84" x2="789.81" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="789.81" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">180</text>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="528.84" x2="866.00" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="866.00" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,70.90 107.79,70.90 111.52,70.89 115.25,70.88 118.97,70.88 122.70,70.88 126.43,70.88 130.16,70.89 133.88,70.89 137.61,70.90 141.34,70.90 145.07,70.89 148.79,70.89 152.52,70.88 156.25,70.88 159.98,70.88 163.71,70.88 167.43,70.89 171.16,70.90 174.89,70.90 178.62,70.90 182.34,70.89 186.07,70.88 189.80,70.88 193.53,70.88 197.25,70.88 200.98,70.89 204.71,70.90 208.44,70.90 212.17,70.90 215.89,70.89 219.62,70.89 223.35,70.88 227.08,70.87 230.80,70.88 234.53,70.88 238.26,70.89 241.99,70.90 245.71,70.90 249.44,70.90 253.17,70.89 256.90,70.88 260.62,70.87 264.35,70.87 268.08,70.88 271.81,70.89 275.54,70.90 279.26,70.91 282.99,70.90 286.72,70.89 290.45,70.88 294.17,70.87 297.90,70.87 301.63,70.88 305.36,70.89 309.08,70.90 312.81,70.91 316.54,70.91 320.27,70.90 324.00,70.88 327.72,70.87 331.45,70.86 335.18,70.87 338.91,70.89 342.63,70.90 346.36,70.92 350.09,70.92 353.82,70.90 357.54,70.88 361.27,70.86 365.00,70.85 368.73,70.86 372.46,70.88 376.18,70.90 379.91,70.92 383.64,70.93 387.37,70.91 391.09,70.89 394.82,70.86 398.55,70.85 402.28,70.85 406.00,70.87 409.73,70.90 413.46,70.93 417.19,70.93 420.92,70.92 424.64,70.90 428.37,70.87 432.10,70.86 435.83,70.86 439.55,70.86 443.28,70.85 447.01,70.83 450.74,70.80 454.46,70.85 458.19,71.11 461.92,71.73 465.65,72.96 469.37,75.02 473.10,78.17 476.83,82.64 480.56,88.70 484.29,96.62 488.01,106.68 491.74,119.27 495.47,134.85 499.20,154.13 502.92,178.24 506.65,209.32 510.38,252.88 514.11,343.85 517.83,325.29 521.56,327.76 525.29,347.46 529.02,356.55 532.75,347.72 536.47,342.33 540.20,353.81 543.93,436.21 547.66,356.74 551.38,333.92 555.11,333.67 558.84,356.71 562.57,415.66 566.29,345.21 570.02,332.79 573.75,340.85 577.48,383.97 581.21,372.54 584.93,340.43 588.66,337.05 592.39,355.17 596.12,618.79 599.84,356.85 603.57,340.27 607.30,345.23 611.03,379.03 614.75,391.44 618.48,350.06 622.21,343.58 625.94,357.82 629.67,436.00 633.39,369.20 637.12,348.14 640.85,350.16 644.58,377.44 648.30,414.05 652.03,359.45 655.76,349.78 659.49,360.58 663.21,415.58 666.94,381.78 670.67,355.49 674.40,354.64 678.12,376.79 681.85,447.11 685.58,368.51 689.31,355.44 693.04,363.12 696.76,405.46 700.49,395.14 704.22,362.42 707.95,358.71 711.67,376.57 715.40,652.43 719.13,377.52 722.86,360.71 726.58,365.46 730.31,399.29 734.04,410.30 737.77,369.11 741.50,362.49 745.22,376.65 748.95,456.96 752.68,386.77 756.41,365.75 760.13,367.69 763.86,395.16 767.59,429.28 771.32,375.76 775.04,366.10 778.77,376.94 782.50,433.26 786.23,396.66 789.96,370.67 793.68,369.87 797.41,392.27 801.14,457.73 804.87,382.54 808.59,369.63 812.32,377.44 816.05,420.79 819.78,407.68 823.50,375.61 827.23,372.06 830.96,390.23 834.69,544.73 838.42,389.62 842.14,373.15 845.87,378.11 849.60,412.79 853.33,420.65 857.05,380.65 860.78,374.29 864.51,388.80 868.24,474.83 871.96,397.23 875.69,376.73 879.42,378.96 883.15,407.18 886.87,437.19 890.60,385.89 894.33,376.60 898.06,387.84 901.79,446.95 905.51,405.63 909.24,380.43 912.97,379.97 916.70,403.08 920.42,461.63 924.15,391.45 927.88,379.03 931.61,387.27 935.33,432.50 939.06,415.22 942.79,384.29 946.52,381.16 950.25,400.00 953.97,518.44 957.70,397.44 961.43,381.60 965.16,387.02 968.88,423.14 972.61,426.66 976.34,388.39 980.07,382.53 983.79,397.68 987.52,493.95 991.25,404.02 994.98,384.34 998.71,387.06 1002.43,416.48 1006.16,441.26 1009.89,392.79 1013.62,384.08 1017.34,395.95 1021.07,459.34 1024.80,411.42 1028.53,387.28 1032.25,387.37 1035.98,411.51 1039.71,462.23 1043.44,397.55 1047.17,385.82 1050.89,394.68 1054.62,442.60 1058.35,419.96 1062.08,390.46 1065.80,387.92 1069.53,407.68 1073.26,503.12 1076.99,402.79 1080.71,387.77 1084.44,393.82 1088.17,431.89 1091.90,430.19 1095.62,393.92 1099.35,388.71 1103.08,404.71 1106.81,519.55 1110.54,408.63 1114.26,389.94 1117.99,393.30 1121.72,424.27 1125.45,443.15 1129.17,397.71 1132.90,389.72 1136.63,402.39 1140.36,471.80 1144.08,415.25 1147.81,392.34 1151.54,393.10 1155.27,418.53 1159.00,461.21 1162.72,401.89 1166.45,390.97 1170.18,400.60 1173.91,452.01 1177.63,422.94 1181.36,395.02 1185.09,393.18 1188.82,414.06 1192.54,492.45 1196.27,406.55 1200.00,392.46 1203.73,399.26 1207.46,439.77 1211.18,432.16 1214.91,398.00 1218.64,393.52 1222.37,410.53 1226.09,574.51 1229.82,411.79 1233.55,394.19 1237.28,398.30 1241.00,431.14 1244.73,443.72 1248.46,401.31 1252.19,394.13 1255.92,407.72 1259.64,485.56 1263.37,417.78 1267.10,396.18 1270.83,397.68 1274.55,424.64 1278.28,459.38 1282.01,405.02 1285.74,394.98 1289.46,405.48 1293.19,461.33 1296.92,424.75 1300.65,398.45 1304.38,397.37 1308.10,419.56 1311.83,484.26 1315.56,409.19 1319.29,396.09 1323.01,403.73 1326.74,447.19 1330.47,433.08 1334.20,401.02 1337.92,397.36 1341.65,415.51 1345.38,555.76 1349.11,413.93 1352.83,397.46 1356.56,402.39 1360.29,437.42 1364.02,443.43 1367.75,403.94 1371.47,397.61 1375.20,412.24 1378.93,502.47 1382.66,419.36 1386.38,399.10 1390.11,401.42 1393.84,430.12 1397.57,457.13 1401.29,407.24 1405.02,398.13 1408.75,409.59 1412.48,471.06 1416.21,425.70 1419.93,401.02 1423.66,400.77 1427.39,424.42 1431.12,477.56 1434.84,411.00 1438.57,398.92 1442.30,407.47 1446.03,454.46 1449.75,433.26 1453.48,403.25 1457.21,400.43 1460.94,419.85 1464.67,519.70 1468.39,415.29 1472.12,399.97 1475.85,405.78 1479.58,443.35 1483.30,442.56 1487.03,405.81 1490.76,400.38 1494.49,416.14 1498.21,527.26 1501.94,420.23 1505.67,401.30 1509.40,404.48 1513.12,435.15 1516.85,454.63 1520.58,408.76 1524.31,400.60 1528.04,413.10 1531.76,481.85 1535.49,426.00 1539.22,402.91 1542.95,403.53 1546.67,428.79 1550.40,471.81 1554.13,412.14 1557.86,401.09 1561.58,410.61 1565.31,461.83 1569.04,432.87 1572.77,404.82 1576.50,402.89 1580.22,423.69 1583.95,502.01 1587.68,416.02 1591.41,401.86 1595.13,408.59 1598.86,449.09 1602.59,441.26 1606.32,407.07 1610.04,402.55 1613.77,419.53 1617.50,588.36 1621.23,420.52 1624.96,402.90 1628.68,406.98 1632.41,439.88 1636.14,451.97 1639.87,409.69 1643.59,402.49 1647.32,416.09 1651.05,494.71 1654.78,425.78 1658.50,404.22 1662.23,405.74 1665.96,432.78 1669.69,466.68 1673.42,412.72 1677.14,402.71 1680.87,413.26 1684.60,469.62 1688.33,432.02 1692.05,405.85 1695.78,404.82 1699.51,427.12 1703.24,490.12 1706.96,416.24 1710.69,403.21 1714.42,410.91 1718.15,454.79 1721.88,439.61 1725.60,407.80 1729.33,404.21 1733.06,422.49 1736.79,553.22 1740.51,420.32 1744.24,403.98 1747.97,409.00 1751.70,444.38 1755.42,449.17 1759.15,410.11 1762.88,403.88 1766.61,418.66 1770.33,511.82 1774.06,425.11 1777.79,405.04 1781.52,407.47 1785.25,436.48 1788.97,461.94 1792.70,412.82 1796.43,403.85 1800.16,415.46 1803.88,478.22 1807.61,430.80 1811.34,406.39 1815.07,406.27 1818.79,430.20 1822.52,481.00 1826.25,415.99 1829.98,404.08 1833.71,412.79 1837.43,460.61 1841.16,437.67 1844.89,408.07 1848.62,405.40 1852.34,425.07 1856.07,518.95 1859.80,419.69 1863.53,404.60 1867.25,410.58 1870.98,448.76 1874.71,446.24 1878.44,410.08 1882.17,404.82 1885.89,420.82 1889.62,539.97 1893.35,424.05 1897.08,405.40 1900.80,408.76 1904.53,439.92 1908.26,457.45 1911.99,412.49 1915.71,404.53 1919.44,417.26 1923.17,488.24 1926.90,429.22 1930.62,406.49 1934.35,407.29 1938.08,432.97 1941.81,473.41 1945.54,415.32 1949.26,404.51 1952.99,414.26 1956.72,466.74 1960.45,435.46 1964.17,407.89 1967.90,406.15 1971.63,427.31 1975.36,500.88 1979.08,418.67 1982.81,404.78 1986.54,411.73 1990.27,453.09 1994.00,443.17 1997.72,409.63 2001.45,405.32 2005.18,422.62 2008.91,1496.07" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,70.90 107.79,70.90 111.52,70.90 115.25,70.90 118.97,70.90 122.70,70.90 126.43,70.90 130.16,70.90 133.88,70.90 137.61,70.90 141.34,70.90 145.07,70.90 148.79,70.90 152.52,70.90 156.25,70.90 159.98,70.90 163.71,70.90 167.43,70.90 171.16,70.90 174.89,70.90 178.62,70.90 182.34,70.90 186.07,70.90 189.80,70.90 193.53,70.90 197.25,70.90 200.98,70.90 204.71,70.90 208.44,70.90 212.17,70.90 215.89,70.90 219.62,70.90 223.35,70.90 227.08,70.90 230.80,70.90 234.53,70.90 238.26,70.90 241.99,70.90 245.71,70.90 249.44,70.90 253.17,70.90 256.90,70.90 260.62,70.90 264.35,70.90 268.08,70.90 271.81,70.90 275.54,70.90 279.26,70.90 282.99,70.90 286.72,70.90 290.45,70.90 294.17,70.90 297.90,70.90 301.63,70.90 305.36,70.90 309.08,70.90 312.81,70.90 316.54,70.90 320.27,70.90 324.00,70.90 327.72,70.90 331.45,70.90 335.18,70.90 338.91,70.90 342.63,70.90 346.36,70.90 350.09,70.90 353.82,70.90 357.54,70.90 361.27,70.90 365.00,70.90 368.73,70.90 372.46,70.90 376.18,70.90 379.91,70.90 383.64,70.90 387.37,70.90 391.09,70.90 394.82,70.90 398.55,70.90 402.28,70.90 406.00,70.90 409.73,70.90 413.46,70.90 417.19,70.90 420.92,70.90 424.64,70.90 428.37,70.90 432.10,70.90 435.83,70.90 439.55,70.90 443.28,70.90 447.01,70.90 450.74,70.90 454.46,70.90 458.19,70.90 461.92,70.91 465.65,70.94 469.37,71.03 473.10,71.34 476.83,72.32 480.56,75.23 484.29,82.49 488.01,96.07 491.74,114.83 495.47,136.14 499.20,158.29 502.92,180.61 506.65,202.87 510.38,224.99 514.11,246.95 517.83,268.74 521.56,290.37 525.29,311.84 529.02,333.16 532.75,354.32 536.47,375.32 540.20,396.18 543.93,416.90 547.66,437.46 551.38,457.89 555.11,478.19 558.84,498.34 562.57,518.37 566.29,538.26 570.02,558.02 573.75,577.67 577.48,597.18 581.21,616.58 584.93,635.86 588.66,655.02 592.39,674.07 596.12,693.00 599.84,711.83 603.57,730.55 607.30,749.16 611.03,767.66 614.75,786.07 618.48,804.37 622.21,822.58 625.94,840.68 629.67,858.69 633.39,876.61 637.12,894.44 640.85,912.17 644.58,929.82 648.30,947.38 652.03,964.85 655.76,982.24 659.49,999.55 663.21,1016.77 666.94,1033.92 670.67,1050.98 674.40,1067.97 678.12,1084.88 681.85,1101.72 685.58,1118.48 689.31,1135.18 693.04,1151.80 696.76,1168.35 700.49,1184.83 704.22,1201.25 707.95,1217.60 711.67,1233.88 715.40,1250.10 719.13,1266.26 722.86,1282.36 726.58,1298.39 730.31,1314.37 734.04,1330.29 737.77,1346.15 741.50,1361.95 745.22,1377.70 748.95,1393.39 752.68,1409.03 756.41,1424.62 760.13,1440.16 763.86,1455.64 767.59,1471.08 771.32,1486.46 775.04,1501.80 778.77,1517.09 782.50,1532.34 786.23,1547.54 789.96,1562.69 793.68,1577.81 797.41,1592.87 801.14,1607.90 804.87,1622.89 808.59,1637.83 812.32,1652.73 816.05,1667.60 819.78,1682.43 823.50,1697.22 827.23,1711.97 830.96,1726.69 834.69,1741.37 838.42,1756.02 842.14,1770.63 845.87,1785.21 849.60,1799.76 853.33,1814.28 857.05,1828.76 860.78,1843.22 864.51,1857.64 868.24,1872.04 871.96,1886.41 875.69,1900.75 879.42,1915.06 883.15,1929.35 886.87,1943.61 890.60,1957.85 894.33,1972.06 898.06,1986.24 901.79,2000.41 905.51,2014.55 909.24,2028.67 912.97,2042.77 916.70,2056.84 920.42,2070.90 924.15,2084.94 927.88,2098.96 931.61,2112.95 935.33,2126.94 939.06,2140.90 942.79,2154.85 946.52,2168.78 950.25,2182.69 953.97,2196.59 957.70,2210.48 961.43,2224.35 965.16,2238.21 968.88,2252.05 972.61,2265.88 976.34,2279.71 980.07,2293.51 983.79,2307.31 987.52,2321.10 991.25,2334.88 994.98,2348.65 998.71,2362.41 1002.43,2376.16 1006.16,2389.91 1009.89,2403.65 1013.62,2417.38 1017.34,2431.11 1021.07,2444.83 1024.80,2458.54 1028.53,2472.25 1032.25,2485.96 1035.98,2499.66 1039.71,2513.36 1043.44,2527.06 1047.17,2540.76 1050.89,2554.46 1054.62,2568.15 1058.35,2581.85 1062.08,2595.54 1065.80,2609.24 1069.53,2622.93 1073.26,2636.63 1076.99,2650.33 1080.71,2664.04 1084.44,2677.74 1088.17,2691.45 1091.90,2705.17 1095.62,2718.89 1099.35,2732.62 1103.08,2746.35 1106.81,2760.09 1110.54,2773.83 1114.26,2787.58 1117.99,2801.35 1121.72,2815.12 1125.45,2828.89 1129.17,2842.68 1132.90,2856.48 1136.63,2870.29 1140.36,2884.11 1144.08,2897.94 1147.81,2911.79 1151.54,2925.65 1155.27,2939.52 1159.00,2953.40 1162.72,2967.30 1166.45,2981.22 1170.18,2995.15 1173.91,3009.10 1177.63,3023.06 1181.36,3037.04 1185.09,3051.04 1188.82,3065.06 1192.54,3079.10 1196.27,3093.15 1200.00,3107.23 1203.73,3121.33 1207.46,3135.45 1211.18,3149.59 1214.91,3163.75 1218.64,3177.94 1222.37,3192.15 1226.09,3206.39 1229.82,3220.65 1233.55,3234.93 1237.28,3249.25 1241.00,3263.59 1244.73,3277.96 1248.46,3292.35 1252.19,3306.78 1255.92,3321.23 1259.64,3335.72 1263.37,3350.23 1267.10,3364.78 1270.83,3379.36 1274.55,3393.98 1278.28,3408.63 1282.01,3423.31 1285.74,3438.02 1289.46,3452.78 1293.19,3467.57 1296.92,3482.40 1300.65,3497.26 1304.38,3512.17 1308.10,3527.11 1311.83,3542.10 1315.56,3557.12 1319.29,3572.19 1323.01,3587.30 1326.74,3602.46 1330.47,3617.66 1334.20,3632.90 1337.92,3648.19 1341.65,3663.53 1345.38,3678.92 1349.11,3694.35 1352.83,3709.84 1356.56,3725.38 1360.29,3740.96 1364.02,3756.60 1367.75,3772.30 1371.47,3788.05 1375.20,3803.85 1378.93,3819.71 1382.66,3835.63 1386.38,3851.60 1390.11,3867.64 1393.84,3883.74 1397.57,3899.89 1401.29,3916.11 1405.02,3932.40 1408.75,3948.75 1412.48,3965.16 1416.21,3981.65 1419.93,3998.20 1423.66,4014.82 1427.39,4031.51 1431.12,4048.28 1434.84,4065.11 1438.57,4082.03 1442.30,4099.01 1446.03,4116.08 1449.75,4133.22 1453.48,4150.45 1457.21,4167.75 1460.94,4185.14 1464.67,4202.62 1468.39,4220.18 1472.12,4237.82 1475.85,4255.56 1479.58,4273.38 1483.30,4291.30 1487.03,4309.31 1490.76,4327.42 1494.49,4345.63 1498.21,4363.93 1501.94,4382.33 1505.67,4400.84 1509.40,4419.45 1513.12,4438.17 1516.85,4456.99 1520.58,4475.93 1524.31,4494.98 1528.04,4514.14 1531.76,4533.42 1535.49,4552.81 1539.22,4572.33 1542.95,4591.97 1546.67,4611.74 1550.40,4631.63 1554.13,4651.65 1557.86,4671.81 1561.58,4692.10 1565.31,4712.53 1569.04,4733.10 1572.77,4753.81 1576.50,4774.67 1580.22,4795.68 1583.95,4816.84 1587.68,4838.15 1591.41,4859.62 1595.13,4881.26 1598.86,4903.05 1602.59,4925.02 1606.32,4947.15 1610.04,4969.46 1613.77,4991.95 1617.50,5014.62 1621.23,5037.48 1624.96,5060.52 1628.68,5083.76 1632.41,5107.20 1636.14,5130.84 1639.87,5154.69 1643.59,5178.74 1647.32,5203.02 1651.05,5227.51 1654.78,5252.23 1658.50,5277.19 1662.23,5302.37 1665.96,5327.80 1669.69,5353.48 1673.42,5379.41 1677.14,5405.60 1680.87,5432.06 1684.60,5458.79 1688.33,5485.79 1692.05,5513.09 1695.78,5540.67 1699.51,5568.56 1703.24,5596.75 1706.96,5625.26 1710.69,5654.09 1714.42,5683.26 1718.15,5712.77 1721.88,5742.63 1725.60,5772.85 1729.33,5803.44 1733.06,5834.41 1736.79,5865.77 1740.51,5897.54 1744.24,5929.72 1747.97,5962.33 1751.70,5995.37 1755.42,6028.87 1759.15,6062.84 1762.88,6097.29 1766.61,6132.24 1770.33,6167.69 1774.06,6203.68 1777.79,6240.21 1781.52,6277.31 1785.25,6314.99 1788.97,6353.28 1792.70,6392.19 1796.43,6431.75 1800.16,6471.98 1803.88,6512.90 1807.61,6554.55 1811.34,6596.95 1815.07,6640.12 1818.79,6684.11 1822.52,6728.94 1826.25,6774.64 1829.98,6821.26 1833.71,6868.83 1837.43,6917.39 1841.16,6966.99 1844.89,7017.68 1848.62,7069.50 1852.34,7122.52 1856.07,7176.78 1859.80,7232.36 1863.53,7289.31 1867.25,7347.72 1870.98,7407.65 1874.71,7469.20 1878.44,7532.45 1882.17,7597.50 1885.89,7664.47 1889.62,7733.48 1893.35,7804.64 1897.08,7878.11 1900.80,7954.04 1904.53,8032.61 1908.26,8114.00 1911.99,8198.44 1915.71,8286.16 1919.44,8377.44 1923.17,8472.57 1926.90,8571.90 1930.62,8675.83 1934.35,8784.80 1938.08,8899.33 1941.81,9020.02 1945.54,9147.59 1949.26,9282.86 1952.99,9426.84 1956.72,9580.72 1960.45,9745.99 1964.17,9924.46 1967.90,10118.44 1971.63,10330.89 1975.36,10565.71 1979.08,10828.19 1982.81,11125.74 1986.54,11469.20 1990.27,11875.40 1994.00,12372.51 1997.72,13013.37 2001.45,13916.58 2005.18,15460.58" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Matching a 10 Hz transition: FIR vs IIR</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">Frequency (Hz)</text>
+<text x="49.33" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 49.33 288.42)">Magnitude (dB)</text>
+<rect x="702.88" y="56.00" width="155.12" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="711.74" y1="77.01" x2="737.05" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="744.65" y="80.51" font-size="16.2" text-anchor="start" fill="#222">FIR order 223</text>
+<line x1="711.74" y1="101.31" x2="737.05" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="744.65" y="104.81" font-size="16.2" text-anchor="start" fill="#222">IIR order 56</text>
+</svg></figure></div>
+<pre><code>FIR taps: 224
+IIR sections: 28 (140 multiply-adds/sample)
+</code></pre>
+<p>224 multiply-adds per sample against 140 — the FIR estimate that looked cheaper at matched order is now the more expensive filter, because sharpness, not order, is what a real spec asks for, and IIR sharpness grows from the *ratio* of stopband to passband edge rather than the raw gap. What the extra FIR cost buys is on the phase axis, not the magnitude one:</p>
+<div class="example hasout"><pre class="hl"><code>gd_fir = <span class="f">group_delay</span>(fir_sharp, <span class="n">512</span>)
+gd_iir = <span class="f">group_delay</span>(iir_sharp, <span class="n">512</span>)
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, gd_fir, <span class="a">label</span> = <span class="s">"FIR"</span>)
+<span class="f">plot</span>(f, gd_iir, <span class="a">label</span> = <span class="s">"IIR"</span>)
+<span class="f">xlim</span>(<span class="n">0</span>, <span class="n">200</span>)
+<span class="f">xlabel</span>(<span class="s">"Frequency (Hz)"</span>)
+<span class="f">ylabel</span>(<span class="s">"Group delay (samples)"</span>)
+<span class="f">legend</span>()
+<span class="f">title</span>(<span class="s">"Group delay: constant vs frequency-dependent"</span>)
+
+i40 = <span class="f">where</span>(<span class="f">abs</span>(f - <span class="n">40</span>) &lt; <span class="n">1</span>)[<span class="n">0</span>]
+i80 = <span class="f">where</span>(<span class="f">abs</span>(f - <span class="n">80</span>) &lt; <span class="n">1</span>)[<span class="n">0</span>]
+<span class="f">print</span>(<span class="s">"FIR group delay near 40 Hz: {gd_fir[i40]:.1f}"</span>)
+<span class="f">print</span>(<span class="s">"FIR group delay near 80 Hz: {gd_fir[i80]:.1f}"</span>)
+<span class="f">print</span>(<span class="s">"IIR group delay near 40 Hz: {gd_iir[i40]:.1f}"</span>)
+<span class="f">print</span>(<span class="s">"IIR group delay near 80 Hz: {gd_iir[i80]:.1f}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 6 (512 points)
+· plot: figure 7 (512 points)
+FIR group delay near 40 Hz: 111.5
+FIR group delay near 80 Hz: 111.5
+IIR group delay near 40 Hz: 58.7
+IIR group delay near 80 Hz: 78.6</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="515.47" x2="866.00" y2="515.47" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="515.47" x2="104.06" y2="515.47" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="521.14" font-size="16.2" text-anchor="end" fill="#4d4d4d">-150</text>
+<line x1="104.06" y1="444.78" x2="866.00" y2="444.78" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="444.78" x2="104.06" y2="444.78" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="450.45" font-size="16.2" text-anchor="end" fill="#4d4d4d">-100</text>
+<line x1="104.06" y1="374.08" x2="866.00" y2="374.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="374.08" x2="104.06" y2="374.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="379.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">-50</text>
+<line x1="104.06" y1="303.39" x2="866.00" y2="303.39" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="303.39" x2="104.06" y2="303.39" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="309.06" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="232.69" x2="866.00" y2="232.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="232.69" x2="104.06" y2="232.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="238.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">50</text>
+<line x1="104.06" y1="162.00" x2="866.00" y2="162.00" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.00" x2="104.06" y2="162.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="167.67" font-size="16.2" text-anchor="end" fill="#4d4d4d">100</text>
+<line x1="104.06" y1="91.31" x2="866.00" y2="91.31" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="91.31" x2="104.06" y2="91.31" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="96.98" font-size="16.2" text-anchor="end" fill="#4d4d4d">150</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="180.26" y1="48.00" x2="180.26" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="180.26" y1="528.84" x2="180.26" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="180.26" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="256.45" y1="48.00" x2="256.45" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="256.45" y1="528.84" x2="256.45" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="256.45" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="332.64" y1="48.00" x2="332.64" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="332.64" y1="528.84" x2="332.64" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="332.64" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="408.84" y1="48.00" x2="408.84" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="408.84" y1="528.84" x2="408.84" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="408.84" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">80</text>
+<line x1="485.03" y1="48.00" x2="485.03" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="485.03" y1="528.84" x2="485.03" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="485.03" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">100</text>
+<line x1="561.22" y1="48.00" x2="561.22" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="561.22" y1="528.84" x2="561.22" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="561.22" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">120</text>
+<line x1="637.42" y1="48.00" x2="637.42" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="637.42" y1="528.84" x2="637.42" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="637.42" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">140</text>
+<line x1="713.61" y1="48.00" x2="713.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="713.61" y1="528.84" x2="713.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="713.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">160</text>
+<line x1="789.81" y1="48.00" x2="789.81" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="789.81" y1="528.84" x2="789.81" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="789.81" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">180</text>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="528.84" x2="866.00" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="866.00" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">200</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,145.74 107.79,145.74 111.52,145.74 115.25,145.74 118.97,145.74 122.70,145.74 126.43,145.74 130.16,145.74 133.88,145.74 137.61,145.74 141.34,145.74 145.07,145.74 148.79,145.74 152.52,145.74 156.25,145.74 159.98,145.74 163.71,145.74 167.43,145.74 171.16,145.74 174.89,145.74 178.62,145.74 182.34,145.74 186.07,145.74 189.80,145.74 193.53,145.74 197.25,145.74 200.98,145.74 204.71,145.74 208.44,145.74 212.17,145.74 215.89,145.74 219.62,145.74 223.35,145.74 227.08,145.74 230.80,145.74 234.53,145.74 238.26,145.74 241.99,145.74 245.71,145.74 249.44,145.74 253.17,145.74 256.90,145.74 260.62,145.74 264.35,145.74 268.08,145.74 271.81,145.74 275.54,145.74 279.26,145.74 282.99,145.74 286.72,145.74 290.45,145.74 294.17,145.74 297.90,145.74 301.63,145.74 305.36,145.74 309.08,145.74 312.81,145.74 316.54,145.74 320.27,145.74 324.00,145.74 327.72,145.74 331.45,145.74 335.18,145.74 338.91,145.74 342.63,145.74 346.36,145.74 350.09,145.74 353.82,145.74 357.54,145.74 361.27,145.74 365.00,145.74 368.73,145.74 372.46,145.74 376.18,145.74 379.91,145.74 383.64,145.74 387.37,145.74 391.09,145.74 394.82,145.74 398.55,145.74 402.28,145.74 406.00,145.74 409.73,145.74 413.46,145.74 417.19,145.74 420.92,145.74 424.64,145.74 428.37,145.74 432.10,145.74 435.83,145.74 439.55,145.74 443.28,145.74 447.01,145.74 450.74,145.74 454.46,145.74 458.19,145.74 461.92,145.74 465.65,145.74 469.37,145.74 473.10,145.74 476.83,145.74 480.56,145.74 484.29,145.74 488.01,145.74 491.74,145.74 495.47,145.74 499.20,145.74 502.92,145.74 506.65,145.74 510.38,145.74 514.11,506.99 517.83,506.99 521.56,145.74 525.29,145.74 529.02,145.74 532.75,145.74 536.47,145.74 540.20,145.74 543.93,506.99 547.66,506.99 551.38,145.74 555.11,145.74 558.84,506.99 562.57,506.99 566.29,145.74 570.02,145.74 573.75,145.74 577.48,506.99 581.21,506.99 584.93,145.74 588.66,145.74 592.39,145.74 596.12,506.99 599.84,506.99 603.57,145.74 607.30,145.74 611.03,506.99 614.75,506.99 618.48,145.74 622.21,145.74 625.94,145.74 629.67,506.99 633.39,506.99 637.12,145.74 640.85,145.74 644.58,506.99 648.30,506.99 652.03,145.74 655.76,145.74 659.49,145.74 663.21,506.99 666.94,506.99 670.67,145.74 674.40,145.74 678.12,506.99 681.85,506.99 685.58,145.74 689.31,145.74 693.04,145.74 696.76,506.99 700.49,506.99 704.22,145.74 707.95,145.74 711.67,506.99 715.40,506.99 719.13,145.74 722.86,145.74 726.58,145.74 730.31,506.99 734.04,506.99 737.77,145.74 741.50,145.74 745.22,145.74 748.95,506.99 752.68,506.99 756.41,145.74 760.13,145.74 763.86,506.99 767.59,506.99 771.32,145.74 775.04,145.74 778.77,145.74 782.50,506.99 786.23,506.99 789.96,145.74 793.68,145.74 797.41,506.99 801.14,506.99 804.87,145.74 808.59,145.74 812.32,145.74 816.05,506.99 819.78,506.99 823.50,145.74 827.23,145.74 830.96,506.99 834.69,506.99 838.42,145.74 842.14,145.74 845.87,145.74 849.60,506.99 853.33,506.99 857.05,145.74 860.78,145.74 864.51,145.74 868.24,506.99 871.96,506.99 875.69,145.74 879.42,145.74 883.15,506.99 886.87,506.99 890.60,145.74 894.33,145.74 898.06,145.74 901.79,506.99 905.51,506.99 909.24,145.74 912.97,145.74 916.70,506.99 920.42,506.99 924.15,145.74 927.88,145.74 931.61,145.74 935.33,506.99 939.06,506.99 942.79,145.74 946.52,145.74 950.25,506.99 953.97,506.99 957.70,145.74 961.43,145.74 965.16,145.74 968.88,506.99 972.61,506.99 976.34,145.74 980.07,145.74 983.79,145.74 987.52,506.99 991.25,506.99 994.98,145.74 998.71,145.74 1002.43,506.99 1006.16,506.99 1009.89,145.74 1013.62,145.74 1017.34,145.74 1021.07,506.99 1024.80,506.99 1028.53,145.74 1032.25,145.74 1035.98,506.99 1039.71,506.99 1043.44,145.74 1047.17,145.74 1050.89,145.74 1054.62,506.99 1058.35,506.99 1062.08,145.74 1065.80,145.74 1069.53,506.99 1073.26,506.99 1076.99,145.74 1080.71,145.74 1084.44,145.74 1088.17,506.99 1091.90,506.99 1095.62,145.74 1099.35,145.74 1103.08,145.74 1106.81,506.99 1110.54,506.99 1114.26,145.74 1117.99,145.74 1121.72,506.99 1125.45,506.99 1129.17,145.74 1132.90,145.74 1136.63,145.74 1140.36,506.99 1144.08,506.99 1147.81,145.74 1151.54,145.74 1155.27,506.99 1159.00,506.99 1162.72,145.74 1166.45,145.74 1170.18,145.74 1173.91,506.99 1177.63,506.99 1181.36,145.74 1185.09,145.74 1188.82,506.99 1192.54,506.99 1196.27,145.74 1200.00,145.74 1203.73,145.74 1207.46,506.99 1211.18,506.99 1214.91,145.74 1218.64,145.74 1222.37,145.74 1226.09,506.99 1229.82,506.99 1233.55,145.74 1237.28,145.74 1241.00,506.99 1244.73,506.99 1248.46,145.74 1252.19,145.74 1255.92,145.74 1259.64,506.99 1263.37,506.99 1267.10,145.74 1270.83,145.74 1274.55,506.99 1278.28,506.99 1282.01,145.74 1285.74,145.74 1289.46,145.74 1293.19,506.99 1296.92,506.99 1300.65,145.74 1304.38,145.74 1308.10,506.99 1311.83,506.99 1315.56,145.74 1319.29,145.74 1323.01,145.74 1326.74,506.99 1330.47,506.99 1334.20,145.74 1337.92,145.74 1341.65,506.99 1345.38,506.99 1349.11,145.74 1352.83,145.74 1356.56,145.74 1360.29,506.99 1364.02,506.99 1367.75,145.74 1371.47,145.74 1375.20,145.74 1378.93,506.99 1382.66,506.99 1386.38,145.74 1390.11,145.74 1393.84,506.99 1397.57,506.99 1401.29,145.74 1405.02,145.74 1408.75,145.74 1412.48,506.99 1416.21,506.99 1419.93,145.74 1423.66,145.74 1427.39,506.99 1431.12,506.99 1434.84,145.74 1438.57,145.74 1442.30,145.74 1446.03,506.99 1449.75,506.99 1453.48,145.74 1457.21,145.74 1460.94,506.99 1464.67,506.99 1468.39,145.74 1472.12,145.74 1475.85,145.74 1479.58,506.99 1483.30,506.99 1487.03,145.74 1490.76,145.74 1494.49,145.74 1498.21,506.99 1501.94,506.99 1505.67,145.74 1509.40,145.74 1513.12,506.99 1516.85,506.99 1520.58,145.74 1524.31,145.74 1528.04,145.74 1531.76,506.99 1535.49,506.99 1539.22,145.74 1542.95,145.74 1546.67,506.99 1550.40,506.99 1554.13,145.74 1557.86,145.74 1561.58,145.74 1565.31,506.99 1569.04,506.99 1572.77,145.74 1576.50,145.74 1580.22,506.99 1583.95,506.99 1587.68,145.74 1591.41,145.74 1595.13,145.74 1598.86,506.99 1602.59,506.99 1606.32,145.74 1610.04,145.74 1613.77,145.74 1617.50,506.99 1621.23,506.99 1624.96,145.74 1628.68,145.74 1632.41,506.99 1636.14,506.99 1639.87,145.74 1643.59,145.74 1647.32,145.74 1651.05,506.99 1654.78,506.99 1658.50,145.74 1662.23,145.74 1665.96,506.99 1669.69,506.99 1673.42,145.74 1677.14,145.74 1680.87,145.74 1684.60,506.99 1688.33,506.99 1692.05,145.74 1695.78,145.74 1699.51,506.99 1703.24,506.99 1706.96,145.74 1710.69,145.74 1714.42,145.74 1718.15,506.99 1721.88,506.99 1725.60,145.74 1729.33,145.74 1733.06,506.99 1736.79,506.99 1740.51,145.74 1744.24,145.74 1747.97,145.74 1751.70,506.99 1755.42,506.99 1759.15,145.74 1762.88,145.74 1766.61,145.74 1770.33,506.99 1774.06,506.99 1777.79,145.74 1781.52,145.74 1785.25,506.99 1788.97,506.99 1792.70,145.74 1796.43,145.74 1800.16,145.74 1803.88,506.99 1807.61,506.99 1811.34,145.74 1815.07,145.74 1818.79,506.99 1822.52,506.99 1826.25,145.74 1829.98,145.74 1833.71,145.74 1837.43,506.99 1841.16,506.99 1844.89,145.74 1848.62,145.74 1852.34,506.99 1856.07,506.99 1859.80,145.74 1863.53,145.74 1867.25,145.74 1870.98,506.99 1874.71,506.99 1878.44,145.74 1882.17,145.74 1885.89,145.74 1889.62,506.99 1893.35,506.99 1897.08,145.74 1900.80,145.74 1904.53,506.99 1908.26,506.99 1911.99,145.74 1915.71,145.74 1919.44,145.74 1923.17,506.99 1926.90,506.99 1930.62,145.74 1934.35,145.74 1938.08,506.99 1941.81,506.99 1945.54,145.74 1949.26,145.74 1952.99,145.74 1956.72,506.99 1960.45,506.99 1964.17,145.74 1967.90,145.74 1971.63,506.99 1975.36,506.99 1979.08,145.74 1982.81,145.74 1986.54,145.74 1990.27,506.99 1994.00,506.99 1997.72,145.74 2001.45,145.74 2005.18,144.51 2008.91,143.27" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,225.81 107.79,225.81 111.52,225.80 115.25,225.78 118.97,225.76 122.70,225.73 126.43,225.70 130.16,225.66 133.88,225.62 137.61,225.56 141.34,225.50 145.07,225.44 148.79,225.37 152.52,225.29 156.25,225.21 159.98,225.12 163.71,225.02 167.43,224.92 171.16,224.81 174.89,224.69 178.62,224.56 182.34,224.43 186.07,224.29 189.80,224.15 193.53,224.00 197.25,223.84 200.98,223.67 204.71,223.49 208.44,223.31 212.17,223.12 215.89,222.92 219.62,222.72 223.35,222.50 227.08,222.28 230.80,222.04 234.53,221.80 238.26,221.55 241.99,221.29 245.71,221.02 249.44,220.74 253.17,220.45 256.90,220.15 260.62,219.84 264.35,219.52 268.08,219.19 271.81,218.85 275.54,218.49 279.26,218.12 282.99,217.74 286.72,217.34 290.45,216.93 294.17,216.51 297.90,216.07 301.63,215.62 305.36,215.15 309.08,214.67 312.81,214.16 316.54,213.64 320.27,213.11 324.00,212.55 327.72,211.97 331.45,211.37 335.18,210.74 338.91,210.10 342.63,209.42 346.36,208.73 350.09,208.00 353.82,207.25 357.54,206.46 361.27,205.64 365.00,204.79 368.73,203.90 372.46,202.97 376.18,202.00 379.91,200.98 383.64,199.92 387.37,198.80 391.09,197.62 394.82,196.39 398.55,195.08 402.28,193.71 406.00,192.25 409.73,190.70 413.46,189.06 417.19,187.31 420.92,185.44 424.64,183.43 428.37,181.26 432.10,178.91 435.83,176.36 439.55,173.57 443.28,170.48 447.01,167.05 450.74,163.19 454.46,158.78 458.19,153.64 461.92,147.51 465.65,139.90 469.37,130.06 473.10,116.82 476.83,99.32 480.56,80.28 484.29,69.86 488.01,77.17 491.74,97.11 495.47,118.01 499.20,134.70 502.92,147.37 506.65,157.28 510.38,165.35 514.11,172.16 517.83,178.07 521.56,183.29 525.29,187.96 529.02,192.20 532.75,196.07 536.47,199.63 540.20,202.93 543.93,206.00 547.66,208.86 551.38,211.55 555.11,214.08 558.84,216.46 562.57,218.71 566.29,220.85 570.02,222.87 573.75,224.80 577.48,226.64 581.21,228.39 584.93,230.07 588.66,231.68 592.39,233.21 596.12,234.69 599.84,236.11 603.57,237.47 607.30,238.78 611.03,240.04 614.75,241.26 618.48,242.44 622.21,243.57 625.94,244.67 629.67,245.72 633.39,246.75 637.12,247.74 640.85,248.70 644.58,249.63 648.30,250.53 652.03,251.41 655.76,252.26 659.49,253.08 663.21,253.88 666.94,254.66 670.67,255.42 674.40,256.15 678.12,256.87 681.85,257.57 685.58,258.24 689.31,258.90 693.04,259.55 696.76,260.18 700.49,260.79 704.22,261.38 707.95,261.96 711.67,262.53 715.40,263.09 719.13,263.63 722.86,264.15 726.58,264.67 730.31,265.17 734.04,265.67 737.77,266.15 741.50,266.62 745.22,267.08 748.95,267.53 752.68,267.97 756.41,268.40 760.13,268.82 763.86,269.23 767.59,269.64 771.32,270.03 775.04,270.42 778.77,270.80 782.50,271.17 786.23,271.54 789.96,271.89 793.68,272.24 797.41,272.59 801.14,272.92 804.87,273.26 808.59,273.58 812.32,273.90 816.05,274.21 819.78,274.51 823.50,274.81 827.23,275.11 830.96,275.40 834.69,275.68 838.42,275.96 842.14,276.24 845.87,276.50 849.60,276.77 853.33,277.03 857.05,277.28 860.78,277.53 864.51,277.78 868.24,278.02 871.96,278.26 875.69,278.50 879.42,278.73 883.15,278.95 886.87,279.17 890.60,279.39 894.33,279.61 898.06,279.82 901.79,280.03 905.51,280.23 909.24,280.43 912.97,280.63 916.70,280.83 920.42,281.02 924.15,281.21 927.88,281.40 931.61,281.58 935.33,281.76 939.06,281.94 942.79,282.11 946.52,282.29 950.25,282.46 953.97,282.62 957.70,282.79 961.43,282.95 965.16,283.11 968.88,283.27 972.61,283.42 976.34,283.58 980.07,283.73 983.79,283.88 987.52,284.02 991.25,284.17 994.98,284.31 998.71,284.45 1002.43,284.59 1006.16,284.72 1009.89,284.86 1013.62,284.99 1017.34,285.12 1021.07,285.25 1024.80,285.38 1028.53,285.50 1032.25,285.63 1035.98,285.75 1039.71,285.87 1043.44,285.99 1047.17,286.11 1050.89,286.22 1054.62,286.34 1058.35,286.45 1062.08,286.56 1065.80,286.67 1069.53,286.78 1073.26,286.88 1076.99,286.99 1080.71,287.09 1084.44,287.20 1088.17,287.30 1091.90,287.40 1095.62,287.50 1099.35,287.59 1103.08,287.69 1106.81,287.79 1110.54,287.88 1114.26,287.97 1117.99,288.06 1121.72,288.15 1125.45,288.24 1129.17,288.33 1132.90,288.42 1136.63,288.50 1140.36,288.59 1144.08,288.67 1147.81,288.76 1151.54,288.84 1155.27,288.92 1159.00,289.00 1162.72,289.08 1166.45,289.16 1170.18,289.23 1173.91,289.31 1177.63,289.38 1181.36,289.46 1185.09,289.53 1188.82,289.61 1192.54,289.68 1196.27,289.75 1200.00,289.82 1203.73,289.89 1207.46,289.96 1211.18,290.02 1214.91,290.09 1218.64,290.16 1222.37,290.22 1226.09,290.29 1229.82,290.35 1233.55,290.41 1237.28,290.48 1241.00,290.54 1244.73,290.60 1248.46,290.66 1252.19,290.72 1255.92,290.78 1259.64,290.84 1263.37,290.89 1267.10,290.95 1270.83,291.01 1274.55,291.06 1278.28,291.12 1282.01,291.17 1285.74,291.23 1289.46,291.28 1293.19,291.33 1296.92,291.38 1300.65,291.43 1304.38,291.49 1308.10,291.54 1311.83,291.59 1315.56,291.63 1319.29,291.68 1323.01,291.73 1326.74,291.78 1330.47,291.83 1334.20,291.87 1337.92,291.92 1341.65,291.96 1345.38,292.01 1349.11,292.05 1352.83,292.10 1356.56,292.14 1360.29,292.18 1364.02,292.23 1367.75,292.27 1371.47,292.31 1375.20,292.35 1378.93,292.39 1382.66,292.43 1386.38,292.47 1390.11,292.51 1393.84,292.55 1397.57,292.59 1401.29,292.63 1405.02,292.67 1408.75,292.70 1412.48,292.74 1416.21,292.78 1419.93,292.81 1423.66,292.85 1427.39,292.88 1431.12,292.92 1434.84,292.95 1438.57,292.99 1442.30,293.02 1446.03,293.05 1449.75,293.09 1453.48,293.12 1457.21,293.15 1460.94,293.18 1464.67,293.22 1468.39,293.25 1472.12,293.28 1475.85,293.31 1479.58,293.34 1483.30,293.37 1487.03,293.40 1490.76,293.43 1494.49,293.46 1498.21,293.49 1501.94,293.51 1505.67,293.54 1509.40,293.57 1513.12,293.60 1516.85,293.62 1520.58,293.65 1524.31,293.68 1528.04,293.70 1531.76,293.73 1535.49,293.75 1539.22,293.78 1542.95,293.80 1546.67,293.83 1550.40,293.85 1554.13,293.88 1557.86,293.90 1561.58,293.92 1565.31,293.95 1569.04,293.97 1572.77,293.99 1576.50,294.02 1580.22,294.04 1583.95,294.06 1587.68,294.08 1591.41,294.10 1595.13,294.12 1598.86,294.15 1602.59,294.17 1606.32,294.19 1610.04,294.21 1613.77,294.23 1617.50,294.25 1621.23,294.27 1624.96,294.29 1628.68,294.30 1632.41,294.32 1636.14,294.34 1639.87,294.36 1643.59,294.38 1647.32,294.40 1651.05,294.41 1654.78,294.43 1658.50,294.45 1662.23,294.46 1665.96,294.48 1669.69,294.50 1673.42,294.51 1677.14,294.53 1680.87,294.54 1684.60,294.56 1688.33,294.58 1692.05,294.59 1695.78,294.61 1699.51,294.62 1703.24,294.64 1706.96,294.65 1710.69,294.66 1714.42,294.68 1718.15,294.69 1721.88,294.70 1725.60,294.72 1729.33,294.73 1733.06,294.74 1736.79,294.76 1740.51,294.77 1744.24,294.78 1747.97,294.79 1751.70,294.80 1755.42,294.82 1759.15,294.83 1762.88,294.84 1766.61,294.85 1770.33,294.86 1774.06,294.87 1777.79,294.88 1781.52,294.89 1785.25,294.90 1788.97,294.91 1792.70,294.92 1796.43,294.93 1800.16,294.94 1803.88,294.95 1807.61,294.96 1811.34,294.97 1815.07,294.98 1818.79,294.99 1822.52,295.00 1826.25,295.00 1829.98,295.01 1833.71,295.02 1837.43,295.03 1841.16,295.03 1844.89,295.04 1848.62,295.05 1852.34,295.06 1856.07,295.06 1859.80,295.07 1863.53,295.08 1867.25,295.08 1870.98,295.09 1874.71,295.09 1878.44,295.10 1882.17,295.11 1885.89,295.11 1889.62,295.12 1893.35,295.12 1897.08,295.13 1900.80,295.13 1904.53,295.14 1908.26,295.14 1911.99,295.14 1915.71,295.15 1919.44,295.15 1923.17,295.16 1926.90,295.16 1930.62,295.16 1934.35,295.17 1938.08,295.17 1941.81,295.17 1945.54,295.18 1949.26,295.18 1952.99,295.18 1956.72,295.18 1960.45,295.19 1964.17,295.19 1967.90,295.19 1971.63,295.19 1975.36,295.19 1979.08,295.19 1982.81,295.19 1986.54,295.20 1990.27,295.20 1994.00,295.20 1997.72,295.20 2001.45,295.20 2005.18,295.20 2008.91,295.20" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Group delay: constant vs frequency-dependent</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">Frequency (Hz)</text>
+<text x="49.33" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 49.33 288.42)">Group delay (samples)</text>
+<rect x="783.04" y="56.00" width="74.96" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="791.89" y1="77.01" x2="817.21" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="824.80" y="80.51" font-size="16.2" text-anchor="start" fill="#222">FIR</text>
+<line x1="791.89" y1="101.31" x2="817.21" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="824.80" y="104.81" font-size="16.2" text-anchor="start" fill="#222">IIR</text>
+</svg></figure></div>
+<pre><code>FIR group delay near 40 Hz: 111.5
+FIR group delay near 80 Hz: 111.5
+IIR group delay near 40 Hz: 58.7
+IIR group delay near 80 Hz: 78.6
+</code></pre>
+<p>The FIR delay is the same number, 111.5 samples, everywhere in the passband: every frequency arrives shifted by an identical amount, so a filtered waveform keeps its shape instead of smearing. The IIR delay moves — 58.7 samples at 40 Hz, 78.6 at 80 Hz — because the feedback that buys its sharp transition does more work as frequency climbs toward the cutoff. A digital audio effect, a measurement chain, anything that cannot tolerate phase smearing wants FIR, extra multiply-adds included.</p>
+<h2 id="s50">The question this lesson has not asked</h2>
+<p>Every filter built here and in Lesson 7 had a target decided before a single sample arrived: a cutoff typed in, coefficients computed once and frozen. That is fine when you already know exactly what to remove — mains hum sits at 50 Hz whether or not anyone checks. It fails the moment the thing you want to remove will not hold still: an echo whose delay depends on a room nobody measured, a whine whose pitch tracks an engine's RPM. Lesson 9 builds a filter with no fixed coefficients to type in the first place.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

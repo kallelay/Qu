@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channels and Equalization — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+<nav class="side">
+<p class="sidegroup">Getting started</p>
+<ul>
+<li><a href="start-here.html">Start Here</a></li>
+<li><a href="from-zero.html">From Zero</a></li>
+<li><a href="quickstart.html">Quickstart</a></li>
+<li><a href="fundamentals.html">Fundamentals</a></li>
+<li><a href="numerics-dsp.html">Numerics, DSP & Linear Algebra</a></li>
+<li><a href="specialized.html">Specialized Domains</a></li>
+</ul>
+<p class="sidegroup">Standard library</p>
+<ul>
+<li><a href="stdlib-overview.html">Standard Library</a></li>
+<li><a href="builtin-index.html">Builtin Index</a></li>
+<li><a href="core-math.html">Core Maths & Linear Algebra</a></li>
+<li><a href="signal-processing.html">Signal Processing</a></li>
+<li><a href="compressed-sensing.html">Compressed Sensing</a></li>
+<li><a href="noise.html">Noise & Distortion</a></li>
+<li><a href="statistics-ml.html">Statistics & ML</a></li>
+<li><a href="plotting.html">Plotting</a></li>
+<li><a href="images.html">Images</a></li>
+<li><a href="collections-strings.html">Collections & Strings</a></li>
+<li><a href="file-io.html">File I/O</a></li>
+<li><a href="concurrency.html">Concurrency</a></li>
+<li><a href="repl-diagnostics.html">REPL & Diagnostics</a></li>
+</ul>
+<p class="sidegroup">Performance</p>
+<ul>
+<li><a href="performance.html">Performance & Optimization</a></li>
+</ul>
+<p class="sidegroup">Reference</p>
+<ul>
+<li><a href="agent-guide.html">Agent Guide</a></li>
+<li><a href="tour.html">Language Tour</a></li>
+<li><a href="spec.html">Language Specification</a></li>
+</ul>
+<p class="sidegroup">DSP course</p>
+<ul>
+<li><a href="dsp-00-overview.html">Overview</a></li>
+<li><a href="dsp-01-signal-classification.html">Signal Classification</a></li>
+<li><a href="dsp-02-lti-convolution.html">LTI Systems and Convolution</a></li>
+<li><a href="dsp-03-sampling-quantization.html">Sampling and Quantization</a></li>
+<li><a href="dsp-04-fourier-dft-fft.html">Fourier, DFT & FFT</a></li>
+<li><a href="dsp-05-laplace-z-transforms.html">Laplace & Z-Transforms</a></li>
+<li><a href="dsp-06-time-frequency-wavelets.html">Time-Frequency & Wavelets</a></li>
+<li><a href="dsp-07-analog-digital-filters.html">Analog and Digital Filters</a></li>
+<li><a href="dsp-08-fir-iir-design.html">FIR and IIR Design</a></li>
+<li><a href="dsp-09-adaptive-filtering.html">Adaptive Filtering</a></li>
+<li><a href="dsp-10-random-processes-psd.html">Random Processes & PSD</a></li>
+<li><a href="dsp-11-detection-estimation.html">Detection & Estimation</a></li>
+<li><a href="dsp-12-wiener-kalman-filters.html">Wiener & Kalman Filters</a></li>
+<li><a href="dsp-13-modulation-demodulation.html">Modulation and Demodulation</a></li>
+<li><a href="dsp-14-channels-equalization.html" class="here">Channels and Equalization</a></li>
+<li><a href="dsp-15-coding-compression.html">Coding and Compression</a></li>
+<li><a href="dsp-16-image-video-processing.html">Image & Video Processing</a></li>
+<li><a href="dsp-17-speech-audio-processing.html">Speech & Audio Processing</a></li>
+<li><a href="dsp-18-array-spatial-processing.html">Array & Spatial Processing</a></li>
+<li><a href="dsp-19-multirate-filter-banks.html">Multirate DSP and Filter Banks</a></li>
+<li><a href="dsp-20-sparse-compressed-sensing.html">Sparse and Compressed Sensing</a></li>
+<li><a href="dsp-21-ml-for-signals.html">Machine Learning for Signals</a></li>
+<li><a href="dsp-22-dsp-hardware-fixed-point.html">DSP Hardware and Fixed Point</a></li>
+<li><a href="dsp-23-realtime-embedded-dsp.html">Real-Time Embedded DSP</a></li>
+<li><a href="dsp-24-radar-biomedical-control.html">Radar, Biomedical, and Control</a></li>
+</ul>
+</nav>
+
+<main class="docmain">
+<h1>Channels and Equalization</h1>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<h2 id="s0">The idea</h2>
+<p>Between a transmitter and a receiver sits a <strong>channel</strong>: the air, a cable, an acoustic space. A wave rarely arrives by one path only — it takes a direct route and several reflections at once, each of a different length, so each arrives at a slightly different time and strength. The receiver sees all of them summed, plus thermal noise from its own electronics. That is exactly the convolution equation from Lesson 2, applied to a physically real system:</p>
+<p>\[ y[n] = \sum_k h[k]\,x[n-k] + w[n] \]</p>
+<p>\(h\) is the channel's impulse response, one tap per path; \(w\) is additive noise. Multipath is not a separate phenomenon from convolution — it is convolution, with a physical cause.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">10</span>)
+fs = <span class="n">2000</span>
+t = (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / fs
+x = <span class="f">sin</span>(<span class="n">2</span>*pi*<span class="n">40</span>*t)
+h = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.6</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.3</span>]
+y = <span class="f">conv</span>(x, h, <span class="a">mode</span>=<span class="s">"same"</span>) + <span class="n">0.02</span>*<span class="f">randn</span>(<span class="f">len</span>(x))
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(t, x)
+<span class="f">plot</span>(t, y)
+<span class="f">xlabel</span>(<span class="s">"time (s)"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"A signal before and after a multipath channel"</span>)
+<span class="f">legend</span>(<span class="s">"transmitted x(t)"</span>, <span class="s">"received y(t)"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 1 (200 points)
+· plot: figure 2 (200 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="526.20" x2="866.00" y2="526.20" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="526.20" x2="104.06" y2="526.20" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="531.87" font-size="16.2" text-anchor="end" fill="#4d4d4d">-2.0</text>
+<line x1="104.06" y1="475.23" x2="866.00" y2="475.23" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="475.23" x2="104.06" y2="475.23" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="480.90" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.5</text>
+<line x1="104.06" y1="424.27" x2="866.00" y2="424.27" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="424.27" x2="104.06" y2="424.27" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="429.94" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="373.30" x2="866.00" y2="373.30" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="373.30" x2="104.06" y2="373.30" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="378.97" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.5</text>
+<line x1="104.06" y1="322.33" x2="866.00" y2="322.33" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="322.33" x2="104.06" y2="322.33" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="328.00" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="271.36" x2="866.00" y2="271.36" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="271.36" x2="104.06" y2="271.36" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="277.03" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="220.39" x2="866.00" y2="220.39" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="220.39" x2="104.06" y2="220.39" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="226.06" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="169.43" x2="866.00" y2="169.43" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="169.43" x2="104.06" y2="169.43" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="175.10" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="104.06" y1="118.46" x2="866.00" y2="118.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="118.46" x2="104.06" y2="118.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="124.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.0</text>
+<line x1="104.06" y1="67.49" x2="866.00" y2="67.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="67.49" x2="104.06" y2="67.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="73.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.5</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.99" y1="48.00" x2="176.99" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.99" y1="528.84" x2="176.99" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.99" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.01</text>
+<line x1="249.92" y1="48.00" x2="249.92" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.92" y1="528.84" x2="249.92" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.92" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.02</text>
+<line x1="322.85" y1="48.00" x2="322.85" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="322.85" y1="528.84" x2="322.85" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="322.85" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.03</text>
+<line x1="395.78" y1="48.00" x2="395.78" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="395.78" y1="528.84" x2="395.78" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="395.78" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.04</text>
+<line x1="468.71" y1="48.00" x2="468.71" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="468.71" y1="528.84" x2="468.71" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="468.71" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.05</text>
+<line x1="541.64" y1="48.00" x2="541.64" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="541.64" y1="528.84" x2="541.64" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="541.64" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.06</text>
+<line x1="614.57" y1="48.00" x2="614.57" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="614.57" y1="528.84" x2="614.57" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="614.57" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.07</text>
+<line x1="687.50" y1="48.00" x2="687.50" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="687.50" y1="528.84" x2="687.50" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="687.50" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.08</text>
+<line x1="760.43" y1="48.00" x2="760.43" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="760.43" y1="528.84" x2="760.43" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="760.43" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.09</text>
+<line x1="833.36" y1="48.00" x2="833.36" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="833.36" y1="528.84" x2="833.36" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="833.36" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.10</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,322.33 107.71,309.55 111.36,296.98 115.00,284.81 118.65,273.22 122.30,262.41 125.94,252.55 129.59,243.79 133.23,236.26 136.88,230.10 140.53,225.38 144.17,222.20 147.82,220.60 151.47,220.60 155.11,222.20 158.76,225.38 162.41,230.10 166.05,236.26 169.70,243.79 173.35,252.55 176.99,262.41 180.64,273.22 184.29,284.81 187.93,296.98 191.58,309.55 195.23,322.33 198.87,335.11 202.52,347.68 206.16,359.86 209.81,371.44 213.46,382.25 217.10,392.11 220.75,400.87 224.40,408.40 228.04,414.57 231.69,419.28 235.34,422.46 238.98,424.07 242.63,424.07 246.28,422.46 249.92,419.28 253.57,414.57 257.22,408.40 260.86,400.87 264.51,392.11 268.16,382.25 271.80,371.44 275.45,359.86 279.09,347.68 282.74,335.11 286.39,322.33 290.03,309.55 293.68,296.98 297.33,284.81 300.97,273.22 304.62,262.41 308.27,252.55 311.91,243.79 315.56,236.26 319.21,230.10 322.85,225.38 326.50,222.20 330.15,220.60 333.79,220.60 337.44,222.20 341.09,225.38 344.73,230.10 348.38,236.26 352.02,243.79 355.67,252.55 359.32,262.41 362.96,273.22 366.61,284.81 370.26,296.98 373.90,309.55 377.55,322.33 381.20,335.11 384.84,347.68 388.49,359.86 392.14,371.44 395.78,382.25 399.43,392.11 403.08,400.87 406.72,408.40 410.37,414.57 414.02,419.28 417.66,422.46 421.31,424.07 424.96,424.07 428.60,422.46 432.25,419.28 435.89,414.57 439.54,408.40 443.19,400.87 446.83,392.11 450.48,382.25 454.13,371.44 457.77,359.86 461.42,347.68 465.07,335.11 468.71,322.33 472.36,309.55 476.01,296.98 479.65,284.81 483.30,273.22 486.95,262.41 490.59,252.55 494.24,243.79 497.89,236.26 501.53,230.10 505.18,225.38 508.82,222.20 512.47,220.60 516.12,220.60 519.76,222.20 523.41,225.38 527.06,230.10 530.70,236.26 534.35,243.79 538.00,252.55 541.64,262.41 545.29,273.22 548.94,284.81 552.58,296.98 556.23,309.55 559.88,322.33 563.52,335.11 567.17,347.68 570.82,359.86 574.46,371.44 578.11,382.25 581.75,392.11 585.40,400.87 589.05,408.40 592.69,414.57 596.34,419.28 599.99,422.46 603.63,424.07 607.28,424.07 610.93,422.46 614.57,419.28 618.22,414.57 621.87,408.40 625.51,400.87 629.16,392.11 632.81,382.25 636.45,371.44 640.10,359.86 643.75,347.68 647.39,335.11 651.04,322.33 654.68,309.55 658.33,296.98 661.98,284.81 665.62,273.22 669.27,262.41 672.92,252.55 676.56,243.79 680.21,236.26 683.86,230.10 687.50,225.38 691.15,222.20 694.80,220.60 698.44,220.60 702.09,222.20 705.74,225.38 709.38,230.10 713.03,236.26 716.68,243.79 720.32,252.55 723.97,262.41 727.62,273.22 731.26,284.81 734.91,296.98 738.55,309.55 742.20,322.33 745.85,335.11 749.49,347.68 753.14,359.86 756.79,371.44 760.43,382.25 764.08,392.11 767.73,400.87 771.37,408.40 775.02,414.57 778.67,419.28 782.31,422.46 785.96,424.07 789.61,424.07 793.25,422.46 796.90,419.28 800.55,414.57 804.19,408.40 807.84,400.87 811.48,392.11 815.13,382.25 818.78,371.44 822.42,359.86 826.07,347.68 829.72,335.11" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,283.72 107.71,264.82 111.36,247.05 115.00,228.64 118.65,210.31 122.30,189.49 125.94,176.07 129.59,162.98 133.23,152.02 136.88,143.62 140.53,136.80 144.17,135.33 147.82,139.34 151.47,136.65 155.11,147.98 158.76,154.91 162.41,168.99 166.05,178.53 169.70,198.65 173.35,216.21 176.99,234.61 180.64,260.66 184.29,277.52 187.93,302.29 191.58,324.24 195.23,343.98 198.87,372.15 202.52,396.03 206.16,415.35 209.81,434.73 213.46,452.56 217.10,466.41 220.75,480.53 224.40,492.76 228.04,500.79 231.69,506.55 235.34,506.29 238.98,505.95 242.63,507.38 246.28,499.15 249.92,489.84 253.57,478.87 257.22,461.46 260.86,447.94 264.51,427.38 268.16,408.76 271.80,390.76 275.45,366.18 279.09,341.47 282.74,316.97 286.39,296.08 290.03,275.11 293.68,252.37 297.33,231.75 300.97,207.92 304.62,188.76 308.27,177.69 311.91,165.02 315.56,152.71 319.21,142.58 322.85,134.49 326.50,138.29 330.15,140.19 333.79,138.01 337.44,144.35 341.09,153.27 344.73,169.23 348.38,183.04 352.02,199.29 355.67,215.53 359.32,236.25 362.96,256.11 366.61,277.00 370.26,299.70 373.90,320.72 377.55,349.07 381.20,371.58 384.84,393.90 388.49,414.67 392.14,435.26 395.78,454.43 399.43,464.26 403.08,482.18 406.72,492.28 410.37,502.17 414.02,504.76 417.66,508.88 421.31,508.98 424.96,506.07 428.60,499.85 432.25,488.15 435.89,479.85 439.54,463.48 443.19,444.47 446.83,430.50 450.48,404.42 454.13,387.61 457.77,366.55 461.42,345.23 465.07,317.16 468.71,296.86 472.36,275.41 476.01,251.81 479.65,230.75 483.30,206.33 486.95,194.97 490.59,170.17 494.24,167.22 497.89,154.44 501.53,146.19 505.18,140.23 508.82,137.83 512.47,138.65 516.12,140.11 519.76,149.73 523.41,153.67 527.06,165.74 530.70,179.35 534.35,199.48 538.00,218.65 541.64,233.84 545.29,258.52 548.94,274.91 552.58,306.08 556.23,324.45 559.88,349.77 563.52,372.37 567.17,391.60 570.82,412.10 574.46,434.20 578.11,453.13 581.75,468.57 585.40,484.12 589.05,491.61 592.69,499.69 596.34,501.60 599.99,509.95 603.63,507.98 607.28,503.88 610.93,499.59 614.57,485.49 618.22,478.81 621.87,462.72 625.51,449.82 629.16,430.92 632.81,408.72 636.45,391.01 640.10,360.93 643.75,340.89 647.39,317.51 651.04,293.50 654.68,271.87 658.33,248.76 661.98,232.76 665.62,211.79 669.27,193.67 672.92,175.29 676.56,163.30 680.21,151.93 683.86,143.33 687.50,137.41 691.15,135.34 694.80,132.04 698.44,139.96 702.09,147.71 705.74,157.41 709.38,169.53 713.03,182.51 716.68,199.48 720.32,213.74 723.97,237.40 727.62,255.04 731.26,278.72 734.91,303.35 738.55,326.10 742.20,352.81 745.85,371.56 749.49,396.03 753.14,410.71 756.79,432.98 760.43,451.22 764.08,465.73 767.73,481.83 771.37,491.00 775.02,501.08 778.67,504.62 782.31,506.08 785.96,509.24 789.61,505.97 793.25,495.85 796.90,488.01 800.55,476.81 804.19,464.40 807.84,448.27 811.48,427.44 815.13,411.27 818.78,390.73 822.42,365.09 826.07,358.06 829.72,343.98" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">A signal before and after a multipath channel</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">time (s)</text>
+<text x="51.59" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.59 288.42)">amplitude</text>
+<rect x="690.16" y="56.00" width="167.84" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="699.02" y1="77.01" x2="724.33" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="731.93" y="80.51" font-size="16.2" text-anchor="start" fill="#222">transmitted x(t)</text>
+<line x1="699.02" y1="101.31" x2="724.33" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="731.93" y="104.81" font-size="16.2" text-anchor="start" fill="#222">received y(t)</text>
+</svg></figure></div>
+<p><strong>Equalization</strong> is the receiver's attempt to undo \(h\). Convolution in time is multiplication in frequency, \(Y(f) = X(f)H(f)\), so the most direct inverse — *zero-forcing* equalization — simply divides it back out:</p>
+<p>\[ \hat{X}(f) = \frac{Y(f)}{H(f)} \]</p>
+<p>This inverts \(h\) exactly wherever \(H(f)\) is well away from zero. It also inverts \(h\) at frequencies where \(H(f)\) is *near* zero — a deep fade from two paths cancelling — and dividing by a near-zero number amplifies whatever noise lives at that frequency by the same huge factor:</p>
+<div class="example hasout"><pre class="hl"><code>f = (<span class="n">0</span> <span class="k">to</span> <span class="n">255</span>) / <span class="n">256</span>
+h_mild = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.5</span>]
+h_null = [<span class="n">1</span>, <span class="n">0</span>, -<span class="n">0.999</span>]
+Hm = <span class="f">abs</span>(<span class="f">fft</span>(h_mild, <span class="n">256</span>))
+Hn = <span class="f">abs</span>(<span class="f">fft</span>(h_null, <span class="n">256</span>))
+
+<span class="f">figure</span>()
+<span class="f">plot</span>(f, Hm)
+<span class="f">plot</span>(f, Hn)
+<span class="f">xlabel</span>(<span class="s">"normalized frequency"</span>)
+<span class="f">ylabel</span>(<span class="s">"|H(f)|"</span>)
+<span class="f">title</span>(<span class="s">"Channel frequency response: mild fading vs. a deep null"</span>)
+<span class="f">legend</span>(<span class="s">"mild multipath"</span>, <span class="s">"near-cancelling multipath"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>· plot: figure 3 (256 points)
+· plot: figure 4 (256 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="489.14" x2="866.00" y2="489.14" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="489.14" x2="104.06" y2="489.14" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="494.81" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="449.44" x2="866.00" y2="449.44" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="449.44" x2="104.06" y2="449.44" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="455.11" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="409.74" x2="866.00" y2="409.74" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="409.74" x2="104.06" y2="409.74" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="415.41" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="370.04" x2="866.00" y2="370.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="370.04" x2="104.06" y2="370.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="375.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="330.34" x2="866.00" y2="330.34" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="330.34" x2="104.06" y2="330.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="336.01" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="290.64" x2="866.00" y2="290.64" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="290.64" x2="104.06" y2="290.64" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="296.31" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.2</text>
+<line x1="104.06" y1="250.94" x2="866.00" y2="250.94" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="250.94" x2="104.06" y2="250.94" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="256.61" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.4</text>
+<line x1="104.06" y1="211.24" x2="866.00" y2="211.24" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="211.24" x2="104.06" y2="211.24" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="216.91" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.6</text>
+<line x1="104.06" y1="171.54" x2="866.00" y2="171.54" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="171.54" x2="104.06" y2="171.54" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="177.21" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.8</text>
+<line x1="104.06" y1="131.84" x2="866.00" y2="131.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="131.84" x2="104.06" y2="131.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="137.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.0</text>
+<line x1="104.06" y1="92.14" x2="866.00" y2="92.14" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="92.14" x2="104.06" y2="92.14" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="97.81" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.2</text>
+<line x1="104.06" y1="52.44" x2="866.00" y2="52.44" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="52.44" x2="104.06" y2="52.44" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="58.11" font-size="16.2" text-anchor="end" fill="#4d4d4d">2.4</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.91" y1="48.00" x2="176.91" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.91" y1="528.84" x2="176.91" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.91" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="249.76" y1="48.00" x2="249.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.76" y1="528.84" x2="249.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="322.61" y1="48.00" x2="322.61" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="322.61" y1="528.84" x2="322.61" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="322.61" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
+<line x1="395.46" y1="48.00" x2="395.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="395.46" y1="528.84" x2="395.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="395.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="468.31" y1="48.00" x2="468.31" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="468.31" y1="528.84" x2="468.31" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="468.31" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="541.16" y1="48.00" x2="541.16" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="541.16" y1="528.84" x2="541.16" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="541.16" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="614.01" y1="48.00" x2="614.01" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="614.01" y1="528.84" x2="614.01" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="614.01" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
+<line x1="686.86" y1="48.00" x2="686.86" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="686.86" y1="528.84" x2="686.86" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="686.86" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="759.71" y1="48.00" x2="759.71" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="759.71" y1="528.84" x2="759.71" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="759.71" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
+<line x1="832.56" y1="48.00" x2="832.56" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="832.56" y1="528.84" x2="832.56" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="832.56" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,231.09 106.91,231.27 109.75,231.81 112.60,232.70 115.45,233.95 118.29,235.56 121.14,237.51 123.98,239.81 126.83,242.46 129.67,245.44 132.52,248.75 135.37,252.39 138.21,256.35 141.06,260.62 143.90,265.19 146.75,270.06 149.59,275.20 152.44,280.62 155.29,286.30 158.13,292.22 160.98,298.37 163.82,304.74 166.67,311.31 169.51,318.06 172.36,324.96 175.21,332.01 178.05,339.16 180.90,346.40 183.74,353.69 186.59,360.99 189.43,368.28 192.28,375.49 195.13,382.58 197.97,389.50 200.82,396.16 203.66,402.49 206.51,408.41 209.35,413.82 212.20,418.60 215.04,422.65 217.89,425.85 220.74,428.11 223.58,429.35 226.43,429.53 229.27,428.64 232.12,426.71 234.96,423.81 237.81,420.03 240.66,415.49 243.50,410.28 246.35,404.52 249.19,398.31 252.04,391.75 254.88,384.91 257.73,377.87 260.58,370.69 263.42,363.43 266.27,356.12 269.11,348.82 271.96,341.57 274.80,334.38 277.65,327.30 280.50,320.34 283.34,313.54 286.19,306.91 289.03,300.47 291.88,294.25 294.72,288.25 297.57,282.49 300.42,276.98 303.26,271.74 306.11,266.78 308.95,262.11 311.80,257.74 314.64,253.68 317.49,249.93 320.34,246.51 323.18,243.42 326.03,240.66 328.87,238.24 331.72,236.17 334.56,234.45 337.41,233.08 340.26,232.07 343.10,231.41 345.95,231.11 348.79,231.17 351.64,231.59 354.48,232.36 357.33,233.50 360.18,234.98 363.02,236.82 365.87,239.01 368.71,241.54 371.56,244.41 374.40,247.61 377.25,251.15 380.10,255.00 382.94,259.17 385.79,263.64 388.63,268.40 391.48,273.46 394.32,278.79 397.17,284.38 400.02,290.22 402.86,296.30 405.71,302.60 408.55,309.10 411.40,315.79 414.24,322.65 417.09,329.65 419.94,336.77 422.78,343.98 425.63,351.25 428.47,358.56 431.32,365.86 434.16,373.10 437.01,380.24 439.86,387.22 442.70,393.97 445.55,400.42 448.39,406.49 451.24,412.08 454.08,417.08 456.93,421.38 459.78,424.88 462.62,427.47 465.47,429.06 468.31,429.59 471.16,429.06 474.00,427.47 476.85,424.88 479.70,421.38 482.54,417.08 485.39,412.08 488.23,406.49 491.08,400.42 493.92,393.97 496.77,387.22 499.62,380.24 502.46,373.10 505.31,365.86 508.15,358.56 511.00,351.25 513.84,343.98 516.69,336.77 519.54,329.65 522.38,322.65 525.23,315.79 528.07,309.10 530.92,302.60 533.76,296.30 536.61,290.22 539.46,284.38 542.30,278.79 545.15,273.46 547.99,268.40 550.84,263.64 553.68,259.17 556.53,255.00 559.38,251.15 562.22,247.61 565.07,244.41 567.91,241.54 570.76,239.01 573.60,236.82 576.45,234.98 579.30,233.50 582.14,232.36 584.99,231.59 587.83,231.17 590.68,231.11 593.52,231.41 596.37,232.07 599.22,233.08 602.06,234.45 604.91,236.17 607.75,238.24 610.60,240.66 613.44,243.42 616.29,246.51 619.14,249.93 621.98,253.68 624.83,257.74 627.67,262.11 630.52,266.78 633.36,271.74 636.21,276.98 639.06,282.49 641.90,288.25 644.75,294.25 647.59,300.47 650.44,306.91 653.28,313.54 656.13,320.34 658.97,327.30 661.82,334.38 664.67,341.57 667.51,348.82 670.36,356.12 673.20,363.43 676.05,370.69 678.89,377.87 681.74,384.91 684.59,391.75 687.43,398.31 690.28,404.52 693.12,410.28 695.97,415.49 698.81,420.03 701.66,423.81 704.51,426.71 707.35,428.64 710.20,429.53 713.04,429.35 715.89,428.11 718.73,425.85 721.58,422.65 724.43,418.60 727.27,413.82 730.12,408.41 732.96,402.49 735.81,396.16 738.65,389.50 741.50,382.58 744.35,375.49 747.19,368.28 750.04,360.99 752.88,353.69 755.73,346.40 758.57,339.16 761.42,332.01 764.27,324.96 767.11,318.06 769.96,311.31 772.80,304.74 775.65,298.37 778.49,292.22 781.34,286.30 784.19,280.62 787.03,275.20 789.88,270.06 792.72,265.19 795.57,260.62 798.41,256.35 801.26,252.39 804.11,248.75 806.95,245.44 809.80,242.46 812.64,239.81 815.49,237.51 818.33,235.56 821.18,233.95 824.03,232.70 826.87,231.81 829.72,231.27" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,528.65 106.91,519.10 109.75,509.37 112.60,499.65 115.45,489.95 118.29,480.27 121.14,470.62 123.98,461.00 126.83,451.43 129.67,441.90 132.52,432.43 135.37,423.01 138.21,413.66 141.06,404.37 143.90,395.16 146.75,386.04 149.59,376.99 152.44,368.04 155.29,359.19 158.13,350.44 160.98,341.79 163.82,333.26 166.67,324.84 169.51,316.55 172.36,308.39 175.21,300.36 178.05,292.47 180.90,284.72 183.74,277.11 186.59,269.66 189.43,262.36 192.28,255.23 195.13,248.26 197.97,241.46 200.82,234.83 203.66,228.38 206.51,222.11 209.35,216.02 212.20,210.13 215.04,204.42 217.89,198.91 220.74,193.60 223.58,188.49 226.43,183.59 229.27,178.89 232.12,174.41 234.96,170.14 237.81,166.08 240.66,162.24 243.50,158.63 246.35,155.23 249.19,152.07 252.04,149.12 254.88,146.41 257.73,143.93 260.58,141.68 263.42,139.66 266.27,137.88 269.11,136.33 271.96,135.02 274.80,133.95 277.65,133.11 280.50,132.52 283.34,132.16 286.19,132.04 289.03,132.16 291.88,132.52 294.72,133.11 297.57,133.95 300.42,135.02 303.26,136.33 306.11,137.88 308.95,139.66 311.80,141.68 314.64,143.93 317.49,146.41 320.34,149.12 323.18,152.07 326.03,155.23 328.87,158.63 331.72,162.24 334.56,166.08 337.41,170.14 340.26,174.41 343.10,178.89 345.95,183.59 348.79,188.49 351.64,193.60 354.48,198.91 357.33,204.42 360.18,210.13 363.02,216.02 365.87,222.11 368.71,228.38 371.56,234.83 374.40,241.46 377.25,248.26 380.10,255.23 382.94,262.36 385.79,269.66 388.63,277.11 391.48,284.72 394.32,292.47 397.17,300.36 400.02,308.39 402.86,316.55 405.71,324.84 408.55,333.26 411.40,341.79 414.24,350.44 417.09,359.19 419.94,368.04 422.78,376.99 425.63,386.04 428.47,395.16 431.32,404.37 434.16,413.66 437.01,423.01 439.86,432.43 442.70,441.90 445.55,451.43 448.39,461.00 451.24,470.62 454.08,480.27 456.93,489.95 459.78,499.65 462.62,509.37 465.47,519.10 468.31,528.65 471.16,519.10 474.00,509.37 476.85,499.65 479.70,489.95 482.54,480.27 485.39,470.62 488.23,461.00 491.08,451.43 493.92,441.90 496.77,432.43 499.62,423.01 502.46,413.66 505.31,404.37 508.15,395.16 511.00,386.04 513.84,376.99 516.69,368.04 519.54,359.19 522.38,350.44 525.23,341.79 528.07,333.26 530.92,324.84 533.76,316.55 536.61,308.39 539.46,300.36 542.30,292.47 545.15,284.72 547.99,277.11 550.84,269.66 553.68,262.36 556.53,255.23 559.38,248.26 562.22,241.46 565.07,234.83 567.91,228.38 570.76,222.11 573.60,216.02 576.45,210.13 579.30,204.42 582.14,198.91 584.99,193.60 587.83,188.49 590.68,183.59 593.52,178.89 596.37,174.41 599.22,170.14 602.06,166.08 604.91,162.24 607.75,158.63 610.60,155.23 613.44,152.07 616.29,149.12 619.14,146.41 621.98,143.93 624.83,141.68 627.67,139.66 630.52,137.88 633.36,136.33 636.21,135.02 639.06,133.95 641.90,133.11 644.75,132.52 647.59,132.16 650.44,132.04 653.28,132.16 656.13,132.52 658.97,133.11 661.82,133.95 664.67,135.02 667.51,136.33 670.36,137.88 673.20,139.66 676.05,141.68 678.89,143.93 681.74,146.41 684.59,149.12 687.43,152.07 690.28,155.23 693.12,158.63 695.97,162.24 698.81,166.08 701.66,170.14 704.51,174.41 707.35,178.89 710.20,183.59 713.04,188.49 715.89,193.60 718.73,198.91 721.58,204.42 724.43,210.13 727.27,216.02 730.12,222.11 732.96,228.38 735.81,234.83 738.65,241.46 741.50,248.26 744.35,255.23 747.19,262.36 750.04,269.66 752.88,277.11 755.73,284.72 758.57,292.47 761.42,300.36 764.27,308.39 767.11,316.55 769.96,324.84 772.80,333.26 775.65,341.79 778.49,350.44 781.34,359.19 784.19,368.04 787.03,376.99 789.88,386.04 792.72,395.16 795.57,404.37 798.41,413.66 801.26,423.01 804.11,432.43 806.95,441.90 809.80,451.43 812.64,461.00 815.49,470.62 818.33,480.27 821.18,489.95 824.03,499.65 826.87,509.37 829.72,519.10" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Channel frequency response: mild fading vs. a deep null</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">normalized frequency</text>
+<text x="58.46" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 58.46 288.42)">|H(f)|</text>
+<rect x="612.45" y="56.00" width="245.55" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="621.30" y1="77.01" x2="646.62" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="654.21" y="80.51" font-size="16.2" text-anchor="start" fill="#222">mild multipath</text>
+<line x1="621.30" y1="101.31" x2="646.62" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="654.21" y="104.81" font-size="16.2" text-anchor="start" fill="#222">near-cancelling multipath</text>
+</svg></figure></div>
+<p>A receiver rarely knows \(h\) in advance — multipath depends on geometry, weather, and traffic — so real systems estimate it first, typically from a *training sequence* the transmitter sends and the receiver already knows the answer to. Every Wi-Fi packet and cellular frame spends part of its airtime this way, telling the receiver nothing about the message, only about the channel the message is about to travel through.</p>
+<h2 id="s26">In Qu</h2>
+<p><strong>Undoing a known channel.</strong> Send a chirp through a three-tap multipath channel, corrupt it with a little noise, and equalize with the channel's own inverse spectrum:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">5</span>)
+fs = <span class="n">8000</span>
+x = <span class="f">chirp</span>(<span class="n">500</span>, <span class="n">3000</span>, fs, <span class="n">64</span>)
+h = [<span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.5</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.25</span>]
+y = <span class="f">conv</span>(x, h, <span class="a">mode</span>=<span class="s">"full"</span>)
+noisy = y + <span class="n">0.005</span>*<span class="f">randn</span>(<span class="f">len</span>(y))
+err_raw = <span class="f">rms</span>(noisy[<span class="n">0</span>:<span class="f">len</span>(x)-<span class="n">1</span>] - x) / <span class="f">rms</span>(x)
+<span class="f">print</span>(<span class="s">"len(x) = {len(x)}, len(y) = {len(y)}"</span>)
+<span class="f">print</span>(<span class="s">"relative error, channel output vs. original = {err_raw:.4f}"</span>)
+
+N = <span class="f">len</span>(y)
+H = <span class="f">fft</span>(h, N)
+<span class="f">print</span>(<span class="s">"min |H| = {min(abs(H)):.4f}, max |H| = {max(abs(H)):.4f}"</span>)
+
+Y = <span class="f">fft</span>(noisy, N)
+xhat = <span class="f">real</span>(<span class="f">ifft</span>(Y ./ H, N))[<span class="n">0</span>:<span class="f">len</span>(x)-<span class="n">1</span>]
+err_eq = <span class="f">rms</span>(xhat - x) / <span class="f">rms</span>(x)
+<span class="f">print</span>(<span class="s">"relative error after equalization = {err_eq:.4f}"</span>)
+
+n = <span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(x)-<span class="n">2</span>
+<span class="f">figure</span>()
+<span class="f">plot</span>(n, x)
+<span class="f">plot</span>(n, noisy[<span class="n">0</span>:<span class="f">len</span>(x)-<span class="n">1</span>])
+<span class="f">plot</span>(n, xhat)
+<span class="f">xlabel</span>(<span class="s">"sample"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Chirp: original, channel output, equalized"</span>)
+<span class="f">legend</span>(<span class="s">"original x"</span>, <span class="s">"channel output"</span>, <span class="s">"equalized xhat"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>len(x) = 64, len(y) = 70
+relative error, channel output vs. original = 0.5284
+min |H| = 0.6495, max |H| = 1.7500
+relative error after equalization = 0.0093
+· plot: figure 5 (64 points)
+· plot: figure 6 (64 points)
+· plot: figure 7 (64 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="492.73" x2="866.00" y2="492.73" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="492.73" x2="104.06" y2="492.73" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="498.40" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.5</text>
+<line x1="104.06" y1="426.59" x2="866.00" y2="426.59" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="426.59" x2="104.06" y2="426.59" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="432.26" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="360.46" x2="866.00" y2="360.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="360.46" x2="104.06" y2="360.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="366.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.5</text>
+<line x1="104.06" y1="294.33" x2="866.00" y2="294.33" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="294.33" x2="104.06" y2="294.33" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="300.00" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="228.20" x2="866.00" y2="228.20" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="228.20" x2="104.06" y2="228.20" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="233.87" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="162.07" x2="866.00" y2="162.07" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.07" x2="104.06" y2="162.07" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="167.74" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="95.93" x2="866.00" y2="95.93" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="95.93" x2="104.06" y2="95.93" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="101.60" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="221.10" y1="48.00" x2="221.10" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="221.10" y1="528.84" x2="221.10" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="221.10" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="338.14" y1="48.00" x2="338.14" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="338.14" y1="528.84" x2="338.14" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="338.14" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="455.19" y1="48.00" x2="455.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="455.19" y1="528.84" x2="455.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="455.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="572.23" y1="48.00" x2="572.23" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="572.23" y1="528.84" x2="572.23" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="572.23" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="689.27" y1="48.00" x2="689.27" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="689.27" y1="528.84" x2="689.27" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="689.27" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="806.31" y1="48.00" x2="806.31" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="806.31" y1="528.84" x2="806.31" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="806.31" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,294.33 115.77,241.82 127.47,195.16 139.17,166.26 150.88,166.16 162.58,200.51 174.29,264.90 185.99,342.27 197.70,405.44 209.40,426.13 221.10,389.01 232.81,304.63 244.51,211.86 256.22,162.94 267.92,193.01 279.62,290.62 291.33,393.50 303.03,424.36 314.74,351.72 326.44,228.56 338.14,162.23 349.85,220.85 361.55,354.67 373.26,426.59 384.96,351.72 396.67,208.37 408.37,168.95 420.07,290.62 431.78,418.62 443.48,373.20 455.19,211.86 466.89,174.99 478.59,326.97 490.30,426.13 502.00,300.92 513.71,163.61 525.41,264.90 537.11,421.98 548.82,330.15 560.52,166.26 572.23,268.12 583.93,425.72 595.64,294.33 607.34,163.48 619.04,336.45 630.75,408.25 642.45,201.98 654.16,227.84 665.86,423.28 677.56,279.93 689.27,176.63 700.97,395.38 712.68,330.15 724.38,164.30 736.08,376.80 747.79,343.03 759.49,164.08 771.20,385.19 782.90,320.54 794.60,174.99 806.31,413.50 818.01,260.50 829.72,222.57" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,294.28 115.77,241.28 127.47,194.25 139.17,166.94 150.88,140.53 162.58,150.00 174.29,200.06 185.99,264.94 197.70,333.28 209.40,378.77 221.10,380.89 232.81,336.53 244.51,269.90 256.22,223.58 267.92,225.99 279.62,281.15 291.33,350.59 303.03,376.66 314.74,328.65 326.44,247.62 338.14,202.54 349.85,249.22 361.55,346.47 373.26,392.97 384.96,330.19 396.67,223.24 408.37,201.65 420.07,301.65 431.78,390.31 443.48,342.86 455.19,224.89 466.89,214.84 478.59,334.96 490.30,385.02 502.00,272.40 513.71,200.22 525.41,311.56 537.11,393.86 548.82,273.95 560.52,183.69 572.23,333.50 583.93,409.42 595.64,224.19 607.34,182.49 619.04,411.21 630.75,375.76 642.45,129.10 654.16,281.73 665.86,479.21 677.56,201.30 689.27,153.42 700.97,488.15 712.68,299.42 724.38,87.87 736.08,459.84 747.79,357.05 759.49,69.86 771.20,450.79 782.90,353.86 794.60,78.08 806.31,480.08 818.01,285.59 829.72,131.19" fill="none" stroke="#228833" stroke-width="1.5"/>
+<polyline points="104.06,294.39 115.77,241.47 127.47,194.54 139.17,166.95 150.88,167.01 162.58,199.86 174.29,263.74 185.99,341.81 197.70,405.46 209.40,425.91 221.10,388.98 232.81,304.58 244.51,211.76 256.22,164.39 267.92,193.08 279.62,289.54 291.33,391.90 303.03,424.72 314.74,351.68 326.44,231.32 338.14,162.66 349.85,221.74 361.55,353.58 373.26,426.21 384.96,352.14 396.67,209.37 408.37,168.63 420.07,290.89 431.78,417.98 443.48,372.74 455.19,212.15 466.89,174.26 478.59,327.18 490.30,426.97 502.00,301.52 513.71,164.20 525.41,265.78 537.11,420.28 548.82,330.81 560.52,164.80 572.23,268.72 583.93,423.72 595.64,296.10 607.34,163.81 619.04,337.40 630.75,407.26 642.45,200.76 654.16,227.85 665.86,422.31 677.56,280.72 689.27,175.89 700.97,395.92 712.68,329.61 724.38,163.71 736.08,377.05 747.79,342.81 759.49,164.78 771.20,384.03 782.90,320.80 794.60,175.51 806.31,414.55 818.01,260.24 829.72,222.98" fill="none" stroke="#FF5C5C" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Chirp: original, channel output, equalized</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">sample</text>
+<text x="51.86" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.86 288.42)">amplitude</text>
+<rect x="112.06" y="430.23" width="165.01" height="90.62" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="120.92" y1="451.23" x2="146.23" y2="451.23" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="153.83" y="454.73" font-size="16.2" text-anchor="start" fill="#222">original x</text>
+<line x1="120.92" y1="475.53" x2="146.23" y2="475.53" stroke="#228833" stroke-width="2.2"/>
+<text x="153.83" y="479.03" font-size="16.2" text-anchor="start" fill="#222">channel output</text>
+<line x1="120.92" y1="499.83" x2="146.23" y2="499.83" stroke="#FF5C5C" stroke-width="2.2"/>
+<text x="153.83" y="503.33" font-size="16.2" text-anchor="start" fill="#222">equalized xhat</text>
+</svg></figure></div>
+<pre><code>len(x) = 64, len(y) = 70
+relative error, channel output vs. original = 0.5284
+min |H| = 0.6495, max |H| = 1.7500
+relative error after equalization = 0.0093
+</code></pre>
+<p>53% relative error becomes 0.93%. <code>min |H|</code> never dropped much below 0.65, so dividing by \(H\) never demanded much amplification — this is the same move as Lesson 9's adaptive filters, done here with the channel given rather than learned.</p>
+<p><strong>Where the inverse breaks.</strong> Swap in a channel with two nearly-equal, nearly out-of-phase paths — a much deeper null — and repeat at two noise levels:</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">seed</span>(<span class="n">5</span>)
+fs = <span class="n">8000</span>
+x = <span class="f">chirp</span>(<span class="n">500</span>, <span class="n">3000</span>, fs, <span class="n">64</span>)
+h2 = [<span class="n">1</span>, <span class="n">0</span>, -<span class="n">0.999</span>]
+y2 = <span class="f">conv</span>(x, h2, <span class="a">mode</span>=<span class="s">"full"</span>)
+N2 = <span class="f">len</span>(y2)
+H2 = <span class="f">fft</span>(h2, N2)
+<span class="f">print</span>(<span class="s">"min |H2| = {min(abs(H2)):.5f}, max |H2| = {max(abs(H2)):.4f}"</span>)
+
+noisy_lo = y2 + <span class="n">0.005</span>*<span class="f">randn</span>(N2)
+noisy_hi = y2 + <span class="n">0.05</span>*<span class="f">randn</span>(N2)
+eq_lo = <span class="f">real</span>(<span class="f">ifft</span>(<span class="f">fft</span>(noisy_lo, N2) ./ H2, N2))[<span class="n">0</span>:<span class="f">len</span>(x)-<span class="n">1</span>]
+eq_hi = <span class="f">real</span>(<span class="f">ifft</span>(<span class="f">fft</span>(noisy_hi, N2) ./ H2, N2))[<span class="n">0</span>:<span class="f">len</span>(x)-<span class="n">1</span>]
+err_lo = <span class="f">rms</span>(eq_lo - x) / <span class="f">rms</span>(x)
+err_hi = <span class="f">rms</span>(eq_hi - x) / <span class="f">rms</span>(x)
+<span class="f">print</span>(<span class="s">"relative error, near-null channel, low noise  = {err_lo:.4f}"</span>)
+<span class="f">print</span>(<span class="s">"relative error, near-null channel, high noise = {err_hi:.4f}"</span>)
+
+n = <span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(x)-<span class="n">2</span>
+<span class="f">figure</span>()
+<span class="f">plot</span>(n, x)
+<span class="f">plot</span>(n, eq_lo)
+<span class="f">xlabel</span>(<span class="s">"sample"</span>)
+<span class="f">ylabel</span>(<span class="s">"amplitude"</span>)
+<span class="f">title</span>(<span class="s">"Zero-forcing equalizer amplifying noise near a channel null"</span>)
+<span class="f">legend</span>(<span class="s">"original x"</span>, <span class="s">"equalized (near-null H, low noise)"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>min |H2| = 0.00100, max |H2| = 1.9967
+relative error, near-null channel, low noise  = 0.3444
+relative error, near-null channel, high noise = 14.9086
+· plot: figure 8 (64 points)
+· plot: figure 9 (64 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="509.95" x2="866.00" y2="509.95" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="509.95" x2="104.06" y2="509.95" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="515.62" font-size="16.2" text-anchor="end" fill="#4d4d4d">-1.0</text>
+<line x1="104.06" y1="429.31" x2="866.00" y2="429.31" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="429.31" x2="104.06" y2="429.31" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="434.98" font-size="16.2" text-anchor="end" fill="#4d4d4d">-0.5</text>
+<line x1="104.06" y1="348.67" x2="866.00" y2="348.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="348.67" x2="104.06" y2="348.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="354.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="268.04" x2="866.00" y2="268.04" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="268.04" x2="104.06" y2="268.04" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="273.71" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="187.40" x2="866.00" y2="187.40" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="187.40" x2="104.06" y2="187.40" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="193.07" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="106.76" x2="866.00" y2="106.76" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="106.76" x2="104.06" y2="106.76" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="112.43" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.5</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="221.10" y1="48.00" x2="221.10" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="221.10" y1="528.84" x2="221.10" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="221.10" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">10</text>
+<line x1="338.14" y1="48.00" x2="338.14" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="338.14" y1="528.84" x2="338.14" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="338.14" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">20</text>
+<line x1="455.19" y1="48.00" x2="455.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="455.19" y1="528.84" x2="455.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="455.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">30</text>
+<line x1="572.23" y1="48.00" x2="572.23" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="572.23" y1="528.84" x2="572.23" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="572.23" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">40</text>
+<line x1="689.27" y1="48.00" x2="689.27" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="689.27" y1="528.84" x2="689.27" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="689.27" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">50</text>
+<line x1="806.31" y1="48.00" x2="806.31" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="806.31" y1="528.84" x2="806.31" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="806.31" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">60</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polyline points="104.06,348.67 115.77,284.64 127.47,227.75 139.17,192.51 150.88,192.39 162.58,234.28 174.29,312.79 185.99,407.13 197.70,484.15 209.40,509.38 221.10,464.13 232.81,361.23 244.51,248.12 256.22,188.47 267.92,225.13 279.62,344.15 291.33,469.60 303.03,507.23 314.74,418.65 326.44,268.47 338.14,187.60 349.85,259.08 361.55,422.25 373.26,509.95 384.96,418.65 396.67,243.86 408.37,195.80 420.07,344.15 431.78,500.22 443.48,444.85 455.19,248.12 466.89,203.15 478.59,388.47 490.30,509.38 502.00,356.71 513.71,189.28 525.41,312.79 537.11,504.32 548.82,392.35 560.52,192.51 572.23,316.72 583.93,508.88 595.64,348.67 607.34,189.13 619.04,400.04 630.75,487.58 642.45,236.07 654.16,267.60 665.86,505.91 677.56,331.12 689.27,205.16 700.97,471.89 712.68,392.35 724.38,190.12 736.08,449.23 747.79,408.06 759.49,189.85 771.20,459.47 782.90,380.63 794.60,203.15 806.31,493.98 818.01,307.42 829.72,261.18" fill="none" stroke="#5B7CFA" stroke-width="1.5"/>
+<polyline points="104.06,348.17 115.77,227.69 127.47,226.14 139.17,136.46 150.88,191.54 162.58,177.15 174.29,310.97 185.99,349.91 197.70,481.78 209.40,451.46 221.10,461.70 232.81,303.14 244.51,245.09 256.22,132.04 267.92,222.17 279.62,286.33 291.33,465.55 303.03,449.93 314.74,413.87 326.44,214.07 338.14,183.59 349.85,205.47 361.55,418.12 373.26,456.29 384.96,415.57 396.67,191.66 408.37,192.23 420.07,292.87 431.78,496.15 443.48,392.73 455.19,244.70 466.89,150.12 478.59,384.94 490.30,457.69 502.00,353.28 513.71,138.35 525.41,311.04 537.11,451.52 548.82,391.83 560.52,138.78 572.23,316.07 583.93,453.34 595.64,349.57 607.34,133.89 619.04,401.06 630.75,431.82 642.45,235.98 654.16,211.87 665.86,504.57 677.56,275.76 689.27,203.22 700.97,416.36 712.68,389.87 724.38,133.47 736.08,447.09 747.79,351.11 759.49,187.98 771.20,401.47 782.90,378.79 794.60,146.11 806.31,492.79 818.01,250.20 829.72,261.03" fill="none" stroke="#228833" stroke-width="1.5"/>
+</g>
+<text x="104.06" y="31.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">Zero-forcing equalizer amplifying noise near a channel null</text>
+<text x="485.03" y="577.50" font-size="18" text-anchor="middle" fill="#444444">sample</text>
+<text x="51.86" y="288.42" font-size="18" text-anchor="middle" fill="#444444" transform="rotate(-90 51.86 288.42)">amplitude</text>
+<rect x="549.67" y="56.00" width="308.33" height="66.32" rx="6" fill="#ffffff" stroke="#cccccc" opacity="0.85"/>
+<line x1="558.53" y1="77.01" x2="583.84" y2="77.01" stroke="#5B7CFA" stroke-width="2.2"/>
+<text x="591.44" y="80.51" font-size="16.2" text-anchor="start" fill="#222">original x</text>
+<line x1="558.53" y1="101.31" x2="583.84" y2="101.31" stroke="#228833" stroke-width="2.2"/>
+<text x="591.44" y="104.81" font-size="16.2" text-anchor="start" fill="#222">equalized (near-null H, low noise)</text>
+</svg></figure></div>
+<pre><code>min |H2| = 0.00100, max |H2| = 1.9967
+relative error, near-null channel, low noise  = 0.3444
+relative error, near-null channel, high noise = 14.9086
+</code></pre>
+<p><code>min |H2|</code> of 0.001 means <code>1/H2</code> is roughly 1000 at one frequency — the equalizer amplifies whatever noise lives there a thousandfold. At the milder noise level the correction is already a third of the signal's own size; at ten times the noise, the "equalized" output is nearly fifteen times larger than the thing it was meant to reconstruct. Zero-forcing inverts the channel exactly, which is precisely the problem: it inverts the parts that were nearly zero along with the parts that mattered. Better equalizers trade a little residual distortion for far less noise amplification, but none of them make the trade disappear — some frequencies of some channels are close enough to unrecoverable that no linear filter fixes them.</p>
+<p>Even with the channel known exactly and the best inverse filter applied, a bit will occasionally come out wrong on the other end — not because the mathematics is incomplete, but because information was genuinely destroyed in transit. The next move is not to fight the channel harder. It is to add structure to the data itself, so a wrong bit can be caught and fixed after the fact without asking the transmitter to resend it.</p>
+<p><strong>Next: <a href="15-coding-compression.html">Lesson 15 — Coding and compression</a>.</strong></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>
