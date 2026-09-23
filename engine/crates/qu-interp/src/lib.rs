@@ -174,6 +174,7 @@ pub mod regions_ops;
 pub mod surgery_ops;
 pub mod text_ops;
 pub mod fs_ops;
+pub mod path_ops;
 
 /// § process execution (2026-09-09) — `exec(program, [args])` runs a
 /// program and hands back what it printed; `shell(command, [style])` hands
@@ -3923,7 +3924,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
-    ("image", &["luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours"]),
+    ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -13625,6 +13626,32 @@ impl Interp {
             }
             Ok(mat)
         }
+        // `autocrop`'s helpers: a single RGB pixel read, the most common
+        // color among a handful of samples (ties broken by first-seen, so
+        // it's deterministic), and a plain per-channel distance -- nothing
+        // here needs to be perceptually accurate, just consistent.
+        fn pixel_at(img: &image::Image, x: usize, y: usize) -> (u8, u8, u8) {
+            let i = (y * img.width + x) * 3;
+            (img.pixels[i], img.pixels[i + 1], img.pixels[i + 2])
+        }
+        fn majority_color(samples: &[(u8, u8, u8)]) -> (u8, u8, u8) {
+            let mut best = samples[0];
+            let mut best_count = 0usize;
+            for &c in samples {
+                let count = samples.iter().filter(|&&s| s == c).count();
+                if count > best_count {
+                    best = c;
+                    best_count = count;
+                }
+            }
+            best
+        }
+        fn color_distance(a: (u8, u8, u8), b: (u8, u8, u8)) -> f64 {
+            let dr = a.0 as f64 - b.0 as f64;
+            let dg = a.1 as f64 - b.1 as f64;
+            let db = a.2 as f64 - b.2 as f64;
+            (dr * dr + dg * dg + db * db).sqrt()
+        }
         // `image::regions` is the odd one out: its first argument is a
         // `label_blobs`/`bwlabel` `Value::Model`, not a `Value::Image`.
         if f == "image::regions" {
@@ -13667,11 +13694,83 @@ impl Interp {
             return Ok(Value::Table(Arc::new(t)));
         }
 
+        // `image::load` is the other odd one out: its argument is a path
+        // string, not an image. Same decode path as the flat `load_image`
+        // builtin (magic-byte sniffing, not the extension) -- kept here as
+        // a thin call-through rather than duplicated, so the two stay in
+        // sync by construction. Exists because `image.load(path)` reads
+        // naturally as the start of an `import image` pipeline
+        // (`image.load(p) |> image.blur |> ...`), where reaching for the
+        // differently-named flat `load_image` in the middle of an
+        // `image.*` chain is exactly the surprise this module exists to
+        // avoid.
+        if f == "image::load" {
+            let path = text_arg(args, 0)?;
+            let bytes = std::fs::read(&path)
+                .map_err(|err| EvalError { msg: format!("image.load: could not read `{path}`: {err}") })?;
+            let img = image::decode(&bytes).map_err(|msg| EvalError { msg: format!("image.load: `{path}`: {msg}") })?;
+            return Ok(Value::Image(Arc::new(img)));
+        }
+
         let Value::Image(img) = arg0(args)? else {
             return e(format!("{f}(img) needs an image, found {}", arg0(args)?.type_name()));
         };
         let (w, h) = (img.width, img.height);
         match f {
+            // `autocrop(img, [tolerance=10])` -- background is read from
+            // the four corner pixels (majority color among them, so a
+            // single stray corner artifact doesn't define "background");
+            // the crop box is the tightest rectangle containing every
+            // pixel whose per-channel distance from that color exceeds
+            // `tolerance`. An all-background image (nothing exceeds
+            // tolerance) returns the image unchanged rather than an
+            // empty/zero-size crop -- "nothing to trim" is not an error.
+            "image::autocrop" => {
+                let tolerance = style_num(style, "tolerance").unwrap_or(10.0);
+                let corners = [
+                    pixel_at(img, 0, 0),
+                    pixel_at(img, w.saturating_sub(1), 0),
+                    pixel_at(img, 0, h.saturating_sub(1)),
+                    pixel_at(img, w.saturating_sub(1), h.saturating_sub(1)),
+                ];
+                let bg = majority_color(&corners);
+                let mut min_x = w;
+                let mut max_x = 0usize;
+                let mut min_y = h;
+                let mut max_y = 0usize;
+                let mut any = false;
+                for y in 0..h {
+                    for x in 0..w {
+                        let px = pixel_at(img, x, y);
+                        if color_distance(px, bg) > tolerance {
+                            any = true;
+                            min_x = min_x.min(x);
+                            max_x = max_x.max(x);
+                            min_y = min_y.min(y);
+                            max_y = max_y.max(y);
+                        }
+                    }
+                }
+                if !any {
+                    return Ok(Value::Image(Arc::new(image::Image {
+                        width: w,
+                        height: h,
+                        pixels: img.pixels.clone(),
+                    })));
+                }
+                let cw = max_x - min_x + 1;
+                let ch = max_y - min_y + 1;
+                let mut out = Vec::with_capacity(cw * ch * 3);
+                for y in min_y..=max_y {
+                    for x in min_x..=max_x {
+                        let (r, g, b) = pixel_at(img, x, y);
+                        out.push(r);
+                        out.push(g);
+                        out.push(b);
+                    }
+                }
+                Ok(Value::Image(Arc::new(image::Image { width: cw, height: ch, pixels: out })))
+            }
             "image::luma" => {
                 let g = qu_image::luma(&img.pixels);
                 Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &g)?)))
@@ -19592,7 +19691,8 @@ self.eval_grad(loss, wrt)
             // Same shape again for `image`; `import image` opens the bare
             // names the same way `xlsx`/`codec` do above.
             #[cfg(feature = "image")]
-            "image::luma"
+            "image::load"
+            | "image::luma"
             | "image::regions"
             | "image::blur"
             | "image::canny"
@@ -19600,7 +19700,8 @@ self.eval_grad(loss, wrt)
             | "image::distance_transform"
             | "image::skeleton"
             | "image::fill_holes"
-            | "image::contours" => self.image_call(f, &args, &style),
+            | "image::contours"
+            | "image::autocrop" => self.image_call(f, &args, &style),
             "items" => collections::dict_items(arg_all(&args)),
             "has_key" => collections::dict_has_key(arg_all(&args)),
             // Sequence operations. `Value::List` is what `split`, `zip`,
@@ -20605,6 +20706,31 @@ self.eval_grad(loss, wrt)
             // that to `magnitude(Z)`. Sharing the arm is what guarantees
             // the two names can never drift into disagreeing about what the
             // magnitude of a complex number is.
+            // `invert` is deliberately polymorphic rather than three
+            // separately-named functions, per Ahmed's own spec: an image's
+            // 255-value complement, a signal's polarity flip (`-x`, the
+            // same math `-signal` already does, kept in sync via `map1`
+            // rather than duplicated), and a binary/mask vector or matrix's
+            // 0<->1 flip -- three different real meanings of "invert" in
+            // their own domains, chosen by the value's own type rather
+            // than by an argument, the same way `abs`/`magnitude` above
+            // dispatch on type instead of taking a "mode" flag. `Image` has
+            // no alpha channel in this engine (see `image::Image`'s own
+            // doc comment -- row-major RGB only), so inverting R/G/B is
+            // already the complete operation, not a partial one.
+            "invert" => match arg0(&args)? {
+                Value::Image(img) => {
+                    let out: Vec<u8> = img.pixels.iter().map(|&b| 255 - b).collect();
+                    Ok(Value::Image(Arc::new(image::Image { width: img.width, height: img.height, pixels: out })))
+                }
+                Value::Signal(..) => map1(arg0(&args)?.clone(), |x| -x),
+                Value::Bool(b) => Ok(Value::Bool(!b)),
+                v @ (Value::Vec(_) | Value::Mat(_)) => map1(v.clone(), |x| 1.0 - x),
+                other => e(format!(
+                    "invert: no defined inversion for {} -- expected an image, signal, boolean, vector or matrix",
+                    other.type_name()
+                )),
+            },
             "abs" | "magnitude" => complex_map_to_real(arg0(&args)?, |c| c.magnitude(), f64::abs),
             "angle" | "arg" | "phase" => complex_map_to_real(
                 arg0(&args)?,
@@ -37733,6 +37859,14 @@ self.eval_grad(loss, wrt)
             | "remove_file" | "remove_dir" | "rename_file" | "move_file" | "copy_file"
             | "create_file" => fs_ops::call(f, arg_all(&args), &style),
 
+            // § path manipulation (2026-09-23, `path_ops.rs`) -- see that
+            // module's own doc comment for the design (plain strings, not
+            // a new `Value` type; always `/`-separated regardless of OS).
+            "path_name" | "path_stem" | "path_extension" | "path_parent" | "path_join"
+            | "path_normalize" | "path_absolute" | "path_relative_to" => {
+                path_ops::call(f, arg_all(&args), &style)
+            }
+
             // § bytes, encodings and binary layout (2026-09-16). One arm for
             // the whole module, same reasoning as the fs_ops arm above.
             "bytes_read" | "bytes_write" | "hexdump" | "hex_encode" | "hex_decode"
@@ -41605,7 +41739,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "impulse", "imrotate", "imscale", "imshow", "imtophat", "imtranslate",
     "imwarp", "inch", "indent", "index", "index_of", "indexof", "inductor",
     "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
-    "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "iqr",
+    "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr",
     "irfft", "is_clipped", "is_empty", "is_full", "is_stable", "items", "join",
     "js_exec", "json2csv", "json2xml", "jsonify", "k_fold", "kaiser",
     "kalman_init", "kapur_threshold", "keys", "kfold", "kmeans",
@@ -41635,6 +41769,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "otsu", "otsu_threshold", "overshoot", "pack", "pad_left", "pad_right",
     "palette", "panel", "parallel", "param", "parse_as", "parse_csv",
     "parse_json", "parse_xml", "particle_filter", "particle_filter_init",
+    "path_absolute", "path_extension", "path_join", "path_name", "path_normalize",
+    "path_parent", "path_relative_to", "path_stem",
     "pause", "pca", "pca_components", "pca_explained_variance", "pca_model",
     "peak", "peek", "peek_byte", "peek_char", "peek_line", "percentile",
     "periodic_profile", "periodogram", "permutation_importance", "phase",
