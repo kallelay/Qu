@@ -1,0 +1,458 @@
+# Side-by-side HTML diff of two text files -- full text, numbered changed
+# blocks, word-level highlights. A Qu port of the Python `htmldiff.py`
+# utility (same visual idea: two columns, word-level <del>/<ins> spans,
+# a changed-blocks summary), written in Qu per this project's own standing
+# practice of using Qu itself for auxiliary tooling rather than Python.
+#
+# Not a byte-for-byte port. The core diff algorithm (line-level LCS,
+# then word-level LCS inside a "replace" block, with a Levenshtein-based
+# nearest-line pairing when a replace block covers an uneven number of
+# lines on each side) matches the Python original's approach. Left out
+# for this first version: the section-header table of contents and the
+# "jump to change" quick-nav links -- real UI sugar, not core diffing,
+# and easy to add later without touching the algorithm below.
+#
+# Config via environment variables (matching this project's existing
+# QU_DOCEX_OUT/QU_DOC_EXTRACT convention -- `qu run` takes no script
+# arguments of its own):
+#   QU_DIFF_OLD   path to the "old" file (required)
+#   QU_DIFF_NEW   path to the "new" file (required)
+#   QU_DIFF_OUT   output HTML path (default: "<old>_vs_<new>.html" next
+#                 to the new file)
+#   QU_DIFF_TITLE page title (default: "Diff: <old> vs <new>")
+#
+# Run:  QU_DIFF_OLD=a.md QU_DIFF_NEW=b.md qu run tools/qu_htmldiff.qu
+
+PAIR_THRESHOLD = 0.35
+
+# ---------------------------------------------------------------- reading
+
+function read_lines(path)
+    raw = read_all_text(path)
+    raw = replace(raw, "\r\n", "\n")
+    raw = replace(raw, "\r", "\n")
+    return split(raw, "\n")
+end function
+
+function html_escape(s)
+    s = replace(s, "&", "&amp;")
+    s = replace(s, "<", "&lt;")
+    s = replace(s, ">", "&gt;")
+    return s
+end function
+
+# --------------------------------------------------------- LCS + opcodes
+#
+# `get_opcodes(a, b)` returns a list of Records `{op, i1, i2, j1, j2}`,
+# 0-indexed with `i2`/`j2` exclusive, `op` one of "equal"/"replace"/
+# "delete"/"insert" -- the same shape Python's own
+# `difflib.SequenceMatcher.get_opcodes()` returns, which is what makes
+# the rest of this file able to follow htmldiff.py's own structure.
+# O(n*m) time and space: fine for the document sizes this project's
+# own text/board2/course files run to, not meant for huge binaries.
+
+function lcs_table(a, b)
+    n = length(a)
+    m = length(b)
+    dp = zeros(n + 1, m + 1)
+    for ii = 1 to n
+        for jj = 1 to m
+            if a[ii - 1] == b[jj - 1]
+                dp[ii, jj] = dp[ii - 1, jj - 1] + 1
+            else
+                dp[ii, jj] = max(dp[ii - 1, jj], dp[ii, jj - 1])
+            end if
+        end for
+    end for
+    return dp
+end function
+
+function backtrack_tags(a, b, dp)
+    i = length(a)
+    j = length(b)
+    tags = ()
+    while i > 0 or j > 0
+        take_equal = false
+        if i > 0 and j > 0
+            if a[i - 1] == b[j - 1]
+                if dp[i, j] == dp[i - 1, j - 1] + 1
+                    take_equal = true
+                end if
+            end if
+        end if
+        if take_equal
+            tags = append(tags, "equal")
+            i = i - 1
+            j = j - 1
+        else
+            go_delete = false
+            if i > 0
+                if j == 0
+                    go_delete = true
+                else
+                    if dp[i - 1, j] >= dp[i, j - 1]
+                        go_delete = true
+                    end if
+                end if
+            end if
+            if go_delete
+                tags = append(tags, "delete")
+                i = i - 1
+            else
+                tags = append(tags, "insert")
+                j = j - 1
+            end if
+        end if
+    end while
+    return reverse(tags)
+end function
+
+function coalesce_tags(tags)
+    ops = ()
+    i = 0
+    j = 0
+    n = length(tags)
+    k = 0
+    while k < n
+        tag = tags[k]
+        if tag == "equal"
+            i1 = i
+            j1 = j
+            while k < n and tags[k] == "equal"
+                i = i + 1
+                j = j + 1
+                k = k + 1
+            end while
+            ops = append(ops, {op = "equal", i1 = i1, i2 = i, j1 = j1, j2 = j})
+        else
+            i1 = i
+            j1 = j
+            has_del = false
+            has_ins = false
+            while k < n and tags[k] != "equal"
+                if tags[k] == "delete"
+                    i = i + 1
+                    has_del = true
+                else
+                    j = j + 1
+                    has_ins = true
+                end if
+                k = k + 1
+            end while
+            kind = "replace"
+            if not has_del
+                kind = "insert"
+            end if
+            if not has_ins
+                kind = "delete"
+            end if
+            ops = append(ops, {op = kind, i1 = i1, i2 = i, j1 = j1, j2 = j})
+        end if
+    end while
+    return ops
+end function
+
+function get_opcodes(a, b)
+    if length(a) == 0 and length(b) == 0
+        return ()
+    end if
+    dp = lcs_table(a, b)
+    tags = backtrack_tags(a, b, dp)
+    return coalesce_tags(tags)
+end function
+
+# -------------------------------------------------------------- word diff
+
+function tokenize(s)
+    if len(s) == 0
+        return ()
+    end if
+    return regex_find_all(s, "\\s+|\\w+|[^\\w\\s]")
+end function
+
+# Renders one changed line pair as (left_html, right_html), word-level
+# <del>/<ins> spans around exactly the tokens that differ -- unchanged
+# tokens (including the whitespace runs the tokenizer keeps as their own
+# tokens) print plain on both sides, so wrapping doesn't jump mid-word.
+function word_diff(a, b)
+    ta = tokenize(a)
+    tb = tokenize(b)
+    ops = get_opcodes(ta, tb)
+    left = ""
+    right = ""
+    for o in ops
+        if o.op == "equal"
+            chunk = ""
+            for k = o.i1 to o.i2 - 1
+                chunk = chunk + ta[k]
+            end for
+            chunk = html_escape(chunk)
+            left = left + chunk
+            right = right + chunk
+        else
+            if o.i2 > o.i1
+                chunk = ""
+                for k = o.i1 to o.i2 - 1
+                    chunk = chunk + ta[k]
+                end for
+                left = left + "<del>" + html_escape(chunk) + "</del>"
+            end if
+            if o.j2 > o.j1
+                chunk = ""
+                for k = o.j1 to o.j2 - 1
+                    chunk = chunk + tb[k]
+                end for
+                right = right + "<ins>" + html_escape(chunk) + "</ins>"
+            end if
+        end if
+    end for
+    return {left = left, right = right}
+end function
+
+# -------------------------------------------------------- line similarity
+
+function similarity(a, b)
+    la = len(a)
+    lb = len(b)
+    denom = max(la, lb)
+    if denom == 0
+        return 1.0
+    end if
+    d = levenshtein(a, b)
+    return 1.0 - d / denom
+end function
+
+# Greedy nearest-match pairing inside one "replace" block, mirroring
+# htmldiff.py's own `pair()`: each old line looks ahead (never behind
+# the last line it already claimed) for the best-scoring new line, and
+# takes it if the score clears `PAIR_THRESHOLD`; everything a match
+# skips over on the new side becomes a pure insertion, and an old line
+# that never clears the threshold becomes a pure deletion. Returns a
+# list of {ia, jb} Records where either field may be `-1` for "no
+# partner on this side".
+function pair_lines(a, b)
+    out = ()
+    bi = 0
+    nb = length(b)
+    for ia = 0 to length(a) - 1
+        best = 0.0
+        bj = -1
+        for jb = bi to nb - 1
+            r = similarity(a[ia], b[jb])
+            if r > best
+                best = r
+                bj = jb
+            end if
+        end for
+        if bj >= 0 and best > PAIR_THRESHOLD
+            k = bi
+            while k < bj
+                out = append(out, {ia = -1, jb = k})
+                k = k + 1
+            end while
+            out = append(out, {ia = ia, jb = bj})
+            bi = bj + 1
+        else
+            out = append(out, {ia = ia, jb = -1})
+        end if
+    end for
+    k = bi
+    while k < nb
+        out = append(out, {ia = -1, jb = k})
+        k = k + 1
+    end while
+    return out
+end function
+
+# ------------------------------------------------------------- row build
+#
+# One row per rendered `<tr>`: {kind, ln, left, rn, right} where `kind`
+# is "eq"/"chg"/"del"/"ins" (CSS class) and `ln`/`rn` are 1-based line
+# numbers as strings, "" when that side has nothing on this row.
+
+function make_row(kind, ln, left, rn, right)
+    return {kind = kind, ln = ln, left = left, rn = rn, right = right}
+end function
+
+function build_rows(old_lines, new_lines)
+    ops = get_opcodes(old_lines, new_lines)
+    rows = ()
+    n_changed_blocks = 0
+    n_modified = 0
+    n_added = 0
+    n_removed = 0
+    for o in ops
+        if o.op == "equal"
+            for k = 0 to (o.i2 - o.i1) - 1
+                t = html_escape(old_lines[o.i1 + k])
+                rows = append(rows, make_row("eq", str(o.i1 + k + 1), t, str(o.j1 + k + 1), t))
+            end for
+        else
+            n_changed_blocks = n_changed_blocks + 1
+            a_slice = old_lines[o.i1 : o.i2 - 1]
+            b_slice = new_lines[o.j1 : o.j2 - 1]
+            if o.op == "delete"
+                for k = 0 to length(a_slice) - 1
+                    n_removed = n_removed + 1
+                    t = "<del>" + html_escape(a_slice[k]) + "</del>"
+                    rows = append(rows, make_row("del", str(o.i1 + k + 1), t, "", ""))
+                end for
+            else
+                if o.op == "insert"
+                    for k = 0 to length(b_slice) - 1
+                        n_added = n_added + 1
+                        t = "<ins>" + html_escape(b_slice[k]) + "</ins>"
+                        rows = append(rows, make_row("ins", "", "", str(o.j1 + k + 1), t))
+                    end for
+                else
+                    prs = pair_lines(a_slice, b_slice)
+                    for p in prs
+                        if p.ia >= 0 and p.jb >= 0
+                            n_modified = n_modified + 1
+                            wd = word_diff(a_slice[p.ia], b_slice[p.jb])
+                            rows = append(rows, make_row(
+                                "chg", str(o.i1 + p.ia + 1), wd.left,
+                                str(o.j1 + p.jb + 1), wd.right
+                            ))
+                        else
+                            if p.ia >= 0
+                                n_removed = n_removed + 1
+                                t = "<del>" + html_escape(a_slice[p.ia]) + "</del>"
+                                rows = append(rows, make_row("del", str(o.i1 + p.ia + 1), t, "", ""))
+                            else
+                                n_added = n_added + 1
+                                t = "<ins>" + html_escape(b_slice[p.jb]) + "</ins>"
+                                rows = append(rows, make_row("ins", "", "", str(o.j1 + p.jb + 1), t))
+                            end if
+                        end if
+                    end for
+                end if
+            end if
+        end if
+    end for
+    return {rows = rows, n_changed_blocks = n_changed_blocks, n_modified = n_modified, n_added = n_added, n_removed = n_removed}
+end function
+
+# ------------------------------------------------------------- rendering
+
+# A raw string (`r"..."`) is required here, not the ordinary `"..."` form:
+# Qu's ordinary strings interpolate a bare `{...}`, and this whole block
+# is CSS, which is mostly braces -- see the agent guide's own warning
+# ("A bare `{` in a string interpolates -- sometimes silently").
+CSS = r"body{margin:0;background:#fff;color:#222;font:12px/1.5 Verdana,Tahoma,'DejaVu Sans',Geneva,sans-serif}
+#banner{background:linear-gradient(#fff,#d7e1ef);border-bottom:1px solid #b8c4d6;padding:10px 16px}
+#banner h1{margin:0;font:bold 18px Georgia,'Times New Roman',serif;color:#1f3864}
+#banner p{margin:2px 0 0;color:#666;font-size:11px}
+#main{max-width:1500px;margin:0 auto;padding:12px 16px 40px}
+.box{border:1px solid #b8c4d6;background:#f4f7fb;padding:8px 12px;margin:0 0 14px}
+.box h3{margin:0 0 4px;font-size:12px;color:#1f3864}
+.stats span{display:inline-block;margin-right:14px}
+.sw{display:inline-block;width:12px;height:12px;border:1px solid #999;vertical-align:-2px;margin-right:4px}
+label{display:block;margin-top:8px}
+.wrap{overflow-x:auto;border:1px solid #b8c4d6}
+table.diff{border-collapse:collapse;width:100%;min-width:820px;table-layout:fixed}
+col.ln{width:58px}
+table.diff th{background:linear-gradient(#fafafa,#e4e4e4);border-bottom:1px solid #b8c4d6;text-align:left;padding:4px 6px;font-size:11px}
+td{vertical-align:top;padding:3px 6px}
+td.n{text-align:right;color:#999;font:11px 'Courier New',Courier,monospace;background:#f7f7f7;border-right:1px solid #ddd}
+td.t{font:12px/1.45 'Courier New',Courier,monospace;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+td.l{border-right:1px solid #ddd}
+tr.chg td.t{background:#fffdf2}
+tr.del td.l{background:#fff0f0}
+tr.ins td.r{background:#effbef}
+del{background:#f7b2b2;text-decoration:line-through;text-decoration-color:#a33}
+ins{background:#a8e6a8;text-decoration:none}
+tr.del del{background:transparent}
+tr.ins ins{background:transparent}
+tr.eq td.t{color:#555}
+table.onlychg tr.eq{display:none}"
+
+function row_html(r)
+    left = r.left
+    if len(left) == 0
+        left = "&nbsp;"
+    end if
+    right = r.right
+    if len(right) == 0
+        right = "&nbsp;"
+    end if
+    return "<tr class=\"" + r.kind + "\"><td class=\"n\">" + r.ln +
+        "</td><td class=\"t l\">" + left + "</td><td class=\"n\">" + r.rn +
+        "</td><td class=\"t\">" + right + "</td></tr>"
+end function
+
+function build_html(old_lines, new_lines, old_name, new_name, title)
+    result = build_rows(old_lines, new_lines)
+    body = ""
+    for r in result.rows
+        body = body + row_html(r) + "\n"
+    end for
+    identical = ""
+    if result.n_changed_blocks == 0
+        identical = "The files are identical."
+    end if
+    page = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n" +
+        "<meta charset=\"utf-8\">\n" +
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
+        "<title>" + html_escape(title) + "</title>\n" +
+        "<style>" + CSS + "</style>\n</head>\n<body>\n" +
+        "<div id=\"banner\"><h1>" + html_escape(title) + "</h1>" +
+        "<p>" + html_escape(old_name) + " (left) vs. " + html_escape(new_name) +
+        " (right), compared line by line with word-level highlighting.</p></div>\n" +
+        "<div id=\"main\">\n" +
+        "<div class=\"box stats\"><h3>Summary</h3>" +
+        "<span><b>" + str(result.n_changed_blocks) + "</b> changed blocks</span>" +
+        "<span><b>" + str(result.n_modified) + "</b> modified lines</span>" +
+        "<span><b>" + str(result.n_added) + "</b> added lines</span>" +
+        "<span><b>" + str(result.n_removed) + "</b> removed lines</span><br>" +
+        "<span><i class=\"sw\" style=\"background:#f7b2b2\"></i>removed text</span>" +
+        "<span><i class=\"sw\" style=\"background:#a8e6a8\"></i>added text</span>" +
+        "<label><input type=\"checkbox\" id=\"only\"> Show changed lines only</label>" +
+        "</div>\n" + identical +
+        "<div class=\"wrap\"><table class=\"diff\" id=\"tbl\">" +
+        "<colgroup><col class=\"ln\"><col><col class=\"ln\"><col></colgroup>" +
+        "<thead><tr><th colspan=\"2\">" + html_escape(old_name) +
+        "</th><th colspan=\"2\">" + html_escape(new_name) + "</th></tr></thead>\n" +
+        "<tbody>\n" + body + "</tbody></table></div>\n" +
+        r"<script>var o=document.getElementById('only');
+document.getElementById('tbl').classList.toggle('onlychg',o.checked);
+o.addEventListener('change',function(e){
+document.getElementById('tbl').classList.toggle('onlychg',e.target.checked);});</script>
+" +
+        "</div>\n</body>\n</html>\n"
+    return {page = page, stats = result}
+end function
+
+# ------------------------------------------------------------------ main
+
+old_path = getenv("QU_DIFF_OLD") ?? ""
+new_path = getenv("QU_DIFF_NEW") ?? ""
+if len(old_path) == 0 or len(new_path) == 0
+    print("qu_htmldiff: set QU_DIFF_OLD and QU_DIFF_NEW to the two file paths")
+else
+    old_lines = read_lines(old_path)
+    new_lines = read_lines(new_path)
+
+    old_name = old_path
+    slash = "/"
+    parts = split(replace(old_path, "\\", "/"), slash)
+    if length(parts) > 0
+        old_name = parts[length(parts) - 1]
+    end if
+    new_name = new_path
+    parts2 = split(replace(new_path, "\\", "/"), slash)
+    if length(parts2) > 0
+        new_name = parts2[length(parts2) - 1]
+    end if
+
+    title = getenv("QU_DIFF_TITLE") ?? ("Diff: " + old_name + " vs " + new_name)
+
+    out_path = getenv("QU_DIFF_OUT") ?? ""
+    if len(out_path) == 0
+        out_path = new_path + ".diff.html"
+    end if
+
+    built = build_html(old_lines, new_lines, old_name, new_name, title)
+    write_text(out_path, built.page)
+    print("{built.stats.n_changed_blocks} changed blocks -> {out_path}")
+end if

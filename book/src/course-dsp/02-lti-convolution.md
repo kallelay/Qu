@@ -214,3 +214,30 @@ sounds, and no processing afterwards can recover which one arrived.
 Convolution did nothing wrong here. The damage happened earlier, in the
 act of turning a wave into a list — which is exactly what Lesson 3
 examines.
+
+## Exercises
+
+1. Replace the kernel `g = [0.5, 1, 0.5]` with a plain three-tap moving
+   average `g = [1, 1, 1]` and hand-compute `y[3]` the same way the
+   lesson does, then compare against `conv(xs, g)`.
+   **Check:** by hand, `y[3] = xs[3]*g[0] + xs[2]*g[1] + xs[1]*g[2] =
+   4 + 3 + 2 = 9`, and `conv(xs, g)` should agree at that position.
+
+2. What does convolving any signal with the single-tap kernel `[1]` do?
+   Predict it from the convolution sum before running anything, then
+   check with `conv(xs, [1])`. **Check:** it returns `xs` unchanged —
+   the sum collapses to one term, `y[n] = x[n] * 1`, which is the
+   identity system. Every LTI system's impulse response describes what
+   it does to a click, and `[1]`'s click passes straight through.
+
+3. `room()` is LTI, so linearity guarantees `room(high) + room(low) =
+   room(high + low)`. The lesson already measured the left side (both
+   terms individually processed, then summed) at a worst difference of
+   about `1e-13` from zero. Using only that fact and the aliasing result
+   two paragraphs above it (`high + low` is itself close to zero before
+   any processing), what should `room(high + low)` alone come out to,
+   without running it? **Check:** also close to zero, by linearity
+   applied to an input that is already close to zero — `room` of a
+   nearly-silent input is nearly silent output. If your answer required
+   actually running `room(high + low)` to be sure, the linearity
+   argument didn't do its job.

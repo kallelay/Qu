@@ -79,14 +79,31 @@ labeled "post-run snapshot, not a live debugger" in the output — it shows
 you the end state after the script finishes, not a paused mid-execution
 inspection.
 
+## HTML diff
+
+Command Palette → **Qu: HTML Diff With File...** (command id
+`qu.htmlDiff`), also on the Explorer's right-click menu for any file. Saves
+the file you're diffing from (or the one you right-clicked) if dirty, asks
+you to pick a second file, then runs the bundled `scripts/qu_htmldiff.qu` —
+a Qu port of this project's own `tools/qu_htmldiff.qu`/`htmldiff.py` — to
+build a side-by-side, word-level HTML diff, shown in a webview panel beside
+the editor. Not a source-control diff and not limited to `.qu` files; it's a
+general two-file comparison tool that happens to be implemented in Qu, per
+this project's own "Qu tooling must be Qu" practice.
+
 ## What's included
 
 - `package.json` — language contribution (`id: qu`, extension `.qu`), the
-  `qu.runFile` command + keybinding + editor-title button, and the
-  `qu.executablePath`/`qu.diagnostics.enable` settings
+  `qu.runFile`/`qu.htmlDiff` commands + keybinding + editor-title button +
+  Explorer context menu entry, and the `qu.executablePath`/
+  `qu.diagnostics.enable` settings
 - `extension.js` — plain CommonJS, no build step: run command, output
-  streaming + post-run vars dump, debounced diagnostics, and `qu`
-  executable resolution (`PATH` search + the `qu.executablePath` override)
+  streaming + post-run vars dump, debounced diagnostics, HTML diff webview,
+  and `qu` executable resolution (`PATH` search + the `qu.executablePath`
+  override)
+- `scripts/qu_htmldiff.qu` — bundled copy of `tools/qu_htmldiff.qu`, run by
+  `qu.htmlDiff`; keep it in sync with the repo root copy if that script
+  changes
 - `language-configuration.json` — comments (`#`), bracket pairs, auto-closing
   pairs, basic indent rules
 - `syntaxes/qu.tmLanguage.json` — TextMate grammar (`source.qu`) covering

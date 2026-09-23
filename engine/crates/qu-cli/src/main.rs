@@ -990,6 +990,20 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
         }
     }
 
+    // `exit(code)` (see qu-interp's own `Interp::exit_code` doc comment):
+    // the builtin returns `Err` to unwind through everything the ordinary
+    // way, but records the requested code here first. Everything above
+    // this point (the script's own `it.out`, `--emit-figure`/`--emit-vars`/
+    // `--profile`/`--report`) still runs and reflects whatever the script
+    // actually did before calling `exit` -- only the FINAL step changes:
+    // instead of `run_result`'s `Err("exit(0)")` printing as a bogus
+    // "runtime error: exit(0)", the process exits directly with the
+    // requested code and no error text at all, matching every other
+    // language's `exit()`.
+    if let Some(code) = it.exit_code {
+        std::process::exit(code);
+    }
+
     run_result
 }
 

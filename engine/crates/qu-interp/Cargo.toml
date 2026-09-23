@@ -75,7 +75,7 @@ memmap2 = "0.9"
 # version `qu-llm`'s `hf-hub` feature already depends on for its own model
 # downloads (checked `crates/qu-llm/Cargo.toml` first — `ureq = "2"` there)
 # rather than adding a second HTTP client dependency to this workspace.
-ureq = "3"
+ureq = "2"
 # `parallel` (rayon-backed multi-core matmul/elementwise kernels) is on by
 # default here, unlike `gpu` below: rayon is a small, vendor-neutral, no-driver
 # dependency (works identically on Intel/AMD, no wgpu-style setup), so there's
@@ -161,7 +161,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # generator failed to locate a working C compiler here even with vcvars
 # applied; forcing NMake did not. See `h5_model.rs`'s own module doc
 # comment for the on-disk layout and exact Keras-compatibility level.
-hdf5-metno = { version = "0.15", optional = true, features = ["static", "zlib"] }
+hdf5-metno = { version = "0.14", optional = true, features = ["static", "zlib"] }
 # Optional, default-off, same "keep the crate dependency-free by default"
 # policy as `qu-gpu`/`tch`/`hdf5-metno` above: enable with `--features llm`
 # for `llm_load(...)`/`.generate(...)` (the "AI core" inference primitive,
@@ -222,10 +222,17 @@ quick-xml = "0.42"
 # zero, including zero names in the global builtin table.
 qu-xlsx = { path = "../qu-xlsx", optional = true }
 qu-codec = { path = "../qu-codec", optional = true }
+# Optional, default-off, same "a module should be something a script asks
+# for by name (`import image`), not something every build pays for" call as
+# `qu-xlsx` just above. Pure Rust over the plain pixel/label types the
+# interpreter's own `Value::Image`/`Value::Mat` already convert to and from
+# -- no interpreter dependency, no system library.
+qu-image = { path = "../qu-image", optional = true }
 
 [features]
 xlsx = ["dep:qu-xlsx"]
 codec = ["dep:qu-codec"]
+image = ["dep:qu-image"]
 gpu = ["dep:qu-gpu"]
 backend-torch = ["dep:tch"]
 backend-tensorflow = ["dep:tensorflow"]

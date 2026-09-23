@@ -19,6 +19,13 @@
 //      result via `vscode.languages.createDiagnosticCollection`, the same
 //      class of UX QuStudio's own CodeEditor.tsx already gets from its
 //      in-process `check_syntax` Tauri command.
+//   3. "Qu: HTML Diff With File..." (command `qu.htmlDiff`) — shells out to
+//      the bundled `scripts/qu_htmldiff.qu` (a Qu port of the project's
+//      `htmldiff.py`, per the "Qu tooling must be Qu" standing practice) to
+//      build a side-by-side word-level HTML diff of the active file against
+//      a second file the user picks, then shows it in a webview panel. Not
+//      a source-control diff — a general two-file comparison tool, so it
+//      works on any file type, not just .qu.
 'use strict';
 
 const vscode = require('vscode');
@@ -35,13 +42,17 @@ let outputChannel;
 let diagnosticCollection;
 /** @type {Map<string, NodeJS.Timeout>} */
 const debounceTimers = new Map();
+/** @type {string} set once in activate(); needed to locate the bundled scripts/ dir */
+let extensionPath;
 
 function activate(context) {
+    extensionPath = context.extensionPath;
     outputChannel = vscode.window.createOutputChannel('Qu');
     diagnosticCollection = vscode.languages.createDiagnosticCollection('qu');
     context.subscriptions.push(outputChannel, diagnosticCollection);
 
     context.subscriptions.push(vscode.commands.registerCommand('qu.runFile', runFile));
+    context.subscriptions.push(vscode.commands.registerCommand('qu.htmlDiff', htmlDiffWithFile));
 
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(scheduleCheck),
@@ -142,6 +153,95 @@ function appendVarsDumpIfPresent(varsPath) {
         for (const v of vars) {
             outputChannel.appendLine(`  ${v.name} : ${v.type} = ${v.preview}`);
         }
+    });
+}
+
+// ------------------------------------------------------------------ html diff
+
+/**
+ * `qu.htmlDiff`. Saves the active document if dirty, prompts for a second
+ * file to compare against, then runs the bundled `qu_htmldiff.qu` (via
+ * QU_DIFF_OLD/QU_DIFF_NEW/QU_DIFF_OUT env vars — that script takes no
+ * positional args, matching this project's `qu run` convention) and shows
+ * the resulting side-by-side HTML diff in a webview panel beside the editor.
+ *
+ * `contextUri` is the resource VS Code passes when this command is invoked
+ * from the Explorer's right-click menu — the clicked file, not necessarily
+ * whatever's active in the editor. Falls back to the active editor's
+ * document for the Command Palette / keybinding invocation, where no such
+ * argument is passed.
+ */
+async function htmlDiffWithFile(contextUri) {
+    const quPath = resolveQuExecutable();
+    if (!quPath) {
+        reportMissingExecutable();
+        return;
+    }
+
+    let oldPath;
+    if (contextUri instanceof vscode.Uri) {
+        oldPath = contextUri.fsPath;
+        const openDoc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === oldPath);
+        if (openDoc && openDoc.isDirty) {
+            await openDoc.save();
+        }
+    } else {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage('Qu: HTML Diff needs an open file to compare from.');
+            return;
+        }
+        if (editor.document.isDirty) {
+            await editor.document.save();
+        }
+        oldPath = editor.document.fileName;
+    }
+
+    const picked = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        openLabel: 'Compare With This File',
+        title: `Qu: HTML Diff — choose the file to compare "${path.basename(oldPath)}" against`,
+    });
+    if (!picked || picked.length === 0) return; // user cancelled
+    const newPath = picked[0].fsPath;
+
+    const scriptPath = path.join(extensionPath, 'scripts', 'qu_htmldiff.qu');
+    const outPath = path.join(
+        os.tmpdir(),
+        `qu-vscode-htmldiff-${process.pid}-${Date.now()}.html`
+    );
+
+    outputChannel.appendLine(`--- qu html diff "${oldPath}" vs "${newPath}" ---`);
+
+    const env = Object.assign({}, process.env, {
+        QU_DIFF_OLD: oldPath,
+        QU_DIFF_NEW: newPath,
+        QU_DIFF_OUT: outPath,
+    });
+
+    cp.execFile(quPath, ['run', scriptPath], { env, timeout: 30000 }, (error, stdout, stderr) => {
+        if (stdout) outputChannel.append(stdout);
+        if (stderr) outputChannel.append(stderr);
+        if (error) {
+            vscode.window.showErrorMessage(`Qu: HTML diff failed — see the "Qu" output channel.`);
+            outputChannel.show(true);
+            return;
+        }
+        fs.readFile(outPath, 'utf8', (readErr, html) => {
+            fs.unlink(outPath, () => {}); // best-effort cleanup, ignore failures
+            if (readErr) {
+                vscode.window.showErrorMessage(`Qu: HTML diff produced no output — see the "Qu" output channel.`);
+                outputChannel.show(true);
+                return;
+            }
+            const panel = vscode.window.createWebviewPanel(
+                'quHtmlDiff',
+                `Diff: ${path.basename(oldPath)} vs ${path.basename(newPath)}`,
+                vscode.ViewColumn.Beside,
+                { enableScripts: true } // the diff page's own "show changed lines only" checkbox needs this
+            );
+            panel.webview.html = html;
+        });
     });
 }
 

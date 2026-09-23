@@ -185,3 +185,30 @@ first appears: what kind of signal is this, actually?
 
 **Next: [Lesson 1 — Signal classification](01-signal-classification.md).**
 Open a terminal first. This course is not a spectator sport.
+
+## Exercises
+
+1. Change the three-tone mixture's amplitudes to `1, 1, 1` (equal
+   strength) instead of `1, 0.5, 0.25`, keep the frequencies, and re-run
+   `argmax(mag)`. Does the strongest component change?
+   **Check:** `argmax` breaks ties by returning the first match, so it
+   should still report 440 Hz — the frequencies didn't move, only the
+   heights did, and 440 is still first in the bin order.
+
+2. Add a fourth tone at 2000 Hz to the mixture. Before running anything,
+   predict whether `rfft` will find it as cleanly as the first three.
+   **Check:** it should — nothing about the method depends on the tones
+   being harmonics of 440 Hz. Confirm by checking that `mag` has a fifth
+   clean spike near bin `2000/fs*len(y)`, same as the other three.
+
+3. The wrist-pulse example earlier in this lesson describes finding a
+   ~0.25 Hz breathing peak buried in heartbeat timing, by transforming a
+   list of inter-beat gaps rather than the raw pulse waveform. Using only
+   what this lesson showed (`rfft`, `argmax`, and the frequency-axis
+   formula `f = (0 to len(mag)-1) * fs / len(y)`), sketch in words what
+   `fs` would even mean for a signal built from gap durations rather than
+   evenly-sampled time. **Check:** there is no natural sample rate for an
+   unevenly-timed list of gaps — this is the actual reason "resample the
+   gaps onto an even time grid first" is a real, necessary step, not a
+   convenience. If your sketch didn't run into that problem, look again
+   at what `fs` is doing in the frequency-axis formula.

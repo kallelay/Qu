@@ -187,3 +187,29 @@ no answer — every property demonstrated here (resolution, leakage,
 windowing) belongs to a signal Fourier analysis assumes holds still for
 its entire record. Lesson 5 asks what happens to this picture when the
 thing being measured is also growing or decaying while you watch it.
+
+## Exercises
+
+1. Double the 12 Hz component's amplitude from `0.5` to `1.0` in
+   `x = cos(2*pi*5*t) + 0.5*cos(2*pi*12*t)` and re-measure `mag[12]`.
+   **Check:** it should double too, from 16.0 to 32.0 — the DFT is
+   linear, so scaling one input cosine scales its own bin by the same
+   factor and leaves every other bin untouched.
+
+2. Before running anything, predict `mag[0]` (the DC bin) for the
+   original two-cosine mixture. **Check:** it should come out
+   essentially zero (floating-point dust, around `1e-14`) — a pure sum
+   of cosines with no constant offset has no DC component by
+   construction, and the DFT's bin 0 measures exactly that.
+
+3. The leakage example shows a 10.5 Hz tone's energy scattering across
+   every bin because 2.5 isn't a whole bin index, and that a Hann window
+   drops the far-bin floor by roughly two thousand times at the cost of
+   a wider main peak. Given that trade, would windowing help or hurt if
+   you were instead trying to resolve two tones very close together in
+   frequency (say 10.0 Hz and 10.3 Hz, both landing near real bins)?
+   **Check:** it would hurt — the whole point of a window in the
+   leakage example is trading peak width for lower sidelobes, and two
+   close tones need the *narrowest* possible peak to stay resolved as
+   two peaks rather than blur into one. Windowing solves leakage, not
+   resolution; those are different problems with opposite remedies.

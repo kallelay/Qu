@@ -14,7 +14,7 @@
 //! that same slot for a topic frame instead (see `kernel.rs::send_iopub`).
 
 use bytes::Bytes;
-use hmac::{Hmac, KeyInit, Mac};
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as Json};
 use sha2::Sha256;

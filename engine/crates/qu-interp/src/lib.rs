@@ -3923,6 +3923,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
+    ("image", &["luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -4165,6 +4166,18 @@ pub struct Interp {
     /// still guaranteed to become visible is correct — the same reasoning
     /// as any interpreter safepoint poll.
     pub interrupt: Option<Arc<AtomicBool>>,
+    /// Set by the `exit(code)` builtin, checked once at the top level
+    /// (`qu-cli`'s `cmd_run` and friends) after a script run returns an
+    /// error. `exit` itself works by returning `Err` like any other
+    /// builtin failure -- reusing the SAME unwind-through-everything
+    /// propagation `?` already gives every other error, through nested
+    /// loops, function calls and blocks, with no new control-flow
+    /// mechanism needed -- but sets this field first, so the caller who
+    /// catches that `Err` can tell "the script asked to stop, with this
+    /// process exit code" apart from "the script broke" and print
+    /// neither a `runtime error:` prefix nor a stray message for the
+    /// ordinary, successful case (`exit()` with no arguments).
+    pub exit_code: Option<i32>,
     pub figures: usize,
     /// the current figure's panel/axes/legend/annotation state (Â§ plotting) --
     /// built up by `plot`/`xlabel`/`legend`/â€¦ and exported by `savefig`.
@@ -6248,6 +6261,7 @@ impl Interp {
             on_print: None,
             on_input: None,
             interrupt: None,
+            exit_code: None,
             screen_export_warned: false,
             legend_fit_warned: false,
             script_args: Vec::new(),
@@ -13573,6 +13587,153 @@ impl Interp {
         }
     }
 
+    /// `import image` dispatch — see `qu_image`'s own module doc comment for
+    /// what this module adds on top of the core's existing image builtins
+    /// (`blur`, `edge_detect`, `bwlabel`, ...). This crate has no dependency
+    /// on `Value` at all (see its doc comment: "this crate has no
+    /// dependency on the interpreter"), so every conversion between
+    /// `Value::Image`/`Value::Mat`/`Value::Model` and the crate's plain
+    /// `&[u8]`/`Vec<f64>`/`RegionTable` types lives here, the same split
+    /// `xlsx_call` above keeps against `qu_xlsx`'s plain `SheetColumn`.
+    #[cfg(feature = "image")]
+    fn image_call(&mut self, f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
+        // A binary `Value::Image` is 0/255 RGB with R=G=B (see
+        // `label_blobs`/`bwareaopen` above for the same convention) --
+        // `qu_image`'s binary-mask functions want one byte per pixel, so
+        // take every third (red) channel byte rather than the full triplet.
+        fn binary_plane(img: &image::Image) -> Vec<u8> {
+            img.pixels.iter().step_by(3).copied().collect()
+        }
+        // The inverse: replicate a single-channel byte into an RGB triplet
+        // so the result is an ordinary `Value::Image` again.
+        fn plane_to_image(width: usize, height: usize, plane: &[u8]) -> image::Image {
+            let mut pixels = Vec::with_capacity(width * height * 3);
+            for &v in plane {
+                pixels.push(v);
+                pixels.push(v);
+                pixels.push(v);
+            }
+            image::Image { width, height, pixels }
+        }
+        fn mat_from_rowmajor(h: usize, w: usize, flat: &[f64]) -> R<Matrix> {
+            let mut mat = Matrix::zeros(h, w);
+            for y in 0..h {
+                for x in 0..w {
+                    mat.set(y, x, flat[y * w + x])
+                        .map_err(|se: qu_core::matrix::ShapeError| EvalError { msg: se.to_string() })?;
+                }
+            }
+            Ok(mat)
+        }
+        // `image::regions` is the odd one out: its first argument is a
+        // `label_blobs`/`bwlabel` `Value::Model`, not a `Value::Image`.
+        if f == "image::regions" {
+            let Value::Model(m) = arg0(args)? else {
+                return e(format!(
+                    "image.regions(labeled) needs a label_blobs/bwlabel result, found {}",
+                    arg0(args)?.type_name()
+                ));
+            };
+            if m.kind != "blobs" {
+                return e(format!(
+                    "image.regions(labeled) needs a label_blobs/bwlabel result, found a `{}` model",
+                    m.kind
+                ));
+            }
+            let Some(Value::Mat(labels)) = m.field("labels") else {
+                return e("image.regions: malformed blob model (missing `labels`)".to_string());
+            };
+            let count = match m.field("count") {
+                Some(v) => v.as_num().map_err(|msg| EvalError { msg })? as usize,
+                None => return e("image.regions: malformed blob model (missing `count`)".to_string()),
+            };
+            let (h, w) = labels.shape();
+            let mut flat = vec![0f64; h * w];
+            for y in 0..h {
+                for x in 0..w {
+                    flat[y * w + x] = labels.get(y, x).unwrap_or(0.0);
+                }
+            }
+            let pixel_size = style_num(style, "pixel_size");
+            let unit = style_str(style, "unit");
+            let rt = qu_image::regions(&flat, h, w, count, pixel_size, unit.as_deref())
+                .map_err(|msg| EvalError { msg })?;
+            let cols: Vec<(String, table::Column)> = rt
+                .columns
+                .into_iter()
+                .map(|(name, vals)| (name, table::Column::Num(vals)))
+                .collect();
+            let t = table::Table::from_columns(cols).map_err(|msg| EvalError { msg })?;
+            return Ok(Value::Table(Arc::new(t)));
+        }
+
+        let Value::Image(img) = arg0(args)? else {
+            return e(format!("{f}(img) needs an image, found {}", arg0(args)?.type_name()));
+        };
+        let (w, h) = (img.width, img.height);
+        match f {
+            "image::luma" => {
+                let g = qu_image::luma(&img.pixels);
+                Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &g)?)))
+            }
+            "image::blur" => {
+                let radius = style_num(style, "radius")
+                    .or_else(|| arg_get(args, 1).and_then(|v| v.as_num().ok()))
+                    .unwrap_or(1.0) as usize;
+                // The spec's §1 default: filter in linear light unless the
+                // caller explicitly asks for `space="srgb"` -- see
+                // `qu_image::blur`'s own doc comment.
+                let linear = style_str(style, "space").map(|s| s != "srgb").unwrap_or(true);
+                let out = qu_image::blur(&img.pixels, w, h, radius, linear);
+                Ok(Value::Image(Arc::new(image::Image { width: w, height: h, pixels: out })))
+            }
+            "image::canny" => {
+                let low = style_num(style, "low").unwrap_or(0.1);
+                let high = style_num(style, "high").unwrap_or(0.3);
+                let out = qu_image::canny(&img.pixels, w, h, low, high);
+                Ok(Value::Image(Arc::new(image::Image { width: w, height: h, pixels: out })))
+            }
+            "image::bilateral" => {
+                let sigma_space = style_num(style, "sigma_space").unwrap_or(2.0);
+                let sigma_color = style_num(style, "sigma_color").unwrap_or(25.0);
+                let out = qu_image::bilateral(&img.pixels, w, h, sigma_space, sigma_color);
+                Ok(Value::Image(Arc::new(image::Image { width: w, height: h, pixels: out })))
+            }
+            "image::distance_transform" => {
+                let plane = binary_plane(img);
+                let d = qu_image::distance_transform(&plane, w, h);
+                Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &d)?)))
+            }
+            "image::skeleton" => {
+                let plane = binary_plane(img);
+                let s = qu_image::skeleton(&plane, w, h);
+                Ok(Value::Image(Arc::new(plane_to_image(w, h, &s))))
+            }
+            "image::fill_holes" => {
+                let plane = binary_plane(img);
+                let filled = qu_image::fill_holes(&plane, w, h);
+                Ok(Value::Image(Arc::new(plane_to_image(w, h, &filled))))
+            }
+            "image::contours" => {
+                let plane = binary_plane(img);
+                let scale = style_num(style, "scale");
+                let polys = qu_image::contours(&plane, w, h, scale);
+                let mut out = Vec::with_capacity(polys.len());
+                for poly in polys {
+                    let rows: Vec<Vec<f64>> = poly.into_iter().map(|(x, y)| vec![x, y]).collect();
+                    let mat = if rows.is_empty() {
+                        Matrix::zeros(0, 2)
+                    } else {
+                        Matrix::from_rows(&rows).map_err(|se| EvalError { msg: se.to_string() })?
+                    };
+                    out.push(Value::Mat(Arc::new(mat)));
+                }
+                Ok(Value::List(Arc::new(out)))
+            }
+            other => e(format!("image: unknown function `{other}`")),
+        }
+    }
+
     /// The native modules this build was compiled with.
     ///
     /// A module that exists but was not compiled in is a DIFFERENT error
@@ -13584,6 +13745,7 @@ impl Interp {
         const KNOWN: &[(&str, bool)] = &[
             ("xlsx", cfg!(feature = "xlsx")),
             ("codec", cfg!(feature = "codec")),
+            ("image", cfg!(feature = "image")),
         ];
         match KNOWN.iter().find(|(n, _)| *n == name) {
             Some((_, true)) => Ok(true),
@@ -19427,6 +19589,18 @@ self.eval_grad(loss, wrt)
             | "codec::encode_wav"
             | "codec::flac_info"
             | "codec::write_wav" => self.codec_call(f, &args, &style),
+            // Same shape again for `image`; `import image` opens the bare
+            // names the same way `xlsx`/`codec` do above.
+            #[cfg(feature = "image")]
+            "image::luma"
+            | "image::regions"
+            | "image::blur"
+            | "image::canny"
+            | "image::bilateral"
+            | "image::distance_transform"
+            | "image::skeleton"
+            | "image::fill_holes"
+            | "image::contours" => self.image_call(f, &args, &style),
             "items" => collections::dict_items(arg_all(&args)),
             "has_key" => collections::dict_has_key(arg_all(&args)),
             // Sequence operations. `Value::List` is what `split`, `zip`,
@@ -20295,6 +20469,26 @@ self.eval_grad(loss, wrt)
                         .scale(0.5)
                 },
             ),
+            // `exit([code])` -- stop the running script immediately, with
+            // an optional process exit code (default 0). Works by
+            // returning `Err` like any other builtin failure -- the same
+            // `?`-propagation every error already uses unwinds through
+            // every enclosing loop, function call and block with no new
+            // control-flow mechanism needed -- but records the requested
+            // code in `self.exit_code` FIRST, so the top-level caller
+            // (`qu-cli`'s `cmd_run` and friends) can tell "the script
+            // asked to stop here" apart from "the script broke" and
+            // print neither a `runtime error:` prefix nor a stray
+            // message for the ordinary, successful `exit()` case. See
+            // `exit_code`'s own doc comment on the `Interp` struct.
+            "exit" => {
+                let code = match arg_get(&args, 0) {
+                    Some(v) => v.as_num().map_err(|msg| EvalError { msg })? as i32,
+                    None => 0,
+                };
+                self.exit_code = Some(code);
+                e(format!("exit({code})"))
+            }
             "exp" => map1_complex(arg0(&args)?.clone(), f64::exp, Complex64::exp),
             // `sigmoid(x) = 1 / (1 + exp(-x))` -- the logistic function,
             // used untracked here and via `tensor_math1` (see
@@ -21234,6 +21428,75 @@ self.eval_grad(loss, wrt)
                 Ok(Value::Vec(Arc::new(
                     (0..xs.len()).map(|i| t0 + i as f64 / fs).collect(),
                 )))
+            }
+            // `duration(s)` / `sample_to_time(s, index)` /
+            // `time_to_sample(s, time)` -- toolkit-signal.md §1's axis-
+            // conversion primitives. `timestamps(s)` already IS §1's
+            // `time_axis()` (materializes the whole axis as a vector) and
+            // `start_time`/`end_time` already cover most of the rest, so
+            // these three are exactly the genuinely-missing pieces, not a
+            // re-implementation of what already exists under a better
+            // name. `sample(s, i)`/`samples(s, start, n)` are deliberately
+            // NOT added: `s[i]`/`s[start:start+n-1]` (already unit-aware,
+            // §1's own indexing sugar) do the same job, and a thin
+            // function wrapper for syntax Qu already has adds a name to
+            // remember without adding capability.
+            "duration" => {
+                let (xs, fs, _) = signal_meta::as_signal("duration", arg0(&args)?)?;
+                let d = signal_meta::duration_of(xs.len(), fs);
+                if !d.is_finite() {
+                    return e(format!(
+                        "duration: the signal's rate is {fs} Hz, so it has no duration"
+                    ));
+                }
+                Ok(Value::Num(d))
+            }
+            "sample_to_time" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("sample_to_time", v)?;
+                if !(fs.is_finite() && fs > 0.0) {
+                    return e(format!(
+                        "sample_to_time: the signal's rate is {fs} Hz, so it has no time axis"
+                    ));
+                }
+                let i = positional_or_named_num(&args, 1, &style, "index", f64::NAN, "sample_to_time")?;
+                if i.is_nan() {
+                    return e("sample_to_time(s, index) needs a sample index");
+                }
+                if i < 0.0 || i.fract() != 0.0 || i as usize >= xs.len() {
+                    return e(format!(
+                        "sample_to_time: index {i} is out of bounds (0..{}, whole numbers only)",
+                        xs.len()
+                    ));
+                }
+                Ok(Value::Num(m.t0 + i / fs))
+            }
+            "time_to_sample" => {
+                let v = arg0(&args)?;
+                let (xs, fs, m) = signal_meta::as_signal("time_to_sample", v)?;
+                if !(fs.is_finite() && fs > 0.0) {
+                    return e(format!(
+                        "time_to_sample: the signal's rate is {fs} Hz, so it has no time axis"
+                    ));
+                }
+                let t = positional_or_named_num(&args, 1, &style, "time", f64::NAN, "time_to_sample")?;
+                if t.is_nan() {
+                    return e("time_to_sample(s, time) needs a time in seconds");
+                }
+                // Nearest sample, not truncated -- the same rounding
+                // convention `s[0.5 s]`'s own scalar time index already
+                // uses (see `Expr::Index`'s `Signal` arm), so the two
+                // spellings of "which sample is this instant" never
+                // disagree with each other.
+                let idx = ((t - m.t0) * fs).round();
+                if idx < 0.0 || idx as usize >= xs.len() {
+                    return e(format!(
+                        "time_to_sample: {t} s is outside this signal, which spans {} s to {} s",
+                        m.t0,
+                        m.t0 + signal_meta::duration_of(xs.len(), fs)
+                    ));
+                }
+                Ok(Value::Num(idx))
             }
             // `metadata(s)` -- the §10 named field set, as a Record.
             //
@@ -41309,12 +41572,12 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "diagram_pipeline", "dict", "diff", "dir", "dir_exists", "disp",
     "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
     "double_buffer", "downsample", "drop", "drop_row", "dropout",
-    "dropout_layer", "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect",
+    "dropout_layer", "duration", "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect",
     "edges", "eig", "elapsed", "elediv", "elemul", "elepow", "ellip",
     "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error",
     "errorbar", "estimate", "estimate_complexity", "estimate_frequency",
-    "exec", "exp", "exp2", "explain", "explore", "expm1", "exponential", "eye",
+    "exec", "exit", "exp", "exp2", "explain", "explore", "expm1", "exponential", "eye",
     "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr", "fifo",
     "figure", "figure_background", "figure_size", "file_exists", "file_size",
     "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
@@ -41404,7 +41667,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
     "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean",
     "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
-    "row_sum", "rows", "rtrim", "run_for", "sandbox_mode", "sarsa", "save",
+    "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa", "save",
     "save_all", "save_image", "save_model", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score",
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
@@ -41427,7 +41690,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "swap", "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh",
     "tape_reset", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
-    "theme", "threshold", "tic", "timer", "timestamps", "title", "tkeo",
+    "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps", "title", "tkeo",
     "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc",
     "tolower", "touch", "toupper", "trace", "track", "train_loop",
@@ -75136,6 +75399,11 @@ end for");
             let err = run_err("import xlsx");
             assert!(err.msg.contains("--features xlsx"), "got: {}", err.msg);
         }
+        #[cfg(not(feature = "image"))]
+        {
+            let err = run_err("import image");
+            assert!(err.msg.contains("--features image"), "got: {}", err.msg);
+        }
     }
 
     #[test]
@@ -83009,6 +83277,16 @@ a = map(names, upper)"#);
         let err = run_err("import xlsx\nx = read(\"whatever\")");
         assert!(err.msg.contains("ambiguous"), "got: {}", err.msg);
         assert!(err.msg.contains("xlsx.read"), "the message must name the fix: {}", err.msg);
+    }
+
+    /// Same collision as `xlsx.read`/`read` above, for `image`: `blur` is
+    /// both the core builtin and one of `qu_image`'s exported names.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_blur_collides_with_the_core_builtin_the_same_way_xlsx_read_does() {
+        let err = run_err("import image\nx = blur(1)");
+        assert!(err.msg.contains("ambiguous"), "got: {}", err.msg);
+        assert!(err.msg.contains("image.blur"), "the message must name the fix: {}", err.msg);
     }
 
     /// An alias renames the namespace. It does not close the bare names --

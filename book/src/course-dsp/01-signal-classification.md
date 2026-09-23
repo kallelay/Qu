@@ -223,3 +223,30 @@ to each input separately.
 That property has a name, and a system that has it, together with one
 more, can be described completely by a single measurement: what it does
 to one tap. Lesson 2 makes that measurement.
+
+## Exercises
+
+1. Double the quantizer's resolution from 3 bits (`q = 2/8`) to 4 bits
+   (`q = 2/16`) on the same 50 Hz tone and re-measure the worst error.
+   **Check:** the error should roughly halve, from 0.0878 to somewhere
+   near 0.049 — a finer step means a smaller worst-case rounding
+   distance, and it should still sit under half the new step, 0.03125.
+
+2. `x = sin(2*pi*50*t) + sin(2*pi*50*sqrt(2)*t)` sums two tones whose
+   frequency ratio is irrational. Using only the periodicity definition
+   from this lesson (\(x[n+P] = x[n]\) for a whole-number \(P\)), argue
+   whether this signal is periodic at all, without running anything.
+   **Check:** it is not — a common period would require the two
+   frequencies' ratio to be rational, and \(\sqrt{2}\) is not. It looks
+   periodic on any finite screen anyway, which is exactly the trap this
+   lesson names.
+
+3. The even/odd decomposition example splits a one-sided decay `d` into
+   `de` and `dd`. Is `de` (the even part alone) an energy signal or a
+   power signal, in the sense this lesson defines those terms? Compute
+   whichever measure you think applies. **Check:** `de` is a finite,
+   seven-sample vector with no ongoing infinite tail, so it is an energy
+   signal — `energy(de)` should return a specific finite number (about
+   1.66 for the values in this lesson), while a power signal's power
+   over a genuinely infinite extent would not converge to something
+   `energy()` could answer.

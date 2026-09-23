@@ -171,3 +171,34 @@ but something that changes while you listen. The s-plane and z-plane
 answer "will this system's own behavior blow up," and cannot answer "what
 is happening in this signal right now, compared to a moment ago." Lesson 6
 takes on that question directly.
+
+## Exercises
+
+1. Change the decaying pole from `0.8` to `0.5` (`filter_ba([1], [1,
+   -0.5], impulse_x)`) and compare the resulting sequence's first four
+   values against the lesson's own `0.8` case. **Check:** both start at
+   1 (the impulse itself), but the `0.5` pole should fall off much
+   faster — `[1, 0.5, 0.25, 0.125, ...]` versus `[1, 0.8, 0.64, 0.512,
+   ...]` — because each sample is the pole location times the last one,
+   and 0.5 shrinks a number faster than 0.8 does.
+
+2. What does a pole placed exactly at `z = 1.0` do — neither the `0.8`
+   case's decay nor the `1.2` case's growth? Predict it from the
+   difference equation `y[n] = x[n] + p*y[n-1]` with `p = 1` before
+   running `filter_ba([1], [1, -1.0], impulse(12))`.
+   **Check:** constant output, `[1, 1, 1, 1, ...]` forever — neither
+   growing nor decaying, the exact boundary case. A pole on the unit
+   circle itself (not just outside it) is marginally stable: it doesn't
+   blow up, but it never settles either.
+
+3. The opening of this lesson shows \(e^{\sigma t}e^{j\omega t}\) as a
+   spiral: inward for \(\sigma < 0\), a plain circle for \(\sigma = 0\),
+   outward for \(\sigma > 0\) — the continuous-time picture. The
+   discrete-time pole examples later use `0.8`, `1.0`, and `1.2` as
+   their three cases. What is the discrete-time analogue of \(\sigma =
+   0\) — what pole magnitude corresponds to the continuous case's
+   perfect circle? **Check:** `|z| = 1`, the unit circle itself (which
+   is exactly the `p = 1` case in exercise 2) — continuous-time's
+   stability boundary is the imaginary axis (\(\sigma = 0\)), and the
+   \(z = e^{sT}\) mapping that connects the two domains sends that axis
+   to the unit circle.

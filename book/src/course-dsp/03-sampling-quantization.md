@@ -247,3 +247,36 @@ advance. That function — `rfft` — is the change of representation the
 next lesson derives from first principles: what a transform actually is,
 why the answer is complex, and how Cooley and Tukey made it fast enough,
 in 1965, for the rest of this subject to be practical.
+
+## Exercises
+
+1. Add `bits = 20` to the SQNR loop's range and predict the theoretical
+   SQNR from `6.02*bits + 1.76` before running it. **Check:** about
+   122.16 dB. Measuring anywhere near that in practice needs a
+   correspondingly precise `x .^ 2`/`err .^ 2` computation — floating-
+   point round-off itself starts to compete with the quantization error
+   you're trying to measure, which is a real practical limit the formula
+   alone does not warn you about.
+
+2. The dither example pushes a tone three-tenths of a quantization step
+   tall through an 8-bit quantizer, with and without added noise. What
+   would you expect if the tone were instead *larger* than one full
+   step — say 2 quantization steps tall — quantized plain, no dither?
+   **Check:** it should quantize essentially fine without dither, same
+   general shape as the plain sinewave data earlier in this lesson,
+   because dither only rescues a signal that a quantizer's resolution
+   would otherwise erase entirely; a signal already several steps tall
+   was never at risk of disappearing.
+
+3. The reconstruction formula near the start of this lesson rebuilds
+   \(x_c(t)\) from samples using a sum of shifted `sinc` functions. The
+   dither example later shows that quantization error is a deterministic
+   function of a deterministic input, not true randomness. Using both
+   facts: if you reconstructed a quantized (not dithered) signal with the
+   sinc-sum formula, would the reconstruction error at the *original*
+   sample points be zero, even though the samples themselves are wrong?
+   **Check:** yes — the sinc sum reconstructs whatever discrete sequence
+   you feed it exactly at the sample points (that is what makes it a
+   valid interpolant at all), so it would faithfully reproduce the
+   *quantized* value, not the original one. Reconstruction fixes the
+   representation, not information the quantizer already discarded.
