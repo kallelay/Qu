@@ -173,7 +173,9 @@ pub mod ml_honesty;
 pub mod regions_ops;
 pub mod surgery_ops;
 pub mod text_ops;
+pub mod file_meta_ops;
 pub mod fs_ops;
+pub mod json_ops;
 pub mod path_ops;
 
 /// § process execution (2026-09-09) — `exec(program, [args])` runs a
@@ -37867,11 +37869,29 @@ self.eval_grad(loss, wrt)
                 path_ops::call(f, arg_all(&args), &style)
             }
 
+            // § file metadata (2026-09-23, `file_meta_ops.rs`) -- see that
+            // module's own doc comment for the epoch-seconds convention and
+            // why `created_at` can legitimately error on some filesystems.
+            "created_at" | "accessed_at" | "modified_at" | "is_readonly" | "file_info" => {
+                file_meta_ops::call(f, arg_all(&args), &style)
+            }
+
+            // § JSON dotted-path access (2026-09-23, `json_ops.rs`) -- see
+            // that module's own doc comment for why it re-parses the raw
+            // JSON rather than reusing parse_json's content-shape inference.
+            "json_get" | "json_set" | "json_delete" => json_ops::call(f, arg_all(&args), &style),
+
             // § bytes, encodings and binary layout (2026-09-16). One arm for
             // the whole module, same reasoning as the fs_ops arm above.
             "bytes_read" | "bytes_write" | "hexdump" | "hex_encode" | "hex_decode"
             | "base64_encode" | "base64_decode" | "crc32" | "sha256" | "entropy"
-            | "pack" | "unpack" => bytes_ops::call(f, arg_all(&args), &style),
+            | "pack" | "unpack"
+            // § addressed bit ops + binary convenience (2026-09-23) -- same
+            // combined-arm reasoning, see `bytes_ops.rs`'s own doc comment.
+            | "get_bit" | "set_bit" | "clear_bit" | "toggle_bit" | "swap_endian"
+            | "reverse_bytes" | "pad_bytes" | "find_hex" | "replace_bytes" => {
+                bytes_ops::call(f, arg_all(&args), &style)
+            }
 
             // § text: codepoints, distance, folding and layout (2026-09-16).
             "codepoints" | "nbytes" | "casefold" | "levenshtein" | "similar"
@@ -41669,7 +41689,7 @@ fn edit_distance(a: &str, b: &str, budget: usize) -> Option<usize> {
 
 pub const BUILTIN_NAMES: &[&str] = &[
     "DataFrame", "StreamFile", "StreamURL", "ablation_study", "abs",
-    "accuracy", "acf", "acos", "acosh", "adadelta", "adagrad", "adam",
+    "accessed_at", "accuracy", "acf", "acos", "acosh", "adadelta", "adagrad", "adam",
     "adamax", "adamw", "adc", "add", "add_edge", "add_marker", "add_node",
     "add_noise", "add_region", "affine_identity", "affine_rotate",
     "affine_scale", "affine_shear", "affine_translate", "after", "after_last",
@@ -41690,13 +41710,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "cd", "ceil", "channel", "channel_len", "channel_recv", "channel_send",
     "channel_try_recv", "chars", "cheby1", "cheby2", "chi2cdf", "chi2pdf",
     "chirp", "chisquare", "chol", "chr", "circle", "circuit",
-    "circuit_impedance", "clamp", "clip", "close", "cm", "cmyk", "codepoints",
+    "circuit_impedance", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
     "coherence", "colorbar", "colormap", "cols", "compare", "compile",
     "complex", "cond", "conformal", "confusion_matrix", "conj", "contains",
     "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit",
     "copy_file", "corr", "corr_heatmap", "corrcoef", "corrmat", "corrplot",
     "cos", "cosh", "coth", "count", "cov", "coverage", "cpe", "crc", "crc32",
-    "crc_check", "create_file", "crest_factor", "crop", "cs_guarantee",
+    "crc_check", "create_file", "created_at", "crest_factor", "crop", "cs_guarantee",
     "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
     "cumsum", "cur_dir", "curve_fit", "cut", "cv_stability", "daily_profile",
     "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin",
@@ -41713,15 +41733,15 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "errorbar", "estimate", "estimate_complexity", "estimate_frequency",
     "exec", "exit", "exp", "exp2", "explain", "explore", "expm1", "exponential", "eye",
     "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr", "fifo",
-    "figure", "figure_background", "figure_size", "file_exists", "file_size",
+    "figure", "figure_background", "figure_size", "file_exists", "file_info", "file_size",
     "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
-    "filter_next", "filtfilt", "find", "find_clipping", "find_edges",
+    "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
     "find_missing", "find_outliers", "find_peaks", "find_pulses",
     "find_trigger", "find_zero_crossings", "findpeaks", "fir1", "firls",
     "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud",
     "floor", "fold", "fontfamily", "fontsize", "fopen", "foreground_mask",
     "format", "forward", "freqz", "fvtool", "fzero", "gain", "gamma",
-    "generate", "gerischer", "get", "getenv", "glob", "gmm_model", "goertzel",
+    "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
     "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
@@ -41740,8 +41760,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "imwarp", "inch", "indent", "index", "index_of", "indexof", "inductor",
     "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr",
-    "irfft", "is_clipped", "is_empty", "is_full", "is_stable", "items", "join",
-    "js_exec", "json2csv", "json2xml", "jsonify", "k_fold", "kaiser",
+    "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "items", "join",
+    "js_exec", "json2csv", "json2xml", "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser",
     "kalman_init", "kapur_threshold", "keys", "kfold", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
@@ -41758,7 +41778,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
     "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize",
     "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier",
-    "mm", "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "monte_carlo",
+    "mm", "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo",
     "monthly_profile", "move", "move_file", "mse", "mtimes", "mul",
     "multi_head_attention", "multi_otsu", "multisine", "multithreshold",
     "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
@@ -41766,7 +41786,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nnls", "nor",
     "norm", "normal", "normalize", "normpdf", "now", "nrow", "numel",
     "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
-    "otsu", "otsu_threshold", "overshoot", "pack", "pad_left", "pad_right",
+    "otsu", "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
     "palette", "panel", "parallel", "param", "parse_as", "parse_csv",
     "parse_json", "parse_xml", "particle_filter", "particle_filter_init",
     "path_absolute", "path_extension", "path_join", "path_name", "path_normalize",
@@ -41796,9 +41816,9 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "regex_groups", "regex_match", "regex_replace", "regex_split",
     "regionprops", "regions", "relu", "remove", "remove_dir", "remove_file",
     "remove_nan", "remove_noise", "remove_outliers", "remove_small_blobs",
-    "rename_file", "repeat_str", "replace", "replace_outliers", "resample_int",
+    "rename_file", "repeat_str", "replace", "replace_bytes", "replace_outliers", "resample_int",
     "resample_to", "reset", "reshape", "residual_acf", "resistor", "resize",
-    "restart", "return_loss", "reverse", "rewind", "rfe", "rfft", "rgb",
+    "restart", "return_loss", "reverse", "reverse_bytes", "rewind", "rfe", "rfft", "rgb",
     "rgba", "ridge", "ridge_model", "right", "rise_time", "rising_edges",
     "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
     "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean",
@@ -41809,7 +41829,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
     "semaphore_available", "semaphore_release", "semilogx", "semilogy",
     "sequential", "sequential_split", "serial_open", "serial_ports", "series",
-    "set", "set_metadata", "set_start_time", "sfdr", "sgd", "sha256", "shape",
+    "set", "set_bit", "set_metadata", "set_start_time", "sfdr", "sgd", "sha256", "shape",
     "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign",
     "signal", "signal_slice_time", "signal_unit", "similar", "simple_cnn",
     "simple_rnn_classifier", "simulate", "sin", "sinad", "sinad_estimate",
@@ -41823,12 +41843,12 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step",
     "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi",
     "subplot", "substr", "subtract", "sum", "svd", "svm_model", "svr_model",
-    "swap", "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh",
+    "swap", "swap_endian", "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh",
     "tape_reset", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
     "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps", "title", "tkeo",
     "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
-    "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc",
+    "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit",
     "tolower", "touch", "toupper", "trace", "track", "train_loop",
     "train_test_split", "train_val_test_split", "transfer_function",
     "transform", "transformer_block", "transpose", "tree_model", "triangle",

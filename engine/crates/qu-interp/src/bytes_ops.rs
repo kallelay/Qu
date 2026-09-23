@@ -27,7 +27,7 @@
 //! several sessions edit `lib.rs` concurrently and a small footprint is the
 //! difference between a clean merge and a conflict.
 
-use crate::{e, style_num, style_str, text_arg, to_vec, EvalError, Value, R};
+use crate::{e, int_arg, style_num, style_str, text_arg, to_vec, EvalError, Value, R};
 
 pub fn call(f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
     match f {
@@ -43,6 +43,19 @@ pub fn call(f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
         "entropy" => entropy(args),
         "pack" => pack(args, style),
         "unpack" => unpack(args, style),
+        // § addressed bit ops + binary convenience (2026-09-23) -- see
+        // each function's own doc comment; grouped here rather than in a
+        // separate module since they all share this file's `bytes_arg`/
+        // `bytes_value` representation.
+        "get_bit" => get_bit(args),
+        "set_bit" => set_bit(args, true),
+        "clear_bit" => set_bit(args, false),
+        "toggle_bit" => toggle_bit(args),
+        "swap_endian" => swap_endian(args, style),
+        "reverse_bytes" => reverse_bytes(args),
+        "pad_bytes" => pad_bytes(args, style),
+        "find_hex" => find_hex(args, style),
+        "replace_bytes" => replace_bytes(args),
         other => e(format!("bytes_ops: unknown function `{other}`")),
     }
 }
@@ -579,6 +592,202 @@ fn pack(args: &[Value], style: &[(String, Value)]) -> R<Value> {
             buf[..w].reverse();
         }
         out.extend_from_slice(&buf[..w]);
+    }
+    Ok(bytes_value(&out))
+}
+
+// ------------------------------------------------------- bit-addressed ops
+//
+// Bit `i` of a buffer is bit `i % 8` of byte `i / 8`, counting from the
+// LSB of each byte (bit 0 of byte 0 is the buffer's least significant bit
+// overall) -- the same convention `read_int`/`write_int`'s little-endian
+// default already implies bit-for-bit, so a script mixing byte- and
+// bit-level access of the same buffer gets one consistent answer rather
+// than two conventions that happen to share a name.
+
+fn bit_index(args: &[Value], buf_len: usize, who: &str) -> R<(usize, u8)> {
+    let i = int_arg(args, 1)?;
+    if i < 0 || i as usize >= buf_len * 8 {
+        return e(format!(
+            "{who}: bit index {i} is out of range for a {buf_len}-byte buffer (0..{})",
+            buf_len * 8
+        ));
+    }
+    let i = i as usize;
+    Ok((i / 8, (i % 8) as u8))
+}
+
+fn get_bit(args: &[Value]) -> R<Value> {
+    let b = bytes_arg(args, 0, "get_bit")?;
+    let (byte_i, bit_i) = bit_index(args, b.len(), "get_bit")?;
+    Ok(Value::Num(((b[byte_i] >> bit_i) & 1) as f64))
+}
+
+fn set_bit(args: &[Value], to_one: bool) -> R<Value> {
+    let who = if to_one { "set_bit" } else { "clear_bit" };
+    let mut b = bytes_arg(args, 0, who)?;
+    let (byte_i, bit_i) = bit_index(args, b.len(), who)?;
+    if to_one {
+        b[byte_i] |= 1 << bit_i;
+    } else {
+        b[byte_i] &= !(1 << bit_i);
+    }
+    Ok(bytes_value(&b))
+}
+
+fn toggle_bit(args: &[Value]) -> R<Value> {
+    let mut b = bytes_arg(args, 0, "toggle_bit")?;
+    let (byte_i, bit_i) = bit_index(args, b.len(), "toggle_bit")?;
+    b[byte_i] ^= 1 << bit_i;
+    Ok(bytes_value(&b))
+}
+
+// -------------------------------------------------------- binary convenience
+
+/// `swap_endian(buf, [width=4])` — reverses the byte order WITHIN each
+/// `width`-byte chunk (a buffer of big-endian `u32`s becomes little-endian,
+/// or back), as opposed to `reverse_bytes` below, which reverses the
+/// buffer's overall order. `buf.len()` must divide evenly by `width` --
+/// silently dropping a partial trailing chunk would be a quiet wrong
+/// answer, the exact thing this module's own doc comment says to avoid.
+fn swap_endian(args: &[Value], style: &[(String, Value)]) -> R<Value> {
+    let b = bytes_arg(args, 0, "swap_endian")?;
+    let width = style_num(style, "width")
+        .or_else(|| args.get(1).and_then(|v| v.as_num().ok()))
+        .unwrap_or(4.0);
+    if width < 1.0 || width.fract() != 0.0 {
+        return e(format!("swap_endian: `width={width}` must be a whole number >= 1"));
+    }
+    let width = width as usize;
+    if b.len() % width != 0 {
+        return e(format!(
+            "swap_endian: the buffer is {} bytes, which doesn't divide evenly by width={width}",
+            b.len()
+        ));
+    }
+    let mut out = b.clone();
+    for chunk in out.chunks_mut(width) {
+        chunk.reverse();
+    }
+    Ok(bytes_value(&out))
+}
+
+/// `reverse_bytes(buf)` — the whole buffer, end to end. Not the same
+/// operation as `swap_endian`; see that function's own doc comment for the
+/// distinction.
+fn reverse_bytes(args: &[Value]) -> R<Value> {
+    let mut b = bytes_arg(args, 0, "reverse_bytes")?;
+    b.reverse();
+    Ok(bytes_value(&b))
+}
+
+/// `pad_bytes(buf, length, [value=0], [side="right"])` — pads `buf` up to
+/// `length` bytes with `value`, on the given side. A `buf` already at or
+/// past `length` is returned unchanged (truncating would silently discard
+/// real data; that is `slice`'s job, not padding's).
+fn pad_bytes(args: &[Value], style: &[(String, Value)]) -> R<Value> {
+    let b = bytes_arg(args, 0, "pad_bytes")?;
+    let length = int_arg(args, 1)?;
+    if length < 0 {
+        return e(format!("pad_bytes: `length={length}` must be >= 0"));
+    }
+    let length = length as usize;
+    let value = style_num(style, "value").unwrap_or(0.0);
+    if !(0.0..=255.0).contains(&value) || value.fract() != 0.0 {
+        return e(format!("pad_bytes: `value={value}` must be a whole number in 0..255"));
+    }
+    let value = value as u8;
+    let side = style_str(style, "side").unwrap_or_else(|| "right".to_string());
+    if b.len() >= length {
+        return Ok(bytes_value(&b));
+    }
+    let fill = vec![value; length - b.len()];
+    let out = match side.as_str() {
+        "right" => [b.as_slice(), fill.as_slice()].concat(),
+        "left" => [fill.as_slice(), b.as_slice()].concat(),
+        other => {
+            return e(format!(
+                "pad_bytes: `side=\"{other}\"` is not a side -- use \"left\" or \"right\""
+            ))
+        }
+    };
+    Ok(bytes_value(&out))
+}
+
+/// A hex-string pattern (no leading `0x`, whitespace ignored, e.g.
+/// `"deadbeef"`) parsed into raw bytes -- the shared parser `find_hex`
+/// needs and `hex_decode` above already has inline; pulled out here so
+/// neither copy drifts from the other's definition of a valid pattern.
+fn parse_hex_pattern(s: &str, who: &str) -> R<Vec<u8>> {
+    let t: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    if t.len() % 2 != 0 {
+        return e(format!(
+            "{who}: `{s}` has an odd number of hex digits ({}) -- a byte is two",
+            t.len()
+        ));
+    }
+    let bs = t.as_bytes();
+    let mut out = Vec::with_capacity(t.len() / 2);
+    let mut i = 0;
+    while i < bs.len() {
+        let hi = hex_nibble(bs[i], s)?;
+        let lo = hex_nibble(bs[i + 1], s)?;
+        out.push(hi * 16 + lo);
+        i += 2;
+    }
+    Ok(out)
+}
+
+/// `find_hex(buf, pattern, [from=0])` — the byte offset of the first
+/// occurrence of `pattern` (a hex string) in `buf` at or after `from`, or
+/// `-1` if it doesn't occur -- matching `index_of`'s own "not found is -1,
+/// not an error" convention for the same kind of search.
+fn find_hex(args: &[Value], style: &[(String, Value)]) -> R<Value> {
+    let b = bytes_arg(args, 0, "find_hex")?;
+    let pat_s = text_arg(args, 1)?;
+    let pat = parse_hex_pattern(&pat_s, "find_hex")?;
+    let from = style_num(style, "from").unwrap_or(0.0);
+    if from < 0.0 || from.fract() != 0.0 {
+        return e(format!("find_hex: `from={from}` must be a whole number >= 0"));
+    }
+    let from = (from as usize).min(b.len());
+    if pat.is_empty() {
+        return e("find_hex: the pattern is empty".to_string());
+    }
+    if pat.len() > b.len() {
+        return Ok(Value::Num(-1.0));
+    }
+    for start in from..=(b.len() - pat.len()) {
+        if b[start..start + pat.len()] == pat[..] {
+            return Ok(Value::Num(start as f64));
+        }
+    }
+    Ok(Value::Num(-1.0))
+}
+
+/// `replace_bytes(buf, pattern, replacement)` — every non-overlapping
+/// occurrence of `pattern` (a hex string) replaced with `replacement` (also
+/// a hex string, independent length -- the result can be a different size
+/// than `buf`). Scans left to right, same as `replace`'s own text
+/// semantics; a match consumes its bytes before the next search starts, so
+/// overlapping occurrences are not double-counted.
+fn replace_bytes(args: &[Value]) -> R<Value> {
+    let b = bytes_arg(args, 0, "replace_bytes")?;
+    let pat = parse_hex_pattern(&text_arg(args, 1)?, "replace_bytes")?;
+    let rep = parse_hex_pattern(&text_arg(args, 2)?, "replace_bytes")?;
+    if pat.is_empty() {
+        return e("replace_bytes: the pattern is empty".to_string());
+    }
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0usize;
+    while i < b.len() {
+        if i + pat.len() <= b.len() && b[i..i + pat.len()] == pat[..] {
+            out.extend_from_slice(&rep);
+            i += pat.len();
+        } else {
+            out.push(b[i]);
+            i += 1;
+        }
     }
     Ok(bytes_value(&out))
 }
