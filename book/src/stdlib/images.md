@@ -173,6 +173,9 @@ print(imhist(auto, n_bins=8))   # [7, 0, 0, 0, 0, 0, 0, 1] -- stretched out to b
 | `otsu` | `otsu(x)` | `x` is an `Image`, `Vec`, or `Signal`. Compute-and-apply convenience: `otsu_threshold` followed immediately by `threshold` in one call. Returns the same type/shape `threshold(x, level)` would (e.g. a new binary `Image` of the same dimensions for an `Image` input). |
 | `multi_otsu` | `multi_otsu(x, n_classes)` | `x` is an `Image`, `Vec`, or `Signal`; `n_classes` is a positive integer, the desired number of intensity classes. The `n_classes - 1`-threshold generalization of `otsu_threshold`. Returns a `Vec` of `n_classes - 1` cut points in ascending order. Compose with `multithreshold(x, multi_otsu(x, n))` to segment into `n` classes. |
 | `kapur_threshold` | `kapur_threshold(x)` | `x` is an `Image`, `Vec`, or `Signal`. Same "compute, don't apply" shape as `otsu_threshold`, but using Kapur's entropy-maximizing criterion instead of Otsu's between-class variance — tends to handle unequal class sizes better. Returns a single threshold number. |
+| `adaptive_threshold` <br> *Added in v0.4.0* | `adaptive_threshold(image, block_size=, [method="mean"], [offset=0])` | `image` is an `Image`; `block_size` is a required odd positive integer, the side length of the per-pixel neighborhood. **Locally** adaptive, unlike `threshold`/`otsu` above: each pixel's own threshold is `mean(neighborhood) - offset`, where the neighborhood mean is a uniform box average (`method="mean"`) or a Gaussian-weighted one (`method="gaussian"`). Binarized with the same `>=` convention as `threshold`. Returns a binary `Image` of the same dimensions. |
+| `sauvola_threshold` <br> *Added in v0.4.0* | `sauvola_threshold(image, window_size=, [k=0.5], [r=128])` | `image` is an `Image`; `window_size` is a required odd positive integer. Sauvola's local threshold, `T = mean * (1 + k * (stddev/r - 1))` computed per pixel over `window_size`, purpose-built for document/text images whose illumination drifts across the frame — a case a single global `otsu` cut cannot separate cleanly. `k` (typically 0.2–0.5) controls how strongly local contrast shifts the threshold; `r` is the expected dynamic range of the local stddev (128 for 8-bit images). Binarized with the same `>=` convention as `threshold`. Returns a binary `Image` of the same dimensions. |
+| `clahe` <br> *Added in v0.4.0* | `clahe(image, tile_size=, [clip_limit=2.0])` | `image` is an `Image`; `tile_size` is a required positive integer, the pixel side length of each equalization tile (the last row/column of tiles shrinks to fit). Contrast-Limited Adaptive Histogram Equalization: `imequalize`'s tile-based local counterpart, with a clipped per-tile histogram (clip threshold `clip_limit * tile_pixel_count / 256`) and — the part a naive per-tile implementation skips — bilinear interpolation of each pixel's mapping between its four nearest tile centers, so there is no hard seam at a tile boundary. RGB-preserving via the same luma-ratio rescale `imequalize` uses. Returns an `Image` of the same dimensions. |
 
 #### Overloads: `threshold`
 
@@ -220,6 +223,66 @@ gray bands), while its `Signal`/plain-numeric case returns a raw 0-based
 | `regionprops` | `regionprops(labeled)` (alias of `blob_stats`) | `labeled` is a `Model` produced by `bwlabel`/`label_blobs`. Takes that result and returns a `List` of one `Record` per blob, in label-id order, each with fields: `label` (integer id), `area` (pixel count), `centroid_x`, `centroid_y` (real pixel-coordinate means, not bbox-center approximations), `bbox_x`, `bbox_y`, `bbox_width`, `bbox_height` (tightest axis-aligned rectangle) — all numbers. Returns a `List` with one `Record` per blob, in label-id order — empty when `labeled` found none. |
 | `bwareaopen` | `bwareaopen(binary_img, min_area)` (alias of `remove_small_blobs`) | `binary_img` is a binary `Image`; `min_area` is a number, the minimum pixel count a blob must have to survive. Labels internally (8-connectivity, matching MATLAB's default) and zeroes out every blob whose pixel count is below `min_area`. Returns a new binary `Image`, same dimensions as `binary_img`, with small blobs removed. |
 | `foreground_mask` | `foreground_mask(img, level, [radius=1])` | `img` is an `Image`, color or grayscale (BT.601 luma either way); `level` is a required number, the threshold cutoff 0–255; `radius` is an optional named positive integer (default 1), the structuring-element radius for the cleanup step. Thresholds `img` at `level`, then applies `imopen(radius)` to remove noise specks. `level` is a required argument by design — pair with `otsu_threshold` for auto-thresholding: `foreground_mask(img, otsu_threshold(img))`. Returns a new binary `Image`, same dimensions as `img`. |
+| `image.regions` | `image.regions(labeled, [pixel_size=], [unit=], [intensity_image=])` (`import image`) | `labeled` is a `Model` from `bwlabel`/`label_blobs`. Returns a `Table`, one row per non-empty label, ordered by label id — the `regionprops`-shaped measurement but as columns rather than a `List` of `Record`s, so a measurement can be filtered/grouped/joined/plotted with the language's ordinary table verbs. Columns: `label`; `area`, `centroid_x`, `centroid_y`, `bbox_width`, `bbox_height` (all suffixed `_px`/`_px2` with no `pixel_size=`, or `_<unit>`/`_<unit>2` when both `pixel_size=` and `unit=` are given — a unit with no scale, or `unit="px"` alongside a scale, is refused); `extent` (`area / bbox_area`, unitless, the scale cancels); `perimeter` (suffixed like the other lengths) — the region's outer boundary walked pixel-centre to pixel-centre (8-connected), summed and closed into a loop; a solid axis-aligned `W`x`H` rectangle measures `2*(W+H-2)`, NOT the `2*(W+H)` edge-crossing count some other tools report, because the border ring of a solid block is all orthogonal steps; `eccentricity` (`0`–`1`, from an equivalent ellipse fit to the region's second central moments — `0` for a circle/square, approaching `1` for a thin line); `orientation` (radians, `(-pi/2, pi/2]`, the equivalent ellipse's major-axis angle from `+x`, positive rotating towards `+y` — which is DOWN the image, i.e. clockwise on screen, not the counter-clockwise math-plot convention; `0` for an isotropic region by convention); `solidity` (`area / convex_hull_area`, unitless — the hull is built from every boundary pixel's four corners rather than its centre, so a solid convex region's hull area equals its own pixel-count area exactly and solidity is `1.0`, never slightly above it). `intensity_image=` is an optional `Image`, the ORIGINAL (non-labeled) image to measure — when given, an `intensity_mean` column (BT.601 luma mean per region) is appended; when omitted, no such column appears at all, rather than one filled with a placeholder. The `perimeter`/`eccentricity`/`orientation`/`solidity` columns and the `intensity_image=` keyword were added in v0.4.0. |
+
+## Gradients, Edges & Colorspace (`image` module)
+
+Reached through `import image`, the same namespaced module as `image.canny`/
+`image.bilateral`/`image.regions` above — always call these qualified
+(`image.sobel(...)`, not bare `sobel(...)`), since a bare `blur`/`sobel`-shaped
+name may already exist as an unrelated core builtin (`blur` does; see the
+"Filtering & Enhancement" table above).
+
+Unlike the point/neighbourhood filters above, these return raw signed
+floating-point results rather than a clamped 8-bit preview `Image` —
+`sobel`/`scharr`/`laplacian`/`gradient_magnitude` return a `Mat` (same shape
+as `image.luma`'s own return), and `rgb2hsv`/`rgb2lab` return a `Record` of
+three same-shape `Mat`s rather than a `Value::Image`, because hue (0–360) and
+Lab's a\*/b\* (roughly -128..127) cannot be held in an 8-bit RGB pixel without
+truncating them — this codebase's `Image` type has no colorspace tag (a known,
+deliberately deferred gap; see `docs/design/toolkit-image.md`).
+
+| Function | Signature | Description |
+|---|---|---|
+| `image.sobel` | `image.sobel(img, [direction="both"])` | `img` is an `Image`. `direction` is an optional named string, `"x"`, `"y"`, or `"both"` (default). Computes the 3x3 Sobel gradient over `img`'s BT.601 luma (replicate/clamped border). `direction="x"`/`"y"` return the raw signed gradient component; the default `"both"` returns the gradient MAGNITUDE `sqrt(gx^2 + gy^2)` (identical to `image.gradient_magnitude(img)`). Named `direction=`, not `axis=` — `axis=` is a reserved keyword the call machinery intercepts itself for `sum`/`mean`-style row/column reductions and would never reach this function. Returns a `Mat`, same `height x width` shape as `img`. Added in v0.4.0. |
+| `image.scharr` | `image.scharr(img, [direction="both"])` | Same signature, same `direction=` convention, and the same border/luma handling as `image.sobel`, but with the Scharr 3x3 kernel (`[-3,0,3; -10,0,10; -3,0,3]`, transposed for the y-direction) in place of Sobel's — better rotational symmetry, the textbook reason to reach for it when the gradient's DIRECTION matters and not only where an edge is. Returns a `Mat`. Added in v0.4.0. |
+| `image.laplacian` | `image.laplacian(img, [kernel_size=3])` | `img` is an `Image`; `kernel_size` is an optional named number, `3` (default, the same 4-neighbour kernel `edge_detect` applies per-channel and clamps to 8-bit) or `5` (a wider, less noise-sensitive discrete Laplacian). Any other `kernel_size` is refused by name. Computes the discrete Laplacian over `img`'s BT.601 luma as raw signed floats (unlike `edge_detect`, which clamps to a preview `Image`). Returns a `Mat`. Added in v0.4.0. |
+| `image.gradient_magnitude` | `image.gradient_magnitude(img)` | `img` is an `Image`. Gradient magnitude `sqrt(gx^2 + gy^2)` from the Sobel gradient over `img`'s BT.601 luma — the same value `image.sobel(img)`/`image.sobel(img, direction="both")` returns, under its own more discoverable name. Returns a `Mat`. Added in v0.4.0. |
+| `image.rgb2hsv` | `image.rgb2hsv(img)` | `img` is an `Image`. Per-pixel RGB→HSV conversion (the whole-`Image` counterpart to the scalar `to_hsv`), reusing the exact same conversion the scalar builtin uses. Returns a `Record` with fields `h` (hue, degrees 0–360), `s`, `v` (each 0–1), each a `Mat` the same `height x width` shape as `img`. Added in v0.4.0. |
+| `image.hsv2rgb` | `image.hsv2rgb(hsv)` | `hsv` is a `Record` with `h`/`s`/`v` `Mat` fields, the shape `image.rgb2hsv` returns (a plain `Image` is refused by name, since it is the wrong shape — that is what `rgb2hsv` itself takes, not what it returns). Converts back to 8-bit RGB, rounding and clamping each channel to `0..255`. Returns a new `Image`, same dimensions as the input `Mat`s. Added in v0.4.0. |
+| `image.rgb2lab` | `image.rgb2lab(img)` | `img` is an `Image`. Per-pixel sRGB→CIE L\*a\*b\* conversion (D65 white point), the whole-`Image` counterpart to the scalar `to_lab`, reusing its exact conversion math. Returns a `Record` with fields `l` (0–100), `a`, `b` (roughly -128..127), each a `Mat` the same shape as `img`. Added in v0.4.0. |
+| `image.lab2rgb` | `image.lab2rgb(lab)` | `lab` is a `Record` with `l`/`a`/`b` `Mat` fields, the shape `image.rgb2lab` returns. Converts back to 8-bit sRGB, clamped into gamut. Returns a new `Image`. Added in v0.4.0. |
+
+### Gradient direction and a colorspace round trip
+
+```qu
+import image
+
+# A vertical edge: left half dark, right half bright.
+m = zeros(4, 8)
+for y in 0 to 3
+  for x in 4 to 7
+    m[y, x] = 255
+  end for
+end for
+img = image_from_matrix(m)
+
+gx = image.sobel(img, direction="x")
+gy = image.sobel(img, direction="y")
+print(gx[0, 3], gx[0, 4])   # 1020 1020 -- the edge, straddled from both sides
+print(gy[0, 3])             # 0 -- no variation along y at all
+
+mag = image.gradient_magnitude(img)
+print(mag[0, 3] == gx[0, 3])   # true -- gy is zero here, so magnitude reduces to |gx|
+
+# A colorspace round trip: pure red is hue 0, full saturation, full value.
+red = image_new(2, 2, r=255, g=0, b=0)
+hsv = image.rgb2hsv(red)
+print(hsv.h[0, 0], hsv.s[0, 0], hsv.v[0, 0])   # 0 1 1
+
+back = image.hsv2rgb(hsv)
+print(back.width, back.height)   # 2 2
+```
 
 ## Vector Graphics (SVG)
 

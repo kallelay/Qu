@@ -58,7 +58,7 @@ er = <span class="f">eig</span>(rot)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>eigenvalues = [2, 3]
 eigenvectors = [1, 0; 0, 1]
-complex eigenvalues = [1i, -1i]
+complex eigenvalues = [1j, -1j]
 eigenvectors = none</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>eig(A)</code> — eigenvalues (and, for a symmetric <code>A</code>, real eigenvectors — dispatched on symmetry, checked directly, not assumed). Model kind <code>"eig"</code>, fields <code>values</code> (real if the input is symmetric, otherwise a <code>CVec</code>) and <code>vectors</code> (a <code>Mat</code> when symmetric, <code>Nothing</code> otherwise — a general matrix's eigenvectors would themselves be complex-valued, which isn't computed here, not silently approximated).</p>

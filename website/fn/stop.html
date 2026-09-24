@@ -62,7 +62,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000676
+stop returns: 0.001746
 done, acc = 5000050000</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>stop(t)</code> — freeze AND reset the count to zero (unlike <code>pause</code>, which keeps it). The handle stays valid and reusable: <code>start(t)</code> after <code>stop</code> begins a fresh count from zero. Also stops any <code>on elapsed(t)</code>/<code>on elapsedOnce(t)</code> registration from firing (checked live by <code>run_for</code>) until <code>start</code>ed again.</p>

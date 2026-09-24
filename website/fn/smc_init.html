@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smc_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>smc_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>smc_init(K, [lambda=], [phi=0.1], [dt=1])</code></pre>
+<p class="fnnote">Input: K, lambda, phi, dt &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>A first-order sliding-mode controller's initial state. <code>K</code> (number, positive): the reaching-law gain, which also bounds the output (<code></code></p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>smc_init(K, [lambda=], [phi=0.1], [dt=1])</code></td><td><div class="ioitem"><code>K</code> <span class="iotype">number</span><span class="iodesc"><code>K</code> (number, positive): the reaching-law gain, which also bounds the output (<code>.</code></span></div>
+<div class="ioitem"><code>lambda</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>phi</code> <span class="iotype">optional (default <code>0.1</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>dt</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>A first-order sliding-mode controller's initial state.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>A first-order sliding-mode controller (SMC), same immutable state convention as <code>kalman_init</code>/<code>lms_init</code> above: thread the value returned by <code>.update(...)</code> through successive calls, never mutate in place. <code>smc_init(K, lambda=, phi=0.1, dt=1)</code>. SLIDING SURFACE — two cases, chosen by whether <code>lambda=</code> is given, because the useful minimal case genuinely differs by plant order and guessing wrong is silent: * no <code>lambda=</code> -&gt; <code>s = e</code>. This is the right minimal case for a FIRST-order plant (one state, <code>tau*y' = K_p*u - y</code>): driving <code>e</code> to zero IS the whole control objective, there is no second state to stabilise, and an <code>e_dot</code> term would only add derivative noise for nothing. * <code>lambda=</code> given (must be &gt; 0) -&gt; <code>s = e_dot + lambda*e</code>, the textbook Slotine surface for a SECOND-order plant. Once <code>s = 0</code> is reached, <code>e</code> decays as <code>exp(-lambda*t)</code>, so <code>lambda</code> sets the sliding-phase time constant <code>1/lambda</code>. The choice is recorded in the state's <code>surface</code> field (<code>"e"</code> or <code>"e_dot+lambda*e"</code>) so it is visible on inspection rather than inferred from whether <code>lambda</code> happens to be 0. CONTROL LAW — <code>u = u_eq + K * sat(s/phi)</code>, with <code>u_eq = 0</code> here. <code>u_eq</code> (the "equivalent control") is by definition the input that holds <code>s_dot = 0</code> given a PLANT MODEL; this controller is deliberately model-free, so there is no model to compute it from and the honest value is 0. That leaves the reaching law <code>u = K*sat(s/phi)</code>, which is the standard model-free SMC and is what makes <code>K</code> the gain that must dominate the unmodelled dynamics. BOUNDARY LAYER — textbook SMC uses <code>sign(s)</code>, which switches at infinite frequency the instant <code>s</code> crosses zero. On real hardware that is "chattering": it excites unmodelled high-frequency modes and destroys actuators. The standard fix, and the reason <code>phi</code> exists, is to replace <code>sign(s)</code> with <code>sat(s/phi)</code> — linear inside a boundary layer of width <code>phi</code> around the surface, saturating to +/-1 outside. That trades the ideal-sliding guarantee for convergence to a <code>|s| &lt;= phi</code> neighbourhood instead of exactly <code>s = 0</code>, and in exchange <code>u</code> becomes CONTINUOUS in <code>s</code> and bounded by <code>|u| &lt;= K</code>. <code>phi = 0</code> is still accepted and gives literal <code>sign(s)</code> (with <code>sign(0) = 0</code>), for callers who want to see the chattering the boundary layer removes.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

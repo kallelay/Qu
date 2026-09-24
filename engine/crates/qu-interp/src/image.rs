@@ -790,6 +790,435 @@ impl Image {
         }
         Ok(Image { width: new_w, height: new_h, pixels })
     }
+
+    // ---- Locally-adaptive thresholding + CLAHE (§ adaptive-threshold pass,
+    // 2026-09-24). Everything shipped before this (`threshold`/`otsu`/
+    // `multi_otsu`/`kapur_threshold`, dispatched from `qu-interp/src/lib.rs`
+    // into `qu_core::threshold`) is GLOBAL: one histogram over the whole
+    // image, one scalar cut point. That family cannot binarize an image
+    // whose background brightness drifts across the frame (a scanned page
+    // under uneven lighting, a gradient-illuminated micrograph) — a single
+    // global cut necessarily favors one end of the gradient. The three
+    // methods below instead compute a THRESHOLD PER PIXEL from that pixel's
+    // own local neighborhood, so the cut tracks the local baseline. They
+    // live here (as `Image` methods, spatial and 2-D-window-aware) rather
+    // than in `qu_core::threshold` (which is deliberately scoped to
+    // 1-D value-histogram criteria reusable across `Image`/`Vec`/`Signal` —
+    // see that module's own doc comment), the same "spatial work belongs in
+    // `image.rs`" split `erode`/`dilate`/`convolve` already established.
+    //
+    // `adaptive_threshold`/`sauvola_threshold` share the same efficient
+    // machinery: a summed-area table (integral image) over a replicate-
+    // padded luma plane gives an O(1)-per-pixel windowed mean (and, via a
+    // second integral image over squared luma, windowed variance/stddev) in
+    // one O(w*h) pass instead of the O(w*h*block_size^2) a naive per-pixel
+    // window scan would cost — the same "don't redo the whole window every
+    // pixel" idea `resize_bilinear`'s incremental scan uses, just via the
+    // classic image-processing SAT trick instead. `adaptive_threshold`'s
+    // `"gaussian"` method can't reuse the box-sum SAT (its weights aren't
+    // uniform), so it instead does a separable 1-D Gaussian convolution
+    // (horizontal pass, then vertical) over the same padded plane — still
+    // O(w*h*block_size), far cheaper than a non-separable O(w*h*block_size^2)
+    // 2-D convolution. Border handling for both is edge-replication (the
+    // padded plane is built once via `pad_replicate`), the same convention
+    // `convolve`/`morph_filter` already use elsewhere in this module.
+    //
+    // Binarization polarity matches `apply_threshold`'s own documented
+    // `>=` convention (`threshold(x, level)`'s doc comment, `lib.rs`):
+    // `luma >= local_threshold` -> 255 (foreground/upper class), else 0 —
+    // so these compose with the rest of the threshold family (a script that
+    // already relies on `threshold`'s polarity gets the same polarity from
+    // `adaptive_threshold`/`sauvola_threshold`) rather than adopting the
+    // "ink is dark, so foreground is BELOW threshold" polarity some other
+    // Sauvola implementations use for document binarization specifically.
+
+    /// BT.601 luma per pixel as `f64` (same weights/rounding as
+    /// `to_grayscale`/`equalize`/`histogram`, just without allocating a
+    /// second RGB image when only the scalar plane is needed).
+    fn luma_f64(&self) -> Vec<f64> {
+        self.pixels
+            .chunks_exact(3)
+            .map(|c| {
+                let (r, g, b) = (c[0] as f64, c[1] as f64, c[2] as f64);
+                (0.299 * r + 0.587 * g + 0.114 * b).round().clamp(0.0, 255.0)
+            })
+            .collect()
+    }
+
+    /// OpenCV-style adaptive threshold: per pixel, a local threshold of
+    /// `mean(neighborhood) - offset` (method `"mean"`: a uniform box mean;
+    /// `"gaussian"`: a Gaussian-weighted mean, more resistant to a single
+    /// outlier pixel skewing the local cut), then binarized against the
+    /// pixel's own luma using the same `>=` convention `threshold` uses.
+    /// `block_size` (the neighborhood's side length) must be odd and
+    /// positive — an even block size has no well-defined center pixel.
+    pub fn adaptive_threshold(&self, block_size: usize, method: &str, offset: f64) -> Result<Image, String> {
+        if block_size == 0 || block_size % 2 == 0 {
+            return Err(format!(
+                "adaptive_threshold: block_size must be odd and positive, got {block_size}"
+            ));
+        }
+        if method != "mean" && method != "gaussian" {
+            return Err(format!(
+                "adaptive_threshold: unknown method `{method}` — use \"mean\" or \"gaussian\""
+            ));
+        }
+        if self.width == 0 || self.height == 0 {
+            return Ok(self.clone());
+        }
+        let luma = self.luma_f64();
+        let radius = block_size / 2;
+        let local_mean = if method == "mean" {
+            box_mean(&luma, self.width, self.height, radius)
+        } else {
+            gaussian_mean(&luma, self.width, self.height, radius)
+        };
+        let mut pixels = Vec::with_capacity(self.pixels.len());
+        for (&l, &m) in luma.iter().zip(local_mean.iter()) {
+            let v: u8 = if l >= m - offset { 255 } else { 0 };
+            pixels.push(v);
+            pixels.push(v);
+            pixels.push(v);
+        }
+        Image::new(self.width, self.height, pixels)
+    }
+
+    /// Sauvola's local threshold: `T = mean * (1 + k * (stddev/r - 1))` over
+    /// a `window_size` neighborhood — the standard formula (Sauvola & Pietikäinen,
+    /// 2000), tuned for document-style images whose illumination drifts
+    /// across the frame (see `qu_core::threshold::threshold_local`'s doc
+    /// comment for the 1-D version of the same formula; this is its 2-D,
+    /// image-neighborhood counterpart, needed because that 1-D version has
+    /// no notion of a `width`/`height` to window over). `window_size` must
+    /// be odd and positive, same reason as `adaptive_threshold`'s
+    /// `block_size`. `k` (typically 0.2-0.5) controls how strongly local
+    /// contrast shifts the threshold; `r` is the expected dynamic range of
+    /// the local stddev (128 for 8-bit images, Sauvola's own default and
+    /// this method's too).
+    pub fn sauvola_threshold(&self, window_size: usize, k: f64, r: f64) -> Result<Image, String> {
+        if window_size == 0 || window_size % 2 == 0 {
+            return Err(format!(
+                "sauvola_threshold: window_size must be odd and positive, got {window_size}"
+            ));
+        }
+        if self.width == 0 || self.height == 0 {
+            return Ok(self.clone());
+        }
+        let luma = self.luma_f64();
+        let radius = window_size / 2;
+        let (mean, std) = box_mean_std(&luma, self.width, self.height, radius);
+        let mut pixels = Vec::with_capacity(self.pixels.len());
+        for i in 0..luma.len() {
+            let t = mean[i] * (1.0 + k * (std[i] / r - 1.0));
+            let v: u8 = if luma[i] >= t { 255 } else { 0 };
+            pixels.push(v);
+            pixels.push(v);
+            pixels.push(v);
+        }
+        Image::new(self.width, self.height, pixels)
+    }
+
+    /// CLAHE (Contrast-Limited Adaptive Histogram Equalization): the tile-
+    /// based, contrast-clipped local generalization of `equalize`'s global
+    /// histogram equalization. The image is divided into a grid of
+    /// `tile_size`-by-`tile_size` tiles (the last row/column of tiles is
+    /// shrunk to fit when `width`/`height` isn't an exact multiple —
+    /// covering the whole image takes priority over uniform tile size); each
+    /// tile gets its own clipped-histogram -> CDF lookup table (clip
+    /// threshold = `clip_limit * tile_pixel_count / 256`, OpenCV's own
+    /// convention for what "clip_limit" means, floored at 1 count so a tiny
+    /// or degenerate tile never clips its entire histogram to zero;
+    /// clipped-off mass is redistributed evenly across all 256 bins in one
+    /// pass — the standard non-iterative CLAHE simplification). Applying
+    /// each tile's own LUT independently would leave a visible step at every
+    /// tile boundary, so instead every pixel bilinearly interpolates between
+    /// the (up to) four NEAREST TILE CENTERS' own LUTs, weighted by distance
+    /// (`tile_interp_coords`) — the actual defining feature of CLAHE versus
+    /// plain per-tile equalization, and the part this implementation does
+    /// NOT skip. Like `equalize`, the result is RGB-preserving: CLAHE
+    /// computes a new luma per pixel, then rescales each channel by
+    /// `new_luma / old_luma` (a pure-black pixel maps directly to the new
+    /// luma as gray, same edge case `equalize` handles the same way).
+    pub fn clahe(&self, tile_size: usize, clip_limit: f64) -> Result<Image, String> {
+        if tile_size == 0 {
+            return Err("clahe: tile_size must be positive".to_string());
+        }
+        if self.width == 0 || self.height == 0 {
+            return Ok(self.clone());
+        }
+        let n_tiles_x = self.width.div_ceil(tile_size);
+        let n_tiles_y = self.height.div_ceil(tile_size);
+        let tile_x_bounds: Vec<(usize, usize)> = (0..n_tiles_x)
+            .map(|i| (i * tile_size, ((i + 1) * tile_size).min(self.width)))
+            .collect();
+        let tile_y_bounds: Vec<(usize, usize)> = (0..n_tiles_y)
+            .map(|i| (i * tile_size, ((i + 1) * tile_size).min(self.height)))
+            .collect();
+        // Tile centers in continuous pixel coordinates — the reference
+        // points `tile_interp_coords` bilinearly interpolates between.
+        let tile_cx: Vec<f64> = tile_x_bounds.iter().map(|&(a, b)| (a + b - 1) as f64 / 2.0).collect();
+        let tile_cy: Vec<f64> = tile_y_bounds.iter().map(|&(a, b)| (a + b - 1) as f64 / 2.0).collect();
+
+        let luma = self.luma_f64();
+        let mut tile_lut: Vec<Vec<f64>> = Vec::with_capacity(n_tiles_x * n_tiles_y);
+        for &(y0, y1) in &tile_y_bounds {
+            for &(x0, x1) in &tile_x_bounds {
+                let mut hist = [0u32; 256];
+                let mut count = 0u32;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        hist[luma[y * self.width + x] as usize] += 1;
+                        count += 1;
+                    }
+                }
+                tile_lut.push(clipped_cdf_lut(&hist, count, clip_limit));
+            }
+        }
+
+        let mut pixels = vec![0u8; self.pixels.len()];
+        for y in 0..self.height {
+            let (ty0, ty1, wy) = tile_interp_coords(y as f64, &tile_cy);
+            for x in 0..self.width {
+                let (tx0, tx1, wx) = tile_interp_coords(x as f64, &tile_cx);
+                let idx = y * self.width + x;
+                let old_y = luma[idx];
+                let v = old_y as usize;
+                let l00 = tile_lut[ty0 * n_tiles_x + tx0][v];
+                let l10 = tile_lut[ty0 * n_tiles_x + tx1][v];
+                let l01 = tile_lut[ty1 * n_tiles_x + tx0][v];
+                let l11 = tile_lut[ty1 * n_tiles_x + tx1][v];
+                let top = l00 * (1.0 - wx) + l10 * wx;
+                let bot = l01 * (1.0 - wx) + l11 * wx;
+                let new_y = top * (1.0 - wy) + bot * wy;
+                let di = idx * 3;
+                if old_y <= 0.0 {
+                    let vv = new_y.round().clamp(0.0, 255.0) as u8;
+                    pixels[di] = vv;
+                    pixels[di + 1] = vv;
+                    pixels[di + 2] = vv;
+                } else {
+                    let ratio = new_y / old_y;
+                    pixels[di] = (self.pixels[di] as f64 * ratio).round().clamp(0.0, 255.0) as u8;
+                    pixels[di + 1] = (self.pixels[di + 1] as f64 * ratio).round().clamp(0.0, 255.0) as u8;
+                    pixels[di + 2] = (self.pixels[di + 2] as f64 * ratio).round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
+        Image::new(self.width, self.height, pixels)
+    }
+}
+
+/// Replicate-border padding by `pad` pixels on every side (clamp-to-edge,
+/// the same border convention `convolve`/`morph_filter` use inline via
+/// `.clamp(0, w-1)` per sample — built as one padded buffer here instead so
+/// the integral-image/separable-convolution helpers below can scan it
+/// without any per-pixel bounds checking).
+fn pad_replicate(vals: &[f64], w: usize, h: usize, pad: usize) -> (Vec<f64>, usize, usize) {
+    let pw = w + 2 * pad;
+    let ph = h + 2 * pad;
+    let mut out = vec![0.0; pw * ph];
+    for y in 0..ph {
+        let sy = (y as isize - pad as isize).clamp(0, h as isize - 1) as usize;
+        for x in 0..pw {
+            let sx = (x as isize - pad as isize).clamp(0, w as isize - 1) as usize;
+            out[y * pw + x] = vals[sy * w + sx];
+        }
+    }
+    (out, pw, ph)
+}
+
+/// A summed-area table (integral image) over a `w`x`h` plane: `(w+1)*(h+1)`
+/// entries, one extra all-zero row/column up front, so any rectangle's sum
+/// is 4 lookups + 3 arithmetic ops via [`box_sum`] with no boundary special-
+/// casing.
+fn integral_image(vals: &[f64], w: usize, h: usize) -> Vec<f64> {
+    let stride = w + 1;
+    let mut sat = vec![0.0; stride * (h + 1)];
+    for y in 0..h {
+        let mut row_sum = 0.0;
+        for x in 0..w {
+            row_sum += vals[y * w + x];
+            sat[(y + 1) * stride + (x + 1)] = sat[y * stride + (x + 1)] + row_sum;
+        }
+    }
+    sat
+}
+
+/// The sum over the inclusive rectangle `[x0,x1] x [y0,y1]` (0-based,
+/// against a `w`-wide plane) from a SAT built by [`integral_image`].
+#[inline]
+fn box_sum(sat: &[f64], w: usize, x0: usize, y0: usize, x1: usize, y1: usize) -> f64 {
+    let stride = w + 1;
+    sat[(y1 + 1) * stride + (x1 + 1)] - sat[y0 * stride + (x1 + 1)] - sat[(y1 + 1) * stride + x0] + sat[y0 * stride + x0]
+}
+
+/// Windowed box mean (uniform average over a `2*radius+1` square), one pass
+/// via a SAT over a replicate-padded plane — O(1) per output pixel after the
+/// O(w*h) SAT build.
+fn box_mean(vals: &[f64], w: usize, h: usize, radius: usize) -> Vec<f64> {
+    let (padded, pw, _ph) = pad_replicate(vals, w, h, radius);
+    let sat = integral_image(&padded, pw, h + 2 * radius);
+    let area = ((2 * radius + 1) * (2 * radius + 1)) as f64;
+    let mut out = vec![0.0; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            out[y * w + x] = box_sum(&sat, pw, x, y, x + 2 * radius, y + 2 * radius) / area;
+        }
+    }
+    out
+}
+
+/// Windowed mean AND (population) standard deviation together, via two
+/// SATs (one over the plane, one over its square) — `var = mean(v^2) -
+/// mean(v)^2`, the same identity `qu_core::threshold::threshold_local` uses
+/// for its own (1-D) local variance.
+fn box_mean_std(vals: &[f64], w: usize, h: usize, radius: usize) -> (Vec<f64>, Vec<f64>) {
+    let (padded, pw, ph) = pad_replicate(vals, w, h, radius);
+    let sat = integral_image(&padded, pw, ph);
+    let squared: Vec<f64> = padded.iter().map(|v| v * v).collect();
+    let sat2 = integral_image(&squared, pw, ph);
+    let area = ((2 * radius + 1) * (2 * radius + 1)) as f64;
+    let mut means = vec![0.0; w * h];
+    let mut stds = vec![0.0; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let sum = box_sum(&sat, pw, x, y, x + 2 * radius, y + 2 * radius);
+            let sum2 = box_sum(&sat2, pw, x, y, x + 2 * radius, y + 2 * radius);
+            let mean = sum / area;
+            let variance = (sum2 / area - mean * mean).max(0.0);
+            let idx = y * w + x;
+            means[idx] = mean;
+            stds[idx] = variance.sqrt();
+        }
+    }
+    (means, stds)
+}
+
+/// A normalized 1-D Gaussian kernel of length `size` (odd). `sigma` follows
+/// OpenCV's `getGaussianKernel` default-from-size formula (`0.3*((size-1)*
+/// 0.5 - 1) + 0.8`) rather than an arbitrary pick, since it's the one this
+/// kind of "size implies a sigma" call is usually judged against.
+fn gaussian_kernel_1d(size: usize) -> Vec<f64> {
+    let sigma = if size > 1 {
+        0.3 * ((size as f64 - 1.0) * 0.5 - 1.0) + 0.8
+    } else {
+        1.0
+    };
+    let radius = (size / 2) as isize;
+    let mut kernel: Vec<f64> = (-radius..=radius)
+        .map(|i| {
+            let x = i as f64;
+            (-0.5 * (x * x) / (sigma * sigma)).exp()
+        })
+        .collect();
+    let sum: f64 = kernel.iter().sum();
+    if sum > 0.0 {
+        for v in kernel.iter_mut() {
+            *v /= sum;
+        }
+    }
+    kernel
+}
+
+/// Windowed Gaussian-weighted mean via a separable convolution (horizontal
+/// pass, then vertical) over a replicate-padded plane — `O(w*h*size)` rather
+/// than the `O(w*h*size^2)` a non-separable 2-D Gaussian window would cost.
+/// The padding radius already equals the kernel radius, so both passes read
+/// directly from the padded buffer with no extra margin or per-pixel clamp.
+fn gaussian_mean(vals: &[f64], w: usize, h: usize, radius: usize) -> Vec<f64> {
+    let kernel = gaussian_kernel_1d(2 * radius + 1);
+    let (padded, pw, ph) = pad_replicate(vals, w, h, radius);
+    let mut horizontal = vec![0.0; w * ph];
+    for y in 0..ph {
+        for x in 0..w {
+            let mut acc = 0.0;
+            for (ki, &kv) in kernel.iter().enumerate() {
+                acc += padded[y * pw + x + ki] * kv;
+            }
+            horizontal[y * w + x] = acc;
+        }
+    }
+    let mut out = vec![0.0; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let mut acc = 0.0;
+            for (ki, &kv) in kernel.iter().enumerate() {
+                acc += horizontal[(y + ki) * w + x] * kv;
+            }
+            out[y * w + x] = acc;
+        }
+    }
+    out
+}
+
+/// A tile's clipped-histogram -> `[0,255]` CDF lookup table for CLAHE:
+/// clips every bin at `clip_limit * count/256` (OpenCV's own convention for
+/// what a "clip limit" scales — the tile's average bin height — floored at
+/// 1 count so a near-degenerate tile never clips everything to zero),
+/// redistributes the clipped-off mass evenly across all 256 bins in one
+/// pass (the standard non-iterative CLAHE simplification — a fully
+/// iterative redistribution converges to a slightly different, marginally
+/// flatter histogram, but costs a variable number of passes for a
+/// difference this implementation judged not worth the complexity), then
+/// integrates to a CDF and rescales it to `[0,255]`.
+fn clipped_cdf_lut(hist: &[u32; 256], count: u32, clip_limit: f64) -> Vec<f64> {
+    if count == 0 {
+        return (0..256).map(|i| i as f64).collect();
+    }
+    let clip_thresh = (clip_limit * count as f64 / 256.0).max(1.0);
+    let mut clipped = [0.0f64; 256];
+    let mut excess = 0.0;
+    for i in 0..256 {
+        let h = hist[i] as f64;
+        if h > clip_thresh {
+            excess += h - clip_thresh;
+            clipped[i] = clip_thresh;
+        } else {
+            clipped[i] = h;
+        }
+    }
+    let redistribute = excess / 256.0;
+    for v in clipped.iter_mut() {
+        *v += redistribute;
+    }
+    let mut cdf = [0.0f64; 256];
+    let mut running = 0.0;
+    for i in 0..256 {
+        running += clipped[i];
+        cdf[i] = running;
+    }
+    let total = cdf[255].max(1e-9);
+    (0..256).map(|i| cdf[i] / total * 255.0).collect()
+}
+
+/// For a coordinate along one axis and that axis's sorted tile centers:
+/// the two bracketing tile indices (equal when `coord` is outside the
+/// outermost centers, or there's only one tile — clamps to the nearest tile
+/// rather than extrapolating) and the interpolation weight in `[0,1]`
+/// toward the second index. This is CLAHE's actual "no hard tile seams"
+/// mechanism — every pixel's mapping is a bilinear blend of up to 4
+/// neighboring tiles' own LUTs rather than whichever single tile it falls
+/// inside, so the mapping changes continuously as a pixel crosses a tile
+/// boundary instead of jumping.
+fn tile_interp_coords(coord: f64, centers: &[f64]) -> (usize, usize, f64) {
+    let n = centers.len();
+    if n <= 1 {
+        return (0, 0, 0.0);
+    }
+    if coord <= centers[0] {
+        return (0, 0, 0.0);
+    }
+    if coord >= centers[n - 1] {
+        return (n - 1, n - 1, 0.0);
+    }
+    let mut i = 0;
+    while i + 1 < n && centers[i + 1] <= coord {
+        i += 1;
+    }
+    let i1 = (i + 1).min(n - 1);
+    let span = centers[i1] - centers[i];
+    let w = if span > 0.0 { (coord - centers[i]) / span } else { 0.0 };
+    (i, i1, w.clamp(0.0, 1.0))
 }
 
 /// A 3x3 affine (or general projective) transform in standard 2D
@@ -1792,6 +2221,239 @@ mod tests {
         let img = Image::new(3, 1, vec![0, 0, 0, 100, 100, 100, 200, 200, 200]).unwrap();
         let hist = img.histogram(4);
         assert_eq!(hist, vec![1.0, 1.0, 0.0, 1.0]);
+    }
+
+    // ---- adaptive_threshold / sauvola_threshold / clahe (§ adaptive-
+    // threshold pass, 2026-09-24) ----
+
+    /// A horizontal illumination gradient (background luma ramps 90->250
+    /// left to right) with three foreground stripes whose luma is a FIXED
+    /// 70-unit offset below the LOCAL background at that column — the
+    /// classic uneven-illumination document-binarization setup this pass's
+    /// task explicitly called for. Because the gradient's span (160 units)
+    /// is wider than the fixed foreground/background contrast (70 units),
+    /// the foreground and background luma RANGES genuinely overlap
+    /// (foreground reaches as bright as ~158, background starts as dark as
+    /// 90), so no single global cut point can separate them perfectly —
+    /// a property of the construction itself, checkable independently of
+    /// any particular thresholding algorithm (asserted below before either
+    /// algorithm is even run).
+    ///
+    /// Returns `(image, is_foreground, background_luma)` so both threshold
+    /// tests below share one construction.
+    fn gradient_illuminated_stripes() -> (Image, Vec<bool>, Vec<f64>) {
+        let width = 120usize;
+        let stripes: [(usize, usize); 3] = [(16, 24), (56, 64), (96, 104)];
+        let is_fg: Vec<bool> = (0..width).map(|x| stripes.iter().any(|&(a, b)| x >= a && x < b)).collect();
+        let mut bg_of = vec![0.0f64; width];
+        let mut pixels = Vec::with_capacity(width * 3);
+        for x in 0..width {
+            let bg = 90.0 + (x as f64 / (width - 1) as f64) * 160.0; // 90..250
+            bg_of[x] = bg;
+            let v = if is_fg[x] { bg - 70.0 } else { bg };
+            let v = v.round().clamp(0.0, 255.0) as u8;
+            pixels.push(v);
+            pixels.push(v);
+            pixels.push(v);
+        }
+        (Image::new(width, 1, pixels).unwrap(), is_fg, bg_of)
+    }
+
+    #[test]
+    fn sauvola_beats_global_otsu_on_a_gradient_illuminated_background() {
+        let (img, is_fg, bg_of) = gradient_illuminated_stripes();
+        let width = img.width;
+
+        // The construction's own overlap claim, independent of otsu/sauvola.
+        let fg_max = (0..width)
+            .filter(|&x| is_fg[x])
+            .map(|x| (bg_of[x] - 70.0).round())
+            .fold(f64::NEG_INFINITY, f64::max);
+        let bg_min = (0..width)
+            .filter(|&x| !is_fg[x])
+            .map(|x| bg_of[x].round())
+            .fold(f64::INFINITY, f64::min);
+        assert!(
+            fg_max > bg_min,
+            "test construction must actually overlap foreground/background ranges: fg_max={fg_max} bg_min={bg_min}"
+        );
+
+        let luma = img.luma_f64();
+        let otsu_t = qu_core::threshold::otsu_threshold(&luma).unwrap();
+        let otsu_wrong = (0..width)
+            .filter(|&x| (luma[x] < otsu_t) != is_fg[x])
+            .count();
+        // The deliberate overlap means a single global cut cannot separate
+        // perfectly — expect a real, non-negligible fraction misclassified.
+        assert!(
+            otsu_wrong as f64 / width as f64 > 0.05,
+            "expected global otsu to misclassify a real fraction of this overlapping construction, got {otsu_wrong}/{width}"
+        );
+
+        let out = img.sauvola_threshold(21, 0.34, 128.0).unwrap();
+        let sauvola_wrong = (0..width)
+            .filter(|&x| {
+                let (r, _, _) = out.get_pixel(x, 0);
+                (r == 0) != is_fg[x] // sauvola_threshold's own `>=` convention: the darker class maps to 0
+            })
+            .count();
+        assert!(
+            (sauvola_wrong as f64) < (otsu_wrong as f64) * 0.3,
+            "expected sauvola_threshold to substantially beat global otsu on uneven illumination: sauvola={sauvola_wrong}/{width}, otsu={otsu_wrong}/{width}"
+        );
+    }
+
+    #[test]
+    fn adaptive_threshold_mean_also_beats_global_otsu_on_the_same_construction() {
+        let (img, is_fg, _bg_of) = gradient_illuminated_stripes();
+        let width = img.width;
+        let luma = img.luma_f64();
+        let otsu_t = qu_core::threshold::otsu_threshold(&luma).unwrap();
+        let otsu_wrong = (0..width).filter(|&x| (luma[x] < otsu_t) != is_fg[x]).count();
+
+        let out = img.adaptive_threshold(21, "mean", 10.0).unwrap();
+        let adaptive_wrong = (0..width)
+            .filter(|&x| {
+                let (r, _, _) = out.get_pixel(x, 0);
+                (r == 0) != is_fg[x]
+            })
+            .count();
+        assert!(
+            (adaptive_wrong as f64) < (otsu_wrong as f64) * 0.3,
+            "expected adaptive_threshold to substantially beat global otsu: adaptive={adaptive_wrong}/{width}, otsu={otsu_wrong}/{width}"
+        );
+    }
+
+    #[test]
+    fn adaptive_threshold_rejects_an_even_block_size() {
+        let img = Image::filled(10, 10, (128, 128, 128));
+        let err = img.adaptive_threshold(10, "mean", 0.0).unwrap_err();
+        assert!(err.contains("odd"), "got: {err}");
+    }
+
+    #[test]
+    fn adaptive_threshold_rejects_an_unknown_method() {
+        let img = Image::filled(10, 10, (128, 128, 128));
+        let err = img.adaptive_threshold(5, "median", 0.0).unwrap_err();
+        assert!(err.contains("median"), "got: {err}");
+    }
+
+    #[test]
+    fn sauvola_threshold_rejects_an_even_window_size() {
+        let img = Image::filled(10, 10, (128, 128, 128));
+        let err = img.sauvola_threshold(10, 0.5, 128.0).unwrap_err();
+        assert!(err.contains("odd"), "got: {err}");
+    }
+
+    #[test]
+    fn clahe_increases_local_contrast_in_a_near_flat_region() {
+        // A 32x32 image split (by an implicit 16px tile grid) into a
+        // near-flat top-left region (two luma values 6 apart in a
+        // checkerboard, std ~3) and three much higher-contrast regions
+        // elsewhere (full 0/255 checkerboards) — the varied tile
+        // statistics are what make clip-limited per-tile equalization
+        // meaningfully different from a global stretch.
+        let size = 32usize;
+        let mut pixels = Vec::with_capacity(size * size * 3);
+        for y in 0..size {
+            for x in 0..size {
+                let v: u8 = if x < 16 && y < 16 {
+                    if (x + y) % 2 == 0 { 125 } else { 131 }
+                } else if (x + y) % 2 == 0 {
+                    0
+                } else {
+                    255
+                };
+                pixels.push(v);
+                pixels.push(v);
+                pixels.push(v);
+            }
+        }
+        let img = Image::new(size, size, pixels).unwrap();
+
+        let window = |im: &Image| -> f64 {
+            let mut vals = Vec::new();
+            for y in 5..10 {
+                for x in 5..10 {
+                    vals.push(im.get_pixel(x, y).0 as f64);
+                }
+            }
+            let mean = vals.iter().sum::<f64>() / vals.len() as f64;
+            (vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / vals.len() as f64).sqrt()
+        };
+        let std_before = window(&img);
+        assert!((std_before - 3.0).abs() < 0.5, "sanity check on the construction itself, got std={std_before}");
+
+        let out = img.clahe(16, 2.0).unwrap();
+        let std_after = window(&out);
+        // clip_limit=2.0 clips this near-degenerate 2-value tile hard
+        // (clip threshold = 2.0 * 256/256 = 2 counts, vs. 128 actual counts
+        // per value), which flattens its histogram close to uniform rather
+        // than letting the two spikes fully separate — so the increase here
+        // is real but deliberately modest (empirically ~17%), not the
+        // dramatic full-range stretch an UNCLIPPED local equalization of a
+        // 2-value histogram would produce. A 10% margin asserts the
+        // direction and a non-trivial size without hard-coding the exact
+        // figure.
+        assert!(
+            std_after > std_before * 1.1,
+            "expected clahe to genuinely increase local contrast in the near-flat region: before={std_before}, after={std_after}"
+        );
+    }
+
+    #[test]
+    fn clahe_has_no_hard_seam_at_a_tile_boundary() {
+        // A pure horizontal luma ramp (0..255 across the width), tiled at
+        // tile_size=16 into 4 tiles along x. Any per-tile-independent
+        // mapping applied WITHOUT interpolation between tiles would stretch
+        // each tile's own narrow sub-range back out toward [0,255]
+        // independently, producing a large sawtooth drop at every interior
+        // tile boundary (this tile's right edge maps near 255, the next
+        // tile's left edge maps back down near 0) — a large, predictable
+        // jump that has nothing to do with this implementation specifically
+        // and would appear in ANY naive hard-tile-boundary CLAHE. The
+        // bilinear interpolation between tile-center LUTs this
+        // implementation does is specifically what should prevent that.
+        let width = 64usize;
+        let height = 16usize;
+        let mut pixels = Vec::with_capacity(width * height * 3);
+        for _y in 0..height {
+            for x in 0..width {
+                let v = ((x as f64 / (width - 1) as f64) * 255.0).round() as u8;
+                pixels.push(v);
+                pixels.push(v);
+                pixels.push(v);
+            }
+        }
+        let img = Image::new(width, height, pixels).unwrap();
+        let out = img.clahe(16, 2.0).unwrap();
+
+        let row: Vec<u8> = (0..width).map(|x| out.get_pixel(x, height / 2).0).collect();
+        let mut max_jump = 0i32;
+        let mut boundary_jumps = Vec::new();
+        for x in 1..width {
+            let jump = (row[x] as i32 - row[x - 1] as i32).abs();
+            max_jump = max_jump.max(jump);
+            if x % 16 == 0 {
+                boundary_jumps.push(jump); // exactly the interior tile boundaries (16, 32, 48)
+            }
+        }
+        for (i, &jump) in boundary_jumps.iter().enumerate() {
+            assert!(
+                jump < 60,
+                "tile boundary #{i} shows a {jump}-value jump — looks like an uninterpolated hard seam, not a smooth blend (row={row:?})"
+            );
+        }
+        // The whole row is a monotonic ramp mapped through a monotonic (or
+        // near-monotonic) per-tile LUT blend, so no single step anywhere
+        // should approach a full-range jump either.
+        assert!(max_jump < 100, "no single-pixel step anywhere in the row should approach a full-range jump, got {max_jump}");
+    }
+
+    #[test]
+    fn clahe_rejects_a_zero_tile_size() {
+        let img = Image::filled(10, 10, (128, 128, 128));
+        assert!(img.clahe(0, 2.0).is_err());
     }
 
     #[test]

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>downsample — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>downsample</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>downsample(x, M, [order=60], [fs=])</code></pre>
+<p class="fnnote">Input: x, M, order, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N vector or <code>Signal</code>; <code>M</code>: a whole number ≥ 1, the integer decimation factor; <code>order</code> (optional, even, default 60): the FIR anti-alias filter's order; <code>fs</code> (optional): the input sample rate, defaulting to the <code>Signal</code>'s own <code>Fs</code> or 1.0 for a plain vector. Lowers the sample rate by an integer factor, <strong>anti-aliasing first</strong>: applies a lowpass at the new Nyquist (<code>fs/(2*M)</code>, at the input rate) and only then keeps every <code>M</code>th sample. The order matters and is the point — decimating first and filtering afterwards filters alias that has already folded into the band, which no filter can separate from signal again.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = downsample(x, M, [order=60], [fs=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>M</code> <span class="iotype">number</span><span class="iodesc"><code>M</code>: a whole number ≥ 1, the integer decimation factor.</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">optional (default <code>60</code>)</span><span class="iodesc"><code>order</code> (optional, even, default 60): the FIR anti-alias filter's order.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">Signal or vector, optional</span><span class="iodesc"><code>fs</code> (optional): the input sample rate, defaulting to the <code>Signal</code>'s own <code>Fs</code> or 1.0 for a plain vector.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal or vector</span></div>
+</td><td>Returns <code>ceil(N/M)</code> samples (<code>y[i] = filtered[i*M]</code>, sample 0 always kept) — a <code>Signal</code> at <code>Fs = fs/M</code> if <code>x</code> was one, a plain vector otherwise. The filter is causal, so the output is <strong>delayed by </strong><code>order/2</code> samples at the INPUT rate<strong> (30 by default, i.e. </strong><code>order/(2*M)</code> output samples), which is <code>order/(2*fs)</code> seconds. <code>M = 1</code> is the identity. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>downsample(x, M, [order=], [fs=])</code> — anti-alias FIRST with a lowpass at the new Nyquist (<code>fs/(2*M)</code>, running at the input rate <code>fs</code>), THEN keep every Mth sample. The order matters and is the whole point: decimating first and filtering afterwards filters alias that has already folded into the band, which no filter can separate from signal again. Output length is <code>ceil(len(x)/M)</code> — <code>y[i] = filtered[i*M]</code>, MATLAB's own <code>downsample</code>/<code>decimate</code> convention (sample 0 is always kept). Group delay: <code>order/2</code> samples at the INPUT rate <code>fs</code>, which is <code>order/(2*M)</code> samples at the output rate (15 output samples for M=2 at the default order 60), i.e. <code>order/(2*fs)</code> seconds.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

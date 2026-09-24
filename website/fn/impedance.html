@@ -41,7 +41,7 @@
 <tr><td class="iocode"><code>result = impedance(c, freqs)</code></td><td><div class="ioitem"><code>c</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>c</code>: a circuit.</span></div>
 <div class="ioitem"><code>freqs</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>freqs</code>: frequencies in <strong>Hz</strong>, not rad/s.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
-</td><td>Returns a complex vector, one impedance per frequency. A zero or negative frequency is an error rather than an infinity: at DC a capacitor's impedance is unbounded and a Warburg's is undefined, and returning <code>inf</code>/<code>NaN</code> into a spectrum hides the mistake instead of reporting it.</td></tr>
+</td><td>Returns a complex vector, one impedance per frequency — this is the <strong>forward</strong> form, which evaluates a circuit model; see *Measured impedance* below for <code>impedance(voltage, current)</code>, which estimates the same quantity from two recordings instead. A zero or negative frequency is an error rather than an infinity: at DC a capacitor's impedance is unbounded and a Warburg's is undefined, and returning <code>inf</code>/<code>NaN</code> into a spectrum hides the mistake instead of reporting it.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

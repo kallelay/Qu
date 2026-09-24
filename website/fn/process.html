@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>process — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>process</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>process(p, x)</code></pre>
+<p class="fnnote">Input: p, x &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>p</code>: a <code>Model</code> (kind <code>"processor"</code>); <code>x</code>: a vector or <code>Signal</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = process(p, x)</code></td><td><div class="ioitem"><code>p</code> <span class="iotype">Model</span><span class="iodesc"><code>p</code>: a <code>Model</code> (kind <code>"processor"</code>).</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a vector or <code>Signal</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the processed signal, applying <code>p</code>'s function block by block and <strong>carrying state across the block boundaries</strong>. Also spelled <code>p.process(x)</code>. A stateless processor calls <code>f(block)</code>; a stateful one calls <code>f(block, state)</code> and requires the two-element list <code>(y, next_state)</code> back. A processor built with a <code>rate</code> refuses a signal at any other rate, naming both. Added in v0.2.4.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">80</span>, <span class="n">1000</span>)
+
+<span class="k">function</span> <span class="f">lp_block</span>(b, st)
+    s   = st
+    out = ()
+    <span class="k">for</span> v <span class="k">in</span> b
+        s   = <span class="f">filter_next</span>(s, v)
+        out = <span class="f">append</span>(out, s.y)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> (out, s)
+<span class="k">end</span> <span class="k">function</span>
+
+p = <span class="f">processor</span>(<span class="s">"lp_block"</span>, <span class="a">block</span> = <span class="n">256</span>, <span class="a">state</span> = <span class="f">filter_init</span>(lp), <span class="a">rate</span> = <span class="n">1000</span>)
+y = <span class="f">process</span>(p, x)          <span class="c"># or: p.process(x)</span>
+
+<span class="f">print</span>(<span class="s">"{p.latency} samples, {p.latency_ms} ms"</span>)   <span class="c"># 256 samples, 256 ms</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>256 samples, 256 ms</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>process(p, x)</code> / <code>x.process(p)</code> — run a <code>processor</code> over a whole signal, block by block, carrying state across the boundaries. The OFFLINE call of §5's "same object" pair; the live <code>run(proc, input: mic, output: speakers)</code> half is NOT built (no mic/speaker layer exists in this engine) and is deliberately not stubbed.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

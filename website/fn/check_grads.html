@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>check_grads — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>check_grads</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a></p>
+<pre class="fnsig">result = <code>check_grads(f, x, [step=], [tol=])</code></pre>
+<p class="fnnote">Input: f, x, step, tol &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Verifies the analytic reverse-mode gradient of scalar-valued <code>f</code> at <code>x</code> against central finite differences of <code>f</code> itself — an independent route to the same number, which is the point: a wrong backward rule would corrupt both an analytic and a tape-derived check together.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = check_grads(f, x, [step=], [tol=])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">scalar or number</span><span class="iodesc">Verifies the analytic reverse-mode gradient of scalar-valued <code>f</code> at <code>x</code> against central finite differences of <code>f</code> itself — an independent route to the same number, which is the point: a wrong backward rule would corrupt both an analytic and a tape-derived check together.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">scalar or number</span><span class="iodesc">Verifies the analytic reverse-mode gradient of scalar-valued <code>f</code> at <code>x</code> against central finite differences of <code>f</code> itself — an independent route to the same number, which is the point: a wrong backward rule would corrupt both an analytic and a tape-derived check together.</span></div>
+<div class="ioitem"><code>step</code> <span class="iotype">optional</span><span class="iodesc"><code>step=</code> sets the relative difference step, default <code>1e-6</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">vector, optional</span><span class="iodesc">Returns a record with <code>max_error</code> (largest absolute difference), <code>rel_error</code> (that difference relative to the larger gradient magnitude, so it stays meaningful for large gradients), <code>ok</code> (whether <code>rel_error</code> is within <code>tol=</code>, default <code>1e-6</code>), and the <code>analytic</code> and <code>numeric</code> gradient vectors.</span></div>
+</td><td><div class="ioitem"><code>max_error</code> <span class="iotype">&mdash;</span><span class="iodesc">largest absolute difference</span></div>
+<div class="ioitem"><code>rel_error</code> <span class="iotype">&mdash;</span><span class="iodesc">that difference relative to the larger gradient magnitude, so it stays meaningful for large gradients</span></div>
+<div class="ioitem"><code>ok</code> <span class="iotype">&mdash;</span><span class="iodesc">whether <code>rel_error</code> is within <code>tol=</code>, default <code>1e-6</code></span></div>
+</td><td>Returns a record with <code>max_error</code> (largest absolute difference), <code>rel_error</code> (that difference relative to the larger gradient magnitude, so it stays meaningful for large gradients), <code>ok</code> (whether <code>rel_error</code> is within <code>tol=</code>, default <code>1e-6</code>), and the <code>analytic</code> and <code>numeric</code> gradient vectors. <code>step=</code> sets the relative difference step, default <code>1e-6</code>. Added in v0.3.0</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/repl-diagnostics.html">REPL & diagnostics</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

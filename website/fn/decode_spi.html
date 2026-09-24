@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decode_spi — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>decode_spi</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>decode_spi(clk, [mosi], [miso], [mode=], [cpol=0], [cpha=0], [bits=8], [bit_order="msb"], [cs=], [cs_active="low"])</code></pre>
+<p class="fnnote">Input: clk, mosi, miso, mode, cpol, cpha, bits, bit_order, cs, cs_active &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>clk</code>: a <code>Digital</code> clock. Decodes clocked SPI traffic into bytes, sampling each data line at whichever clock edge CPOL and CPHA select. SPI carries its own clock, so unlike <code>decode_uart</code> there is no bit rate to state — but there are multiple input signals. At least one data line is required, given positionally (<code>decode_spi(clk, mosi)</code> or <code>decode_spi(clk, mosi, miso)</code>) or by name (<code>miso=</code> alone, for a capture that only tapped the peripheral's output). Every line must be the same length; a mismatch is an error rather than a truncation to the shortest, since two captures of different lengths were not taken together. <code>mode</code> (optional, 0–3) is the datasheet spelling of <code>cpol</code>/<code>cpha</code>, with <code>mode = 2*CPOL + CPHA</code>; passing <code>mode=</code> <strong>and</strong> <code>cpol=</code>/<code>cpha=</code> is an error rather than a precedence rule, because the two can contradict. CPHA=0 samples on each clock cycle's leading edge and CPHA=1 on its trailing edge, with CPOL fixing which physical direction that is — so modes 0 and 3 sample rising, modes 1 and 2 falling. <code>bits</code> (optional, 2–32, default <code>8</code>); <code>bit_order</code> (optional string) <code>"msb"</code> (default) or <code>"lsb"</code>, both genuinely in use on real peripherals. <code>cs</code> (optional <code>Digital</code>) segments the capture into frames: each assertion starts a new frame and bumps <code>frame</code>, clock edges while CS is idle are ignored entirely, and a partial byte left over when CS releases is discarded; <code>cs_active</code> (optional string) is <code>"low"</code> (default) or <code>"high"</code>. <strong>Without </strong><code>cs=</code> the capture decodes as one continuous byte stream<strong> with </strong><code>frame</code> <code>0</code> throughout — frame boundaries are deliberately not guessed from clock gaps, which has no correct answer on a bus whose idle time is unspecified.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = decode_spi(clk, [mosi], [miso], [mode=], [cpol=0], [cpha=0], [bits=8], [bit_order="msb"], [cs=], [cs_active="low"])</code></td><td><div class="ioitem"><code>clk</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>clk</code>: a <code>Digital</code> clock.</span></div>
+<div class="ioitem"><code>mosi</code> <span class="iotype">optional</span><span class="iodesc">At least one data line is required, given positionally (<code>decode_spi(clk, mosi)</code> or <code>decode_spi(clk, mosi, miso)</code>) or by name (<code>miso=</code> alone, for a capture that only tapped the peripheral's output).</span></div>
+<div class="ioitem"><code>miso</code> <span class="iotype">optional</span><span class="iodesc">At least one data line is required, given positionally (<code>decode_spi(clk, mosi)</code> or <code>decode_spi(clk, mosi, miso)</code>) or by name (<code>miso=</code> alone, for a capture that only tapped the peripheral's output).</span></div>
+<div class="ioitem"><code>mode</code> <span class="iotype">optional</span><span class="iodesc"><code>mode</code> (optional, 0–3) is the datasheet spelling of <code>cpol</code>/<code>cpha</code>, with <code>mode = 2*CPOL + CPHA</code>.</span></div>
+<div class="ioitem"><code>cpol</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iodesc"><code>mode</code> (optional, 0–3) is the datasheet spelling of <code>cpol</code>/<code>cpha</code>, with <code>mode = 2*CPOL + CPHA</code>.</span></div>
+<div class="ioitem"><code>cpha</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iodesc"><code>mode</code> (optional, 0–3) is the datasheet spelling of <code>cpol</code>/<code>cpha</code>, with <code>mode = 2*CPOL + CPHA</code>.</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">optional (default <code>8</code>)</span><span class="iodesc"><code>bits</code> (optional, 2–32, default <code>8</code>).</span></div>
+<div class="ioitem"><code>bit_order</code> <span class="iotype">string, optional (default <code>"msb"</code>)</span><span class="iodesc"><code>bit_order</code> (optional string) <code>"msb"</code> (default) or <code>"lsb"</code>, both genuinely in use on real peripherals.</span></div>
+<div class="ioitem"><code>cs</code> <span class="iotype">optional</span><span class="iodesc"><code>cs</code> (optional <code>Digital</code>) segments the capture into frames: each assertion starts a new frame and bumps <code>frame</code>, clock edges while CS is idle are ignored entirely, and a partial byte left over when CS releases is discarded.</span></div>
+<div class="ioitem"><code>cs_active</code> <span class="iotype">string, optional (default <code>"low"</code>)</span><span class="iodesc"><code>cs_active</code> (optional string) is <code>"low"</code> (default) or <code>"high"</code>.</span></div>
+</td><td><div class="ioitem"><code>start</code> <span class="iotype">Signal</span><span class="iodesc">the sampling edge of the byte's first bit — seconds for a <code>Signal</code>, samples otherwise</span></div>
+</td><td>Returns a <code>Table</code> with columns <code>frame</code>, <code>start</code> (the sampling edge of the byte's first bit — seconds for a <code>Signal</code>, samples otherwise), and <code>mosi</code>/<code>mosi_hex</code> and/or <code>miso</code>/<code>miso_hex</code> for whichever data lines were given. A trailing partial byte is not reported. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>decode_spi(clk, [mosi], [miso], [mosi=], [miso=], [mode=], [cpol=0], [cpha=0], [bits=8], [bit_order="msb"], [cs=], [cs_active="low"])</code> -- synchronous serial. Unlike UART this takes MULTIPLE digitized signals, because SPI carries its own clock: there is no baud rate to state and nothing to derive timing from -- every bit is sampled at a clock edge, so the clock line is a required second input rather than a keyword. The data lines may be given positionally (<code>decode_spi(clk, mosi)</code>, <code>decode_spi(clk, mosi, miso)</code>) or by name (<code>miso=</code> alone, for a capture that only tapped the peripheral's output); at least one is required, since a clock with no data decodes to nothing. WHICH EDGE SAMPLES is the whole of CPOL/CPHA, and reduces to one line. CPHA=0 samples on the LEADING edge of each clock cycle, CPHA=1 on the TRAILING edge; CPOL fixes which physical direction "leading" is (idle low -&gt; leading is rising, idle high -&gt; falling). Composing those gives <code>sample_on_rising == (cpol == cpha)</code>, i.e. modes 0 and 3 sample rising, modes 1 and 2 falling. FRAMING. With a <code>cs=</code> chip-select line, bytes are segmented by it: each assertion starts a new frame and bumps the <code>frame</code> column, clock edges while CS is idle are ignored entirely, and a partial byte left over when CS releases is discarded (a frame is not obliged to be a whole number of bytes, and padding one out with invented bits would be a fabricated row). Without <code>cs=</code> the capture is decoded as ONE continuous byte stream with <code>frame</code> 0 throughout -- deliberately not guessing frame boundaries from clock gaps, which is a heuristic with no correct answer on a bus whose idle time is unspecified.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

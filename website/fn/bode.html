@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bode — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>bode</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>bode(Z, [freqs], [color=], [label=], [marker="line"])</code></pre>
+<p class="fnnote">Input: Z, freqs, color, label, marker &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Draws a complete two-panel Bode figure — magnitude in dB above, phase in degrees below, both against a log frequency axis — and returns <code>Nothing</code>. <code>Z</code>: an <code>frf</code>/<code>impedance</code> model (from <code>transfer_function</code> or <code>impedance(v, i)</code>), which already carries its own <code>freq</code> axis so no second argument is needed; or a plain <code>CVec</code>, which carries no axis and so must be given the matching length-N <code>freqs</code> vector (Hz) positionally. <code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling. This is §11's self-plotting <code>Z.bode()</code>; <code>bode_magnitude</code>/<code>bode_phase</code> remain available for a script that wants one half in a panel of its own choosing. Added in v0.3.0.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>bode(Z, [freqs], [color=], [label=], [marker="line"])</code></td><td><div class="ioitem"><code>Z</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>Z</code>: an <code>frf</code>/<code>impedance</code> model (from <code>transfer_function</code> or <code>impedance(v, i)</code>), which already carries its own <code>freq</code> axis so no second argument is needed.</span></div>
+<div class="ioitem"><code>freqs</code> <span class="iotype">CVec or vector, optional</span><span class="iodesc">or a plain <code>CVec</code>, which carries no axis and so must be given the matching length-N <code>freqs</code> vector (Hz) positionally.</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+<div class="ioitem"><code>label</code> <span class="iotype">string, optional</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+<div class="ioitem"><code>marker</code> <span class="iotype">string, optional (default <code>"line"</code>)</span><span class="iodesc"><code>color</code>/<code>label</code>/<code>marker</code> (optional strings): plot styling.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Draws a complete two-panel Bode figure — magnitude in dB above, phase in degrees below, both against a log frequency axis — and returns <code>Nothing</code>. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>bode(Z)</code> / <code>bode(Z, freqs)</code> — <code>toolkit-signal.md</code> §11's <code>Z.bode()</code>: magnitude AND phase, two stacked panels, one call. This deliberately does what the comment on <code>bode_magnitude</code>/ <code>bode_phase</code> just above declined to do, and the difference is the frequency axis. Those two take a BARE complex vector, so a script must supply <code>freqs</code> anyway and is already managing the figure; splitting them leaves it in control of its own layout. A <code>kind="frf"</code>/<code>kind="impedance"</code> handle CARRIES its axis, and §11 asks that such a value "knows how to plot itself, correctly, once" -- at which point requiring two calls plus a hand-built <code>panel(2,1,k)</code> grid is asking the caller to reassemble something the value already knows. Both spellings stay: <code>bode(Z)</code> for the whole picture, <code>bode_magnitude</code>/<code>bode_phase</code> when a script wants one half in a panel of its own choosing. Flagged in board2.txt as a genuine tension with that documented decision.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

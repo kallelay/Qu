@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cwt — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cwt</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>cwt(x, fs, [wavelet="morlet"], [scales=])</code></pre>
+<p class="fnnote">Input: x, fs, wavelet, scales &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>x</code> is a length-N real vector or <code>Signal</code>; <code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>. <code>wavelet</code> (optional string) is <code>"morlet"</code> (default, complex/analytic) or <code>"mexh"</code> (real, also spelled <code>"ricker"</code>); <code>scales</code> (optional vector, in seconds) picks the scales, defaulting to Torrence &amp; Compo's dyadic ladder at eight voices per octave. Continuous wavelet transform: one column per input sample, with no framing and no decimation — unlike <code>dwt</code>, which halves its length at every level and visits only dyadic scales. Draws a dB heatmap <strong>and</strong> returns a <code>Record</code> with fields <code>coef</code> (a <code>(scales, N)</code> <code>CMat</code>, row 0 = the smallest scale and therefore the *highest* frequency), <code>scale</code> (each row's scale in seconds), <code>freq</code> (each row's equivalent Fourier frequency in Hz, descending), <code>time</code> (length-N <code>Vec</code>, seconds) and <code>wavelet</code> (the name used). A scale is not a period: <code>freq</code> applies the wavelet-specific conversion, which a naive <code>1/scale</code> gets wrong by about 3% for Morlet and 58% for the Mexican hat. The wavelet names are deliberately disjoint from <code>dwt</code>'s Haar — asking <code>cwt</code> for <code>"haar"</code> is an error that says which transform it belongs to. Added in v0.3.0.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>cwt(x, fs, [wavelet="morlet"], [scales=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code> is a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number or Signal</span><span class="iodesc"><code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>wavelet</code> <span class="iotype">string, optional (default <code>"morlet"</code>)</span><span class="iodesc"><code>wavelet</code> (optional string) is <code>"morlet"</code> (default, complex/analytic) or <code>"mexh"</code> (real, also spelled <code>"ricker"</code>).</span></div>
+<div class="ioitem"><code>scales</code> <span class="iotype">vector, optional</span><span class="iodesc"><code>scales</code> (optional vector, in seconds) picks the scales, defaulting to Torrence &amp; Compo's dyadic ladder at eight voices per octave.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>cwt(x, fs, [wavelet="morlet"], [scales=])</code> — continuous wavelet transform, one column per input sample (no framing, no decimation). The wavelet names here are deliberately disjoint from <code>dwt</code>'s Haar: these are continuous wavelets used at arbitrary scales, and a shared name would suggest the two transforms are interchangeable.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

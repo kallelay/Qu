@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decode_uart — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>decode_uart</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>decode_uart(d, [baud=], [samples_per_bit=], [bits=8], [parity="none"], [stop=1])</code></pre>
+<p class="fnnote">Input: d, baud, samples_per_bit, bits, parity, stop &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>d</code>: a <code>Digital</code> value from <code>to_digital</code>. Decodes asynchronous serial frames into bytes at a stated bit rate. Bit timing is stated, not recovered: give either <code>baud=</code> (bits per second, converted through the signal's own sample rate) or <code>samples_per_bit=</code> directly — one of the two is required. <code>baud=</code> needs a <code>Signal</code>, since a bits-per-second figure has nothing to refer to on a bare vector; that case is an error naming <code>samples_per_bit=</code> rather than a silent <code>Fs = 1</code> that would decode the whole capture into nonsense. <code>bits</code> (optional, 5–9, default <code>8</code>) data bits; <code>parity</code> (optional string) <code>"none"</code> (default), <code>"even"</code> or <code>"odd"</code>; <code>stop</code> (optional, 1 or 2, default <code>1</code>). The line is assumed to <strong>idle high</strong> (a frame opens on a falling edge, the stop bit is high) and data is <strong>LSB-first</strong>, which the standard fixes — there is deliberately no <code>bit_order=</code> here, unlike <code>decode_spi</code>. Each frame is sampled at its bit centres measured from its own start edge, so the decoder re-syncs on every frame instead of drifting off the bit centres across a long capture.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = decode_uart(d, [baud=], [samples_per_bit=], [bits=8], [parity="none"], [stop=1])</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>d</code>: a <code>Digital</code> value from <code>to_digital</code>.</span></div>
+<div class="ioitem"><code>baud</code> <span class="iotype">Signal or vector, optional</span><span class="iodesc"><code>baud=</code> needs a <code>Signal</code>, since a bits-per-second figure has nothing to refer to on a bare vector.</span></div>
+<div class="ioitem"><code>samples_per_bit</code> <span class="iotype">optional</span><span class="iodesc">Bit timing is stated, not recovered: give either <code>baud=</code> (bits per second, converted through the signal's own sample rate) or <code>samples_per_bit=</code> directly — one of the two is required.</span></div>
+<div class="ioitem"><code>bits</code> <span class="iotype">optional (default <code>8</code>)</span><span class="iodesc"><code>bits</code> (optional, 5–9, default <code>8</code>) data bits.</span></div>
+<div class="ioitem"><code>parity</code> <span class="iotype">string, optional (default <code>"none"</code>)</span><span class="iodesc"><code>parity</code> (optional string) <code>"none"</code> (default), <code>"even"</code> or <code>"odd"</code>.</span></div>
+<div class="ioitem"><code>stop</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iodesc"><code>stop</code> (optional, 1 or 2, default <code>1</code>).</span></div>
+</td><td><div class="ioitem"><code>byte</code> <span class="iotype">number</span><span class="iodesc">number</span></div>
+<div class="ioitem"><code>hex</code> <span class="iotype">string</span><span class="iodesc">e.g. <code>"0x48"</code></span></div>
+<div class="ioitem"><code>start</code> <span class="iotype">Signal</span><span class="iodesc">the falling edge that opened the frame — seconds for a <code>Signal</code>, samples otherwise</span></div>
+<div class="ioitem"><code>valid</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>1</code>/<code>0</code></span></div>
+<div class="ioitem"><code>error</code> <span class="iotype">string</span><span class="iodesc">string: empty, <code>"framing"</code>, <code>"parity"</code> or <code>"framing+parity"</code></span></div>
+</td><td>Returns a <code>Table</code>, one row per frame, with columns <code>byte</code> (number), <code>hex</code> (string, e.g. <code>"0x48"</code>), <code>start</code> (the falling edge that opened the frame — seconds for a <code>Signal</code>, samples otherwise), <code>valid</code> (<code>1</code>/<code>0</code>) and <code>error</code> (string: empty, <code>"framing"</code>, <code>"parity"</code> or <code>"framing+parity"</code>). A frame whose stop bit is low or whose parity disagrees is <strong>reported with its decoded bits and flagged</strong>, never silently returned as a clean byte; a frame cut off by the end of the record is not reported at all, the same rule <code>find_pulses</code> applies to a partial pulse. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>decode_uart(d, baud=|samples_per_bit=, [bits=8], [parity="none"], [stop=1])</code> -- asynchronous serial. Bit timing is DERIVED, not recovered: the caller states the baud rate (or the samples-per-bit directly) and every bit of a frame is sampled at its nominal centre, measured from the falling edge that opened the frame. Re-deriving the centre from <code>j</code> at each frame -- rather than free-running a sample counter across the whole record -- is what keeps a long capture from walking off the bit centres when the sender's clock and <code>baud=</code> disagree slightly, which is the entire reason real UARTs re-sync on every start bit. The line is assumed to IDLE HIGH (start bit is a falling edge, stop bit is high), which is the convention at the logic level -- i.e. downstream of an RS-232 receiver, which has already inverted the marking-low line. Data bits are LSB-first, which the standard fixes; there is deliberately no <code>bit_order=</code> knob here (unlike <code>decode_spi</code>, where both orders are genuinely in use). A frame whose stop bit is not high is reported with <code>error="framing"</code> and <code>valid=0</code>, and one whose parity bit disagrees with the data with <code>error="parity"</code> -- reported, not dropped and not silently returned as a clean byte. The decoded bits are still in <code>byte</code> for both, because that is what a logic analyser shows and because the bits are what a caller debugging a baud-rate mismatch actually needs to see.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

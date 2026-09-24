@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lms_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>lms_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>lms_init(n_taps, mu)</code></pre>
+<p class="fnnote">Input: n_taps, mu &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The least-mean-squares (LMS) adaptive FIR filter's initial state. <code>n_taps</code> (number, at least 1): the adaptive FIR's length; <code>mu</code> (number, positive): the step size.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = lms_init(n_taps, mu)</code></td><td><div class="ioitem"><code>n_taps</code> <span class="iotype">number</span><span class="iodesc"><code>n_taps</code> (number, at least 1): the adaptive FIR's length.</span></div>
+<div class="ioitem"><code>mu</code> <span class="iotype">number</span><span class="iodesc"><code>mu</code> (number, positive): the step size.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"lms"</code></span></div>
+<div class="ioitem"><code>w</code> <span class="iotype">vector</span><span class="iodesc">a length-<code>n_taps</code> vector of weights, all zero</span></div>
+<div class="ioitem"><code>hist</code> <span class="iotype">&mdash;</span><span class="iodesc">the length-<code>n_taps</code> sliding input window, all zero</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iodesc">the last output, 0</span></div>
+<div class="ioitem"><code>e</code> <span class="iotype">&mdash;</span><span class="iodesc">the last error, 0</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"lms"</code>) with fields <code>w</code> (a length-<code>n_taps</code> vector of weights, all zero), <code>hist</code> (the length-<code>n_taps</code> sliding input window, all zero), <code>mu</code>, <code>y</code> (the last output, 0) and <code>e</code> (the last error, 0). State is immutable, the same convention <code>kalman_init</code> uses: thread the value returned by <code>.update(x, d)</code> through successive calls rather than mutating in place, so the whole weight trajectory stays available. <strong>Stability:</strong> the weights converge for <code>0 &lt; mu &lt; 2 / (n_taps * E[x^2])</code>; only <code>mu &gt; 0</code> is enforced, because <code>E[x^2]</code> is a property of the input signal that <code>lms_init</code> has not seen yet — the upper bound is the caller's to respect. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">lms_init</span>(<span class="n">1</span>, <span class="n">0.1</span>)
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+    s = s.<span class="f">update</span>(<span class="n">1</span>, <span class="n">0.5</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"w = {s.w[0]}"</span>)             <span class="c"># w = 0.4974231...</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>w = 0.497423</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>h    = [<span class="n">0.5</span>, <span class="n">0.3</span>, -<span class="n">0.2</span>]
+s    = <span class="f">lms_init</span>(<span class="n">3</span>, <span class="n">0.05</span>)          <span class="c"># mu well inside 2/(3*1) = 0.667</span>
+x    = <span class="f">randn</span>(<span class="n">1500</span>, <span class="a">seed</span> = <span class="n">7</span>)
+xm1  = <span class="n">0</span>
+xm2  = <span class="n">0</span>
+<span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="n">1499</span>
+    xi = x[i]
+    d  = h[<span class="n">0</span>]*xi + h[<span class="n">1</span>]*xm1 + h[<span class="n">2</span>]*xm2      <span class="c"># the unknown system's output</span>
+    s  = s.<span class="f">update</span>(xi, d)
+    xm2 = xm1
+    xm1 = xi
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"w = {s.w}"</span>)                <span class="c"># w = [0.5, 0.3, -0.2] to ~2 decimals</span>
+<span class="f">print</span>(<span class="s">"residual = {s.e}"</span>)         <span class="c"># ~0 once identified</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>w = [0.5, 0.3, -0.2]
+residual = 0</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p>The adaptive-filter family: a least-mean-squares (LMS) adaptive FIR, deliberately built on the SAME immutable <code>Value::Model</code> state handle the Kalman filter above uses (kind <code>"lms"</code>, fields <code>w</code>/<code>hist</code>/<code>mu</code>/<code>y</code>/<code>e</code>) rather than a mutable filter object — a script threads the returned state through successive <code>state.update(x, d)</code> calls, and the receiver is never modified in place. That matters more here than for <code>kalman</code>: the whole point of an adaptive filter is that you keep the weight history, and an in-place update would quietly destroy the very trajectory you are studying. <code>lms_init(n_taps, mu)</code> — an <code>n_taps</code>-tap filter with all weights AND its sliding input window zeroed, step size <code>mu</code>. Stability: the weights converge for <code>0 &lt; mu &lt; 2 / (n_taps * E[x^2])</code>. <code>mu</code> is NOT checked against that bound here, and cannot be: <code>E[x^2]</code> is a property of the input signal, which <code>lms_init</code> has not seen a single sample of yet. Only the two things knowable at init time -- <code>n_taps &gt;= 1</code> and <code>mu &gt; 0</code> -- are enforced; the upper bound is documented in <code>book/src/stdlib/signal-processing.md</code> for the caller to apply, not silently assumed away.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

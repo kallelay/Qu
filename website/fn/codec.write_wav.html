@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codec.write_wav — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>codec.write_wav</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>codec.write_wav(path, x, depth=, [dither=])</code></pre>
+<p class="fnnote">Input: path, x, depth, dither &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes audio out as a WAV file. <code>path</code> (string) is the destination, overwritten if it exists. <code>x</code> is a <code>Signal</code>, or a <code>List</code> of <code>Signal</code>s for a multi-channel file — a signal carries its own sample rate, so there is no <code>fs=</code> argument to get wrong, and the rates of a list have to agree because a WAV header holds exactly one. <code>depth</code> (number, named, <strong>required</strong>) is <code>16</code>, <code>24</code> or <code>32</code>, where <code>32</code> means 32-bit <strong>float</strong>. <code>dither</code> (string, named) is <code>"tpdf"</code> or <code>"none"</code>, and at <code>depth=16</code> it is <strong>required</strong> — see below.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>codec.write_wav(path, x, depth=, [dither=])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iodesc"><code>path</code> (string) is the destination, overwritten if it exists.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">Signal or List</span><span class="iodesc"><code>x</code> is a <code>Signal</code>, or a <code>List</code> of <code>Signal</code>s for a multi-channel file — a signal carries its own sample rate, so there is no <code>fs=</code> argument to get wrong, and the rates of a list have to agree because a WAV header holds exactly one.</span></div>
+<div class="ioitem"><code>depth</code> <span class="iotype">number</span><span class="iodesc"><code>depth</code> (number, named, <strong>required</strong>) is <code>16</code>, <code>24</code> or <code>32</code>, where <code>32</code> means 32-bit <strong>float</strong>.</span></div>
+<div class="ioitem"><code>dither</code> <span class="iotype">string, optional</span><span class="iodesc"><code>dither</code> (string, named) is <code>"tpdf"</code> or <code>"none"</code>, and at <code>depth=16</code> it is <strong>required</strong> — see below.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Writes audio out as a WAV file.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+codec.<span class="f">write_wav</span>(<span class="s">"out.wav"</span>, x, <span class="a">depth</span> = <span class="n">16</span>)
+<span class="c"># error -- depth = 16 quantises 64-bit samples down to 16 bits, and doing</span>
+<span class="c"># that without saying how is an error: silent truncation of audio is</span>
+<span class="c"># audible. Name dither = "tpdf" or dither = "none".</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+a = codec.<span class="f">decode_wav</span>(<span class="s">"take.wav"</span>)            <span class="c"># a stereo file</span>
+codec.<span class="f">write_wav</span>(<span class="s">"take24.wav"</span>, a.channels, <span class="a">depth</span> = <span class="n">24</span>)
+codec.<span class="f">write_wav</span>(<span class="s">"take16.wav"</span>, a.channels, <span class="a">depth</span> = <span class="n">16</span>, <span class="a">dither</span> = <span class="s">"tpdf"</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

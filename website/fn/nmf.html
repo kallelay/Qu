@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nmf — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>nmf</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>nmf(X, [n_components=], [max_iter=200], [tol=1e-4], [seed=])</code></pre>
+<p class="fnnote">Input: X, n_components, max_iter, tol, seed &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Non-negative matrix factorization <code>X ≈ W H</code> of an <code>N</code>-row, <code>D</code>-column <strong>non-negative</strong> matrix <code>X</code>, by Lee &amp; Seung's multiplicative updates on the Frobenius objective (a negative or non-finite entry is a named error, not silently clipped). Because nothing may be negative, components can only add to a reconstruction and never cancel, so the factors read as parts that make up the whole rather than the signed directions <code>pca_model</code> returns — which is what makes it usable on spectra, concentrations and counts. <code>n_components</code> (integer) defaults to <code>min(N, D)</code>; <code>max_iter</code> (integer, default 200) caps the iterations and <code>tol</code> (number, default 1e-4) stops early once the relative improvement falls below it; an optional integer <code>seed=</code> fixes the random initialization.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = nmf(X, [n_components=], [max_iter=200], [tol=1e-4], [seed=])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix</span><span class="iodesc">Non-negative matrix factorization <code>X ≈ W H</code> of an <code>N</code>-row, <code>D</code>-column <strong>non-negative</strong> matrix <code>X</code>, by Lee &amp; Seung's multiplicative updates on the Frobenius objective (a negative or non-finite entry is a named error, not silently clipped).</span></div>
+<div class="ioitem"><code>n_components</code> <span class="iotype">optional</span><span class="iodesc"><code>n_components</code> (integer) defaults to <code>min(N, D)</code>.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>max_iter</code> (integer, default 200) caps the iterations and <code>tol</code> (number, default 1e-4) stops early once the relative improvement falls below it.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-4</code>)</span><span class="iodesc"><code>max_iter</code> (integer, default 200) caps the iterations and <code>tol</code> (number, default 1e-4) stops early once the relative improvement falls below it.</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc">an optional integer <code>seed=</code> fixes the random initialization.</span></div>
+</td><td><div class="ioitem"><code>w</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>(N, k)</code></span></div>
+<div class="ioitem"><code>h</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>(k, D)</code></span></div>
+<div class="ioitem"><code>reconstruction_error</code> <span class="iotype">&mdash;</span><span class="iodesc">the final <code>‖X − WH‖_F</code></span></div>
+<div class="ioitem"><code>errors</code> <span class="iotype">&mdash;</span><span class="iodesc">its value at every iteration, non-increasing by construction</span></div>
+</td><td>Returns a fitted model Record with fields <code>w</code> (<code>(N, k)</code>), <code>h</code> (<code>(k, D)</code>), <code>n_components</code>, <code>n_iter</code>, <code>reconstruction_error</code> (the final <code>‖X − WH‖_F</code>), <code>errors</code> (its value at every iteration, non-increasing by construction) and <code>n_features</code>. <code>.predict(Xnew)</code> returns the <code>(M, k)</code> non-negative encoding of new rows against the fitted <code>H</code> — a transform, not a reconstruction; multiply by <code>.h</code> to approximate <code>Xnew</code> itself. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

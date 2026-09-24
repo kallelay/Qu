@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>steer_delays — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>steer_delays</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>steer_delays(positions, angle_degrees, [c=343])</code></pre>
+<p class="fnnote">Input: positions, angle_degrees, c &middot; Output: result</p>
+<h2>What it is</h2>
+<p>The geometry half of <code>beamform</code> on its own: the per-element steering delays <code>tau_m = x_m*sin(theta)/c</code>, in seconds, for element coordinates <code>positions</code> and a direction <code>angle_degrees</code> degrees off broadside (<code>c</code> as in <code>beamform</code>: m/s, default <code>343</code>, also spellable <code>c=</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = steer_delays(positions, angle_degrees, [c=343])</code></td><td><div class="ioitem"><code>positions</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>angle_degrees</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>c</code> <span class="iotype">optional (default <code>343</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
+</td><td>Returns a plain vector, so it composes directly with <code>interpolate_at(sig_m, sig_m.t + delays[m], method)</code> when you want per-channel treatment <code>beamform</code> cannot express — element weighting/shading, a different method per channel, or a subset of the array. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">48000</span>
+d  = <span class="n">0.08</span>
+th = <span class="n">30</span>
+c  = <span class="n">343</span>
+mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] .* d          <span class="c"># positions, metres, origin-centred</span>
+taus = <span class="f">steer_delays</span>(mics, th, c)       <span class="c"># per-element delay, seconds</span>
+chans = []
+<span class="k">for</span> m <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span> {
+    t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4799</span>) ./ fs              <span class="c"># 0.1 s of record</span>
+    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> .* (t .- taus[m]))
+    chans = <span class="f">push</span>(chans, <span class="f">signal</span>(tone .+ <span class="n">0.8</span> .* <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs))
+}
+beam = <span class="f">beamform</span>(chans, mics, th)       <span class="c"># c=343, method="nearest" by default</span>
+<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {beam.fs} Hz"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>steer_delays(positions, angle_degrees, [c=343])</code> (§ signal builtins, v0.3.0) — the geometry half of delay-and-sum, on its own: the per-element delays <code>x_m * sin(theta) / c</code> that steer an array towards <code>theta</code>. Returned as a plain <code>Vec</code> (seconds) so it composes directly with the EXISTING <code>interpolate_at(sig, t + delay, method)</code> — that hand-rolled spelling is what <code>beamform</code> below was factored out of, and it stays a first-class way to do it when the caller wants a non-uniform per-channel treatment (different methods, per-channel weights/shading, a subset of elements) that a single <code>beamform</code> call cannot express.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -33,13 +33,13 @@
 <pre class="fnsig">result = <code>duty_cycle(x, [level=], [hysteresis=0])</code></pre>
 <p class="fnnote">Input: x, level, hysteresis &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code>: a length-N real vector or <code>Signal</code>; keywords as for <code>find_edges</code>.</p>
+<p><code>x</code>: a length-N real vector, <code>Signal</code>, <strong>or </strong><code>Digital</code><strong> value (from </strong><code>to_digital</code>, in which case its stored threshold is the default <code>level</code>, still overridable); keywords as for <code>find_edges</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = duty_cycle(x, [level=], [hysteresis=0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector or <code>Signal</code>.</span></div>
-<div class="ioitem"><code>level</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = duty_cycle(x, [level=], [hysteresis=0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N real vector, <code>Signal</code>, <strong>or </strong><code>Digital</code><strong> value (from </strong><code>to_digital</code>, in which case its stored threshold is the default <code>level</code>, still overridable).</span></div>
+<div class="ioitem"><code>level</code> <span class="iotype">vector or Signal, optional</span><span class="iodesc"><code>x</code>: a length-N real vector, <code>Signal</code>, <strong>or </strong><code>Digital</code><strong> value (from </strong><code>to_digital</code>, in which case its stored threshold is the default <code>level</code>, still overridable).</span></div>
 <div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
 </td><td>Returns a single number: mean high time over mean period, as a <strong>fraction in </strong><code>[0, 1]</code>, not a percentage<strong> — multiply by 100 for the figure a scope's front panel shows. The fraction is the composable form: </strong><code>duty_cycle(x) * pulse_period(x)</code> is the high time.</td></tr>

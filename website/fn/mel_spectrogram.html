@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mel_spectrogram — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>mel_spectrogram</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>mel_spectrogram(x, fs, [n_mels=40], [fmin=0], [fmax=fs/2], [nfft=256], [hop=nfft/2])</code></pre>
+<p class="fnnote">Input: x, fs, n_mels, fmin, fmax, nfft, hop &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>x</code> is a length-N real vector or <code>Signal</code>; <code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>. <code>n_mels</code> (optional number, default 40) is how many mel bands to collapse the spectrum onto; <code>fmin</code>/<code>fmax</code> (optional numbers, Hz, default <code>0</code> and Nyquist) bound the filterbank; <code>nfft</code>/<code>hop</code> (optional numbers) are the STFT frame size and stride, exactly as in <code>stft</code>. Mel-scale spectrogram: an <code>stft</code> power spectrogram folded onto perceptually-spaced bands by triangular filters laid out on <code>mel = 2595*log10(1+f/700)</code>. Equal steps in mel are equal steps in perceived pitch, which equal steps in Hz are not. Built on the same <code>stft</code> that <code>spectrogram</code> and <code>spectral_entropy</code> use, so all of them agree frame-for-frame. Draws a dB heatmap <strong>and</strong> returns a <code>Record</code> with fields <code>power</code> (an <code>(n_mels, frames)</code> <code>Mat</code> of band powers, row 0 = the lowest band), <code>freq</code> (length-<code>n_mels</code> <code>Vec</code> of band centre frequencies in Hz — crowded at the bottom of the range, spread out at the top) and <code>time</code> (length-<code>frames</code> <code>Vec</code>, seconds). A band narrower than the STFT's own bin spacing <code>fs/nfft</code> can fall entirely between two bins and come back zero: that is <code>n_mels</code> asking for finer resolution than <code>nfft</code> supplies, so raise <code>nfft</code> or lower <code>n_mels</code>. Added in v0.3.0.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>mel_spectrogram(x, fs, [n_mels=40], [fmin=0], [fmax=fs/2], [nfft=256], [hop=nfft/2])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code> is a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number or Signal</span><span class="iodesc"><code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>n_mels</code> <span class="iotype">number, optional (default <code>40</code>)</span><span class="iodesc"><code>n_mels</code> (optional number, default 40) is how many mel bands to collapse the spectrum onto.</span></div>
+<div class="ioitem"><code>fmin</code> <span class="iotype">number, optional (default <code>0</code>)</span><span class="iodesc"><code>fmin</code>/<code>fmax</code> (optional numbers, Hz, default <code>0</code> and Nyquist) bound the filterbank.</span></div>
+<div class="ioitem"><code>fmax</code> <span class="iotype">number, optional (default <code>fs/2</code>)</span><span class="iodesc"><code>fmin</code>/<code>fmax</code> (optional numbers, Hz, default <code>0</code> and Nyquist) bound the filterbank.</span></div>
+<div class="ioitem"><code>nfft</code> <span class="iotype">number, optional (default <code>256</code>)</span><span class="iodesc"><code>nfft</code>/<code>hop</code> (optional numbers) are the STFT frame size and stride, exactly as in <code>stft</code>.</span></div>
+<div class="ioitem"><code>hop</code> <span class="iotype">number, optional (default <code>nfft/2</code>)</span><span class="iodesc"><code>nfft</code>/<code>hop</code> (optional numbers) are the STFT frame size and stride, exactly as in <code>stft</code>.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Mel-scale spectrogram: an <code>stft</code> power spectrogram folded onto perceptually-spaced bands by triangular filters laid out on <code>mel = 2595*log10(1+f/700)</code>. Equal steps in mel are equal steps in perceived pitch, which equal steps in Hz are not. Built on the same <code>stft</code> that <code>spectrogram</code> and <code>spectral_entropy</code> use, so all of them agree frame-for-frame. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>mel_spectrogram(x, fs, [n_mels=40], [fmin=0], [fmax=fs/2], [nfft=256], [hop=nfft/2])</code> — an <code>stft</code> power spectrogram collapsed onto perceptually-spaced bands by a triangular mel filterbank. Built on the same <code>stft</code> this file's own <code>stft</code>/<code>spectral_entropy</code>/<code>spectrogram</code> use, so all four agree frame-for-frame.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

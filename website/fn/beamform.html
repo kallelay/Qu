@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>beamform — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>beamform</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>beamform(signals, positions, angle_degrees, [c=343], [method="nearest"])</code></pre>
+<p class="fnnote">Input: signals, positions, angle_degrees, c, method &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Delay-and-sum beamformer. <code>signals</code>: a list of <code>Signal</code>s, one per array element, all at the same <code>Fs</code> and the same length; <code>positions</code>: a matching-length vector of element coordinates (metres, measured along the array from its origin); <code>angle_degrees</code>: the steering direction in degrees off broadside (the same degrees-in convention <code>imrotate</code>/<code>bode_phase</code> use, not radians); <code>c</code> (optional): propagation speed in m/s, default <code>343</code> (air — use ~1500 for water), also spellable <code>c=</code>; <code>method</code> (optional): the interpolation kernel used to apply each delay, <code>interpolate_at</code>'s own three, default <code>"nearest"</code>. Steers each channel by its geometric delay <code>x_m*sin(theta)/c</code> (exactly <code>steer_delays</code>, shared code) and averages, returning a <code>Signal</code> at the inputs' own <code>Fs</code> — which is honest here, unlike <code>interpolate_at</code>'s plain-vector return, because every query time is the uniform axis shifted by one constant per channel. <code>method</code> defaults to <code>"nearest"</code> rather than <code>interpolate_at</code>'s <code>"linear"</code> on purpose: linear interpolation averages neighbouring samples, which low-pass-filters the noise and inflates the measured array gain (7.25 dB with <code>"nearest"</code> vs 8.58 dB with <code>"linear"</code> on the 5-element example below, against 10*log10(5) = 6.99 dB of theory) — the default must report what the geometry bought, not add denoising of its own. Added in v0.3.0.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>beamform(signals, positions, angle_degrees, [c=343], [method="nearest"])</code></td><td><div class="ioitem"><code>signals</code> <span class="iotype">Signal</span><span class="iodesc"><code>signals</code>: a list of <code>Signal</code>s, one per array element, all at the same <code>Fs</code> and the same length.</span></div>
+<div class="ioitem"><code>positions</code> <span class="iotype">vector</span><span class="iodesc"><code>positions</code>: a matching-length vector of element coordinates (metres, measured along the array from its origin).</span></div>
+<div class="ioitem"><code>angle_degrees</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>angle_degrees</code>: the steering direction in degrees off broadside (the same degrees-in convention <code>imrotate</code>/<code>bode_phase</code> use, not radians).</span></div>
+<div class="ioitem"><code>c</code> <span class="iotype">optional (default <code>343</code>)</span><span class="iodesc"><code>c</code> (optional): propagation speed in m/s, default <code>343</code> (air — use ~1500 for water), also spellable <code>c=</code>.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">optional (default <code>"nearest"</code>)</span><span class="iodesc"><code>method</code> (optional): the interpolation kernel used to apply each delay, <code>interpolate_at</code>'s own three, default <code>"nearest"</code>.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Delay-and-sum beamformer. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>fs = <span class="n">48000</span>
+d  = <span class="n">0.08</span>
+th = <span class="n">30</span>
+c  = <span class="n">343</span>
+mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] .* d          <span class="c"># positions, metres, origin-centred</span>
+taus = <span class="f">steer_delays</span>(mics, th, c)       <span class="c"># per-element delay, seconds</span>
+chans = []
+<span class="k">for</span> m <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span> {
+    t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4799</span>) ./ fs              <span class="c"># 0.1 s of record</span>
+    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> .* (t .- taus[m]))
+    chans = <span class="f">push</span>(chans, <span class="f">signal</span>(tone .+ <span class="n">0.8</span> .* <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs))
+}
+beam = <span class="f">beamform</span>(chans, mics, th)       <span class="c"># c=343, method="nearest" by default</span>
+<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {beam.fs} Hz"</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>beamform(signals, positions, angle_degrees, [c=343], [method="nearest"])</code> (§ signal builtins, v0.3.0) — classic delay-and-sum: steer each channel by its own geometric delay, then average. Built ON <code>steer_delays</code> + the existing <code>interp1_eval</code> kernel <code>interpolate_at</code> uses, not on a private copy of either, so a hand-written <code>interpolate_at(sig_m, t + delays[m], method)</code> loop and this call are the same arithmetic. WHY <code>method</code> DEFAULTS TO <code>"nearest"</code> RATHER THAN <code>interpolate_at</code>'s OWN <code>"linear"</code>: Linear interpolation between two samples is a (crude) low-pass filter — it averages neighbours, which attenuates the broadband noise sitting between them. On the verified 5-element / 0.08 m 1 kHz / 30°-off-broadside audio case, that alone moves the measured array gain from 7.25 dB ("nearest", against 10*log10(5) = 6.99 dB of theory) to 8.58 dB — i.e. <code>"linear"</code> reports 1.6 dB of "array gain" that the ARRAY did not produce. A beamformer's whole purpose is to measure what the geometry buys, so the default must not quietly add denoising of its own; <code>"linear"</code>/<code>"spline"</code> remain available for a caller who wants sub-sample steering accuracy and knows to account for it. Returns a <code>Value::Signal</code> at the inputs' own <code>Fs</code> — unlike <code>interpolate_at</code>, which must NOT (its query times are arbitrary instants). Here every query is <code>t_i + tau_m</code>, the signal's own uniform axis shifted by one constant per channel, so the output is still uniformly sampled at exactly <code>Fs</code>; the sample rate it claims is real.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

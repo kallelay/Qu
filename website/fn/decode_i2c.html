@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decode_i2c — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>decode_i2c</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>decode_i2c(scl, sda, [hysteresis=0])</code></pre>
+<p class="fnnote">Input: scl, sda, hysteresis &middot; Output: result</p>
+<h2>What it is</h2>
+<p><strong>Added in v0.3.0.</strong> <code>scl</code>, <code>sda</code>: two <code>Digital</code> values from <code>to_digital</code>, clock first, data second — I2C framing is defined by SDA moving while SCL is held high, so neither wire decodes alone and a single-argument call is an error, as is a clock and data of different lengths (they are two channels of one capture; differing lengths mean they are not aligned in time). <code>hysteresis</code> as for <code>find_edges</code>. There is deliberately <strong>no</strong> bit-rate keyword: I2C carries its own clock, and a rate keyword would invite stating something the decoder must not believe over SCL itself.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = decode_i2c(scl, sda, [hysteresis=0])</code></td><td><div class="ioitem"><code>scl</code> <span class="iotype">&mdash;</span><span class="iodesc"><strong>Added in v0.3.0.</strong> <code>scl</code>, <code>sda</code>: two <code>Digital</code> values from <code>to_digital</code>, clock first, data second — I2C framing is defined by SDA moving while SCL is held high, so neither wire decodes alone and a single-argument call is an error, as is a clock and data of different lengths (they are two channels of one capture.</span></div>
+<div class="ioitem"><code>sda</code> <span class="iotype">&mdash;</span><span class="iodesc"><strong>Added in v0.3.0.</strong> <code>scl</code>, <code>sda</code>: two <code>Digital</code> values from <code>to_digital</code>, clock first, data second — I2C framing is defined by SDA moving while SCL is held high, so neither wire decodes alone and a single-argument call is an error, as is a clock and data of different lengths (they are two channels of one capture.</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iodesc"><code>hysteresis</code> as for <code>find_edges</code>.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"i2c"</code></span></div>
+<div class="ioitem"><code>transactions</code> <span class="iotype">&mdash;</span><span class="iodesc">a list</span></div>
+<div class="ioitem"><code>addresses</code> <span class="iotype">vector</span><span class="iodesc">a parallel vector</span></div>
+<div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"i2c_transaction"</code></span></div>
+<div class="ioitem"><code>read</code> <span class="iotype">bool</span><span class="iodesc">bool</span></div>
+<div class="ioitem"><code>direction</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>"read"</code>/<code>"write"</code></span></div>
+<div class="ioitem"><code>address_acks</code> <span class="iotype">&mdash;</span><span class="iodesc">one entry per address byte</span></div>
+<div class="ioitem"><code>data</code> <span class="iotype">vector</span><span class="iodesc">a vector of bytes</span></div>
+<div class="ioitem"><code>acks</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>1</code>/<code>0</code> per data byte, where <strong></strong><code>1</code> means the receiver pulled SDA low to acknowledge<strong></strong></span></div>
+<div class="ioitem"><code>repeated_start</code> <span class="iotype">&mdash;</span><span class="iodesc">whether *this* segment was preceded by an Sr</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"i2c"</code>) with <code>transactions</code> (a list), <code>addresses</code> (a parallel vector) and <code>count</code>. Each transaction is a <code>Model</code> (kind <code>"i2c_transaction"</code>) with <code>address</code>, <code>read</code> (bool), <code>direction</code> (<code>"read"</code>/<code>"write"</code>), <code>ten_bit</code>, <code>address_complete</code>, <code>address_ack</code>, <code>address_acks</code> (one entry per address byte), <code>data</code> (a vector of bytes), <code>acks</code> (<code>1</code>/<code>0</code> per data byte, where <strong></strong><code>1</code> means the receiver pulled SDA low to acknowledge<strong>), </strong><code>byte_count</code>, <code>repeated_start</code> (whether *this* segment was preceded by an Sr), <code>terminator</code>, <code>partial_bits</code>, <code>start_index</code>/<code>stop_index</code> and <code>start_time</code>/<code>stop_time</code>. Two things that look like bugs and are not: a <strong>repeated START ends one transaction record and begins another</strong> — the bus is never released, but the address and direction are restated, and flattening both halves of a register read into one record would discard exactly the framing this decoder exists to preserve, so <code>terminator</code> is a string (<code>"stop"</code>, <code>"repeated_start"</code>, <code>"truncated"</code>) rather than a boolean; and <code>partial_bits</code> is normally <strong></strong><code>1</code><strong> after a clean STOP, because generating STOP requires a real SCL rising edge that is sampled as a data bit before SDA rises to end the transfer. A transaction the capture cut off is still reported, with </strong><code>terminator = "truncated"</code> and whatever bytes did decode — a clipped capture is ordinary, and dropping it silently would look identical to there having been no traffic. 10-bit addressing is handled, including the asymmetry that trips naive decoders: a 10-bit <strong>write</strong> sends the reserved <code>11110xx0</code> prefix byte *and* a second byte of low address bits, but the <strong>read</strong> half (after a repeated START) sends only <code>11110xx1</code> — so the number of address bytes is decided by the R/W bit, not fixed, and the low byte is carried forward from the write phase, with <code>address_complete</code> reporting <code>false</code> if no such phase was captured.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>decode_i2c(scl, sda, [hysteresis=])</code> -- §8's I2C protocol decoder. TWO positional arguments, both <code>Digital</code>, because I2C is a two-wire bus and neither wire alone carries a transaction: the clock says WHEN a data bit is valid and the data line says WHAT it is, and the START/STOP conditions are defined by their relationship (SDA moving while SCL is held high), so there is no way to express this as a method on one signal. Clock first, data second, matching how every datasheet, scope decoder and the bus's own name orders them. Unlike CAN below, there is no <code>bitrate=</code>: I2C is a clocked bus and the clock is right there in the capture. A bit rate keyword would be an invitation to state something the decoder must not believe over SCL itself. The decode walks the two level streams in lockstep rather than working from an edge list, per <code>digital_levels</code>. Three things can happen at sample <code>i</code>: * SCL high and steady, SDA falls -&gt; START (or, mid transaction, a repeated START) * SCL high and steady, SDA rises -&gt; STOP * SCL rises                      -&gt; a data bit, sample SDA These are mutually exclusive by construction: the first two require SCL high at both <code>i-1</code> and <code>i</code>, which is exactly what an SCL rising edge is not. That is the whole reason the protocol reserves SDA transitions during SCL-high for framing -- data is only allowed to move while the clock is low -- and it is why this ordering is safe rather than a priority guess.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

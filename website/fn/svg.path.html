@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>svg.path — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>svg.path</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>svg.path(d, [fill="none"], [stroke="#000000"], [stroke_width=1], [opacity=1])</code></pre>
+<p class="fnnote">Input: d, fill, stroke, stroke_width, opacity &middot; Output: result</p>
+<h2>What it is</h2>
+<p>An arbitrary path from the SVG path-data string <code>d</code>. Supports <code>M</code>/<code>L</code> (moveto/lineto), <code>H</code>/<code>V</code> (axis forms), <code>C</code>/<code>Q</code> (cubic and quadratic Bezier) and <code>Z</code> (closepath), each in both absolute (uppercase) and relative (lowercase) spelling, with the SVG repetition rule — a repeated moveto's extra coordinate pairs are implicit linetos. Arcs (<code>A</code>) and the smooth-curve shorthands (<code>S</code>/<code>T</code>) are <strong>refused by name</strong> rather than passed through, since an unvalidated <code>d</code> produces a file that opens without complaint and draws nothing. <code>d</code> is re-emitted normalized to single-space separation.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = svg.path(d, [fill="none"], [stroke="#000000"], [stroke_width=1], [opacity=1])</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>d</code> is re-emitted normalized to single-space separation.</span></div>
+<div class="ioitem"><code>fill</code> <span class="iotype">optional (default <code>"none"</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>stroke</code> <span class="iotype">optional (default <code>"#000000"</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>stroke_width</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>opacity</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Record</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>kind</code>, <code>d</code> and the four styling fields. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>Same shape again for <code>svg</code>, minus the <code>cfg</code> -- this module is always compiled in (see <code>native_module</code>). These names are reachable ONLY qualified as <code>svg.rect(...)</code> etc.: three of the five (<code>rect</code>, <code>text</code>, and <code>circle</code> via plotting) already exist as unrelated top-level drawing builtins, so <code>import svg</code> + a bare <code>rect(...)</code> is deliberately the "ambiguous, qualify it" error <code>open_module_name</code> raises -- exactly as <code>image</code> already collides on <code>regions</code>/<code>blur</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

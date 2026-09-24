@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cqt — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cqt</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>cqt(x, fs, [fmin=32.7], [fmax=fs/2], [bins_per_octave=12], [hop=fs/100])</code></pre>
+<p class="fnnote">Input: x, fs, fmin, fmax, bins_per_octave, hop &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>x</code> is a length-N real vector or <code>Signal</code>; <code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>. <code>fmin</code>/<code>fmax</code> (optional numbers, Hz) bound the bin range — <code>fmin</code> defaults to 32.703 Hz (C1, the conventional musical bottom end) and <code>fmax</code> to Nyquist; <code>bins_per_octave</code> (optional number, default 12, i.e. a semitone) sets the geometric spacing; <code>hop</code> (optional number, default <code>round(fs/100)</code>, i.e. 10 ms) is the frame stride in samples. Constant-Q transform: log-spaced bins sharing one <code>Q = f/bandwidth</code>, so a musical interval spans the same number of bins at every pitch. That is the opposite trade to <code>stft</code>, whose bins are linear in Hz: the CQT spends long windows (fine in frequency) on low notes and short ones (fine in time) on high ones, which is why it, not the STFT, is the standard front end for musical and perceptual analysis. Draws a dB heatmap <strong>and</strong> returns a <code>Record</code> with fields <code>coef</code> (a <code>(bins, frames)</code> <code>CMat</code>, row 0 = <code>fmin</code>), <code>freq</code> (length-<code>bins</code> <code>Vec</code>, Hz, geometrically spaced) and <code>time</code> (length-<code>frames</code> <code>Vec</code>, seconds). The lowest bin needs a <code>ceil(Q*fs/fmin)</code>-sample window, so reaching an octave lower needs twice the record; a signal too short for it is a named error rather than an empty result. Added in v0.3.0.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>cqt(x, fs, [fmin=32.7], [fmax=fs/2], [bins_per_octave=12], [hop=fs/100])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code> is a length-N real vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number or Signal</span><span class="iodesc"><code>fs</code> (number, Hz) is the sample rate, or is carried by a <code>Signal</code>.</span></div>
+<div class="ioitem"><code>fmin</code> <span class="iotype">number, optional (default <code>32.7</code>)</span><span class="iodesc"><code>fmin</code>/<code>fmax</code> (optional numbers, Hz) bound the bin range — <code>fmin</code> defaults to 32.703 Hz (C1, the conventional musical bottom end) and <code>fmax</code> to Nyquist.</span></div>
+<div class="ioitem"><code>fmax</code> <span class="iotype">number, optional (default <code>fs/2</code>)</span><span class="iodesc"><code>fmin</code>/<code>fmax</code> (optional numbers, Hz) bound the bin range — <code>fmin</code> defaults to 32.703 Hz (C1, the conventional musical bottom end) and <code>fmax</code> to Nyquist.</span></div>
+<div class="ioitem"><code>bins_per_octave</code> <span class="iotype">number, optional (default <code>12</code>)</span><span class="iodesc"><code>bins_per_octave</code> (optional number, default 12, i.e.</span></div>
+<div class="ioitem"><code>hop</code> <span class="iotype">number, optional (default <code>fs/100</code>)</span><span class="iodesc"><code>hop</code> (optional number, default <code>round(fs/100)</code>, i.e.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>10 ms) is the frame stride in samples. Constant-Q transform: log-spaced bins sharing one <code>Q = f/bandwidth</code>, so a musical interval spans the same number of bins at every pitch. That is the opposite trade to <code>stft</code>, whose bins are linear in Hz: the CQT spends long windows (fine in frequency) on low notes and short ones (fine in time) on high ones, which is why it, not the STFT, is the standard front end for musical and perceptual analysis. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>cqt(x, fs, [fmin=], [fmax=], [bins_per_octave=12], [hop=])</code> — constant-Q transform: bins spaced geometrically at <code>bins_per_octave</code> per doubling, every one with the same <code>Q = f/bandwidth</code>, so a musical interval covers the same number of bins at every pitch. <code>stft</code>'s bins are linear in Hz and cannot do that.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

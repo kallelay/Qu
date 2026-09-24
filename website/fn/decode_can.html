@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decode_can — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>decode_can</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>decode_can(bus, [bitrate=], [samples_per_bit=], [polarity="normal"], [hysteresis=0])</code></pre>
+<p class="fnnote">Input: bus, bitrate, samples_per_bit, polarity, hysteresis &middot; Output: result</p>
+<h2>What it is</h2>
+<p><strong>Added in v0.3.0.</strong> <code>bus</code>: one <code>Digital</code> value — the differential pair has already been resolved to a logic level by the transceiver or by the scope's own threshold. Bit length is <strong>required</strong> and comes from either <code>bitrate=</code> (125000, 250000, 500000, 1e6, …), which needs a <code>Signal</code> whose sample rate supplies the rest, or <code>samples_per_bit=</code>, which works on a plain vector too; with neither, or with fewer than 2 samples per bit, it errors rather than guessing. <code>polarity</code> (optional string): <code>"normal"</code> (default) means bus <strong>dominant = logical 0 = LOW</strong>, which is what a transceiver's RX pin gives you and leaves the bus recessive/high when idle; <code>"inverted"</code> for a capture taken off an inverting buffer or the other line of the pair. Getting polarity wrong does <strong>not</strong> reliably yield zero frames — the complemented stream still offers candidate start bits — but it cannot produce a CRC-valid one, so check <code>crc_ok</code> rather than the frame count. <code>hysteresis</code> as for <code>find_edges</code>. Handles both <strong>base (11-bit)</strong> and <strong>extended (29-bit)</strong> identifiers; which one a frame uses is not knowable up front, since both open with SOF and 11 identifier bits and it is the IDE bit — the *thirteenth* — that finally says, so the fields are read strictly sequentially.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = decode_can(bus, [bitrate=], [samples_per_bit=], [polarity="normal"], [hysteresis=0])</code></td><td><div class="ioitem"><code>bus</code> <span class="iotype">&mdash;</span><span class="iodesc"><strong>Added in v0.3.0.</strong> <code>bus</code>: one <code>Digital</code> value — the differential pair has already been resolved to a logic level by the transceiver or by the scope's own threshold.</span></div>
+<div class="ioitem"><code>bitrate</code> <span class="iotype">Signal or vector, optional</span><span class="iodesc">Bit length is <strong>required</strong> and comes from either <code>bitrate=</code> (125000, 250000, 500000, 1e6, …), which needs a <code>Signal</code> whose sample rate supplies the rest, or <code>samples_per_bit=</code>, which works on a plain vector too.</span></div>
+<div class="ioitem"><code>samples_per_bit</code> <span class="iotype">Signal or vector, optional</span><span class="iodesc">Bit length is <strong>required</strong> and comes from either <code>bitrate=</code> (125000, 250000, 500000, 1e6, …), which needs a <code>Signal</code> whose sample rate supplies the rest, or <code>samples_per_bit=</code>, which works on a plain vector too.</span></div>
+<div class="ioitem"><code>polarity</code> <span class="iotype">string, optional (default <code>"normal"</code>)</span><span class="iodesc"><code>polarity</code> (optional string): <code>"normal"</code> (default) means bus <strong>dominant = logical 0 = LOW</strong>, which is what a transceiver's RX pin gives you and leaves the bus recessive/high when idle.</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iodesc"><code>hysteresis</code> as for <code>find_edges</code>.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"can"</code></span></div>
+<div class="ioitem"><code>frames</code> <span class="iotype">&mdash;</span><span class="iodesc">a list</span></div>
+<div class="ioitem"><code>ids</code> <span class="iotype">vector</span><span class="iodesc">a parallel vector</span></div>
+<div class="ioitem"><code>error_count</code> <span class="iotype">&mdash;</span><span class="iodesc">candidate frames abandoned on a stuff error</span></div>
+<div class="ioitem"><code>samples_per_bit</code> <span class="iotype">&mdash;</span><span class="iodesc">the resolved value, worth printing when a <code>bitrate=</code> is suspected wrong</span></div>
+<div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"can_frame"</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"can"</code>) with <code>frames</code> (a list), <code>ids</code> (a parallel vector), <code>count</code>, <code>error_count</code> (candidate frames abandoned on a stuff error) and <code>samples_per_bit</code> (the resolved value, worth printing when a <code>bitrate=</code> is suspected wrong). Each frame is a <code>Model</code> (kind <code>"can_frame"</code>) with <code>id</code>, <code>extended</code>, <code>rtr</code>, <code>dlc</code>, <code>byte_count</code>, <code>data</code>, <code>crc</code>, <code>crc_ok</code>, <code>crc_delim_ok</code>, <code>ack</code>, <code>ack_delim_ok</code>, <code>eof_ok</code>, <code>stuff_bits</code>, <code>start_index</code> and <code>start_time</code>. <code>dlc</code> is reported <strong>raw</strong> and <code>byte_count</code> separately, rather than silently reconciling the two: a remote-transmission-request frame states a DLC but carries no payload at all, and classical CAN caps the payload at 8 bytes while DLC values 9–15 are legal on the wire and still mean 8. <code>ack</code> is <code>true</code> when the ACK slot was driven <strong>dominant</strong>, i.e. some node on the bus acknowledged. The decoder resynchronizes on every recessive-to-dominant edge, the way a real CAN controller does — on an ideal capture this changes nothing, and on a drifting one it is what stops the sample point walking off the bit over a ~130-bit frame.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>decode_can(bus, [bitrate=], [samples_per_bit=], [polarity="normal"], [hysteresis=])</code> -- §8's CAN decoder, base (11-bit) and extended (29-bit) frame formats. One positional argument, unlike I2C: CAN is a single-wire bus as far as a digitized capture is concerned (the differential pair has already been resolved to a logic level by the transceiver, or by the scope's own threshold), and it carries no clock -- which is exactly why this one needs a <code>bitrate=</code> and I2C does not. LEVELS: CAN is defined on dominant/recessive, not high/low. Dominant is logical 0 and, on a transceiver's RX pin, LOW; recessive is logical 1, HIGH, and is the idle state. That is <code>polarity="normal"</code>. A capture taken off an inverting buffer -- or off CAN_L instead of CAN_H -- needs <code>polarity="inverted"</code>, and gets a clear error rather than a silent stream of nonsense frames if it is left unset, because with the polarity backwards the bus never looks idle and no SOF is ever found. FIELD ORDER, which is where base and extended diverge and the divergence is not knowable up front: both open with SOF and 11 identifier bits, then one bit (RTR for base, SRR for extended) and then IDE -- and it is IDE, the THIRTEENTH bit, that finally says which format has been arriving all along. Base then runs r0, DLC(4); extended runs 18 more identifier bits, RTR, r1, r0, DLC(4). Hence the read is strictly sequential and cannot be a fixed-offset slice.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

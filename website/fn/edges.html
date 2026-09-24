@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>edges — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>edges</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>edges(d, [hysteresis=0])</code></pre>
+<p class="fnnote">Input: d, hysteresis &middot; Output: no output</p>
+<h2>What it is</h2>
+<p><code>d</code>: a <code>Digital</code> value from <code>to_digital</code>. Same <code>hysteresis</code> as <code>find_edges</code>, same return shape (a <code>Model</code>, kind <code>"edges"</code>, with <code>indices</code>/<code>directions</code>/<code>positions</code>/<code>rising</code>/<code>falling</code>/<code>count</code>) — <code>d.edges()</code> is <code>find_edges(x, level=threshold)</code> with the threshold already remembered.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>edges(d, [hysteresis=0])</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>d</code>: a <code>Digital</code> value from <code>to_digital</code>.</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">Model, optional (default <code>0</code>)</span><span class="iodesc">Same <code>hysteresis</code> as <code>find_edges</code>, same return shape (a <code>Model</code>, kind <code>"edges"</code>, with <code>indices</code>/<code>directions</code>/<code>positions</code>/<code>rising</code>/<code>falling</code>/<code>count</code>) — <code>d.edges()</code> is <code>find_edges(x, level=threshold)</code> with the threshold already remembered.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>edges(d)</code>/<code>rising_edges(d)</code>/<code>falling_edges(d)</code> -- the <code>Digital</code> value's edge accessors. <code>edges</code> returns the same shape <code>find_edges</code> does (reusing <code>edge_set_to_model</code>); <code>rising_edges</code>/<code>falling_edges</code> return just the interpolated crossing positions of one polarity, in seconds for a <code>Signal</code> and samples otherwise (same convention <code>find_pulses</code>'s <code>widths</code> field already documents).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -41,8 +41,8 @@
 <tr><td class="iocode"><code>result = periodogram(x, fs, [window="hann"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: a length-N real vector.</span></div>
 <div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc"><code>fs</code> (number, Hz).</span></div>
 <div class="ioitem"><code>window</code> <span class="iotype">string, optional (default <code>"hann"</code>)</span><span class="iodesc"><code>window</code> (optional string).</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector</span></div>
-</td><td>Returns a length-<code>N/2 + 1</code> real vector, same scaling as <code>welch</code>. The simplest PSD estimate — <code>welch</code>'s one-segment (<code>nperseg=length(x)</code>, <code>noverlap=0</code>), no-averaging special case.</td></tr>
+</td><td><div class="ioitem"><code>welch</code> <span class="iotype">vector</span><span class="iodesc"><strong>changed in v0.2.4</strong> from a bare vector, back-compatibly — see <code>welch</code></span></div>
+</td><td>Returns a <strong></strong><code>spectrum</code><strong> of </strong><code>N/2 + 1</code> one-sided bins stamped <code>norm = "density"</code>, same scaling as <code>welch</code> (<strong>changed in v0.2.4</strong> from a bare vector, back-compatibly — see <code>welch</code>). The simplest PSD estimate — <code>welch</code>'s one-segment (<code>nperseg=length(x)</code>, <code>noverlap=0</code>), no-averaging special case.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

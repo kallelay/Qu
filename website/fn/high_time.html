@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>high_time — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>high_time</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>high_time(d, [hysteresis=0])</code></pre>
+<p class="fnnote">Input: d, hysteresis &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>d</code>: a <code>Digital</code> value.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = high_time(d, [hysteresis=0])</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>d</code>: a <code>Digital</code> value.</span></div>
+<div class="ioitem"><code>hysteresis</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>pulse_width</code> <span class="iotype">&mdash;</span><span class="iodesc">a mean, which errors with zero complete pulses</span></div>
+</td><td>Returns a single number: the <strong>sum</strong> of the widths of every complete pulse above (<code>high_time</code>) or below (<code>low_time</code>) the threshold, in seconds for a <code>Signal</code> and samples otherwise. Unlike <code>pulse_width</code> (a mean, which errors with zero complete pulses), this is a sum, so a record with no complete pulse of that polarity returns <code>0.0</code> rather than erroring — there is a defined answer ("no time observed"), it's just zero. Deliberately <strong>not</strong> <code>duty_cycle(d) * record_length</code>, which would assume a clean periodic waveform the input isn't obligated to have.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>high_time(d)</code>/<code>low_time(d)</code> -- total time the digitized signal spent above/below its threshold, in seconds for a <code>Signal</code> and samples otherwise. Summed from the actual complete pulses (<code>find_pulses</code>), not <code>duty_cycle(d) * record_length</code> -- that would assume a clean periodic waveform, which a real captured signal is not obligated to be. A record with zero complete pulses of the requested polarity reports 0.0 (genuinely no time observed spent that way, inside a complete pulse), not an error -- unlike <code>pulse_width</code>, which errors on the same input because a mean over zero pulses has no defined value, <code>high_time</code>/ <code>low_time</code> are a SUM, and the sum over zero pulses is 0.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<h2>See also</h2>
+<p><a href="low_time.html"><code>low_time</code></a> &mdash; documented in the same entry.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

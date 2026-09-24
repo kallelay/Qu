@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arima — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>arima</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>arima(x, [p=1], [d=0], [q=0])</code></pre>
+<p class="fnnote">Input: x, p, d, q &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Fits an ARIMA(<code>p</code>, <code>d</code>, <code>q</code>) model to a length-<code>N</code> numeric vector <code>x</code>: <code>d</code> (integer, default 0) rounds of differencing, then an ARMA fit with <code>p</code> (integer, default 1) autoregressive lags and <code>q</code> (integer, default 0) moving-average lags. Estimated by Hannan-Rissanen — a long pure-AR pass to recover usable shock estimates, then one linear least-squares solve on the lagged series and those shocks — <strong>not</strong> exact maximum likelihood, so coefficients differ slightly from R's <code>arima()</code> on short series.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = arima(x, [p=1], [d=0], [q=0])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>p</code> <span class="iotype">vector, optional (default <code>1</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>d</code> <span class="iotype">vector, optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>q</code> <span class="iotype">vector, optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>ar</code> <span class="iotype">&mdash;</span><span class="iodesc">length-<code>p</code></span></div>
+<div class="ioitem"><code>ma</code> <span class="iotype">&mdash;</span><span class="iodesc">length-<code>q</code></span></div>
+<div class="ioitem"><code>mu</code> <span class="iotype">&mdash;</span><span class="iodesc">the differenced series' mean</span></div>
+<div class="ioitem"><code>residuals</code> <span class="iotype">&mdash;</span><span class="iodesc">in the differenced series' space</span></div>
+</td><td>Returns a fitted model Record with fields <code>ar</code> (length-<code>p</code>), <code>ma</code> (length-<code>q</code>), <code>mu</code> (the differenced series' mean), <code>p</code>, <code>d</code>, <code>q</code>, <code>fitted</code> and <code>residuals</code> (in the differenced series' space), plus <code>history</code>, <code>shock_history</code> and <code>levels</code>, which seed forecasting. <code>arima(x, p=k, d=0, q=0)</code> models the same thing <code>ar_model(x, k)</code> does, by a different estimator. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>arima(x, [p=1], [d=0], [q=0])</code> — ARIMA on a length-N series <code>x</code>: <code>d</code> rounds of differencing, then an ARMA(<code>p</code>, <code>q</code>) fit by Hannan–Rissanen (see <code>arima_fit</code>, which says plainly that this is not exact maximum likelihood and why that is the right trade here). <code>.predict(n_ahead)</code> is a forecast HORIZON, not a regression <code>Xnew</code> — the same non-regression <code>predict</code> meaning <code>ar_model</code> already has, and forecasts come back in the ORIGINAL series' units with the differencing undone. <code>arima(x, p=k, d=0, q=0)</code> is deliberately the same model <code>ar_model(x, k)</code> fits; the difference is that this one can also difference and carry an MA part.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

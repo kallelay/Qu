@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pid_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pid_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>pid_init(Kp, Ki, Kd, dt, [integral_clamp=])</code></pre>
+<p class="fnnote">Input: Kp, Ki, Kd, dt, integral_clamp &middot; Output: result</p>
+<h2>What it is</h2>
+<p>A discrete PID controller's initial state. <code>Kp</code>/<code>Ki</code>/<code>Kd</code> (numbers): the proportional, integral and derivative gains; <code>dt</code> (number, positive): the fixed sample period; <code>integral_clamp</code> (optional number, positive): a symmetric anti-windup bound on the integral accumulator, uncapped when omitted.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pid_init(Kp, Ki, Kd, dt, [integral_clamp=])</code></td><td><div class="ioitem"><code>Kp</code> <span class="iotype">number</span><span class="iodesc"><code>Kp</code>/<code>Ki</code>/<code>Kd</code> (numbers): the proportional, integral and derivative gains.</span></div>
+<div class="ioitem"><code>Ki</code> <span class="iotype">number</span><span class="iodesc"><code>Kp</code>/<code>Ki</code>/<code>Kd</code> (numbers): the proportional, integral and derivative gains.</span></div>
+<div class="ioitem"><code>Kd</code> <span class="iotype">number</span><span class="iodesc"><code>Kp</code>/<code>Ki</code>/<code>Kd</code> (numbers): the proportional, integral and derivative gains.</span></div>
+<div class="ioitem"><code>dt</code> <span class="iotype">number</span><span class="iodesc"><code>dt</code> (number, positive): the fixed sample period.</span></div>
+<div class="ioitem"><code>integral_clamp</code> <span class="iotype">number, optional</span><span class="iodesc"><code>integral_clamp</code> (optional number, positive): a symmetric anti-windup bound on the integral accumulator, uncapped when omitted.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"pid"</code></span></div>
+<div class="ioitem"><code>integral</code> <span class="iotype">&mdash;</span><span class="iodesc">the running sum, 0</span></div>
+<div class="ioitem"><code>e_prev</code> <span class="iotype">&mdash;</span><span class="iodesc">the previous error, 0</span></div>
+<div class="ioitem"><code>u</code> <span class="iotype">&mdash;</span><span class="iodesc">the last output, 0</span></div>
+<div class="ioitem"><code>integral_clamp</code> <span class="iotype">&mdash;</span><span class="iodesc">the limit, or <code>Nothing</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"pid"</code>) with fields <code>kp</code>, <code>ki</code>, <code>kd</code>, <code>dt</code>, <code>integral</code> (the running sum, 0), <code>e_prev</code> (the previous error, 0), <code>u</code> (the last output, 0) and <code>integral_clamp</code> (the limit, or <code>Nothing</code>). State is immutable, the same convention <code>kalman_init</code>/<code>lms_init</code> use: thread the value returned by <code>.update(error)</code> through successive calls rather than mutating in place, so the whole control trajectory stays available. The gains are deliberately <strong>not</strong> range-checked — a negative gain is correct for a sign-inverted plant, and whether a triple is stable is a property of the plant, which <code>pid_init</code> has not seen. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>A discrete PID controller, on the SAME immutable <code>Value::Model</code> state handle as <code>kalman_init</code>/<code>lms_init</code> (kind <code>"pid"</code>) and reached through the SAME shared <code>"update"</code> arm — not a parallel mechanism. The reason is the one <code>lms_init</code> gives: a controller's whole diagnostic value is the trajectory of its integral term and its output, and an in-place update destroys exactly that history. <code>pid_init(Kp, Ki, Kd, dt, [integral_clamp=])</code> — gains, the fixed sample period <code>dt</code>, and an optional anti-windup limit. Fields: <code>kp</code>/<code>ki</code>/<code>kd</code>/<code>dt</code> (the configuration, echoed back so a state is self-describing), <code>integral</code> (the running sum <code>sum(e[i]*dt)</code>, 0), <code>e_prev</code> (the previous error, 0), <code>u</code> (the last output, 0) and <code>integral_clamp</code> (the limit, or <code>Nothing</code> when uncapped). <code>e_prev</code> starts at 0, so the first <code>.update(e)</code> sees a derivative of <code>e/dt</code>. That is the textbook definition of the recursion (<code>u[k] = Kp*e[k] + Ki*sum(e[i]*dt) + Kd*(e[k]-e[k-1])/dt</code> with <code>e[-1] = 0</code>) and is deliberate: a step applied at <code>k = 0</code> genuinely IS a step, and suppressing the first derivative kick would silently change the response the gains were tuned against. <code>dt</code> must be positive — it divides into the derivative term and multiplies into the integral one, so <code>dt = 0</code> is not a degenerate-but-usable case, it is a division by zero. The gains themselves are NOT range-checked: a negative gain is legitimate for a plant with inverted sign, and whether a given triple is stable is a property of the plant, which <code>pid_init</code> has not seen.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gaussian_process — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gaussian_process</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>gaussian_process(X, y, [kernel="rbf"], [length_scale=], [sigma_f=1], [noise=1e-8])</code></pre>
+<p class="fnnote">Input: X, y, kernel, length_scale, sigma_f, noise &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Gaussian-process regression on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>. Unlike <code>ols_model</code>/<code>ridge_model</code> it reports how much it does not know at each input, which is the reason to use it: <code>.predict(Xnew, variance=true)</code> returns an <code>(M, 2)</code> matrix, column 0 the posterior mean and column 1 the posterior <strong>variance</strong> — small near the training rows, rising toward <code>sigma_f^2</code> far from all of them — while plain <code>.predict(Xnew)</code> returns just the length-<code>M</code> mean vector so a GP still drops into <code>pipeline</code>/<code>score</code> like any other regressor. <code>kernel</code> (string) is <code>"rbf"</code> (default, squared exponential) or <code>"matern32"</code> (once differentiable, better for data that is continuous but not glass-smooth). <code>length_scale</code> (number) defaults to the median pairwise distance in <code>X</code>, which keeps it in the data's own units instead of assuming order-1 inputs; <code>sigma_f</code> (number, default 1) is the prior standard deviation; <code>noise</code> (number, default 1e-8) is the observation-noise/jitter added to the kernel diagonal — raise it for noisy measurements. <code>y</code> is centered on its own mean before fitting and the mean is added back on prediction, so the posterior reverts to the data's level far from it, not to zero. The training covariance is factored once with a Cholesky decomposition, so prediction costs two triangular solves.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = gaussian_process(X, y, [kernel="rbf"], [length_scale=], [sigma_f=1], [noise=1e-8])</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">matrix</span><span class="iodesc">Gaussian-process regression on an <code>N</code>-row, <code>D</code>-column matrix <code>X</code> and a length-<code>N</code> target <code>y</code>.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>y</code> is centered on its own mean before fitting and the mean is added back on prediction, so the posterior reverts to the data's level far from it, not to zero.</span></div>
+<div class="ioitem"><code>kernel</code> <span class="iotype">string, optional (default <code>"rbf"</code>)</span><span class="iodesc"><code>kernel</code> (string) is <code>"rbf"</code> (default, squared exponential) or <code>"matern32"</code> (once differentiable, better for data that is continuous but not glass-smooth).</span></div>
+<div class="ioitem"><code>length_scale</code> <span class="iotype">number, optional</span><span class="iodesc"><code>length_scale</code> (number) defaults to the median pairwise distance in <code>X</code>, which keeps it in the data's own units instead of assuming order-1 inputs.</span></div>
+<div class="ioitem"><code>sigma_f</code> <span class="iotype">number, optional (default <code>1</code>)</span><span class="iodesc"><code>sigma_f</code> (number, default 1) is the prior standard deviation.</span></div>
+<div class="ioitem"><code>noise</code> <span class="iotype">number, optional (default <code>1e-8</code>)</span><span class="iodesc"><code>noise</code> (number, default 1e-8) is the observation-noise/jitter added to the kernel diagonal — raise it for noisy measurements.</span></div>
+</td><td><div class="ioitem"><code>l</code> <span class="iotype">&mdash;</span><span class="iodesc">the Cholesky factor</span></div>
+<div class="ioitem"><code>noise</code> <span class="iotype">matrix</span><span class="iodesc">the level actually used, which may have been raised to keep the kernel matrix factorable</span></div>
+</td><td>Returns a fitted model Record with fields <code>x</code>, <code>y</code>, <code>l</code> (the Cholesky factor), <code>alpha</code>, <code>y_mean</code>, <code>kernel</code>, <code>length_scale</code>, <code>sigma_f</code>, <code>noise</code> (the level actually used, which may have been raised to keep the kernel matrix factorable), <code>log_marginal_likelihood</code>, <code>fitted</code>, <code>fitted_variance</code> and <code>n_features</code>. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

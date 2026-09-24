@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>algorigram — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>algorigram</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
+<pre class="fnsig">result = <code>algorigram(name, [file=])</code></pre>
+<p class="fnnote">Input: name, file &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Renders a flowchart of the named function's control flow: <code>if</code>/<code>else</code> as a decision diamond with <code>yes</code>/<code>no</code> branches that rejoin, <code>while</code>/<code>for</code>/<code>do...loop</code> as a decision with a routed "repeat" back-edge, <code>select case</code> and <code>try</code>/<code>catch</code> as their own multi-way/two-way branches. <code>name</code> (string) must resolve to exactly one overload (§ multiple dispatch) — an overloaded function raises a clear error asking for a single-overload name instead.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = algorigram(name, [file=])</code></td><td><div class="ioitem"><code>name</code> <span class="iotype">string</span><span class="iodesc"><code>name</code> (string) must resolve to exactly one overload (§ multiple dispatch) — an overloaded function raises a clear error asking for a single-overload name instead.</span></div>
+<div class="ioitem"><code>file</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
+</td><td>Returns the SVG (string).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">classify</span>(x)
+  <span class="k">if</span> x &gt; <span class="n">0</span>
+    y = <span class="n">1</span>
+  <span class="k">else</span>
+    y = -<span class="n">1</span>
+  <span class="k">end</span> <span class="k">if</span>
+  <span class="k">return</span> y
+<span class="k">end</span> <span class="k">function</span>
+svg = <span class="f">algorigram</span>(<span class="s">"classify"</span>)
+data = <span class="n">0</span> <span class="k">to</span> <span class="n">99</span>
+<span class="f">print</span>(<span class="f">diagram_pipeline</span>(() := data |&gt; <span class="f">lowpass</span>(<span class="a">fc</span>=<span class="n">1000</span>) |&gt; <span class="f">fft</span>() |&gt; <span class="f">abs</span>()))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 830.00 124.00" width="830.00" height="124.00" font-family="Inter, Helvetica, Arial, sans-serif"&gt;
+&lt;rect x="0" y="0" width="830.00" height="124.00" fill="#ffffff"/&gt;
+&lt;line x1="191.00" y1="62.00" x2="233.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="239.00,62.00 230.00,65.60 230.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;line x1="391.00" y1="62.00" x2="433.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="439.00,62.00 430.00,65.60 430.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;line x1="591.00" y1="62.00" x2="633.60" y2="62.00" stroke="#333333" stroke-width="1.4"/&gt;
+&lt;polygon points="639.00,62.00 630.00,65.60 630.00,58.40" fill="#333333" stroke="none" stroke-width="1.00" opacity="1"/&gt;
+&lt;rect x="40.00" y="40.00" width="150.00" height="44.00" rx="22" fill="#e6f4ea" stroke="#333333" opacity="1"/&gt;
+&lt;text x="115.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;data&lt;/text&gt;
+&lt;rect x="240.00" y="40.00" width="150.00" height="44.00" rx="6" fill="#eef3fb" stroke="#333333" opacity="1"/&gt;
+&lt;text x="315.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;lowpass(fc=1000)&lt;/text&gt;
+&lt;rect x="440.00" y="40.00" width="150.00" height="44.00" rx="6" fill="#eef3fb" stroke="#333333" opacity="1"/&gt;
+&lt;text x="515.00" y="66.55" font-size="13" text-anchor="middle" fill="#333333"&gt;fft()&lt;/text&gt;
+    ... 3 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<h2>How it works</h2>
+<p><code>algorigram(name, [file=])</code> (2026-09-18) — a flowchart of a user function's control flow (<code>if</code>/<code>else</code>, <code>while</code>/<code>for</code>, <code>select case</code>, <code>try</code>/<code>catch</code>), walked from its own AST. See just argument handling -- the by-name lookup below reuses the same <code>self.methods</code> overload table every other by-name builtin (<code>fzero</code>, <code>map</code>, ...) reads through <code>text_arg</code>, so <code>algorigram</code> accepts a function's name the same way they do.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

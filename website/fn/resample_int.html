@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>resample_int — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>resample_int</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>resample_int(x, L, M, [order=60], [fs=])</code></pre>
+<p class="fnnote">Input: x, L, M, order, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N vector or <code>Signal</code>; <code>L</code>, <code>M</code>: whole numbers ≥ 1, the interpolation and decimation factors; <code>order</code> (optional, even, default 60); <code>fs</code> (optional), as for <code>upsample</code>. Rational rate change by <code>L/M</code> in a single pass: zero-stuff by <code>L</code>, filter <strong>once</strong>, decimate by <code>M</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = resample_int(x, L, M, [order=60], [fs=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>L</code> <span class="iotype">number</span><span class="iodesc"><code>L</code>, <code>M</code>: whole numbers ≥ 1, the interpolation and decimation factors.</span></div>
+<div class="ioitem"><code>M</code> <span class="iotype">number</span><span class="iodesc"><code>L</code>, <code>M</code>: whole numbers ≥ 1, the interpolation and decimation factors.</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">optional (default <code>60</code>)</span><span class="iodesc"><code>order</code> (optional, even, default 60).</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">optional</span><span class="iodesc"><code>fs</code> (optional), as for <code>upsample</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns <code>ceil(N*L/M)</code> samples at <code>Fs = fs*L/M</code>. Prefer this to <code>x.upsample(L).downsample(M)</code>: that runs two filters in series at the same intermediate rate, doubling both the transition-band loss and the group delay for no benefit. The single shared filter's cutoff is <code>min(fs/2, fs*L/(2*M))</code> — the interpolation limit when <code>L &gt;= M</code>, the anti-alias limit when <code>M &gt; L</code> — with gain <code>L</code>. Causal, so the output is <strong>delayed by </strong><code>order/2</code> samples at the intermediate rate <code>fs*L</code><strong> (</strong><code>order/(2*fs*L)</code> seconds), half what the two-step form costs. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>resample_int(x, L, M, [order=], [fs=])</code> — rational rate change by <code>L/M</code> in one pass: zero-stuff by <code>L</code>, filter ONCE, decimate by <code>M</code>. Output rate is <code>fs*L/M</code>. The single shared filter is the point. Calling <code>upsample</code> then <code>downsample</code> runs two filters in series, doubling the transition-band loss and the group delay for no benefit — both filters run at the same intermediate rate <code>fs*L</code>, and two cascaded lowpasses there are just a worse version of one lowpass at the tighter of the two cutoffs. So the cutoff here is <code>min(fs/2, fs*L/(2*M))</code>: the interpolation cutoff when upsampling dominates (<code>L &gt;= M</code>), the anti-alias cutoff when decimating does (<code>M &gt; L</code>). Gain <code>L</code>, same reason as <code>upsample</code>. Group delay: <code>order/2</code> samples at the intermediate rate <code>fs*L</code>, i.e. <code>order/(2*fs*L)</code> seconds — HALF what <code>x.upsample(L).downsample(M)</code> costs, and the reason to prefer this when both factors apply.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

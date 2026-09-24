@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fuzzy_pid_init — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fuzzy_pid_init</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt)</code></pre>
+<p class="fnnote">Input: error_scale, error_dot_scale, output_scale, dt &middot; Output: result</p>
+<h2>What it is</h2>
+<p>A Mamdani fuzzy PD-type controller's initial state — the classic 2-input (<code>error</code>, <code>error_dot</code>), 1-output textbook fuzzy inference system. All four arguments are positive numbers: <code>error_scale</code> and <code>error_dot_scale</code> are the magnitudes that count as "fully big" (inputs are normalised as <code>clamp(error/error_scale, -1, 1)</code> onto the <code>-1..1</code> universe the rule base lives on, so these saturate the controller rather than merely detuning it); <code>output_scale</code> multiplies the defuzzified result; <code>dt</code> is the timestep for the internal <code>error_dot</code> estimate.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt)</code></td><td><div class="ioitem"><code>error_scale</code> <span class="iotype">number</span><span class="iodesc">All four arguments are positive numbers: <code>error_scale</code> and <code>error_dot_scale</code> are the magnitudes that count as "fully big" (inputs are normalised as <code>clamp(error/error_scale, -1, 1)</code> onto the <code>-1..1</code> universe the rule base lives on, so these saturate the controller rather than merely detuning it).</span></div>
+<div class="ioitem"><code>error_dot_scale</code> <span class="iotype">number</span><span class="iodesc">All four arguments are positive numbers: <code>error_scale</code> and <code>error_dot_scale</code> are the magnitudes that count as "fully big" (inputs are normalised as <code>clamp(error/error_scale, -1, 1)</code> onto the <code>-1..1</code> universe the rule base lives on, so these saturate the controller rather than merely detuning it).</span></div>
+<div class="ioitem"><code>output_scale</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>output_scale</code> multiplies the defuzzified result.</span></div>
+<div class="ioitem"><code>dt</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>dt</code> is the timestep for the internal <code>error_dot</code> estimate.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"fuzzy_pid"</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"fuzzy_pid"</code>) with fields <code>error_scale</code>, <code>error_dot_scale</code>, <code>output_scale</code>, <code>dt</code>, <code>e</code>, <code>e_dot</code>, <code>u</code> and <code>n</code>. <strong>Membership functions:</strong> 5 triangles per input (NB, NS, ZE, PS, PB) centred at -1, -0.5, 0, 0.5, 1 with half-width 0.5, so adjacent pairs overlap and memberships sum to 1 everywhere. <strong>Rule base:</strong> the fixed, diagonal-symmetric 5x5 table standard to every fuzzy-PID text; the caller does not supply 25 rules. Its anti-diagonal is all ZE — a large negative error with a large positive error-rate is already being corrected, which is the derivative action. <strong>Defuzzification:</strong> true centre-of-gravity — each rule's output triangle is clipped at that rule's firing strength (min-implication), the results aggregated by max, and the centroid integrated numerically. Note the consequence, which is a property of COG rather than a defect: a fully saturated input reaches <code>5/6 = 0.8333...</code> of <code>output_scale</code>, not all of it. Having no integral term, this controller settles with a small proportional offset. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>A Mamdani fuzzy PD-type controller — the classic textbook 2-input (<code>error</code>, <code>error_dot</code>) 1-output (<code>u</code>) fuzzy inference system, same immutable-state convention as the rest of this family. <code>fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt)</code>. SCALING — the rule base and the membership functions live on a NORMALISED universe <code>-1..1</code>; the three scale factors are what map a real-world plant onto it. <code>error</code> is normalised as <code>clamp(error/error_scale, -1, 1)</code> (likewise <code>error_dot</code>), and the defuzzified result is multiplied by <code>output_scale</code>. So <code>error_scale</code> is "the error magnitude that counts as fully big", not a gain — getting it wrong saturates the controller rather than merely detuning it. MEMBERSHIP FUNCTIONS — 5 triangles per input (NB, NS, ZE, PS, PB) centred at -1, -0.5, 0, 0.5, 1 with half-width 0.5, so adjacent pairs overlap and the memberships sum to 1 everywhere. Same 5 on the output universe. RULE BASE — the fixed, diagonal-symmetric 5x5 table every fuzzy-PID text prints (written out literally in <code>FUZZY_RULES</code> rather than computed from the indices, so it can be read against the book). The caller does not supply 25 rules; a standard rule base is the whole point of the v1. DEFUZZIFICATION — true centre-of-gravity: each rule's output triangle is CLIPPED at that rule's firing strength (Mamdani min-implication), the 25 clipped sets are aggregated by max, and the centroid of that aggregate is taken numerically. Note the consequence, which is a property of COG and not a bug: even a fully-saturated input reaches only <code>5/6 = 0.8333...</code> of <code>output_scale</code>, because that is where the centroid of the saturated PB triangle sits, not at 1.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

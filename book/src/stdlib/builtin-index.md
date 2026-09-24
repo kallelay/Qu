@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1083 builtins, 995 described.** The rest are
+**1093 builtins, 1005 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -31,6 +31,7 @@ program, and a misspelled call suggests the nearest match.
 | [`adam`](../fn/adam.html) | The Adam family of per-parameter adaptive-learning-rate optimizers, given `params` (a Tensor to optimize) and a learning rate `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
 | [`adamax`](../fn/adamax.html) | The Adam family of per-parameter adaptive-learning-rate optimizers, given `params` (a Tensor to optimize) and a learning rate `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
 | [`adamw`](../fn/adamw.html) | The Adam family of per-parameter adaptive-learning-rate optimizers, given `params` (a Tensor to optimize) and a learning rate `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
+| [`adaptive_threshold`](../fn/adaptive_threshold.html) | Locally adaptive, unlike `threshold`/`otsu` above: each pixel's own threshold is `mean(neighborhood) - offset`, where the neighborhood mean is a uniform box average (`method="mean"`) or a.. | [Images](images.md) |
 | [`adc`](../fn/adc.html) | Quantises `x` (a length-N number vector) the way a converter does — with a reference range, not just a step size, so a signal outside `[vmin, vmax]` clips instead of being quantised as if.. | [Noise](noise.md) |
 | [`add`](../fn/add.html) | The operators as named functions, so an operation can be passed where a name is what you can pass | [Core maths](core-math.md) |
 | [`add_edge`](../fn/add_edge.html) | Nodes are named; an edge carries an optional weight, defaulting to 1 | [Collections & strings](collections-strings.md) |
@@ -143,6 +144,7 @@ program, and a misspelled call suggests the nearest match.
 | [`chars`](../fn/chars.html) | Returns a `List` of one-character `Str`s | [Collections & strings](collections-strings.md) |
 | [`cheby1`](../fn/cheby1.html) | Returns a `Model` (kind `"filter"`, field `sos`) | [Signal processing](signal-processing.md) |
 | [`cheby2`](../fn/cheby2.html) | Returns a `Model` (kind `"filter"`, field `sos`) | [Signal processing](signal-processing.md) |
+| [`check_grads`](../fn/check_grads.html) | Verifies the analytic reverse-mode gradient of scalar-valued `f` at `x` against central finite differences of `f` itself — an independent route to the same number, which is the point: a.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`chi2cdf`](../fn/chi2cdf.html) | Chi-square cumulative distribution `P(X <= x)` at `x` (a number or vector, elementwise) with `k` degrees of freedom | [Statistics & ML](statistics-ml.md) |
 | [`chi2pdf`](../fn/chi2pdf.html) | Chi-square probability density at `x` (a number or vector, elementwise) with `k` degrees of freedom (a positive number), computed in log space so it survives modest `k` without overflowing | [Statistics & ML](statistics-ml.md) |
 | [`chirp`](../fn/chirp.html) | Identical to `sweep` above — same four positional arguments (start frequency, end frequency, sample rate, sample count) and the same `method=` (string, `"linear"` default or.. | [Plotting](plotting.md) |
@@ -151,6 +153,8 @@ program, and a misspelled call suggests the nearest match.
 | [`chr`](../fn/chr.html) | Returns a one-character `Str` from `chr`, and a `number` — the code point — from `ord` | [Collections & strings](collections-strings.md) |
 | [`circle`](../fn/circle.html) | Draws a circle centered at `(cx, cy)` (numbers, data units) with radius `r` (number, data units) | [Plotting](plotting.md) |
 | [`circuit`](../fn/circuit.html) | Builds a circuit from a spec string and a flat parameter vector | [Signal processing](signal-processing.md) |
+| [`circuit_fit`](../fn/circuit_fit.html) | Nonlinear least-squares fit of a circuit's parameters to measured impedance | [Signal processing](signal-processing.md) |
+| [`clahe`](../fn/clahe.html) | Contrast-Limited Adaptive Histogram Equalization: `imequalize`'s tile-based local counterpart, with a clipped per-tile histogram (clip threshold `clip_limit * tile_pixel_count / 256`) and —.. | [Images](images.md) |
 | [`clamp`](../fn/clamp.html) | Elementwise clamp of `x` (a scalar, `Vec`, or `Mat`/`Signal`) into `[lo, hi]` | [Core maths](core-math.md) |
 | [`clip`](../fn/clip.html) | Elementwise clamp of `x` (a scalar, `Vec`, or `Mat`/`Signal`) into `[lo, hi]` | [Core maths](core-math.md) |
 | [`close`](../fn/close.html) | Flushes and releases a file handle | [File I/O](file-io.md) |
@@ -398,6 +402,7 @@ program, and a misspelled call suggests the nearest match.
 | [`head`](../fn/head.html) | Returns the first (`head`) or last (`tail`) `n` elements/rows, same type as `s` | [Collections & strings](collections-strings.md) |
 | [`heatmap`](../fn/heatmap.html) | Grid of colored cells: `matrix` is a Mat, each cell coloured by its own value scaled to the matrix's own min/max | [Plotting](plotting.md) |
 | [`help`](../fn/help.html) | Prints what is known about that name directly to the console and returns `none` — that it exists, near matches when it does not (e.g. `help("not_a_real_fn")` suggests close spellings), and.. | [REPL & diagnostics](repl-diagnostics.md) |
+| [`hessian`](../fn/hessian.html) | Takes a scalar-valued function `f` and a point `x`, and returns the `n x n` matrix of second derivatives, symmetrized | [REPL & diagnostics](repl-diagnostics.md) |
 | [`hex2dec`](../fn/hex2dec.html) | Reads a hexadecimal digit string as a number | [Collections & strings](collections-strings.md) |
 | [`hexbin`](../fn/hexbin.html) | The plane tiled with hexagons, each shaded by how many points fell in it — for the case a scatter cannot do, where past a few thousand marks the picture saturates into a blob | [Plotting](plotting.md) |
 | [`high_time`](../fn/high_time.html) | Returns a single number: the sum of the widths of every complete pulse above (`high_time`) or below (`low_time`) the threshold, in seconds for a `Signal` and samples otherwise | [Signal processing](signal-processing.md) |
@@ -479,6 +484,7 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`jacobian`](../fn/jacobian.html) | Takes a function `f` and a point `x` (number, vector, or matrix), and returns the full Jacobian matrix of `f` at `x` as an `m x n` matrix, where `J[i][j]` is the derivative of output.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`join`](../fn/join.html) | Two unrelated forms selected by the argument's type | [Concurrency](concurrency.md) |
 | [`js_exec`](../fn/js_exec.html) | Runs `code` (string, source in the guest language) as a subprocess | [File I/O](file-io.md) |
 | [`json2csv`](../fn/json2csv.html) | `str` (string, JSON text) is converted to CSV text: exactly `csvify(parse_json(str))`. Returns a string | [File I/O](file-io.md) |
@@ -857,6 +863,7 @@ program, and a misspelled call suggests the nearest match.
 |---|---|---|
 | [`sandbox_mode`](../fn/sandbox_mode.html) | Refuses file and network access for the rest of the session and returns `none` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`sarsa`](../fn/sarsa.html) | Tabular temporal-difference learning on a `gridworld_env` `env` for an integer number of `episodes`, with learning rate `alpha`, discount factor `gamma`, and epsilon-greedy exploration rate.. | [Statistics & ML](statistics-ml.md) |
+| [`sauvola_threshold`](../fn/sauvola_threshold.html) | Sauvola's local threshold, `T = mean * (1 + k * (stddev/r - 1))` computed per pixel over `window_size`, purpose-built for document/text images whose illumination drifts across the frame — a.. | [Images](images.md) |
 | [`save`](../fn/save.html) | Writes the named variables — `path` (string, destination file) plus one or more variable names (strings) given explicitly as extra arguments — to a JSON file, each tagged with its own type | [File I/O](file-io.md) |
 | [`save_all`](../fn/save_all.html) | Saves literally every current binding — every user variable plus Qu's own built-in constants (`pi`, `e`, `tau`, `none`, the `Qu*` escape-character constants, ...) — to `path` (string) | [File I/O](file-io.md) |
 | [`save_image`](../fn/save_image.html) | Encodes `img` and writes it to `path`, dispatching on the path's own extension: `.png` writes a real (if uncompressed) PNG; `.jpg`/`.jpeg` writes a baseline JPEG; `.tif`/`.tiff` writes an.. | [Images](images.md) |
@@ -967,6 +974,7 @@ program, and a misspelled call suggests the nearest match.
 | [`svr_model`](../fn/svr_model.html) | Support-vector regression on an `N`-row, `D`-column `X` and a length-`N` numeric target `y` | [Statistics & ML](statistics-ml.md) |
 | [`swap`](../fn/swap.html) | `swap` atomically exchanges front and back (returns `Nothing`); `read` returns the stable front value | [Collections & strings](collections-strings.md) |
 | [`sweep`](../fn/sweep.html) | Generates a linear (or, with `method="logarithmic"`, log) frequency sweep from `f0` to `f1` (numbers, Hz) sampled at rate `fs` (number, Hz) for `n` (integer) samples | [Plotting](plotting.md) |
+| [`sysid`](../fn/sysid.html) | Model selection: fits a ladder of standard topologies and picks one by an information criterion | [Signal processing](signal-processing.md) |
 | [`sysinfo`](../fn/sysinfo.html) | Returns a `Record` describing this machine: `.os`/`.arch`/`.hostname`/`.cpu`/`.qu_version`/`.build` (strings), `.logical_cores` (integer), `.physical_cores` and `.total_memory` (number, or.. | [Concurrency](concurrency.md) |
 
 ## T
@@ -1053,6 +1061,7 @@ program, and a misspelled call suggests the nearest match.
 | | | |
 |---|---|---|
 | [`val`](../fn/val.html) | Materializes a value; currently the identity on any `x` (`:=` is already eager pre-M4) but will force evaluation of a deferred binding once M4 lazy fusion lands | [Core maths](core-math.md) |
+| [`value_and_grad`](../fn/value_and_grad.html) | Takes a function `f` and a point `x`, and returns a two-element list `[f(x), grad_f(x)]` from a single forward pass, with the gradient shaped like `x` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`values`](../fn/values.html) | Returns a `List`: its keys (`keys`), its values (`values`), or `(key, value)` tuples (`items`) — insertion order, not sorted | [Collections & strings](collections-strings.md) |
 | [`vanicek`](../fn/vanicek.html) | Returns a length-M real vector, the power spectrum at each requested frequency — Vanicek's Least-Squares Spectral Analysis, valid for unevenly-sampled `(t, x)` where `fft`/`dft`/`goertzel`.. | [Signal processing](signal-processing.md) |
 | [`var`](../fn/var.html) | Sample variance, same N-1 (unbiased) denominator as `std`, so `var(x) == std(x)^2` always holds | [Core maths](core-math.md) |
@@ -1060,6 +1069,7 @@ program, and a misspelled call suggests the nearest match.
 | [`violin`](../fn/violin.html) | The same Gaussian KDE and Tukey summary as `raincloud`, arranged the other way: the density is MIRRORED about the category into the closed symmetric shape, with the box inside it and the.. | [Plotting](plotting.md) |
 | [`viterbi`](../fn/viterbi.html) | Runs the Viterbi algorithm on an `hmm` model `hmm` for a length-`T` integer observation sequence `obs` (same encoding as `forward`) | [Statistics & ML](statistics-ml.md) |
 | [`vline`](../fn/vline.html) | Draws a vertical reference line spanning the whole panel at `x` (number, data units) | [Plotting](plotting.md) |
+| [`vmap`](../fn/vmap.html) | Applies `f` across the leading batch axis of `xs` — rows of a matrix, elements of a vector, items of a list — and stacks the results: a vector when every result is a scalar, a matrix (one.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`vmd`](../fn/vmd.html) | Variational Mode Decomposition: decomposes `x` into exactly `k` band-limited modes by minimizing each mode's bandwidth around its own center frequency, solved by ADMM (not sifting, unlike.. | [Signal processing](signal-processing.md) |
 | [`voronoi`](../fn/voronoi.html) | Computes the Voronoi diagram of an `(N, 2)` point matrix `points`, built on a real Delaunay triangulation | [Statistics & ML](statistics-ml.md) |
 | [`vstack`](../fn/vstack.html) | Named equivalents of bracket-literal block concatenation (`[a, b]` horizontally / `[a; b]` vertically) | [Core maths](core-math.md) |
@@ -1166,7 +1176,7 @@ leaves the qualified one available too.
 | [`pdf.write_pages`](../fn/pdf.write_pages.html) | Exactly `pdf.extract_pages`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`image.load`](../fn/image.load.html) | not described in a chapter yet | |
 | [`image.luma`](../fn/image.luma.html) | not described in a chapter yet | |
-| [`image.regions`](../fn/image.regions.html) | not described in a chapter yet | |
+| [`image.regions`](../fn/image.regions.html) | Returns a `Table`, one row per non-empty label, ordered by label id — the `regionprops`-shaped measurement but as columns rather than a `List` of `Record`s, so a measurement can be.. | [Images](images.md) |
 | [`image.blur`](../fn/image.blur.html) | not described in a chapter yet | |
 | [`image.canny`](../fn/image.canny.html) | not described in a chapter yet | |
 | [`image.bilateral`](../fn/image.bilateral.html) | not described in a chapter yet | |
@@ -1175,6 +1185,14 @@ leaves the qualified one available too.
 | [`image.fill_holes`](../fn/image.fill_holes.html) | not described in a chapter yet | |
 | [`image.contours`](../fn/image.contours.html) | not described in a chapter yet | |
 | [`image.autocrop`](../fn/image.autocrop.html) | not described in a chapter yet | |
+| [`image.sobel`](../fn/image.sobel.html) | Computes the 3x3 Sobel gradient over `img`'s BT.601 luma (replicate/clamped border) | [Images](images.md) |
+| [`image.scharr`](../fn/image.scharr.html) | Same signature, same `direction=` convention, and the same border/luma handling as `image.sobel`, but with the Scharr 3x3 kernel (`[-3,0,3; -10,0,10; -3,0,3]`, transposed for the.. | [Images](images.md) |
+| [`image.laplacian`](../fn/image.laplacian.html) | Any other `kernel_size` is refused by name | [Images](images.md) |
+| [`image.gradient_magnitude`](../fn/image.gradient_magnitude.html) | Gradient magnitude `sqrt(gx^2 + gy^2)` from the Sobel gradient over `img`'s BT.601 luma — the same value `image.sobel(img)`/`image.sobel(img, direction="both")` returns, under its own more.. | [Images](images.md) |
+| [`image.rgb2hsv`](../fn/image.rgb2hsv.html) | Per-pixel RGB→HSV conversion (the whole-`Image` counterpart to the scalar `to_hsv`), reusing the exact same conversion the scalar builtin uses | [Images](images.md) |
+| [`image.hsv2rgb`](../fn/image.hsv2rgb.html) | Converts back to 8-bit RGB, rounding and clamping each channel to `0..255` | [Images](images.md) |
+| [`image.rgb2lab`](../fn/image.rgb2lab.html) | Per-pixel sRGB→CIE L\*a\*b\* conversion (D65 white point), the whole-`Image` counterpart to the scalar `to_lab`, reusing its exact conversion math | [Images](images.md) |
+| [`image.lab2rgb`](../fn/image.lab2rgb.html) | Converts back to 8-bit sRGB, clamped into gamut | [Images](images.md) |
 | [`svg.rect`](../fn/svg.rect.html) | An axis-aligned rectangle with its top-left corner at (`x`, `y`) | [Images](images.md) |
 | [`svg.circle`](../fn/svg.circle.html) | A circle of radius `r` centred on (`cx`, `cy`); `r` must be 0 or more | [Images](images.md) |
 | [`svg.line`](../fn/svg.line.html) | A straight segment from (`x1`, `y1`) to (`x2`, `y2`) | [Images](images.md) |

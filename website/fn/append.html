@@ -69,6 +69,24 @@ label = <span class="f">estimate_complexity</span>(sizes, times)   <span class="
 <span class="f">print</span>(<span class="s">"estimated complexity label = {label}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
+<div class="example hasout"><pre class="hl"><code>lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">80</span>, <span class="n">1000</span>)
+
+<span class="k">function</span> <span class="f">lp_block</span>(b, st)
+    s   = st
+    out = ()
+    <span class="k">for</span> v <span class="k">in</span> b
+        s   = <span class="f">filter_next</span>(s, v)
+        out = <span class="f">append</span>(out, s.y)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> (out, s)
+<span class="k">end</span> <span class="k">function</span>
+
+p = <span class="f">processor</span>(<span class="s">"lp_block"</span>, <span class="a">block</span> = <span class="n">256</span>, <span class="a">state</span> = <span class="f">filter_init</span>(lp), <span class="a">rate</span> = <span class="n">1000</span>)
+y = <span class="f">process</span>(p, x)          <span class="c"># or: p.process(x)</span>
+
+<span class="f">print</span>(<span class="s">"{p.latency} samples, {p.latency_ms} ms"</span>)   <span class="c"># 256 samples, 256 ms</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>256 samples, 256 ms</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>append(collection, value)</code> — returns a NEW list/vector with <code>value</code> added at the end; the natural companion to <code>insert</code>/<code>remove</code>, same immutable-return convention.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>processor — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>processor</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>processor(f, [block=256], [state=], [rate=])</code></pre>
+<p class="fnnote">Input: f, block, state, rate &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>f</code>: a function (a value or the name of a user function) called once per block; <code>block</code>: block length in samples, positional or named, default 256; <code>state</code>: the initial state — <strong>passing it is what makes the processor stateful</strong>; <code>rate</code>: the design sample rate, a number or a frequency (<code>48 kHz</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = processor(f, [block=256], [state=], [rate=])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>f</code>: a function (a value or the name of a user function) called once per block.</span></div>
+<div class="ioitem"><code>block</code> <span class="iotype">optional (default <code>256</code>)</span><span class="iodesc"><code>block</code>: block length in samples, positional or named, default 256.</span></div>
+<div class="ioitem"><code>state</code> <span class="iotype">optional</span><span class="iodesc"><code>state</code>: the initial state — <strong>passing it is what makes the processor stateful</strong>.</span></div>
+<div class="ioitem"><code>rate</code> <span class="iotype">number, optional</span><span class="iodesc"><code>rate</code>: the design sample rate, a number or a frequency (<code>48 kHz</code>).</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"processor"</code></span></div>
+<div class="ioitem"><code>latency</code> <span class="iotype">&mdash;</span><span class="iodesc">samples</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"processor"</code>) with fields <code>fn</code>, <code>block</code>, <code>latency</code> (samples), <code>stateful</code>, plus <code>state</code> when stateful and <code>rate</code>/<code>latency_ms</code> when a rate was given. Run it over a whole signal with <code>process</code>. Added in v0.2.4.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">80</span>, <span class="n">1000</span>)
+
+<span class="k">function</span> <span class="f">lp_block</span>(b, st)
+    s   = st
+    out = ()
+    <span class="k">for</span> v <span class="k">in</span> b
+        s   = <span class="f">filter_next</span>(s, v)
+        out = <span class="f">append</span>(out, s.y)
+    <span class="k">end</span> <span class="k">for</span>
+    <span class="k">return</span> (out, s)
+<span class="k">end</span> <span class="k">function</span>
+
+p = <span class="f">processor</span>(<span class="s">"lp_block"</span>, <span class="a">block</span> = <span class="n">256</span>, <span class="a">state</span> = <span class="f">filter_init</span>(lp), <span class="a">rate</span> = <span class="n">1000</span>)
+y = <span class="f">process</span>(p, x)          <span class="c"># or: p.process(x)</span>
+
+<span class="f">print</span>(<span class="s">"{p.latency} samples, {p.latency_ms} ms"</span>)   <span class="c"># 256 samples, 256 ms</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>256 samples, 256 ms</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>processor(f, [block=256], [state=], [rate=])</code> — the STATEFUL sibling of <code>block_process</code>, and the offline half of <code>toolkit-signal.md</code> §5. <code>block_process</code>'s own comment above names the exact gap this fills: it threads NOTHING between block calls, so an algorithm needing history across a boundary (an IIR's biquad state, overlap-add, a running accumulator) restarts at every block and shows block-edge artifacts. Probed 2026-09-18: a running sum over <code>[1..8]</code> at <code>block=4</code> comes back <code>[1,3,6,10, 5,11,18,26]</code> — the accumulator visibly resets at sample 4. THE STATE PROTOCOL, AND WHY THIS ONE. <code>block_process</code>'s comment correctly says a block-level state protocol should not be invented unilaterally on the way past. It is not invented here: it is the SAME "thread a new state through each call" idiom <code>filter_init</code>/<code>filter_next</code> and <code>kalman_predict</code>/<code>kalman_update</code> already use, lifted from a sample to a block. <code>f(block, state)</code> returns the two-element list <code>(y, next_state)</code>; <code>processor</code> seeds the first <code>state</code> and carries each returned one into the next block. Qu has no mutation-of-shared-state primitive, by design, so explicit threading is the only shape available anyway. Stateful is opted into by PASSING <code>state=</code>, not by introspecting <code>f</code>'s arity. Arity would have to cope with overloads and would silently pick the wrong protocol when it guessed wrong; a declared <code>state=</code> says what the caller meant, and its absence means the stateless <code>f(block)</code> shape that <code>block_process</code> already has. WHY NOT THE SPEC'S <code>proc = processor(block: 256) { |x| ... }</code> <code>y = proc(s)</code>. Both halves were probed against this binary on 2026-09-18 and neither parses or runs. <code>{ |x| ... }</code> is a parse error ("expected end of statement, found Op(<code>{</code>)") — <code>|</code> is explicitly rejected as a Qu operator and <code>{</code> in expression position is a record literal. And <code>proc(s)</code> calls a value that is not a function, which lands in "unknown function <code>proc</code>". Both would need the open "does Qu grow general object dispatch?" question settled, which is Ahmed's call. So <code>f</code> arrives the way every other higher-order builtin takes it (a name or a function value, via <code>text_arg</code>, which means all three real lambda spellings work), and the handle is applied with <code>process(p, s)</code> / <code>p.process(s)</code>.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

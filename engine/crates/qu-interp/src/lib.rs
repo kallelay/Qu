@@ -3959,7 +3959,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
     ("pdf", &["extract_pages", "extract_text", "info", "merge", "page_count", "write_merge", "write_pages"]),
-    ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop"]),
+    ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
 
@@ -14208,8 +14208,31 @@ impl Interp {
             }
             let pixel_size = style_num(style, "pixel_size");
             let unit = style_str(style, "unit");
-            let rt = qu_image::regions(&flat, h, w, count, pixel_size, unit.as_deref())
-                .map_err(|msg| EvalError { msg })?;
+            // `intensity_image=` is optional and additive: an existing
+            // `regions(labeled)` call with no such keyword is unaffected,
+            // and `intensity_mean` only appears in the result when this is
+            // given (mirrors how `pixel_size=`'s absence changes which
+            // columns exist, not just their values).
+            let intensity_luma = match style_entry(style, "intensity_image") {
+                None => None,
+                Some((_, Value::Image(img))) => Some(qu_image::luma(&img.pixels)),
+                Some((_, other)) => {
+                    return e(format!(
+                        "image.regions: `intensity_image=` must be an Image, found {}",
+                        other.type_name()
+                    ))
+                }
+            };
+            let rt = qu_image::regions(
+                &flat,
+                h,
+                w,
+                count,
+                pixel_size,
+                unit.as_deref(),
+                intensity_luma.as_deref(),
+            )
+            .map_err(|msg| EvalError { msg })?;
             let cols: Vec<(String, table::Column)> = rt
                 .columns
                 .into_iter()
@@ -14235,6 +14258,60 @@ impl Interp {
                 .map_err(|err| EvalError { msg: format!("image.load: could not read `{path}`: {err}") })?;
             let img = image::decode(&bytes).map_err(|msg| EvalError { msg: format!("image.load: `{path}`: {msg}") })?;
             return Ok(Value::Image(Arc::new(img)));
+        }
+
+        // `image::hsv2rgb`/`image::lab2rgb` are the third odd ones out:
+        // their argument is a `Record` of per-channel `Mat`s (what
+        // `image::rgb2hsv`/`image::rgb2lab` below produce), not a
+        // `Value::Image` -- an 8-bit RGB `Image` cannot hold hue (0-360) or
+        // Lab's a*/b* (roughly -128..127) without truncating them, so the
+        // round trip has to go through plain floats until it lands back in
+        // RGB. Pulls the three named fields out by hand rather than
+        // `arg0(args)?.field(...)` because the error on a missing/wrong-type
+        // field needs to name which one, not just "no such field".
+        if f == "image::hsv2rgb" || f == "image::lab2rgb" {
+            let (a_name, b_name, c_name) = if f == "image::hsv2rgb" { ("h", "s", "v") } else { ("l", "a", "b") };
+            let Value::Record(fields) = arg0(args)? else {
+                return e(format!(
+                    "{f}(rec) needs a record with `{a_name}`/`{b_name}`/`{c_name}` fields (from `{}`), found {}",
+                    if f == "image::hsv2rgb" { "image.rgb2hsv" } else { "image.rgb2lab" },
+                    arg0(args)?.type_name()
+                ));
+            };
+            let field = |name: &str| -> R<Arc<Matrix>> {
+                match fields.iter().find(|(k, _)| k == name) {
+                    Some((_, Value::Mat(m))) => Ok(m.clone()),
+                    Some((_, other)) => e(format!("{f}: field `{name}` must be a Mat, found {}", other.type_name())),
+                    None => e(format!(
+                        "{f}: missing field `{name}` -- expected a record with `{a_name}`/`{b_name}`/`{c_name}` fields"
+                    )),
+                }
+            };
+            let am = field(a_name)?;
+            let bm = field(b_name)?;
+            let cm = field(c_name)?;
+            let (rh, rw) = am.shape();
+            if bm.shape() != (rh, rw) || cm.shape() != (rh, rw) {
+                return e(format!("{f}: `{a_name}`/`{b_name}`/`{c_name}` fields must all be the same shape"));
+            }
+            let mut pixels = vec![0u8; rw * rh * 3];
+            for y in 0..rh {
+                for x in 0..rw {
+                    let av = am.get(y, x).unwrap_or(0.0);
+                    let bv = bm.get(y, x).unwrap_or(0.0);
+                    let cv = cm.get(y, x).unwrap_or(0.0);
+                    let (r, g, b) = if f == "image::hsv2rgb" {
+                        color::hsv_to_rgb(av, bv, cv)
+                    } else {
+                        color::lab_to_rgb(av, bv, cv)
+                    };
+                    let i = (y * rw + x) * 3;
+                    pixels[i] = r.round().clamp(0.0, 255.0) as u8;
+                    pixels[i + 1] = g.round().clamp(0.0, 255.0) as u8;
+                    pixels[i + 2] = b.round().clamp(0.0, 255.0) as u8;
+                }
+            }
+            return Ok(Value::Image(Arc::new(image::Image { width: rw, height: rh, pixels })));
         }
 
         let Value::Image(img) = arg0(args)? else {
@@ -14353,6 +14430,116 @@ impl Interp {
                     out.push(Value::Mat(Arc::new(mat)));
                 }
                 Ok(Value::List(Arc::new(out)))
+            }
+            // `sobel(img, [direction="both"])` / `scharr(img,
+            // [direction="both"])` -- gradient over the image's BT.601
+            // luma. `direction="x"`/`"y"` return the raw (signed) component
+            // `Mat`; the default `"both"` returns the gradient MAGNITUDE
+            // `sqrt(gx^2 + gy^2)` (see `gradient_magnitude` below for the
+            // same thing under its own name), which is the reading
+            // `docs/design/toolkit-image.md`'s `edges(canny | sobel |
+            // scharr)` line implies for a plain `sobel(img)` call with no
+            // direction named. Scharr uses the same shape with the
+            // rotationally-more-symmetric 3x3 Scharr kernel in place of
+            // Sobel's. Raw floats, not an 8-bit preview image -- same
+            // reasoning as `image::luma`: a caller that wants a displayable
+            // edge map already has `canny`/`edge_detect`, and clamping here
+            // would throw away the sign and the exact magnitude a
+            // hand-computed test needs to check against.
+            //
+            // Named `direction=`, not `axis=`: `axis=` is a reserved
+            // keyword the call machinery itself intercepts (it powers the
+            // `sum(M, axis=0)`-style row/column reductions -- see
+            // `AXIS_HONOURING`/`ALWAYS_ACCEPTED_KEYS`), stripping it out of
+            // `style` into a separate numeric-only channel BEFORE any
+            // builtin dispatch ever runs, this one included. A `sobel`
+            // `axis=` kwarg would silently never reach this match arm at
+            // all -- found by a real failing test here, not by inspection:
+            // `axis="y"` returned the SAME magnitude `axis="both"` did,
+            // because `style_str(style, "axis")` was reading a key that had
+            // already been removed.
+            "image::sobel" | "image::scharr" => {
+                let direction = style_str(style, "direction").unwrap_or_else(|| "both".to_string());
+                let (gx, gy) = if f == "image::sobel" {
+                    qu_image::sobel(&img.pixels, w, h)
+                } else {
+                    qu_image::scharr(&img.pixels, w, h)
+                };
+                let out = match direction.as_str() {
+                    "x" => gx,
+                    "y" => gy,
+                    "both" => qu_image::magnitude(&gx, &gy),
+                    other => {
+                        return e(format!(
+                            "{f}: `direction=\"{other}\"` -- must be \"x\", \"y\", or \"both\" (default)"
+                        ));
+                    }
+                };
+                Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &out)?)))
+            }
+            // `laplacian(img, [kernel_size=3])` -- discrete Laplacian over
+            // BT.601 luma, `kernel_size` 3 (the same 4-neighbour kernel
+            // `edge_detect` applies per-channel and clamps) or 5 (the wider,
+            // noise-steadier 5x5 form). Raw signed floats, same reasoning as
+            // `sobel`/`scharr` above.
+            "image::laplacian" => {
+                let k = style_num(style, "kernel_size").unwrap_or(3.0);
+                if k != 3.0 && k != 5.0 {
+                    return e(format!(
+                        "image.laplacian: `kernel_size={k}` -- must be 3 or 5"
+                    ));
+                }
+                let out = qu_image::laplacian(&img.pixels, w, h, k as usize)
+                    .map_err(|msg| EvalError { msg: format!("image.laplacian: {msg}") })?;
+                Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &out)?)))
+            }
+            // `gradient_magnitude(img)` -- `sqrt(gx^2 + gy^2)` from the Sobel
+            // gradient, as its own name rather than only reachable via
+            // `sobel(img)`/`sobel(img, direction="both")` (which this is
+            // identical to) -- the design doc lists both spellings as
+            // acceptable and this is the more discoverable one for "I just
+            // want the edge strength."
+            "image::gradient_magnitude" => {
+                let (gx, gy) = qu_image::sobel(&img.pixels, w, h);
+                let mag = qu_image::magnitude(&gx, &gy);
+                Ok(Value::Mat(Arc::new(mat_from_rowmajor(h, w, &mag)?)))
+            }
+            // `rgb2hsv(img)` / `rgb2lab(img)` -- per-pixel colorspace
+            // conversion, the whole-`Image` counterpart to the existing
+            // scalar `to_hsv`/`to_lab` (a single color's coordinates). Reuse
+            // `color::rgb_to_hsv`/`rgb_to_lab` exactly (no separate
+            // per-pixel math to drift out of sync with the scalar builtins),
+            // called once per pixel. Returns a `Record` of three same-shape
+            // `Mat`s (`h`/`s`/`v` or `l`/`a`/`b`) rather than a `Value::Image`
+            // -- hue is 0-360 and Lab's a*/b* run roughly -128..127, neither
+            // of which an 8-bit RGB `Image` can hold without truncating, and
+            // this codebase's `Image` type has no `space` tag to mark it
+            // "not really RGB" (a known, deliberately deferred gap -- see
+            // `qu_image`'s own module doc comment). `image::hsv2rgb`/
+            // `image::lab2rgb` above accept exactly this shape back.
+            "image::rgb2hsv" | "image::rgb2lab" => {
+                let mut a_m = Matrix::zeros(h, w);
+                let mut b_m = Matrix::zeros(h, w);
+                let mut c_m = Matrix::zeros(h, w);
+                for y in 0..h {
+                    for x in 0..w {
+                        let (r, g, b) = img.get_pixel(x, y);
+                        let (av, bv, cv) = if f == "image::rgb2hsv" {
+                            color::rgb_to_hsv(r as f64, g as f64, b as f64)
+                        } else {
+                            color::rgb_to_lab(r as f64, g as f64, b as f64)
+                        };
+                        a_m.set(y, x, av).map_err(|se: qu_core::matrix::ShapeError| EvalError { msg: se.to_string() })?;
+                        b_m.set(y, x, bv).map_err(|se: qu_core::matrix::ShapeError| EvalError { msg: se.to_string() })?;
+                        c_m.set(y, x, cv).map_err(|se: qu_core::matrix::ShapeError| EvalError { msg: se.to_string() })?;
+                    }
+                }
+                let names: [&str; 3] = if f == "image::rgb2hsv" { ["h", "s", "v"] } else { ["l", "a", "b"] };
+                Ok(Value::Record(Arc::new(vec![
+                    (names[0].to_string(), Value::Mat(Arc::new(a_m))),
+                    (names[1].to_string(), Value::Mat(Arc::new(b_m))),
+                    (names[2].to_string(), Value::Mat(Arc::new(c_m))),
+                ])))
             }
             other => e(format!("image: unknown function `{other}`")),
         }
@@ -20340,7 +20527,15 @@ self.eval_grad(loss, wrt)
             | "image::skeleton"
             | "image::fill_holes"
             | "image::contours"
-            | "image::autocrop" => self.image_call(f, &args, &style),
+            | "image::autocrop"
+            | "image::sobel"
+            | "image::scharr"
+            | "image::laplacian"
+            | "image::gradient_magnitude"
+            | "image::rgb2hsv"
+            | "image::hsv2rgb"
+            | "image::rgb2lab"
+            | "image::lab2rgb" => self.image_call(f, &args, &style),
             // Same shape again for `svg`, minus the `cfg` -- this module
             // is always compiled in (see `native_module`). These names
             // are reachable ONLY qualified as `svg.rect(...)` etc.: three
@@ -36715,6 +36910,78 @@ self.eval_grad(loss, wrt)
                     .map_err(|err| EvalError { msg: err.to_string() })?;
                 Ok(Value::Num(t))
             }
+            // ---- Locally-adaptive thresholding + CLAHE (§ adaptive-
+            // threshold pass, 2026-09-24). `threshold`/`otsu`/`multi_otsu`/
+            // `kapur_threshold` above are all GLOBAL — one histogram, one
+            // scalar cut for the whole image, which can't binarize an image
+            // whose background brightness drifts across the frame. These
+            // three compute a per-pixel threshold (or, for `clahe`, a
+            // per-pixel remapping) from each pixel's own local
+            // neighborhood instead. See `image::Image::adaptive_threshold`/
+            // `sauvola_threshold`/`clahe`'s own doc comments in `image.rs`
+            // for the algorithms; these arms are just the argument parsing.
+            //
+            // `adaptive_threshold(image, block_size=, [method="mean"],
+            // [offset=0])` — OpenCV-style adaptive threshold: local
+            // `mean(neighborhood) - offset` per pixel (`method="mean"`:
+            // uniform box mean; `"gaussian"`: Gaussian-weighted mean).
+            // `block_size` is a required keyword (must be odd) — no
+            // positional form, since "the 2nd argument is a block size" is
+            // easy to confuse with `otsu`-family builtins whose 2nd
+            // argument is a threshold LEVEL, not a window size.
+            "adaptive_threshold" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!("adaptive_threshold(image, block_size=, ...) needs an image, found {}", arg0(&args)?.type_name()));
+                };
+                let block_size = match style_entry(&style, "block_size") {
+                    Some((_, v)) => v.as_index().map_err(|msg| EvalError { msg: format!("adaptive_threshold: block_size {msg}") })?,
+                    None => return e("adaptive_threshold(image, block_size=, ...) needs a block_size= keyword argument"),
+                };
+                let method = style_str(&style, "method").unwrap_or_else(|| "mean".to_string());
+                let offset = style_num_checked(&style, "offset", 0.0, "adaptive_threshold")?;
+                let out = img.adaptive_threshold(block_size, &method, offset)
+                    .map_err(|msg| EvalError { msg: format!("adaptive_threshold: {msg}") })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `sauvola_threshold(image, window_size=, [k=0.5], [r=128])` —
+            // Sauvola's local threshold (`T = mean*(1 + k*(stddev/r - 1))`
+            // over `window_size`), the standard choice for document/text
+            // images with uneven illumination that defeat a global `otsu`.
+            // `window_size` is a required keyword, same reasoning as
+            // `adaptive_threshold`'s `block_size` above.
+            "sauvola_threshold" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!("sauvola_threshold(image, window_size=, ...) needs an image, found {}", arg0(&args)?.type_name()));
+                };
+                let window_size = match style_entry(&style, "window_size") {
+                    Some((_, v)) => v.as_index().map_err(|msg| EvalError { msg: format!("sauvola_threshold: window_size {msg}") })?,
+                    None => return e("sauvola_threshold(image, window_size=, ...) needs a window_size= keyword argument"),
+                };
+                let k = style_num_checked(&style, "k", 0.5, "sauvola_threshold")?;
+                let r = style_num_checked(&style, "r", 128.0, "sauvola_threshold")?;
+                let out = img.sauvola_threshold(window_size, k, r)
+                    .map_err(|msg| EvalError { msg: format!("sauvola_threshold: {msg}") })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `clahe(image, tile_size=, [clip_limit=2.0])` — Contrast-
+            // Limited Adaptive Histogram Equalization: `imequalize`'s
+            // tile-based, contrast-clipped local counterpart, with the
+            // tile-to-tile bilinear interpolation that distinguishes real
+            // CLAHE from a naive independently-equalized-tile shortcut
+            // (see `image::Image::clahe`'s doc comment).
+            "clahe" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!("clahe(image, tile_size=, ...) needs an image, found {}", arg0(&args)?.type_name()));
+                };
+                let tile_size = match style_entry(&style, "tile_size") {
+                    Some((_, v)) => v.as_index().map_err(|msg| EvalError { msg: format!("clahe: tile_size {msg}") })?,
+                    None => return e("clahe(image, tile_size=, ...) needs a tile_size= keyword argument"),
+                };
+                let clip_limit = style_num_checked(&style, "clip_limit", 2.0, "clahe")?;
+                let out = img.clahe(tile_size, clip_limit)
+                    .map_err(|msg| EvalError { msg: format!("clahe: {msg}") })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
             // `corr_heatmap(table)` / `corrplot(table)` — pairwise Pearson
             // correlation of the table's numeric columns.
             "corr_heatmap" | "corrplot" => {
@@ -43523,7 +43790,7 @@ fn edit_distance(a: &str, b: &str, budget: usize) -> Option<usize> {
 pub const BUILTIN_NAMES: &[&str] = &[
     "DataFrame", "StreamFile", "StreamURL", "ablation_study", "abs",
     "accessed_at", "accuracy", "acf", "acos", "acosh", "adadelta", "adagrad", "adam",
-    "adamax", "adamw", "adc", "add", "add_edge", "add_marker", "add_node",
+    "adamax", "adamw", "adaptive_threshold", "adc", "add", "add_edge", "add_marker", "add_node",
     "add_noise", "add_region", "affine_identity", "affine_rotate",
     "affine_scale", "affine_shear", "affine_translate", "after", "after_last",
     "algorigram", "all", "and", "angle", "animate", "annotate", "any",
@@ -43543,7 +43810,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "cd", "ceil", "channel", "channel_len", "channel_recv", "channel_send",
     "channel_try_recv", "chars", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2pdf",
     "chirp", "chisquare", "chol", "chr", "circle", "circuit", "circuit_fit",
-    "circuit_impedance", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
+    "circuit_impedance", "clahe", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
     "coherence", "colorbar", "colormap", "cols", "compare", "compile",
     "complex", "cond", "conformal", "confusion_matrix", "conj", "contains",
     "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit",
@@ -43660,7 +43927,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
     "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean",
     "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
-    "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa", "save",
+    "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save",
     "save_all", "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score",
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
@@ -87852,6 +88119,233 @@ a = map(names, upper)"#);
         let err = run_err("import image\nx = blur(1)");
         assert!(err.msg.contains("ambiguous"), "got: {}", err.msg);
         assert!(err.msg.contains("image.blur"), "the message must name the fix: {}", err.msg);
+    }
+
+    /// Builds an 8x4 vertical-edge test image (left half luma 0, right half
+    /// luma 255, no variation along y at all) the same way
+    /// `qu-image`'s own `sobel`/`scharr` unit tests do -- the hand-worked
+    /// expected values are the same: `gy` exactly zero everywhere (no
+    /// y-variation to see), `gx` exactly zero away from the edge and a
+    /// known nonzero constant at the two columns straddling it.
+    #[cfg(feature = "image")]
+    fn vertical_edge_script(extra: &str) -> String {
+        format!(
+            "import image\n\
+             m = zeros(4, 8)\n\
+             for y in 0 to 3\n\
+             \x20 for x in 0 to 7\n\
+             \x20   if x >= 4\n\
+             \x20     m[y, x] = 255\n\
+             \x20   end if\n\
+             \x20 end for\n\
+             end for\n\
+             img = image_from_matrix(m)\n\
+             {extra}"
+        )
+    }
+
+    /// `image.sobel(img, direction="x"/"y")` returns the raw (signed,
+    /// unclamped) gradient component as a `Mat` -- checked against the
+    /// exact values worked by hand in `qu_image::sobel`'s own unit test:
+    /// `gx = 1020` at the two columns straddling the edge, `0` everywhere
+    /// else; `gy` is exactly `0` everywhere (the image has no variation
+    /// along y at all, so there is nothing for a vertical gradient to
+    /// find).
+    ///
+    /// This is deliberately NOT named `axis=`: an earlier version of this
+    /// test caught a real bug where it was -- `axis=` is a reserved keyword
+    /// the call machinery strips out of `style` before ANY builtin dispatch
+    /// (it powers `sum(M, axis=0)`-style reductions), so `sobel(img,
+    /// axis="y")` silently never saw the keyword at all and fell through to
+    /// the "both" default every time. See the dispatch arm's own comment
+    /// for the full story.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_sobel_direction_x_and_y_match_the_hand_worked_gradient() {
+        let it = run(&vertical_edge_script("gx = image.sobel(img, direction=\"x\")\ngy = image.sobel(img, direction=\"y\")"));
+        let Some(Value::Mat(gx)) = it.get("gx") else { panic!("gx must be a Mat, got {:?}", it.get("gx")) };
+        let Some(Value::Mat(gy)) = it.get("gy") else { panic!("gy must be a Mat, got {:?}", it.get("gy")) };
+        for y in 0..4 {
+            for x in 0..8 {
+                assert_eq!(gy.get(y, x).unwrap(), 0.0, "gy at ({x},{y}) must be exactly zero");
+                let expect_gx = if x == 3 || x == 4 { 1020.0 } else { 0.0 };
+                assert_eq!(gx.get(y, x).unwrap(), expect_gx, "gx at ({x},{y})");
+            }
+        }
+    }
+
+    /// `image.sobel(img)` with no `direction=` defaults to `"both"`, which
+    /// is the gradient MAGNITUDE `sqrt(gx^2 + gy^2)` -- since this edge's
+    /// `gy` is exactly zero, that reduces to `|gx|`, so the default call and
+    /// `gradient_magnitude` must agree exactly, and both must equal
+    /// `direction="x"`'s own output (nothing here is ever negative).
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_sobel_default_direction_is_magnitude_and_matches_gradient_magnitude() {
+        let it = run(&vertical_edge_script(
+            "gx = image.sobel(img, direction=\"x\")\n\
+             both = image.sobel(img)\n\
+             mag = image.gradient_magnitude(img)",
+        ));
+        let Some(Value::Mat(gx)) = it.get("gx") else { panic!("gx must be a Mat") };
+        let Some(Value::Mat(both)) = it.get("both") else { panic!("both must be a Mat") };
+        let Some(Value::Mat(mag)) = it.get("mag") else { panic!("mag must be a Mat") };
+        for y in 0..4 {
+            for x in 0..8 {
+                assert_eq!(both.get(y, x).unwrap(), gx.get(y, x).unwrap(), "default direction vs direction=\"x\" at ({x},{y})");
+                assert_eq!(mag.get(y, x).unwrap(), gx.get(y, x).unwrap(), "gradient_magnitude vs direction=\"x\" at ({x},{y})");
+            }
+        }
+    }
+
+    /// Same edge, same shape, the Scharr kernel: `(3*255+10*255+3*255) - 0 =
+    /// 4080` at the two straddling columns, matching `qu_image::scharr`'s
+    /// own unit test exactly.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_scharr_direction_x_matches_the_hand_worked_gradient() {
+        let it = run(&vertical_edge_script("gx = image.scharr(img, direction=\"x\")"));
+        let Some(Value::Mat(gx)) = it.get("gx") else { panic!("gx must be a Mat") };
+        for y in 0..4 {
+            for x in 0..8 {
+                let expect = if x == 3 || x == 4 { 4080.0 } else { 0.0 };
+                assert_eq!(gx.get(y, x).unwrap(), expect, "gx at ({x},{y})");
+            }
+        }
+    }
+
+    /// An unrecognized `direction=` is refused by name, not silently
+    /// treated as `"both"`.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_sobel_rejects_an_unknown_direction() {
+        let err = run_err(&vertical_edge_script("g = image.sobel(img, direction=\"diagonal\")"));
+        assert!(err.msg.contains("direction"), "got: {}", err.msg);
+    }
+
+    /// `image.laplacian(img, kernel_size=3)` against the same point-source
+    /// case `qu_image::laplacian`'s own unit test hand-works: `1020` at the
+    /// point, `-255` at each of its four direct neighbours, `0` elsewhere.
+    /// An unsupported `kernel_size` is refused by name.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_laplacian_matches_the_hand_worked_point_source_and_rejects_bad_kernel_size() {
+        let it = run(
+            "import image\n\
+             m = zeros(5, 5)\n\
+             m[2, 2] = 255\n\
+             img = image_from_matrix(m)\n\
+             out = image.laplacian(img)",
+        );
+        let Some(Value::Mat(out)) = it.get("out") else { panic!("out must be a Mat") };
+        assert_eq!(out.get(2, 2).unwrap(), 1020.0, "at the point itself");
+        for &(r, c) in &[(1usize, 2usize), (3, 2), (2, 1), (2, 3)] {
+            assert_eq!(out.get(r, c).unwrap(), -255.0, "at neighbour ({r},{c})");
+        }
+        assert_eq!(out.get(0, 0).unwrap(), 0.0, "far corner");
+
+        let err = run_err(
+            "import image\n\
+             img = image_new(5, 5)\n\
+             x = image.laplacian(img, kernel_size=4)",
+        );
+        assert!(err.msg.contains("kernel_size"), "got: {}", err.msg);
+    }
+
+    /// `image.rgb2hsv`/`image.rgb2lab` are the whole-`Image` counterpart to
+    /// the existing scalar `to_hsv`/`to_lab`, and must agree with them
+    /// exactly on a solid-color image (every pixel the same color, so the
+    /// per-pixel result must equal the scalar conversion everywhere) --
+    /// pure red is the standard textbook check: hue 0, full saturation,
+    /// full value.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_rgb2hsv_of_solid_red_matches_the_scalar_conversion() {
+        let it = run(
+            "import image\n\
+             red = image_new(2, 2, r=255, g=0, b=0)\n\
+             hsv = image.rgb2hsv(red)\n\
+             h = hsv.h\n\
+             s = hsv.s\n\
+             v = hsv.v\n\
+             scalar = to_hsv(\"#ff0000\")",
+        );
+        let Some(Value::Mat(h)) = it.get("h") else { panic!("h must be a Mat") };
+        let Some(Value::Mat(s)) = it.get("s") else { panic!("s must be a Mat") };
+        let Some(Value::Mat(v)) = it.get("v") else { panic!("v must be a Mat") };
+        let Some(Value::Vec(scalar)) = it.get("scalar") else { panic!("scalar must be a Vec") };
+        for y in 0..2 {
+            for x in 0..2 {
+                assert!((h.get(y, x).unwrap() - scalar[0]).abs() < 1e-9, "hue at ({x},{y})");
+                assert!((s.get(y, x).unwrap() - scalar[1]).abs() < 1e-9, "saturation at ({x},{y})");
+                assert!((v.get(y, x).unwrap() - scalar[2]).abs() < 1e-9, "value at ({x},{y})");
+            }
+        }
+        assert_eq!(h.get(0, 0).unwrap(), 0.0, "pure red is hue 0");
+        assert_eq!(s.get(0, 0).unwrap(), 1.0, "pure red is fully saturated");
+        assert_eq!(v.get(0, 0).unwrap(), 1.0, "pure red is at full value");
+    }
+
+    /// `hsv2rgb(rgb2hsv(img))` must land back within a rounding pixel of
+    /// the original -- an 8-bit-RGB-to-float-and-back round trip, so exact
+    /// equality is not the right check (rounding at the final `u8` cast),
+    /// but every channel must be within 1 of the source value on a
+    /// synthetic multi-color image that exercises more than one hue.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_rgb2hsv_hsv2rgb_round_trips_within_a_rounding_pixel() {
+        let it = run(
+            "import image\n\
+             img = image_new(3, 1, r=200, g=80, b=40)\n\
+             hsv = image.rgb2hsv(img)\n\
+             back = image.hsv2rgb(hsv)",
+        );
+        let Some(Value::Image(src)) = it.get("img") else { panic!("img must be an Image") };
+        let Some(Value::Image(back)) = it.get("back") else { panic!("back must be an Image") };
+        assert_eq!(back.width, src.width);
+        assert_eq!(back.height, src.height);
+        for (a, b) in src.pixels.iter().zip(back.pixels.iter()) {
+            assert!((*a as i32 - *b as i32).abs() <= 1, "round trip drifted: {a} vs {b}");
+        }
+    }
+
+    /// Same round-trip contract for Lab, on a color chosen off pure
+    /// primaries (rgb2hsv already covers red) so the two tests are not
+    /// checking the same input twice.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_rgb2lab_lab2rgb_round_trips_within_a_rounding_pixel() {
+        let it = run(
+            "import image\n\
+             img = image_new(2, 2, r=30, g=160, b=210)\n\
+             lab = image.rgb2lab(img)\n\
+             back = image.lab2rgb(lab)\n\
+             scalar = to_lab(\"#1ea0d2\")",
+        );
+        let Some(Value::Mat(l)) = it.get("lab").and_then(|v| match v {
+            Value::Record(fields) => fields.iter().find(|(k, _)| k == "l").map(|(_, v)| v),
+            _ => None,
+        }) else {
+            panic!("lab.l must be a Mat")
+        };
+        let Some(Value::Vec(scalar)) = it.get("scalar") else { panic!("scalar must be a Vec") };
+        assert!((l.get(0, 0).unwrap() - scalar[0]).abs() < 1e-6, "L* must match the scalar to_lab conversion");
+        let Some(Value::Image(src)) = it.get("img") else { panic!("img must be an Image") };
+        let Some(Value::Image(back)) = it.get("back") else { panic!("back must be an Image") };
+        for (a, b) in src.pixels.iter().zip(back.pixels.iter()) {
+            assert!((*a as i32 - *b as i32).abs() <= 1, "round trip drifted: {a} vs {b}");
+        }
+    }
+
+    /// `hsv2rgb`/`lab2rgb` are refused a plain `Image` (the thing
+    /// `rgb2hsv`/`rgb2lab` themselves take, not what they return) with a
+    /// message that names the expected shape rather than a generic type
+    /// error.
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_hsv2rgb_rejects_a_plain_image_by_name() {
+        let err = run_err("import image\nimg = image_new(2, 2)\nx = image.hsv2rgb(img)");
+        assert!(err.msg.contains("record"), "got: {}", err.msg);
     }
 
     /// An alias renames the namespace. It does not close the bare names --

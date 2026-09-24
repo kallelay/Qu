@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>upsample — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>upsample</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>upsample(x, L, [order=60], [fs=])</code></pre>
+<p class="fnnote">Input: x, L, order, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a length-N vector or <code>Signal</code>; <code>L</code>: a whole number ≥ 1, the integer interpolation factor; <code>order</code> (optional, even, default 60): the FIR interpolation filter's order; <code>fs</code> (optional): the input sample rate, defaulting to the <code>Signal</code>'s own <code>Fs</code> or 1.0 for a plain vector. Raises the sample rate by an integer factor: inserts <code>L-1</code> zeros between samples, then interpolates with a lowpass at the original Nyquist (<code>fs/2</code>), scaled by <code>L</code> to preserve amplitude. That interpolation filter runs at the new rate <code>fs*L</code>, and the gain of <code>L</code> is what stops the zero-stuffing dividing the amplitude by <code>L</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = upsample(x, L, [order=60], [fs=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>L</code> <span class="iotype">number</span><span class="iodesc"><code>L</code>: a whole number ≥ 1, the integer interpolation factor.</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">optional (default <code>60</code>)</span><span class="iodesc"><code>order</code> (optional, even, default 60): the FIR interpolation filter's order.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">Signal or vector, optional</span><span class="iodesc"><code>fs</code> (optional): the input sample rate, defaulting to the <code>Signal</code>'s own <code>Fs</code> or 1.0 for a plain vector.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal or vector</span></div>
+</td><td>Returns <code>N*L</code> samples — a <code>Signal</code> at <code>Fs = fs*L</code> if <code>x</code> was one, a plain vector otherwise. The filter is causal, so the output is <strong>delayed by </strong><code>order/2</code> samples at the OUTPUT rate<strong> (30 samples by default), which is </strong><code>order/(2*fs*L)</code> seconds. <code>L = 1</code> is the identity, with no filter and no delay. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>upsample(x, L, [order=], [fs=])</code> — zero-stuff by <code>L</code>, then interpolate with a lowpass at the ORIGINAL Nyquist (<code>fs/2</code>) running at the NEW rate (<code>fs*L</code>), scaled by <code>L</code> to restore the amplitude the zero-stuffing divided away (stuffing L-1 zeros spreads the same energy over L times as many samples, so the interpolated result comes out at 1/L of the input's amplitude without the gain — the same <code>L</code> factor MATLAB's <code>interp</code> and scipy's <code>resample_poly</code> apply). Group delay: <code>order/2</code> samples at the OUTPUT rate <code>fs*L</code> (30 output samples at the default order 60), i.e. <code>order/(2*fs*L)</code> seconds.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

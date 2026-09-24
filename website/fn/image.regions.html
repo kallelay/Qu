@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image.regions — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>image.regions</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>image.regions(labeled, [pixel_size=], [unit=], [intensity_image=])</code> (<code>import image</code>)</pre>
+<p class="fnnote">Input: labeled, pixel_size, unit, intensity_image &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>labeled</code> is a <code>Model</code> from <code>bwlabel</code>/<code>label_blobs</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = image.regions(labeled, [pixel_size=], [unit=], [intensity_image=]) (import image)</code></td><td><div class="ioitem"><code>labeled</code> <span class="iotype">Model</span><span class="iodesc"><code>labeled</code> is a <code>Model</code> from <code>bwlabel</code>/<code>label_blobs</code>.</span></div>
+<div class="ioitem"><code>pixel_size</code> <span class="iotype">optional</span><span class="iodesc"><code>area</code>, <code>centroid_x</code>, <code>centroid_y</code>, <code>bbox_width</code>, <code>bbox_height</code> (all suffixed <code>_px</code>/<code>_px2</code> with no <code>pixel_size=</code>, or <code>_&lt;unit&gt;</code>/<code>_&lt;unit&gt;2</code> when both <code>pixel_size=</code> and <code>unit=</code> are given — a unit with no scale, or <code>unit="px"</code> alongside a scale, is refused).</span></div>
+<div class="ioitem"><code>unit</code> <span class="iotype">optional</span><span class="iodesc"><code>area</code>, <code>centroid_x</code>, <code>centroid_y</code>, <code>bbox_width</code>, <code>bbox_height</code> (all suffixed <code>_px</code>/<code>_px2</code> with no <code>pixel_size=</code>, or <code>_&lt;unit&gt;</code>/<code>_&lt;unit&gt;2</code> when both <code>pixel_size=</code> and <code>unit=</code> are given — a unit with no scale, or <code>unit="px"</code> alongside a scale, is refused).</span></div>
+<div class="ioitem"><code>intensity_image</code> <span class="iotype">Image, optional</span><span class="iodesc"><code>intensity_image=</code> is an optional <code>Image</code>, the ORIGINAL (non-labeled) image to measure — when given, an <code>intensity_mean</code> column (BT.601 luma mean per region) is appended.</span></div>
+</td><td><div class="ioitem"><code>bbox_height</code> <span class="iotype">&mdash;</span><span class="iodesc">all suffixed <code>_px</code>/<code>_px2</code> with no <code>pixel_size=</code>, or <code>_&lt;unit&gt;</code>/<code>_&lt;unit&gt;2</code> when both <code>pixel_size=</code> and <code>unit=</code> are given — a unit with no scale, or <code>unit="px"</code> alongside a scale, is refused</span></div>
+<div class="ioitem"><code>extent</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>area / bbox_area</code>, unitless, the scale cancels</span></div>
+<div class="ioitem"><code>perimeter</code> <span class="iotype">&mdash;</span><span class="iodesc">suffixed like the other lengths</span></div>
+<div class="ioitem"><code>eccentricity</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>0</code>–<code>1</code>, from an equivalent ellipse fit to the region's second central moments — <code>0</code> for a circle/square, approaching <code>1</code> for a thin line</span></div>
+</td><td>Returns a <code>Table</code>, one row per non-empty label, ordered by label id — the <code>regionprops</code>-shaped measurement but as columns rather than a <code>List</code> of <code>Record</code>s, so a measurement can be filtered/grouped/joined/plotted with the language's ordinary table verbs. Columns: <code>label</code>; <code>area</code>, <code>centroid_x</code>, <code>centroid_y</code>, <code>bbox_width</code>, <code>bbox_height</code> (all suffixed <code>_px</code>/<code>_px2</code> with no <code>pixel_size=</code>, or <code>_&lt;unit&gt;</code>/<code>_&lt;unit&gt;2</code> when both <code>pixel_size=</code> and <code>unit=</code> are given — a unit with no scale, or <code>unit="px"</code> alongside a scale, is refused); <code>extent</code> (<code>area / bbox_area</code>, unitless, the scale cancels); <code>perimeter</code> (suffixed like the other lengths) — the region's outer boundary walked pixel-centre to pixel-centre (8-connected), summed and closed into a loop; a solid axis-aligned <code>W</code>x<code>H</code> rectangle measures <code>2*(W+H-2)</code>, NOT the <code>2*(W+H)</code> edge-crossing count some other tools report, because the border ring of a solid block is all orthogonal steps; <code>eccentricity</code> (<code>0</code>–<code>1</code>, from an equivalent ellipse fit to the region's second central moments — <code>0</code> for a circle/square, approaching <code>1</code> for a thin line); <code>orientation</code> (radians, <code>(-pi/2, pi/2]</code>, the equivalent ellipse's major-axis angle from <code>+x</code>, positive rotating towards <code>+y</code> — which is DOWN the image, i.e. clockwise on screen, not the counter-clockwise math-plot convention; <code>0</code> for an isotropic region by convention); <code>solidity</code> (<code>area / convex_hull_area</code>, unitless — the hull is built from every boundary pixel's four corners rather than its centre, so a solid convex region's hull area equals its own pixel-count area exactly and solidity is <code>1.0</code>, never slightly above it). <code>intensity_image=</code> is an optional <code>Image</code>, the ORIGINAL (non-labeled) image to measure — when given, an <code>intensity_mean</code> column (BT.601 luma mean per region) is appended; when omitted, no such column appears at all, rather than one filled with a placeholder. The <code>perimeter</code>/<code>eccentricity</code>/<code>orientation</code>/<code>solidity</code> columns and the <code>intensity_image=</code> keyword were added in v0.4.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

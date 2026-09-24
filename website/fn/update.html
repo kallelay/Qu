@@ -50,6 +50,13 @@
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
 </div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/specialized.html">specialized</a></p>
+<div class="example hasout"><pre class="hl"><code>s = <span class="f">lms_init</span>(<span class="n">1</span>, <span class="n">0.1</span>)
+<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
+    s = s.<span class="f">update</span>(<span class="n">1</span>, <span class="n">0.5</span>)
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"w = {s.w[0]}"</span>)             <span class="c"># w = 0.4974231...</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>w = 0.497423</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <div class="example hasout"><pre class="hl"><code>state = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">1</span>])       <span class="c"># initial estimate x0, covariance P0</span>
 state = state.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0</span>])     <span class="c"># time update: F, Q</span>
 state = state.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>]) <span class="c"># measurement update: H, z, R</span>
@@ -63,16 +70,8 @@ state = state.<span class="f">update</span>([<span class="n">1</span>], [<span c
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example hasout"><pre class="hl"><code>s = <span class="f">kalman_init</span>([<span class="n">0</span>], [<span class="n">10</span>])       <span class="c"># 1-D state, initial uncertainty 10</span>
-<span class="k">for</span> i = <span class="n">1</span> <span class="k">to</span> <span class="n">8</span>
-    s = s.<span class="f">predict</span>([<span class="n">1</span>], [<span class="n">0.01</span>])   <span class="c"># static state: F=1, small process noise Q</span>
-    s = s.<span class="f">update</span>([<span class="n">1</span>], [<span class="n">2</span>], [<span class="n">1</span>])  <span class="c"># repeatedly measuring z=2, H=1, R=1</span>
-<span class="k">end</span> <span class="k">for</span>
-<span class="f">print</span>(<span class="s">"x = {s.x}, P = {s.P}"</span>)   <span class="c"># x converges toward 2, P shrinks as evidence accumulates</span>
-</code></pre>
-<div class="out"><span class="lbl">output</span><pre>x = [1.977787], P = [0.144572]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
-<p><code>update(state, ...)</code> — callable as <code>state.update(...)</code>. The estimation-theory family's measurement update; see <code>estimation_update</code>'s own doc comment for the full contract. No non-estimation model currently has an <code>update</code> operation, so this dispatches on kind unconditionally rather than falling back to anything else.</p>
+<p><code>update(state, ...)</code> — callable as <code>state.update(...)</code>. The estimation-theory family's measurement update; see <code>estimation_update</code>'s own doc comment for the full contract. The LMS adaptive filter (<code>lms_init</code>) shares this one name because it is the same idea and the same immutable-state convention -- a new observation in, a new state out -- but its step has nothing to do with a covariance update, so it branches off to <code>lms_update</code> before <code>estimation_update</code> ever sees it rather than being bolted into that function's own kind-match. The PID controller (<code>pid_init</code>) branches off here for the same reason and in the same shape.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>

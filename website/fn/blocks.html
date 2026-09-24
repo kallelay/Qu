@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blocks — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>blocks</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>blocks(x, n, [hop=n])</code></pre>
+<p class="fnnote">Input: x, n, hop &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code>: a vector or <code>Signal</code>; <code>n</code>: block length, either a whole number of samples or a duration (<code>100 ms</code>) resolved against <code>x</code>'s own <code>Fs</code>; <code>hop</code>: distance between block starts, default <code>n</code> (no overlap).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = blocks(x, n, [hop=n])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a vector or <code>Signal</code>.</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: block length, either a whole number of samples or a duration (<code>100 ms</code>) resolved against <code>x</code>'s own <code>Fs</code>.</span></div>
+<div class="ioitem"><code>hop</code> <span class="iotype">optional (default <code>n</code>)</span><span class="iodesc"><code>hop</code>: distance between block starts, default <code>n</code> (no overlap).</span></div>
+</td><td><div class="ioitem"><code>Fs</code> <span class="iotype">vector</span><span class="iodesc">a plain vector if <code>x</code> had none</span></div>
+</td><td>Returns a <strong>list</strong> of blocks, so <code>for b in s.blocks(4096)</code> iterates it with the ordinary <code>for</code> loop. Each block is a <code>Signal</code> at <code>x</code>'s <code>Fs</code> (a plain vector if <code>x</code> had none). The last block is short when the length does not divide evenly — passed as-is, never zero-padded. A duration is a <strong>length</strong>: <code>0.5 s</code> at 8 Hz is 4 samples, one fewer than the inclusive slice <code>s[0 s : 0.5 s]</code> spans. Added in v0.2.4.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">for</span> b <span class="k">in</span> s.<span class="f">blocks</span>(<span class="n">250</span>)
+    <span class="f">print</span>(<span class="f">rms</span>(b))
+<span class="k">end</span> <span class="k">for</span>
+
+<span class="k">for</span> b <span class="k">in</span> s.<span class="f">blocks</span>(<span class="n">100</span> ms)      <span class="c"># sized against s.Fs</span>
+    <span class="f">print</span>(<span class="f">rms</span>(b))
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>0.705691
+0.70852
+0.705691
+0.70852
+0.679771
+0.76825
+0.62606
+0.764603
+0.686392
+0.679771
+0.76825
+0.62606
+0.764603
+0.686392</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>blocks(x, n, [hop=n])</code> — cut <code>x</code> into a LIST of consecutive blocks, so <code>for b in s.blocks(4096)</code> works with the <code>for</code> loop Qu already has. This is <code>toolkit-signal.md</code> §5's second surface ("[from specs.md §49]"), and it is deliberately a plain <code>Value::List</code> rather than a new lazy-iterator value: <code>eval_for_iterable</code> matches List/Vec/Signal/Num/range and errors on everything else, so a new variant would need its own arm there AND in <code>collection_elems</code>, to buy laziness nobody asked for over data that is already wholly in memory. <code>n</code> is a whole number of SAMPLES, or a duration (<code>blocks(s, 100 ms)</code>) resolved against the signal's own <code>Fs</code>. A duration is a LENGTH, so it is <code>round(secs * fs)</code> samples — NOT the inclusive <code>s[0 s : 0.1 s]</code> slice convention, which spans <code>round(t1*fs) - round(t0*fs) + 1</code> and would make every block one sample too long. Probed 2026-09-18 against this binary: <code>s[0.0 s : 0.25 s]</code> on an Fs=8 signal returns 3 samples, not 2. The classifier is §1's own <code>axis_coord</code>, so a frequency handed in where a duration belongs is refused by SI dimension rather than by spelling. Each block is a <code>Signal</code> at the input's <code>Fs</code> (a plain <code>Vec</code> if the input had no rate), so a per-block <code>fft</code>/<code>rms</code> reads the rate off its own argument. The last block is short when the length is not a multiple of <code>n</code>, passed as-is and never zero-padded — same rule as <code>block_process</code>, for the same reason: padding invents samples the caller never had.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

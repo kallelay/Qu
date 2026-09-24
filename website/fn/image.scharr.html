@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image.scharr — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>image.scharr</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>image.scharr(img, [direction="both"])</code></pre>
+<p class="fnnote">Input: img, direction &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Same signature, same <code>direction=</code> convention, and the same border/luma handling as <code>image.sobel</code>, but with the Scharr 3x3 kernel (<code>[-3,0,3; -10,0,10; -3,0,3]</code>, transposed for the y-direction) in place of Sobel's — better rotational symmetry, the textbook reason to reach for it when the gradient's DIRECTION matters and not only where an edge is.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = image.scharr(img, [direction="both"])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>direction</code> <span class="iotype">optional (default <code>"both"</code>)</span><span class="iodesc">Same signature, same <code>direction=</code> convention, and the same border/luma handling as <code>image.sobel</code>, but with the Scharr 3x3 kernel (<code>[-3,0,3.</code></span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Mat</span></div>
+</td><td>Returns a <code>Mat</code>. Added in v0.4.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>sobel(img, [direction="both"])</code> / <code>scharr(img, [direction="both"])</code> -- gradient over the image's BT.601 luma. <code>direction="x"</code>/<code>"y"</code> return the raw (signed) component <code>Mat</code>; the default <code>"both"</code> returns the gradient MAGNITUDE <code>sqrt(gx^2 + gy^2)</code> (see <code>gradient_magnitude</code> below for the same thing under its own name), which is the reading <code>docs/design/toolkit-image.md</code>'s <code>edges(canny | sobel | scharr)</code> line implies for a plain <code>sobel(img)</code> call with no direction named. Scharr uses the same shape with the rotationally-more-symmetric 3x3 Scharr kernel in place of Sobel's. Raw floats, not an 8-bit preview image -- same reasoning as <code>image::luma</code>: a caller that wants a displayable edge map already has <code>canny</code>/<code>edge_detect</code>, and clamping here would throw away the sign and the exact magnitude a hand-computed test needs to check against. Named <code>direction=</code>, not <code>axis=</code>: <code>axis=</code> is a reserved keyword the call machinery itself intercepts (it powers the <code>sum(M, axis=0)</code>-style row/column reductions -- see <code>AXIS_HONOURING</code>/<code>ALWAYS_ACCEPTED_KEYS</code>), stripping it out of <code>style</code> into a separate numeric-only channel BEFORE any builtin dispatch ever runs, this one included. A <code>sobel</code> <code>axis=</code> kwarg would silently never reach this match arm at all -- found by a real failing test here, not by inspection: <code>axis="y"</code> returned the SAME magnitude <code>axis="both"</code> did, because <code>style_str(style, "axis")</code> was reading a key that had already been removed.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -48,11 +48,14 @@ pub fn luma(px: &[u8]) -> Vec<f64> {
     out
 }
 
-/// `regions(labels, h, w, count, pixel_size=, unit=)` — the spec's §5.
+/// `regions(labels, h, w, count, pixel_size=, unit=, intensity=)` — the
+/// spec's §5.
 ///
 /// `labels` is the label matrix a `bwlabel`/`label_blobs` run produced,
 /// row-major, 0 = background, `count` the number of labels. Returns one row
-/// per non-empty label: area, centroid, bounding box and extent.
+/// per non-empty label: area, centroid, bounding box, extent, and this
+/// crate's shape-metric extension (perimeter, eccentricity, orientation,
+/// solidity), plus `intensity_mean` when `intensity` is given.
 ///
 /// **Why the unit is in the column name.** A table column is numbers — there
 /// is nowhere to hang a unit tag on a column, so an area in µm² is reported
@@ -60,6 +63,52 @@ pub fn luma(px: &[u8]) -> Vec<f64> {
 /// spec asks for (`r.area == 412 um^2`) and is chosen over the alternative
 /// of a column named `area` whose unit depends on an argument the reader
 /// cannot see from the result. The name changes when the meaning changes.
+///
+/// **`perimeter`** walks the region's outer boundary pixel CENTRES (8-
+/// connected Moore trace, the same algorithm [`contours`] uses, isolated to
+/// this one label via [`region_boundary`]) and sums the Euclidean distance
+/// between consecutive centres, closing the loop back to the start. That is
+/// a different, smaller convention than the common "count 1 for every
+/// orthogonal border-pixel edge, 2 for the whole rectangle" formula: a
+/// filled axis-aligned `W`x`H` rectangle (`W, H >= 2`) has NO diagonal steps
+/// in its border ring, so this walk measures exactly `2*(W+H-2)` pixels, not
+/// `2*(W+H)`. A single-pixel region has no boundary segment to walk and
+/// reports `0`. Scaled by `pixel_size` like the other lengths (`bbox_width`,
+/// ...), never squared.
+///
+/// **`eccentricity`/`orientation`** come from the region's second central
+/// moments treated as an equivalent ellipse of the same area and covariance
+/// (the standard "moments-based ellipse fit": axis lengths `4*sqrt(eigenvalue)`
+/// of the normalized covariance matrix `[[mu20, mu11], [mu11, mu02]] / area`,
+/// using each pixel's own integer `(x, y)` as a point sample — the same
+/// convention `centroid_x`/`centroid_y` already use, not a pixel-as-unit-
+/// square correction). `eccentricity = sqrt(1 - (minor/major)^2)`, `0` for a
+/// circle/square, approaching `1` for a thin line. `orientation` is
+/// `0.5 * atan2(2*mu11, mu20 - mu02)` radians in `(-pi/2, pi/2]`: `0` means
+/// the major axis runs along `+x` (columns); a positive angle rotates
+/// towards `+y` (rows, which increase DOWNWARD in this row-major pixel
+/// layout, so a positive `orientation` turns the same way a clock's hands
+/// do when the image is displayed normally, not counter-clockwise the way
+/// it would in a plotted x/y coordinate system). A region with no
+/// directional spread (a single pixel, or an exactly isotropic blob) has
+/// both eigenvalues equal to `0` or to each other; `orientation` is defined
+/// as `0` in that case by the same `atan2(0, 0) = 0` convention Rust's
+/// `f64::atan2` already uses, and `eccentricity` is `0`.
+///
+/// **`solidity`** is `area / convex_hull_area`, unitless (the scale cancels,
+/// like `extent`). The hull is built from every boundary pixel's four unit-
+/// square CORNERS (`(x, y)` .. `(x+1, y+1)`), not its center — using centers
+/// would make a solid, perfectly convex rectangle's hull SMALLER than its
+/// own pixel-count area (the hull of `W` collinear centers spans `W-1`, not
+/// `W`), reporting solidity slightly above `1`, which is not a valid ratio.
+/// With corners, a solid convex region's hull area equals its pixel-count
+/// area exactly, and solidity is `1.0`.
+///
+/// **`intensity_mean`** is the mean ITU-R BT.601 luma (see [`luma`]) of
+/// `intensity` over the region's pixels — the mean of the ORIGINAL image,
+/// not the label matrix. Omitted from the returned table entirely when
+/// `intensity` is `None`, the same "absence changes which columns exist"
+/// pattern `pixel_size`/`unit` already use.
 pub fn regions(
     labels: &[f64],
     h: usize,
@@ -67,6 +116,7 @@ pub fn regions(
     count: usize,
     pixel_size: Option<f64>,
     unit: Option<&str>,
+    intensity: Option<&[f64]>,
 ) -> Result<RegionTable, String> {
     if labels.len() != h * w {
         return Err(format!(
@@ -76,6 +126,18 @@ pub fn regions(
             w,
             h
         ));
+    }
+    if let Some(px) = intensity {
+        if px.len() != h * w {
+            return Err(format!(
+                "regions: `intensity_image=` has {} values, expected {} ({}x{}) -- it must be \
+                 the same size as the labeled image",
+                px.len(),
+                h * w,
+                w,
+                h
+            ));
+        }
     }
     // `pixel_size` is the edge length of one pixel. Absent means the
     // measurement stays in pixels and says so in the column names, rather
@@ -139,6 +201,41 @@ pub fn regions(
         }
     }
 
+    // Raw (unscaled) centroids, needed before the second pass can accumulate
+    // deviations from them -- central moments require the mean first, so
+    // this is a genuine two-pass computation, not an optimization left on
+    // the table.
+    let mut raw_cx = vec![0f64; count + 1];
+    let mut raw_cy = vec![0f64; count + 1];
+    for l in 1..=count {
+        if area[l] > 0 {
+            raw_cx[l] = sum_x[l] / area[l] as f64;
+            raw_cy[l] = sum_y[l] / area[l] as f64;
+        }
+    }
+
+    let mut mu20 = vec![0f64; count + 1];
+    let mut mu02 = vec![0f64; count + 1];
+    let mut mu11 = vec![0f64; count + 1];
+    let mut intensity_sum = vec![0f64; count + 1];
+    for y in 0..h {
+        for x in 0..w {
+            let lbl = labels[y * w + x].round() as i64;
+            if lbl <= 0 || lbl as usize > count {
+                continue;
+            }
+            let l = lbl as usize;
+            let dx = x as f64 - raw_cx[l];
+            let dy = y as f64 - raw_cy[l];
+            mu20[l] += dx * dx;
+            mu02[l] += dy * dy;
+            mu11[l] += dx * dy;
+            if let Some(px) = intensity {
+                intensity_sum[l] += px[y * w + x];
+            }
+        }
+    }
+
     let mut label_c = Vec::new();
     let mut area_c = Vec::new();
     let mut cx_c = Vec::new();
@@ -146,6 +243,11 @@ pub fn regions(
     let mut bw_c = Vec::new();
     let mut bh_c = Vec::new();
     let mut ext_c = Vec::new();
+    let mut perim_c = Vec::new();
+    let mut ecc_c = Vec::new();
+    let mut orient_c = Vec::new();
+    let mut solidity_c = Vec::new();
+    let mut intensity_c = Vec::new();
     for l in 1..=count {
         if area[l] == 0 {
             continue;
@@ -155,27 +257,75 @@ pub fn regions(
         let bh = (max_y[l] - min_y[l] + 1) as f64;
         label_c.push(l as f64);
         area_c.push(a * k * k);
-        cx_c.push((sum_x[l] / a) * k);
-        cy_c.push((sum_y[l] / a) * k);
+        cx_c.push(raw_cx[l] * k);
+        cy_c.push(raw_cy[l] * k);
         bw_c.push(bw * k);
         bh_c.push(bh * k);
         // Extent is a ratio, so it is unitless and the scale cancels --
         // stated explicitly because a column that silently did NOT scale
         // would look identical to one that was forgotten.
         ext_c.push(a / (bw * bh));
+
+        let boundary = region_boundary(labels, w, l, min_x[l], max_x[l], min_y[l], max_y[l]);
+        perim_c.push(polygon_perimeter_closed(&boundary) * k);
+
+        // Normalized covariance matrix [[a11, a12], [a12, a22]] = mu / area.
+        let a11 = mu20[l] / a;
+        let a22 = mu02[l] / a;
+        let a12 = mu11[l] / a;
+        let mean = (a11 + a22) / 2.0;
+        let disc = (((a11 - a22) / 2.0).powi(2) + a12 * a12).sqrt();
+        let lambda_major = (mean + disc).max(0.0);
+        let lambda_minor = (mean - disc).max(0.0);
+        if lambda_major <= 0.0 {
+            // No directional spread at all (a single pixel, or every
+            // included pixel coincident) -- both axes are zero-length, so
+            // "eccentricity" and "orientation" have nothing to measure.
+            ecc_c.push(0.0);
+            orient_c.push(0.0);
+        } else {
+            let ratio_sq = (lambda_minor / lambda_major).clamp(0.0, 1.0);
+            ecc_c.push((1.0 - ratio_sq).sqrt());
+            orient_c.push(0.5 * (2.0 * a12).atan2(a11 - a22));
+        }
+
+        let corners: Vec<(f64, f64)> = boundary
+            .iter()
+            .flat_map(|&(px, py)| [(px, py), (px + 1.0, py), (px, py + 1.0), (px + 1.0, py + 1.0)])
+            .collect();
+        let hull = convex_hull(&corners);
+        let hull_area = polygon_area_shoelace(&hull);
+        // A degenerate hull (a single pixel's corners are 4 collinear-ish
+        // points only when the region is 1x1, where the "hull" is the unit
+        // square itself, area 1) never divides by zero here because a
+        // non-empty region always has `hull_area >= a` by construction: the
+        // hull's corner-point set contains every foreground pixel's own
+        // unit square.
+        solidity_c.push(if hull_area > 0.0 { a / hull_area } else { 1.0 });
+
+        if intensity.is_some() {
+            intensity_c.push(intensity_sum[l] / a);
+        }
     }
 
-    Ok(RegionTable {
-        columns: vec![
-            ("label".to_string(), label_c),
-            (format!("area{area_suffix}"), area_c),
-            (format!("centroid_x{len_suffix}"), cx_c),
-            (format!("centroid_y{len_suffix}"), cy_c),
-            (format!("bbox_width{len_suffix}"), bw_c),
-            (format!("bbox_height{len_suffix}"), bh_c),
-            ("extent".to_string(), ext_c),
-        ],
-    })
+    let mut columns = vec![
+        ("label".to_string(), label_c),
+        (format!("area{area_suffix}"), area_c),
+        (format!("centroid_x{len_suffix}"), cx_c),
+        (format!("centroid_y{len_suffix}"), cy_c),
+        (format!("bbox_width{len_suffix}"), bw_c),
+        (format!("bbox_height{len_suffix}"), bh_c),
+        ("extent".to_string(), ext_c),
+        (format!("perimeter{len_suffix}"), perim_c),
+        ("eccentricity".to_string(), ecc_c),
+        ("orientation".to_string(), orient_c),
+        ("solidity".to_string(), solidity_c),
+    ];
+    if intensity.is_some() {
+        columns.push(("intensity_mean".to_string(), intensity_c));
+    }
+
+    Ok(RegionTable { columns })
 }
 
 // ------------------------------------------------------------ sRGB math
@@ -280,7 +430,15 @@ pub fn blur(px: &[u8], w: usize, h: usize, radius: usize, linear: bool) -> Vec<u
 
 // ----------------------------------------------------------------- edges
 
-fn sobel(px: &[u8], w: usize, h: usize) -> (Vec<f64>, Vec<f64>) {
+/// Sobel gradient: `gx`/`gy`, each `w*h` row-major, over the image's BT.601
+/// luma. Kernel taps `[-1,0,1; -2,0,2; -1,0,1]` for `gx` (transposed for
+/// `gy`) — the standard 3x3 Sobel, border-clamped ("replicate") the same way
+/// every other neighbourhood op in this module handles the edge.
+///
+/// Was private (canny's own gradient step, see its call site below) until
+/// the 2026-09-24 gap pass exposed it as `sobel`/`gradient_magnitude` in
+/// their own right — no change to the math, only to its visibility.
+pub fn sobel(px: &[u8], w: usize, h: usize) -> (Vec<f64>, Vec<f64>) {
     let g = luma(px);
     let mut gx = vec![0.0f64; g.len()];
     let mut gy = vec![0.0f64; g.len()];
@@ -298,6 +456,111 @@ fn sobel(px: &[u8], w: usize, h: usize) -> (Vec<f64>, Vec<f64>) {
         }
     }
     (gx, gy)
+}
+
+/// Scharr gradient: same shape as [`sobel`] (BT.601 luma in, `gx`/`gy` row-
+/// major out, replicate border), but with the Scharr 3x3 kernel
+/// `[-3,0,3; -10,0,10; -3,0,3]` (transposed for `gy`) — better rotational
+/// symmetry than Sobel's, the textbook reason to reach for it when the
+/// gradient DIRECTION matters and not just where an edge is.
+pub fn scharr(px: &[u8], w: usize, h: usize) -> (Vec<f64>, Vec<f64>) {
+    let g = luma(px);
+    let mut gx = vec![0.0f64; g.len()];
+    let mut gy = vec![0.0f64; g.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let at = |dx: isize, dy: isize| -> f64 {
+                let xx = (x as isize + dx).clamp(0, w as isize - 1) as usize;
+                let yy = (y as isize + dy).clamp(0, h as isize - 1) as usize;
+                g[yy * w + xx]
+            };
+            gx[y * w + x] = (3.0 * at(1, -1) + 10.0 * at(1, 0) + 3.0 * at(1, 1))
+                - (3.0 * at(-1, -1) + 10.0 * at(-1, 0) + 3.0 * at(-1, 1));
+            gy[y * w + x] = (3.0 * at(-1, 1) + 10.0 * at(0, 1) + 3.0 * at(1, 1))
+                - (3.0 * at(-1, -1) + 10.0 * at(0, -1) + 3.0 * at(1, -1));
+        }
+    }
+    (gx, gy)
+}
+
+/// Elementwise gradient magnitude `sqrt(gx^2 + gy^2)` from a `gx`/`gy` pair
+/// (a [`sobel`] or [`scharr`] result) — shared by both, and by the standalone
+/// `gradient_magnitude` builtin, so the three don't each carry their own
+/// copy of the same `sqrt(a*a + b*b)`.
+pub fn magnitude(gx: &[f64], gy: &[f64]) -> Vec<f64> {
+    gx.iter().zip(gy.iter()).map(|(&a, &b)| (a * a + b * b).sqrt()).collect()
+}
+
+/// Discrete Laplacian over the image's BT.601 luma, `w*h` row-major, raw
+/// (unclamped, signed) response — the numeric twin of `Image::edge_detect3x3`
+/// (which applies the same `kernel_size=3` kernel per RGB channel and clamps
+/// to `u8`): this one stays in floating point and reads luma once, for a
+/// caller that wants the actual second-derivative values rather than a
+/// clamped preview image.
+///
+/// `kernel_size`:
+/// * `3` — the standard 4-neighbour kernel `[0,-1,0; -1,4,-1; 0,-1,0]`, the
+///   same one `Image::edge_detect3x3` uses.
+/// * `5` — the standard 5x5 discrete Laplacian (`[0,0,-1,0,0; 0,-1,-2,-1,0;
+///   -1,-2,16,-2,-1; 0,-1,-2,-1,0; 0,0,-1,0,0]`), a wider-support second
+///   derivative that's less sensitive to single-pixel noise than the 3x3.
+///   Both kernels sum to zero, as a discrete Laplacian must (a constant
+///   image produces an all-zero response).
+///
+/// Any other `kernel_size` is refused by name rather than silently rounded
+/// to the nearest supported one.
+pub fn laplacian(px: &[u8], w: usize, h: usize, kernel_size: usize) -> Result<Vec<f64>, String> {
+    let g = luma(px);
+    let at = |g: &[f64], x: isize, y: isize| -> f64 {
+        let xx = x.clamp(0, w as isize - 1) as usize;
+        let yy = y.clamp(0, h as isize - 1) as usize;
+        g[yy * w + xx]
+    };
+    let mut out = vec![0.0f64; g.len()];
+    match kernel_size {
+        3 => {
+            for y in 0..h as isize {
+                for x in 0..w as isize {
+                    let v = 4.0 * at(&g, x, y)
+                        - at(&g, x - 1, y)
+                        - at(&g, x + 1, y)
+                        - at(&g, x, y - 1)
+                        - at(&g, x, y + 1);
+                    out[(y as usize) * w + (x as usize)] = v;
+                }
+            }
+        }
+        5 => {
+            #[rustfmt::skip]
+            let k: [[f64; 5]; 5] = [
+                [ 0.0,  0.0, -1.0,  0.0,  0.0],
+                [ 0.0, -1.0, -2.0, -1.0,  0.0],
+                [-1.0, -2.0, 16.0, -2.0, -1.0],
+                [ 0.0, -1.0, -2.0, -1.0,  0.0],
+                [ 0.0,  0.0, -1.0,  0.0,  0.0],
+            ];
+            for y in 0..h as isize {
+                for x in 0..w as isize {
+                    let mut acc = 0.0f64;
+                    for (ky, row) in k.iter().enumerate() {
+                        for (kx, &kv) in row.iter().enumerate() {
+                            if kv == 0.0 {
+                                continue;
+                            }
+                            acc += kv * at(&g, x + kx as isize - 2, y + ky as isize - 2);
+                        }
+                    }
+                    out[(y as usize) * w + (x as usize)] = acc;
+                }
+            }
+        }
+        other => {
+            return Err(format!(
+                "laplacian: kernel_size must be 3 or 5, got {other}"
+            ));
+        }
+    }
+    Ok(out)
 }
 
 /// Canny edge detection: Gaussian smooth → Sobel magnitude → non-maximum
@@ -668,79 +931,208 @@ pub fn contours(binary: &[u8], w: usize, h: usize, scale: Option<f64>) -> Vec<Ve
     let k = scale.unwrap_or(1.0);
     let mut visited = vec![false; w * h];
     let mut result = Vec::new();
-    // 8 directions, clockwise from east (the Moore neighbourhood).
-    const DIRS: [(isize, isize); 8] = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)];
     for y in 0..h {
         for x in 0..w {
             let start = y * w + x;
             if binary[start] == 0 || visited[start] {
                 continue;
             }
-            // Only start tracing from a genuine border pixel -- one with at
-            // least one background (or out-of-frame) neighbour. An interior
-            // pixel of a solid blob has every neighbour foreground too, so a
-            // Moore trace started there always finds a next step and never
-            // returns to its own start: it spins forever rather than
-            // terminating. Skipping non-border starts is the fix; the
-            // iteration cap a few lines down is defense in depth on top of
-            // it, not a substitute for it.
-            let is_border = DIRS.iter().any(|&(dx, dy)| {
-                let nx = x as isize + dx;
-                let ny = y as isize + dy;
-                nx < 0
-                    || ny < 0
-                    || nx >= w as isize
-                    || ny >= h as isize
-                    || binary[(ny as usize) * w + (nx as usize)] == 0
-            });
-            if !is_border {
+            if !is_border_pixel(binary, w, h, x, y) {
                 continue;
             }
-            let mut contour: Vec<(f64, f64)> = Vec::new();
-            let mut cx = x as isize;
-            let mut cy = y as isize;
-            let mut entry = 6usize; // came from the north-west
-            // A closed Moore trace visits each border pixel at most a
-            // constant number of times before returning to its start; this
-            // cap is pure defense in depth against a still-unforeseen
-            // degenerate shape, not the primary fix (that's the is_border
-            // check above) -- so it is generous, not tight.
-            let max_steps = w * h + 4;
-            for _ in 0..max_steps {
-                let i = (cy as usize) * w + (cx as usize);
-                if !visited[i] {
-                    visited[i] = true;
-                    contour.push((cx as f64 * k, cy as f64 * k));
-                }
-            // Moore's rule: search clockwise starting from the neighbour
-            // just clockwise of the back pixel (where we came from), not
-            // from its opposite — starting opposite is what makes a trace
-            // back-track up the edge it just came down instead of
-            // continuing around the blob.
-            let mut found = false;
-            for step in 0..8 {
-                let d = (entry + 1 + step) % 8;
-                let nx = cx + DIRS[d].0;
-                let ny = cy + DIRS[d].1;
-                if nx < 0 || ny < 0 || nx >= w as isize || ny >= h as isize {
-                    continue;
-                }
-                if binary[(ny as usize) * w + (nx as usize)] != 0 {
-                    cx = nx;
-                    cy = ny;
-                    entry = (d + 4) % 8;
-                    found = true;
-                    break;
-                }
-            }
-                if !found || (cx == x as isize && cy == y as isize && contour.len() > 1) {
-                    break;
-                }
-            }
-            result.push(contour);
+            let contour = trace_one_component(binary, w, h, &mut visited, x, y);
+            result.push(contour.into_iter().map(|(px, py)| (px * k, py * k)).collect());
         }
     }
     result
+}
+
+// 8 directions, clockwise from east (the Moore neighbourhood). Shared by
+// `contours` and `region_boundary` (`regions`'s per-label perimeter/hull
+// input) so the two boundary walks cannot drift apart.
+const MOORE_DIRS: [(isize, isize); 8] = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)];
+
+/// True when `(x, y)` has at least one background (or out-of-frame)
+/// 8-neighbour -- i.e. it is on the outer edge of its component, not buried
+/// inside a solid blob. Starting a Moore trace anywhere else never finds its
+/// way back to the start (every neighbour is foreground, so it just walks
+/// off into the interior), which is why every trace start is filtered
+/// through this first.
+fn is_border_pixel(binary: &[u8], w: usize, h: usize, x: usize, y: usize) -> bool {
+    MOORE_DIRS.iter().any(|&(dx, dy)| {
+        let nx = x as isize + dx;
+        let ny = y as isize + dy;
+        nx < 0 || ny < 0 || nx >= w as isize || ny >= h as isize || binary[(ny as usize) * w + (nx as usize)] == 0
+    })
+}
+
+/// Moore-neighbor trace of the single foreground component touching border
+/// pixel `(x0, y0)`, in raw pixel coordinates (no `scale` applied -- the
+/// caller's job, since `regions`'s per-label caller needs pixel units for
+/// its own area-scaled columns while `contours` wants physical units).
+/// Marks every pixel it visits in `visited` so a caller iterating the whole
+/// image in raster order does not re-trace the same component from a
+/// different starting pixel.
+fn trace_one_component(binary: &[u8], w: usize, h: usize, visited: &mut [bool], x0: usize, y0: usize) -> Vec<(f64, f64)> {
+    let mut contour: Vec<(f64, f64)> = Vec::new();
+    let mut cx = x0 as isize;
+    let mut cy = y0 as isize;
+    let mut entry = 6usize; // came from the north-west
+    // A closed Moore trace visits each border pixel at most a constant
+    // number of times before returning to its start; this cap is pure
+    // defense in depth against a still-unforeseen degenerate shape, not the
+    // primary fix (that's the is_border_pixel check at the call site) -- so
+    // it is generous, not tight.
+    let max_steps = w * h + 4;
+    for _ in 0..max_steps {
+        let i = (cy as usize) * w + (cx as usize);
+        if !visited[i] {
+            visited[i] = true;
+            contour.push((cx as f64, cy as f64));
+        }
+        // Moore's rule: search clockwise starting from the neighbour just
+        // clockwise of the back pixel (where we came from), not from its
+        // opposite — starting opposite is what makes a trace back-track up
+        // the edge it just came down instead of continuing around the blob.
+        let mut found = false;
+        for step in 0..8 {
+            let d = (entry + 1 + step) % 8;
+            let nx = cx + MOORE_DIRS[d].0;
+            let ny = cy + MOORE_DIRS[d].1;
+            if nx < 0 || ny < 0 || nx >= w as isize || ny >= h as isize {
+                continue;
+            }
+            if binary[(ny as usize) * w + (nx as usize)] != 0 {
+                cx = nx;
+                cy = ny;
+                entry = (d + 4) % 8;
+                found = true;
+                break;
+            }
+        }
+        if !found || (cx == x0 as isize && cy == y0 as isize && contour.len() > 1) {
+            break;
+        }
+    }
+    contour
+}
+
+/// The boundary of a single label's region, in global pixel coordinates
+/// (unscaled) -- `regions`'s perimeter/solidity input. Builds a mask cropped
+/// to the region's own bounding box (isolating `label` from every other
+/// value, including a touching different label, which a plain binary plane
+/// of "foreground" would conflate) and Moore-traces it with the exact same
+/// algorithm `contours` uses, so the two boundary notions cannot disagree.
+fn region_boundary(
+    labels: &[f64],
+    w: usize,
+    label: usize,
+    min_x: usize,
+    max_x: usize,
+    min_y: usize,
+    max_y: usize,
+) -> Vec<(f64, f64)> {
+    let bw = max_x - min_x + 1;
+    let bh = max_y - min_y + 1;
+    let mut mask = vec![0u8; bw * bh];
+    for ly in 0..bh {
+        for lx in 0..bw {
+            let gx = min_x + lx;
+            let gy = min_y + ly;
+            if labels[gy * w + gx].round() as i64 == label as i64 {
+                mask[ly * bw + lx] = 255;
+            }
+        }
+    }
+    let mut visited = vec![false; bw * bh];
+    for ly in 0..bh {
+        for lx in 0..bw {
+            if mask[ly * bw + lx] == 0 || visited[ly * bw + lx] {
+                continue;
+            }
+            if !is_border_pixel(&mask, bw, bh, lx, ly) {
+                continue;
+            }
+            return trace_one_component(&mask, bw, bh, &mut visited, lx, ly)
+                .into_iter()
+                .map(|(px, py)| (px + min_x as f64, py + min_y as f64))
+                .collect();
+        }
+    }
+    // Every pixel of a non-empty region is, by construction, a border pixel
+    // of its own cropped mask (the crop is exactly the region's bbox, so at
+    // minimum the pixels touching the bbox edge have an out-of-mask
+    // neighbour) -- this is unreached for `area[l] > 0`, kept only so the
+    // function is total.
+    Vec::new()
+}
+
+/// Closed-polyline length: consecutive Euclidean distances plus the segment
+/// closing the last point back to the first. `points` are boundary PIXEL
+/// CENTRES (as `trace_one_component`/`region_boundary` produce them), so
+/// this measures the path through those centres, not the pixel-edge
+/// crossing count some other tools call "perimeter" -- see `regions`'s doc
+/// comment for the worked comparison.
+fn polygon_perimeter_closed(points: &[(f64, f64)]) -> f64 {
+    if points.len() < 2 {
+        return 0.0;
+    }
+    let mut total = 0.0;
+    for w in points.windows(2) {
+        total += ((w[1].0 - w[0].0).powi(2) + (w[1].1 - w[0].1).powi(2)).sqrt();
+    }
+    let first = points[0];
+    let last = points[points.len() - 1];
+    total += ((last.0 - first.0).powi(2) + (last.1 - first.1).powi(2)).sqrt();
+    total
+}
+
+/// Andrew's monotone chain: the convex hull of `points`, counter-clockwise,
+/// without a repeated closing point. `<= 2` distinct points returns them
+/// unchanged (no polygon to close).
+fn convex_hull(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    let mut pts = points.to_vec();
+    pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.partial_cmp(&b.1).unwrap()));
+    pts.dedup();
+    if pts.len() <= 2 {
+        return pts;
+    }
+    fn cross(o: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+        (a.0 - o.0) * (b.1 - o.1) - (a.1 - o.1) * (b.0 - o.0)
+    }
+    let mut lower: Vec<(f64, f64)> = Vec::new();
+    for &p in &pts {
+        while lower.len() >= 2 && cross(lower[lower.len() - 2], lower[lower.len() - 1], p) <= 0.0 {
+            lower.pop();
+        }
+        lower.push(p);
+    }
+    let mut upper: Vec<(f64, f64)> = Vec::new();
+    for &p in pts.iter().rev() {
+        while upper.len() >= 2 && cross(upper[upper.len() - 2], upper[upper.len() - 1], p) <= 0.0 {
+            upper.pop();
+        }
+        upper.push(p);
+    }
+    lower.pop();
+    upper.pop();
+    lower.extend(upper);
+    lower
+}
+
+/// The shoelace formula: area of a simple polygon given in order (either
+/// winding). `< 3` points has no interior.
+fn polygon_area_shoelace(points: &[(f64, f64)]) -> f64 {
+    if points.len() < 3 {
+        return 0.0;
+    }
+    let mut sum = 0.0;
+    for i in 0..points.len() {
+        let (x0, y0) = points[i];
+        let (x1, y1) = points[(i + 1) % points.len()];
+        sum += x0 * y1 - x1 * y0;
+    }
+    (sum / 2.0).abs()
 }
 
 #[cfg(test)]
@@ -790,13 +1182,13 @@ mod tests {
     fn regions_scales_area_by_the_square_of_the_pixel_size() {
         // A 2x2 blob at (5,5): area 4 px², centroid (5.5, 5.5).
         let labels = label_matrix(10, 10, |x, y| (5..=6).contains(&x) && (5..=6).contains(&y));
-        let px = regions(&labels, 10, 10, 1, None, None).unwrap();
+        let px = regions(&labels, 10, 10, 1, None, None, None).unwrap();
         let area = px.columns.iter().find(|(n, _)| n == "area_px2").unwrap().1.clone();
         let cx = px.columns.iter().find(|(n, _)| n == "centroid_x_px").unwrap().1.clone();
         assert_eq!(area[0], 4.0);
         assert_eq!(cx[0], 5.5);
 
-        let um = regions(&labels, 10, 10, 1, Some(0.65), Some("um")).unwrap();
+        let um = regions(&labels, 10, 10, 1, Some(0.65), Some("um"), None).unwrap();
         let area = um.columns.iter().find(|(n, _)| n == "area_um2").unwrap().1.clone();
         assert!((area[0] - 4.0 * 0.65 * 0.65).abs() < 1e-12);
         let ext = um.columns.iter().find(|(n, _)| n == "extent").unwrap().1.clone();
@@ -806,14 +1198,14 @@ mod tests {
     #[test]
     fn a_unit_without_a_scale_is_refused() {
         let labels = vec![0.0; 10];
-        let err = regions(&labels, 2, 5, 1, None, Some("um")).unwrap_err();
+        let err = regions(&labels, 2, 5, 1, None, Some("um"), None).unwrap_err();
         assert!(err.contains("without `pixel_size=`"), "got: {err}");
     }
 
     #[test]
     fn a_unit_named_px_with_a_scale_is_refused() {
         let labels = vec![0.0; 10];
-        assert!(regions(&labels, 2, 5, 1, Some(0.65), Some("px")).is_err());
+        assert!(regions(&labels, 2, 5, 1, Some(0.65), Some("px"), None).is_err());
     }
 
     #[test]
@@ -822,8 +1214,160 @@ mod tests {
         // labelling were wrong: area would be 0 rows, not 4. This pins the
         // fixture itself.
         let labels = label_matrix(10, 10, |x, y| (5..=6).contains(&x) && (5..=6).contains(&y));
-        let t = regions(&labels, 10, 10, 1, None, None).unwrap();
+        let t = regions(&labels, 10, 10, 1, None, None, None).unwrap();
         assert_eq!(t.columns[0].1.len(), 1, "the 2x2 blob must label exactly one region");
+    }
+
+    fn col<'a>(t: &'a RegionTable, name: &str) -> &'a [f64] {
+        &t.columns.iter().find(|(n, _)| n == name).unwrap_or_else(|| panic!("no column `{name}`")).1
+    }
+
+    // A filled, axis-aligned W x H rectangle is the cleanest known-answer
+    // fixture for every new shape metric at once, because every one of them
+    // has an exact closed form for it (no continuous-vs-discrete
+    // approximation to worry about):
+    //
+    //   * `perimeter`: the border ring of a solid rectangle is connected by
+    //     ORTHOGONAL steps only (no diagonal jump is ever needed to walk
+    //     from one border pixel to the next), so the closed-loop walk this
+    //     crate uses is exactly `2*(W+H-2)` for W,H >= 2 -- e.g. W=5,H=3
+    //     has a 12-pixel ring (15 pixels total minus a 3x1 interior), not
+    //     the `2*(W+H)=16` "edge crossing" convention some other tools use.
+    //   * `eccentricity`/`orientation`: for pixel centres at integer
+    //     coordinates 0..W-1 (a discrete uniform distribution), the exact
+    //     population variance is `(W*W-1)/12` -- a standard closed form,
+    //     not an approximation -- so `mu20/area = (W^2-1)/12`,
+    //     `mu02/area = (H^2-1)/12`, `mu11 = 0` (axis-aligned, so x and y
+    //     deviations are independent).
+    //   * `solidity`: a rectangle's convex hull is itself, and this crate's
+    //     hull is built from pixel CORNERS specifically so a convex
+    //     region's hull area equals its own pixel-count area -- solidity
+    //     must come out to exactly `1.0`, not merely "close to 1".
+    #[test]
+    fn rectangle_shape_metrics_match_hand_computed_values() {
+        // 5 wide (x: 2..=6), 3 tall (y: 2..=4), inside a 12x10 canvas so the
+        // region touches none of the image's own edges.
+        let (bw, bh) = (5usize, 3usize);
+        let labels = label_matrix(12, 10, |x, y| (2..2 + bw).contains(&x) && (2..2 + bh).contains(&y));
+        let t = regions(&labels, 10, 12, 1, None, None, None).unwrap();
+
+        assert_eq!(col(&t, "area_px2")[0], (bw * bh) as f64);
+
+        let expected_perimeter = 2.0 * (bw + bh - 2) as f64;
+        assert_eq!(
+            col(&t, "perimeter_px")[0],
+            expected_perimeter,
+            "a solid rectangle's border ring is all orthogonal steps: 2*(W+H-2), not 2*(W+H)"
+        );
+
+        let mu20_over_a = ((bw * bw - 1) as f64) / 12.0;
+        let mu02_over_a = ((bh * bh - 1) as f64) / 12.0;
+        let expected_ecc = (1.0 - mu02_over_a / mu20_over_a).sqrt();
+        let ecc = col(&t, "eccentricity")[0];
+        assert!((ecc - expected_ecc).abs() < 1e-9, "expected {expected_ecc}, got {ecc}");
+
+        // W > H, mu11 = 0: the major axis runs along +x, orientation = 0.
+        assert_eq!(col(&t, "orientation")[0], 0.0);
+
+        assert_eq!(col(&t, "solidity")[0], 1.0, "a convex region's hull area must equal its own area exactly");
+    }
+
+    #[test]
+    fn a_taller_rectangle_has_a_vertical_major_axis() {
+        // Swap W and H from the test above: same eccentricity (the ratio of
+        // squared axis lengths is unchanged), but now H > W, so mu20 < mu02
+        // and the major axis runs along +y -- orientation = pi/2 exactly
+        // (mu11 = 0, so atan2(0, negative) = pi, halved).
+        let (bw, bh) = (3usize, 5usize);
+        let labels = label_matrix(10, 12, |x, y| (2..2 + bw).contains(&x) && (2..2 + bh).contains(&y));
+        let t = regions(&labels, 12, 10, 1, None, None, None).unwrap();
+        let orient = col(&t, "orientation")[0];
+        assert!((orient - std::f64::consts::FRAC_PI_2).abs() < 1e-9, "got {orient}");
+    }
+
+    #[test]
+    fn right_triangle_eccentricity_and_orientation_match_the_continuous_closed_form() {
+        // A filled right triangle with both legs length L, right angle at
+        // the origin: {(x, y): x, y >= 0, x + y <= L-1}. Its continuous
+        // (non-discretized) second central moments about the centroid
+        // (L/3, L/3) are a standard textbook integral:
+        //
+        //   mu20/A = mu02/A = L^2/18   (equal: this triangle is symmetric
+        //                               under swapping x and y)
+        //   mu11/A = -L^2/36
+        //
+        // giving eigenvalues L^2/12 (major) and L^2/36 (minor) of the
+        // normalized covariance matrix, so:
+        //
+        //   eccentricity = sqrt(1 - (L^2/36)/(L^2/12)) = sqrt(1 - 1/3) = sqrt(2/3)
+        //   orientation  = 0.5*atan2(2*mu11, mu20-mu02) = 0.5*atan2(negative, 0) = -pi/4
+        //
+        // (Independently verified by direct discrete summation over several
+        // L before writing this test: the ratio-based metrics below track
+        // the continuous prediction to ~1e-10 even at L=20, because mu20
+        // and mu02 are EXACTLY equal for every L by the x<->y symmetry of
+        // this shape, not merely in the limit -- so a small, fast L is
+        // already a tight check, not merely an asymptotic one.)
+        let l = 24usize;
+        let labels = label_matrix(l + 2, l + 2, |x, y| x + y <= l - 1);
+        let t = regions(&labels, l + 2, l + 2, 1, None, None, None).unwrap();
+
+        let expected_ecc = (2.0f64 / 3.0).sqrt();
+        let ecc = col(&t, "eccentricity")[0];
+        assert!((ecc - expected_ecc).abs() < 1e-6, "expected {expected_ecc}, got {ecc}");
+
+        let expected_orientation = -std::f64::consts::FRAC_PI_4;
+        let orient = col(&t, "orientation")[0];
+        assert!((orient - expected_orientation).abs() < 1e-6, "expected {expected_orientation}, got {orient}");
+    }
+
+    #[test]
+    fn solidity_drops_below_one_for_a_non_convex_notch() {
+        // A 6x6 square (x, y in 0..=5) with a 2-pixel notch cut from the
+        // MIDDLE of the top edge (x in {2,3}, y=0) -- deliberately not
+        // touching any of the square's four corners, so all four extreme
+        // corner points ((0,0), (6,0), (0,6), (6,6) in this crate's
+        // pixel-corner convention) are still present in the point set and
+        // the convex hull is EXACTLY the full 6x6 bounding box, area 36,
+        // with no approximation or staircase ambiguity to work out by hand.
+        let notch = |x: usize, y: usize| y == 0 && (x == 2 || x == 3);
+        let labels = label_matrix(6, 6, |x, y| !notch(x, y));
+        let t = regions(&labels, 6, 6, 1, None, None, None).unwrap();
+
+        let area = col(&t, "area_px2")[0];
+        assert_eq!(area, 34.0, "36 pixels minus the 2-pixel notch");
+        let solidity = col(&t, "solidity")[0];
+        let expected = 34.0 / 36.0;
+        assert!((solidity - expected).abs() < 1e-9, "expected {expected}, got {solidity}");
+        assert!(solidity < 1.0, "a non-convex region's solidity must be strictly below 1");
+    }
+
+    #[test]
+    fn intensity_mean_averages_the_original_image_not_the_label_matrix() {
+        // Label matrix: a single 2x2 region at (1,1)-(2,2) in a 4x4 grid.
+        // Intensity image: NOT binary/uniform, so the mean is a real check
+        // rather than a value that would also fall out of a broken
+        // implementation that mixed up labels and intensities.
+        let labels = label_matrix(4, 4, |x, y| (1..=2).contains(&x) && (1..=2).contains(&y));
+        #[rustfmt::skip]
+        let intensity: Vec<f64> = vec![
+            0.0,   0.0,   0.0,   0.0,
+            0.0,  10.0,  30.0,   0.0,
+            0.0,  50.0,  90.0,   0.0,
+            0.0,   0.0,   0.0,   0.0,
+        ];
+        let t = regions(&labels, 4, 4, 1, None, None, Some(&intensity)).unwrap();
+        let mean = col(&t, "intensity_mean")[0];
+        // The region covers exactly the four interior values 10, 30, 50, 90.
+        assert_eq!(mean, (10.0 + 30.0 + 50.0 + 90.0) / 4.0);
+
+        // Omitting `intensity` must omit the column entirely, not fill it
+        // with zeros or an error.
+        let without = regions(&labels, 4, 4, 1, None, None, None).unwrap();
+        assert!(
+            without.columns.iter().all(|(n, _)| n != "intensity_mean"),
+            "intensity_mean must not appear when no intensity image was given"
+        );
     }
 
     #[test]
@@ -900,6 +1444,111 @@ mod tests {
         // The step must still exist: a plain Gaussian of this width would
         // pull both sides substantially toward the middle.
         assert!(g[12] - g[3] > 80.0, "the step must survive, got {g:?}");
+    }
+
+    /// A pure vertical edge (left half dark, right half bright, no
+    /// variation along y at all) is the textbook hand-computable case: the
+    /// vertical gradient must be EXACTLY zero everywhere (every row is
+    /// identical, so there is nothing for `gy` to see, border-clamping or
+    /// not), and the horizontal gradient must be a specific nonzero number
+    /// at the two columns straddling the edge and exactly zero everywhere
+    /// else. Expected `gx` at the edge worked by hand against the standard
+    /// Sobel kernel `[-1,0,1; -2,0,2; -1,0,1]`: three taps of `255` on the
+    /// bright side, three of `0` on the dark side, `(255+2*255+255) - 0 =
+    /// 1020`.
+    #[test]
+    fn sobel_on_a_vertical_edge_has_zero_vertical_response_and_a_known_horizontal_one() {
+        let (w, h) = (8, 4);
+        let px = rgb(w, h, |x, _| {
+            let v = if x < 4 { 0u8 } else { 255 };
+            (v, v, v)
+        });
+        let (gx, gy) = sobel(&px, w, h);
+        assert!(gy.iter().all(|&v| v == 0.0), "no y-variation at all: gy must be exactly zero, got {gy:?}");
+        for y in 0..h {
+            for x in 0..w {
+                let v = gx[y * w + x];
+                if x == 3 || x == 4 {
+                    assert_eq!(v, 1020.0, "at ({x},{y}), straddling the edge, got {v}");
+                } else {
+                    assert_eq!(v, 0.0, "at ({x},{y}), away from the edge, got {v}");
+                }
+            }
+        }
+    }
+
+    /// Same edge, same hand-worked shape, but the Scharr kernel
+    /// `[-3,0,3; -10,0,10; -3,0,3]`: `(3*255+10*255+3*255) - 0 = 4080`.
+    #[test]
+    fn scharr_on_a_vertical_edge_has_zero_vertical_response_and_a_known_horizontal_one() {
+        let (w, h) = (8, 4);
+        let px = rgb(w, h, |x, _| {
+            let v = if x < 4 { 0u8 } else { 255 };
+            (v, v, v)
+        });
+        let (gx, gy) = scharr(&px, w, h);
+        assert!(gy.iter().all(|&v| v == 0.0), "no y-variation at all: gy must be exactly zero, got {gy:?}");
+        for y in 0..h {
+            for x in 0..w {
+                let v = gx[y * w + x];
+                if x == 3 || x == 4 {
+                    assert_eq!(v, 4080.0, "at ({x},{y}), straddling the edge, got {v}");
+                } else {
+                    assert_eq!(v, 0.0, "at ({x},{y}), away from the edge, got {v}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn gradient_magnitude_is_the_euclidean_norm_of_gx_gy() {
+        // 3-4-5 triangle, so the expected answer is an exact integer rather
+        // than something that only checks approximately.
+        let gx = vec![3.0, 0.0, -3.0];
+        let gy = vec![4.0, 5.0, 4.0];
+        let mag = magnitude(&gx, &gy);
+        assert_eq!(mag, vec![5.0, 5.0, 5.0]);
+    }
+
+    /// A single bright point on a dark field, `kernel_size=3`: at the
+    /// point itself the standard 4-neighbour kernel `[0,-1,0; -1,4,-1;
+    /// 0,-1,0]` gives `4*255 - (0+0+0+0) = 1020`; at each of its four
+    /// direct neighbours it gives `4*0 - 255 = -255` (three dark neighbours
+    /// contribute 0, the one bright neighbour -- the point itself --
+    /// contributes `-255`); everywhere else (no neighbour touches the
+    /// point) it is exactly zero. A flat image gives exactly zero
+    /// everywhere, the other hand-obvious case (the kernel sums to zero by
+    /// construction).
+    #[test]
+    fn laplacian_3x3_on_a_point_source_matches_the_kernel_by_hand() {
+        let (w, h) = (5, 5);
+        let px = rgb(w, h, |x, y| if x == 2 && y == 2 { (255, 255, 255) } else { (0, 0, 0) });
+        let out = laplacian(&px, w, h, 3).unwrap();
+        assert_eq!(out[2 * w + 2], 1020.0, "at the point itself");
+        for &(nx, ny) in &[(1usize, 2usize), (3, 2), (2, 1), (2, 3)] {
+            assert_eq!(out[ny * w + nx], -255.0, "at neighbour ({nx},{ny})");
+        }
+        assert_eq!(out[0], 0.0, "far corner, untouched by the point");
+
+        let flat = rgb(w, h, |_, _| (77, 77, 77));
+        let flat_out = laplacian(&flat, w, h, 3).unwrap();
+        assert!(flat_out.iter().all(|&v| v == 0.0), "a flat image's Laplacian is exactly zero, got {flat_out:?}");
+    }
+
+    /// The 5x5 kernel sums to zero the same way the 3x3 one does, so a flat
+    /// image is still the simplest hand-checkable case; the point-source
+    /// numeric response is a straightforward kernel dot-product but not as
+    /// hand-obvious as 3x3, so it is left to the flat-field zero check plus
+    /// the "same sign, larger support" property against the 3x3 result.
+    #[test]
+    fn laplacian_5x5_is_zero_on_a_flat_image_and_rejects_other_kernel_sizes() {
+        let (w, h) = (7, 7);
+        let flat = rgb(w, h, |_, _| (140, 140, 140));
+        let out = laplacian(&flat, w, h, 5).unwrap();
+        assert!(out.iter().all(|&v| v == 0.0), "a flat image's Laplacian is exactly zero, got {out:?}");
+
+        let err = laplacian(&flat, w, h, 4).unwrap_err();
+        assert!(err.contains("kernel_size"), "got: {err}");
     }
 
     #[test]

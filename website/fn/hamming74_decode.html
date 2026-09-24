@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hamming74_decode — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>hamming74_decode</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>hamming74_decode(codeword)</code></pre>
+<p class="fnnote">Input: codeword &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>codeword</code>: a bit vector whose length is a multiple of 7. Computes each block's syndrome, flips the bit it names, and recovers the data. Corrects <strong>any single bit flip per codeword</strong>; the code's minimum distance is 3, so a double flip is mis-corrected — that is the code's limit, not the implementation's.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = hamming74_decode(codeword)</code></td><td><div class="ioitem"><code>codeword</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>data</code> <span class="iotype">&mdash;</span><span class="iodesc">the recovered bits, 4 per codeword</span></div>
+<div class="ioitem"><code>corrected</code> <span class="iotype">&mdash;</span><span class="iodesc">a <code>Bool</code>, true when any codeword needed fixing</span></div>
+<div class="ioitem"><code>positions</code> <span class="iotype">&mdash;</span><span class="iodesc">per codeword, the 1-indexed bit flipped back, or <code>0</code> for a clean one</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>data</code> (the recovered bits, 4 per codeword), <code>corrected</code> (a <code>Bool</code>, true when any codeword needed fixing) and <code>positions</code> (per codeword, the 1-indexed bit flipped back, or <code>0</code> for a clean one). (Added in v0.3.0.)</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>bits = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>]
+syms = <span class="f">qam_modulate</span>(bits, <span class="n">16</span>)             <span class="c"># 2 symbols on the odd-integer grid</span>
+<span class="f">print</span>(<span class="f">qam_demodulate</span>(syms, <span class="n">16</span>))           <span class="c"># back to the same 8 bits</span>
+
+<span class="f">print</span>(<span class="f">hamming74_encode</span>([<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]))     <span class="c"># [0, 1, 1, 0, 0, 1, 1]</span>
+r = <span class="f">hamming74_decode</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>])   <span class="c"># bit 5 flipped in transit</span>
+<span class="f">print</span>(<span class="s">"{r.data} corrected={r.corrected} at {r.positions}"</span>)
+
+m = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>]
+<span class="f">print</span>(<span class="f">crc</span>(m, <span class="n">11</span>))                         <span class="c"># [0, 0, 1] -- x^3 + x + 1</span>
+<span class="f">print</span>(<span class="f">crc_check</span>([<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>], <span class="n">11</span>))   <span class="c"># true</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[0, 1, 1, 0, 1, 0, 0, 1]
+[0, 1, 1, 0, 0, 1, 1]
+[1, 0, 1, 1] corrected=true at [5]
+[0, 0, 1]
+true</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>hamming74_decode(codeword)</code> — corrects one bit flip per 7-bit codeword. Returns a <code>Record</code>, the same multi-return convention <code>huffman_encode</code> uses: <code>data</code> (the recovered bits), <code>corrected</code> (a <code>Bool</code>, true when any codeword needed fixing) and <code>positions</code> (per codeword, the 1-indexed bit that was flipped back, or 0 for a clean one).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

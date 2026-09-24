@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image.rgb2hsv — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>image.rgb2hsv</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>image.rgb2hsv(img)</code></pre>
+<p class="fnnote">Input: img &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>. Per-pixel RGB→HSV conversion (the whole-<code>Image</code> counterpart to the scalar <code>to_hsv</code>), reusing the exact same conversion the scalar builtin uses.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = image.rgb2hsv(img)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image or scalar</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>h</code> <span class="iotype">&mdash;</span><span class="iodesc">hue, degrees 0–360</span></div>
+<div class="ioitem"><code>v</code> <span class="iotype">&mdash;</span><span class="iodesc">each 0–1</span></div>
+</td><td>Returns a <code>Record</code> with fields <code>h</code> (hue, degrees 0–360), <code>s</code>, <code>v</code> (each 0–1), each a <code>Mat</code> the same <code>height x width</code> shape as <code>img</code>. Added in v0.4.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>rgb2hsv(img)</code> / <code>rgb2lab(img)</code> -- per-pixel colorspace conversion, the whole-<code>Image</code> counterpart to the existing scalar <code>to_hsv</code>/<code>to_lab</code> (a single color's coordinates). Reuse <code>color::rgb_to_hsv</code>/<code>rgb_to_lab</code> exactly (no separate per-pixel math to drift out of sync with the scalar builtins), called once per pixel. Returns a <code>Record</code> of three same-shape <code>Mat</code>s (<code>h</code>/<code>s</code>/<code>v</code> or <code>l</code>/<code>a</code>/<code>b</code>) rather than a <code>Value::Image</code> -- hue is 0-360 and Lab's a*/b* run roughly -128..127, neither of which an 8-bit RGB <code>Image</code> can hold without truncating, and this codebase's <code>Image</code> type has no <code>space</code> tag to mark it "not really RGB" (a known, deliberately deferred gap -- see <code>qu_image</code>'s own module doc comment). <code>image::hsv2rgb</code>/ <code>image::lab2rgb</code> above accept exactly this shape back.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

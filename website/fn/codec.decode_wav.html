@@ -44,7 +44,14 @@
 </td><td>Returns a <code>Signal</code> for a single series — a mono file, or any file with <code>channel=</code> — and otherwise a <code>Record</code> with <code>fs</code>, <code>bits</code>, <code>frames</code> and <code>channels</code>, exactly as <code>codec.decode_flac</code> does.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> codec
+
+a = codec.<span class="f">decode_wav</span>(<span class="s">"take.wav"</span>)            <span class="c"># a stereo file</span>
+codec.<span class="f">write_wav</span>(<span class="s">"take24.wav"</span>, a.channels, <span class="a">depth</span> = <span class="n">24</span>)
+codec.<span class="f">write_wav</span>(<span class="s">"take16.wav"</span>, a.channels, <span class="a">depth</span> = <span class="n">16</span>, <span class="a">dither</span> = <span class="s">"tpdf"</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>One body for all three. They differ only in which decoder runs, because <code>qu_codec</code> gives them a common <code>Audio</code> -- so the shape a script gets back cannot drift between formats, which is the thing that would actually hurt.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qam_demodulate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>qam_demodulate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>qam_demodulate(symbols, order)</code></pre>
+<p class="fnnote">Input: symbols, order &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>symbols</code>: a <code>CVec</code>, a real <code>Vec</code> (quadrature taken as zero), or a single <code>Complex</code>; <code>order</code> as for <code>qam_modulate</code>. Nearest-constellation-point decision, the exact inverse of <code>qam_modulate</code> on clean symbols. Because a square constellation is a product of two independent PAM axes, the nearest point is found by rounding per axis rather than searching all <code>order</code> points; a symbol landing outside the constellation decides to the edge point.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = qam_demodulate(symbols, order)</code></td><td><div class="ioitem"><code>symbols</code> <span class="iotype">CVec, Vec, or Complex</span><span class="iodesc"><code>symbols</code>: a <code>CVec</code>, a real <code>Vec</code> (quadrature taken as zero), or a single <code>Complex</code>.</span></div>
+<div class="ioitem"><code>order</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>order</code> as for <code>qam_modulate</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec</span></div>
+</td><td>Returns a <code>Vec</code> of <code>0</code>/<code>1</code>, <code>log2(order)</code> bits per symbol. (Added in v0.3.0.)</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>bits = [<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>]
+syms = <span class="f">qam_modulate</span>(bits, <span class="n">16</span>)             <span class="c"># 2 symbols on the odd-integer grid</span>
+<span class="f">print</span>(<span class="f">qam_demodulate</span>(syms, <span class="n">16</span>))           <span class="c"># back to the same 8 bits</span>
+
+<span class="f">print</span>(<span class="f">hamming74_encode</span>([<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]))     <span class="c"># [0, 1, 1, 0, 0, 1, 1]</span>
+r = <span class="f">hamming74_decode</span>([<span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>])   <span class="c"># bit 5 flipped in transit</span>
+<span class="f">print</span>(<span class="s">"{r.data} corrected={r.corrected} at {r.positions}"</span>)
+
+m = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>]
+<span class="f">print</span>(<span class="f">crc</span>(m, <span class="n">11</span>))                         <span class="c"># [0, 0, 1] -- x^3 + x + 1</span>
+<span class="f">print</span>(<span class="f">crc_check</span>([<span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>], <span class="n">11</span>))   <span class="c"># true</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[0, 1, 1, 0, 1, 0, 0, 1]
+[0, 1, 1, 0, 0, 1, 1]
+[1, 0, 1, 1] corrected=true at [5]
+[0, 0, 1]
+true</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<h2>How it works</h2>
+<p><code>qam_demodulate(symbols, order)</code> — nearest-constellation- point decision, the inverse of <code>qam_modulate</code>. Accepts a <code>CVec</code>, a real <code>Vec</code> (quadrature taken as zero) or a single <code>Complex</code>. Returns the recovered bits as a <code>Vec</code> of 0/1.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

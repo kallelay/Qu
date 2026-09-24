@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>calibrate — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>calibrate</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>calibrate(s, sensitivity=, [sensitivity_unit="mV/Pa"])</code> or <code>calibrate(s, tone_level=, [tone_freq=], [tone_ref=], [tone_unit="Pa"])</code></pre>
+<p class="fnnote">Input: s, sensitivity, sensitivity_unit &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Added in v0.2.4. Turns a raw <code>Signal</code> into a physically calibrated one, scaling the samples and stamping the resulting unit. Name <strong>exactly one</strong> of <code>sensitivity=</code> (a transducer datasheet figure — <code>calibrate(s, sensitivity = 12.3)</code> means 12.3 mV/Pa, and the slope is its reciprocal) or <code>tone_level=</code> (dB level of an acoustic calibrator recorded in <code>s</code> itself, so <code>spl(calibrate(rec, tone_level = 94))</code> reads back 94). <code>tone_ref</code> defaults to 20 µPa for pressure; <code>tone_unit</code> names the physical unit. If <code>tone_freq=</code> is given, the named tone is <strong>checked</strong> against the recording via a Goertzel estimate and a record whose energy is not concentrated there is refused — the wrong-file mistake, which every later measurement would otherwise inherit silently. The level is measured AC-coupled (RMS about the mean), as a sound level meter does. Errors on a non-<code>Signal</code>, on an empty signal, or when both/neither form is named.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>calibrate(s, sensitivity=, [sensitivity_unit="mV/Pa"]) or calibrate(s, tone_level=, [tone_freq=], [tone_ref=], [tone_unit="Pa"])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">&mdash;</span><span class="iodesc">Name <strong>exactly one</strong> of <code>sensitivity=</code> (a transducer datasheet figure — <code>calibrate(s, sensitivity = 12.3)</code> means 12.3 mV/Pa, and the slope is its reciprocal) or <code>tone_level=</code> (dB level of an acoustic calibrator recorded in <code>s</code> itself, so <code>spl(calibrate(rec, tone_level = 94))</code> reads back 94).</span></div>
+<div class="ioitem"><code>sensitivity</code> <span class="iotype">&mdash;</span><span class="iodesc">Name <strong>exactly one</strong> of <code>sensitivity=</code> (a transducer datasheet figure — <code>calibrate(s, sensitivity = 12.3)</code> means 12.3 mV/Pa, and the slope is its reciprocal) or <code>tone_level=</code> (dB level of an acoustic calibrator recorded in <code>s</code> itself, so <code>spl(calibrate(rec, tone_level = 94))</code> reads back 94).</span></div>
+<div class="ioitem"><code>sensitivity_unit</code> <span class="iotype">optional (default <code>"mV/Pa"</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Added in v0.2.4. Turns a raw <code>Signal</code> into a physically calibrated one, scaling the samples and stamping the resulting unit. <code>tone_ref</code> defaults to 20 µPa for pressure; <code>tone_unit</code> names the physical unit. If <code>tone_freq=</code> is given, the named tone is <strong>checked</strong> against the recording via a Goertzel estimate and a record whose energy is not concentrated there is refused — the wrong-file mistake, which every later measurement would otherwise inherit silently. The level is measured AC-coupled (RMS about the mean), as a sound level meter does. Errors on a non-<code>Signal</code>, on an empty signal, or when both/neither form is named.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>calibrate(s, sensitivity = 12.3, [sensitivity_unit="mV/Pa"])</code> or <code>calibrate(s, tone_level = 94, [tone_freq=], [tone_ref=], [tone_unit="Pa"])</code> -- §10's two acoustic spellings, both of them special cases of <code>apply_calibration</code> above. The SENSITIVITY form is the transducer's datasheet figure: "this microphone puts out 12.3 mV per pascal". The slope is its RECIPROCAL, which is the step that gets inverted by hand and gets it backwards, so it is done once in <code>parse_sensitivity_unit</code> and here. The TONE form is a recording of an acoustic calibrator -- a device that produces a known level at a known frequency against your actual microphone, cable and gain setting, which is why it is the form measurement people trust. <code>s</code> is that recording; the returned signal is <code>s</code> in pascals, so <code>spl(calibrate(rec, tone_level = 94))</code> reads 94 dB back. Pass <code>tone_freq</code> and the named tone is CHECKED against what is actually in the recording rather than assumed.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>transfer_function — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>transfer_function</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>transfer_function(input, output, [fs], [method="h1"], [nperseg=min(256,len)], [noverlap=nperseg/2], [window="hann"])</code></pre>
+<p class="fnnote">Input: input, output, fs, method, nperseg, noverlap, window &middot; Output: result</p>
+<h2>What it is</h2>
+<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = transfer_function(input, output, [fs], [method="h1"], [nperseg=min(256,len)], [noverlap=nperseg/2], [window="hann"])</code></td><td><div class="ioitem"><code>input</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>input</code>/<code>output</code>: equal-length real vectors or <code>Signal</code>s recorded simultaneously.</span></div>
+<div class="ioitem"><code>output</code> <span class="iotype">CVec</span><span class="iodesc">Returns an <code>frf</code> model carrying the frequency response of the system taking <code>input</code> to <code>output</code>, with fields <code>h</code> (length-<code>nperseg/2 + 1</code> <code>CVec</code>), <code>freq</code> (the matching Hz axis), <code>coherence</code>, <code>method</code>, <code>fs</code> and <code>nperseg</code>.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number, optional</span><span class="iodesc"><code>fs</code> (number, Hz) may instead be carried by either one, and two recordings carrying rates that disagree is an error.</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">optional (default <code>"h1"</code>)</span><span class="iodesc"><code>method</code> selects the noise-weighted estimator: <code>"h1"</code> (default) assumes the noise is on the <strong>output</strong> and is the usual choice for a controlled excitation.</span></div>
+<div class="ioitem"><code>nperseg</code> <span class="iotype">CVec, optional (default <code>min(256,len)</code>)</span><span class="iodesc">Returns an <code>frf</code> model carrying the frequency response of the system taking <code>input</code> to <code>output</code>, with fields <code>h</code> (length-<code>nperseg/2 + 1</code> <code>CVec</code>), <code>freq</code> (the matching Hz axis), <code>coherence</code>, <code>method</code>, <code>fs</code> and <code>nperseg</code>.</span></div>
+<div class="ioitem"><code>noverlap</code> <span class="iotype">optional (default <code>nperseg/2</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>window</code> <span class="iotype">optional (default <code>"hann"</code>)</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>h</code> <span class="iotype">CVec</span><span class="iodesc">length-<code>nperseg/2 + 1</code> <code>CVec</code></span></div>
+<div class="ioitem"><code>freq</code> <span class="iotype">&mdash;</span><span class="iodesc">the matching Hz axis</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc">Hz</span></div>
+</td><td>Returns an <code>frf</code> model carrying the frequency response of the system taking <code>input</code> to <code>output</code>, with fields <code>h</code> (length-<code>nperseg/2 + 1</code> <code>CVec</code>), <code>freq</code> (the matching Hz axis), <code>coherence</code>, <code>method</code>, <code>fs</code> and <code>nperseg</code>. <code>input</code>/<code>output</code>: equal-length real vectors or <code>Signal</code>s recorded simultaneously; <code>fs</code> (number, Hz) may instead be carried by either one, and two recordings carrying rates that disagree is an error. <code>method</code> selects the noise-weighted estimator: <code>"h1"</code> (default) assumes the noise is on the <strong>output</strong> and is the usual choice for a controlled excitation; <code>"h2"</code> assumes it is on the <strong>input</strong> and is the one to use at a resonance; <code>"hv"</code> is the geometric-mean compromise <code>sqrt(H1*H2)</code>. All three share one phase and differ only in magnitude, in the fixed ratio <code>|H1| = coherence * |H2|</code>, so they agree exactly on a noiseless record. Built on <code>welch</code>/<code>csd</code> with one shared framing, so <code>h</code>, <code>coherence</code> and the axis line up bin-for-bin. Read it with <code>H.magnitude()</code>, <code>H.phase()</code>, <code>H.coherence()</code>, <code>H.freq</code>, and plot it with <code>H.bode()</code>. Added in v0.3.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>transfer_function(input, output, [fs], [method="h1"], ...)</code> — <code>toolkit-signal.md</code> §11's <code>Signal.transferFunction(input, output)</code>: the frequency response of the system taking <code>input</code> to <code>output</code>, with the coherence that says how much of the output that response actually explains. The estimator is a <code>method=</code> KEYWORD rather than three separate builtins. H1/H2/Hv are three answers to one question (where is the noise?), not three operations — and the names <code>h1</code>/<code>h2</code> are already taken by the report builder's heading helpers (<code>r.h1("Title")</code>), so top-level <code>h1(x, y)</code> was never available to take. Returns a <code>kind="frf"</code> handle rather than a bare <code>CVec</code> because §0's whole thesis is that the axis travels with the data: <code>H.freq</code> is in Hz and reads exactly like <code>Spectrum</code>'s own <code>.freq</code>, and <code>H.magnitude()</code>/<code>.phase()</code>/<code>.coherence()</code> work through the ordinary <code>recv.method()</code> sugar.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>
