@@ -151,6 +151,88 @@ impl Element {
         }
     }
 
+    /// The canonical one- or two-letter code for this element, the same one
+    /// the spec-string grammar uses.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Element::Resistor(_) => "R",
+            Element::Capacitor(_) => "C",
+            Element::Inductor(_) => "L",
+            Element::Warburg(_) => "W",
+            Element::Cpe { .. } => "Q",
+            Element::FiniteOpen { .. } => "Wo",
+            Element::FiniteShort { .. } => "Ws",
+            Element::Gerischer { .. } => "G",
+            Element::Porous { .. } => "P",
+            Element::HavriliakNegami { .. } => "H",
+        }
+    }
+
+    /// Per-parameter `(suffix, role)`, in the flat vector's order.
+    ///
+    /// The suffix is the name the struct field already carries, so a fitted
+    /// `Q1_n` is findable in this file without a translation table. A
+    /// one-parameter element has an empty suffix: there is nothing to
+    /// disambiguate, and `R1` reads better than `R1_r`.
+    pub fn param_meta(&self) -> &'static [(&'static str, ParamRole)] {
+        use ParamRole::{Exponent, Magnitude};
+        match self {
+            Element::Resistor(_)
+            | Element::Capacitor(_)
+            | Element::Inductor(_)
+            | Element::Warburg(_) => &[("", Magnitude)],
+            Element::Cpe { .. } => &[("q", Magnitude), ("n", Exponent)],
+            Element::FiniteOpen { .. } | Element::FiniteShort { .. } => {
+                &[("rw", Magnitude), ("tau", Magnitude)]
+            }
+            Element::Gerischer { .. } => &[("zg", Magnitude), ("k", Magnitude)],
+            Element::Porous { .. } => &[("rp", Magnitude), ("q", Magnitude), ("n", Exponent)],
+            Element::HavriliakNegami { .. } => &[
+                ("rh", Magnitude),
+                ("tau", Magnitude),
+                ("a", Exponent),
+                ("g", Exponent),
+            ],
+        }
+    }
+
+    /// The same element with new parameter values, `p` in the flat vector's
+    /// order. Topology is preserved; only the numbers change.
+    ///
+    /// Panics if `p` is shorter than `nparam()`. Every caller in-tree slices
+    /// it out of a vector whose length was already checked against
+    /// [`Circuit::nparam`], and returning a `Result` here would put an
+    /// unreachable error branch inside the fitter's inner loop.
+    pub fn with_params(&self, p: &[f64]) -> Element {
+        match self {
+            Element::Resistor(_) => Element::Resistor(p[0]),
+            Element::Capacitor(_) => Element::Capacitor(p[0]),
+            Element::Inductor(_) => Element::Inductor(p[0]),
+            Element::Warburg(_) => Element::Warburg(p[0]),
+            Element::Cpe { .. } => Element::Cpe { q: p[0], n: p[1] },
+            Element::FiniteOpen { .. } => Element::FiniteOpen {
+                rw: p[0],
+                tau: p[1],
+            },
+            Element::FiniteShort { .. } => Element::FiniteShort {
+                rw: p[0],
+                tau: p[1],
+            },
+            Element::Gerischer { .. } => Element::Gerischer { zg: p[0], k: p[1] },
+            Element::Porous { .. } => Element::Porous {
+                rp: p[0],
+                q: p[1],
+                n: p[2],
+            },
+            Element::HavriliakNegami { .. } => Element::HavriliakNegami {
+                rh: p[0],
+                tau: p[1],
+                a: p[2],
+                g: p[3],
+            },
+        }
+    }
+
     /// Impedance at angular frequency `w` (rad/s).
     pub fn impedance(&self, w: f64) -> Complex64 {
         let jw = Complex64 { re: 0.0, im: w };
@@ -185,6 +267,24 @@ impl Element {
             }
         }
     }
+}
+
+/// What a scalar parameter *is*, which is the only thing a fitter needs to
+/// know about it beyond its current value.
+///
+/// A magnitude (`R`, `C`, `Aw`, `tau`, ...) spans decades: the capacitances
+/// in one cell can be 1e-9 and the resistances 1e3, and a step that moves
+/// the resistance sensibly moves the capacitance by a million times its own
+/// value. Those are fitted as `log10` of themselves so one step size is
+/// right for every parameter, which is also what keeps them positive without
+/// a bound doing the work. An exponent (`n`, `a`, `g`) is already O(1) and
+/// lives in `(0, 1]`, so logging it would fight the fit instead of helping.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParamRole {
+    /// Positive, scale-free, fitted in log space.
+    Magnitude,
+    /// Dimensionless exponent near 1, fitted directly.
+    Exponent,
 }
 
 /// A circuit: a leaf element, or elements combined in series or parallel.
@@ -242,6 +342,106 @@ impl Circuit {
             Circuit::Leaf(e) => e.nparam(),
             Circuit::Series(parts) | Circuit::Parallel(parts) => {
                 parts.iter().map(|p| p.nparam()).sum()
+            }
+        }
+    }
+
+    /// Every leaf element, in the flat parameter vector's own left-to-right
+    /// order, so the two can be walked together.
+    pub fn leaves(&self) -> Vec<&Element> {
+        let mut out = Vec::new();
+        self.collect_leaves(&mut out);
+        out
+    }
+
+    fn collect_leaves<'a>(&'a self, out: &mut Vec<&'a Element>) {
+        match self {
+            Circuit::Leaf(e) => out.push(e),
+            Circuit::Series(parts) | Circuit::Parallel(parts) => {
+                for p in parts {
+                    p.collect_leaves(out);
+                }
+            }
+        }
+    }
+
+    /// A name per parameter, in the flat vector's order: the element code,
+    /// its 1-based occurrence among elements of that code, and the field
+    /// suffix when the element has more than one parameter -- `R1`, `R2`,
+    /// `Q1_q`, `Q1_n`.
+    ///
+    /// Instance tags from a spec string (`Rct`) cannot be used for this: the
+    /// parser discards them and `circuit(...)` built from `series`/`parallel`
+    /// never had any. Counting occurrences gives every circuit names, from
+    /// either construction route, and gives the SAME names for the same
+    /// topology -- which is what a fit report needs, since the reader has to
+    /// match a number against a position in the spec string.
+    pub fn param_names(&self) -> Vec<String> {
+        let mut seen: Vec<(&'static str, usize)> = Vec::new();
+        let mut out = Vec::with_capacity(self.nparam());
+        for e in self.leaves() {
+            let code = e.code();
+            let idx = match seen.iter_mut().find(|(c, _)| *c == code) {
+                Some((_, n)) => {
+                    *n += 1;
+                    *n
+                }
+                None => {
+                    seen.push((code, 1));
+                    1
+                }
+            };
+            for (suffix, _) in e.param_meta() {
+                if suffix.is_empty() {
+                    out.push(format!("{code}{idx}"));
+                } else {
+                    out.push(format!("{code}{idx}_{suffix}"));
+                }
+            }
+        }
+        out
+    }
+
+    /// The role of each parameter, in the flat vector's order.
+    pub fn param_roles(&self) -> Vec<ParamRole> {
+        self.leaves()
+            .iter()
+            .flat_map(|e| e.param_meta().iter().map(|(_, r)| *r))
+            .collect()
+    }
+
+    /// The same topology with new parameter values, consumed in left-to-right
+    /// leaf order -- the rebuild step of every iteration of a fit.
+    ///
+    /// A wrong length is an error in BOTH directions, matching
+    /// `circuit(spec, params)`: too many is rejected rather than truncated,
+    /// because silently ignoring the tail would fit a different circuit than
+    /// the one written.
+    pub fn with_params(&self, params: &[f64]) -> Result<Circuit, String> {
+        let want = self.nparam();
+        if params.len() != want {
+            return Err(format!(
+                "circuit has {want} parameter(s) but {} were given",
+                params.len()
+            ));
+        }
+        let mut at = 0usize;
+        Ok(self.rebuild(params, &mut at))
+    }
+
+    fn rebuild(&self, params: &[f64], at: &mut usize) -> Circuit {
+        match self {
+            Circuit::Leaf(e) => {
+                let n = e.nparam();
+                let slice = &params[*at..*at + n];
+                *at += n;
+                Circuit::Leaf(e.with_params(slice))
+            }
+            Circuit::Series(parts) => {
+                Circuit::Series(parts.iter().map(|p| p.rebuild(params, at)).collect())
+            }
+            Circuit::Parallel(parts) => {
+                Circuit::Parallel(parts.iter().map(|p| p.rebuild(params, at)).collect())
             }
         }
     }

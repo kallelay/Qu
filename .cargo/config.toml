@@ -1,0 +1,28 @@
+# Mirrors `engine/.cargo/config.toml` (see its own comment for the
+# underlying stack-size story: `qu-interp`'s tree-walking evaluator plus
+# `call_builtin`'s giant match give an unoptimized debug build a deep,
+# large-framed call chain that can exceed Windows' default ~1-2 MiB
+# test-thread stack on nothing more than an ordinary tensor/autograd
+# script — no unbounded recursion involved; verified 2026-09-24 by
+# bisecting `RUST_MIN_STACK` at epoch counts from 3 to 1000 and finding
+# the *same* ~2-3 MiB threshold every time, proving the requirement
+# doesn't grow with iteration count).
+#
+# That config alone isn't enough: Cargo discovers `.cargo/config.toml`
+# by walking UP from the current working directory, never down into
+# subdirectories — so it's invisible to any invocation of the form
+# `cargo test --manifest-path engine/Cargo.toml` run from HERE (this
+# repo's root, one level above `engine/`), which is exactly how these
+# per-crate test commands normally get invoked from a top-level
+# checkout/worktree. `engine/.cargo/config.toml` only takes effect when
+# the working directory is already inside `engine/`. Confirmed 2026-09-24:
+# `tests::quick_mlp_end_to_end_reduces_loss_on_a_tiny_classification_task`
+# — the exact test the Aug-26 fix (54d2d8cb) targeted — still
+# STATUS_STACK_OVERFLOWs and aborts the whole `qu-interp` lib test binary
+# when run via `--manifest-path` from here, silently hiding every test
+# after it, despite that fix having been in place for a month. This file
+# closes that gap for the from-the-repo-root invocation shape without
+# touching `engine/`'s own copy (still needed for the "already `cd`'d
+# into `engine/`" shape).
+[env]
+RUST_MIN_STACK = "67108864"

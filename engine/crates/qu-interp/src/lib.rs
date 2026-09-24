@@ -13045,6 +13045,26 @@ impl Interp {
     /// walk (didn't feed into `loss`) simply has no adjoint, which reads as
     /// a zero gradient for it — correct: it had no effect on `loss`.
     fn eval_grad(&mut self, loss: Value, wrt: Value) -> R<Value> {
+        self.eval_grad_seeded(loss, wrt, Value::Num(1.0))
+    }
+
+    /// [`eval_grad`] with the backward pass's *starting* adjoint chosen by
+    /// the caller instead of hardwired to `1.0`.
+    ///
+    /// This is the one genuine generalisation the tape already supported
+    /// but never exposed. A reverse-mode sweep does not compute "the
+    /// gradient"; it computes a vector-Jacobian product `seed^T · J`, and
+    /// `seed = 1.0` is only the special case that makes that the gradient
+    /// of a *scalar* loss. Seeding with a one-hot vector `e_i` shaped like
+    /// the output instead yields row `i` of the Jacobian, which is exactly
+    /// how `jacobian` below gets a full matrix out of a tape that was only
+    /// ever asked for scalar losses.
+    ///
+    /// Nothing here mutates the tape, so the same forward pass can be
+    /// swept backward as many times as there are output components --
+    /// `jacobian` does one forward pass and `m` backward passes, not `m`
+    /// of each.
+    fn eval_grad_seeded(&mut self, loss: Value, wrt: Value, seed: Value) -> R<Value> {
         let loss_node = match &loss {
             Value::Tensor(t) => t.node,
             other => return e(format!(
@@ -13053,7 +13073,7 @@ impl Interp {
             )),
         };
         let mut adjoints: Vec<Option<Value>> = vec![None; self.tape.len()];
-        adjoints[loss_node] = Some(Value::Num(1.0));
+        adjoints[loss_node] = Some(seed);
         for node in (0..=loss_node).rev() {
             let Some(upstream) = adjoints[node].clone() else { continue };
             let (op, inputs, input_vals, result) = {
@@ -13104,6 +13124,308 @@ impl Interp {
                 other.type_name()
             )),
         }
+    }
+
+    /// Push a fresh `leaf` tape node for `v` and hand back the tracked
+    /// `Tensor` that points at it — the same three lines `param`/`track`
+    /// run, reachable from Rust so the transforms below don't have to
+    /// re-enter `call_builtin` just to wrap an argument.
+    fn make_param(&mut self, v: Value) -> Value {
+        let node = self.tape.len();
+        self.tape.push(TapeEntry {
+            op: "leaf".to_string(),
+            inputs: [None, None],
+            input_vals: [Value::Nothing, Value::Nothing],
+            result: v.clone(),
+        });
+        Value::Tensor(Arc::new(TensorState { value: Box::new(v), node }))
+    }
+
+    /// `f(param(x))`, returning both the tracked output and the tracked
+    /// input. Every transform below starts here.
+    ///
+    /// The error when `f` hands back an untracked value is worth its
+    /// length: it is the single failure every one of these transforms has,
+    /// and the cause is never obvious from a bare type name. The tape only
+    /// follows arithmetic and the builtins in `TENSOR_MATH1`/`TENSOR_AWARE`
+    /// — indexing a tensor, `stop_grad`, and every other builtin unwrap it
+    /// to a plain value on the way in, at which point the function is
+    /// computing the right number by a route nothing recorded.
+    fn trace_call(&mut self, f: &Value, x: Value, who: &str) -> R<(Value, Value)> {
+        let xt = self.make_param(x);
+        let out = self.call_one(f, xt.clone())?;
+        if !matches!(out, Value::Tensor(_)) {
+            return e(format!(
+                "{who}: `f` returned an untracked {} -- the tape could not follow it. \
+                 `f` has to reach its result through arithmetic and the autodiff-aware \
+                 builtins (`sin`/`cos`/`exp`/`log`/`sqrt`/`tanh`/`sigmoid`/`relu`/`sum`/\
+                 `mean`, matmul, transpose); indexing its argument, `stop_grad`, and any \
+                 other builtin detach it first",
+                out.type_name()
+            ));
+        }
+        Ok((out, xt))
+    }
+
+    /// `jacobian(f, x)` — the full `m x n` matrix of first derivatives of a
+    /// vector-valued `f` at `x`, with `J[i][j] = d f_i / d x_j`.
+    ///
+    /// One forward pass, `m` backward passes. That ordering is forced by
+    /// the mechanism, not chosen: the tape is reverse-mode, so a single
+    /// sweep yields `seed^T · J` — one *row* — and a full matrix costs one
+    /// sweep per output component. (Forward-mode would cost one per
+    /// *input*, so this is the cheap direction exactly when `m < n`, the
+    /// usual case for a loss-shaped function.) The forward pass is not
+    /// repeated, because a backward sweep only reads the tape.
+    ///
+    /// Both `x` and `f`'s result are flattened in the same column-major
+    /// order `optimizer_param_flat` uses, so a matrix argument is indexed
+    /// down its columns.
+    fn eval_jacobian(&mut self, f: &Value, x: &Value) -> R<Value> {
+        let n = optimizer_param_flat(x)?.len();
+        let (out, xt) = self.trace_call(f, x.clone(), "jacobian")?;
+        let out_val = untensor(out.clone()).0;
+        let m = optimizer_param_flat(&out_val)?.len();
+        let mut j = Matrix::zeros(m, n);
+        for i in 0..m {
+            let mut seed = vec![0.0; m];
+            seed[i] = 1.0;
+            let seed_v = flat_to_value(&out_val, &seed)?;
+            let row = self.eval_grad_seeded(out.clone(), xt.clone(), seed_v)?;
+            let row_flat = optimizer_param_flat(&row)?;
+            if row_flat.len() != n {
+                return e(format!(
+                    "jacobian: row {i} came back with {} entries but `x` has {n} -- \
+                     `f` is reshaping its argument in a way the tape mis-tracks",
+                    row_flat.len()
+                ));
+            }
+            for (c, g) in row_flat.iter().enumerate() {
+                j.set(i, c, *g).map_err(|err| EvalError { msg: format!("jacobian: {err}") })?;
+            }
+        }
+        Ok(mat_value(j))
+    }
+
+    /// The exact reverse-mode gradient of scalar-valued `f` at the point
+    /// `flat` (laid out like `template`), flattened. Shared by `hessian`
+    /// and `check_grads`.
+    fn exact_grad_flat(&mut self, f: &Value, template: &Value, flat: &[f64], who: &str) -> R<Vec<f64>> {
+        let point = flat_to_value(template, flat)?;
+        let (out, xt) = self.trace_call(f, point, who)?;
+        let out_val = untensor(out.clone()).0;
+        if !matches!(out_val, Value::Num(_)) {
+            return e(format!(
+                "{who}: `f` must return a single number, found {} -- use `jacobian` for a \
+                 vector-valued function",
+                out_val.type_name()
+            ));
+        }
+        let g = self.eval_grad(out, xt)?;
+        Ok(optimizer_param_flat(&g)?.to_vec())
+    }
+
+    /// `hessian(f, x)` — the `n x n` matrix of second derivatives of a
+    /// scalar-valued `f`.
+    ///
+    /// NOT `jacobian` of `grad`, and that is the honest part. The obvious
+    /// composition does not work on this tape: `eval_grad`'s backward
+    /// sweep builds its adjoints with `tensor_vjp` and `binop` on *plain*
+    /// values, so the gradient it returns carries no tape node and
+    /// differentiating it a second time has nothing to walk. Making
+    /// reverse-over-reverse work would mean re-recording the entire
+    /// backward pass onto the tape — a much larger change than this, and
+    /// one that would need a vjp rule for every vjp rule.
+    ///
+    /// So the outer derivative is numerical and the inner one is exact:
+    /// central differences of the *analytic* gradient. That is a genuinely
+    /// different error profile from differencing `f` itself twice — the
+    /// quantity being differenced is exact to machine precision, so the
+    /// error is the `O(h^2)` truncation term alone rather than `O(h^2)`
+    /// plus a cancellation term that a second difference squares. The
+    /// result is symmetrised, since `H[i][j]` and `H[j][i]` are computed
+    /// independently and averaging them is free.
+    ///
+    /// `step=` overrides the relative step (default `1e-5`, scaled by
+    /// `|x_j|` where that is above 1).
+    fn eval_hessian(&mut self, f: &Value, x: &Value, step: f64) -> R<Value> {
+        let x_flat = optimizer_param_flat(x)?.to_vec();
+        let n = x_flat.len();
+        // `cols[j]` is dg/dx_j: the whole gradient's response to nudging
+        // input j, i.e. COLUMN j of the Hessian.
+        let mut cols: Vec<Vec<f64>> = Vec::with_capacity(n);
+        for j in 0..n {
+            let h = step * x_flat[j].abs().max(1.0);
+            let mut xp = x_flat.clone();
+            xp[j] += h;
+            let mut xm = x_flat.clone();
+            xm[j] -= h;
+            let gp = self.exact_grad_flat(f, x, &xp, "hessian")?;
+            let gm = self.exact_grad_flat(f, x, &xm, "hessian")?;
+            if gp.len() != n || gm.len() != n {
+                return e("hessian: the gradient changed length between points".to_string());
+            }
+            cols.push(gp.iter().zip(gm.iter()).map(|(a, b)| (a - b) / (2.0 * h)).collect());
+        }
+        let mut hm = Matrix::zeros(n, n);
+        for r in 0..n {
+            for c in 0..n {
+                let sym = 0.5 * (cols[c][r] + cols[r][c]);
+                hm.set(r, c, sym).map_err(|err| EvalError { msg: format!("hessian: {err}") })?;
+            }
+        }
+        Ok(mat_value(hm))
+    }
+
+    /// `value_and_grad(f, x)` — `[f(x), grad f(x)]` from ONE forward pass.
+    ///
+    /// The saving is real rather than cosmetic here, but it is worth being
+    /// precise about where it comes from. `grad` does not take a function;
+    /// it takes an already-computed tracked loss. So the Qu-level idiom is
+    /// `t = param(x); y = f(t); g = grad(y, wrt=t)`, and the user already
+    /// has `y` — there is nothing to save. What this replaces is the
+    /// *other* idiom, `y = f(x)` followed by a separate `grad`-flavoured
+    /// re-evaluation, which does run `f` twice. It also means the caller
+    /// never has to spell out the `param`/`wrt` plumbing.
+    ///
+    /// The returned value is the plain (untracked) result, and the
+    /// gradient keeps `x`'s own shape, exactly as `grad` returns it.
+    fn eval_value_and_grad(&mut self, f: &Value, x: &Value) -> R<Value> {
+        let (out, xt) = self.trace_call(f, x.clone(), "value_and_grad")?;
+        let out_val = untensor(out.clone()).0;
+        if !matches!(out_val, Value::Num(_)) {
+            return e(format!(
+                "value_and_grad: `f` must return a single number, found {} -- use \
+                 `jacobian` for a vector-valued function",
+                out_val.type_name()
+            ));
+        }
+        let g = self.eval_grad(out, xt)?;
+        Ok(Value::List(Arc::new(vec![out_val, g])))
+    }
+
+    /// `check_grads(f, x)` — verify the analytic gradient against central
+    /// finite differences of `f` itself.
+    ///
+    /// A testing primitive, and deliberately the one place here that does
+    /// NOT use the tape for the reference value: differencing `f` numerically
+    /// is an independent route to the same number, which is the entire
+    /// point. If a vjp rule is wrong, both an "analytic" and a
+    /// tape-derived check would be wrong together.
+    ///
+    /// Returns a record with `max_error` (max absolute difference),
+    /// `rel_error` (that difference over the larger gradient magnitude, so
+    /// it stays meaningful for large gradients), `ok` (is `rel_error`
+    /// within `tol=`, default `1e-6`), and both gradient vectors.
+    fn eval_check_grads(&mut self, f: &Value, x: &Value, step: f64, tol: f64) -> R<Value> {
+        let x_flat = optimizer_param_flat(x)?.to_vec();
+        let n = x_flat.len();
+        let analytic = self.exact_grad_flat(f, x, &x_flat, "check_grads")?;
+        let mut numeric = Vec::with_capacity(n);
+        for j in 0..n {
+            let h = step * x_flat[j].abs().max(1.0);
+            let mut xp = x_flat.clone();
+            xp[j] += h;
+            let mut xm = x_flat.clone();
+            xm[j] -= h;
+            let fp = self.scalar_fn_at(f, x, &xp, "check_grads")?;
+            let fm = self.scalar_fn_at(f, x, &xm, "check_grads")?;
+            numeric.push((fp - fm) / (2.0 * h));
+        }
+        let mut max_err: f64 = 0.0;
+        let mut rel_err: f64 = 0.0;
+        for (a, b) in analytic.iter().zip(numeric.iter()) {
+            let d = (a - b).abs();
+            max_err = max_err.max(d);
+            let scale = a.abs().max(b.abs()).max(1.0);
+            rel_err = rel_err.max(d / scale);
+        }
+        Ok(Value::Record(Arc::new(vec![
+            ("max_error".to_string(), Value::Num(max_err)),
+            ("rel_error".to_string(), Value::Num(rel_err)),
+            ("ok".to_string(), Value::Bool(rel_err <= tol)),
+            ("analytic".to_string(), Value::Vec(Arc::new(analytic))),
+            ("numeric".to_string(), Value::Vec(Arc::new(numeric))),
+        ])))
+    }
+
+    /// Plain (untracked) `f` at the point `flat`, for `check_grads`'
+    /// finite differences. Deliberately does NOT go through the tape.
+    fn scalar_fn_at(&mut self, f: &Value, template: &Value, flat: &[f64], who: &str) -> R<f64> {
+        let point = flat_to_value(template, flat)?;
+        let out = self.call_one(f, point)?;
+        let out = untensor(out).0;
+        out.as_num().map_err(|_| EvalError {
+            msg: format!("{who}: `f` must return a single number, found {}", out.type_name()),
+        })
+    }
+
+    /// `vmap(f, xs)` — apply `f` across the leading (batch) axis of `xs`.
+    ///
+    /// Read the docs before reaching for this for speed: in a tree-walking
+    /// interpreter with no tracing JIT, there is nothing for a vectorizing
+    /// transform to vectorize *into*. This is a loop, written in Rust
+    /// instead of Qu. It saves the per-iteration interpreter overhead of a
+    /// Qu-level `for`, which is not nothing, but it is a constant factor
+    /// and emphatically not the asymptotic win `vmap` means in a framework
+    /// that compiles the mapped function into a batched kernel. It is here
+    /// for the API shape and the result-stacking, not for a speed claim.
+    ///
+    /// The batch axis is: rows of a `Mat`, elements of a `Vec`, items of a
+    /// `List`. Results stack back into a `Vec` when every one is a scalar,
+    /// a `Mat` (one result per row) when every one is a same-length
+    /// vector, and a `List` otherwise.
+    fn eval_vmap(&mut self, f: &Value, xs: &Value) -> R<Value> {
+        let slices: Vec<Value> = match xs {
+            Value::Mat(m) => {
+                let (r, _) = m.shape();
+                let mut out = Vec::with_capacity(r);
+                for i in 0..r {
+                    let row = m.row_vec(i).map_err(|err| EvalError { msg: format!("vmap: {err}") })?;
+                    out.push(Value::Vec(Arc::new(row)));
+                }
+                out
+            }
+            Value::Vec(v) => v.iter().map(|x| Value::Num(*x)).collect(),
+            Value::List(items) => items.as_ref().clone(),
+            other => {
+                return e(format!(
+                    "vmap(f, xs): `xs` needs a batch axis to map over -- a matrix (by row), \
+                     a vector (by element), or a list, found {}",
+                    other.type_name()
+                ))
+            }
+        };
+        let mut results = Vec::with_capacity(slices.len());
+        for s in slices {
+            results.push(untensor(self.call_one(f, s)?).0);
+        }
+        if results.is_empty() {
+            return Ok(Value::List(Arc::new(results)));
+        }
+        if results.iter().all(|r| matches!(r, Value::Num(_))) {
+            let nums = results.iter().map(|r| r.as_num().unwrap_or(f64::NAN)).collect();
+            return Ok(Value::Vec(Arc::new(nums)));
+        }
+        let widths: Vec<usize> = results
+            .iter()
+            .map(|r| match r {
+                Value::Vec(v) => v.len(),
+                _ => usize::MAX,
+            })
+            .collect();
+        if widths[0] != usize::MAX && widths.iter().all(|w| *w == widths[0]) {
+            let rows: Vec<Vec<f64>> = results
+                .iter()
+                .map(|r| match r {
+                    Value::Vec(v) => v.as_ref().clone(),
+                    _ => Vec::new(),
+                })
+                .collect();
+            let m = Matrix::from_rows(&rows).map_err(|err| EvalError { msg: format!("vmap: {err}") })?;
+            return Ok(mat_value(m));
+        }
+        Ok(Value::List(Arc::new(results)))
     }
 
     /// `fft(x[, n])` / `ifft(X[, n])`. Samples are zero-padded or truncated to
@@ -15812,6 +16134,54 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                     msg: "grad(loss, wrt=X) or grad(loss, X, Y, ...) needs the tensor(s) to differentiate against".into(),
                 })?;
 self.eval_grad(loss, wrt)
+            }
+            // ---- Function-level autodiff transforms (v0.3.0) ----
+            // These take a FUNCTION, unlike `grad` above, which takes an
+            // already-tracked loss. Both shapes are kept: `grad`'s is the
+            // one a training loop wants (the loss is computed once and
+            // several things read it), and this one is what a caller who
+            // just wants a derivative at a point wants. They share the
+            // tape and `eval_grad_seeded`; neither is a reimplementation
+            // of the other.
+            "jacobian" => {
+                let f = arg0(&args)?.clone();
+                let x = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "jacobian(f, x) needs the point to evaluate at".into(),
+                })?;
+                self.eval_jacobian(&f, &untensor(x).0)
+            }
+            "hessian" => {
+                let f = arg0(&args)?.clone();
+                let x = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "hessian(f, x) needs the point to evaluate at".into(),
+                })?;
+                let step = style_num(&style, "step").unwrap_or(1e-5);
+                self.eval_hessian(&f, &untensor(x).0, step)
+            }
+            "value_and_grad" => {
+                let f = arg0(&args)?.clone();
+                let x = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "value_and_grad(f, x) needs the point to evaluate at".into(),
+                })?;
+                self.eval_value_and_grad(&f, &untensor(x).0)
+            }
+            "check_grads" => {
+                let f = arg0(&args)?.clone();
+                let x = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "check_grads(f, x) needs the point to evaluate at".into(),
+                })?;
+                let step = style_num(&style, "step").unwrap_or(1e-6);
+                let tol = style_num(&style, "tol").unwrap_or(1e-6);
+                self.eval_check_grads(&f, &untensor(x).0, step, tol)
+            }
+            "vmap" => {
+                let f = arg0(&args)?.clone();
+                let xs = arg_get(&args, 1).cloned().ok_or_else(|| EvalError {
+                    msg: "vmap(f, xs) needs the batch to map over -- this is a batched loop, \
+                          not a traced transform, so it cannot return a function to call later"
+                        .into(),
+                })?;
+                self.eval_vmap(&f, &untensor(xs).0)
             }
             // ---- Optimizers (§38.2: SGD, Adam) ----
             // Non-naive design:
@@ -24274,6 +24644,246 @@ self.eval_grad(loss, wrt)
                 ];
                 Ok(Value::Model(Arc::new(ModelHandle::new("gmm", fields))))
             }
+            // `isolation_forest(X, [n_trees=100], [max_samples=256],
+            // [contamination=], [seed=])` — anomaly detection by random
+            // partitioning (Liu, Ting & Zhou 2008). The idea it rests on
+            // is worth stating because it inverts the usual one: this does
+            // not model what "normal" looks like and flag the poor fits.
+            // It measures how FEW random axis-parallel cuts it takes to
+            // isolate each row, because a point sitting on its own in a
+            // sparse region gets cut off almost immediately while a point
+            // inside a dense cluster has to be whittled down one
+            // neighbour at a time. No distance threshold, no density
+            // parameter, no assumption of Gaussian anything.
+            //
+            // `.scores` holds the training-set anomaly scores on `(0, 1)`
+            // — see `iforest_scores` for the exact formula — and
+            // `.predict(Xnew)` gives the same score for rows the forest
+            // was never fit on, which is what makes this a `_model`-shaped
+            // estimator and not a transductive one like `dbscan`.
+            // `.labels` is the thresholded verdict (`1` anomalous, `0`
+            // normal), cut at `.threshold`: the `(1 - contamination)`
+            // quantile of the training scores when `contamination=` is
+            // given, and otherwise the paper's own conventional `0.5`
+            // (rather than inventing a default contamination rate and
+            // presenting a guess as a finding).
+            "isolation_forest" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let n_trees = style_num_checked(&style, "n_trees", 100.0, "isolation_forest")? as usize;
+                let max_samples = style_num_checked(&style, "max_samples", 256.0, "isolation_forest")? as usize;
+                let contamination = match style_entry(&style, "contamination") {
+                    None => None,
+                    Some((_, v)) => Some(v.as_num().map_err(|_| EvalError {
+                        msg: format!("isolation_forest: contamination must be a number, found {}", v.type_name()),
+                    })?),
+                };
+                if let Some(c) = contamination {
+                    if !(c > 0.0 && c < 1.0) {
+                        return e(format!(
+                            "isolation_forest: contamination={c} must be strictly between 0 and 1 (it is the expected FRACTION of anomalies)"
+                        ));
+                    }
+                }
+                if max_samples == 0 {
+                    return e("isolation_forest: max_samples must be at least 1");
+                }
+                let (nodes, roots, psi) = isolation_forest_fit(&x, n_trees, max_samples, seed.unwrap_or(0))?;
+                let scores = iforest_scores(&nodes, &roots, &x, psi);
+                let threshold = match contamination {
+                    Some(c) => {
+                        let mut sorted = scores.clone();
+                        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        sorted_quantile(&sorted, 1.0 - c)
+                    }
+                    None => 0.5,
+                };
+                let labels: Vec<f64> = scores.iter().map(|s| if *s >= threshold { 1.0 } else { 0.0 }).collect();
+                let fields = vec![
+                    ("nodes".to_string(), Value::Mat(Arc::new(nodes))),
+                    ("roots".to_string(), Value::Vec(Arc::new(roots))),
+                    ("scores".to_string(), Value::Vec(Arc::new(scores))),
+                    ("labels".to_string(), Value::Vec(Arc::new(labels))),
+                    ("threshold".to_string(), Value::Num(threshold)),
+                    ("max_samples".to_string(), Value::Num(psi)),
+                    ("n_trees".to_string(), Value::Num(n_trees as f64)),
+                    ("n_features".to_string(), Value::Num(x.cols() as f64)),
+                ];
+                Ok(Value::Model(Arc::new(ModelHandle::new("isolation_forest", fields))))
+            }
+            // `gaussian_process(X, y, [kernel="rbf"], [length_scale=],
+            // [sigma_f=1], [noise=1e-8])` — GP regression.
+            //
+            // The reason to reach for this over `ols_model`/`ridge_model`
+            // is not a better point prediction: it is that a GP says how
+            // much it does not know, per input, and that number is not a
+            // by-product but the posterior itself. So `.predict(Xnew,
+            // variance=true)` returns an `(M, 2)` matrix — column 0 the
+            // posterior mean, column 1 the posterior VARIANCE — and plain
+            // `.predict(Xnew)` returns just the mean vector, so a GP still
+            // drops into `pipeline`/`score` wherever any other regressor
+            // does. Shipping the mean without the variance would be
+            // shipping an expensive interpolator.
+            //
+            // `length_scale=` defaults to the median pairwise distance in
+            // `X` (see `median_pairwise_distance` for why a hard-coded 1.0
+            // is a unit-dependent trap), `sigma_f=` (the prior standard
+            // deviation, default 1) scales the variance, and `noise=`
+            // (default 1e-8) is the jitter/observation-noise added to the
+            // kernel diagonal — raise it for noisy measurements. `kernel=`
+            // is `"rbf"` (default) or `"matern32"`.
+            "gaussian_process" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let y = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "gaussian_process(X, y) needs a target vector as the second argument".into(),
+                })?)?;
+                let (n, _) = x.shape();
+                if n == 0 {
+                    return e("gaussian_process: X must have at least one row");
+                }
+                if y.len() != n {
+                    return e(format!(
+                        "gaussian_process: X has {n} row(s) but y has {} element(s)",
+                        y.len()
+                    ));
+                }
+                let kernel = style_str(&style, "kernel").unwrap_or_else(|| "rbf".to_string());
+                if kernel != "rbf" && kernel != "matern32" {
+                    return e(format!(
+                        "gaussian_process: kernel must be \"rbf\" or \"matern32\", not \"{kernel}\""
+                    ));
+                }
+                let rows: Vec<Vec<f64>> = (0..n).map(|r| matrix_row(&x, r)).collect();
+                let length_scale = match style_entry(&style, "length_scale") {
+                    None => median_pairwise_distance(&rows),
+                    Some((_, v)) => v.as_num().map_err(|_| EvalError {
+                        msg: format!("gaussian_process: length_scale must be a number, found {}", v.type_name()),
+                    })?,
+                };
+                if !(length_scale > 0.0) {
+                    return e(format!("gaussian_process: length_scale={length_scale} must be positive"));
+                }
+                let sigma_f = style_num_checked(&style, "sigma_f", 1.0, "gaussian_process")?;
+                if !(sigma_f > 0.0) {
+                    return e(format!("gaussian_process: sigma_f={sigma_f} must be positive"));
+                }
+                let noise = style_num_checked(&style, "noise", 1e-8, "gaussian_process")?;
+                if noise < 0.0 {
+                    return e(format!("gaussian_process: noise={noise} must not be negative"));
+                }
+                let (l, alpha, y_mean, lml, used_noise) =
+                    gp_fit(&rows, &y, &kernel, length_scale, sigma_f, noise)?;
+                let (fitted, fitted_var) =
+                    gp_posterior(&rows, &l, &alpha, y_mean, &x, &kernel, length_scale, sigma_f)?;
+                let fields = vec![
+                    ("x".to_string(), Value::Mat(Arc::new(x.clone()))),
+                    ("y".to_string(), Value::Vec(Arc::new(y))),
+                    ("l".to_string(), Value::Mat(Arc::new(l))),
+                    ("alpha".to_string(), Value::Vec(Arc::new(alpha))),
+                    ("y_mean".to_string(), Value::Num(y_mean)),
+                    ("kernel".to_string(), Value::Str(kernel)),
+                    ("length_scale".to_string(), Value::Num(length_scale)),
+                    ("sigma_f".to_string(), Value::Num(sigma_f)),
+                    ("noise".to_string(), Value::Num(used_noise)),
+                    ("log_marginal_likelihood".to_string(), Value::Num(lml)),
+                    ("fitted".to_string(), Value::Vec(Arc::new(fitted))),
+                    ("fitted_variance".to_string(), Value::Vec(Arc::new(fitted_var))),
+                    ("n_features".to_string(), Value::Num(x.cols() as f64)),
+                ];
+                Ok(Value::Model(Arc::new(ModelHandle::new("gaussian_process", fields))))
+            }
+            // `nmf(X, [n_components=], [max_iter=200], [tol=1e-4],
+            // [seed=])` — non-negative matrix factorization `X ~ W H` by
+            // Lee & Seung's multiplicative updates.
+            //
+            // The non-negativity is the point, not a restriction: because
+            // nothing may be negative, components can only ADD to a
+            // reconstruction, never cancel each other out, so the factors
+            // come out as parts that make up the whole rather than the
+            // signed, mutually-cancelling directions `pca_model` returns.
+            // That is what makes it readable on spectra, concentrations
+            // and counts, where a negative amount is not a thing.
+            //
+            // `n_components` defaults to `min(rows, cols)` (scikit-learn's
+            // own default). `.w` is `(N, k)`, `.h` is `(k, D)`,
+            // `.reconstruction_error` is the final `||X - WH||_F` and
+            // `.errors` the value at every iteration — monotonically
+            // non-increasing, which is the algorithm's own guarantee and
+            // therefore a real check on it. `.predict(Xnew)` returns the
+            // `(M, k)` encoding of new rows against the FITTED `H`.
+            "nmf" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let (n, d) = x.shape();
+                let k = match style_entry(&style, "n_components") {
+                    None => n.min(d),
+                    Some((_, v)) => v.as_index().map_err(|msg| EvalError { msg })?,
+                };
+                let max_iter = style_num_checked(&style, "max_iter", 200.0, "nmf")? as usize;
+                let tol = style_num_checked(&style, "tol", 1e-4, "nmf")?;
+                let (w, h, errors) = nmf_fit(&x, k, max_iter, tol, seed.unwrap_or(0))?;
+                let final_err = errors.last().copied().unwrap_or(f64::NAN);
+                let fields = vec![
+                    ("w".to_string(), Value::Mat(Arc::new(w))),
+                    ("h".to_string(), Value::Mat(Arc::new(h))),
+                    ("n_components".to_string(), Value::Num(k as f64)),
+                    ("n_iter".to_string(), Value::Num(errors.len() as f64)),
+                    ("reconstruction_error".to_string(), Value::Num(final_err)),
+                    ("errors".to_string(), Value::Vec(Arc::new(errors))),
+                    ("n_features".to_string(), Value::Num(d as f64)),
+                ];
+                Ok(Value::Model(Arc::new(ModelHandle::new("nmf", fields))))
+            }
+            // `arima(x, [p=1], [d=0], [q=0])` — ARIMA on a length-N series
+            // `x`: `d` rounds of differencing, then an ARMA(`p`, `q`) fit
+            // by Hannan–Rissanen (see `arima_fit`, which says plainly that
+            // this is not exact maximum likelihood and why that is the
+            // right trade here).
+            //
+            // `.predict(n_ahead)` is a forecast HORIZON, not a regression
+            // `Xnew` — the same non-regression `predict` meaning
+            // `ar_model` already has, and forecasts come back in the
+            // ORIGINAL series' units with the differencing undone.
+            // `arima(x, p=k, d=0, q=0)` is deliberately the same model
+            // `ar_model(x, k)` fits; the difference is that this one can
+            // also difference and carry an MA part.
+            "arima" => {
+                let x = to_vec(arg0(&args)?)?;
+                let p = style_num_checked(&style, "p", 1.0, "arima")? as usize;
+                let d = style_num_checked(&style, "d", 0.0, "arima")? as usize;
+                let q = style_num_checked(&style, "q", 0.0, "arima")? as usize;
+                if x.len() <= d + p + q + 1 {
+                    return e(format!(
+                        "arima: series has {} point(s) — too few for p={p}, d={d}, q={q}",
+                        x.len()
+                    ));
+                }
+                if x.iter().any(|v| !v.is_finite()) {
+                    return e("arima: the series contains non-finite values");
+                }
+                let (z, levels) = difference_series(&x, d);
+                let (ar, ma, mu, fitted, residuals) = arima_fit(&z, p, q)?;
+                // Enough tail to seed the forecast recursion: `p` past
+                // observations and `q` past shocks, each at least one
+                // entry so the vectors are never empty.
+                let hist_len = p.max(1).min(z.len());
+                let shock_len = q.max(1).min(residuals.len());
+                let history: Vec<f64> = z[z.len() - hist_len..].to_vec();
+                let shock_history: Vec<f64> = residuals[residuals.len() - shock_len..].to_vec();
+                let fields = vec![
+                    ("ar".to_string(), Value::Vec(Arc::new(ar))),
+                    ("ma".to_string(), Value::Vec(Arc::new(ma))),
+                    ("mu".to_string(), Value::Num(mu)),
+                    ("p".to_string(), Value::Num(p as f64)),
+                    ("d".to_string(), Value::Num(d as f64)),
+                    ("q".to_string(), Value::Num(q as f64)),
+                    ("fitted".to_string(), Value::Vec(Arc::new(fitted))),
+                    ("residuals".to_string(), Value::Vec(Arc::new(residuals))),
+                    ("history".to_string(), Value::Vec(Arc::new(history))),
+                    ("shock_history".to_string(), Value::Vec(Arc::new(shock_history))),
+                    ("levels".to_string(), Value::Vec(Arc::new(levels))),
+                ];
+                Ok(Value::Model(Arc::new(ModelHandle::new("arima", fields))))
+            }
+
             // `pca_model(X, k)` — wraps `pca_fit`'s components/mean so
             // `.predict(Xnew)` (project new rows onto the same k
             // components) works on data the model wasn't fit on, unlike
@@ -24702,6 +25312,38 @@ self.eval_grad(loss, wrt)
                         msg: "predict(ar_model, n_ahead) needs a forecast horizon as the second argument".into(),
                     })?.as_index().map_err(|msg| EvalError { msg })?;
                     return ar_predict(&m, n_ahead);
+                }
+                // `arima_model.predict(n_ahead)` — a forecast horizon, for
+                // exactly the reason `ar` above is special-cased, and
+                // returned in the ORIGINAL series' units (the `d` rounds
+                // of differencing are undone). See `arima_predict`.
+                if m.kind == "arima" {
+                    let n_ahead = arg_get(&args, 1).ok_or_else(|| EvalError {
+                        msg: "predict(arima_model, n_ahead) needs a forecast horizon as the second argument".into(),
+                    })?.as_index().map_err(|msg| EvalError { msg })?;
+                    return arima_predict(&m, n_ahead);
+                }
+                // `gp.predict(Xnew, [variance=])` — intercepted here
+                // rather than in `model_predict` because the posterior
+                // VARIANCE is the reason to fit a GP at all, and reading
+                // the `variance=` keyword needs the call's `style`, which
+                // `model_predict` does not receive. `variance=true`
+                // returns an `(M, 2)` matrix (column 0 mean, column 1
+                // variance); anything else falls through to the plain mean
+                // vector every other regressor returns.
+                if m.kind == "gaussian_process" {
+                    let xnew = arg_get(&args, 1).ok_or_else(|| EvalError {
+                        msg: "predict(gp, Xnew) needs a model and an input".into(),
+                    })?.to_matrix().map_err(|msg| EvalError { msg })?;
+                    let want_var = matches!(style_entry(&style, "variance"), Some((_, v)) if truthy(v));
+                    let (means, vars) = gp_predict_parts(&m, &xnew)?;
+                    if !want_var {
+                        return Ok(Value::Vec(Arc::new(means)));
+                    }
+                    let rows: Vec<Vec<f64>> =
+                        means.iter().zip(&vars).map(|(mu, v)| vec![*mu, *v]).collect();
+                    let out = Matrix::from_rows(&rows).map_err(|se| EvalError { msg: se.to_string() })?;
+                    return Ok(Value::Mat(Arc::new(out)));
                 }
                 let xnew_val = arg_get(&args, 1).ok_or_else(|| EvalError {
                     msg: "predict(model, X) needs a model and an input".into(),
@@ -30556,6 +31198,192 @@ self.eval_grad(loss, wrt)
                 let c = circuit_spec::parse(&spec, &theta)
                     .map_err(|msg| EvalError { msg: format!("circuit_impedance: {msg}") })?;
                 Ok(Value::CVec(Arc::new(c.spectrum_hz(&freqs))))
+            }
+            // `circuit_fit(freqs, z, model, [initial_guess=], [bounds=],
+            // [lower=], [upper=], [sigma=], [weight=], [n_starts=], [seed=],
+            // [max_iter=], [tol=])` -- the inverse of `circuit_impedance`:
+            // the spectrum is measured, the topology is chosen, and the
+            // parameters are what comes back.
+            //
+            // Returns a model handle on the same `fit`/`predict`/`score`
+            // protocol as the rest of the `_model` family, so a fitted
+            // circuit is `m.predict(other_freqs)` away from a spectrum on
+            // any axis -- including the interpolated or extrapolated one
+            // `rlkk_extrapolate` produces.
+            //
+            // FREQUENCIES COME FIRST, then the data, then the model. That is
+            // the opposite of `rlkk_extrapolate(Z, freqs, ...)`, and the
+            // first argument is type-checked so the mistake is an error
+            // rather than a fit of the frequency axis to the impedance.
+            //
+            // The numerics -- log-space magnitudes, weighted residual,
+            // seeded multi-start, per-parameter error bars -- are
+            // `qu_core::circuit_fit`'s; its module doc records why each one
+            // is not optional for impedance data.
+            "circuit_fit" => {
+                let (freqs, z) = circuit_fit_data(&args, "circuit_fit")?;
+                let template = circuit_fit_template(arg_get(&args, 2), "circuit_fit")?;
+                let names = template.param_names();
+                let guess = match style_vec(&style, "initial_guess") {
+                    Some(v) => Some(v?),
+                    None => None,
+                };
+                let p0 = match guess {
+                    Some(g) => {
+                        if g.len() != template.nparam() {
+                            return e(format!(
+                                "circuit_fit: the circuit has {} parameter(s) ({}) but initial_guess= has {}",
+                                template.nparam(),
+                                names.join(", "),
+                                g.len()
+                            ));
+                        }
+                        g
+                    }
+                    None => {
+                        // A circuit VALUE carries its own numbers, and if
+                        // the caller built one they are the guess. A bare
+                        // spec string carries none, so the guess is read off
+                        // the data instead.
+                        let own = circuit_spec::to_params(&template);
+                        if matches!(arg_get(&args, 2), Some(Value::Circuit(_)))
+                            && own.iter().all(|v| v.is_finite() && *v != 0.0)
+                        {
+                            own
+                        } else {
+                            initial_guess_from_data(&template, &freqs, &z)?
+                        }
+                    }
+                };
+                let sigma = circuit_fit_sigma(&style, &z, "circuit_fit")?;
+                let (lower, upper) = circuit_fit_bounds(&style, template.nparam(), &names)?;
+                let opts = qu_core::circuit_fit::FitOptions {
+                    max_iter: style_num(&style, "max_iter").unwrap_or(400.0) as usize,
+                    tol: style_num(&style, "tol").unwrap_or(1e-12),
+                    n_starts: style_num(&style, "n_starts").unwrap_or(8.0).max(1.0) as usize,
+                    seed: style_num(&style, "seed").unwrap_or(0x5eed_c1c1 as f64) as u64,
+                    lower,
+                    upper,
+                };
+                let r = qu_core::circuit_fit::fit(&template, &freqs, &z, &sigma, &p0, &opts)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(circuit_fit_model(&template, r, None))
+            }
+            // `sysid(freqs, z, [circuit_topology=], [criterion=], ...)` --
+            // system identification: which circuit, not just which
+            // parameters.
+            //
+            // With `circuit_topology=` this is `circuit_fit` with the
+            // arguments named differently. Without it, a fixed ladder of
+            // standard topologies is fitted and ONE is chosen.
+            //
+            // The choice is by AIC (or BIC), never by chi-squared, and that
+            // is the whole reason this is a separate builtin rather than a
+            // loop the caller could write. The candidates are NESTED --
+            // `R-p(R,C)` is `R-p(R,Q)` with `n` pinned to 1, and
+            // `R-p(R,C)-p(R,C)` contains `R-p(R,C)` -- and a superset can
+            // always reach its subset's residual by driving the extra
+            // parameters to their degenerate values. Ranking nested models
+            // by fit quality therefore ALWAYS returns the largest candidate,
+            // whatever the data says. An information criterion is what makes
+            // the comparison mean anything, by charging for the parameters.
+            //
+            // Every candidate is reported, not just the winner: a margin of
+            // 0.4 in AIC between two topologies is not a result, and the
+            // only way for a reader to see that is to see the column.
+            "sysid" => {
+                let (freqs, z) = circuit_fit_data(&args, "sysid")?;
+                let criterion = style_str(&style, "criterion").unwrap_or_else(|| "aic".into());
+                if criterion != "aic" && criterion != "bic" {
+                    return e(format!(
+                        "sysid: criterion= must be \"aic\" or \"bic\", got \"{criterion}\""
+                    ));
+                }
+                let sigma = circuit_fit_sigma(&style, &z, "sysid")?;
+                let opts = qu_core::circuit_fit::FitOptions {
+                    max_iter: style_num(&style, "max_iter").unwrap_or(400.0) as usize,
+                    tol: style_num(&style, "tol").unwrap_or(1e-12),
+                    n_starts: style_num(&style, "n_starts").unwrap_or(8.0).max(1.0) as usize,
+                    seed: style_num(&style, "seed").unwrap_or(0x5eed_c1c1 as f64) as u64,
+                    lower: None,
+                    upper: None,
+                };
+                let specs: Vec<String> = match style_str(&style, "circuit_topology") {
+                    Some(s) => vec![s],
+                    None => SYSID_CANDIDATES.iter().map(|s| s.to_string()).collect(),
+                };
+                let m = 2.0 * freqs.len() as f64;
+                let mut rows: Vec<(String, usize, f64, f64, f64)> = Vec::new();
+                let mut best: Option<(f64, qu_core::circuit::Circuit, qu_core::circuit_fit::FitResult)> =
+                    None;
+                let mut last_err: Option<String> = None;
+                for spec in &specs {
+                    let template = match circuit_spec::parse_template(spec) {
+                        Ok(c) => c,
+                        Err(msg) => {
+                            // A candidate from the built-in ladder failing to
+                            // parse is a bug here, not the caller's input --
+                            // but a `circuit_topology=` the caller wrote is
+                            // theirs, and they should see why.
+                            if style_str(&style, "circuit_topology").is_some() {
+                                return e(format!("sysid: {msg}"));
+                            }
+                            last_err = Some(msg);
+                            continue;
+                        }
+                    };
+                    let p0 = match initial_guess_from_data(&template, &freqs, &z) {
+                        Ok(p) => p,
+                        Err(err) => {
+                            last_err = Some(err.msg);
+                            continue;
+                        }
+                    };
+                    let r = match qu_core::circuit_fit::fit(
+                        &template, &freqs, &z, &sigma, &p0, &opts,
+                    ) {
+                        Ok(r) => r,
+                        Err(msg) => {
+                            last_err = Some(msg);
+                            continue;
+                        }
+                    };
+                    let k = template.nparam() as f64;
+                    // AIC/BIC on the Gaussian likelihood, with the weighted
+                    // residual sum standing in for it. The weights are the
+                    // same for every candidate, so the comparison is fair
+                    // even when sigma is a convention rather than a measured
+                    // noise level.
+                    // Floored: on synthetic data a candidate can fit to
+                    // machine precision, and `ln(0)` would make every such
+                    // candidate score exactly `-inf` and the winner
+                    // whichever one came first in the ladder. Floored, they
+                    // tie on the likelihood term and the parameter charge
+                    // breaks the tie toward the smaller circuit -- which is
+                    // the right answer when several fit exactly.
+                    let base = m * (r.chi2.max(f64::MIN_POSITIVE) / m).ln();
+                    let aic = base + 2.0 * k;
+                    let bic = base + k * m.ln();
+                    rows.push((spec.clone(), template.nparam(), r.chi2, aic, bic));
+                    let score = if criterion == "bic" { bic } else { aic };
+                    let better = match &best {
+                        None => true,
+                        Some((s, _, _)) => score < *s,
+                    };
+                    if better {
+                        best = Some((score, template, r));
+                    }
+                }
+                let (_, template, r) = best.ok_or_else(|| EvalError {
+                    msg: format!(
+                        "sysid: no candidate topology could be fitted{}",
+                        match &last_err {
+                            Some(m) => format!(" (last error: {m})"),
+                            None => String::new(),
+                        }
+                    ),
+                })?;
+                Ok(circuit_fit_model(&template, r, Some((criterion, rows))))
             }
             // A circuit is a model and carries no frequency axis; this is
             // what turns it into data. Frequencies are in Hz, the axis
@@ -42702,7 +43530,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "append", "append_all", "append_text", "apply", "apply_calibration",
     "apply_calibration_curve", "apply_edits", "apply_gain", "apply_offset",
     "apropos", "ar_model", "arc", "area", "arg", "argmax", "argmean",
-    "argmedian", "argmin", "argquantile", "argsort", "argv", "arrow",
+    "argmedian", "argmin", "argquantile", "argsort", "argv", "arima", "arrow",
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan",
     "atanh", "available", "avgpool2d", "band_power", "band_zero", "bar",
     "base64_decode", "base64_encode", "basin_hopping", "beamform", "beeswarm",
@@ -42713,8 +43541,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate",
     "capacitor", "capitalize", "capture", "casefold", "cast", "cat", "cbrt",
     "cd", "ceil", "channel", "channel_len", "channel_recv", "channel_send",
-    "channel_try_recv", "chars", "cheby1", "cheby2", "chi2cdf", "chi2pdf",
-    "chirp", "chisquare", "chol", "chr", "circle", "circuit",
+    "channel_try_recv", "chars", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2pdf",
+    "chirp", "chisquare", "chol", "chr", "circle", "circuit", "circuit_fit",
     "circuit_impedance", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
     "coherence", "colorbar", "colormap", "cols", "compare", "compile",
     "complex", "cond", "conformal", "confusion_matrix", "conj", "contains",
@@ -42746,13 +43574,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud",
     "floor", "fold", "fontfamily", "fontsize", "fopen", "foreground_mask",
     "format", "forward", "freqz", "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamma",
-    "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
+    "gaussian_process", "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
     "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
     "gru_forward", "gru_init", "hamming", "hamming74_decode",
     "hamming74_encode", "hampel", "hann", "has_edge", "has_key",
-    "havriliak_negami", "head", "heatmap", "help", "hex2dec", "hex_decode",
+    "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode",
     "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist",
     "histeq", "histogram", "hline", "hmm", "hourly_profile", "hsl", "hstack",
     "hsv", "html2md", "http_get", "huffman_decode", "huffman_encode", "hum",
@@ -42765,7 +43593,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "imwarp", "inch", "indent", "index", "index_of", "indexof", "inductor",
     "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr",
-    "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "items", "join",
+    "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isolation_forest", "items",
+    "jacobian", "join",
     "js_exec", "json2csv", "json2xml", "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser",
     "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
@@ -42788,7 +43617,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "multi_head_attention", "multi_otsu", "multisine", "multithreshold",
     "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
     "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
-    "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nnls", "nor",
+    "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor",
     "norm", "normal", "normalize", "normpdf", "now", "nrow", "numel",
     "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
     "otsu", "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
@@ -42851,7 +43680,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step",
     "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi",
     "subplot", "substr", "subtract", "sum", "svd", "svm_model", "svr_model",
-    "swap", "swap_endian", "sweep", "sysinfo", "table", "tail", "take", "tan", "tanh",
+    "swap", "swap_endian", "sweep", "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh",
     "tape_reset", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
     "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps", "title", "tkeo",
@@ -42863,8 +43692,9 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "trim", "tsne", "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox",
     "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot", "uniform",
     "unique", "unit_scale", "unpack", "unsetenv", "update", "upper", "upsample", "val",
+    "value_and_grad",
     "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
-    "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
+    "vmap", "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
     "warburg_short", "warn", "waterfall", "welch", "where", "wigner_ville",
     "word_wrap",
     "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
@@ -49966,6 +50796,771 @@ fn nearest_center(row: &[f64], centers: &Matrix) -> usize {
         .unwrap_or(0)
 }
 
+/// Harmonic-number approximation of the average path length of an
+/// unsuccessful BST search over `n` points — `c(n)` in Liu, Ting & Zhou
+/// (2008). This is what makes an isolation-forest score comparable across
+/// different subsample sizes: a raw path length is meaningless without the
+/// depth a tree of that size would reach *by construction*, and every
+/// published iForest score divides by it.
+fn iforest_c(n: f64) -> f64 {
+    if n <= 1.0 {
+        0.0
+    } else if n == 2.0 {
+        1.0
+    } else {
+        // H(n-1) = ln(n-1) + gamma (Euler–Mascheroni), the standard
+        // approximation the paper itself uses.
+        2.0 * ((n - 1.0).ln() + 0.5772156649015329) - 2.0 * (n - 1.0) / n
+    }
+}
+
+/// One isolation tree, grown on the row indices `idx` of `rows`, appended
+/// into the shared flat `nodes` arena. Returns the index of this subtree's
+/// root.
+///
+/// The arena layout (`[feature, threshold, left, right, size]` per row) is
+/// the same "a model handle holds matrices, not Rust structs" constraint
+/// `random_forest_model`'s own tree storage lives under — `ModelHandle`
+/// fields are `Value`s, so a recursive node type has to be flattened to be
+/// storable at all. A leaf is marked by `feature = -1` (with `left`/`right`
+/// also `-1`) and carries the number of training rows that reached it in
+/// `size`, which is exactly what the `c(size)` depth correction needs at
+/// predict time.
+///
+/// Splits are uniform-random in BOTH the feature and the cut point — the
+/// defining property of the algorithm, not a shortcut. Anomalies are
+/// isolated by *few* random cuts precisely because they sit in sparse
+/// regions, so no impurity criterion is wanted or used here.
+fn iforest_build(
+    rows: &[Vec<f64>],
+    idx: &[usize],
+    depth: usize,
+    height_limit: usize,
+    rng: &mut Rng,
+    nodes: &mut Vec<[f64; 5]>,
+) -> usize {
+    let d = rows.first().map(|r| r.len()).unwrap_or(0);
+    if idx.len() <= 1 || depth >= height_limit || d == 0 {
+        nodes.push([-1.0, 0.0, -1.0, -1.0, idx.len() as f64]);
+        return nodes.len() - 1;
+    }
+    // Try features in a random order and take the first one that is not
+    // constant over this node. Picking a single random feature and giving
+    // up when it happens to be constant would turn a perfectly splittable
+    // node into a leaf and shorten every path through it — a silent bias
+    // toward calling things anomalous.
+    let mut order: Vec<usize> = (0..d).collect();
+    for i in 0..d {
+        let j = i + (rng.next_u64() as usize) % (d - i);
+        order.swap(i, j);
+    }
+    let mut chosen: Option<(usize, f64)> = None;
+    for &q in &order {
+        let mut lo = f64::INFINITY;
+        let mut hi = f64::NEG_INFINITY;
+        for &i in idx {
+            let v = rows[i][q];
+            if v < lo {
+                lo = v;
+            }
+            if v > hi {
+                hi = v;
+            }
+        }
+        if hi > lo && lo.is_finite() && hi.is_finite() {
+            chosen = Some((q, rng.uniform_range(lo, hi)));
+            break;
+        }
+    }
+    let Some((q, p)) = chosen else {
+        // Every feature is constant here: these rows are duplicates, and
+        // no cut can ever separate them.
+        nodes.push([-1.0, 0.0, -1.0, -1.0, idx.len() as f64]);
+        return nodes.len() - 1;
+    };
+    let mut left: Vec<usize> = Vec::new();
+    let mut right: Vec<usize> = Vec::new();
+    for &i in idx {
+        if rows[i][q] < p {
+            left.push(i);
+        } else {
+            right.push(i);
+        }
+    }
+    if left.is_empty() || right.is_empty() {
+        // `uniform_range` landed exactly on the minimum (possible in
+        // floating point); a degenerate split would recurse forever.
+        nodes.push([-1.0, 0.0, -1.0, -1.0, idx.len() as f64]);
+        return nodes.len() - 1;
+    }
+    let me = nodes.len();
+    nodes.push([q as f64, p, -1.0, -1.0, idx.len() as f64]);
+    let l = iforest_build(rows, &left, depth + 1, height_limit, rng, nodes);
+    let r = iforest_build(rows, &right, depth + 1, height_limit, rng, nodes);
+    nodes[me][2] = l as f64;
+    nodes[me][3] = r as f64;
+    me
+}
+
+/// The path length of one row through one tree: the number of cuts it took
+/// to isolate it, PLUS `c(leaf_size)` when the walk stopped at a leaf that
+/// still held several points (because the height limit was reached, not
+/// because isolation finished). Without that correction a height-capped
+/// tree reports the same depth for a point in a dense cluster as for a
+/// genuine outlier.
+fn iforest_path_len(nodes: &Matrix, root: usize, row: &[f64]) -> f64 {
+    let mut node = root;
+    let mut depth = 0.0;
+    loop {
+        let feature = nodes.get(node, 0).unwrap_or(-1.0);
+        if feature < 0.0 {
+            let size = nodes.get(node, 4).unwrap_or(1.0);
+            return depth + iforest_c(size);
+        }
+        let q = feature as usize;
+        let p = nodes.get(node, 1).unwrap_or(0.0);
+        let next = if row.get(q).copied().unwrap_or(0.0) < p {
+            nodes.get(node, 2).unwrap_or(-1.0)
+        } else {
+            nodes.get(node, 3).unwrap_or(-1.0)
+        };
+        if next < 0.0 {
+            return depth + 1.0;
+        }
+        node = next as usize;
+        depth += 1.0;
+    }
+}
+
+/// `s(x) = 2^(-E[h(x)] / c(psi))` — the isolation-forest anomaly score, on
+/// `(0, 1)`: near 1 means "isolated in very few cuts by every tree", i.e.
+/// anomalous; near 0 means "took much longer than average to isolate";
+/// around 0.5 is the score of an unremarkable point, which is the
+/// conventional cut-off the paper recommends when no contamination rate is
+/// supplied.
+fn iforest_scores(nodes: &Matrix, roots: &[f64], xnew: &Matrix, psi: f64) -> Vec<f64> {
+    let norm = iforest_c(psi);
+    (0..xnew.rows())
+        .map(|r| {
+            let row = matrix_row(xnew, r);
+            let mean_h: f64 = roots
+                .iter()
+                .map(|&root| iforest_path_len(nodes, root as usize, &row))
+                .sum::<f64>()
+                / roots.len().max(1) as f64;
+            if norm <= 0.0 {
+                0.5
+            } else {
+                2f64.powf(-mean_h / norm)
+            }
+        })
+        .collect()
+}
+
+/// `isolation_forest(X, ...)`'s fit — see the builtin arm's own doc comment
+/// for the argument contract. Each tree is grown on its own subsample of
+/// `psi = min(max_samples, N)` rows drawn WITHOUT replacement (a partial
+/// Fisher-Yates shuffle, the same draw `kmeans_fit`'s init uses), which is
+/// the other half of what makes iForest cheap: no tree ever sees the whole
+/// dataset, and swamping/masking by dense regions is diluted rather than
+/// reinforced.
+fn isolation_forest_fit(
+    x: &Matrix,
+    n_trees: usize,
+    max_samples: usize,
+    seed: u64,
+) -> R<(Matrix, Vec<f64>, f64)> {
+    let (n, d) = x.shape();
+    if n == 0 || d == 0 {
+        return e("isolation_forest: X must have at least one row and one column");
+    }
+    if n_trees == 0 {
+        return e("isolation_forest: n_trees must be at least 1");
+    }
+    let psi = max_samples.min(n).max(1);
+    let height_limit = if psi <= 2 { 1 } else { (psi as f64).log2().ceil() as usize };
+    let rows: Vec<Vec<f64>> = (0..n).map(|r| matrix_row(x, r)).collect();
+    let mut rng = Rng::new(seed);
+    let mut nodes: Vec<[f64; 5]> = Vec::new();
+    let mut roots: Vec<f64> = Vec::with_capacity(n_trees);
+    let mut pool: Vec<usize> = (0..n).collect();
+    for _ in 0..n_trees {
+        for i in 0..psi {
+            let j = i + (rng.next_u64() as usize) % (n - i);
+            pool.swap(i, j);
+        }
+        let sample: Vec<usize> = pool[..psi].to_vec();
+        let root = iforest_build(&rows, &sample, 0, height_limit, &mut rng, &mut nodes);
+        roots.push(root as f64);
+    }
+    let node_rows: Vec<Vec<f64>> = nodes.iter().map(|nd| nd.to_vec()).collect();
+    let node_matrix = Matrix::from_rows(&node_rows).map_err(|se| EvalError { msg: se.to_string() })?;
+    Ok((node_matrix, roots, psi as f64))
+}
+
+/// The value at fractional position `q` of `sorted` (already ascending),
+/// by linear interpolation between neighbours — the quantile rule
+/// `contamination=` needs to turn a rate into a score cut-off.
+fn sorted_quantile(sorted: &[f64], q: f64) -> f64 {
+    if sorted.is_empty() {
+        return f64::NAN;
+    }
+    let pos = q.clamp(0.0, 1.0) * (sorted.len() - 1) as f64;
+    let lo = pos.floor() as usize;
+    let hi = pos.ceil() as usize;
+    if lo == hi {
+        sorted[lo]
+    } else {
+        let frac = pos - lo as f64;
+        sorted[lo] * (1.0 - frac) + sorted[hi] * frac
+    }
+}
+
+/// One entry of a Gaussian-process covariance function, for two rows.
+///
+/// `"rbf"` (squared exponential) is the default and the one a GP is
+/// usually pictured with: infinitely differentiable, so it assumes the
+/// underlying function is very smooth. `"matern32"` is the standard
+/// less-credulous alternative (once differentiable), which fits
+/// measurement data that is continuous but not glass-smooth without the
+/// RBF's tendency to over-certify between points.
+fn gp_kernel(kind: &str, a: &[f64], b: &[f64], length_scale: f64, sigma_f: f64) -> f64 {
+    let d2: f64 = a.iter().zip(b).map(|(u, v)| (u - v) * (u - v)).sum();
+    match kind {
+        "matern32" => {
+            let r = d2.sqrt();
+            let s = 3f64.sqrt() * r / length_scale;
+            sigma_f * sigma_f * (1.0 + s) * (-s).exp()
+        }
+        // "rbf"
+        _ => sigma_f * sigma_f * (-0.5 * d2 / (length_scale * length_scale)).exp(),
+    }
+}
+
+/// `L z = b` by forward substitution, `L` lower-triangular.
+fn solve_lower(l: &Matrix, b: &[f64]) -> R<Vec<f64>> {
+    let n = l.rows();
+    let mut z = vec![0.0; n];
+    for i in 0..n {
+        let mut acc = b[i];
+        for j in 0..i {
+            acc -= l.get(i, j).unwrap_or(0.0) * z[j];
+        }
+        let diag = l.get(i, i).unwrap_or(0.0);
+        if diag == 0.0 {
+            return e("gaussian_process: the kernel matrix is singular — raise `noise=` or `length_scale=`");
+        }
+        z[i] = acc / diag;
+    }
+    Ok(z)
+}
+
+/// `L^T z = b` by back substitution, with `L` given lower-triangular (so
+/// the caller never has to materialize the transpose).
+fn solve_lower_transpose(l: &Matrix, b: &[f64]) -> R<Vec<f64>> {
+    let n = l.rows();
+    let mut z = vec![0.0; n];
+    for ii in (0..n).rev() {
+        let mut acc = b[ii];
+        for j in (ii + 1)..n {
+            acc -= l.get(j, ii).unwrap_or(0.0) * z[j];
+        }
+        let diag = l.get(ii, ii).unwrap_or(0.0);
+        if diag == 0.0 {
+            return e("gaussian_process: the kernel matrix is singular — raise `noise=` or `length_scale=`");
+        }
+        z[ii] = acc / diag;
+    }
+    Ok(z)
+}
+
+/// The median of all pairwise distances in `rows` — the standard,
+/// data-driven default for a GP's `length_scale` when the caller gives
+/// none. A hard-coded `1.0` is wrong the moment the inputs are not in
+/// order-1 units (volts vs microvolts vs hertz), and a GP with a
+/// length scale far off its data's own spacing either interpolates
+/// nothing or interpolates everything — both of which look like a working
+/// fit at a glance.
+fn median_pairwise_distance(rows: &[Vec<f64>]) -> f64 {
+    let n = rows.len();
+    if n < 2 {
+        return 1.0;
+    }
+    let mut dists: Vec<f64> = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let d2: f64 = rows[i].iter().zip(&rows[j]).map(|(u, v)| (u - v) * (u - v)).sum();
+            dists.push(d2.sqrt());
+        }
+    }
+    dists.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let m = sorted_quantile(&dists, 0.5);
+    if m > 0.0 && m.is_finite() {
+        m
+    } else {
+        1.0
+    }
+}
+
+/// `gaussian_process(X, y, ...)`'s fit: builds the training covariance
+/// `K = k(X, X) + noise*I`, factors it once with `qu_core::linalg::
+/// cholesky` (the same decomposition `mvnpdf` and the Kalman covariance
+/// updates already build on — not a second, hand-rolled one), and keeps
+/// `L` plus `alpha = K^-1 (y - mean(y))`. Everything `.predict` needs is
+/// then two triangular solves per batch, and the expensive `O(n^3)` step
+/// happens exactly once, at fit time.
+///
+/// `y` is centered on its own mean, because the GP prior mean is zero: a
+/// GP fit on un-centered data reverts to 0 far from the training points
+/// rather than to the data's own level, which is a visibly wrong forecast
+/// and an easy one not to notice near the data.
+///
+/// Returns `(L, alpha, y_mean, log_marginal_likelihood, effective_noise)`.
+#[allow(clippy::type_complexity)]
+fn gp_fit(
+    rows: &[Vec<f64>],
+    y: &[f64],
+    kernel: &str,
+    length_scale: f64,
+    sigma_f: f64,
+    noise: f64,
+) -> R<(Matrix, Vec<f64>, f64, f64, f64)> {
+    let n = rows.len();
+    let y_mean = y.iter().sum::<f64>() / n as f64;
+    let yc: Vec<f64> = y.iter().map(|v| v - y_mean).collect();
+    // A covariance matrix built from near-duplicate rows is positive
+    // SEMI-definite in exact arithmetic and indefinite in floating point,
+    // so Cholesky legitimately fails on perfectly reasonable data. Raising
+    // the jitter and retrying is the standard remedy; the noise level
+    // actually used is reported back so `.noise` never lies about it.
+    let mut jitter = noise;
+    for attempt in 0..6 {
+        let mut k = Matrix::zeros(n, n);
+        for i in 0..n {
+            for j in 0..n {
+                let mut v = gp_kernel(kernel, &rows[i], &rows[j], length_scale, sigma_f);
+                if i == j {
+                    v += jitter;
+                }
+                let _ = k.set(i, j, v);
+            }
+        }
+        match numeric::linalg::cholesky(&k) {
+            Ok(chol) => {
+                let l = chol.l;
+                let z = solve_lower(&l, &yc)?;
+                let alpha = solve_lower_transpose(&l, &z)?;
+                let log_det: f64 = (0..n).map(|i| l.get(i, i).unwrap_or(1.0).ln()).sum();
+                let quad: f64 = yc.iter().zip(&alpha).map(|(a, b)| a * b).sum();
+                let lml = -0.5 * quad - log_det - 0.5 * n as f64 * std::f64::consts::TAU.ln();
+                return Ok((l, alpha, y_mean, lml, jitter));
+            }
+            Err(_) if attempt < 5 => {
+                jitter = if jitter > 0.0 { jitter * 100.0 } else { 1e-10 };
+            }
+            Err(le) => {
+                return e(format!(
+                    "gaussian_process: the kernel matrix stayed non-positive-definite up to noise={jitter:e} ({le}) — \
+                     duplicate rows in X, or a length_scale far larger than the data's own spread, are the usual causes"
+                ));
+            }
+        }
+    }
+    e("gaussian_process: could not factor the kernel matrix")
+}
+
+/// `gp.predict(Xnew)` — the GP posterior at each new row.
+///
+/// Returns `(mean, variance)`. The variance is the point of a GP over any
+/// other regressor, so it is computed on the same pass rather than left to
+/// a second call that could be given different hyper-parameters: `var_* =
+/// k(x*, x*) - v·v` where `L v = k(X, x*)`. It is small near the training
+/// rows (where the data already pins the function down) and rises toward
+/// the prior variance `sigma_f^2` far from all of them.
+fn gp_posterior(
+    train_rows: &[Vec<f64>],
+    l: &Matrix,
+    alpha: &[f64],
+    y_mean: f64,
+    xnew: &Matrix,
+    kernel: &str,
+    length_scale: f64,
+    sigma_f: f64,
+) -> R<(Vec<f64>, Vec<f64>)> {
+    let m = xnew.rows();
+    let mut means = Vec::with_capacity(m);
+    let mut vars = Vec::with_capacity(m);
+    let prior = gp_kernel(kernel, &[0.0], &[0.0], length_scale, sigma_f);
+    for r in 0..m {
+        let row = matrix_row(xnew, r);
+        let ks: Vec<f64> = train_rows
+            .iter()
+            .map(|tr| gp_kernel(kernel, tr, &row, length_scale, sigma_f))
+            .collect();
+        let mean: f64 = ks.iter().zip(alpha).map(|(a, b)| a * b).sum::<f64>() + y_mean;
+        let v = solve_lower(l, &ks)?;
+        let var = prior - v.iter().map(|z| z * z).sum::<f64>();
+        means.push(mean);
+        // Clamped at zero: the true posterior variance cannot be negative,
+        // and a tiny negative value here is round-off in the subtraction,
+        // not information.
+        vars.push(var.max(0.0));
+    }
+    Ok((means, vars))
+}
+
+/// Unpacks a `"gaussian_process"` handle and evaluates its posterior at
+/// `xnew`, returning `(mean, variance)`. The single place both `predict`
+/// spellings go through, so the mean a script gets from `.predict(Xnew)`
+/// and the mean inside `.predict(Xnew, variance=true)` cannot drift apart.
+fn gp_predict_parts(m: &ModelHandle, xnew: &Matrix) -> R<(Vec<f64>, Vec<f64>)> {
+    let train = match m.field("x") {
+        Some(Value::Mat(xx)) => xx.clone(),
+        _ => return e("gaussian_process model is missing its x field"),
+    };
+    if xnew.cols() != train.cols() {
+        return e(format!(
+            "predict: model was fit on {} feature(s), input has {} — a single new point \
+             needs an explicit orientation, e.g. `[a, b] as matrix(1, 2)`, since a bare \
+             vector defaults to a column",
+            train.cols(),
+            xnew.cols()
+        ));
+    }
+    let l = match m.field("l") {
+        Some(Value::Mat(ll)) => ll.clone(),
+        _ => return e("gaussian_process model is missing its l field"),
+    };
+    let alpha = to_vec(m.field("alpha").expect("gaussian_process model always has alpha"))?;
+    let y_mean = m.field("y_mean").expect("gaussian_process model always has y_mean").as_num().unwrap_or(0.0);
+    let kernel = match m.field("kernel") {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => "rbf".to_string(),
+    };
+    let length_scale = m.field("length_scale").expect("gaussian_process model always has length_scale").as_num().unwrap_or(1.0);
+    let sigma_f = m.field("sigma_f").expect("gaussian_process model always has sigma_f").as_num().unwrap_or(1.0);
+    let train_rows: Vec<Vec<f64>> = (0..train.rows()).map(|r| matrix_row(&train, r)).collect();
+    gp_posterior(&train_rows, &l, &alpha, y_mean, xnew, &kernel, length_scale, sigma_f)
+}
+
+/// `||X - W H||_F`, the Frobenius reconstruction error NMF minimizes.
+fn nmf_error(x: &Matrix, w: &Matrix, h: &Matrix) -> f64 {
+    let (n, d) = x.shape();
+    let k = h.rows();
+    let mut acc = 0.0;
+    for i in 0..n {
+        for j in 0..d {
+            let mut wh = 0.0;
+            for c in 0..k {
+                wh += w.get(i, c).unwrap_or(0.0) * h.get(c, j).unwrap_or(0.0);
+            }
+            let diff = x.get(i, j).unwrap_or(0.0) - wh;
+            acc += diff * diff;
+        }
+    }
+    acc.sqrt()
+}
+
+/// One multiplicative update of `W` with `H` held fixed:
+/// `W <- W * (X H^T) / (W H H^T + eps)` (Lee & Seung 2001, Frobenius
+/// objective). Shared by the fit loop and by `.predict`, which is exactly
+/// this same update run on new rows against the ALREADY fitted `H` —
+/// having one function rather than two is what keeps "transform new data"
+/// and "fit" from silently diverging.
+fn nmf_update_w(x: &Matrix, w: &mut Matrix, h: &Matrix) {
+    const EPS: f64 = 1e-10;
+    let (n, d) = x.shape();
+    let k = h.rows();
+    // (k, k) = H H^T, formed once per update rather than per element.
+    let mut hht = vec![0.0; k * k];
+    for a in 0..k {
+        for b in 0..k {
+            let mut acc = 0.0;
+            for j in 0..d {
+                acc += h.get(a, j).unwrap_or(0.0) * h.get(b, j).unwrap_or(0.0);
+            }
+            hht[a * k + b] = acc;
+        }
+    }
+    for i in 0..n {
+        // (k,) = X_i H^T
+        let mut xht = vec![0.0; k];
+        for a in 0..k {
+            let mut acc = 0.0;
+            for j in 0..d {
+                acc += x.get(i, j).unwrap_or(0.0) * h.get(a, j).unwrap_or(0.0);
+            }
+            xht[a] = acc;
+        }
+        let w_row: Vec<f64> = (0..k).map(|c| w.get(i, c).unwrap_or(0.0)).collect();
+        for a in 0..k {
+            let denom: f64 = (0..k).map(|b| w_row[b] * hht[b * k + a]).sum::<f64>() + EPS;
+            let _ = w.set(i, a, w_row[a] * xht[a] / denom);
+        }
+    }
+}
+
+/// `H <- H * (W^T X) / (W^T W H + eps)`, the companion half of the same
+/// multiplicative scheme.
+fn nmf_update_h(x: &Matrix, w: &Matrix, h: &mut Matrix) {
+    const EPS: f64 = 1e-10;
+    let (n, d) = x.shape();
+    let k = h.rows();
+    let mut wtw = vec![0.0; k * k];
+    for a in 0..k {
+        for b in 0..k {
+            let mut acc = 0.0;
+            for i in 0..n {
+                acc += w.get(i, a).unwrap_or(0.0) * w.get(i, b).unwrap_or(0.0);
+            }
+            wtw[a * k + b] = acc;
+        }
+    }
+    for j in 0..d {
+        let mut wtx = vec![0.0; k];
+        for a in 0..k {
+            let mut acc = 0.0;
+            for i in 0..n {
+                acc += w.get(i, a).unwrap_or(0.0) * x.get(i, j).unwrap_or(0.0);
+            }
+            wtx[a] = acc;
+        }
+        let h_col: Vec<f64> = (0..k).map(|c| h.get(c, j).unwrap_or(0.0)).collect();
+        for a in 0..k {
+            let denom: f64 = (0..k).map(|b| wtw[a * k + b] * h_col[b]).sum::<f64>() + EPS;
+            let _ = h.set(a, j, h_col[a] * wtx[a] / denom);
+        }
+    }
+}
+
+/// `nmf(X, ...)`'s fit — alternating multiplicative updates until the
+/// relative improvement in `||X - WH||_F` drops below `tol` or `max_iter`
+/// is reached. Returns `(W, H, per-iteration errors)`.
+///
+/// The updates are multiplicative, so a factor entry that starts positive
+/// stays positive and non-negativity is maintained for free — no
+/// projection, no clipping. That is the whole reason this algorithm, and
+/// not plain gradient descent, is the standard one.
+fn nmf_fit(
+    x: &Matrix,
+    k: usize,
+    max_iter: usize,
+    tol: f64,
+    seed: u64,
+) -> R<(Matrix, Matrix, Vec<f64>)> {
+    let (n, d) = x.shape();
+    if k == 0 || k > n.min(d) {
+        return e(format!(
+            "nmf: n_components={k} must be between 1 and min(rows, cols) = {}",
+            n.min(d)
+        ));
+    }
+    if let Some(bad) = x.as_slice().iter().find(|v| **v < 0.0 || !v.is_finite()) {
+        return e(format!(
+            "nmf: X must be non-negative and finite (found {bad}) — NMF is defined only on non-negative data"
+        ));
+    }
+    // Scaled random init (the `sqrt(mean(X)/k)` scale is the conventional
+    // one): it puts `W H` in the right ballpark immediately, so the first
+    // few updates are not spent on magnitude alone.
+    let mean = x.as_slice().iter().sum::<f64>() / (n * d).max(1) as f64;
+    let scale = (mean.max(1e-12) / k as f64).sqrt();
+    let mut rng = Rng::new(seed);
+    let mut w = Matrix::zeros(n, k);
+    let mut h = Matrix::zeros(k, d);
+    for i in 0..n {
+        for c in 0..k {
+            let _ = w.set(i, c, scale * (rng.uniform() + 0.1));
+        }
+    }
+    for c in 0..k {
+        for j in 0..d {
+            let _ = h.set(c, j, scale * (rng.uniform() + 0.1));
+        }
+    }
+    let mut errors: Vec<f64> = Vec::new();
+    let mut prev = f64::INFINITY;
+    for _ in 0..max_iter.max(1) {
+        nmf_update_h(x, &w, &mut h);
+        nmf_update_w(x, &mut w, &h);
+        let err = nmf_error(x, &w, &h);
+        errors.push(err);
+        if prev.is_finite() && prev > 0.0 && (prev - err) / prev < tol {
+            break;
+        }
+        prev = err;
+    }
+    Ok((w, h, errors))
+}
+
+/// `d`-th order differencing of `x`, keeping the last value of every
+/// intermediate level so a forecast can be integrated back up.
+/// Returns `(differenced series, last value at each level 0..d)`.
+fn difference_series(x: &[f64], d: usize) -> (Vec<f64>, Vec<f64>) {
+    let mut cur = x.to_vec();
+    let mut levels = Vec::with_capacity(d);
+    for _ in 0..d {
+        levels.push(*cur.last().unwrap_or(&0.0));
+        cur = cur.windows(2).map(|w| w[1] - w[0]).collect();
+    }
+    (cur, levels)
+}
+
+/// `arima(x, p=, d=, q=)`'s fit, by Hannan–Rissanen: the standard two-stage
+/// estimator, and the one that is honest about what it is.
+///
+/// Stage 1 fits a long pure-AR model by least squares to get usable
+/// estimates of the unobservable shocks `e_t`. Stage 2 then regresses the
+/// differenced series on its own lags AND those estimated shocks, which
+/// turns MA estimation — genuinely a nonlinear problem — into one more
+/// linear least-squares solve on `qu_core::linalg::least_squares`, the same
+/// solver `ar_model` and `ridge` already use.
+///
+/// This is NOT exact maximum likelihood (what R's `arima()` defaults to),
+/// and the difference shows up as slightly different coefficients on short
+/// series. It is stated here rather than glossed: Hannan–Rissanen is
+/// consistent, is what most textbooks present as *the* practical ARMA
+/// estimator, and needs no optimizer to go wrong silently.
+///
+/// Returns `(ar coefficients, ma coefficients, mu, fitted, residuals)` in
+/// the differenced series' own space.
+#[allow(clippy::type_complexity)]
+fn arima_fit(
+    z: &[f64],
+    p: usize,
+    q: usize,
+) -> R<(Vec<f64>, Vec<f64>, f64, Vec<f64>, Vec<f64>)> {
+    let n = z.len();
+    let mu = z.iter().sum::<f64>() / n as f64;
+    let zc: Vec<f64> = z.iter().map(|v| v - mu).collect();
+
+    // Stage 1: a long AR whose residuals stand in for the shocks. Order
+    // grows with the series (the usual `log(n)^1.something` rule of thumb),
+    // capped so the design matrix stays well-determined.
+    let stage1_order = if q > 0 {
+        ((n as f64).ln().powf(1.5).ceil() as usize)
+            .max(p + q + 1)
+            .min(n / 3)
+            .max(1)
+    } else {
+        0
+    };
+    let mut resid_est = vec![0.0; n];
+    if q > 0 {
+        let m = stage1_order;
+        if n <= m + 1 {
+            return e(format!(
+                "arima: series has {n} differenced point(s) — too few to estimate an MA part of order {q}"
+            ));
+        }
+        let design_rows: Vec<Vec<f64>> = (m..n).map(|t| (1..=m).map(|j| zc[t - j]).collect()).collect();
+        let target: Vec<f64> = (m..n).map(|t| zc[t]).collect();
+        let design = Matrix::from_rows(&design_rows).map_err(|se| EvalError { msg: se.to_string() })?;
+        let observed = Matrix::from_column(&target);
+        let phi = numeric::linalg::least_squares(&design, &observed, None)
+            .map_err(|le| EvalError { msg: format!("arima: stage-1 AR fit failed ({le})") })?;
+        let phi = phi.as_slice().to_vec();
+        for t in m..n {
+            let pred: f64 = (1..=m).map(|j| phi[j - 1] * zc[t - j]).sum();
+            resid_est[t] = zc[t] - pred;
+        }
+    }
+
+    // Stage 2: regress on `p` own lags and `q` estimated shock lags at once.
+    let start = p.max(q).max(stage1_order);
+    if n <= start + p.max(q) || n <= start + 1 {
+        return e(format!(
+            "arima: series has {n} differenced point(s) — too few for p={p}, q={q}"
+        ));
+    }
+    let width = p + q;
+    if width == 0 {
+        // ARIMA(0, d, 0): the differenced series is white noise about `mu`.
+        let fitted = vec![mu; n];
+        let residuals: Vec<f64> = z.iter().map(|v| v - mu).collect();
+        return Ok((Vec::new(), Vec::new(), mu, fitted, residuals));
+    }
+    let design_rows: Vec<Vec<f64>> = (start..n)
+        .map(|t| {
+            let mut row = Vec::with_capacity(width);
+            for j in 1..=p {
+                row.push(zc[t - j]);
+            }
+            for j in 1..=q {
+                row.push(resid_est[t - j]);
+            }
+            row
+        })
+        .collect();
+    let target: Vec<f64> = (start..n).map(|t| zc[t]).collect();
+    let design = Matrix::from_rows(&design_rows).map_err(|se| EvalError { msg: se.to_string() })?;
+    let observed = Matrix::from_column(&target);
+    let theta = numeric::linalg::least_squares(&design, &observed, None)
+        .map_err(|le| EvalError { msg: format!("arima: stage-2 ARMA fit failed ({le})") })?;
+    let theta = theta.as_slice().to_vec();
+    if theta.iter().any(|v| !v.is_finite()) {
+        return e("arima: the fit produced non-finite coefficients (the series may be constant, or p/q too large for its length)");
+    }
+    let ar: Vec<f64> = theta[..p].to_vec();
+    let ma: Vec<f64> = theta[p..].to_vec();
+
+    // In-sample one-step-ahead fit, with the residuals regenerated from
+    // the FINAL coefficients (not stage 1's) so `.residuals` describes the
+    // model actually returned.
+    let mut resid = vec![0.0; n];
+    let mut fitted = vec![mu; n];
+    for t in start..n {
+        let ar_part: f64 = (1..=p).map(|j| ar[j - 1] * zc[t - j]).sum();
+        let ma_part: f64 = (1..=q).map(|j| ma[j - 1] * resid[t - j]).sum();
+        fitted[t] = mu + ar_part + ma_part;
+        resid[t] = zc[t] - ar_part - ma_part;
+    }
+    Ok((ar, ma, mu, fitted, resid))
+}
+
+/// `arima_model.predict(n_ahead)` — forecasts the differenced series
+/// recursively (future shocks are zero, which is what a conditional
+/// expectation of an unobserved mean-zero innovation IS, and past shocks
+/// come from the fit's own residual tail), then integrates the result back
+/// up through `d` levels of differencing to return values in the ORIGINAL
+/// series' units. Forecasting the differences and handing those back would
+/// be the classic off-by-a-transform bug.
+fn arima_predict(m: &ModelHandle, n_ahead: usize) -> R<Value> {
+    let ar = to_vec(m.field("ar").expect("arima model always has ar"))?;
+    let ma = to_vec(m.field("ma").expect("arima model always has ma"))?;
+    let mu = m.field("mu").expect("arima model always has mu").as_num().unwrap_or(0.0);
+    let mut history = to_vec(m.field("history").expect("arima model always has history"))?;
+    let mut shocks = to_vec(m.field("shock_history").expect("arima model always has shock_history"))?;
+    let levels = to_vec(m.field("levels").expect("arima model always has levels"))?;
+    let p = ar.len();
+    let q = ma.len();
+    let mut out = Vec::with_capacity(n_ahead);
+    for _ in 0..n_ahead {
+        let h = history.len();
+        let s = shocks.len();
+        let ar_part: f64 = (1..=p).map(|j| ar[j - 1] * (history[h - j] - mu)).sum();
+        let ma_part: f64 = (1..=q).map(|j| ma[j - 1] * shocks[s - j]).sum();
+        let next = mu + ar_part + ma_part;
+        out.push(next);
+        history.push(next);
+        // The forecast's own shock is zero by construction: there is no
+        // future observation to take a residual against.
+        shocks.push(0.0);
+    }
+    // Integrate: `levels[i]` is the last observed value of the i-th
+    // difference (level 0 = the original series), so running a cumulative
+    // sum from the innermost level outward undoes exactly the `d`
+    // differences taken at fit time.
+    for i in (0..levels.len()).rev() {
+        let mut acc = levels[i];
+        for v in out.iter_mut() {
+            acc += *v;
+            *v = acc;
+        }
+    }
+    Ok(Value::Vec(Arc::new(out)))
+}
+
 fn matrix_row(x: &Matrix, r: usize) -> Vec<f64> {
     (0..x.cols()).map(|c| x.get(r, c).unwrap_or(0.0)).collect()
 }
@@ -53832,8 +55427,408 @@ fn knn_predict_row(row: &[f64], train_rows: &[Vec<f64>], train_y: &[f64], k: usi
 /// constructor's own doc comment (`ols_model`/`ridge_model`/
 /// `kmeans_model`/`pca_model`/`svm_model`/`pipeline`) for what prediction
 /// means per kind.
+/// The topology ladder `sysid` searches when the caller names none.
+///
+/// Deliberately SHORT and deliberately standard: these are the circuits an
+/// electrochemist would try by hand, in the order of how often they are the
+/// answer. A longer ladder is not a better one -- every extra candidate is
+/// another chance for a topology that happens to fit this particular noise
+/// to win on a criterion that only charges per parameter.
+///
+/// The ladder is nested on purpose (`R-p(R,C)` is `R-p(R,Q)` with `n = 1`),
+/// which is exactly why the ranking is by information criterion; see the
+/// `sysid` arm.
+const SYSID_CANDIDATES: &[&str] = &[
+    "R-C",
+    "R-p(R,C)",
+    "R-p(R,Q)",
+    "R-p(R-W,C)",
+    "R-p(R-W,Q)",
+    "R-p(R,C)-p(R,C)",
+    "R-p(R,Q)-p(R,Q)",
+];
+
+/// `(freqs, Z)` from the first two positional arguments of `circuit_fit` /
+/// `sysid`, with the argument-order mistake caught rather than fitted.
+fn circuit_fit_data(args: &[Value], who: &str) -> R<(Vec<f64>, Vec<qu_core::Complex64>)> {
+    let first = arg_get(args, 0).ok_or_else(|| EvalError {
+        msg: format!("{who}(freqs, z, ...): needs a frequency vector in Hz"),
+    })?;
+    // Frequencies are real and the data is complex, so handing them over in
+    // the other order -- which is `rlkk_extrapolate`'s order, and therefore
+    // a live confusion in this very chapter -- is detectable. Detected, it
+    // is an error: the alternative is silently fitting a circuit to the
+    // frequency axis, which converges to something and reports a number.
+    if matches!(first, Value::CVec(_) | Value::Complex(_) | Value::CMat(_)) {
+        return e(format!(
+            "{who}(freqs, z, ...): the FREQUENCIES come first and the impedance second \
+             (the other way round from `rlkk_extrapolate`), but the first argument is complex"
+        ));
+    }
+    let freqs = to_vec(first)?;
+    let z = arg_get(args, 1)
+        .ok_or_else(|| EvalError {
+            msg: format!("{who}(freqs, z, ...): needs the measured impedance"),
+        })?
+        .as_complex_flat()
+        .map_err(|msg| EvalError { msg })?;
+    if freqs.len() != z.len() {
+        return e(format!(
+            "{who}: {} frequency/frequencies but {} impedance value(s)",
+            freqs.len(),
+            z.len()
+        ));
+    }
+    if freqs.len() < 2 {
+        return e(format!("{who}: needs at least 2 data points"));
+    }
+    Ok((freqs, z))
+}
+
+/// The third positional argument: a spec string or a circuit value.
+fn circuit_fit_template(v: Option<&Value>, who: &str) -> R<qu_core::circuit::Circuit> {
+    match v {
+        Some(Value::Str(s)) => circuit_spec::parse_template(s)
+            .map_err(|msg| EvalError { msg: format!("{who}: {msg}") }),
+        Some(Value::Circuit(c)) => Ok((**c).clone()),
+        Some(other) => e(format!(
+            "{who}(freqs, z, model): `model` is a spec string like \"R-p(R,C)\" or a circuit, \
+             found {}",
+            other.type_name()
+        )),
+        None => e(format!(
+            "{who}(freqs, z, model): needs a circuit model -- a spec string like \"R-p(R,C)\" \
+             or a value from `circuit(...)`"
+        )),
+    }
+}
+
+/// The per-point noise level the residual is divided by.
+///
+/// `sigma=` is the real thing: an absolute noise level in ohms, scalar or
+/// one per point, and with it `chi2_red ~ 1` means "fitted as well as the
+/// measurement allows" in absolute terms.
+///
+/// The default, `weight="modulus"`, is a CONVENTION standing in for one:
+/// dividing by `|Z|` makes the residual relative, which is the right shape
+/// for impedance (a 1% error at 1 kohm and at 1 ohm are the same
+/// measurement error) but makes `chi2_red` a squared relative error rather
+/// than a likelihood. Both are documented; neither is silently the other.
+fn circuit_fit_sigma(
+    style: &[(String, Value)],
+    z: &[qu_core::Complex64],
+    who: &str,
+) -> R<Vec<f64>> {
+    if let Some((_, v)) = style_entry(style, "sigma") {
+        let s = match v {
+            Value::Num(n) => vec![*n; z.len()],
+            other => to_vec(other)?,
+        };
+        if s.len() != z.len() {
+            return e(format!(
+                "{who}: sigma= has {} value(s) for {} data point(s)",
+                s.len(),
+                z.len()
+            ));
+        }
+        if let Some(bad) = s.iter().position(|v| !v.is_finite() || *v <= 0.0) {
+            return e(format!(
+                "{who}: sigma= at index {bad} is {}; a noise level must be positive",
+                s[bad]
+            ));
+        }
+        return Ok(s);
+    }
+    let weight = style_str(style, "weight").unwrap_or_else(|| "modulus".into());
+    match weight.as_str() {
+        "modulus" => Ok(z
+            .iter()
+            // A measured point of exactly zero impedance is not a real
+            // measurement, but it must not divide the whole fit by zero.
+            .map(|c| {
+                let m = c.magnitude();
+                if m > 0.0 && m.is_finite() {
+                    m
+                } else {
+                    1.0
+                }
+            })
+            .collect()),
+        "unit" => Ok(vec![1.0; z.len()]),
+        other => e(format!(
+            "{who}: weight= must be \"modulus\" (relative, the default) or \"unit\" (absolute), \
+             got \"{other}\" -- pass sigma= for a measured noise level"
+        )),
+    }
+}
+
+/// `bounds=(lower, upper)`, or the separate `lower=`/`upper=` that
+/// `least_squares` already spells that way.
+fn circuit_fit_bounds(
+    style: &[(String, Value)],
+    np: usize,
+    names: &[String],
+) -> R<(Option<Vec<f64>>, Option<Vec<f64>>)> {
+    let mut lower = match style_vec(style, "lower") {
+        Some(v) => Some(v?),
+        None => None,
+    };
+    let mut upper = match style_vec(style, "upper") {
+        Some(v) => Some(v?),
+        None => None,
+    };
+    if let Some((_, v)) = style_entry(style, "bounds") {
+        let pair = match v {
+            Value::List(items) if items.len() == 2 => items.clone(),
+            _ => {
+                return e(
+                    "circuit_fit: bounds= is a pair of vectors, `bounds = (lower, upper)` -- \
+                     or pass lower=/upper= separately"
+                        .to_string(),
+                )
+            }
+        };
+        lower = Some(to_vec(&pair[0])?);
+        upper = Some(to_vec(&pair[1])?);
+    }
+    for (what, b) in [("lower", &lower), ("upper", &upper)] {
+        if let Some(b) = b {
+            if b.len() != np {
+                return e(format!(
+                    "circuit_fit: {what} bound has {} value(s) but the circuit has {np} \
+                     parameter(s) ({})",
+                    b.len(),
+                    names.join(", ")
+                ));
+            }
+        }
+    }
+    Ok((lower, upper))
+}
+
+/// A starting point read off the data itself, for when the caller has none.
+///
+/// The three numbers a Nyquist plot hands you by eye are the whole method:
+/// the high-frequency real intercept is the series resistance, the
+/// low-frequency real intercept minus it is the polarisation resistance, and
+/// the frequency of the arc's apex is `1/(R_p C)`. Everything else is
+/// derived from those, and the point is only to land in the right basin --
+/// the multi-start and the fit do the rest.
+///
+/// Elements are filled in leaf order, and repeated capacitive elements are
+/// staggered by a decade each: two identical starting time constants in a
+/// two-arc candidate is a saddle, and the fit sits on it.
+fn initial_guess_from_data(
+    template: &qu_core::circuit::Circuit,
+    freqs: &[f64],
+    z: &[qu_core::Complex64],
+) -> R<Vec<f64>> {
+    use qu_core::circuit::Element;
+    let n = freqs.len();
+    let mut i_hi = 0usize;
+    let mut i_lo = 0usize;
+    for i in 1..n {
+        if freqs[i] > freqs[i_hi] {
+            i_hi = i;
+        }
+        if freqs[i] < freqs[i_lo] {
+            i_lo = i;
+        }
+    }
+    let floor = 1e-9;
+    let z_scale = z
+        .iter()
+        .map(|c| c.magnitude())
+        .fold(0.0f64, f64::max)
+        .max(floor);
+    let rs = if z[i_hi].re.is_finite() && z[i_hi].re > 0.0 {
+        z[i_hi].re
+    } else {
+        z_scale * 0.01
+    };
+    let r_tot = if z[i_lo].re.is_finite() && z[i_lo].re > 0.0 {
+        z[i_lo].re
+    } else {
+        z_scale
+    };
+    let rp = (r_tot - rs).max(z_scale * 0.1).max(floor);
+    // The apex of the capacitive arc. If nothing is capacitive (a purely
+    // resistive or inductive spectrum), the geometric-mean frequency is as
+    // good a guess as exists and keeps the time constant inside the sweep.
+    let mut i_pk = 0usize;
+    for i in 1..n {
+        if -z[i].im > -z[i_pk].im {
+            i_pk = i;
+        }
+    }
+    let f_pk = if -z[i_pk].im > 0.0 {
+        freqs[i_pk]
+    } else {
+        (freqs[i_lo] * freqs[i_hi]).sqrt()
+    };
+    let w_pk = (std::f64::consts::TAU * f_pk).max(floor);
+    let c0 = (1.0 / (w_pk * rp)).clamp(1e-12, 1e2);
+    let tau0 = (1.0 / w_pk).clamp(1e-9, 1e6);
+    let w_lo = std::f64::consts::TAU * freqs[i_lo];
+    let aw0 = ((-z[i_lo].im).abs().max(z_scale * 0.05) * w_lo.sqrt()).max(floor);
+    let n_res = template
+        .leaves()
+        .iter()
+        .filter(|e| matches!(e, Element::Resistor(_)))
+        .count();
+
+    let mut out = Vec::with_capacity(template.nparam());
+    let (mut res_seen, mut cap_seen) = (0usize, 0usize);
+    for leaf in template.leaves() {
+        match leaf {
+            Element::Resistor(_) => {
+                res_seen += 1;
+                out.push(if res_seen == 1 && n_res > 1 {
+                    rs
+                } else if n_res > 2 {
+                    rp / (n_res - 1) as f64
+                } else {
+                    rp
+                });
+            }
+            Element::Capacitor(_) => {
+                let c = c0 * 10f64.powi(-(cap_seen as i32));
+                cap_seen += 1;
+                out.push(c);
+            }
+            Element::Inductor(_) => out.push(1e-7),
+            Element::Warburg(_) => out.push(aw0),
+            Element::Cpe { .. } => {
+                let c = c0 * 10f64.powi(-(cap_seen as i32));
+                cap_seen += 1;
+                out.push(c);
+                // Not 1.0: a CPE started at exactly ideal is started on the
+                // bound, and the fit cannot see which way `n` should move.
+                out.push(0.85);
+            }
+            Element::FiniteOpen { .. } | Element::FiniteShort { .. } => {
+                out.push(rp);
+                out.push(tau0);
+            }
+            Element::Gerischer { .. } => {
+                out.push(rp * w_pk.sqrt());
+                out.push(w_pk);
+            }
+            Element::Porous { .. } => {
+                out.push(rp);
+                out.push(c0);
+                out.push(0.85);
+            }
+            Element::HavriliakNegami { .. } => {
+                out.push(rp);
+                out.push(tau0);
+                out.push(0.9);
+                out.push(0.9);
+            }
+        }
+    }
+    if out.len() != template.nparam() {
+        return e(format!(
+            "circuit_fit: internal -- built {} starting value(s) for {} parameter(s)",
+            out.len(),
+            template.nparam()
+        ));
+    }
+    Ok(out)
+}
+
+/// Pack a finished fit into the model handle both `circuit_fit` and `sysid`
+/// return.
+///
+/// Every fitted parameter is ALSO a field under its own name (`m.R1`,
+/// `m.Q1_n`), which is what makes a fit readable without counting positions
+/// in a vector against positions in a spec string -- the step where a report
+/// picks up a transposition nobody notices.
+fn circuit_fit_model(
+    template: &qu_core::circuit::Circuit,
+    r: qu_core::circuit_fit::FitResult,
+    sysid: Option<(String, Vec<(String, usize, f64, f64, f64)>)>,
+) -> Value {
+    let names = template.param_names();
+    let fitted = template
+        .with_params(&r.params)
+        .unwrap_or_else(|_| template.clone());
+    let spec = circuit_spec::to_spec(template);
+    let mut fields: Vec<(String, Value)> = vec![
+        ("spec".to_string(), Value::Str(spec.clone())),
+        ("circuit".to_string(), Value::Circuit(Arc::new(fitted))),
+        ("params".to_string(), Value::Vec(Arc::new(r.params.clone()))),
+        (
+            "param_names".to_string(),
+            Value::List(Arc::new(
+                names.iter().map(|n| Value::Str(n.clone())).collect(),
+            )),
+        ),
+        ("stderr".to_string(), Value::Vec(Arc::new(r.stderr.clone()))),
+        ("residual".to_string(), Value::Vec(Arc::new(r.residual))),
+        ("chi2".to_string(), Value::Num(r.chi2)),
+        ("chi2_red".to_string(), Value::Num(r.chi2_red)),
+        // Same name the rest of the optimizer family uses for the same
+        // quantity, so a caller reading `.cost` off any fit gets the same
+        // thing.
+        ("cost".to_string(), Value::Num(r.chi2)),
+        ("nparam".to_string(), Value::Num(names.len() as f64)),
+        ("iterations".to_string(), Value::Num(r.iterations as f64)),
+        ("starts".to_string(), Value::Num(r.starts as f64)),
+        ("converged".to_string(), Value::Bool(r.converged)),
+    ];
+    for (i, name) in names.iter().enumerate() {
+        fields.push((name.clone(), Value::Num(r.params[i])));
+    }
+    if let Some((criterion, rows)) = sysid {
+        fields.push(("criterion".to_string(), Value::Str(criterion)));
+        fields.push(("selected".to_string(), Value::Str(spec)));
+        fields.push((
+            "candidates".to_string(),
+            Value::List(Arc::new(
+                rows.iter().map(|r| Value::Str(r.0.clone())).collect(),
+            )),
+        ));
+        fields.push((
+            "candidate_nparam".to_string(),
+            Value::Vec(Arc::new(rows.iter().map(|r| r.1 as f64).collect())),
+        ));
+        fields.push((
+            "candidate_chi2".to_string(),
+            Value::Vec(Arc::new(rows.iter().map(|r| r.2).collect())),
+        ));
+        fields.push((
+            "candidate_aic".to_string(),
+            Value::Vec(Arc::new(rows.iter().map(|r| r.3).collect())),
+        ));
+        fields.push((
+            "candidate_bic".to_string(),
+            Value::Vec(Arc::new(rows.iter().map(|r| r.4).collect())),
+        ));
+    }
+    Value::Model(Arc::new(ModelHandle::new("circuit_fit", fields)))
+}
+
 fn model_predict(interp: &mut Interp, m: &ModelHandle, xnew_val: &Value) -> R<Value> {
     match m.kind.as_str() {
+        // `fit.predict(freqs)` — the fitted circuit's own spectrum, on any
+        // frequency axis, in Hz. Not the training axis: a fit is useful
+        // precisely because it interpolates between measured points and
+        // states what the model says outside them.
+        "circuit_fit" => {
+            let freqs = to_vec(xnew_val)?;
+            if let Some(bad) = freqs.iter().position(|f| !f.is_finite() || *f <= 0.0) {
+                return e(format!(
+                    "predict: frequency {} at index {bad} is not positive (Hz)",
+                    freqs[bad]
+                ));
+            }
+            let c = match m.field("circuit") {
+                Some(Value::Circuit(c)) => c.clone(),
+                _ => return e("predict: this circuit_fit model has lost its circuit"),
+            };
+            Ok(Value::CVec(Arc::new(c.spectrum_hz(&freqs))))
+        }
         // `svr` shares this exact `coef`/`intercept` linear-predict shape
         // with `ols`/`ridge` — see `svr_fit_model`'s own doc comment for
         // how those coefficients were fit (subgradient descent, not
@@ -54272,6 +56267,87 @@ fn model_predict(interp: &mut Interp, m: &ModelHandle, xnew_val: &Value) -> R<Va
                 .collect();
             Ok(Value::Vec(Arc::new(predictions)))
         }
+        // `isolation_forest.predict(Xnew)` — the anomaly score of each new
+        // row against the ALREADY-grown forest (no refit, no peeking at
+        // `Xnew`'s own density), on the same `(0, 1)` scale as `.scores`.
+        // Compare against the model's own `.threshold` to get the same
+        // verdict `.labels` records for the training rows.
+        "isolation_forest" => {
+            let xnew = xnew_val.to_matrix().map_err(|msg| EvalError { msg })?;
+            let nodes = match m.field("nodes") {
+                Some(Value::Mat(nd)) => nd.clone(),
+                _ => return e("isolation_forest model is missing its nodes field"),
+            };
+            let roots = to_vec(m.field("roots").expect("isolation_forest model always has roots"))?;
+            let n_features = m.field("n_features").expect("isolation_forest model always has n_features").as_num().unwrap_or(0.0) as usize;
+            if xnew.cols() != n_features {
+                return e(format!(
+                    "predict: model was fit on {} feature(s), input has {} — a single new point \
+                     needs an explicit orientation, e.g. `[a, b] as matrix(1, 2)`, since a bare \
+                     vector defaults to a column",
+                    n_features,
+                    xnew.cols()
+                ));
+            }
+            let psi = m.field("max_samples").expect("isolation_forest model always has max_samples").as_num().unwrap_or(1.0);
+            Ok(Value::Vec(Arc::new(iforest_scores(&nodes, &roots, &xnew, psi))))
+        }
+        // `gp.predict(Xnew)` — the posterior MEAN only, so a GP behaves
+        // like every other regressor inside `pipeline`/`score`. The
+        // variance comes from `predict(gp, Xnew, variance=true)`, which
+        // the `"predict"` builtin arm intercepts before reaching here
+        // (this function has no access to the call's keyword arguments).
+        "gaussian_process" => {
+            let xnew = xnew_val.to_matrix().map_err(|msg| EvalError { msg })?;
+            let (means, _) = gp_predict_parts(m, &xnew)?;
+            Ok(Value::Vec(Arc::new(means)))
+        }
+        // `nmf.predict(Xnew)` — the `(M, k)` non-negative encoding of new
+        // rows against the fitted `H`, by the same multiplicative update
+        // the fit used with `H` held fixed. This is "transform", not
+        // "reconstruct": multiply the result back by `.h` to get an
+        // approximation of `Xnew` itself.
+        "nmf" => {
+            let xnew = xnew_val.to_matrix().map_err(|msg| EvalError { msg })?;
+            let h = match m.field("h") {
+                Some(Value::Mat(hh)) => hh.clone(),
+                _ => return e("nmf model is missing its h field"),
+            };
+            if xnew.cols() != h.cols() {
+                return e(format!(
+                    "predict: model was fit on {} feature(s), input has {} — a single new point \
+                     needs an explicit orientation, e.g. `[a, b] as matrix(1, 2)`, since a bare \
+                     vector defaults to a column",
+                    h.cols(),
+                    xnew.cols()
+                ));
+            }
+            if let Some(bad) = xnew.as_slice().iter().find(|v| **v < 0.0 || !v.is_finite()) {
+                return e(format!("predict: nmf input must be non-negative and finite (found {bad})"));
+            }
+            let k = h.rows();
+            let mean = xnew.as_slice().iter().sum::<f64>() / xnew.len().max(1) as f64;
+            let scale = (mean.max(1e-12) / k as f64).sqrt();
+            let mut w = Matrix::filled(xnew.rows(), k, scale);
+            // Run to convergence, not for a fixed budget. With `H` held
+            // fixed the objective in `W` is convex, so there is a single
+            // right answer to reach — and a fixed 200 iterations did NOT
+            // reach it: re-encoding a row the model was fit on came back
+            // with visibly different coefficients from the ones the fit
+            // itself had assigned that same row, which is precisely the
+            // kind of "runs, right shape, wrong numbers" result that
+            // passes a shape test.
+            let mut prev = nmf_error(&xnew, &w, &h);
+            for _ in 0..5000 {
+                nmf_update_w(&xnew, &mut w, &h);
+                let err = nmf_error(&xnew, &w, &h);
+                if prev.is_finite() && prev > 0.0 && (prev - err).abs() / prev < 1e-12 {
+                    break;
+                }
+                prev = err;
+            }
+            Ok(Value::Mat(Arc::new(w)))
+        }
         "pipeline_fitted" => {
             let transformed = replay_pipeline_stages(interp, m, xnew_val.clone())?;
             let inner = as_model(m.field("model").expect("fitted pipeline always wraps a model"))?;
@@ -54285,7 +56361,65 @@ fn model_predict(interp: &mut Interp, m: &ModelHandle, xnew_val: &Value) -> R<Va
 /// doc comment for the per-kind metric.
 fn model_score(interp: &mut Interp, m: &ModelHandle, x_val: &Value, y_arg: Option<&Value>) -> R<Value> {
     match m.kind.as_str() {
-        "ols" | "ridge" | "svr" => {
+        // `fit.score(freqs, z)` — the reduced chi-squared on that data,
+        // using the same modulus weighting `circuit_fit` defaults to.
+        //
+        // LOWER IS BETTER HERE, the opposite of the R^2 every regression
+        // model in this family returns from the same method name. That is a
+        // real seam and it is deliberate: a circuit fit's quality is not a
+        // fraction of variance explained -- the variance of an impedance
+        // spectrum is dominated by the sweep, not the model -- and reporting
+        // an R^2 near 1.0 for a visibly wrong circuit would be worse than a
+        // number the reader has to look up. It is stated in the chapter next
+        // to the builtin, not only here.
+        "circuit_fit" => {
+            let freqs = to_vec(x_val)?;
+            let z = y_arg
+                .ok_or_else(|| EvalError {
+                    msg: "score(fit, freqs, z): a circuit fit needs the measured impedance".into(),
+                })?
+                .as_complex_flat()
+                .map_err(|msg| EvalError { msg })?;
+            if freqs.len() != z.len() {
+                return e(format!(
+                    "score: {} frequency/frequencies but {} impedance value(s)",
+                    freqs.len(),
+                    z.len()
+                ));
+            }
+            if let Some(bad) = freqs.iter().position(|f| !f.is_finite() || *f <= 0.0) {
+                return e(format!(
+                    "score: frequency {} at index {bad} is not positive (Hz)",
+                    freqs[bad]
+                ));
+            }
+            let c = match m.field("circuit") {
+                Some(Value::Circuit(c)) => c.clone(),
+                _ => return e("score: this circuit_fit model has lost its circuit"),
+            };
+            let np = m.field("nparam").and_then(|v| v.as_num().ok()).unwrap_or(0.0);
+            let model = c.spectrum_hz(&freqs);
+            let mut chi2 = 0.0f64;
+            for i in 0..freqs.len() {
+                let s = {
+                    let mag = z[i].magnitude();
+                    if mag > 0.0 && mag.is_finite() {
+                        mag
+                    } else {
+                        1.0
+                    }
+                };
+                chi2 += ((model[i].re - z[i].re) / s).powi(2)
+                    + ((model[i].im - z[i].im) / s).powi(2);
+            }
+            let dof = 2.0 * freqs.len() as f64 - np;
+            Ok(Value::Num(if dof > 0.0 { chi2 / dof } else { f64::NAN }))
+        }
+        // `gaussian_process` joins the linear regressors here rather than
+        // scoring by log-likelihood: `.score(X, y)` should answer the same
+        // question for every regressor, and the GP's own likelihood is
+        // already reported at fit time as `.log_marginal_likelihood`.
+        "ols" | "ridge" | "svr" | "gaussian_process" => {
             let y = to_vec(y_arg.ok_or_else(|| EvalError {
                 msg: format!("score: a `{}` model needs y as a third argument", m.kind),
             })?)?;
@@ -66522,6 +68656,345 @@ c = rgba(255, 0, 0, 128)");
         // negative) inertia than the correct 3-cluster split.
         assert!(num(&it, "s_good") > num(&it, "s_bad"));
     }
+
+    // ---- isolation_forest / gaussian_process / nmf / arima
+    //      (§ ML additional models, 2026-09-24) ----
+
+    fn ml_mat_of(it: &Interp, name: &str) -> Matrix {
+        match it.get(name) {
+            Some(Value::Mat(m)) => m.as_ref().clone(),
+            other => panic!("expected `{name}` to be a Mat, got {other:?}"),
+        }
+    }
+
+    /// `[a, b, c]` as Qu source, for a series generated in Rust so the
+    /// test can assert against the coefficients it was BUILT from.
+    fn qu_vec_src(xs: &[f64]) -> String {
+        format!(
+            "[{}]",
+            xs.iter().map(|v| format!("{v:.9}")).collect::<Vec<_>>().join(", ")
+        )
+    }
+
+    /// A throwaway deterministic normal generator for the time-series
+    /// tests -- deliberately NOT the engine's own `Rng`, so a change to
+    /// the interpreter's PRNG can never silently move the data these
+    /// known-answer tests are anchored on.
+    fn test_normals(n: usize, seed: u64) -> Vec<f64> {
+        let mut s = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let mut next = || {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((s >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+        (0..n)
+            .map(|_| {
+                let u1: f64 = next().max(1e-12);
+                let u2: f64 = next();
+                (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn isolation_forest_scores_planted_outliers_above_every_inlier() {
+        // 20 points inside a tight blob near the origin, then two points
+        // nowhere near it. There is no ambiguity about the right answer
+        // here: whatever the scores are, the last two must be the highest.
+        let it = run(
+            "pts = [0,0; 0.1,0.2; -0.1,0.1; 0.2,-0.1; -0.2,-0.2; 0.05,0.15; \
+             -0.15,0.05; 0.12,-0.18; -0.08,0.22; 0.18,0.08; 0,-0.12; 0.22,0.02; \
+             -0.22,-0.05; 0.07,0.19; -0.19,0.11; 0.14,-0.14; -0.04,-0.21; 0.21,0.17; \
+             -0.11,-0.16; 0.03,0.04; 50,50; -60,40]\n\
+             f = isolation_forest(pts, n_trees=200, max_samples=16, seed=7, contamination=0.1)\n\
+             s = f.scores\nlab = f.labels\nthr = f.threshold",
+        );
+        let s = vec_of(&it, "s");
+        assert_eq!(s.len(), 22);
+        let worst_inlier = s[..20].iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            s[20] > worst_inlier && s[21] > worst_inlier,
+            "planted outliers scored {} / {} but the worst inlier scored {worst_inlier}",
+            s[20],
+            s[21]
+        );
+        // Every score is a probability-like number on (0, 1).
+        assert!(s.iter().all(|v| *v > 0.0 && *v < 1.0), "scores must lie on (0, 1): {s:?}");
+        let lab = vec_of(&it, "lab");
+        assert_eq!(lab[20], 1.0, "contamination=0.1 should flag the first planted outlier");
+        assert_eq!(lab[21], 1.0, "contamination=0.1 should flag the second planted outlier");
+        // ...and should NOT flag the whole blob: 10% of 22 rows is ~2.
+        let flagged: f64 = lab.iter().sum();
+        assert!(flagged <= 4.0, "contamination=0.1 flagged {flagged} of 22 rows");
+    }
+
+    #[test]
+    fn isolation_forest_predict_ranks_an_unseen_far_point_above_an_unseen_near_one() {
+        // The model half of the contract: these two rows were never in the
+        // fit, so a transductive shortcut (rescoring against Xnew's own
+        // density) would not have this ordering to offer.
+        let it = run(
+            "pts = [0,0; 0.1,0.2; -0.1,0.1; 0.2,-0.1; -0.2,-0.2; 0.05,0.15; \
+             -0.15,0.05; 0.12,-0.18; -0.08,0.22; 0.18,0.08; 0,-0.12; 0.22,0.02; \
+             -0.22,-0.05; 0.07,0.19; -0.19,0.11; 0.14,-0.14]\n\
+             f = isolation_forest(pts, n_trees=200, seed=3)\n\
+             probe = [0.03, -0.02; 100, -100]\n\
+             ps = f.predict(probe)",
+        );
+        let ps = vec_of(&it, "ps");
+        assert!(
+            ps[1] > ps[0],
+            "an unseen far point scored {} but an unseen near one scored {}",
+            ps[1],
+            ps[0]
+        );
+        assert!(ps[1] > 0.5, "a point 100 units outside the blob should score above the 0.5 cut-off, got {}", ps[1]);
+    }
+
+    #[test]
+    fn isolation_forest_rejects_a_contamination_that_is_not_a_fraction() {
+        let err = run_err("f = isolation_forest([0,0; 1,1; 2,2; 3,3], contamination=5)");
+        assert!(err.msg.contains("strictly between 0 and 1"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn gaussian_process_is_certain_at_its_training_points_and_uncertain_far_away() {
+        // The whole reason to fit a GP rather than a spline. sin() sampled
+        // on [0, 6]; the posterior must (a) reproduce a training value
+        // almost exactly with almost no variance, and (b) fall back to the
+        // prior -- mean ~ mean(y), variance ~ sigma_f^2 = 1 -- at x = 30,
+        // which is ~10 length scales away from every training point.
+        let xs: Vec<f64> = (0..13).map(|i| i as f64 * 0.5).collect();
+        let ys: Vec<f64> = xs.iter().map(|x| x.sin()).collect();
+        let src = format!(
+            "xv = {}\nX = xv as matrix(13, 1)\ny = {}\n\
+             gp = gaussian_process(X, y, noise=1e-6)\n\
+             near = predict(gp, [1.5] as matrix(1, 1), variance=true)\n\
+             far = predict(gp, [30.0] as matrix(1, 1), variance=true)\n\
+             mid = predict(gp, [1.75] as matrix(1, 1))\n\
+             lml = gp.log_marginal_likelihood",
+            qu_vec_src(&xs),
+            qu_vec_src(&ys)
+        );
+        let it = run(&src);
+        let near = ml_mat_of(&it, "near");
+        let far = ml_mat_of(&it, "far");
+        assert_eq!(near.shape(), (1, 2), "variance=true must return (M, 2): mean | variance");
+        let (near_mu, near_var) = (near.get(0, 0).unwrap(), near.get(0, 1).unwrap());
+        let (far_mu, far_var) = (far.get(0, 0).unwrap(), far.get(0, 1).unwrap());
+        assert!(
+            (near_mu - 1.5f64.sin()).abs() < 0.01,
+            "posterior mean at a training point was {near_mu}, expected sin(1.5) = {}",
+            1.5f64.sin()
+        );
+        assert!(near_var < 0.01, "variance at a training point should be ~0, got {near_var}");
+        assert!(far_var > 0.9, "variance 10 length scales away should approach sigma_f^2 = 1, got {far_var}");
+        assert!(
+            far_var > near_var * 10.0,
+            "the point of a GP is that {far_var} >> {near_var}"
+        );
+        let y_mean = ys.iter().sum::<f64>() / ys.len() as f64;
+        assert!(
+            (far_mu - y_mean).abs() < 0.05,
+            "far from the data a GP must revert to the data's own level ({y_mean}), got {far_mu}"
+        );
+        // Interpolation between samples, not just at them.
+        let mid = vec_of(&it, "mid");
+        assert!(
+            (mid[0] - 1.75f64.sin()).abs() < 0.1,
+            "interpolated mean at x=1.75 was {}, expected ~{}",
+            mid[0],
+            1.75f64.sin()
+        );
+        assert!(num(&it, "lml").is_finite(), "log marginal likelihood must be a real number");
+    }
+
+    #[test]
+    fn gaussian_process_plain_predict_returns_just_the_mean() {
+        // Without `variance=`, a GP has to look like every other regressor
+        // so `pipeline`/`score` keep working.
+        let it = run(
+            "X = [0; 1; 2; 3; 4] as matrix(5, 1)\ny = [0, 2, 4, 6, 8]\n\
+             gp = gaussian_process(X, y, noise=1e-6)\nmu = gp.predict([2] as matrix(1, 1))\n\
+             r2 = gp.score(X, y)",
+        );
+        let mu = vec_of(&it, "mu");
+        assert_eq!(mu.len(), 1);
+        assert!((mu[0] - 4.0).abs() < 0.01, "expected ~4 at a training point, got {}", mu[0]);
+        assert!(num(&it, "r2") > 0.99, "an interpolating GP should score ~1 on its own training data");
+    }
+
+    #[test]
+    fn gaussian_process_matern32_also_interpolates_its_training_points() {
+        let it = run(
+            "X = [0; 1; 2; 3; 4; 5] as matrix(6, 1)\ny = [1, 3, 2, 5, 4, 6]\n\
+             gp = gaussian_process(X, y, kernel=\"matern32\", noise=1e-6)\n\
+             p = predict(gp, [3] as matrix(1, 1), variance=true)",
+        );
+        let p = ml_mat_of(&it, "p");
+        assert!((p.get(0, 0).unwrap() - 5.0).abs() < 0.05, "got {}", p.get(0, 0).unwrap());
+        assert!(p.get(0, 1).unwrap() < 0.01, "got {}", p.get(0, 1).unwrap());
+    }
+
+    #[test]
+    fn gaussian_process_rejects_an_unknown_kernel_by_name() {
+        let err = run_err(
+            "X = [0; 1; 2] as matrix(3, 1)\ny = [1, 2, 3]\ngp = gaussian_process(X, y, kernel=\"cubic\")",
+        );
+        assert!(err.msg.contains("matern32"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn nmf_reconstructs_a_matrix_that_really_is_a_product_of_two_factors() {
+        // X = W0 H0 exactly, with W0 (6,2) and H0 (2,4) both non-negative,
+        // so a rank-2 NMF can in principle drive the error to zero -- and
+        // the factorization it finds must be non-negative throughout.
+        let it = run(
+            "X = [3,4,5,2; 6,8,10,4; 1.5,2,2.5,1; 4,6,7,3; 2,3,3.5,1.5; 8,11,13.5,5.5]\n\
+             m = nmf(X, n_components=2, max_iter=3000, tol=1e-12, seed=11)\n\
+             err = m.reconstruction_error\nerrs = m.errors\nW = m.w\nH = m.h\n\
+             nrm = norm(X)",
+        );
+        let err = num(&it, "err");
+        let nrm = num(&it, "nrm");
+        assert!(
+            err < 0.02 * nrm,
+            "rank-2 NMF of a rank-2 matrix left error {err} against ||X||={nrm}"
+        );
+        let w = ml_mat_of(&it, "W");
+        let h = ml_mat_of(&it, "H");
+        assert_eq!(w.shape(), (6, 2));
+        assert_eq!(h.shape(), (2, 4));
+        assert!(w.as_slice().iter().all(|v| *v >= 0.0), "W went negative: {:?}", w.as_slice());
+        assert!(h.as_slice().iter().all(|v| *v >= 0.0), "H went negative: {:?}", h.as_slice());
+        // The algorithm's own guarantee: the objective never increases.
+        let errs = vec_of(&it, "errs");
+        for pair in errs.windows(2) {
+            assert!(
+                pair[1] <= pair[0] + 1e-9,
+                "multiplicative updates must not increase ||X - WH||_F: {} -> {}",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
+    #[test]
+    fn nmf_reconstruction_error_falls_as_components_are_added() {
+        // More components can only describe the same matrix better -- the
+        // check the brief asks for, and one a shape-only test cannot make.
+        let it = run(
+            "X = [5,1,0,2; 1,6,2,0; 0,2,7,1; 2,0,1,8; 4,3,1,1; 1,1,4,3]\n\
+             m1 = nmf(X, n_components=1, max_iter=2000, tol=1e-12, seed=5)\n\
+             m2 = nmf(X, n_components=2, max_iter=2000, tol=1e-12, seed=5)\n\
+             m4 = nmf(X, n_components=4, max_iter=2000, tol=1e-12, seed=5)\n\
+             e1 = m1.reconstruction_error\ne2 = m2.reconstruction_error\ne4 = m4.reconstruction_error",
+        );
+        let (e1, e2, e4) = (num(&it, "e1"), num(&it, "e2"), num(&it, "e4"));
+        assert!(e2 < e1, "k=2 error {e2} should beat k=1 error {e1}");
+        assert!(e4 < e2, "k=4 error {e4} should beat k=2 error {e2}");
+    }
+
+    #[test]
+    fn nmf_predict_encodes_new_rows_against_the_fitted_factors() {
+        // A row that IS one of the training rows must encode to
+        // (approximately) the same coefficients the fit gave it.
+        let it = run(
+            "X = [3,4,5,2; 6,8,10,4; 1.5,2,2.5,1; 4,6,7,3; 2,3,3.5,1.5; 8,11,13.5,5.5]\n\
+             m = nmf(X, n_components=2, max_iter=3000, tol=1e-12, seed=11)\n\
+             W = m.w\nWnew = m.predict([3,4,5,2] as matrix(1, 4))",
+        );
+        let w = ml_mat_of(&it, "W");
+        let wnew = ml_mat_of(&it, "Wnew");
+        assert_eq!(wnew.shape(), (1, 2));
+        for c in 0..2 {
+            let a = w.get(0, c).unwrap();
+            let b = wnew.get(0, c).unwrap();
+            assert!(
+                (a - b).abs() <= 0.05 * (a.abs().max(b.abs()).max(1e-6)) + 1e-3,
+                "re-encoding training row 0 gave {b} in component {c}, the fit gave {a}"
+            );
+        }
+    }
+
+    #[test]
+    fn nmf_refuses_negative_data_instead_of_silently_clipping() {
+        let err = run_err("m = nmf([1, 2; -3, 4])");
+        assert!(err.msg.contains("non-negative"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn arima_with_only_differencing_continues_a_quadratic_exactly() {
+        // x_t = t^2 has a constant SECOND difference, so ARIMA(0, 2, 0) is
+        // the exactly-right model and its forecast is arithmetic, not
+        // approximate: t = 11, 12, 13 -> 121, 144, 169. This is the test
+        // that catches a differencing/integration mix-up, the one way an
+        // ARIMA can be wrong while looking entirely plausible.
+        let it = run(
+            "t = 1:1:10\nx = t .^ 2\nm = arima(x, p=0, d=2, q=0)\nf = m.predict(3)",
+        );
+        let f = vec_of(&it, "f");
+        assert_eq!(f.len(), 3);
+        for (i, expected) in [121.0, 144.0, 169.0].iter().enumerate() {
+            assert!(
+                (f[i] - expected).abs() < 1e-6,
+                "ARIMA(0,2,0) on t^2 forecast {} at step {}, expected {expected}",
+                f[i],
+                i + 1
+            );
+        }
+    }
+
+    #[test]
+    fn arima_with_first_differencing_continues_a_straight_line() {
+        let it = run("x = 1:1:20\nm = arima(x, p=0, d=1, q=0)\nf = m.predict(3)");
+        let f = vec_of(&it, "f");
+        assert!((f[0] - 21.0).abs() < 1e-9, "got {}", f[0]);
+        assert!((f[2] - 23.0).abs() < 1e-9, "got {}", f[2]);
+    }
+
+    #[test]
+    fn arima_recovers_the_ar_coefficient_it_was_generated_from() {
+        // x_t = 0.7 x_{t-1} + e_t, 400 points. The answer is known because
+        // the data was built from it.
+        let e = test_normals(400, 20260924);
+        let mut x = vec![0.0; 400];
+        for t in 1..400 {
+            x[t] = 0.7 * x[t - 1] + e[t];
+        }
+        let src = format!("x = {}\nm = arima(x, p=1, d=0, q=0)\nphi = m.ar", qu_vec_src(&x));
+        let it = run(&src);
+        let phi = vec_of(&it, "phi");
+        assert_eq!(phi.len(), 1);
+        assert!(
+            (phi[0] - 0.7).abs() < 0.1,
+            "ARIMA(1,0,0) recovered phi={} from a series generated with phi=0.7",
+            phi[0]
+        );
+    }
+
+    #[test]
+    fn arima_recovers_the_ma_coefficient_it_was_generated_from() {
+        // x_t = e_t + 0.6 e_{t-1}. The MA part is the half that needs the
+        // two-stage Hannan-Rissanen machinery, so it gets its own anchor.
+        let e = test_normals(600, 777);
+        let x: Vec<f64> = (1..600).map(|t| e[t] + 0.6 * e[t - 1]).collect();
+        let src = format!("x = {}\nm = arima(x, p=0, d=0, q=1)\nth = m.ma", qu_vec_src(&x));
+        let it = run(&src);
+        let th = vec_of(&it, "th");
+        assert_eq!(th.len(), 1);
+        assert!(
+            (th[0] - 0.6).abs() < 0.15,
+            "ARIMA(0,0,1) recovered theta={} from a series generated with theta=0.6",
+            th[0]
+        );
+    }
+
+    #[test]
+    fn arima_rejects_a_series_too_short_for_its_orders() {
+        let err = run_err("m = arima([1, 2, 3], p=2, d=1, q=2)");
+        assert!(err.msg.contains("too few"), "got: {}", err.msg);
+    }
+
 
     // ---- train/test data splitting + describe/eda (§ ML data-prep, 2026-08-24) ----
 
@@ -82668,22 +85141,47 @@ sb = size(b)");
         // verified on the real `benchmarks/mlp/` dataset (3000 rows, 20
         // features, 4 classes): final train loss 0.214 (SGD) vs 0.0021
         // (Adam), train accuracy 94.6% vs 100%, see IMPL.md's dated entry.
-        let it = run(
-            "X = reshape([0,0, 0,1, 1,0, 1,1, 0.1,0.1, 0.9,0.9, 0.1,0.9, 0.9,0.1], 8, 2)\n\
-             Y = reshape([1,0, 0,1, 0,1, 1,0, 1,0, 1,0, 0,1, 0,1], 8, 2)\n\
-             net_sgd = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_sgd = net_sgd.fit(X, Y, epochs=300, lr=0.05, loss=\"cross_entropy\")\n\
-             sgd_first = net_sgd.loss_history[0]\n\
-             sgd_last = net_sgd.loss_history[299]\n\
-             net_adam = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_adam = net_adam.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adam(lr=0.01))\n\
-             adam_first = net_adam.loss_history[0]\n\
-             adam_last = net_adam.loss_history[299]",
-        );
-        let sgd_first = it.get("sgd_first").and_then(|v| v.as_num().ok()).unwrap();
-        let sgd_last = it.get("sgd_last").and_then(|v| v.as_num().ok()).unwrap();
-        let adam_first = it.get("adam_first").and_then(|v| v.as_num().ok()).unwrap();
-        let adam_last = it.get("adam_last").and_then(|v| v.as_num().ok()).unwrap();
+        //
+        // **Runs on its own thread with an explicit large stack.** 300
+        // epochs of `.fit()` genuinely needs more than the default thread
+        // stack — found 2026-09-24 (a peer session's autodiff lane, on
+        // unmodified master, not introduced by that lane's own diff): on
+        // the default stack this test doesn't just fail, it stack-overflows
+        // and ABORTS THE WHOLE `qu-interp` LIB TEST BINARY, silently hiding
+        // every other lib test's result in that run. `RUST_MIN_STACK` at
+        // the `cargo test` invocation works too, but is tribal knowledge
+        // that only helps if the person running the suite happens to know
+        // it — spawning the test's own body onto a thread with a fixed
+        // stack size fixes it unconditionally, independent of how the
+        // harness is invoked. 64 MiB is a wide margin above the ~24-32 MiB
+        // observed needed; this is a test-harness workaround for a real
+        // resource cost 300 epochs of backprop through this graph
+        // legitimately has, not evidence of unbounded/runaway recursion.
+        let (sgd_first, sgd_last, adam_first, adam_last) = std::thread::Builder::new()
+            .stack_size(64 * 1024 * 1024)
+            .spawn(|| {
+                let it = run(
+                    "X = reshape([0,0, 0,1, 1,0, 1,1, 0.1,0.1, 0.9,0.9, 0.1,0.9, 0.9,0.1], 8, 2)\n\
+                     Y = reshape([1,0, 0,1, 0,1, 1,0, 1,0, 1,0, 0,1, 0,1], 8, 2)\n\
+                     net_sgd = mlp_classifier(2, [8], 2, seed=7)\n\
+                     net_sgd = net_sgd.fit(X, Y, epochs=300, lr=0.05, loss=\"cross_entropy\")\n\
+                     sgd_first = net_sgd.loss_history[0]\n\
+                     sgd_last = net_sgd.loss_history[299]\n\
+                     net_adam = mlp_classifier(2, [8], 2, seed=7)\n\
+                     net_adam = net_adam.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adam(lr=0.01))\n\
+                     adam_first = net_adam.loss_history[0]\n\
+                     adam_last = net_adam.loss_history[299]",
+                );
+                (
+                    it.get("sgd_first").and_then(|v| v.as_num().ok()).unwrap(),
+                    it.get("sgd_last").and_then(|v| v.as_num().ok()).unwrap(),
+                    it.get("adam_first").and_then(|v| v.as_num().ok()).unwrap(),
+                    it.get("adam_last").and_then(|v| v.as_num().ok()).unwrap(),
+                )
+            })
+            .unwrap()
+            .join()
+            .unwrap();
         assert!(sgd_last < sgd_first, "SGD should still reduce loss at all: {sgd_first} -> {sgd_last}");
         assert!(adam_last < adam_first, "Adam should reduce loss: {adam_first} -> {adam_last}");
         // Same starting point (same seed/architecture), same epoch budget
@@ -82703,30 +85201,45 @@ sb = size(b)");
         // crash") and reported alongside SGD/Adam for comparison — see
         // IMPL.md's dated entry for the actual final-loss numbers this
         // measured.
-        let it = run(
-            "X = reshape([0,0, 0,1, 1,0, 1,1, 0.1,0.1, 0.9,0.9, 0.1,0.9, 0.9,0.1], 8, 2)\n\
-             Y = reshape([1,0, 0,1, 0,1, 1,0, 1,0, 1,0, 0,1, 0,1], 8, 2)\n\
-             net_sgd = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_sgd = net_sgd.fit(X, Y, epochs=300, lr=0.05, loss=\"cross_entropy\")\n\
-             sgd_last = net_sgd.loss_history[299]\n\
-             net_adam = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_adam = net_adam.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adam(lr=0.01))\n\
-             adam_last = net_adam.loss_history[299]\n\
-             net_rmsprop = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_rmsprop = net_rmsprop.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=rmsprop(lr=0.01))\n\
-             rmsprop_first = net_rmsprop.loss_history[0]\n\
-             rmsprop_last = net_rmsprop.loss_history[299]\n\
-             net_adamax = mlp_classifier(2, [8], 2, seed=7)\n\
-             net_adamax = net_adamax.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adamax(lr=0.05))\n\
-             adamax_first = net_adamax.loss_history[0]\n\
-             adamax_last = net_adamax.loss_history[299]",
-        );
-        let sgd_last = it.get("sgd_last").and_then(|v| v.as_num().ok()).unwrap();
-        let adam_last = it.get("adam_last").and_then(|v| v.as_num().ok()).unwrap();
-        let rmsprop_first = it.get("rmsprop_first").and_then(|v| v.as_num().ok()).unwrap();
-        let rmsprop_last = it.get("rmsprop_last").and_then(|v| v.as_num().ok()).unwrap();
-        let adamax_first = it.get("adamax_first").and_then(|v| v.as_num().ok()).unwrap();
-        let adamax_last = it.get("adamax_last").and_then(|v| v.as_num().ok()).unwrap();
+        //
+        // Same own-thread/explicit-stack fix as
+        // `adam_configured_fit_beats_plain_sgd_fit_...` above, for the
+        // same reason -- this one trains FOUR 300-epoch networks instead
+        // of two, so if anything it needs the margin more.
+        let (sgd_last, adam_last, rmsprop_first, rmsprop_last, adamax_first, adamax_last) =
+            std::thread::Builder::new()
+                .stack_size(64 * 1024 * 1024)
+                .spawn(|| {
+                    let it = run(
+                        "X = reshape([0,0, 0,1, 1,0, 1,1, 0.1,0.1, 0.9,0.9, 0.1,0.9, 0.9,0.1], 8, 2)\n\
+                         Y = reshape([1,0, 0,1, 0,1, 1,0, 1,0, 1,0, 0,1, 0,1], 8, 2)\n\
+                         net_sgd = mlp_classifier(2, [8], 2, seed=7)\n\
+                         net_sgd = net_sgd.fit(X, Y, epochs=300, lr=0.05, loss=\"cross_entropy\")\n\
+                         sgd_last = net_sgd.loss_history[299]\n\
+                         net_adam = mlp_classifier(2, [8], 2, seed=7)\n\
+                         net_adam = net_adam.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adam(lr=0.01))\n\
+                         adam_last = net_adam.loss_history[299]\n\
+                         net_rmsprop = mlp_classifier(2, [8], 2, seed=7)\n\
+                         net_rmsprop = net_rmsprop.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=rmsprop(lr=0.01))\n\
+                         rmsprop_first = net_rmsprop.loss_history[0]\n\
+                         rmsprop_last = net_rmsprop.loss_history[299]\n\
+                         net_adamax = mlp_classifier(2, [8], 2, seed=7)\n\
+                         net_adamax = net_adamax.fit(X, Y, epochs=300, loss=\"cross_entropy\", optimizer=adamax(lr=0.05))\n\
+                         adamax_first = net_adamax.loss_history[0]\n\
+                         adamax_last = net_adamax.loss_history[299]",
+                    );
+                    (
+                        it.get("sgd_last").and_then(|v| v.as_num().ok()).unwrap(),
+                        it.get("adam_last").and_then(|v| v.as_num().ok()).unwrap(),
+                        it.get("rmsprop_first").and_then(|v| v.as_num().ok()).unwrap(),
+                        it.get("rmsprop_last").and_then(|v| v.as_num().ok()).unwrap(),
+                        it.get("adamax_first").and_then(|v| v.as_num().ok()).unwrap(),
+                        it.get("adamax_last").and_then(|v| v.as_num().ok()).unwrap(),
+                    )
+                })
+                .unwrap()
+                .join()
+                .unwrap();
         println!(
             "optimizer comparison (300 epochs, same seed/architecture): \
              sgd_last={sgd_last} adam_last={adam_last} \

@@ -1059,13 +1059,107 @@ print("{c}")                   # circuit("R-p(Q,R)-Ws") [0.2, 1e-5, 0.8, 0.01, 5
 Circuits compare with `==` by topology **and** component values. There is no
 order on them, so `<` is an error rather than a guess.
 
-> **Not yet built**: fitting a circuit to measured data. The constraints that
-> work must respect — optimise `log10` of magnitude parameters rather than
-> rescaling per circuit; weight chi-squared by the noise level so `chi2 ~ 2N`
-> is an absolute standard; never rank nested topologies by chi-squared, since
-> a superset always reaches its subset's score; use multiple starts; and
-> report which parameters the data actually constrains — are recorded in the
-> commit that added this section.
+### Fitting a circuit to measured data
+
+The sections above evaluate a circuit whose parameters you already know.
+These two solve the inverse problem: the spectrum is measured, and the
+parameters — or the topology itself — are what comes back.
+
+| Function | Signature | Description |
+|---|---|---|
+| `circuit_fit` <br> *Added in v0.3.0* | `circuit_fit(freqs, z, model, [initial_guess=], [bounds=], [lower=], [upper=], [sigma=], [weight=], [n_starts=], [seed=], [max_iter=], [tol=])` | Nonlinear least-squares fit of a circuit's parameters to measured impedance. `freqs` is in **Hz** and comes FIRST; `z` is the measured complex impedance; `model` is a spec string like `"R-p(R,C)"` or a circuit value (whose own numbers are then the starting point). Returns a model handle on the same `predict`/`score` protocol as the other `_model` builtins — see *What a fit returns* below. `initial_guess=` is a flat parameter vector in the spec's leaf order; without one, a starting point is read off the spectrum's own shape. `bounds=(lower, upper)` — or `lower=`/`upper=` separately, as `least_squares` spells it — are per-parameter boxes in linear space. `sigma=` is the per-point noise level in ohms (a number or one value per point); without it, `weight=` selects `"modulus"` (the default, residuals relative to `\|Z\|`) or `"unit"` (absolute). `n_starts=` (default 8) is how many starting points are tried, `seed=` makes that choice reproducible. |
+| `sysid` <br> *Added in v0.3.0* | `sysid(freqs, z, [circuit_topology=], [criterion=], [sigma=], [weight=], [n_starts=], [seed=], [max_iter=], [tol=])` | Model **selection**: fits a ladder of standard topologies and picks one by an information criterion. Arguments are `circuit_fit`'s, and with `circuit_topology=` (a spec string) it is exactly `circuit_fit` with one candidate. `criterion=` is `"aic"` (default) or `"bic"`. Returns the winning fit, with the whole comparison attached: `candidates` (the spec strings tried), `candidate_nparam`, `candidate_chi2`, `candidate_aic`, `candidate_bic` — read them, the margin between the first two is often small. The ladder is `R-C`, `R-p(R,C)`, `R-p(R,Q)`, `R-p(R-W,C)`, `R-p(R-W,Q)`, `R-p(R,C)-p(R,C)`, `R-p(R,Q)-p(R,Q)`. |
+
+```qu
+f = logspace(-1, 5, 61)                              # 0.1 Hz .. 100 kHz
+z = circuit_impedance("R-p(R-W,C)", f, [10, 100, 50, 1e-5])
+m = circuit_fit(f, z, "R-p(R-W,C)")
+print("Rs  = {m.R1}")                                # 10
+print("Rct = {m.R2} +- {m.stderr[1]}")               # 100
+print("{m.chi2_red}")
+zi = m.predict(logspace(-2, 6, 200))                 # any axis, in Hz
+```
+
+#### What a fit returns
+
+A model handle of kind `circuit_fit`, whose fields are:
+
+| Field | What it is |
+|---|---|
+| `params` | The fitted values, flat left-to-right leaf order — the same order `circuit(spec, params)` takes. |
+| `param_names` | A name per parameter: element code, its occurrence, and the field when the element has several — `R1`, `R2`, `Q1_q`, `Q1_n`. |
+| *each name* | **Every parameter is also a field under its own name**, so `m.Q1_n` works. Counting positions in a vector against positions in a spec string is where a report picks up a transposition nobody notices. |
+| `stderr` | One-sigma error per parameter. `inf` means the data does not constrain it — see below. |
+| `circuit` | The fitted circuit as a value, ready for `impedance` or another `circuit_fit`. |
+| `spec` | Its spec string. |
+| `chi2`, `chi2_red`, `cost` | Weighted sum of squares; `chi2_red` divides by `2N - p`. `cost` is `chi2` under the name the rest of the optimizer family uses. |
+| `residual` | The weighted residual, interleaved `re, im` per frequency. |
+| `converged`, `iterations`, `starts`, `nparam` | What the fit did. |
+
+`m.predict(freqs)` evaluates the fitted circuit on **any** frequency axis in
+Hz, not just the fitted one. `m.score(freqs, z)` returns the reduced
+chi-squared on that data — **lower is better**, which is the opposite of the
+`r2` every regression model in this family returns from the same method
+name. That seam is deliberate: an impedance spectrum's variance is dominated
+by the sweep rather than by the model, so an `r2` for a visibly wrong circuit
+would sit near 1.0 and mean nothing.
+
+#### What the fit does, and why
+
+Four things, none of them optional for impedance data:
+
+**Magnitude parameters are fitted as `log10` of themselves.** A cell's
+resistances are O(100) and its double-layer capacitance O(1e-6); one step
+size cannot serve both, so a linear fit either crawls on one parameter or
+diverges on the other. Exponents (`n`, `a`, `g`) are already O(1) and stay
+linear. This is also what makes a negative capacitance unrepresentable rather
+than merely discouraged, and why an `initial_guess=` of zero or a negative
+number for a magnitude is an error naming the parameter instead of a silent
+default.
+
+**The residual is weighted.** Unweighted, it is dominated by whichever end of
+the sweep has the largest `|Z|` — usually the low-frequency tail, so the fit
+optimises the diffusion branch and ignores the arc the measurement was taken
+for. With a measured `sigma=`, `chi2_red ~ 1` is an absolute standard. With
+the default `weight="modulus"` it is a squared *relative* error instead —
+1% noise gives `chi2_red ~ 1e-4`, not 1. Both are useful; they are not the
+same number and this does not pretend they are.
+
+**Several starts.** The objective is not convex and the standard failure is a
+local minimum that reports `converged`. Restarts are drawn from `seed=`, so a
+fit is reproducible from its inputs alone.
+
+**Error bars are reported per parameter.** A circuit can always be
+over-specified for the data it is fitted to — two time constants too close to
+resolve, a Warburg below the lowest measured frequency — and the symptom is
+not a bad chi-squared but an unbounded error bar. `stderr` comes from the
+SVD of the Jacobian at the solution, and a direction whose singular value has
+collapsed gets `inf`, not a large number and not zero. Two resistors in
+series fit perfectly and report `inf` on both, because only their sum is
+measurable.
+
+#### Why `sysid` does not rank by fit quality
+
+The candidate topologies are **nested**: `R-p(R,C)` is `R-p(R,Q)` with `n`
+pinned to 1, and a two-arc candidate contains a one-arc one. A superset can
+always reach its subset's residual, so ranking by chi-squared returns the
+largest candidate every time, whatever generated the data. On data generated
+from `R-p(R,C)` with 0.5% noise, the lowest chi-squared belongs to the
+five-parameter `R-p(R,C)-p(R,C)`; AIC selects the three-parameter circuit
+that actually generated it. An information criterion charges for parameters,
+which is what makes the comparison mean anything.
+
+It is still a ladder of seven standard circuits, not a search: `sysid` cannot
+propose a topology that is not on it, and the margin between its first two
+candidates is often under one unit of AIC — which is not a decision. The
+`candidate_*` fields exist so that is visible rather than hidden behind a
+winner.
+
+> **Frequencies come first.** `circuit_fit(freqs, z, ...)` and
+> `sysid(freqs, z, ...)` take the axis first and the data second, which is
+> the opposite of `rlkk_extrapolate(Z, freqs, ...)` two sections down. Handed
+> over the other way round they refuse, rather than fitting a circuit to the
+> frequency axis and reporting a number for it.
 
 ## Measured impedance
 

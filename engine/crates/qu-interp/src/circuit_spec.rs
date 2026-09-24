@@ -243,6 +243,31 @@ pub fn parse(spec: &str, params: &[f64]) -> Result<Circuit, String> {
     Ok(c)
 }
 
+/// Parse a spec string into a circuit whose parameters are all `1.0` -- the
+/// TOPOLOGY, without a claim about its values.
+///
+/// That is what a fitter needs from a spec string: `circuit_fit` is handed
+/// `"R-p(R,C)"` and has to know how many parameters that is and where each
+/// one sits, before it has any idea what they are worth.
+///
+/// Implemented by running the real parser against a filler vector rather
+/// than by counting parameters with a second walk of the grammar. A separate
+/// counting pass would be a second implementation of the same grammar, free
+/// to drift from this one, and the drift would show up as a fit of a
+/// different circuit than the string names.
+pub fn parse_template(spec: &str) -> Result<Circuit, String> {
+    const CEILING: usize = 128;
+    let filler = vec![1.0f64; CEILING + 8];
+    let mut cursor = 0usize;
+    let c = parse_into(spec, &filler, &mut cursor)?;
+    if cursor > CEILING {
+        return Err(format!(
+            "`{spec}` has more than {CEILING} parameters, which is past anything this is for"
+        ));
+    }
+    Ok(c)
+}
+
 /// Render a circuit's topology back to a spec string.
 pub fn to_spec(c: &Circuit) -> String {
     match c {

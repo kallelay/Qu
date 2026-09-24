@@ -10,6 +10,45 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
+ML toolkit: function-level autodiff transforms (`jacobian`, `hessian`,
+`value_and_grad`, `vmap`, `check_grads`) on top of the existing
+reverse-mode tape; `circuit_fit`/`sysid` wiring the existing EIS circuit
+element set into the fit/predict/score protocol, with AIC-based topology
+selection over a 7-candidate ladder; four new estimators on the
+`ModelHandle` protocol (`isolation_forest`, `gaussian_process`, `nmf`,
+`arima`). `hdbscan`/`umap` deliberately deferred -- both are hard to get
+right from scratch and a shape-correct-but-subtly-wrong version is worse
+than not shipping. A real `nmf.predict` convergence bug (re-encoding a
+fitted row returned different coefficients than the fit itself assigned
+it) was caught by known-answer tests and fixed to run to convergence.
+
+Shell/process toolkit: `setenv`/`unsetenv`, `env=` on `exec`/`shell`,
+`kill(pid)` and `timeout=` on `exec` (both tree-killing via `taskkill
+/T` on Windows so a `cmd /C`-wrapped child's own children don't survive
+past the deadline), and a VB.NET-`Process`-style async handle
+(`process_spawn`/`process_poll`/`process_read`/`process_wait`/
+`process_kill`/etc.) for spawning without blocking and polling
+incrementally.
+
+Six more toolkit branches landed: PID/sliding-mode/fuzzy-PID
+controllers; advanced time-frequency (signal-timefreq-advanced); JPEG/
+TIFF image codecs; SVG basic I/O (`save_svg`/`load_svg`,
+`svg.rect`/`svg.circle`/`svg.line`/`svg.path`/`svg.text`); a PDF toolkit
+(`import pdf` -- `page_count`/`info`/`merge`/`extract_pages`/
+`extract_text`, on `lopdf`).
+
+Fixed a pre-existing, previously-unexplained test-infrastructure bug:
+several `qu-interp` tests (the NN/autodiff-heavy ones) overflow the
+default debug-build stack on Windows and abort the whole test binary,
+silently truncating every test scheduled after them. `engine/.cargo/
+config.toml` already set `RUST_MIN_STACK` for this, but Cargo only
+discovers `.cargo/config.toml` walking up from the working directory,
+never down into subdirectories -- invisible to `cargo test --manifest-
+path engine/Cargo.toml` run from the repo root. A matching root-level
+`.cargo/config.toml` closes that gap.
+
 Auto-laid-out diagram rendering, the box/arrow "smart art" layout layer
 noted as missing in BACKLOG.md (2026-09-10): `diagram_pipeline(fn)` draws
 a `|>` pipe chain as a left-to-right chain of boxes; `algorigram(name)`

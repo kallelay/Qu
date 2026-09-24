@@ -17,6 +17,7 @@ use rustfft::{num_complex::Complex as RustComplex, FftPlanner};
 
 pub mod animation;
 pub mod circuit;
+pub mod circuit_fit;
 pub mod cmatrix;
 /// Compressed sensing: recovering a sparse signal from far fewer
 /// measurements than Nyquist demands. Greedy methods (OMP, CoSaMP,

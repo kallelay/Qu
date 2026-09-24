@@ -1998,6 +1998,216 @@ fn stop_grad_detaches_from_the_tape() {
     assert_eq!(num(&it, "gy"), 4.0);
 }
 
+// ---- Function-level autodiff transforms (v0.3.0) ----
+//
+// Each of these is checked against a derivative that is known in closed
+// form, not against "it produced a matrix of the right shape". The two
+// that could most easily pass by accident are called out individually:
+// a diagonal Jacobian and a Hessian of `sum(v.*v)` are both multiples of
+// the identity, so a transform that ignored its input entirely and
+// returned `2I` would sail through them. The cross-term and non-square
+// cases below are the ones that cannot.
+
+#[test]
+fn jacobian_of_a_scalar_square_is_the_hand_derivative() {
+    // f(x) = x^2 at x=3 -> a 1x1 Jacobian holding 2x = 6, which reads back
+    // as a plain NUMBER rather than a matrix: `mat_value` collapses every
+    // 1x1 result language-wide, so `jacobian` inherits that convention
+    // instead of being the one builtin that hands back an unindexable
+    // 1x1. `hessian` of a scalar does the same.
+    let it = run("j = jacobian(x => x^2, 3.0)\nh = hessian(x => x^2, 3.0)");
+    assert!((num(&it, "j") - 6.0).abs() < 1e-9);
+    assert!((num(&it, "h") - 2.0).abs() < 1e-6);
+}
+
+#[test]
+fn jacobian_of_an_elementwise_square_is_diagonal_with_2x_on_it() {
+    // f(v) = v .* v -> J = diag(2*v). Off-diagonals must be exactly zero:
+    // each output component depends on its own input component only, so a
+    // transform that leaked one seed into another would show up here.
+    let it = run("J = jacobian(v => v .* v, [1.0, 2.0, 3.0])");
+    for i in 0..3 {
+        for j in 0..3 {
+            let want = if i == j { 2.0 * (i as f64 + 1.0) } else { 0.0 };
+            assert!(
+                (mat_at(&it, "J", i, j) - want).abs() < 1e-9,
+                "J[{i},{j}] = {}, want {want}",
+                mat_at(&it, "J", i, j)
+            );
+        }
+    }
+}
+
+#[test]
+fn jacobian_of_a_linear_map_is_the_matrix_itself() {
+    // f(v) = A*v is the case with a Jacobian known exactly and with no
+    // symmetry to hide behind: J must be A, entry for entry. A is 3x2, so
+    // this also pins the m-by-n orientation -- a transposed result would
+    // not even be the right shape.
+    let it = run("A = [1, 2; 3, 4; 5, 6]\nJ = jacobian(v => A * v, [9.0, -4.0])");
+    let want = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+    for (i, row) in want.iter().enumerate() {
+        for (j, w) in row.iter().enumerate() {
+            assert!((mat_at(&it, "J", i, j) - w).abs() < 1e-9, "J[{i},{j}]");
+        }
+    }
+}
+
+#[test]
+fn jacobian_of_a_nonlinear_vector_function_matches_the_product_rule() {
+    // f(v) = exp(v) .* v -> J = diag(exp(v) * (1 + v)), which is NOT a
+    // multiple of the identity, so the diagonal entries have to be right
+    // individually rather than collectively.
+    let it = run("J = jacobian(v => exp(v) .* v, [0.0, 1.0])");
+    assert!((mat_at(&it, "J", 0, 0) - 1.0).abs() < 1e-9);
+    assert!((mat_at(&it, "J", 1, 1) - 2.0 * 1.0f64.exp()).abs() < 1e-9);
+    assert!(mat_at(&it, "J", 0, 1).abs() < 1e-12);
+    assert!(mat_at(&it, "J", 1, 0).abs() < 1e-12);
+}
+
+#[test]
+fn hessian_of_a_quadratic_form_is_the_constant_analytic_matrix() {
+    // f(v) = v' S v with S symmetric has H = 2S EVERYWHERE, independent of
+    // the point. S is deliberately NOT a multiple of the identity: the
+    // off-diagonal 3.0 is what distinguishes a real second-derivative
+    // matrix from anything that only got the diagonal right. Evaluated
+    // away from the origin so a point-independence bug can't hide either.
+    let it = run("S = [1, 1.5; 1.5, 2]\nH = hessian(v => sum(v .* (S * v)), [0.3, -0.7])");
+    let want = [[2.0, 3.0], [3.0, 4.0]];
+    for (i, row) in want.iter().enumerate() {
+        for (j, w) in row.iter().enumerate() {
+            assert!(
+                (mat_at(&it, "H", i, j) - w).abs() < 1e-6,
+                "H[{i},{j}] = {}, want {w}",
+                mat_at(&it, "H", i, j)
+            );
+        }
+    }
+}
+
+#[test]
+fn hessian_of_a_sum_of_exponentials_is_diagonal_exp() {
+    // f(v) = sum(exp(v)) -> H = diag(exp(v)): a non-constant Hessian, so
+    // this catches an implementation that returned the right answer only
+    // for quadratics (where central differences of the gradient are
+    // exact rather than merely accurate).
+    let it = run("H = hessian(v => sum(exp(v)), [0.0, 0.5])");
+    assert!((mat_at(&it, "H", 0, 0) - 1.0).abs() < 1e-6);
+    assert!((mat_at(&it, "H", 1, 1) - 0.5f64.exp()).abs() < 1e-6);
+    assert!(mat_at(&it, "H", 0, 1).abs() < 1e-6);
+}
+
+#[test]
+fn value_and_grad_returns_both_the_value_and_the_gradient() {
+    // f(x) = x^3 + 2x at x=3: value 33, gradient 3x^2+2 = 29 -- the same
+    // pair `grad_of_a_scalar_polynomial_matches_hand_derivative` checks
+    // the long way round, so the two forms are pinned to each other.
+    let it = run("r = value_and_grad(x => x^3 + 2*x, 3.0)\nv = r[0]\ng = r[1]");
+    assert_eq!(list_len(&it, "r"), 2);
+    assert!((num(&it, "v") - 33.0).abs() < 1e-9);
+    assert!((num(&it, "g") - 29.0).abs() < 1e-9);
+}
+
+#[test]
+fn value_and_grad_of_a_vector_input_keeps_the_input_shape() {
+    // grad of sum(v .* v) is 2v, shaped like v rather than flattened.
+    let it = run("r = value_and_grad(v => sum(v .* v), [1.0, 2.0, 3.0])\nv = r[0]\ng = r[1]");
+    assert!((num(&it, "v") - 14.0).abs() < 1e-9);
+    assert_eq!(vec(&it, "g"), vec![2.0, 4.0, 6.0]);
+}
+
+#[test]
+fn check_grads_agrees_with_finite_differences_on_a_transcendental_chain() {
+    // The analytic gradient here comes off the tape and the reference
+    // comes from differencing `f` numerically -- two independent routes,
+    // which is the whole point of the builtin.
+    let it = run(
+        "r = check_grads(x => tanh(x^2), 0.7)\n\
+         ok = r.ok\n\
+         rel = r.rel_error\n\
+         a = r.analytic[0]",
+    );
+    match it.get("ok") {
+        Some(Value::Bool(true)) => {}
+        other => panic!("check_grads did not agree: {other:?}"),
+    }
+    assert!(num(&it, "rel") < 1e-6);
+    // d/dx tanh(x^2) = 2x * sech^2(x^2)
+    let x: f64 = 0.7;
+    let want = 2.0 * x * (1.0 - (x * x).tanh().powi(2));
+    assert!((num(&it, "a") - want).abs() < 1e-9);
+}
+
+#[test]
+fn check_grads_reports_disagreement_rather_than_asserting() {
+    // A checker that can only ever say "fine" is not a checker, so this is
+    // the case that proves the probe can differ. `f(x) = x * stop_grad(x)`
+    // computes x^2 numerically, but the tape sees the second factor as a
+    // constant, so its analytic gradient is x (= 2 here) where the true
+    // derivative is 2x (= 4). `check_grads` must NOTICE -- and report it
+    // rather than panicking, since reporting is what makes it usable as a
+    // test primitive.
+    let it = run(
+        "r = check_grads(x => x * stop_grad(x), 2.0)\n\
+         ok = r.ok\n\
+         a = r.analytic[0]\n\
+         n = r.numeric[0]\n\
+         err = r.max_error",
+    );
+    match it.get("ok") {
+        Some(Value::Bool(false)) => {}
+        other => panic!("check_grads should have flagged a wrong gradient, got ok={other:?}"),
+    }
+    assert!((num(&it, "a") - 2.0).abs() < 1e-6, "analytic should be the tape's wrong answer");
+    assert!((num(&it, "n") - 4.0).abs() < 1e-5, "numeric should be the true derivative");
+    assert!(num(&it, "err") > 1.0, "the disagreement should be about 2.0");
+
+    // Positive control on the same builtin: a correct gradient passes.
+    let it2 = run("r = check_grads(x => 3*x, 2.0)\nok = r.ok\na = r.analytic[0]");
+    assert!((num(&it2, "a") - 3.0).abs() < 1e-9);
+    match it2.get("ok") {
+        Some(Value::Bool(true)) => {}
+        other => panic!("check_grads rejected a correct gradient: {other:?}"),
+    }
+}
+
+#[test]
+fn vmap_maps_a_scalar_function_over_a_vector() {
+    let it = run("y = vmap(x => x^2, [1.0, 2.0, 3.0, 4.0])");
+    assert_eq!(vec(&it, "y"), vec![1.0, 4.0, 9.0, 16.0]);
+}
+
+#[test]
+fn vmap_maps_over_the_rows_of_a_matrix() {
+    // Batch axis is rows, so a 3x2 input gives three results, not two.
+    let it = run("y = vmap(r => sum(r), [1, 2; 3, 4; 5, 6])");
+    assert_eq!(vec(&it, "y"), vec![3.0, 7.0, 11.0]);
+}
+
+#[test]
+fn vmap_stacks_vector_results_into_a_matrix() {
+    let it = run("M = vmap(r => r .* 2, [1, 2; 3, 4])");
+    assert!((mat_at(&it, "M", 0, 0) - 2.0).abs() < 1e-9);
+    assert!((mat_at(&it, "M", 1, 1) - 8.0).abs() < 1e-9);
+}
+
+#[test]
+fn the_transforms_refuse_a_function_that_detaches_from_the_tape() {
+    // The important failure mode: `stop_grad` severs the tape, and the
+    // forward value is still perfectly computable, so the tempting bug is
+    // to return a silent matrix of zeros. It has to be an error instead.
+    let mut it = Interp::new();
+    let err = it.run("J = jacobian(x => stop_grad(x)^2, 3.0)").unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("untracked"), "unexpected error: {msg}");
+}
+
+#[test]
+fn jacobian_refuses_a_non_function_first_argument() {
+    let mut it = Interp::new();
+    assert!(it.run("J = jacobian(5, 3.0)").is_err());
+}
+
 #[test]
 fn tensor_is_transparent_to_ordinary_numeric_builtins() {
     // A tracked Tensor should flow into non-differentiable contexts (here,
