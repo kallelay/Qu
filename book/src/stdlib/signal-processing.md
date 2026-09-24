@@ -32,6 +32,10 @@ print("signal length: {length(signal)}, lp sections: {shape(lp.sos)[0]}")
 | `dwt` | `dwt(x)` | `x` is a length-N real vector (N should be even). Returns a `(2, N/2)` matrix — row 0 is the approximation band, row 1 is the detail band (Qu has no multi-return). One level of the orthogonal Haar discrete wavelet transform; only the Haar family is implemented. |
 | `idwt` | `idwt(m)` | `m` is a `(2, N)` matrix of `[approx; detail]` rows (each row length N). Returns a length-`2N` real vector, reconstructing the original signal. Inverse of `dwt`. |
 | `stft` | `stft(x, nfft, [hop=nfft/2])` | `x` is a length-N real vector; `nfft` (number) is the frame/FFT size; `hop` (optional number, default `nfft/2`, i.e. 50% overlap) is the sample stride between successive frame starts. Returns an `nfft`×`num_frames` complex matrix (`CMat`, the full per-frame spectrum, not one-sided) — one column per frame, built from a periodic-Hann-windowed FFT per frame. `abs(stft(x, ...))` is a spectrogram. |
+| `cqt` | `cqt(x, fs, [fmin=32.7], [fmax=fs/2], [bins_per_octave=12], [hop=fs/100])` | `x` is a length-N real vector or `Signal`; `fs` (number, Hz) is the sample rate, or is carried by a `Signal`. `fmin`/`fmax` (optional numbers, Hz) bound the bin range — `fmin` defaults to 32.703 Hz (C1, the conventional musical bottom end) and `fmax` to Nyquist; `bins_per_octave` (optional number, default 12, i.e. a semitone) sets the geometric spacing; `hop` (optional number, default `round(fs/100)`, i.e. 10 ms) is the frame stride in samples. Constant-Q transform: log-spaced bins sharing one `Q = f/bandwidth`, so a musical interval spans the same number of bins at every pitch. That is the opposite trade to `stft`, whose bins are linear in Hz: the CQT spends long windows (fine in frequency) on low notes and short ones (fine in time) on high ones, which is why it, not the STFT, is the standard front end for musical and perceptual analysis. Draws a dB heatmap **and** returns a `Record` with fields `coef` (a `(bins, frames)` `CMat`, row 0 = `fmin`), `freq` (length-`bins` `Vec`, Hz, geometrically spaced) and `time` (length-`frames` `Vec`, seconds). The lowest bin needs a `ceil(Q*fs/fmin)`-sample window, so reaching an octave lower needs twice the record; a signal too short for it is a named error rather than an empty result. Added in v0.3.0. |
+| `mel_spectrogram` | `mel_spectrogram(x, fs, [n_mels=40], [fmin=0], [fmax=fs/2], [nfft=256], [hop=nfft/2])` | `x` is a length-N real vector or `Signal`; `fs` (number, Hz) is the sample rate, or is carried by a `Signal`. `n_mels` (optional number, default 40) is how many mel bands to collapse the spectrum onto; `fmin`/`fmax` (optional numbers, Hz, default `0` and Nyquist) bound the filterbank; `nfft`/`hop` (optional numbers) are the STFT frame size and stride, exactly as in `stft`. Mel-scale spectrogram: an `stft` power spectrogram folded onto perceptually-spaced bands by triangular filters laid out on `mel = 2595*log10(1+f/700)`. Equal steps in mel are equal steps in perceived pitch, which equal steps in Hz are not. Built on the same `stft` that `spectrogram` and `spectral_entropy` use, so all of them agree frame-for-frame. Draws a dB heatmap **and** returns a `Record` with fields `power` (an `(n_mels, frames)` `Mat` of band powers, row 0 = the lowest band), `freq` (length-`n_mels` `Vec` of band centre frequencies in Hz — crowded at the bottom of the range, spread out at the top) and `time` (length-`frames` `Vec`, seconds). A band narrower than the STFT's own bin spacing `fs/nfft` can fall entirely between two bins and come back zero: that is `n_mels` asking for finer resolution than `nfft` supplies, so raise `nfft` or lower `n_mels`. Added in v0.3.0. |
+| `cwt` | `cwt(x, fs, [wavelet="morlet"], [scales=])` | `x` is a length-N real vector or `Signal`; `fs` (number, Hz) is the sample rate, or is carried by a `Signal`. `wavelet` (optional string) is `"morlet"` (default, complex/analytic) or `"mexh"` (real, also spelled `"ricker"`); `scales` (optional vector, in seconds) picks the scales, defaulting to Torrence & Compo's dyadic ladder at eight voices per octave. Continuous wavelet transform: one column per input sample, with no framing and no decimation — unlike `dwt`, which halves its length at every level and visits only dyadic scales. Draws a dB heatmap **and** returns a `Record` with fields `coef` (a `(scales, N)` `CMat`, row 0 = the smallest scale and therefore the *highest* frequency), `scale` (each row's scale in seconds), `freq` (each row's equivalent Fourier frequency in Hz, descending), `time` (length-N `Vec`, seconds) and `wavelet` (the name used). A scale is not a period: `freq` applies the wavelet-specific conversion, which a naive `1/scale` gets wrong by about 3% for Morlet and 58% for the Mexican hat. The wavelet names are deliberately disjoint from `dwt`'s Haar — asking `cwt` for `"haar"` is an error that says which transform it belongs to. Added in v0.3.0. |
+| `wigner_ville` | `wigner_ville(x, [fs=1])` | `x` is a length-N real vector or `Signal`; `fs` (optional number, Hz, default `1`, i.e. normalized frequency) is the sample rate, or is carried by a `Signal`. Wigner-Ville distribution: the quadratic time-frequency distribution `W(t,f) = ∫ x(t+τ/2)*conj(x(t-τ/2))*exp(-2πifτ) dτ`, discretized over the analytic signal. Using no window at all, it reaches the finest joint time-frequency localization of anything here — a linear chirp comes out as a one-cell-wide line where `stft` smears it to the window length. **Cross terms are expected, not a bug.** The transform is quadratic in `x`, so every *pair* of components adds an oscillating interference term sitting exactly midway between them in time and frequency, at up to twice an auto-term's amplitude, and parts of the surface go genuinely negative (this is not a power spectrum and is not constrained to be non-negative). Two tones at 50 Hz and 150 Hz will show energy at 100 Hz where the signal contains none: read the result as a high-resolution display of a *single-component* signal, or expect to reason about the ghosts. Draws a magnitude heatmap **and** returns a `Record` with fields `tfr` (an `(N, N)` real `Mat`), `freq` (length-N `Vec`; row `k` is `k*fs/(2N)` Hz, spanning DC to just under Nyquist at twice an N-point FFT's resolution) and `time` (length-N `Vec`, seconds). The output is N×N, so the cost is quadratic in the record length and anything above 4,000,000 cells is refused with a named error. Added in v0.3.0. |
 | `hilbert` | `hilbert(x)` | `x` is a length-N real vector. Returns a length-N complex vector (`CVec`), the analytic signal `x + j*H[x]`. `abs(hilbert(x))` is `x`'s envelope; `imag(hilbert(x))` is the Hilbert transform of `x` itself. |
 
 ## Convolution, Correlation & Peaks
@@ -437,6 +441,75 @@ for i = 1 to 50
     s = s.update(1, 0.5)
 end for
 print("w = {s.w[0]}")             # w = 0.4974231...
+```
+
+## Control
+
+| Function | Signature | Description |
+|---|---|---|
+| `pid_init` | `pid_init(Kp, Ki, Kd, dt, [integral_clamp=])` | A discrete PID controller's initial state. `Kp`/`Ki`/`Kd` (numbers): the proportional, integral and derivative gains; `dt` (number, positive): the fixed sample period; `integral_clamp` (optional number, positive): a symmetric anti-windup bound on the integral accumulator, uncapped when omitted. Returns a `Model` (kind `"pid"`) with fields `kp`, `ki`, `kd`, `dt`, `integral` (the running sum, 0), `e_prev` (the previous error, 0), `u` (the last output, 0) and `integral_clamp` (the limit, or `Nothing`). State is immutable, the same convention `kalman_init`/`lms_init` use: thread the value returned by `.update(error)` through successive calls rather than mutating in place, so the whole control trajectory stays available. The gains are deliberately **not** range-checked — a negative gain is correct for a sign-inverted plant, and whether a triple is stable is a property of the plant, which `pid_init` has not seen. Added in v0.3.0. |
+| `update` (`pid`) | `state.update(error)` | One PID tick. `error` (number): the current error, normally `setpoint - measurement`. Returns a **new** `"pid"` state (the receiver is untouched) whose `u` is the controller output for this tick, `integral` the updated accumulator and `e_prev` this tick's error. Per tick, in this order: `integral = integral + error*dt` (then clamped, if `integral_clamp` was set), `deriv = (error - e_prev)/dt`, `u = Kp*error + Ki*integral + Kd*deriv`. That is `u[k] = Kp*e[k] + Ki*sum(e[i]*dt, i=0..k) + Kd*(e[k]-e[k-1])/dt`, with `e[-1] = 0` so the first tick sees a derivative of `e/dt`. Note the accumulator is updated **before** `u` is formed, so the current error is already in the integral term on the tick it arrives; integrating afterwards instead lags the integral action by one sample, which is invisible on a plot of a slow plant and shows up only as a tuning that will not transfer. The caller supplies the error and applies `u` — the controller owns the recursion, not the loop, which keeps it usable when the error is not a plain subtraction (a wrapped angle, a ratio, a cascaded inner loop). Anti-windup clamps the **accumulator**, not the output: clamping `u` instead leaves the accumulator growing unbounded behind it, which is the windup the limit exists to prevent. Added in v0.3.0. |
+
+### Control example: driving a first-order plant to setpoint
+
+A first-order plant `y' = (K*u - y)/tau` with `K = 2.0` and `tau = 1.2`, sampled at `dt = 0.05`, driven to `setpoint = 1.0`. The controller is fed the error each tick and its output `u` is applied to the plant externally.
+
+```qu
+setpoint = 1.0
+tau = 1.2
+K   = 2.0
+dt  = 0.05
+s   = pid_init(2.0, 1.5, 0.1, dt)
+plant_y = 0.0
+for k = 0 to 199
+    err = setpoint - plant_y
+    s   = s.update(err)                              # new state, `.u` is the output
+    plant_y = plant_y + (K*s.u - plant_y)/tau * dt   # the caller applies it
+end for
+print("final = {plant_y}")        # final = 0.999975  (1.0000)
+print("u = {s.u}")                # u = 0.499998  -- K*u = setpoint, as it must be
+print("integral = {s.integral}")  # integral = 0.333299  -- u/Ki
+```
+
+This reaches 95.1% of the setpoint by `t = 1s` and settles at `1.0000` with no overshoot at these gains. The steady state is the useful check on any PID implementation: holding `y` at the setpoint requires `K*u = 1.0`, so `u` must converge to `0.5`, and with the error gone to zero only the integral term is left — so the accumulator must converge to `u/Ki = 1/3`.
+
+For a plant that can saturate (an actuator at its limit, a valve fully open), pass `integral_clamp=` so the accumulator cannot wind up while the output is going nowhere:
+
+```qu
+s = pid_init(2.0, 1.5, 0.1, 0.05, integral_clamp = 2.0)   # |integral| <= 2.0
+```
+
+| Function | Signature | Description |
+|---|---|---|
+| `smc_init` | `smc_init(K, [lambda=], [phi=0.1], [dt=1])` | A first-order sliding-mode controller's initial state. `K` (number, positive): the reaching-law gain, which also bounds the output (`|u| <= K`); `lambda` (optional number, positive): the sliding-surface slope; `phi` (optional number, default 0.1, non-negative): the boundary-layer width; `dt` (optional number, default 1, positive): the timestep used to estimate `error_dot` when it is not supplied. Returns a `Model` (kind `"smc"`) with fields `K`, `lambda`, `phi`, `dt`, `surface`, `e`, `e_dot`, `s`, `u` and `n`. **Sliding surface:** omitting `lambda=` selects `s = e`, the right minimal case for a first-order plant, where driving the error to zero is the whole objective; supplying `lambda=` selects the textbook second-order surface `s = e_dot + lambda*e`, after which `e` decays as `exp(-lambda*t)` during sliding. The choice is recorded in the `surface` field rather than inferred from `lambda`. **Control law:** `u = u_eq + K*sat(s/phi)` with `u_eq = 0` — this controller is deliberately model-free, and the equivalent control is by definition computed from a plant model, so there is none to take. **Boundary layer:** textbook SMC uses `sign(s)`, which switches at infinite frequency once `s` crosses zero ("chattering") and destroys real actuators. Replacing it with `sat(s/phi)` makes `u` continuous in `s` and bounded by `K`, at the price of converging to `|s| <= phi` instead of exactly zero — so a boundary layer leaves a small, predictable steady-state offset. `phi = 0` is accepted and gives literal `sign(s)`. State is immutable, the same convention `kalman_init`/`lms_init` use. Added in v0.3.0. |
+| `update` (`smc`) | `state.update(error, [error_dot=])` | One sliding-mode control step. `error` (number): the current error, normally `setpoint - measurement`; `error_dot` (optional number): its derivative, used verbatim when given. Returns a **new** `"smc"` state (the receiver is untouched) whose `u` is the control output, `s` the surface value and `e`/`e_dot` the inputs that produced them. When `error_dot=` is omitted it is estimated as the backward difference `(error - e_prev)/dt`, except on the very first update, where it is 0 rather than `error/dt` — with no previous sample there is no derivative, and the alternative produces a large spurious first output (the classic derivative kick). Added in v0.3.0. |
+| `fuzzy_pid_init` | `fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt)` | A Mamdani fuzzy PD-type controller's initial state — the classic 2-input (`error`, `error_dot`), 1-output textbook fuzzy inference system. All four arguments are positive numbers: `error_scale` and `error_dot_scale` are the magnitudes that count as "fully big" (inputs are normalised as `clamp(error/error_scale, -1, 1)` onto the `-1..1` universe the rule base lives on, so these saturate the controller rather than merely detuning it); `output_scale` multiplies the defuzzified result; `dt` is the timestep for the internal `error_dot` estimate. Returns a `Model` (kind `"fuzzy_pid"`) with fields `error_scale`, `error_dot_scale`, `output_scale`, `dt`, `e`, `e_dot`, `u` and `n`. **Membership functions:** 5 triangles per input (NB, NS, ZE, PS, PB) centred at -1, -0.5, 0, 0.5, 1 with half-width 0.5, so adjacent pairs overlap and memberships sum to 1 everywhere. **Rule base:** the fixed, diagonal-symmetric 5x5 table standard to every fuzzy-PID text; the caller does not supply 25 rules. Its anti-diagonal is all ZE — a large negative error with a large positive error-rate is already being corrected, which is the derivative action. **Defuzzification:** true centre-of-gravity — each rule's output triangle is clipped at that rule's firing strength (min-implication), the results aggregated by max, and the centroid integrated numerically. Note the consequence, which is a property of COG rather than a defect: a fully saturated input reaches `5/6 = 0.8333...` of `output_scale`, not all of it. Having no integral term, this controller settles with a small proportional offset. Added in v0.3.0. |
+| `update` (`fuzzy_pid`) | `state.update(error, [error_dot=])` | One fuzzy-inference control step. `error` (number): the current error; `error_dot` (optional number): its derivative, used verbatim when given, otherwise estimated as `(error - e_prev)/dt` with the same first-update rule as `smc`. Returns a **new** `"fuzzy_pid"` state (the receiver is untouched) whose `u` is the control output. Added in v0.3.0. |
+
+### Control example: a scalar first-order plant
+
+Both controllers drive the same plant `y += (K_p*u - y)/tau * dt`. The sliding-mode controller's boundary layer makes its steady state predictable in closed form: inside the layer `u = K*e/phi = 40*e`, and the plant settles where `y = u`, so `y = 40/41 = 0.97561`.
+
+```qu
+dt = 0.01
+s  = smc_init(2, phi = 0.05, dt = dt)
+y  = 0
+for i = 0 to 1999
+    s = s.update(1 - y)             # setpoint 1
+    y = y + (s.u - y) * dt
+end for
+print("y = {y}")                    # y = 0.97561  (= 40/41)
+```
+
+Setting `phi = 0` in that loop replaces `sat(s/phi)` with literal `sign(s)`: the output then swings the full `2K = 4` from one sample to the next once it reaches the surface, which is exactly the chattering the boundary layer exists to remove.
+
+The fuzzy controller runs on the same plant, and its degenerate cases are worth checking against the rule table directly:
+
+```qu
+f = fuzzy_pid_init(1, 1, 1, 0.01)
+print("{f.update(0, error_dot = 0).u}")        # 0        -- centre of the table
+print("{f.update(1000, error_dot = 0).u}")     # 0.8333   -- saturated: the COG ceiling, not 1
+print("{f.update(-1000, error_dot = 1000).u}") # 0        -- anti-diagonal cancels
 ```
 
 ## Filter Analysis

@@ -597,7 +597,7 @@ is not a real namespace value; it still works as an ordinary variable name
 (`table = 5`) and the existing `table(...)` table-constructor call is
 completely unaffected (that's a different token shape — no `.` involved).
 
-## Native Modules: `xlsx` and `codec`
+## Native Modules: `xlsx`, `codec` and `pdf`
 
 These are not builtins, and `builtins()` does not list them. They are
 modules compiled into the engine, and a program reaches them through
@@ -659,8 +659,8 @@ them. Only WAV is written — see the note below the table for what is not.
 | `codec.decode_wav` | `codec.decode_wav(src, [channel=])` | Decodes a WAV file. Same arguments and same two return forms as `codec.decode_flac`. Integer WAV is normalised by `2^(bits-1)`, exactly as FLAC is, so the same recording in either container gives the same numbers. **Float WAV passes through untouched** — it is already in `-1.0 ..= 1.0`, and rescaling it would be the one case where normalising changes the data — and reports `bits` as `none`, because a float format has a width but no quantisation step. Returns a `Signal` for a single series — a mono file, or any file with `channel=` — and otherwise a `Record` with `fs`, `bits`, `frames` and `channels`, exactly as `codec.decode_flac` does. |
 | `codec.decode_mp3` | `codec.decode_mp3(src, [channel=])` | Decodes an MP3 file. Same arguments and same two return forms as `codec.decode_flac`. `bits` is always `none`: MP3 is lossy, its output is real numbers rather than a quantised grid, and a plausible `16` there would invite arithmetic that means nothing. MP3 has no header — only a run of frames — so a file that is not MP3 fails by finding no frames rather than by rejecting a magic number, and the error says so. Returns a `Signal` for a single series — a mono file, or any file with `channel=` — and otherwise a `Record` with `fs`, `bits`, `frames` and `channels`, exactly as `codec.decode_flac` does. |
 
-| `codec.write_wav` <br> *Added in v0.2.4* | `codec.write_wav(path, x, depth=, [dither=])` | Writes audio out as a WAV file. `path` (string) is the destination, overwritten if it exists. `x` is a `Signal`, or a `List` of `Signal`s for a multi-channel file — a signal carries its own sample rate, so there is no `fs=` argument to get wrong, and the rates of a list have to agree because a WAV header holds exactly one. `depth` (number, named, **required**) is `16`, `24` or `32`, where `32` means 32-bit **float**. `dither` (string, named) is `"tpdf"` or `"none"`, and at `depth=16` it is **required** — see below. Returns `Nothing`. |
-| `codec.encode_wav` <br> *Added in v0.2.4* | `codec.encode_wav(x, depth=, [dither=])` | The same encoder as `codec.write_wav`, returning the file's bytes as a `Vec` of whole numbers 0-255 instead of writing them — the exact inverse of what `codec.decode_wav` accepts, so a stream can be re-encoded and passed on without ever touching disk. Same `x`, `depth` and `dither` arguments, and the same rule about naming `dither` at `depth=16`. Returns a `Vec`. |
+| `codec.write_wav` | `codec.write_wav(path, x, depth=, [dither=])` | Writes audio out as a WAV file. `path` (string) is the destination, overwritten if it exists. `x` is a `Signal`, or a `List` of `Signal`s for a multi-channel file — a signal carries its own sample rate, so there is no `fs=` argument to get wrong, and the rates of a list have to agree because a WAV header holds exactly one. `depth` (number, named, **required**) is `16`, `24` or `32`, where `32` means 32-bit **float**. `dither` (string, named) is `"tpdf"` or `"none"`, and at `depth=16` it is **required** — see below. Returns `Nothing`. Added in v0.2.4. |
+| `codec.encode_wav` | `codec.encode_wav(x, depth=, [dither=])` | The same encoder as `codec.write_wav`, returning the file's bytes as a `Vec` of whole numbers 0-255 instead of writing them — the exact inverse of what `codec.decode_wav` accepts, so a stream can be re-encoded and passed on without ever touching disk. Same `x`, `depth` and `dither` arguments, and the same rule about naming `dither` at `depth=16`. Returns a `Vec`. Added in v0.2.4. |
 
 `flac_info` needs no split — a header is a header. The three decoders
 differ only in which format they read: they return the same shapes, scale
@@ -765,6 +765,104 @@ a = codec.decode_flac("stereo.flac")
 print("{a.fs} Hz, {len(a.channels)} channels, {a.frames} frames")
 welch(a.channels[0])
 ```
+
+### Documents: `pdf`
+
+Reads and rearranges the *structure* of a PDF: how many pages it has,
+what it says about itself, and how to join or split files. It does not
+render, OCR, fill forms or redact — all four need a native library linked
+into the engine, and this module deliberately has no such dependency (see
+`docs/design/toolkit-pdf.md` for the larger roadmap this is the first
+slice of).
+
+The same destination split as `codec` above: `pdf.merge` and
+`pdf.extract_pages` build a new PDF and hand back its **bytes**, while
+`pdf.write_merge` and `pdf.write_pages` build the same PDF and **write**
+it to a path given first. Two names rather than one function with an
+optional `out =`, so the return type never depends on whether a keyword
+was passed — and so a sandboxed script can be denied the writing pair by
+name while keeping the byte-returning pair, exactly as
+`codec.write_wav`/`codec.encode_wav` are treated.
+
+Every function takes its source the way `codec` does: a **path**, or the
+file's **bytes** as a `Vec` of whole numbers 0-255. That is what lets the
+output of `pdf.merge` go straight back into `pdf.page_count` or
+`pdf.extract_pages` without ever touching disk.
+
+Pages are numbered **from 1**, the number printed on the page. `0` is a
+named error rather than a silent synonym for the first page.
+
+| Function | Signature | Description |
+|---|---|---|
+| `pdf.page_count` <br> *Added in v0.3.0* | `pdf.page_count(src)` | Counts a PDF's pages. `src` (string path, or `Vec` of bytes) is the document. Counted by walking the page tree to its leaves rather than trusting the catalog's own `/Count` field, which a malformed or incrementally-updated file can disagree with. Returns a `Num`. |
+| `pdf.info` <br> *Added in v0.3.0* | `pdf.info(src)` | Reads what a PDF says about itself, without extracting any content. `src` (string path, or `Vec` of bytes) is the document. Returns a `Record` with fields: `pages` (`Num`, as `pdf.page_count`), `version` (`Str`, the header version such as `"1.6"`), `title`, `author`, `subject`, `creator`, `producer` (each `Str`, **or `none`** where the file's `/Info` dictionary omits the key — `none` and `""` are different answers and this does not merge them), and `encrypted` (`Bool`, whether the file carries an `/Encrypt` dictionary, which explains in advance why another call on it might fail). |
+| `pdf.merge` <br> *Added in v0.3.0* | `pdf.merge(list)` | Joins several PDFs into one, in list order, keeping every page. `list` is a `List` of sources (each a string path or a `Vec` of bytes); an empty list is an error. Bookmarks/outlines are dropped — a half-merged outline tree pointing at pages that moved is worse than none. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.write_merge` <br> *Added in v0.3.0* | `pdf.write_merge(path, list)` | Exactly `pdf.merge`, written to a file instead of returned. `path` (string) is the destination, overwritten if it exists; `list` is as above. Denied in sandboxed execution. Returns `Nothing`. |
+| `pdf.extract_pages` <br> *Added in v0.3.0* | `pdf.extract_pages(src, pages)` | A new PDF holding just the pages asked for. `src` (string path, or `Vec` of bytes) is the document; `pages` is a page number, or a `Vec`/`List` of them (`1 to 3` works — it is already a `Vec`), numbered from 1. Pages come out in the **document's** order, not the order asked for, and a page the document does not have is a named error rather than a silently shorter file. Implemented by removing the other pages, so the ones that stay keep their own fonts, resources and annotations. Returns a `Vec` of bytes. |
+| `pdf.write_pages` <br> *Added in v0.3.0* | `pdf.write_pages(path, src, pages)` | Exactly `pdf.extract_pages`, written to a file instead of returned. `path` (string) is the destination, overwritten if it exists. Denied in sandboxed execution. Returns `Nothing`. |
+| `pdf.extract_text` <br> *Added in v0.3.0* | `pdf.extract_text(src, [pages], [page=])` | Text reconstructed from a PDF's content streams. `src` (string path, or `Vec` of bytes) is the document; `pages` (optional, positional or `page=`) is a page number or a `Vec`/`List` of them, defaulting to every page. Returns a `Str`. **Read the warning below before relying on this.** |
+
+#### `pdf.extract_text` is the weak one, and says so
+
+A PDF does not store paragraphs. It stores "draw glyph X at (321, 418)",
+so extraction is a *reconstruction*, and it only works when a document's
+fonts use a standard encoding or ship a `/ToUnicode` map. Two specific
+limits apply:
+
+- The engine reads the page's **own** content stream and does not descend
+  into Form XObjects — which is what `pdfcrop` and Adobe Illustrator wrap
+  page content in. Text inside one is invisible to it.
+- Word and line breaks are approximate. PDF has no obligation to encode a
+  space character, inter-word spacing is often kerning, and breaks land
+  per text-showing operator rather than per word. Treat the result as
+  **searchable, not as a transcript**.
+
+What this module will *not* do is hand back `""` and let that read as
+"this document has no text". When extraction produces nothing, it checks
+whether the requested pages can reach any embedded font — following Form
+XObjects, not just the page's own resources. No font reachable means the
+page really has no text (a scanned bitmap, a pure vector drawing) and
+`""` is the honest answer. A font reachable but no text out means the
+extractor failed, and that is an **error** naming the reason, not an
+empty string.
+
+Measured on the 34 PDFs committed in this repository (2026-09-23): 21
+gave readable text, 8 raised that error (every `pdfcrop`-produced file
+among them), and 5 were genuinely textless. None returned the wrong text.
+`pdf.page_count`, `pdf.info`, `pdf.merge` and `pdf.extract_pages` were
+correct on all 34 — they are the solid part of this module.
+
+```qu,ignore
+import pdf
+
+i = pdf.info("paper.pdf")
+print("{i.pages} pages, PDF {i.version}, produced by {i.producer}")
+
+# Join two files, then take one page out of the result -- no disk in
+# between, because every function also accepts bytes.
+both = pdf.merge(["intro.pdf", "results.pdf"])
+print(pdf.page_count(both))
+pdf.write_pages("just_page_3.pdf", both, 3)
+
+# A page range. `1 to 5` is already a Vec, so it just works.
+pdf.write_pages("front.pdf", "paper.pdf", 1 to 5)
+```
+
+Text extraction, written the way it should be — assuming it can fail:
+
+```qu,ignore
+import pdf
+
+try
+    t = pdf.extract_text("paper.pdf", page = 1)
+    print(t)
+catch err
+    print("no text layer this engine can read: {err}")
+end
+```
+
+None of the `pdf` examples here are run by the build: they need document
+files that are not in the repository.
 
 ## Data-Format Conversion (JSON / CSV / XML)
 

@@ -1,0 +1,25 @@
+[package]
+name = "qu-pdf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PDF structure — page counts, metadata, merge and page extraction — for Qu, as an importable module."
+
+[dependencies]
+# Pure Rust, no system library, no build script -- the same bar `qu-xlsx`
+# and `qu-codec` clear, and the reason this backend and not another.
+# `docs/design/toolkit-pdf.md` sketches a much larger surface (rendering,
+# OCR, forms, redaction), but every one of those needs PDFium, MuPDF or a
+# rendered bitmap, i.e. a native library linked at run time. That is a
+# distribution cost the whole engine would pay for a feature most scripts
+# never touch -- the same argument `qu-codec`'s Cargo.toml makes about
+# libFLAC. `lopdf` works at the PDF object graph directly, which is
+# exactly what the structural half of that roadmap needs and nothing more.
+#
+# NOT `pdf-manip`, which that roadmap also lists: it is still
+# `1.0.0-beta.*`, and the four operations shipped here (page count,
+# metadata, merge, page extraction) are all reachable from `lopdf`'s own
+# object model, so a beta dependency would buy convenience and nothing
+# else. Worth revisiting when it reaches 1.0 and the roadmap's
+# encryption/optimization/PDF-A rows come up.
+lopdf = "0.45"

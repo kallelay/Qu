@@ -747,6 +747,114 @@ fn stft_shape_and_spectrogram() {
     assert_eq!(vec(&it, "msh"), vec![64.0, 15.0]);
 }
 
+// ------------------------------- advanced time-frequency (§3)
+//
+// Each of these asserts WHERE the energy landed, against a frequency the
+// signal was built to have. A transform that returned a correctly-shaped
+// matrix of zeros, or that mislabelled its own `freq` axis, passes a
+// shape check and fails every one of these.
+
+#[test]
+fn cqt_lands_a_tone_in_the_bin_at_its_own_pitch() {
+    // 440 Hz is exactly two octaves above fmin = 110, so at 12 bins per
+    // octave the answer is bin 24 -- fixed by the geometric spacing
+    // before the transform runs, not read off its output.
+    let it = run(
+        "fs = 2000\nt = 0 to 3999\nx = sin(2*pi*440*t/fs)\n\
+         C = cqt(x, fs, fmin=110, fmax=880, bins_per_octave=12, hop=20)\n\
+         nbins = length(C.freq)\nnframes = length(C.time)\n\
+         M = abs(C.coef)\nmid = floor(nframes/2)\n\
+         k = argmax(M[:, mid])\npeak_hz = C.freq[k]\n\
+         bin_hz = C.freq[24]\noctave = C.freq[12] / C.freq[0]",
+    );
+    assert_eq!(num(&it, "k"), 24.0);
+    assert!((num(&it, "peak_hz") - 440.0).abs() < 1e-6, "peak at {}", num(&it, "peak_hz"));
+    assert!((num(&it, "bin_hz") - 440.0).abs() < 1e-6);
+    // Twelve bins along is exactly one octave, at any pitch -- the
+    // defining property, and what `stft`'s linear bins cannot do.
+    assert!((num(&it, "octave") - 2.0).abs() < 1e-9);
+    assert_eq!(num(&it, "nbins"), 37.0);
+}
+
+#[test]
+fn mel_spectrogram_puts_a_tone_in_the_band_that_covers_it() {
+    let it = run(
+        "fs = 8000\nt = 0 to 7999\nx = sin(2*pi*1000*t/fs)\n\
+         S = mel_spectrogram(x, fs, n_mels=40, fmin=0, fmax=4000, nfft=512, hop=256)\n\
+         nb = length(S.freq)\nmid = floor(length(S.time)/2)\n\
+         k = argmax(S.power[:, mid])\npeak_hz = S.freq[k]\n\
+         first_gap = S.freq[1] - S.freq[0]\nlast_gap = S.freq[39] - S.freq[38]",
+    );
+    assert_eq!(num(&it, "nb"), 40.0);
+    // Band spacing up at 1 kHz is ~150 Hz, so one band of slack.
+    let peak = num(&it, "peak_hz");
+    assert!((peak - 1000.0).abs() < 160.0, "peak band centre {peak} Hz, expected ~1000");
+    // Bands crowd the low frequencies -- a linear axis would not.
+    assert!(num(&it, "last_gap") > 2.0 * num(&it, "first_gap"));
+}
+
+#[test]
+fn cwt_morlet_follows_a_chirp_up_the_scale_ladder() {
+    // 50 Hz -> 200 Hz over 2 s, so the instantaneous frequency at 25% and
+    // 75% of the record is 87.5 Hz and 162.5 Hz.
+    let it = run(
+        "fs = 1000\nn = 2000\nt = 0 to n-1\ntt = t/fs\ntend = (n-1)/fs\n\
+         x = sin(2*pi*(50*tt + 0.5*(200-50)/tend*tt.*tt))\n\
+         W = cwt(x, fs, wavelet=\"morlet\")\n\
+         A = abs(W.coef)\nnsc = length(W.scale)\nncol = length(W.time)\n\
+         early = W.freq[argmax(A[:, 500])]\nlate = W.freq[argmax(A[:, 1500])]\n\
+         name = W.wavelet",
+    );
+    // One column per input sample: no framing, no decimation.
+    assert_eq!(num(&it, "ncol"), 2000.0);
+    assert!(num(&it, "nsc") > 8.0);
+    assert_str(&it, "name", "morlet");
+    let early = num(&it, "early");
+    let late = num(&it, "late");
+    assert!((early - 87.5).abs() < 0.12 * 87.5, "ridge at 25% of the record: {early} Hz");
+    assert!((late - 162.5).abs() < 0.12 * 162.5, "ridge at 75% of the record: {late} Hz");
+    assert!(late > early, "the chirp rises, so the ridge must too");
+}
+
+#[test]
+fn cwt_rejects_a_discrete_wavelet_by_name() {
+    // `haar` belongs to `dwt`; accepting it here would imply the two
+    // transforms are interchangeable.
+    let mut it = Interp::new();
+    let err = it
+        .run("x = sin(0 to 255)\nW = cwt(x, 100, wavelet=\"haar\")")
+        .expect_err("haar is not a continuous wavelet");
+    let msg = format!("{err}");
+    assert!(msg.contains("dwt"), "error should name the right transform: {msg}");
+}
+
+#[test]
+fn wigner_ville_puts_a_tone_on_its_own_frequency_row() {
+    // Row k is k*fs/(2N) Hz, so at fs=1000 and N=256 the 125 Hz tone is
+    // row 64 exactly -- twice the resolution of a 256-point FFT.
+    let it = run(
+        "fs = 1000\nt = 0 to 255\nx = sin(2*pi*125*t/fs)\n\
+         V = wigner_ville(x, fs)\n\
+         rows = length(V.freq)\ncols = length(V.time)\n\
+         k = argmax(V.tfr[:, 128])\npeak_hz = V.freq[k]\nrow64 = V.freq[64]",
+    );
+    assert_eq!(num(&it, "rows"), 256.0);
+    assert_eq!(num(&it, "cols"), 256.0);
+    assert_eq!(num(&it, "k"), 64.0);
+    assert!((num(&it, "peak_hz") - 125.0).abs() < 1e-9);
+    assert!((num(&it, "row64") - 125.0).abs() < 1e-9);
+}
+
+#[test]
+fn wigner_ville_refuses_a_record_whose_square_will_not_fit() {
+    let mut it = Interp::new();
+    let err = it
+        .run("x = sin(0 to 2999)\nV = wigner_ville(x, 1000)")
+        .expect_err("a 3000-sample record is 9,000,000 cells");
+    let msg = format!("{err}");
+    assert!(msg.contains("quadratic"), "error should say why: {msg}");
+}
+
 // ------------------------------------------------- inclusive-range epsilon
 
 #[test]

@@ -37,10 +37,17 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # forwarded the feature: the module was unreachable from the actual `qu`
 # binary, which is the only place anyone runs Qu. Found 2026-09-09 while
 # adding `codec`.
-default = ["xlsx", "codec", "image"]
+#
+# `pdf` joins them on the same terms (§ PDF toolkit, 2026-09-23): `lopdf`
+# is pure Rust with no system library and no build script, so it clears
+# the same bar `xlsx`/`codec` do, and `import pdf` has to actually resolve
+# from the `qu` binary or the module is unreachable no matter how it is
+# built -- the exact failure found here in 2026-09-09.
+default = ["xlsx", "codec", "image", "pdf"]
 xlsx = ["qu-interp/xlsx"]
 codec = ["qu-interp/codec"]
 image = ["qu-interp/image"]
+pdf = ["qu-interp/pdf"]
 gpu = ["qu-interp/gpu"]
 # Forwards qu-interp's own `backend-torch` feature (off by default), same
 # "reachable from the actual `qu` binary, not just the library crate" reason

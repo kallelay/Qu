@@ -14,8 +14,8 @@ against a moving file.
 |---|---|---|
 | `image_new` | `image_new(width, height, [r=0, g=0, b=0])` | Creates a blank solid-color canvas. `width` and `height` are positive integers giving the canvas size in pixels. `r`, `g`, `b` are optional named numbers 0–255 giving the fill color's channel values (default 0, i.e. solid black). Returns a new `Image` of exactly `width` x `height` pixels. The only way to build a synthetic image with no file on disk. |
 | `image_from_matrix` | `image_from_matrix(matrix)` | Builds a grayscale `Image` directly from `matrix`, a 2-D `Mat` of numbers; each value is rounded and clamped to 0–255 and written to R=G=B for that pixel (matrix rows become image rows, columns become image columns). Returns a new `Image` sized `cols` x `rows` to match the matrix's own shape. For a real pixel buffer you can further process/save, as opposed to `imagesc`'s colormap display. |
-| `load_image` | `load_image(path)` | `path` is a string file path. Reads the file from disk and decodes it — **PNG and BMP.** The format is sniffed from the file's first bytes rather than its extension, because a `.png` that is really a BMP is a thing that happens and the bytes are never wrong. PNG: bit depths 1/2/4/8/16, colour types grey, truecolour, palette, grey+alpha and RGBA; alpha composites onto white, since `Image` is three channels. Adam7 interlacing is refused by name rather than decoded wrongly. Returns a new `Image` sized to the file's own dimensions. |
-| `save_image` | `save_image(path, img)` | `path` is a string destination; `img` is the `Image` to write. Encodes `img` and writes it to `path`, dispatching on the path's own extension: a `.png` extension writes a real (if uncompressed) PNG; any other extension, or none, writes a BMP. Returns nothing. |
+| `load_image` | `load_image(path)` | `path` is a string file path. Reads the file from disk and decodes it — **PNG, BMP, JPEG and TIFF.** The format is sniffed from the file's first bytes rather than its extension, because a `.png` that is really a BMP is a thing that happens and the bytes are never wrong. PNG: bit depths 1/2/4/8/16, colour types grey, truecolour, palette, grey+alpha and RGBA; alpha composites onto white, since `Image` is three channels. Adam7 interlacing is refused by name rather than decoded wrongly. JPEG: baseline and progressive, grayscale (widened to R=G=B) and colour; 16-bit and CMYK JPEGs are refused by name rather than converted, because guessing CMYK's Adobe inversion convention wrong yields silently colour-inverted pixels. TIFF: 8- and 16-bit integer samples in grayscale, grayscale+alpha, RGB and RGBA (16-bit is scaled down to 8, since `Image` is 8-bit; alpha composites onto white as with PNG); floating-point, palette, CMYK and YCbCr TIFFs are refused by name. Returns a new `Image` sized to the file's own dimensions. JPEG and TIFF reading added in v0.3.0. |
+| `save_image` | `save_image(path, img, [quality=90])` | `path` is a string destination; `img` is the `Image` to write. Encodes `img` and writes it to `path`, dispatching on the path's own extension: `.png` writes a real (if uncompressed) PNG; `.jpg`/`.jpeg` writes a baseline JPEG; `.tif`/`.tiff` writes an uncompressed 8-bit RGB TIFF; any other extension, or none, writes a BMP. (Extension dispatch on write, magic-byte sniffing on read, is not an inconsistency: writing has no bytes to sniff yet, so the extension is the only statement of what the caller wants.) `quality` is an optional named number 1–100 (default 90) that is **only meaningful for JPEG** — it is accepted and ignored for the other formats, and a value outside 1–100 is an error rather than silently clamped. **JPEG is lossy:** a `save_image`/`load_image` round trip through `.jpg` does not return the pixels that went in. On the gradient images the test suite measures, the RMS difference is about 1.3–1.4 levels out of 255 at the default quality 90, and about 0.6 at quality 100 — small, but not zero, and it compounds if you re-save repeatedly. PNG, BMP and TIFF as written here are lossless, so their round trips are pixel-exact. Returns nothing. JPEG and TIFF writing, and `quality=`, added in v0.3.0. |
 | `imagesc` | `imagesc(matrix, [colormap="viridis"])` | `matrix` is a 2-D `Mat` of arbitrary real-valued numbers (no 0–255 requirement). `colormap` is an optional named string (default `"viridis"`) selecting the palette, same set as `heatmap`'s. False-color raster display of the plain numeric matrix (no pixel buffer produced) — pushes a dense `Heatmap` onto the current plot panel, reusing the same renderer as `heatmap`, just without per-cell value labels or gridlines. Defaults to `viridis` rather than `heatmap`'s `blues`. Returns nothing; it is a plotting side effect. |
 | `imshow` | `imshow(img)` | `img` is an `Image` value (e.g. from `load_image`/`grayscale`/any transform below), of any size. Places it inline in the current plot panel as a native SVG `<image>` element at its own resolution. Takes an actual `Image`, not a scalar matrix — use `imagesc` for that. Returns nothing. |
 
@@ -220,6 +220,66 @@ gray bands), while its `Signal`/plain-numeric case returns a raw 0-based
 | `regionprops` | `regionprops(labeled)` (alias of `blob_stats`) | `labeled` is a `Model` produced by `bwlabel`/`label_blobs`. Takes that result and returns a `List` of one `Record` per blob, in label-id order, each with fields: `label` (integer id), `area` (pixel count), `centroid_x`, `centroid_y` (real pixel-coordinate means, not bbox-center approximations), `bbox_x`, `bbox_y`, `bbox_width`, `bbox_height` (tightest axis-aligned rectangle) — all numbers. Returns a `List` with one `Record` per blob, in label-id order — empty when `labeled` found none. |
 | `bwareaopen` | `bwareaopen(binary_img, min_area)` (alias of `remove_small_blobs`) | `binary_img` is a binary `Image`; `min_area` is a number, the minimum pixel count a blob must have to survive. Labels internally (8-connectivity, matching MATLAB's default) and zeroes out every blob whose pixel count is below `min_area`. Returns a new binary `Image`, same dimensions as `binary_img`, with small blobs removed. |
 | `foreground_mask` | `foreground_mask(img, level, [radius=1])` | `img` is an `Image`, color or grayscale (BT.601 luma either way); `level` is a required number, the threshold cutoff 0–255; `radius` is an optional named positive integer (default 1), the structuring-element radius for the cleanup step. Thresholds `img` at `level`, then applies `imopen(radius)` to remove noise specks. `level` is a required argument by design — pair with `otsu_threshold` for auto-thresholding: `foreground_mask(img, otsu_threshold(img))`. Returns a new binary `Image`, same dimensions as `img`. |
+
+## Vector Graphics (SVG)
+
+Everything above this point is **raster**: an `Image` is a grid of pixels.
+This section is the **vector** counterpart — objects and coordinates,
+written out as SVG. The two do not mix: `save_image` writes pixels,
+`save_svg` writes shapes.
+
+Two things this is deliberately *not*:
+
+- **Not `savefig("f.svg")`.** Qu's plotting has always rendered figures to
+  SVG, and that is still how you get a *chart* as SVG. `save_svg` is for
+  drawings you compose yourself from explicit shapes, where there is no
+  figure, no axes and no data series.
+- **Not the vector-graphics domain of `docs/design/toolkit-image.md` §7.**
+  That specifies a whole `Vector` scene graph — groups, symbols,
+  gradients, masks, clip paths, path-node editing, boolean geometry,
+  per-object transforms, text-on-a-path, raster↔vector conversion. None of
+  that exists. This is basic I/O only.
+
+Shapes are built by the `svg.*` constructors and collected into a list,
+which `save_svg` writes. Each constructor returns an ordinary `Record`, so
+a shape can be inspected (`s.kind`, `s.width`) and built by hand if you
+prefer. The constructors are namespaced because `rect`, `circle` and
+`text` already exist as unrelated *plotting* commands that annotate the
+current figure — `svg.circle(...)` and `circle(...)` are different
+functions in different domains. Reach them with `import svg`, and always
+call them qualified.
+
+| Function | Signature | Description |
+|---|---|---|
+| `svg.rect` | `svg.rect(x, y, width, height, [fill="#000000"], [stroke="none"], [stroke_width=1], [opacity=1])` | An axis-aligned rectangle with its top-left corner at (`x`, `y`). All four positional arguments are finite numbers; `width`/`height` must be 0 or more. `fill`/`stroke` are color strings (`"#e74c3c"`, `"red"`, or `"none"`) — a number is refused, because `fill="3"` is an invalid paint that every renderer silently falls back to black on. Returns a `Record` with fields `kind`, `x`, `y`, `width`, `height`, `fill`, `stroke`, `stroke_width`, `opacity`. Added in v0.3.0. |
+| `svg.circle` | `svg.circle(cx, cy, r, [fill="#000000"], [stroke="none"], [stroke_width=1], [opacity=1])` | A circle of radius `r` centred on (`cx`, `cy`); `r` must be 0 or more. Styling as for `svg.rect`. Returns a `Record` with fields `kind`, `cx`, `cy`, `r` and the four styling fields. Added in v0.3.0. |
+| `svg.line` | `svg.line(x1, y1, x2, y2, [fill="none"], [stroke="#000000"], [stroke_width=1], [opacity=1])` | A straight segment from (`x1`, `y1`) to (`x2`, `y2`). Note the **defaults are inverted** relative to the area shapes: a line has no interior to fill, so it defaults to stroked-black and unfilled. Returns a `Record` with fields `kind`, `x1`, `y1`, `x2`, `y2` and the four styling fields. Added in v0.3.0. |
+| `svg.path` | `svg.path(d, [fill="none"], [stroke="#000000"], [stroke_width=1], [opacity=1])` | An arbitrary path from the SVG path-data string `d`. Supports `M`/`L` (moveto/lineto), `H`/`V` (axis forms), `C`/`Q` (cubic and quadratic Bezier) and `Z` (closepath), each in both absolute (uppercase) and relative (lowercase) spelling, with the SVG repetition rule — a repeated moveto's extra coordinate pairs are implicit linetos. Arcs (`A`) and the smooth-curve shorthands (`S`/`T`) are **refused by name** rather than passed through, since an unvalidated `d` produces a file that opens without complaint and draws nothing. `d` is re-emitted normalized to single-space separation. Returns a `Record` with fields `kind`, `d` and the four styling fields. Added in v0.3.0. |
+| `svg.text` | `svg.text(x, y, text, [font_size=16], [font_family="sans-serif"], [fill="#000000"], [stroke="none"], [stroke_width=1], [opacity=1])` | A text run anchored at (`x`, `y`) — which in SVG is the *baseline start*, not the top-left corner. `font_size` must be more than 0. The content is XML-escaped on write, so `&` and `<` in a label are safe. Returns a `Record` with fields `kind`, `x`, `y`, `text`, `font_size`, `font_family` and the four styling fields. Added in v0.3.0. |
+| `save_svg` | `save_svg(path, shapes, [width=800], [height=600])` | `path` is a string destination; `shapes` is a `List` of shape records (a single record on its own is also accepted). Writes a standalone SVG document with an XML declaration, the SVG namespace, and both `width`/`height` and a matching `viewBox` — a `viewBox` alone renders at the container's size rather than the file's own. The canvas is **not** auto-fitted to the shapes: a text run's rendered width depends on a font this writer does not load, so an automatic canvas would be right for the geometry and silently clip the labels. Pass `width=`/`height=` for a tight canvas. Returns nothing. Added in v0.3.0. |
+| `load_svg` | `load_svg(path)` | Reads an SVG file back. Returns a `Record` with fields `width`, `height` (from the `width`/`height` attributes, falling back to the `viewBox` when those are absent or a percentage; absolute CSS units `px`/`pt`/`pc`/`in`/`cm`/`mm` are converted to user units) and `shapes`, a `List` of shape records in document order. Reads the **presentation attributes** of `rect`, `circle`, `line`, `path` and `text`, descending into `<g>` groups. It does **not** apply `transform=`, resolve CSS (`<style>`, `style=`, `class=`), inherit styling from an ancestor group, or resolve `<use>`/`<symbol>`/gradients/patterns/masks/clip paths, and it skips `<ellipse>`/`<polygon>`/`<polyline>`/`<image>`. Unrecognized elements are skipped rather than rejected, so "loaded without error" does **not** mean "read everything in the file" — a round trip of a file `save_svg` wrote is exact, and that is the case it is built for. A file with no `<svg>` root is refused by name. Added in v0.3.0. |
+
+### Drawing and reading back an SVG
+
+```qu
+import svg
+
+shapes = [
+  svg.rect(10, 10, 100, 50, fill = "#e74c3c"),
+  svg.circle(200, 60, 40, fill = "#3498db", stroke = "#000000", stroke_width = 2),
+  svg.line(0, 0, 300, 120, stroke = "#333333", stroke_width = 1.5),
+  svg.path("M 10 100 L 60 40 L 110 100 Z", stroke = "#2ecc71", stroke_width = 2),
+  svg.text(20, 150, "R&D output", font_size = 16, fill = "#111111")
+]
+
+save_svg("drawing.svg", shapes, width = 320, height = 180)
+
+doc = load_svg("drawing.svg")
+print(doc.width)             # 320
+print(len(doc.shapes))       # 5
+print(doc.shapes[1].kind)    # circle
+print(doc.shapes[1].r)       # 40
+```
 
 ## Examples
 

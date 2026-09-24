@@ -162,6 +162,25 @@ for ci in 0 to len(chapters) - 1
             continue
         end if
         first = trim(cells[1])
+        # A name cell may carry its version tag on a second line, as
+        # `` `codec.write_wav` <br> *Added in v0.2.4* ``. That is the
+        # chapters' OTHER spelling of the tag -- the commoner one puts it
+        # at the END of the description cell, where it is part of the
+        # prose and never reaches this parser.
+        #
+        # Without this cut the tag travels with the name, so the
+        # `contains(sigcell, cand)` check below cannot match and the row
+        # is dropped SILENTLY -- no warning, just a smaller table. That is
+        # exactly how `codec.write_wav` and `codec.encode_wav` had already
+        # fallen out of `help()` between the tag being added to those two
+        # rows and the next regeneration; found 2026-09-23 because a
+        # regeneration for an unrelated change deleted them again. (The
+        # same bug and fix were independently found a second time while
+        # adding the `pdf` module -- this is that fix's merged form, kept
+        # for being first, not for being better; both were equivalent.)
+        if contains(first, "<br>")
+            first = trim(split(first, "<br>")[0])
+        end if
         if not contains(first, BT)
             continue
         end if

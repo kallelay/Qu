@@ -1503,6 +1503,491 @@ pub fn step_shoot(x: &[f64], initial: f64, settled: f64) -> Option<(f64, f64)> {
     Some((100.0 * (beyond_settled / mag).max(0.0), 100.0 * (beyond_initial / mag).max(0.0)))
 }
 
+// ---------------------------------------------------------------------
+// Advanced time-frequency distributions (docs/design/toolkit-signal.md §3)
+//
+// `stft` above is the linear-frequency, fixed-resolution member of this
+// family. The four below trade that fixed grid away in different
+// directions: `cqt` for a log-spaced grid with constant Q, `mel_*` for a
+// perceptually-spaced one, `cwt` for a scale-continuous one, and
+// `wigner_ville` for no windowing at all. All of them return their own
+// frequency axis alongside the surface, because the axis is no longer
+// reconstructible from `nfft`/`fs` the way `stft`'s is.
+// ---------------------------------------------------------------------
+
+/// A constant-Q transform surface and the axes needed to read it.
+pub struct Cqt {
+    /// `(n_bins, n_frames)` complex coefficients, one column per frame,
+    /// row 0 the lowest (`fmin`) bin.
+    pub coef: CMatrix,
+    /// Bin centre frequencies in Hz, geometrically spaced — length `n_bins`.
+    pub freqs: Vec<f64>,
+    /// Sample index each frame is *centred* on (not its left edge — CQT
+    /// windows differ in length per bin, and only a shared centre keeps
+    /// the bins of one column describing the same instant).
+    pub centers: Vec<usize>,
+}
+
+/// Constant-Q transform (Brown, 1991): a time-frequency surface whose bins
+/// are spaced geometrically — `bins_per_octave` per doubling of frequency —
+/// with a constant quality factor `Q = f / bandwidth` shared by every bin,
+/// so each one sees the same number of cycles rather than the same number
+/// of samples. That is the opposite trade to [`stft`], whose bins are
+/// linearly spaced and whose resolution is uniform in Hz: the CQT spends
+/// long windows (fine frequency resolution) on low frequencies and short
+/// ones (fine time resolution) on high frequencies, which is why it, not
+/// the STFT, is the standard front end for musical and perceptual analysis
+/// — a semitone is a *ratio*, so on a log axis every semitone is the same
+/// distance at every pitch.
+///
+/// Computed by the direct kernel method: one complex atom per bin,
+/// `hann(N_k) * exp(-2*pi*i*Q*n/N_k) / N_k` with `N_k = ceil(Q*fs/f_k)`,
+/// correlated against the signal at each frame centre. Deliberately *not*
+/// built on this module's FFT: with geometric bin spacing, each bin needs
+/// its own window length, so there is no single transform length to share
+/// and an FFT-per-bin would compute (and throw away) a full linear
+/// spectrum per bin. The direct kernels are precomputed once and reused
+/// across frames, which is where the cost actually goes.
+///
+/// `hop` is the frame stride in samples. The signal must be at least
+/// `2*(N_0/2)+1` samples long, where `N_0 = ceil(Q*fs/fmin)` is the
+/// longest (lowest-frequency) window — a CQT reaching an octave lower
+/// needs twice the signal, which is the usual surprise and is why the
+/// caller-facing builtin names `N_0` and `fmin` in its error.
+pub fn cqt(
+    x: &[f64],
+    fs: f64,
+    fmin: f64,
+    fmax: f64,
+    bins_per_octave: usize,
+    hop: usize,
+) -> Result<Cqt, NumericError> {
+    if x.is_empty() {
+        return Err(NumericError::EmptyInput("cqt"));
+    }
+    if bins_per_octave == 0 || hop == 0 {
+        return Err(NumericError::ElementLimit { requested: 0, limit: 1 });
+    }
+    if !fs.is_finite()
+        || fs <= 0.0
+        || !fmin.is_finite()
+        || fmin <= 0.0
+        || !fmax.is_finite()
+        || fmax <= fmin
+    {
+        return Err(NumericError::NonFiniteRange);
+    }
+    let b = bins_per_octave as f64;
+    let q = 1.0 / (2f64.powf(1.0 / b) - 1.0);
+    let n_bins = ((b * (fmax / fmin).log2()).floor().max(0.0) as usize) + 1;
+    let freqs: Vec<f64> = (0..n_bins).map(|k| fmin * 2f64.powf(k as f64 / b)).collect();
+    // Longest window first: bin 0 is `fmin`, and `N_k` shrinks as `f_k` grows.
+    let lens: Vec<usize> =
+        freqs.iter().map(|&f| ((q * fs / f).ceil() as usize).max(2)).collect();
+    let n_max = lens[0];
+    let half_max = n_max / 2;
+    if x.len() < 2 * half_max + 1 {
+        return Err(NumericError::ShapeMismatch { expected: 2 * half_max + 1, found: x.len() });
+    }
+    let kernels: Vec<Vec<Complex64>> = lens
+        .iter()
+        .map(|&nk| {
+            let w = hann_window(nk);
+            (0..nk)
+                .map(|n| {
+                    // Conjugated atom (negative phase): correlation, not
+                    // convolution, so a bin's coefficient has the same
+                    // sign convention as an `stft` bin's.
+                    Complex64::from_polar(w[n] / nk as f64, -TAU * q * n as f64 / nk as f64)
+                })
+                .collect()
+        })
+        .collect();
+    let mut centers = Vec::new();
+    let mut centre = half_max;
+    while centre + half_max < x.len() {
+        centers.push(centre);
+        centre += hop;
+    }
+    if centers.is_empty() {
+        return Err(NumericError::ShapeMismatch { expected: 2 * half_max + 1, found: x.len() });
+    }
+    let n_frames = centers.len();
+    let mut data = vec![Complex64::new(0.0, 0.0); n_bins * n_frames];
+    for (fi, &centre) in centers.iter().enumerate() {
+        for (k, kernel) in kernels.iter().enumerate() {
+            let nk = lens[k];
+            let start = centre - nk / 2;
+            let mut acc = Complex64::new(0.0, 0.0);
+            for (n, atom) in kernel.iter().enumerate() {
+                acc = acc.add(atom.scale(x[start + n]));
+            }
+            data[k + fi * n_bins] = acc;
+        }
+    }
+    Ok(Cqt { coef: CMatrix::from_col_major(n_bins, n_frames, data), freqs, centers })
+}
+
+/// Hz to mel, the `2595*log10(1+f/700)` (O'Shaughnessy / HTK) definition.
+pub fn hz_to_mel(f: f64) -> f64 {
+    2595.0 * (1.0 + f / 700.0).log10()
+}
+
+/// Mel to Hz — the exact inverse of [`hz_to_mel`].
+pub fn mel_to_hz(m: f64) -> f64 {
+    700.0 * (10f64.powf(m / 2595.0) - 1.0)
+}
+
+/// A mel-scale spectrogram and the axes needed to read it.
+pub struct MelSpectrogram {
+    /// `(n_mels, n_frames)` band powers, row 0 the lowest band.
+    pub power: Matrix,
+    /// Band *centre* frequencies in Hz — length `n_mels`. Not a uniform
+    /// grid: close together at the bottom, spread out at the top.
+    pub freqs: Vec<f64>,
+}
+
+/// Mel-scale spectrogram: an [`stft`] power spectrogram whose linear
+/// frequency bins are collapsed onto `n_mels` perceptually-spaced bands by
+/// a triangular filterbank. The mel scale (`mel = 2595*log10(1+f/700)`) is
+/// roughly linear below 1 kHz and logarithmic above, approximating how
+/// human pitch judgements space out — so equal steps in mel are equal
+/// steps in perceived pitch, which equal steps in Hz are not.
+///
+/// Built directly on [`stft`], not on a second windowing/FFT path, so a
+/// script computing both gets frames that line up exactly (the same
+/// reasoning [`spectral_entropy`] records). Each of the `n_mels + 2`
+/// filterbank edge points is placed by linear interpolation *in mel*
+/// between `fmin` and `fmax`; filter `m` rises linearly from edge `m` to
+/// edge `m+1` and falls back to zero at edge `m+2`, so adjacent filters
+/// overlap at half weight. The input is the one-sided power spectrum
+/// (`|X|^2`, bins `0..=nfft/2`) — power, not magnitude, because the
+/// filterbank is a *sum* over bins and only powers add.
+///
+/// A band narrower than the STFT's own bin spacing (`fs/nfft`) can fall
+/// entirely between two bins and come back identically zero. That is the
+/// parameters being inconsistent, not a failure: it means `n_mels` is
+/// asking for finer resolution at the bottom of the range than `nfft`
+/// supplies. Raise `nfft` or lower `n_mels`.
+pub fn mel_spectrogram(
+    x: &[f64],
+    fs: f64,
+    n_mels: usize,
+    fmin: f64,
+    fmax: f64,
+    nfft: usize,
+    hop: usize,
+) -> Result<MelSpectrogram, NumericError> {
+    if n_mels == 0 {
+        return Err(NumericError::ElementLimit { requested: 0, limit: 1 });
+    }
+    if !fs.is_finite()
+        || fs <= 0.0
+        || !fmin.is_finite()
+        || fmin < 0.0
+        || !fmax.is_finite()
+        || fmax <= fmin
+    {
+        return Err(NumericError::NonFiniteRange);
+    }
+    let spec = stft(x, nfft, hop)?;
+    let (_, n_frames) = spec.shape();
+    let n_bins = nfft / 2 + 1;
+    // One-sided power, column-major `(bin, frame)` to match `Matrix`'s
+    // own storage so the filterbank below walks memory in order.
+    let mut power = vec![0.0; n_bins * n_frames];
+    for c in 0..n_frames {
+        for b in 0..n_bins {
+            let mag = spec.get(b, c).expect("index within bounds by construction").magnitude();
+            power[c * n_bins + b] = mag * mag;
+        }
+    }
+    let bin_hz: Vec<f64> = (0..n_bins).map(|b| b as f64 * fs / nfft as f64).collect();
+    let (m_lo, m_hi) = (hz_to_mel(fmin), hz_to_mel(fmax));
+    let edges: Vec<f64> = (0..n_mels + 2)
+        .map(|i| mel_to_hz(m_lo + (m_hi - m_lo) * i as f64 / (n_mels + 1) as f64))
+        .collect();
+    let mut out = vec![0.0; n_mels * n_frames];
+    for m in 0..n_mels {
+        let (lo, ctr, hi) = (edges[m], edges[m + 1], edges[m + 2]);
+        for (b, &f) in bin_hz.iter().enumerate() {
+            let w = if f > lo && f <= ctr {
+                if ctr > lo {
+                    (f - lo) / (ctr - lo)
+                } else {
+                    1.0
+                }
+            } else if f > ctr && f < hi {
+                if hi > ctr {
+                    (hi - f) / (hi - ctr)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+            if w == 0.0 {
+                continue;
+            }
+            for c in 0..n_frames {
+                out[c * n_mels + m] += w * power[c * n_bins + b];
+            }
+        }
+    }
+    Ok(MelSpectrogram {
+        power: Matrix::from_col_major(n_mels, n_frames, out),
+        freqs: edges[1..=n_mels].to_vec(),
+    })
+}
+
+/// Which mother wavelet [`cwt`] convolves against. Deliberately disjoint
+/// from [`dwt_haar`]'s family: these are *continuous* wavelets, analytic
+/// or smooth and used at arbitrary non-dyadic scales, where `dwt`'s Haar
+/// is a discrete orthogonal filter bank. Sharing a name between the two
+/// would suggest the transforms are interchangeable, which they are not.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CwtWavelet {
+    /// Complex (analytic) Morlet, `omega0 = 6` — the standard default for
+    /// continuous analysis. Complex-valued, so `abs(coef)` is an
+    /// amplitude envelope and `arg(coef)` an instantaneous phase.
+    Morlet,
+    /// Mexican hat (Ricker), the second derivative of a Gaussian. Real and
+    /// even, so its coefficients are real (zero imaginary part) — good for
+    /// locating edges and peaks, useless for phase.
+    MexicanHat,
+}
+
+/// Centre frequency of the Morlet wavelet, in radians per unit time.
+pub const MORLET_OMEGA0: f64 = 6.0;
+
+/// `1/sqrt(Gamma(m + 1/2))` for the `m = 2` derivative-of-Gaussian
+/// (Mexican hat): `Gamma(2.5) = 1.329340388179137`.
+const DOG2_NORM: f64 = 0.867_325_070_584_077_6;
+
+/// The scale ladder [`cwt`] uses when the caller supplies none: Torrence &
+/// Compo's dyadic default, `s_j = 2*dt * 2^(j/8)` for as many `j` as fit a
+/// signal of `n` samples. Eight voices per octave is fine enough that the
+/// surface reads as continuous and coarse enough that it stays cheap.
+pub fn cwt_default_scales(n: usize, dt: f64) -> Vec<f64> {
+    const DJ: f64 = 0.125;
+    let s0 = 2.0 * dt;
+    if n == 0 || !dt.is_finite() || dt <= 0.0 {
+        return Vec::new();
+    }
+    let j_max = ((n as f64 * dt / s0).log2() / DJ).floor().max(0.0) as usize;
+    (0..=j_max).map(|j| s0 * 2f64.powf(j as f64 * DJ)).collect()
+}
+
+/// The Fourier frequency (Hz) a given wavelet scale (seconds) responds to.
+///
+/// A scale is *not* a period: a wavelet of scale `s` peaks at a frequency
+/// set by its own shape, and the two conversions below are the standard
+/// (Torrence & Compo, Table 1) equivalent-Fourier-period relations. Quoting
+/// a scale as though it were `1/f` is off by ~3% for Morlet and by ~58% for
+/// the Mexican hat, which is why [`Cwt`] carries this axis rather than
+/// leaving the caller to guess it.
+pub fn cwt_scale_to_freq(wavelet: CwtWavelet, scale: f64) -> f64 {
+    match wavelet {
+        // period = 4*pi*s / (omega0 + sqrt(2 + omega0^2))
+        CwtWavelet::Morlet => {
+            (MORLET_OMEGA0 + (2.0 + MORLET_OMEGA0 * MORLET_OMEGA0).sqrt()) / (4.0 * PI * scale)
+        }
+        // period = 2*pi*s / sqrt(m + 1/2), m = 2
+        CwtWavelet::MexicanHat => 2.5f64.sqrt() / (TAU * scale),
+    }
+}
+
+/// A continuous-wavelet surface and the axes needed to read it.
+pub struct Cwt {
+    /// `(n_scales, n_samples)` coefficients — one row per scale, one
+    /// column per input sample (the CWT does not decimate in time).
+    /// Row 0 is the *smallest* scale, i.e. the *highest* frequency.
+    pub coef: CMatrix,
+    /// The scale of each row, in seconds.
+    pub scales: Vec<f64>,
+    /// The equivalent Fourier frequency of each row, in Hz — descending,
+    /// since scale and frequency run opposite ways.
+    pub freqs: Vec<f64>,
+}
+
+/// Continuous wavelet transform: correlate `x` against a mother wavelet
+/// stretched to each of `scales`, giving a scale-by-time surface at full
+/// time resolution (no framing, one column per input sample). Distinct
+/// from [`dwt_haar`] in both axes — `dwt` decimates by two per level and
+/// visits only dyadic scales, where this visits any scale asked for and
+/// keeps every sample.
+///
+/// Evaluated in the frequency domain (the standard approach, and the only
+/// affordable one): the convolution with each stretched wavelet becomes a
+/// multiplication against the signal's FFT, so the cost is one forward FFT
+/// plus one inverse per scale rather than an `O(n * support)` correlation
+/// per scale. Normalized as Torrence & Compo (1998) eq. 6, `sqrt(2*pi*s/dt)`
+/// times the unit-energy mother wavelet, so coefficient magnitudes are
+/// directly comparable *across* scales — without it a wide wavelet
+/// accumulates more of the signal simply by being wider.
+///
+/// The signal's mean is removed first. Both wavelets have zero mean and so
+/// are blind to a DC offset in exact arithmetic, but on a finite record a
+/// large offset leaks into the widest scales; removing it is what Torrence
+/// & Compo's own reference implementation does.
+///
+/// Passing an empty `scales` slice selects [`cwt_default_scales`].
+pub fn cwt(
+    x: &[f64],
+    fs: f64,
+    wavelet: CwtWavelet,
+    scales: &[f64],
+) -> Result<Cwt, NumericError> {
+    if x.is_empty() {
+        return Err(NumericError::EmptyInput("cwt"));
+    }
+    if !fs.is_finite() || fs <= 0.0 {
+        return Err(NumericError::NonFiniteRange);
+    }
+    let dt = 1.0 / fs;
+    let n = x.len();
+    let defaulted;
+    let scales = if scales.is_empty() {
+        defaulted = cwt_default_scales(n, dt);
+        &defaulted[..]
+    } else {
+        scales
+    };
+    if scales.is_empty() || scales.iter().any(|s| !s.is_finite() || *s <= 0.0) {
+        return Err(NumericError::NonFiniteRange);
+    }
+    let mean = x.iter().sum::<f64>() / n as f64;
+    let centred: Vec<Complex64> = x.iter().map(|&v| Complex64::real(v - mean)).collect();
+    let spectrum = fft_complex(&centred)?;
+    // Angular frequency of each FFT bin, negative above Nyquist — the
+    // sign matters for Morlet, which is one-sided by construction.
+    let omega: Vec<f64> = (0..n)
+        .map(|k| {
+            if k <= n / 2 {
+                TAU * k as f64 / (n as f64 * dt)
+            } else {
+                -TAU * (n - k) as f64 / (n as f64 * dt)
+            }
+        })
+        .collect();
+    let n_scales = scales.len();
+    let mut data = vec![Complex64::new(0.0, 0.0); n_scales * n];
+    for (si, &s) in scales.iter().enumerate() {
+        let norm = (TAU * s / dt).sqrt();
+        let filtered: Vec<Complex64> = (0..n)
+            .map(|k| {
+                let sw = s * omega[k];
+                let psi = match wavelet {
+                    CwtWavelet::Morlet => {
+                        if omega[k] > 0.0 {
+                            let d = sw - MORLET_OMEGA0;
+                            norm * PI.powf(-0.25) * (-0.5 * d * d).exp()
+                        } else {
+                            // Analytic: no negative-frequency support.
+                            0.0
+                        }
+                    }
+                    CwtWavelet::MexicanHat => {
+                        norm * DOG2_NORM * sw * sw * (-0.5 * sw * sw).exp()
+                    }
+                };
+                spectrum[k].scale(psi)
+            })
+            .collect();
+        for (t, v) in ifft_complex(&filtered)?.into_iter().enumerate() {
+            data[si + t * n_scales] = v;
+        }
+    }
+    let freqs = scales.iter().map(|&s| cwt_scale_to_freq(wavelet, s)).collect();
+    Ok(Cwt { coef: CMatrix::from_col_major(n_scales, n, data), scales: scales.to_vec(), freqs })
+}
+
+/// The largest `n` [`wigner_ville`] will accept, as an output cell count.
+/// The WVD is `n` by `n`: a 10-second record at 44.1 kHz would be a
+/// 190-terabyte matrix, so the limit has to be stated rather than
+/// discovered by allocation failure.
+pub const WVD_MAX_CELLS: usize = 4_000_000;
+
+/// A Wigner-Ville distribution and its frequency axis.
+pub struct WignerVille {
+    /// `(n, n)` real values — row `k` is frequency `k*fs/(2n)`, column `t`
+    /// is sample `t`. Unlike a spectrogram this is *not* non-negative;
+    /// see [`wigner_ville`] on cross terms.
+    pub tfr: Matrix,
+    /// Row frequencies in Hz, spanning `0` to just under `fs/2` in `n`
+    /// steps — twice the resolution of an `n`-point FFT, which is the
+    /// point of the distribution.
+    pub freqs: Vec<f64>,
+}
+
+/// Wigner-Ville distribution: the quadratic time-frequency distribution
+/// `W(t,f) = ∫ x(t+τ/2) * conj(x(t-τ/2)) * exp(-2πi f τ) dτ`, discretized
+/// over the analytic signal (via [`hilbert`], the standard pre-step —
+/// without it a real input's positive and negative frequency halves beat
+/// against each other and paint a spurious ridge at DC). Because it uses
+/// no window at all, it achieves the finest joint time-frequency
+/// localization of any distribution here: a linear chirp comes out as a
+/// one-cell-wide line, where [`stft`] smears it to the window length.
+///
+/// **Cross terms are expected, not a bug.** The transform is quadratic in
+/// `x`, so for a two-component signal it produces not two auto-terms but
+/// four: the two real components, plus an oscillating interference term
+/// sitting exactly midway in time and frequency between every pair of
+/// components — with an amplitude up to *twice* either auto-term's. A
+/// caller looking at two tones at 50 Hz and 150 Hz will see energy at
+/// 100 Hz where the signal contains none, and regions of genuinely
+/// negative "energy" (the distribution is not a power spectrum and is not
+/// constrained to be non-negative). This is a property of the definition,
+/// documented since Wigner (1932); smoothed variants trade it away for
+/// resolution. Read this one as a high-resolution display of a
+/// *single-component* signal, or expect to reason about the ghosts.
+///
+/// Row `k` is frequency `k*fs/(2n)`: the lag `τ` is stepped in *half*
+/// samples by the `t±tau` indexing, so `n` bins span `0..fs/2` rather than
+/// `0..fs`. Rejects inputs above [`WVD_MAX_CELLS`] output cells.
+pub fn wigner_ville(x: &[f64], fs: f64) -> Result<WignerVille, NumericError> {
+    let n = x.len();
+    if n == 0 {
+        return Err(NumericError::EmptyInput("wigner_ville"));
+    }
+    if !fs.is_finite() || fs <= 0.0 {
+        return Err(NumericError::NonFiniteRange);
+    }
+    let cells = n.saturating_mul(n);
+    if cells > WVD_MAX_CELLS {
+        return Err(NumericError::ElementLimit { requested: cells, limit: WVD_MAX_CELLS });
+    }
+    let z = hilbert(x)?;
+    let half = n / 2;
+    // Column-major `(freq, time)`: cell (k, t) at t*n + k.
+    let mut data = vec![0.0; n * n];
+    let mut buf = vec![Complex64::new(0.0, 0.0); n];
+    for t in 0..n {
+        // The lag can only reach as far as both ends of the record allow,
+        // and never past half the transform length (beyond that the
+        // wrapped positive and negative lags would collide).
+        let taumax = t.min(n - 1 - t).min(half.saturating_sub(1));
+        buf.iter_mut().for_each(|c| *c = Complex64::new(0.0, 0.0));
+        for tau in 0..=taumax {
+            let k = z[t + tau].mul(z[t - tau].conj());
+            buf[tau] = k;
+            if tau > 0 {
+                // The kernel is Hermitian in τ, so the negative lags are
+                // the conjugates of the positive ones and the transform
+                // of the whole thing is real by construction.
+                buf[n - tau] = k.conj();
+            }
+        }
+        for (k, bin) in fft_complex(&buf)?.into_iter().enumerate() {
+            data[t * n + k] = bin.re;
+        }
+    }
+    Ok(WignerVille {
+        tfr: Matrix::from_col_major(n, n, data),
+        freqs: (0..n).map(|k| k as f64 * fs / (2.0 * n as f64)).collect(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2798,5 +3283,253 @@ mod tests {
         let x = [0.0, 0.0, 1.0, 1.0, 1.0];
         assert!(pulse_period(&x, 0.5, 0.0).is_none());
         assert!(mean_pulse_width(&x, 0.5, 0.0, true).is_none());
+    }
+
+    // --- advanced time-frequency (§3) -------------------------------
+    //
+    // Every test below checks WHERE the energy landed, not just that a
+    // matrix of the right shape came back: a transform that returned
+    // zeros, or that mislabelled its own frequency axis, would pass a
+    // shape assertion and fail all of these.
+
+    fn tone(fs: f64, freq: f64, n: usize) -> Vec<f64> {
+        (0..n).map(|i| (TAU * freq * i as f64 / fs).sin()).collect()
+    }
+
+    /// Linear chirp sweeping `f0` to `f1` across the whole record; the
+    /// instantaneous frequency at sample `i` is `f0 + (f1-f0)*i/(n-1)`.
+    fn chirp(fs: f64, f0: f64, f1: f64, n: usize) -> Vec<f64> {
+        let t_end = (n - 1) as f64 / fs;
+        (0..n)
+            .map(|i| {
+                let t = i as f64 / fs;
+                (TAU * (f0 * t + 0.5 * (f1 - f0) / t_end * t * t)).sin()
+            })
+            .collect()
+    }
+
+    /// Row index of the largest magnitude in column `col`.
+    fn argmax_row_c(m: &CMatrix, col: usize) -> usize {
+        (0..m.rows())
+            .max_by(|&a, &b| {
+                m.get(a, col)
+                    .unwrap()
+                    .magnitude()
+                    .total_cmp(&m.get(b, col).unwrap().magnitude())
+            })
+            .unwrap()
+    }
+
+    fn argmax_row_r(m: &Matrix, col: usize) -> usize {
+        (0..m.rows())
+            .max_by(|&a, &b| m.get(a, col).unwrap().total_cmp(&m.get(b, col).unwrap()))
+            .unwrap()
+    }
+
+    #[test]
+    fn cqt_lands_a_tone_in_the_bin_at_its_own_pitch() {
+        // 440 Hz is exactly two octaves above the 110 Hz `fmin`, so at 12
+        // bins per octave it must be bin 24 -- a number fixed by the
+        // geometric spacing, not read off the output.
+        let fs = 2000.0;
+        let x = tone(fs, 440.0, 4000);
+        let c = cqt(&x, fs, 110.0, 880.0, 12, 20).unwrap();
+        assert_eq!(c.freqs.len(), c.coef.rows());
+        close(c.freqs[24], 440.0, 1e-9);
+        let mid = c.coef.cols() / 2;
+        assert_eq!(argmax_row_c(&c.coef, mid), 24);
+        // And the peak stands clear of the noise floor two bins away
+        // (adjacent bins overlap by design -- one bandwidth apart).
+        let peak = c.coef.get(24, mid).unwrap().magnitude();
+        let away = c.coef.get(18, mid).unwrap().magnitude();
+        assert!(peak > 10.0 * away, "peak {peak} vs {away} six bins away");
+    }
+
+    #[test]
+    fn cqt_bins_are_geometric_and_share_one_q() {
+        let fs = 4000.0;
+        let x = tone(fs, 200.0, 8000);
+        let c = cqt(&x, fs, 100.0, 800.0, 12, 50).unwrap();
+        // One octave up is 12 bins along, at every pitch -- the defining
+        // property, and what separates this from `stft`'s linear grid.
+        for k in 0..c.freqs.len() - 12 {
+            close(c.freqs[k + 12] / c.freqs[k], 2.0, 1e-9);
+        }
+        assert_eq!(argmax_row_c(&c.coef, c.coef.cols() / 2), 12);
+    }
+
+    #[test]
+    fn cqt_refuses_a_record_too_short_for_its_lowest_bin() {
+        // Q*fs/fmin is ~1682 samples here; 500 cannot hold one window.
+        let x = tone(1000.0, 100.0, 500);
+        assert!(cqt(&x, 1000.0, 10.0, 400.0, 12, 10).is_err());
+    }
+
+    #[test]
+    fn mel_spectrogram_puts_a_tone_in_the_band_that_covers_it() {
+        let fs = 8000.0;
+        let x = tone(fs, 1000.0, 8000);
+        let m = mel_spectrogram(&x, fs, 40, 0.0, 4000.0, 512, 256).unwrap();
+        assert_eq!(m.power.rows(), 40);
+        assert_eq!(m.freqs.len(), 40);
+        let mid = m.power.cols() / 2;
+        let peak = argmax_row_r(&m.power, mid);
+        // The winning band's centre must actually sit near 1 kHz. Band
+        // spacing up here is ~150 Hz, so one band of slack.
+        assert!(
+            (m.freqs[peak] - 1000.0).abs() < 160.0,
+            "peak band centre {} Hz, expected ~1000",
+            m.freqs[peak]
+        );
+        // Bands well away from the tone hold essentially nothing.
+        let far = m.power.get(2, mid).unwrap();
+        assert!(far < 1e-3 * m.power.get(peak, mid).unwrap(), "leakage {far} into a low band");
+    }
+
+    #[test]
+    fn mel_bands_crowd_the_low_frequencies() {
+        // The whole point of the scale: the first bands are narrow, the
+        // last are wide. Equal spacing would fail this.
+        let m = mel_spectrogram(&tone(8000.0, 500.0, 4000), 8000.0, 20, 0.0, 4000.0, 256, 128)
+            .unwrap();
+        let first_gap = m.freqs[1] - m.freqs[0];
+        let last_gap = m.freqs[19] - m.freqs[18];
+        assert!(last_gap > 2.0 * first_gap, "gaps {first_gap} then {last_gap}");
+    }
+
+    #[test]
+    fn mel_scale_round_trips() {
+        for f in [0.0, 100.0, 700.0, 1000.0, 4000.0, 20000.0] {
+            close(mel_to_hz(hz_to_mel(f)), f, 1e-9);
+        }
+        // The 2595 constant exists to anchor the scale at 1 kHz -- the
+        // definition's one fixed point, and the quickest way to catch a
+        // transcribed-wrong coefficient.
+        close(hz_to_mel(1000.0), 1000.0, 0.2);
+        // Near-linear at the bottom (doubling Hz nearly doubles mel),
+        // strongly compressive at the top -- the shape that makes it a
+        // perceptual scale rather than a plain log one.
+        let low = hz_to_mel(200.0) / hz_to_mel(100.0);
+        let high = hz_to_mel(8000.0) / hz_to_mel(4000.0);
+        assert!(low > 1.85, "doubling 100->200 Hz moved mel by only {low}x");
+        assert!(high < 1.4, "doubling 4->8 kHz moved mel by {high}x");
+        assert!(low > high);
+    }
+
+    #[test]
+    fn cwt_morlet_follows_a_chirp_up_the_scale_ladder() {
+        let fs = 1000.0;
+        let n = 2000;
+        let x = chirp(fs, 50.0, 200.0, n);
+        // Scales chosen to cover 25..400 Hz, so the answer is free to be
+        // wrong in either direction (the sweep sits inside the range).
+        let scales: Vec<f64> = (0..48)
+            .map(|i| {
+                let f = 25.0 * (400f64 / 25.0).powf(i as f64 / 47.0);
+                (MORLET_OMEGA0 + (2.0 + MORLET_OMEGA0 * MORLET_OMEGA0).sqrt()) / (4.0 * PI * f)
+            })
+            .collect();
+        let w = cwt(&x, fs, CwtWavelet::Morlet, &scales).unwrap();
+        assert_eq!(w.coef.shape(), (48, n));
+        for (frac, expected) in [(0.25, 87.5), (0.5, 125.0), (0.75, 162.5)] {
+            let t = (frac * (n - 1) as f64) as usize;
+            let got = w.freqs[argmax_row_c(&w.coef, t)];
+            assert!(
+                (got - expected).abs() < 0.12 * expected,
+                "at t={frac} of the record the ridge sits at {got} Hz, expected ~{expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn cwt_default_scales_run_fine_to_coarse_and_map_to_descending_hz() {
+        let w = cwt(&tone(500.0, 60.0, 1024), 500.0, CwtWavelet::Morlet, &[]).unwrap();
+        assert!(w.scales.len() > 8);
+        assert!(w.scales.windows(2).all(|p| p[1] > p[0]), "scales must increase");
+        assert!(w.freqs.windows(2).all(|p| p[1] < p[0]), "frequency must fall as scale grows");
+        // The tone is found at the row whose labelled frequency is 60 Hz.
+        let got = w.freqs[argmax_row_c(&w.coef, 512)];
+        assert!((got - 60.0).abs() < 0.15 * 60.0, "ridge at {got} Hz, expected ~60");
+    }
+
+    #[test]
+    fn cwt_mexican_hat_is_real_and_morlet_is_not() {
+        let x = chirp(1000.0, 40.0, 120.0, 1024);
+        let scales: Vec<f64> = (0..12).map(|i| 0.002 * 1.3f64.powi(i)).collect();
+        let mexh = cwt(&x, 1000.0, CwtWavelet::MexicanHat, &scales).unwrap();
+        let morlet = cwt(&x, 1000.0, CwtWavelet::Morlet, &scales).unwrap();
+        let mexh_im: f64 =
+            mexh.coef.as_slice().iter().map(|c| c.im.abs()).fold(0.0, f64::max);
+        let morlet_im: f64 =
+            morlet.coef.as_slice().iter().map(|c| c.im.abs()).fold(0.0, f64::max);
+        assert!(mexh_im < 1e-9, "mexican hat should be real, largest |im| was {mexh_im}");
+        assert!(morlet_im > 1e-3, "morlet should be analytic, largest |im| was {morlet_im}");
+        // Same scale, different wavelet, different centre frequency.
+        assert!(cwt_scale_to_freq(CwtWavelet::Morlet, 0.01) > cwt_scale_to_freq(CwtWavelet::MexicanHat, 0.01));
+    }
+
+    #[test]
+    fn wigner_ville_puts_a_tone_on_its_own_frequency_row() {
+        let fs = 1000.0;
+        let n = 256;
+        let x = tone(fs, 125.0, n);
+        let w = wigner_ville(&x, fs).unwrap();
+        assert_eq!(w.tfr.shape(), (n, n));
+        // Row k is k*fs/(2n) Hz, so 125 Hz is row 64 exactly.
+        close(w.freqs[64], 125.0, 1e-9);
+        // Sampled away from the edges, where the lag window is widest.
+        for t in [96, 128, 160] {
+            assert_eq!(argmax_row_r(&w.tfr, t), 64, "column {t} peaked on the wrong row");
+        }
+    }
+
+    #[test]
+    fn wigner_ville_tracks_a_chirp_that_stft_would_smear() {
+        let fs = 1000.0;
+        let n = 512;
+        let x = chirp(fs, 100.0, 300.0, n);
+        let w = wigner_ville(&x, fs).unwrap();
+        for frac in [0.35, 0.5, 0.65] {
+            let t = (frac * (n - 1) as f64) as usize;
+            let expected = 100.0 + 200.0 * t as f64 / (n - 1) as f64;
+            let got = w.freqs[argmax_row_r(&w.tfr, t)];
+            assert!(
+                (got - expected).abs() < 6.0,
+                "at column {t} the ridge is at {got} Hz, expected ~{expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn wigner_ville_shows_the_documented_cross_term_between_two_tones() {
+        // Not a bug being tolerated -- a property being pinned down, so
+        // that a future "cleanup" that quietly smooths it away fails here
+        // rather than silently changing what the builtin computes.
+        let fs = 1000.0;
+        let n = 256;
+        let x: Vec<f64> = (0..n)
+            .map(|i| {
+                let t = i as f64 / fs;
+                (TAU * 100.0 * t).sin() + (TAU * 200.0 * t).sin()
+            })
+            .collect();
+        let w = wigner_ville(&x, fs).unwrap();
+        let row_of = |hz: f64| (hz * 2.0 * n as f64 / fs).round() as usize;
+        let t = n / 2;
+        let auto_lo = w.tfr.get(row_of(100.0), t).unwrap();
+        let ghost = w.tfr.get(row_of(150.0), t).unwrap().abs();
+        // The interference term sits midway between the two components
+        // and is comparable to them in size.
+        assert!(ghost > 0.5 * auto_lo.abs(), "cross term {ghost} vs auto term {auto_lo}");
+        // ...and the surface genuinely goes negative somewhere, which no
+        // power spectrogram ever does.
+        assert!(w.tfr.as_slice().iter().any(|&v| v < -1e-6));
+    }
+
+    #[test]
+    fn wigner_ville_refuses_a_record_whose_square_will_not_fit() {
+        let x = vec![0.0; 3000];
+        assert!(wigner_ville(&x, 1000.0).is_err());
+        assert!(wigner_ville(&[], 1000.0).is_err());
     }
 }

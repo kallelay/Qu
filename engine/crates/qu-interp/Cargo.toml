@@ -213,6 +213,43 @@ serialport = "4"
 # "keep the default build free of this" reason to hide it behind a flag.
 quick-xml = "0.42"
 
+# JPEG read/write for `load_image`/`save_image` (2026-09-23). Before this
+# pass those two builtins handled exactly two formats -- PNG and BMP, both
+# hand-rolled in `src/image.rs` -- and refused everything else by name
+# ("expected a PNG or a BMP"). JPEG is the single most common format a
+# person actually has on disk, so it was the conspicuous gap.
+#
+# Two crates rather than one, and NOT the omnibus `image` crate: `image`
+# would pull a large transitive tree (and its own competing `ImageBuffer`
+# type) to solve one format, when `Image` here is already a fixed
+# 8-bit-RGB, no-alpha buffer that needs nothing `image` provides. These two
+# are the format-specific libraries `image` itself delegates JPEG to.
+#
+# Per IMPL.md §7 ("call vendor libraries for a real FORMAT, don't hand-roll
+# it"): baseline+progressive JPEG is exactly the class of format that
+# policy exists for -- Huffman tables, the DCT, chroma subsampling and the
+# progressive scan-interleaving rules are not the PNG/BMP situation, where
+# the expensive part (DEFLATE, in `inflate.rs`) was already written for
+# `.mat` files and only chunk parsing was left.
+#
+# `default-features = false` on `jpeg-decoder` deliberately: its default
+# `rayon` feature spawns a thread pool for decoding, which `qu-wasm`
+# (wasm32, no OS threads) cannot link -- the same portability bar every
+# other always-on dependency in this file already has to clear. Decoding is
+# single-threaded as a result; that is the right trade for a builtin that
+# opens one file at a time.
+jpeg-decoder = { version = "0.3", default-features = false }
+# Encoder side. `simd` is off by default (and left off) so the build stays
+# free of `unsafe` intrinsics and identical across targets.
+jpeg-encoder = "0.7"
+# TIFF read/write for the same two builtins, same pass and same §7
+# reasoning: a real format with real complexity (IFD tag tables, strip vs
+# tile layout, several compression schemes, endian-flexible headers) that
+# should come from a library. Pure Rust, no system library -- its default
+# features (`deflate`/`lzw`/`fax`/`jpeg`) are all pure-Rust codec crates,
+# and `webp`/`zstd` stay off.
+tiff = "0.11"
+
 # Optional, default-off. Unlike `gpu`/`tch`/`h5-models` above this needs no
 # system library, no toolchain and no build-time download -- `calamine` and
 # `rust_xlsxwriter` are pure Rust -- so it is off only because a module
@@ -223,6 +260,17 @@ quick-xml = "0.42"
 qu-xlsx = { path = "../qu-xlsx", optional = true }
 qu-codec = { path = "../qu-codec", optional = true }
 # Optional, default-off, same "a module should be something a script asks
+# for by name (`import pdf`), not something every build pays for" call as
+# `qu-xlsx`/`qu-codec` just above -- and, like them, off because it is a
+# module rather than because it is expensive: `lopdf` is pure Rust with no
+# system library and no build script, so the default build pays a compile
+# and nothing else. See `qu-pdf`'s own Cargo.toml for why `lopdf` and not
+# one of the PDFium/MuPDF-backed crates `docs/design/toolkit-pdf.md` also
+# lists, and its lib.rs doc comment for which half of that roadmap this
+# covers (structure: page counts, metadata, merge, page extraction) and
+# which half it deliberately does not (rendering, OCR, forms, redaction).
+qu-pdf = { path = "../qu-pdf", optional = true }
+# Optional, default-off, same "a module should be something a script asks
 # for by name (`import image`), not something every build pays for" call as
 # `qu-xlsx` just above. Pure Rust over the plain pixel/label types the
 # interpreter's own `Value::Image`/`Value::Mat` already convert to and from
@@ -232,6 +280,7 @@ qu-image = { path = "../qu-image", optional = true }
 [features]
 xlsx = ["dep:qu-xlsx"]
 codec = ["dep:qu-codec"]
+pdf = ["dep:qu-pdf"]
 image = ["dep:qu-image"]
 gpu = ["dep:qu-gpu"]
 backend-torch = ["dep:tch"]

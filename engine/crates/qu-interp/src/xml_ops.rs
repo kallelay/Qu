@@ -510,6 +510,7 @@ fn value_to_xml_node(v: &Value) -> R<XmlNode> {
         Value::Image(_) => e("xmlify: an image isn't supported by xmlify() — use save_image(path, img) instead")?,
         Value::Timer(_) => e("xmlify: a timer can't be converted to XML (it's live stopwatch state, not data)")?,
         Value::File(_) => e("xmlify: a file handle can't be converted to XML (it's a live OS file reference, not data)")?,
+        Value::Process(_) => e("xmlify: a process handle can't be converted to XML (it's a live OS process reference, not data)")?,
         Value::Mmap(_) => e("xmlify: a memory-mapped file handle can't be converted to XML (it's a live OS mapping, not data)")?,
         Value::Lazy(_) => e("xmlify: a lazy variable that hasn't been read yet has no value to convert — read it at least once first")?,
         Value::UrlStream(_) => e("xmlify: a URL stream handle can't be converted to XML (it's a live, position-tracking handle, not data)")?,

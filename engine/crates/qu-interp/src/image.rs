@@ -1164,8 +1164,150 @@ mod tests {
         let bmp = decode(&encode_bmp(img.width, img.height, &img.pixels)).unwrap();
         assert_eq!(bmp.get_pixel(1, 1), (10, 20, 30));
 
+        // TIFF is lossless, so it joins the exact-pixel assertions above.
+        // JPEG is checked separately below, where the loss is measured
+        // rather than asserted away.
+        let tiff = decode(&encode_tiff(img.width, img.height, &img.pixels).unwrap()).unwrap();
+        assert_eq!(tiff.get_pixel(1, 1), (10, 20, 30));
+
+        let jpeg = decode(&encode_jpeg(img.width, img.height, &img.pixels, 90).unwrap()).unwrap();
+        assert_eq!((jpeg.width, jpeg.height), (3, 2));
+
         let err = decode(b"not an image at all").unwrap_err();
-        assert!(err.contains("PNG or a BMP"), "got {err}");
+        assert!(err.contains("PNG, a BMP, a JPEG or a TIFF"), "got {err}");
+    }
+
+    /// The four formats are told apart by their magic bytes alone, which
+    /// is what `decode` actually dispatches on.
+    #[test]
+    fn jpeg_and_tiff_are_sniffed_from_their_magic_bytes() {
+        let img = Image::filled(8, 8, (200, 100, 50));
+        let jpeg = encode_jpeg(8, 8, &img.pixels, 90).unwrap();
+        assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF], "bad JPEG SOI marker");
+        assert!(is_jpeg(&jpeg));
+        assert!(!is_tiff(&jpeg));
+
+        let tif = encode_tiff(8, 8, &img.pixels).unwrap();
+        // `tiff`'s encoder writes little-endian, so `II` + magic 42.
+        assert_eq!(&tif[0..4], b"II\x2A\x00", "bad TIFF header");
+        assert!(is_tiff(&tif));
+        assert!(!is_jpeg(&tif));
+
+        // Big-endian TIFF is recognised too, even though we never write it.
+        assert!(is_tiff(b"MM\x00\x2A\x00\x00\x00\x08"));
+    }
+
+    /// JPEG is LOSSY. This test exists to state that honestly and to
+    /// MEASURE it, not to assert a bound somebody guessed: it prints the
+    /// real RMS error of a round trip on a non-trivial gradient image and
+    /// only then checks it is in a sane range.
+    ///
+    /// The lower bound matters as much as the upper one -- an RMS of
+    /// exactly 0 would mean the encoder had silently become lossless (or,
+    /// far more likely, that the test was comparing something against
+    /// itself and proving nothing).
+    #[test]
+    fn jpeg_round_trip_is_close_but_not_exact() {
+        // A gradient with a hard edge down the middle: smooth enough that
+        // JPEG does well, but with the high-frequency content that makes
+        // the loss real and measurable.
+        let (w, h) = (64usize, 48usize);
+        let mut pixels = Vec::with_capacity(w * h * 3);
+        for y in 0..h {
+            for x in 0..w {
+                let edge = if x > w / 2 { 60u8 } else { 0u8 };
+                pixels.push(((x * 255) / w) as u8);
+                pixels.push(((y * 255) / h) as u8);
+                pixels.push(128u8.saturating_add(edge));
+            }
+        }
+        let original = Image::new(w, h, pixels).unwrap();
+
+        let bytes = encode_jpeg(w, h, &original.pixels, 90).unwrap();
+        let back = decode(&bytes).unwrap();
+        assert_eq!((back.width, back.height), (w, h));
+
+        let sq: f64 = original
+            .pixels
+            .iter()
+            .zip(back.pixels.iter())
+            .map(|(a, b)| {
+                let d = *a as f64 - *b as f64;
+                d * d
+            })
+            .sum();
+        let rms = (sq / original.pixels.len() as f64).sqrt();
+        println!("JPEG q90 round-trip RMS error: {rms:.3} levels (out of 255)");
+
+        assert!(rms > 0.0, "a JPEG round trip came back bit-identical -- the encoder is not doing what this test documents");
+        assert!(rms < 12.0, "JPEG q90 round-trip RMS was {rms}, far worse than expected");
+
+        // Higher quality must not be WORSE. This is the property a
+        // `quality=` argument has to actually have to be worth exposing.
+        let hi = decode(&encode_jpeg(w, h, &original.pixels, 100).unwrap()).unwrap();
+        let sq_hi: f64 = original
+            .pixels
+            .iter()
+            .zip(hi.pixels.iter())
+            .map(|(a, b)| {
+                let d = *a as f64 - *b as f64;
+                d * d
+            })
+            .sum();
+        let rms_hi = (sq_hi / original.pixels.len() as f64).sqrt();
+        println!("JPEG q100 round-trip RMS error: {rms_hi:.3} levels");
+        assert!(rms_hi <= rms, "q100 ({rms_hi}) was worse than q90 ({rms})");
+    }
+
+    /// TIFF, as this module writes it, is lossless -- so unlike JPEG its
+    /// round trip IS pixel-exact, and that difference is worth pinning.
+    #[test]
+    fn tiff_round_trip_is_pixel_exact() {
+        let (w, h) = (17usize, 5usize); // deliberately not a round number
+        let mut pixels = Vec::with_capacity(w * h * 3);
+        for i in 0..(w * h) {
+            pixels.push((i % 256) as u8);
+            pixels.push(((i * 7) % 256) as u8);
+            pixels.push(((i * 31) % 256) as u8);
+        }
+        let original = Image::new(w, h, pixels).unwrap();
+        let back = decode(&encode_tiff(w, h, &original.pixels).unwrap()).unwrap();
+        assert_eq!((back.width, back.height), (w, h));
+        assert_eq!(back.pixels, original.pixels, "TIFF round trip lost pixels");
+    }
+
+    /// A grayscale JPEG loads as R=G=B rather than erroring, matching the
+    /// convention `to_grayscale`/`image_from_matrix` already use.
+    #[test]
+    fn a_grayscale_jpeg_loads_as_rgb() {
+        // Encode a grayscale source through the RGB path (R=G=B in, so the
+        // encoder's own colour transform leaves it grey) and confirm the
+        // decode keeps all three channels equal.
+        let (w, h) = (16usize, 16usize);
+        let mut pixels = Vec::with_capacity(w * h * 3);
+        for i in 0..(w * h) {
+            let v = ((i * 255) / (w * h)) as u8;
+            pixels.extend_from_slice(&[v, v, v]);
+        }
+        let bytes = encode_jpeg(w, h, &pixels, 95).unwrap();
+        let back = decode(&bytes).unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let (r, g, b) = back.get_pixel(x, y);
+                assert!(
+                    r.abs_diff(g) <= 2 && g.abs_diff(b) <= 2,
+                    "grey pixel came back coloured at ({x},{y}): {r},{g},{b}"
+                );
+            }
+        }
+    }
+
+    /// The format's own 16-bit dimension limit is reported as a limit,
+    /// not as a panic or a corrupt file.
+    #[test]
+    fn an_oversized_jpeg_is_refused_with_a_reason() {
+        let err = encode_jpeg(70_000, 1, &[], 90).unwrap_err();
+        assert!(err.contains("65535"), "got {err}");
     }
 
     /// Interlaced PNGs are refused by name rather than decoded wrongly.
@@ -2093,13 +2235,242 @@ pub fn decode(bytes: &[u8]) -> Result<Image, String> {
         decode_png(bytes)
     } else if bytes.starts_with(b"BM") {
         decode_bmp(bytes)
+    } else if is_jpeg(bytes) {
+        decode_jpeg(bytes)
+    } else if is_tiff(bytes) {
+        decode_tiff(bytes)
     } else {
         Err(format!(
-            "not an image this build can read -- expected a PNG or a BMP, and the file \
-             begins {:02x?}",
+            "not an image this build can read -- expected a PNG, a BMP, a JPEG or a TIFF, \
+             and the file begins {:02x?}",
             &bytes[..bytes.len().min(4)]
         ))
     }
+}
+
+// ── JPEG and TIFF ──────────────────────────────────────────────────────
+//
+// Unlike PNG and BMP above, these two are NOT hand-rolled. IMPL.md §7 --
+// "call vendor libraries for a real FORMAT, don't hand-roll it" -- and
+// both are squarely that: JPEG is Huffman tables, the DCT, chroma
+// subsampling and progressive scan interleaving; TIFF is an IFD tag
+// database with strip/tile layouts and half a dozen compression schemes.
+// PNG and BMP are hand-rolled here only because the expensive part
+// (DEFLATE, in `inflate.rs`) already existed for `.mat` files.
+//
+// **JPEG is lossy.** A `save_image` to `.jpg` followed by `load_image`
+// does NOT return the pixels that went in, and nothing in this module
+// pretends otherwise -- see `jpeg_round_trip_is_close_but_not_exact` in
+// the tests below, which measures the actual RMS error rather than
+// asserting a bound nobody checked. TIFF as written here is lossless
+// (uncompressed RGB8 strips), so its round trip IS pixel-exact, and that
+// is tested separately.
+
+/// JPEG's SOI marker, followed by the first byte of the next marker.
+///
+/// `FF D8 FF` rather than just `FF D8`: every real JPEG begins with a
+/// marker segment immediately after SOI, and the third byte keeps a
+/// two-byte coincidence in some other format's header from being handed
+/// to the JPEG decoder.
+fn is_jpeg(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+}
+
+/// TIFF's byte-order mark plus its magic number, in both endiannesses.
+///
+/// `II` is little-endian and `MM` big-endian (Intel/Motorola); the magic
+/// is 42 either way. BigTIFF (magic 43) is matched here too so it reaches
+/// the decoder and gets that crate's own error rather than this module's
+/// generic "not an image" -- which would be the wrong message for a file
+/// that genuinely is a TIFF.
+fn is_tiff(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"II\x2A\x00")
+        || bytes.starts_with(b"MM\x00\x2A")
+        || bytes.starts_with(b"II\x2B\x00")
+        || bytes.starts_with(b"MM\x00\x2B")
+}
+
+/// Decode a baseline or progressive JPEG into RGB.
+///
+/// Grayscale JPEGs are widened to R=G=B, the same convention
+/// `to_grayscale`/`image_from_matrix` already use, so a grayscale photo
+/// loads as an ordinary `Image` rather than erroring.
+///
+/// 16-bit and CMYK JPEGs are refused BY NAME rather than converted. CMYK
+/// in particular carries an Adobe APP14 transform flag whose inverted/
+/// non-inverted convention is easy to get backwards, and a silently
+/// colour-inverted photo is exactly the "worse than an error" outcome
+/// `decode_bmp` above refuses for the same reason.
+pub fn decode_jpeg(bytes: &[u8]) -> Result<Image, String> {
+    use jpeg_decoder::PixelFormat;
+    let mut decoder = jpeg_decoder::Decoder::new(bytes);
+    let data = decoder.decode().map_err(|err| format!("could not decode this JPEG: {err}"))?;
+    let info = decoder
+        .info()
+        .ok_or_else(|| "this JPEG decoded but carried no frame header".to_string())?;
+    let (width, height) = (info.width as usize, info.height as usize);
+    if width == 0 || height == 0 {
+        return Err(format!("invalid JPEG dimensions {width}x{height}"));
+    }
+    let pixels = match info.pixel_format {
+        PixelFormat::RGB24 => data,
+        PixelFormat::L8 => {
+            let mut rgb = Vec::with_capacity(width * height * 3);
+            for luma in data {
+                rgb.push(luma);
+                rgb.push(luma);
+                rgb.push(luma);
+            }
+            rgb
+        }
+        PixelFormat::L16 => {
+            return Err(
+                "unsupported JPEG: 16-bit grayscale, which this build does not convert \
+                 (Image is 8-bit RGB)"
+                    .to_string(),
+            )
+        }
+        PixelFormat::CMYK32 => {
+            return Err(
+                "unsupported JPEG: CMYK, which this build refuses rather than guess at \
+                 the Adobe inversion convention and hand back colour-inverted pixels"
+                    .to_string(),
+            )
+        }
+    };
+    Image::new(width, height, pixels)
+}
+
+/// Encode RGB as a baseline JPEG at the given quality (1-100).
+///
+/// Lossy: the bytes this produces do not decode back to `rgb`. Quality
+/// 90 is `save_image`'s default -- visually near-transparent on
+/// photographs while still a large size win over PNG.
+pub fn encode_jpeg(width: usize, height: usize, rgb: &[u8], quality: u8) -> Result<Vec<u8>, String> {
+    use jpeg_encoder::{ColorType, Encoder};
+    // JPEG stores each dimension in 16 bits in its SOF header, so this is
+    // a hard format limit, not an arbitrary cap.
+    if width == 0 || height == 0 || width > u16::MAX as usize || height > u16::MAX as usize {
+        return Err(format!(
+            "cannot write a {width}x{height} image as JPEG: the format stores each \
+             dimension in 16 bits, so both must be between 1 and 65535"
+        ));
+    }
+    let quality = quality.clamp(1, 100);
+    let mut out: Vec<u8> = Vec::new();
+    let encoder = Encoder::new(&mut out, quality);
+    encoder
+        .encode(rgb, width as u16, height as u16, ColorType::Rgb)
+        .map_err(|err| format!("could not encode this image as JPEG: {err}"))?;
+    Ok(out)
+}
+
+/// Decode a TIFF into RGB.
+///
+/// Handles the 8- and 16-bit grayscale/RGB/RGBA shapes that cover
+/// essentially every TIFF a measurement or microscopy tool writes.
+/// 16-bit samples are scaled down to 8 (`>> 8`) because `Image` is 8-bit;
+/// alpha is composited onto white, matching what `decode_png` already
+/// does for the same reason. Anything else -- CMYK, YCbCr, palette,
+/// floating-point samples -- is refused by name rather than guessed at.
+pub fn decode_tiff(bytes: &[u8]) -> Result<Image, String> {
+    use tiff::decoder::{Decoder, DecodingResult};
+    use tiff::ColorType;
+
+    let mut decoder = Decoder::new(std::io::Cursor::new(bytes))
+        .map_err(|err| format!("could not read this TIFF: {err}"))?;
+    let (w, h) = decoder.dimensions().map_err(|err| format!("could not read this TIFF's dimensions: {err}"))?;
+    let (width, height) = (w as usize, h as usize);
+    if width == 0 || height == 0 {
+        return Err(format!("invalid TIFF dimensions {width}x{height}"));
+    }
+    let color = decoder.colortype().map_err(|err| format!("could not read this TIFF's colour type: {err}"))?;
+    let image = decoder.read_image().map_err(|err| format!("could not decode this TIFF: {err}"))?;
+
+    // Normalise whatever sample width the file used down to 8-bit.
+    let samples: Vec<u8> = match image {
+        DecodingResult::U8(v) => v,
+        DecodingResult::U16(v) => v.into_iter().map(|s| (s >> 8) as u8).collect(),
+        other => {
+            return Err(format!(
+                "unsupported TIFF: this build reads 8- and 16-bit integer samples, and this \
+                 file stores {}",
+                match other {
+                    DecodingResult::F32(_) => "32-bit floats",
+                    DecodingResult::F64(_) => "64-bit floats",
+                    DecodingResult::U32(_) => "32-bit integers",
+                    DecodingResult::U64(_) => "64-bit integers",
+                    _ => "a sample type",
+                }
+            ))
+        }
+    };
+
+    let channels = match color {
+        ColorType::Gray(_) => 1,
+        ColorType::GrayA(_) => 2,
+        ColorType::RGB(_) => 3,
+        ColorType::RGBA(_) => 4,
+        other => {
+            return Err(format!(
+                "unsupported TIFF colour type {other:?}: this build reads grayscale, \
+                 grayscale+alpha, RGB and RGBA"
+            ))
+        }
+    };
+    let expected = width * height * channels;
+    if samples.len() < expected {
+        return Err(format!(
+            "TIFF pixel data is short: expected {expected} samples for a {width}x{height} \
+             image with {channels} channel(s), got {}",
+            samples.len()
+        ));
+    }
+
+    let mut pixels = Vec::with_capacity(width * height * 3);
+    for px in samples[..expected].chunks_exact(channels) {
+        // Alpha composites onto WHITE, the same call `decode_png` makes:
+        // `Image` has three channels, and dropping alpha outright would
+        // turn a transparent background black instead of white.
+        let (r, g, b, a) = match channels {
+            1 => (px[0], px[0], px[0], 255u8),
+            2 => (px[0], px[0], px[0], px[1]),
+            3 => (px[0], px[1], px[2], 255u8),
+            _ => (px[0], px[1], px[2], px[3]),
+        };
+        if a == 255 {
+            pixels.extend_from_slice(&[r, g, b]);
+        } else {
+            let over = |c: u8| -> u8 {
+                let c = c as u32 * a as u32 + 255 * (255 - a as u32);
+                (c / 255) as u8
+            };
+            pixels.extend_from_slice(&[over(r), over(g), over(b)]);
+        }
+    }
+    Image::new(width, height, pixels)
+}
+
+/// Encode RGB as an uncompressed 8-bit RGB TIFF.
+///
+/// Lossless, so `save_image`/`load_image` through `.tif` IS pixel-exact
+/// (tested). Uncompressed rather than LZW/DEFLATE: the file is bigger,
+/// but it is the shape every TIFF reader in existence handles, and
+/// `save_image` already has PNG for when size matters.
+pub fn encode_tiff(width: usize, height: usize, rgb: &[u8]) -> Result<Vec<u8>, String> {
+    use tiff::encoder::{colortype, TiffEncoder};
+    if width == 0 || height == 0 {
+        return Err(format!("cannot write a {width}x{height} image as TIFF"));
+    }
+    let mut buf = std::io::Cursor::new(Vec::new());
+    {
+        let mut encoder =
+            TiffEncoder::new(&mut buf).map_err(|err| format!("could not start a TIFF: {err}"))?;
+        encoder
+            .write_image::<colortype::RGB8>(width as u32, height as u32, rgb)
+            .map_err(|err| format!("could not encode this image as TIFF: {err}"))?;
+    }
+    Ok(buf.into_inner())
 }
 
 /// Paeth's predictor, the fifth PNG row filter.

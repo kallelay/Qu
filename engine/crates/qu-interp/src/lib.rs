@@ -219,6 +219,15 @@ pub mod serial_ops;
 /// reasoning as `fs_ops`/`net_ops`/`serial_ops` above.
 pub mod xml_ops;
 
+/// Basic SVG vector I/O — `save_svg`/`load_svg` plus the `svg.*` shape
+/// constructors. Named `svg_io`, not `svg`, because the module NAMESPACE a
+/// script sees is `svg` and a Rust module of the same name sitting beside
+/// `plotting`'s own SVG rendering would read as "the SVG code", which it
+/// is not: `plotting::render_svg` renders FIGURES to SVG and is untouched
+/// by this. Own module, same "minimize collision with concurrent work on
+/// this file" reasoning as `xml_ops` above.
+pub mod svg_io;
+
 /// Job queue / worker pool (§47.3, 2026-08-26) — `queue()` + `.push` +
 /// `pool ... end pool` / `pool(n)` + `run <queue> on <pool>`. Kept in its
 /// own module rather than folded into this file's already-large builtin
@@ -719,6 +728,23 @@ pub enum Value {
     /// on every read/write. See `FileHandleState`'s own doc comment for the
     /// representation.
     File(Arc<StdMutex<FileHandleState>>),
+    /// `process_spawn(program, [args], ...)` (§ async/monitored process
+    /// primitive, 2026-09-23 — a follow-up to the bash/shell toolkit audit
+    /// that found the gap: `exec` blocks until the program exits, `shell`
+    /// never waits but also never lets a script read a single byte back
+    /// (its pipes are null-redirected on purpose — see `proc_ops.rs`'s own
+    /// module doc comment). Neither lets a script launch something and
+    /// then check on it incrementally, which is the whole job here.
+    /// Genuinely mutable across calls in the same way `Value::File` is —
+    /// `process_poll`/`process_read`/`process_read_stderr` all advance
+    /// live cursors into buffers two background reader threads keep
+    /// filling, and the process itself transitions from running to exited
+    /// — so this follows `Value::File`'s exact `Arc<StdMutex<...>>`
+    /// "shared handle to live internal state" shape rather than
+    /// `Value::Model`'s immutable-named-fields one, which has no interior
+    /// mutability and can't represent that. See `ProcessHandleState`'s own
+    /// doc comment (`proc_ops.rs`) for the representation.
+    Process(Arc<StdMutex<proc_ops::ProcessHandleState>>),
     /// `mmap_open(path)` (§ memory-mapped file access, 2026-08-31) — a
     /// read-only memory mapping of a file's bytes, for random access to a
     /// large file without loading it into a `Vec` up front the way `fopen`'s
@@ -2118,6 +2144,7 @@ impl Value {
             Value::Image(_) => "image",
             Value::Timer(_) => "timer",
             Value::File(_) => "file",
+            Value::Process(_) => "process",
             Value::Mmap(_) => "mmap",
             Value::Lazy(_) => "lazy",
             Value::UrlStream(_) => "stream",
@@ -3310,6 +3337,11 @@ pub fn display_value(v: &Value) -> String {
             let status = if st.closed { "closed" } else { "open" };
             format!("file(\"{}\", \"{}\", {status})", st.path, st.mode_str)
         }
+        Value::Process(p) => {
+            let st = p.lock().unwrap();
+            let status = if st.exit_status().is_some() { "exited" } else { "running" };
+            format!("process(\"{}\", pid={}, {status})", st.program(), st.pid())
+        }
         Value::Mmap(m) => format!("mmap(\"{}\", {} bytes)", m.path, m.mmap.len()),
         // Only ever observed here via a raw `global_bindings()`/`:vars`
         // REPL listing (or `save`, see its own arm below) — every ordinary
@@ -3926,7 +3958,9 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
+    ("pdf", &["extract_pages", "extract_text", "info", "merge", "page_count", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop"]),
+    ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -13590,6 +13624,173 @@ impl Interp {
         }
     }
 
+    /// `import pdf` dispatch — see `qu_pdf`'s own module doc comment for
+    /// what this covers (PDF *structure*) and, more importantly, what it
+    /// does not: rendering, OCR, forms and redaction all need a native
+    /// library, and `pdf.extract_text` is a reconstruction rather than a
+    /// read. That crate has no dependency on `Value` at all, so every
+    /// conversion between `Value::Str`/`Value::Vec` and its plain
+    /// `&[u8]`/`String`/`PdfInfo` lives here, the same split `xlsx_call`
+    /// and `codec_call` keep against their own crates.
+    ///
+    /// The six names divide by DESTINATION, exactly as `codec`'s
+    /// `write_wav`/`encode_wav` pair does: `merge`/`extract_pages` build a
+    /// new PDF and hand back its bytes, `write_merge`/`write_pages` build
+    /// the same PDF and write it to a path. Two names rather than an
+    /// `out =` kwarg because a function whose return TYPE depends on
+    /// whether a keyword was passed is the kind of thing a script gets
+    /// wrong once and never notices -- and because the sandbox has to be
+    /// able to deny the writing form by name, which it does.
+    #[cfg(feature = "pdf")]
+    fn pdf_call(&mut self, f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
+        let short = f.rsplit("::").next().unwrap_or(f);
+        match f {
+            "pdf::info" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let info = qu_pdf::info(&bytes).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                // `none`, not `""`, where the file omits a key: "this PDF
+                // does not say" and "this PDF says the title is empty"
+                // are different facts, the same call `codec.flac_info`
+                // makes for an undeclared frame count.
+                let text = |s: Option<String>| match s {
+                    Some(s) => Value::Str(s),
+                    None => Value::Nothing,
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("pages".into(), Value::Num(info.page_count as f64)),
+                    ("version".into(), Value::Str(info.version)),
+                    ("title".into(), text(info.title)),
+                    ("author".into(), text(info.author)),
+                    ("subject".into(), text(info.subject)),
+                    ("creator".into(), text(info.creator)),
+                    ("producer".into(), text(info.producer)),
+                    ("encrypted".into(), Value::Bool(info.encrypted)),
+                ])))
+            }
+            "pdf::page_count" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let n = qu_pdf::page_count(&bytes).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                Ok(Value::Num(n as f64))
+            }
+            "pdf::extract_text" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                // `page =` named, or a second positional -- one page or
+                // several, the same shape `extract_pages` takes.
+                let pages = match arg_get(args, 1) {
+                    Some(v) => Some(pdf_page_list(v, short)?),
+                    None => match style_entry(style, "page") {
+                        Some((_, v)) => Some(pdf_page_list(v, short)?),
+                        None => None,
+                    },
+                };
+                let text = qu_pdf::extract_text(&bytes, pages.as_deref())
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Str(text))
+            }
+            "pdf::extract_pages" | "pdf::write_pages" => {
+                let to_file = f == "pdf::write_pages";
+                // The destination comes FIRST on the writing form, the
+                // way `codec.write_wav(path, x, ...)` takes it.
+                let (dest, src_at) = if to_file {
+                    (Some(text_arg(args, 0)?), 1)
+                } else {
+                    (None, 0)
+                };
+                let bytes = self.pdf_bytes(arg_get(args, src_at), short)?;
+                let Some(pages) = arg_get(args, src_at + 1) else {
+                    return e(format!(
+                        "{short}: which pages? Pass a page number, or a vector of them \
+                         (numbered from 1)"
+                    ));
+                };
+                let pages = pdf_page_list(pages, short)?;
+                let out = qu_pdf::extract_pages(&bytes, &pages).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, dest, short)
+            }
+            "pdf::merge" | "pdf::write_merge" => {
+                let to_file = f == "pdf::write_merge";
+                let (dest, src_at) = if to_file {
+                    (Some(text_arg(args, 0)?), 1)
+                } else {
+                    (None, 0)
+                };
+                // A list of paths, which is the only form that makes
+                // sense for a variadic-arity merge -- and it is checked
+                // to be non-empty here rather than in `qu_pdf`, so the
+                // error can name the argument the script actually wrote.
+                let Some(Value::List(items)) = arg_get(args, src_at) else {
+                    return e(format!(
+                        "{short}: takes a LIST of PDFs to join, e.g. \
+                         {short}({}[\"a.pdf\", \"b.pdf\"])",
+                        if to_file { "\"out.pdf\", " } else { "" }
+                    ));
+                };
+                if items.is_empty() {
+                    return e(format!("{short}: the list is empty -- nothing to merge"));
+                }
+                let mut docs = Vec::with_capacity(items.len());
+                for it in items.iter() {
+                    docs.push(self.pdf_bytes(Some(it), short)?);
+                }
+                let out = qu_pdf::merge(&docs).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, dest, short)
+            }
+            other => e(format!("pdf: no such function `{other}`")),
+        }
+    }
+
+    /// Bytes out: to a path, or back to the script. See `pdf_call`'s doc
+    /// comment for why the two are separate names.
+    #[cfg(feature = "pdf")]
+    fn pdf_deliver(&mut self, bytes: Vec<u8>, dest: Option<String>, short: &str) -> R<Value> {
+        match dest {
+            Some(p) => {
+                std::fs::write(&p, &bytes).map_err(|err| EvalError {
+                    msg: format!("{short}: could not write `{p}`: {err}"),
+                })?;
+                Ok(Value::Nothing)
+            }
+            None => Ok(Value::Vec(Arc::new(
+                bytes.into_iter().map(|b| b as f64).collect(),
+            ))),
+        }
+    }
+
+    /// A path or the bytes themselves — the same two forms `codec_bytes`
+    /// accepts, so a PDF this module just built (a `Vec` of bytes) can be
+    /// fed straight back in without going through a file.
+    #[cfg(feature = "pdf")]
+    fn pdf_bytes(&mut self, src: Option<&Value>, short: &str) -> R<Vec<u8>> {
+        match src {
+            Some(Value::Str(path)) => std::fs::read(path).map_err(|err| EvalError {
+                msg: format!("{short}: could not read `{path}`: {err}"),
+            }),
+            Some(Value::Vec(xs)) => xs
+                .iter()
+                .map(|&v| {
+                    if (0.0..=255.0).contains(&v) && v.fract() == 0.0 {
+                        Ok(v as u8)
+                    } else {
+                        Err(EvalError {
+                            msg: format!(
+                                "{short}: a byte vector holds whole numbers 0-255, found {v}"
+                            ),
+                        })
+                    }
+                })
+                .collect(),
+            Some(other) => e(format!(
+                "{short}(src): src is a path, or the file's bytes as a vector -- found {}",
+                other.type_name()
+            )),
+            None => e(format!("{short}(src): needs a PDF -- a path, or its bytes")),
+        }
+    }
+
     /// `import image` dispatch — see `qu_image`'s own module doc comment for
     /// what this module adds on top of the core's existing image builtins
     /// (`blur`, `edge_detect`, `bwlabel`, ...). This crate has no dependency
@@ -13847,6 +14048,12 @@ impl Interp {
             ("xlsx", cfg!(feature = "xlsx")),
             ("codec", cfg!(feature = "codec")),
             ("image", cfg!(feature = "image")),
+            // Not feature-gated, unlike the three above: this module adds
+            // no dependency at all (writing SVG is string assembly, and
+            // reading uses `quick-xml`, already an always-on dependency
+            // for `xml_ops`), so there is nothing for a flag to buy back.
+            ("svg", true),
+            ("pdf", cfg!(feature = "pdf")),
         ];
         match KNOWN.iter().find(|(n, _)| *n == name) {
             Some((_, true)) => Ok(true),
@@ -15142,6 +15349,12 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             // WAV (encode, then hand the bytes to whatever is allowed to
             // write them).
             "codec::write_wav",
+            // § PDF toolkit (2026-09-23): the same destination split, and
+            // the same reasoning. `pdf::merge`/`pdf::extract_pages` return
+            // the bytes and never open a file, so there is nothing for a
+            // sandbox to stop; these two write one, so there is.
+            "pdf::write_merge",
+            "pdf::write_pages",
             // § fileops (2026-09-16): all six can destroy or overwrite an
             // EXISTING file/directory outside the script's own output --
             // `remove_file`/`remove_dir` even with `recycle_bin=true`
@@ -15154,6 +15367,33 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             "move_file",
             "copy_file",
             "create_file",
+            // § bash/shell toolkit audit (2026-09-23): `kill` is exactly
+            // as capability-bearing as `exec`/`shell` above (it can
+            // terminate ANY process on the machine by id, not just ones
+            // this interpreter spawned) and belongs on the same list for
+            // the same reason. `setenv`/`unsetenv` are here defensively:
+            // they mutate this process's own environment, which a LATER
+            // unsandboxed operation elsewhere could consult (PATH, a
+            // credential-bearing variable, ...) -- `getenv` stays off this
+            // list, same read-vs-write asymmetry the file operations above
+            // already follow.
+            "kill",
+            "setenv",
+            "unsetenv",
+            // § async/monitored process primitive (2026-09-23): exactly as
+            // capability-bearing as `exec`/`shell` above -- `process_spawn`
+            // launches an arbitrary program, and the rest of the family
+            // reads its output/exit status or terminates it. All eight
+            // belong on the same list for the same reason `exec`/`shell`
+            // do.
+            "process_spawn",
+            "process_poll",
+            "process_wait",
+            "process_read",
+            "process_read_stderr",
+            "process_is_running",
+            "process_kill",
+            "process_pid",
         ];
         if DENY_ALWAYS.contains(&f) {
             return e(format!("sandbox: '{f}' is disabled in sandboxed execution"));
@@ -18574,6 +18814,23 @@ self.eval_grad(loss, wrt)
                     Err(_) => Value::Nothing,
                 })
             }
+            // `setenv(name, value)`/`unsetenv(name)` -- `getenv`'s missing
+            // write half (§ bash/shell toolkit audit, 2026-09-23,
+            // BACKLOG.md). Changes THIS process's own environment, which a
+            // later `exec`/`shell` call (without an `env=` override)
+            // inherits, same as a real shell's `export` would flow into
+            // whatever it launches next.
+            "setenv" => {
+                let name = text_arg(&args, 0)?;
+                let value = text_arg(&args, 1)?;
+                std::env::set_var(&name, &value);
+                Ok(Value::Nothing)
+            }
+            "unsetenv" => {
+                let name = text_arg(&args, 0)?;
+                std::env::remove_var(&name);
+                Ok(Value::Nothing)
+            }
             // `now()` -- wall-clock time as a record, in UTC.
             //
             // UTC rather than local time, deliberately: reading the
@@ -19690,6 +19947,16 @@ self.eval_grad(loss, wrt)
             | "codec::encode_wav"
             | "codec::flac_info"
             | "codec::write_wav" => self.codec_call(f, &args, &style),
+            // Same shape again for `pdf`; see `pdf_call` for the split
+            // between the four that return bytes and the two that write.
+            #[cfg(feature = "pdf")]
+            "pdf::extract_pages"
+            | "pdf::extract_text"
+            | "pdf::info"
+            | "pdf::merge"
+            | "pdf::page_count"
+            | "pdf::write_merge"
+            | "pdf::write_pages" => self.pdf_call(f, &args, &style),
             // Same shape again for `image`; `import image` opens the bare
             // names the same way `xlsx`/`codec` do above.
             #[cfg(feature = "image")]
@@ -19704,6 +19971,17 @@ self.eval_grad(loss, wrt)
             | "image::fill_holes"
             | "image::contours"
             | "image::autocrop" => self.image_call(f, &args, &style),
+            // Same shape again for `svg`, minus the `cfg` -- this module
+            // is always compiled in (see `native_module`). These names
+            // are reachable ONLY qualified as `svg.rect(...)` etc.: three
+            // of the five (`rect`, `text`, and `circle` via plotting)
+            // already exist as unrelated top-level drawing builtins, so
+            // `import svg` + a bare `rect(...)` is deliberately the
+            // "ambiguous, qualify it" error `open_module_name` raises --
+            // exactly as `image` already collides on `regions`/`blur`.
+            "svg::rect" | "svg::circle" | "svg::line" | "svg::path" | "svg::text" => {
+                svg_io::svg_call(f, arg_all(&args), &style)
+            }
             "items" => collections::dict_items(arg_all(&args)),
             "has_key" => collections::dict_has_key(arg_all(&args)),
             // Sequence operations. `Value::List` is what `split`, `zip`,
@@ -24440,11 +24718,25 @@ self.eval_grad(loss, wrt)
             // its step has nothing to do with a covariance update, so it
             // branches off to `lms_update` before `estimation_update` ever
             // sees it rather than being bolted into that function's own
-            // kind-match.
+            // kind-match. The PID controller (`pid_init`) branches off
+            // here for the same reason and in the same shape.
             "update" => {
                 let m = as_model(arg0(&args)?)?;
                 if m.kind == "lms" {
                     return lms_update(&m, &args);
+                }
+                if m.kind == "pid" {
+                    return pid_update(&m, &args);
+                }
+                // The two controllers below join `update` for the same
+                // reason LMS does -- one observation in, one new state out
+                // -- and branch off before `estimation_update`, whose
+                // contract is about covariance, not control.
+                if m.kind == "smc" {
+                    return smc_update(&m, &args, &style);
+                }
+                if m.kind == "fuzzy_pid" {
+                    return fuzzy_pid_update(&m, &args, &style);
                 }
                 estimation_update(self, &m, &args, &style)
             }
@@ -29081,6 +29373,300 @@ self.eval_grad(loss, wrt)
                     .map(cmat_value)
                     .map_err(|ne| EvalError { msg: ne.to_string() })
             }
+
+            // --- advanced time-frequency distributions (§3) ----------
+            //
+            // All four draw AND return, exactly as `spectrogram` does and
+            // for the reason its own comment gives: a surface that is only
+            // drawn is unreachable -- nothing to read a level off, nothing
+            // for QuStudio's Interactive Mode. The returned record always
+            // carries `freq` and `time` alongside the values, because
+            // unlike `stft` (whose axis is just `k*fs/nfft`) none of these
+            // has an axis the caller could reconstruct: `cqt`'s is
+            // geometric, `mel_spectrogram`'s is perceptual, `cwt`'s comes
+            // from a wavelet-specific scale conversion, and
+            // `wigner_ville`'s is half-stepped.
+
+            // `cqt(x, fs, [fmin=], [fmax=], [bins_per_octave=12], [hop=])`
+            // — constant-Q transform: bins spaced geometrically at
+            // `bins_per_octave` per doubling, every one with the same
+            // `Q = f/bandwidth`, so a musical interval covers the same
+            // number of bins at every pitch. `stft`'s bins are linear in
+            // Hz and cannot do that.
+            "cqt" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    None,
+                )?;
+                // C1, the same musical default librosa uses -- a CQT's
+                // bottom end is conventionally a pitch, not a fraction of
+                // the sample rate.
+                let fmin = style_num_checked(&style, "fmin", 32.703_195_662_574_83, f)?;
+                let fmax = style_num_checked(&style, "fmax", fs / 2.0, f)?;
+                let bpo = style_num_checked(&style, "bins_per_octave", 12.0, f)?;
+                // 10 ms, the usual frame rate for this kind of analysis.
+                let default_hop = (fs / 100.0).round().max(1.0);
+                let hop = style_num_checked(&style, "hop", default_hop, f)?;
+                if !(fmin > 0.0) || !fmin.is_finite() {
+                    return e(format!("cqt: fmin must be a positive frequency, got {fmin}"));
+                }
+                if !(fmax > fmin) {
+                    return e(format!(
+                        "cqt: fmax ({fmax} Hz) must be above fmin ({fmin} Hz). \
+                         The default fmax is fs/2 = {} Hz; at fs = {fs} Hz that is \
+                         below the default fmin of 32.7 Hz, so pass fmin= explicitly.",
+                        fs / 2.0
+                    ));
+                }
+                if !(bpo >= 1.0) || bpo.round() != bpo {
+                    return e(format!(
+                        "cqt: bins_per_octave must be a whole number of at least 1, got {bpo}"
+                    ));
+                }
+                if !(hop >= 1.0) {
+                    return e(format!("cqt: hop must be at least 1 sample, got {hop}"));
+                }
+                // Checked here, where fmin, fs and the signal length are
+                // all in hand, so the message can name the quantity that
+                // is actually too small. From inside the transform this
+                // surfaces as a bare element-count mismatch, which sends
+                // the reader to look at the wrong thing -- the same
+                // reasoning `stft`'s own length check above records.
+                let q = 1.0 / (2f64.powf(1.0 / bpo) - 1.0);
+                let n_max = (q * fs / fmin).ceil().max(2.0);
+                if (xs.len() as f64) < n_max + 1.0 {
+                    return e(format!(
+                        "cqt: the lowest bin (fmin = {fmin} Hz) needs a {} -sample window \
+                         at fs = {fs} Hz, but the signal is only {} samples. Raise fmin, \
+                         or give it a longer record -- each octave lower doubles the window.",
+                        n_max as usize,
+                        xs.len()
+                    ));
+                }
+                let c = numeric::transforms::cqt(
+                    &xs,
+                    fs,
+                    fmin,
+                    fmax,
+                    bpo as usize,
+                    hop as usize,
+                )
+                .map_err(|ne| EvalError { msg: ne.to_string() })?;
+                let (n_bins, n_frames) = c.coef.shape();
+                let time: Vec<f64> = c.centers.iter().map(|&s| s as f64 / fs).collect();
+                let mag: Vec<f64> = c.coef.as_slice().iter().map(|z| z.magnitude()).collect();
+                let panel = self.figure.panel_for_new_series();
+                panel.heatmap = Some(tf_heatmap(
+                    &mag,
+                    n_bins,
+                    n_frames,
+                    &c.freqs,
+                    &time,
+                    style_str(&style, "colormap").unwrap_or_else(|| "blues".to_string()),
+                ));
+                self.figures += 1;
+                Ok(Value::Record(Arc::new(vec![
+                    ("coef".to_string(), cmat_value(c.coef)),
+                    ("freq".to_string(), Value::Vec(Arc::new(c.freqs))),
+                    ("time".to_string(), Value::Vec(Arc::new(time))),
+                ])))
+            }
+
+            // `mel_spectrogram(x, fs, [n_mels=40], [fmin=0], [fmax=fs/2],
+            // [nfft=256], [hop=nfft/2])` — an `stft` power spectrogram
+            // collapsed onto perceptually-spaced bands by a triangular
+            // mel filterbank. Built on the same `stft` this file's own
+            // `stft`/`spectral_entropy`/`spectrogram` use, so all four
+            // agree frame-for-frame.
+            "mel_spectrogram" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    None,
+                )?;
+                let n_mels = style_num_checked(&style, "n_mels", 40.0, f)?;
+                let fmin = style_num_checked(&style, "fmin", 0.0, f)?;
+                let fmax = style_num_checked(&style, "fmax", fs / 2.0, f)?;
+                let nfft = style_num_checked(&style, "nfft", 256.0, f)?;
+                let hop = style_num_checked(&style, "hop", (nfft / 2.0).max(1.0), f)?;
+                if !(n_mels >= 1.0) || n_mels.round() != n_mels {
+                    return e(format!(
+                        "mel_spectrogram: n_mels must be a whole number of at least 1, got {n_mels}"
+                    ));
+                }
+                if fmin < 0.0 || !(fmax > fmin) {
+                    return e(format!(
+                        "mel_spectrogram: need 0 <= fmin < fmax, got fmin = {fmin}, fmax = {fmax}"
+                    ));
+                }
+                if !(nfft >= 1.0) || !(hop >= 1.0) {
+                    return e("mel_spectrogram: nfft and hop must each be at least 1");
+                }
+                let (nfft, hop) = (nfft as usize, hop as usize);
+                if nfft > xs.len() {
+                    return e(format!(
+                        "mel_spectrogram: window is {nfft} samples but the signal is only {} \
+                         -- no frame fits",
+                        xs.len()
+                    ));
+                }
+                let m = numeric::transforms::mel_spectrogram(
+                    &xs,
+                    fs,
+                    n_mels as usize,
+                    fmin,
+                    fmax,
+                    nfft,
+                    hop,
+                )
+                .map_err(|ne| EvalError { msg: ne.to_string() })?;
+                let (n_bands, n_frames) = m.power.shape();
+                let time: Vec<f64> = (0..n_frames).map(|c| (c * hop) as f64 / fs).collect();
+                // The bands are already power; the shared heatmap works in
+                // magnitude, so take the root rather than double-squaring
+                // it into an unreadable dynamic range.
+                let mag: Vec<f64> = m.power.as_slice().iter().map(|p| p.sqrt()).collect();
+                let panel = self.figure.panel_for_new_series();
+                panel.heatmap = Some(tf_heatmap(
+                    &mag,
+                    n_bands,
+                    n_frames,
+                    &m.freqs,
+                    &time,
+                    style_str(&style, "colormap").unwrap_or_else(|| "blues".to_string()),
+                ));
+                self.figures += 1;
+                Ok(Value::Record(Arc::new(vec![
+                    ("power".to_string(), mat_value(m.power)),
+                    ("freq".to_string(), Value::Vec(Arc::new(m.freqs))),
+                    ("time".to_string(), Value::Vec(Arc::new(time))),
+                ])))
+            }
+
+            // `cwt(x, fs, [wavelet="morlet"], [scales=])` — continuous
+            // wavelet transform, one column per input sample (no framing,
+            // no decimation). The wavelet names here are deliberately
+            // disjoint from `dwt`'s Haar: these are continuous wavelets
+            // used at arbitrary scales, and a shared name would suggest
+            // the two transforms are interchangeable.
+            "cwt" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    None,
+                )?;
+                let name = style_str(&style, "wavelet")
+                    .unwrap_or_else(|| "morlet".to_string())
+                    .to_ascii_lowercase();
+                let wavelet = match name.as_str() {
+                    "morlet" | "cmor" => numeric::transforms::CwtWavelet::Morlet,
+                    "mexh" | "mexican_hat" | "ricker" => {
+                        numeric::transforms::CwtWavelet::MexicanHat
+                    }
+                    "haar" | "db1" => {
+                        return e(
+                            "cwt: `haar` is a discrete wavelet -- it belongs to `dwt`, not to \
+                             the continuous transform. cwt takes \"morlet\" (default) or \
+                             \"mexh\".",
+                        )
+                    }
+                    other => {
+                        return e(format!(
+                            "cwt: unknown wavelet {other:?}. Available: \"morlet\" (default, \
+                             complex/analytic) and \"mexh\" (real, a.k.a. \"ricker\")."
+                        ))
+                    }
+                };
+                let scales = match style_vec(&style, "scales") {
+                    Some(v) => v?,
+                    None => Vec::new(),
+                };
+                if scales.iter().any(|s| !s.is_finite() || *s <= 0.0) {
+                    return e("cwt: every scale must be a finite positive number of seconds");
+                }
+                let w = numeric::transforms::cwt(&xs, fs, wavelet, &scales)
+                    .map_err(|ne| EvalError { msg: ne.to_string() })?;
+                let (n_scales, n_samples) = w.coef.shape();
+                let time: Vec<f64> = (0..n_samples).map(|t| t as f64 / fs).collect();
+                let mag: Vec<f64> = w.coef.as_slice().iter().map(|z| z.magnitude()).collect();
+                let panel = self.figure.panel_for_new_series();
+                panel.heatmap = Some(tf_heatmap(
+                    &mag,
+                    n_scales,
+                    n_samples,
+                    &w.freqs,
+                    &time,
+                    style_str(&style, "colormap").unwrap_or_else(|| "blues".to_string()),
+                ));
+                self.figures += 1;
+                Ok(Value::Record(Arc::new(vec![
+                    ("coef".to_string(), cmat_value(w.coef)),
+                    ("freq".to_string(), Value::Vec(Arc::new(w.freqs))),
+                    ("scale".to_string(), Value::Vec(Arc::new(w.scales))),
+                    ("time".to_string(), Value::Vec(Arc::new(time))),
+                    ("wavelet".to_string(), Value::Str(name)),
+                ])))
+            }
+
+            // `wigner_ville(x, [fs=])` — the quadratic time-frequency
+            // distribution. Finest joint resolution of anything here
+            // (no window at all), at the cost of cross terms: see the
+            // `wigner_ville` doc comment in qu-core, and the doc row, for
+            // why the "extra" energy between two components is the
+            // definition working, not a defect.
+            "wigner_ville" => {
+                let xs = to_cow(arg0(&args)?)?;
+                let fs = resolve_fs(
+                    f,
+                    arg0(&args)?,
+                    arg_get(&args, 1).and_then(|v| v.as_num().ok()),
+                    Some(1.0),
+                )?;
+                let n = xs.len();
+                if n == 0 {
+                    return e("wigner_ville: the signal is empty");
+                }
+                // The output is n-by-n, so the cost of a long record is
+                // quadratic and worth naming before it is paid.
+                if n.saturating_mul(n) > numeric::transforms::WVD_MAX_CELLS {
+                    return e(format!(
+                        "wigner_ville: a {n}-sample signal would give a {n}x{n} distribution \
+                         ({} cells, limit {}). This transform is quadratic in the record \
+                         length -- take a shorter segment.",
+                        n.saturating_mul(n),
+                        numeric::transforms::WVD_MAX_CELLS
+                    ));
+                }
+                let w = numeric::transforms::wigner_ville(&xs, fs)
+                    .map_err(|ne| EvalError { msg: ne.to_string() })?;
+                let time: Vec<f64> = (0..n).map(|t| t as f64 / fs).collect();
+                // The distribution is signed; a magnitude heatmap of it
+                // shows where energy sits (auto-terms AND interference)
+                // without the sign flipping the colour scale about zero.
+                let mag: Vec<f64> = w.tfr.as_slice().iter().map(|v| v.abs()).collect();
+                let panel = self.figure.panel_for_new_series();
+                panel.heatmap = Some(tf_heatmap(
+                    &mag,
+                    n,
+                    n,
+                    &w.freqs,
+                    &time,
+                    style_str(&style, "colormap").unwrap_or_else(|| "blues".to_string()),
+                ));
+                self.figures += 1;
+                Ok(Value::Record(Arc::new(vec![
+                    ("tfr".to_string(), mat_value(w.tfr)),
+                    ("freq".to_string(), Value::Vec(Arc::new(w.freqs))),
+                    ("time".to_string(), Value::Vec(Arc::new(time))),
+                ])))
+            }
             // `spectral_entropy(x, [nfft=256], [hop=nfft/2])` — the Shannon
             // entropy of each `stft` frame's normalized power spectrum,
             // scaled to `[0, 1]`: low when a frame's energy concentrates in
@@ -30416,6 +31002,251 @@ self.eval_grad(loss, wrt)
                         ("mu".to_string(), Value::Num(mu)),
                         ("y".to_string(), Value::Num(0.0)),
                         ("e".to_string(), Value::Num(0.0)),
+                    ],
+                ))))
+            }
+            // A discrete PID controller, on the SAME immutable
+            // `Value::Model` state handle as `kalman_init`/`lms_init`
+            // (kind `"pid"`) and reached through the SAME shared
+            // `"update"` arm — not a parallel mechanism. The reason is the
+            // one `lms_init` gives: a controller's whole diagnostic value
+            // is the trajectory of its integral term and its output, and
+            // an in-place update destroys exactly that history.
+            //
+            // `pid_init(Kp, Ki, Kd, dt, [integral_clamp=])` — gains, the
+            // fixed sample period `dt`, and an optional anti-windup limit.
+            // Fields: `kp`/`ki`/`kd`/`dt` (the configuration, echoed back
+            // so a state is self-describing), `integral` (the running sum
+            // `sum(e[i]*dt)`, 0), `e_prev` (the previous error, 0), `u`
+            // (the last output, 0) and `integral_clamp` (the limit, or
+            // `Nothing` when uncapped).
+            //
+            // `e_prev` starts at 0, so the first `.update(e)` sees a
+            // derivative of `e/dt`. That is the textbook definition of the
+            // recursion (`u[k] = Kp*e[k] + Ki*sum(e[i]*dt) +
+            // Kd*(e[k]-e[k-1])/dt` with `e[-1] = 0`) and is deliberate: a
+            // step applied at `k = 0` genuinely IS a step, and suppressing
+            // the first derivative kick would silently change the response
+            // the gains were tuned against.
+            //
+            // `dt` must be positive — it divides into the derivative term
+            // and multiplies into the integral one, so `dt = 0` is not a
+            // degenerate-but-usable case, it is a division by zero. The
+            // gains themselves are NOT range-checked: a negative gain is
+            // legitimate for a plant with inverted sign, and whether a
+            // given triple is stable is a property of the plant, which
+            // `pid_init` has not seen.
+            "pid_init" => {
+                let gain = |i: usize, name: &str| -> R<f64> {
+                    arg_get(&args, i)
+                        .ok_or_else(|| EvalError {
+                            msg: format!(
+                                "pid_init(Kp, Ki, Kd, dt, [integral_clamp=]) needs 4 arguments (missing `{name}`)"
+                            ),
+                        })?
+                        .as_num()
+                        .map_err(|msg| EvalError { msg })
+                };
+                let kp = gain(0, "Kp")?;
+                let ki = gain(1, "Ki")?;
+                let kd = gain(2, "Kd")?;
+                let dt = gain(3, "dt")?;
+                if !(dt > 0.0) {
+                    return e(format!(
+                        "pid_init: dt must be positive (got {dt}) — it is the sample period the integral and derivative terms are scaled by"
+                    ));
+                }
+                // Absent => uncapped, stored as `Nothing` so the state says
+                // so rather than carrying a sentinel infinity a script
+                // could mistake for a real limit it set.
+                let clamp = match style_entry(&style, "integral_clamp") {
+                    Some((_, v)) => {
+                        let c = v.as_num().map_err(|msg| EvalError { msg })?;
+                        if !(c > 0.0) {
+                            return e(format!(
+                                "pid_init: integral_clamp= must be positive (got {c}) — it is a symmetric bound |integral| <= clamp"
+                            ));
+                        }
+                        Value::Num(c)
+                    }
+                    None => Value::Nothing,
+                };
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "pid",
+                    vec![
+                        ("kp".to_string(), Value::Num(kp)),
+                        ("ki".to_string(), Value::Num(ki)),
+                        ("kd".to_string(), Value::Num(kd)),
+                        ("dt".to_string(), Value::Num(dt)),
+                        ("integral".to_string(), Value::Num(0.0)),
+                        ("e_prev".to_string(), Value::Num(0.0)),
+                        ("u".to_string(), Value::Num(0.0)),
+                        ("integral_clamp".to_string(), clamp),
+                    ],
+                ))))
+            }
+            // A first-order sliding-mode controller (SMC), same immutable
+            // state convention as `kalman_init`/`lms_init` above: thread
+            // the value returned by `.update(...)` through successive
+            // calls, never mutate in place.
+            //
+            // `smc_init(K, lambda=, phi=0.1, dt=1)`.
+            //
+            // SLIDING SURFACE — two cases, chosen by whether `lambda=` is
+            // given, because the useful minimal case genuinely differs by
+            // plant order and guessing wrong is silent:
+            //   * no `lambda=` -> `s = e`. This is the right minimal case
+            //     for a FIRST-order plant (one state, `tau*y' = K_p*u - y`):
+            //     driving `e` to zero IS the whole control objective, there
+            //     is no second state to stabilise, and an `e_dot` term
+            //     would only add derivative noise for nothing.
+            //   * `lambda=` given (must be > 0) -> `s = e_dot + lambda*e`,
+            //     the textbook Slotine surface for a SECOND-order plant.
+            //     Once `s = 0` is reached, `e` decays as `exp(-lambda*t)`,
+            //     so `lambda` sets the sliding-phase time constant `1/lambda`.
+            // The choice is recorded in the state's `surface` field
+            // (`"e"` or `"e_dot+lambda*e"`) so it is visible on inspection
+            // rather than inferred from whether `lambda` happens to be 0.
+            //
+            // CONTROL LAW — `u = u_eq + K * sat(s/phi)`, with `u_eq = 0`
+            // here. `u_eq` (the "equivalent control") is by definition the
+            // input that holds `s_dot = 0` given a PLANT MODEL; this
+            // controller is deliberately model-free, so there is no model
+            // to compute it from and the honest value is 0. That leaves
+            // the reaching law `u = K*sat(s/phi)`, which is the standard
+            // model-free SMC and is what makes `K` the gain that must
+            // dominate the unmodelled dynamics.
+            //
+            // BOUNDARY LAYER — textbook SMC uses `sign(s)`, which switches
+            // at infinite frequency the instant `s` crosses zero. On real
+            // hardware that is "chattering": it excites unmodelled
+            // high-frequency modes and destroys actuators. The standard
+            // fix, and the reason `phi` exists, is to replace `sign(s)`
+            // with `sat(s/phi)` — linear inside a boundary layer of width
+            // `phi` around the surface, saturating to +/-1 outside. That
+            // trades the ideal-sliding guarantee for convergence to a
+            // `|s| <= phi` neighbourhood instead of exactly `s = 0`, and
+            // in exchange `u` becomes CONTINUOUS in `s` and bounded by
+            // `|u| <= K`. `phi = 0` is still accepted and gives literal
+            // `sign(s)` (with `sign(0) = 0`), for callers who want to see
+            // the chattering the boundary layer removes.
+            "smc_init" => {
+                let k_gain = arg0(&args)?.as_num().map_err(|msg| EvalError { msg })?;
+                if !(k_gain > 0.0) {
+                    return e(format!(
+                        "smc_init: K must be positive (got {k_gain}) — it is the reaching-law gain, and |u| <= K"
+                    ));
+                }
+                let lambda = match style_entry(&style, "lambda") {
+                    Some((_, v)) => {
+                        let l = v.as_num().map_err(|msg| EvalError { msg })?;
+                        if !(l > 0.0) {
+                            return e(format!(
+                                "smc_init: lambda must be positive (got {l}) — it is the sliding-phase decay rate, so e ~ exp(-lambda*t)"
+                            ));
+                        }
+                        Some(l)
+                    }
+                    None => None,
+                };
+                let phi = match style_entry(&style, "phi") {
+                    Some((_, v)) => v.as_num().map_err(|msg| EvalError { msg })?,
+                    None => 0.1,
+                };
+                if !(phi >= 0.0) || !phi.is_finite() {
+                    return e(format!(
+                        "smc_init: phi must be a finite, non-negative boundary-layer width (got {phi}); phi = 0 means literal sign(s)"
+                    ));
+                }
+                let dt = match style_entry(&style, "dt") {
+                    Some((_, v)) => v.as_num().map_err(|msg| EvalError { msg })?,
+                    None => 1.0,
+                };
+                if !(dt > 0.0) || !dt.is_finite() {
+                    return e(format!("smc_init: dt must be a positive, finite timestep (got {dt})"));
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "smc",
+                    vec![
+                        ("K".to_string(), Value::Num(k_gain)),
+                        ("lambda".to_string(), Value::Num(lambda.unwrap_or(0.0))),
+                        ("phi".to_string(), Value::Num(phi)),
+                        ("dt".to_string(), Value::Num(dt)),
+                        (
+                            "surface".to_string(),
+                            Value::Str(
+                                if lambda.is_some() { "e_dot+lambda*e" } else { "e" }.to_string(),
+                            ),
+                        ),
+                        ("e".to_string(), Value::Num(0.0)),
+                        ("e_dot".to_string(), Value::Num(0.0)),
+                        ("s".to_string(), Value::Num(0.0)),
+                        ("u".to_string(), Value::Num(0.0)),
+                        ("n".to_string(), Value::Num(0.0)),
+                    ],
+                ))))
+            }
+            // A Mamdani fuzzy PD-type controller — the classic textbook
+            // 2-input (`error`, `error_dot`) 1-output (`u`) fuzzy inference
+            // system, same immutable-state convention as the rest of this
+            // family.
+            //
+            // `fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt)`.
+            //
+            // SCALING — the rule base and the membership functions live on
+            // a NORMALISED universe `-1..1`; the three scale factors are
+            // what map a real-world plant onto it. `error` is normalised as
+            // `clamp(error/error_scale, -1, 1)` (likewise `error_dot`), and
+            // the defuzzified result is multiplied by `output_scale`. So
+            // `error_scale` is "the error magnitude that counts as fully
+            // big", not a gain — getting it wrong saturates the controller
+            // rather than merely detuning it.
+            //
+            // MEMBERSHIP FUNCTIONS — 5 triangles per input (NB, NS, ZE, PS,
+            // PB) centred at -1, -0.5, 0, 0.5, 1 with half-width 0.5, so
+            // adjacent pairs overlap and the memberships sum to 1
+            // everywhere. Same 5 on the output universe.
+            //
+            // RULE BASE — the fixed, diagonal-symmetric 5x5 table every
+            // fuzzy-PID text prints (written out literally in
+            // `FUZZY_RULES` rather than computed from the indices, so it
+            // can be read against the book). The caller does not supply 25
+            // rules; a standard rule base is the whole point of the v1.
+            //
+            // DEFUZZIFICATION — true centre-of-gravity: each rule's output
+            // triangle is CLIPPED at that rule's firing strength
+            // (Mamdani min-implication), the 25 clipped sets are aggregated
+            // by max, and the centroid of that aggregate is taken
+            // numerically. Note the consequence, which is a property of COG
+            // and not a bug: even a fully-saturated input reaches only
+            // `5/6 = 0.8333...` of `output_scale`, because that is where
+            // the centroid of the saturated PB triangle sits, not at 1.
+            "fuzzy_pid_init" => {
+                let names = ["error_scale", "error_dot_scale", "output_scale", "dt"];
+                let mut vals = [0.0f64; 4];
+                for (i, name) in names.iter().enumerate() {
+                    let v = arg_get(&args, i)
+                        .ok_or_else(|| EvalError {
+                            msg: "fuzzy_pid_init(error_scale, error_dot_scale, output_scale, dt) needs 4 arguments".into(),
+                        })?
+                        .as_num()
+                        .map_err(|msg| EvalError { msg })?;
+                    if !(v > 0.0) || !v.is_finite() {
+                        return e(format!("fuzzy_pid_init: {name} must be positive and finite (got {v})"));
+                    }
+                    vals[i] = v;
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "fuzzy_pid",
+                    vec![
+                        ("error_scale".to_string(), Value::Num(vals[0])),
+                        ("error_dot_scale".to_string(), Value::Num(vals[1])),
+                        ("output_scale".to_string(), Value::Num(vals[2])),
+                        ("dt".to_string(), Value::Num(vals[3])),
+                        ("e".to_string(), Value::Num(0.0)),
+                        ("e_dot".to_string(), Value::Num(0.0)),
+                        ("u".to_string(), Value::Num(0.0)),
+                        ("n".to_string(), Value::Num(0.0)),
                     ],
                 ))))
             }
@@ -34264,9 +35095,11 @@ self.eval_grad(loss, wrt)
                 }
                 other => e(format!("imshow(img) needs an image, found {}", other.type_name())),
             },
-            // `load_image(path)` — BMP only (see `image` module doc for the
-            // pixel/file-format decisions and the explicit PNG-decode/JPEG
-            // non-goal). Same "clear error on a bad path/file" convention as
+            // `load_image(path)` — PNG, BMP, JPEG and TIFF (see the `image`
+            // module doc for the pixel/file-format decisions: PNG and BMP are
+            // hand-rolled there on top of the existing DEFLATE code, JPEG and
+            // TIFF come from `jpeg-decoder`/`tiff` per IMPL.md §7). Same
+            // "clear error on a bad path/file" convention as
             // `read_csv`/`write_csv`.
             "load_image" => {
                 let path = text_arg(&args, 0)?;
@@ -34284,9 +35117,15 @@ self.eval_grad(loss, wrt)
             // `.png` uses the real, spec-correct (if uncompressed)
             // `image::encode_png` (BACKLOG.md item [25]'s PNG half — see
             // that function's own doc for the hand-rolled DEFLATE-stored-
-            // block approach). This is raster-pixel-data export only, NOT
-            // `savefig`'s full-figure export -- see `save_figure`'s own
-            // `.png` rejection for that distinction.
+            // block approach); `.jpg`/`.jpeg` and `.tif`/`.tiff` go through
+            // `jpeg-encoder`/`tiff` (2026-09-23). This is raster-pixel-data
+            // export only, NOT `savefig`'s full-figure export -- see
+            // `save_figure`'s own `.png` rejection for that distinction.
+            //
+            // Extension-dispatch on WRITE, magic-byte sniffing on READ, is
+            // not an inconsistency: writing has no bytes to sniff yet, and
+            // the extension is the only thing that says what the caller
+            // wants. Reading has the real bytes, which are never wrong.
             "save_image" => {
                 let path = text_arg(&args, 0)?;
                 let Value::Image(img) = arg_get(&args, 1).ok_or_else(|| EvalError {
@@ -34300,12 +35139,44 @@ self.eval_grad(loss, wrt)
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
                     .to_ascii_lowercase();
+                // `quality=` is read for every extension, not just the JPEG
+                // ones, so that it is ACCEPTED-and-ignored rather than
+                // erroring as an unread kwarg on a `.png` path -- but it is
+                // only meaningful for JPEG, which is what the docs say.
+                let q = style_num_checked(&style, "quality", 90.0, "save_image")?;
+                if !(1.0..=100.0).contains(&q) {
+                    return e(format!(
+                        "save_image: `quality={q}` is out of range -- JPEG quality runs from 1 to 100"
+                    ));
+                }
+                let quality = q.round() as u8;
                 let bytes = match ext.as_str() {
                     "png" => image::encode_png(img.width, img.height, &img.pixels),
+                    "jpg" | "jpeg" => image::encode_jpeg(img.width, img.height, &img.pixels, quality)
+                        .map_err(|msg| EvalError { msg: format!("save_image: `{path}`: {msg}") })?,
+                    "tif" | "tiff" => image::encode_tiff(img.width, img.height, &img.pixels)
+                        .map_err(|msg| EvalError { msg: format!("save_image: `{path}`: {msg}") })?,
                     _ => image::encode_bmp(img.width, img.height, &img.pixels),
                 };
                 std::fs::write(&path, bytes).map_err(|err| EvalError { msg: format!("save_image: could not write `{path}`: {err}") })?;
                 Ok(Value::Nothing)
+            }
+            // `save_svg(path, shapes, [width=], [height=])` /
+            // `load_svg(path)` -- VECTOR I/O, the counterpart to the raster
+            // pair above and named to match it. Note this is NOT
+            // `savefig("f.svg")`, which renders the current FIGURE through
+            // `plotting::render_svg` and is unaffected by any of this; see
+            // `svg_io`'s module doc for the distinction.
+            "save_svg" => {
+                let path = text_arg(&args, 0)?;
+                let shapes = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "save_svg(path, shapes): needs the shapes to draw as its second argument".into(),
+                })?;
+                svg_io::save_svg(&path, shapes, &style)
+            }
+            "load_svg" => {
+                let path = text_arg(&args, 0)?;
+                svg_io::load_svg(&path)
             }
             // `grayscale(img)` — RGB -> luma via ITU-R BT.601 weights (see
             // `image::Image::to_grayscale`'s doc comment for why BT.601 over
@@ -37917,7 +38788,22 @@ self.eval_grad(loss, wrt)
             // at the top of this function is what applies it. Calling it
             // again HERE would deny them always, sandboxed or not -- that
             // guard is the only place `self.sandboxed` is read.
-            "exec" | "shell" => proc_ops::call(f, arg_all(&args), &style),
+            "exec" | "shell" | "kill" => proc_ops::call(f, arg_all(&args), &style),
+            // § async/monitored process primitive (2026-09-23, follow-up to
+            // the same bash/shell toolkit audit that added `env=`/`timeout=`
+            // to `exec` above): `process_spawn` launches without waiting
+            // (like `shell`) but, unlike `shell`, keeps the pipes open and
+            // readable via two background reader threads, so
+            // `process_poll`/`process_wait`/`process_read`/
+            // `process_read_stderr`/`process_is_running`/`process_kill`/
+            // `process_pid` can check on it incrementally. Same sandbox
+            // guard as `exec`/`shell`/`kill` above -- see that arm's own
+            // comment for why the guard lives only at the top of this
+            // function.
+            "process_spawn" | "process_poll" | "process_wait" | "process_read"
+            | "process_read_stderr" | "process_is_running" | "process_kill" | "process_pid" => {
+                proc_ops::call(f, arg_all(&args), &style)
+            }
 
             // `python_exec(code, [vars=])` (§ Python interop, 2026-08-26,
             // `py_exec.rs`) — see that module's own doc comment for the full
@@ -39191,6 +40077,7 @@ fn values_equal(a: &Value, b: &Value) -> bool {
         Value::Semaphore(x) => matches!(b, Value::Semaphore(y) if Arc::ptr_eq(x, y)),
         Value::Timer(x) => matches!(b, Value::Timer(y) if Arc::ptr_eq(x, y)),
         Value::File(x) => matches!(b, Value::File(y) if Arc::ptr_eq(x, y)),
+        Value::Process(x) => matches!(b, Value::Process(y) if Arc::ptr_eq(x, y)),
         Value::Mmap(x) => matches!(b, Value::Mmap(y) if Arc::ptr_eq(x, y)),
         Value::Channel(x) => matches!(b, Value::Channel(y) if Arc::ptr_eq(x, y)),
         Value::TcpListener(x) => matches!(b, Value::TcpListener(y) if Arc::ptr_eq(x, y)),
@@ -40159,6 +41046,71 @@ fn resolve_fs(f: &str, src: &Value, explicit: Option<f64>, default: Option<f64>)
     }
 }
 
+/// Build the dB heatmap that a §3 time-frequency surface (`cqt`,
+/// `mel_spectrogram`, `cwt`, `wigner_ville`) draws alongside the record it
+/// returns.
+///
+/// `mag` is column-major `(bin, frame)` **linear magnitude** in the same
+/// row order as `freq` — i.e. the honest orientation, the one that indexes
+/// against the returned axis. The picture wants the opposite: the highest
+/// frequency at the top, since that is how every reader expects to look at
+/// a spectrogram. `spectrogram` resolves that by building the two row
+/// orders separately, and this does the same — except that it works out
+/// which end is the high one from `freq` itself, because `cwt`'s axis
+/// descends (row 0 is the smallest scale, hence the *highest* frequency)
+/// where the other three ascend. Reading the direction off the data is
+/// what keeps one helper correct for both, rather than a flag at each
+/// call site that a later edit could set the wrong way.
+///
+/// dB, floored at -120, for `spectrogram`'s reason: on a linear colour
+/// scale a few loud bins wash out everything else.
+fn tf_heatmap(
+    mag: &[f64],
+    n_bins: usize,
+    n_frames: usize,
+    freq: &[f64],
+    time: &[f64],
+    colormap: String,
+) -> plotting::Heatmap {
+    const FLOOR_DB: f64 = -120.0;
+    let ascending = match (freq.first(), freq.last()) {
+        (Some(a), Some(b)) => a <= b,
+        _ => true,
+    };
+    // Row `r` of the picture is bin `bin_at(r)` of the data.
+    let bin_at = |r: usize| if ascending { n_bins - 1 - r } else { r };
+    let mut values = vec![FLOOR_DB; n_bins * n_frames];
+    for r in 0..n_bins {
+        let bin = bin_at(r);
+        for c in 0..n_frames {
+            let m = mag[c * n_bins + bin];
+            values[r * n_frames + c] = (20.0 * m.max(1e-10).log10()).max(FLOOR_DB);
+        }
+    }
+    let mut row_labels = vec![String::new(); n_bins];
+    let n_row_ticks = 5.min(n_bins);
+    for i in 0..n_row_ticks {
+        let r = if n_row_ticks == 1 { 0 } else { i * (n_bins - 1) / (n_row_ticks - 1) };
+        row_labels[r] = plotting::format_tick(freq[bin_at(r)]);
+    }
+    let mut col_labels = vec![String::new(); n_frames];
+    let n_col_ticks = 6.min(n_frames);
+    for i in 0..n_col_ticks {
+        let c = if n_col_ticks == 1 { 0 } else { i * (n_frames - 1) / (n_col_ticks - 1) };
+        col_labels[c] = plotting::format_tick(time[c]);
+    }
+    plotting::Heatmap {
+        values,
+        rows: n_bins,
+        cols: n_frames,
+        colormap,
+        row_labels,
+        col_labels,
+        dense: true,
+        square: false,
+    }
+}
+
 /// Re-wrap a same-length, sample-aligned result the way its input came in.
 ///
 /// A `Signal` is a promise of uniform sampling at a known `Fs`. An operation
@@ -40978,6 +41930,59 @@ fn report_ref_arg(args: &[Value], idx: usize, what: &str) -> R<report_builder::R
     }
 }
 
+/// The page-number argument shared by `pdf.extract_pages`,
+/// `pdf.write_pages` and `pdf.extract_text`.
+///
+/// One number, or a vector of them. `1 to 3` is already a `Vec` by the
+/// time it arrives, so ranges work without a case of their own; a `List`
+/// is accepted too because `[1, 2]` builds one and refusing it would be a
+/// distinction the script author cannot see.
+///
+/// Pages are numbered from 1, NOT from 0 — the number printed on the page,
+/// which is the one a person reading a PDF has. Zero is rejected by name
+/// rather than silently read as "the first page", because a script ported
+/// from a 0-based library would otherwise be off by one everywhere and
+/// still produce a perfectly valid PDF.
+#[cfg(feature = "pdf")]
+fn pdf_page_list(v: &Value, short: &str) -> R<Vec<u32>> {
+    let nums: Vec<f64> = match v {
+        Value::Num(n) => vec![*n],
+        Value::Vec(xs) => xs.as_ref().clone(),
+        Value::List(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for it in items.iter() {
+                match it {
+                    Value::Num(n) => out.push(*n),
+                    other => {
+                        return e(format!(
+                            "{short}: a page list holds numbers, found {}",
+                            other.type_name()
+                        ))
+                    }
+                }
+            }
+            out
+        }
+        other => {
+            return e(format!(
+                "{short}: pages are a number or a vector of numbers, found {}",
+                other.type_name()
+            ))
+        }
+    };
+    let mut pages = Vec::with_capacity(nums.len());
+    for n in nums {
+        if n.fract() != 0.0 || n < 1.0 {
+            return e(format!(
+                "{short}: page {n} -- pages are whole numbers counted from 1, \
+                 the way they are printed on the page"
+            ));
+        }
+        pages.push(n as u32);
+    }
+    Ok(pages)
+}
+
 fn text_arg(args: &[Value], idx: usize) -> R<String> {
     mark_arg_read(idx);
     match args.get(idx) {
@@ -41715,10 +42720,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "complex", "cond", "conformal", "confusion_matrix", "conj", "contains",
     "contour", "contourf", "conv", "conv1d", "conv2d", "convert_unit",
     "copy_file", "corr", "corr_heatmap", "corrcoef", "corrmat", "corrplot",
-    "cos", "cosh", "coth", "count", "cov", "coverage", "cpe", "crc", "crc32",
+    "cos", "cosh", "coth", "count", "cov", "coverage", "cpe", "cqt", "crc", "crc32",
     "crc_check", "create_file", "created_at", "crest_factor", "crop", "cs_guarantee",
     "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
-    "cumsum", "cur_dir", "curve_fit", "cut", "cv_stability", "daily_profile",
+    "cumsum", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt", "daily_profile",
     "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin",
     "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart",
     "dedent", "delay", "delta_e", "dense", "dense_layer", "describe", "det",
@@ -41740,7 +42745,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "find_trigger", "find_zero_crossings", "findpeaks", "fir1", "firls",
     "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud",
     "floor", "fold", "fontfamily", "fontsize", "fopen", "foreground_mask",
-    "format", "forward", "freqz", "fvtool", "fzero", "gain", "gamma",
+    "format", "forward", "freqz", "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamma",
     "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
     "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
@@ -41762,7 +42767,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr",
     "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "items", "join",
     "js_exec", "json2csv", "json2xml", "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser",
-    "kalman_init", "kapur_threshold", "keys", "kfold", "kmeans",
+    "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
     "layer_norm", "lcase", "least_squares", "left", "legend", "len", "length",
@@ -41770,13 +42775,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "line_count", "line_delete", "line_insert", "line_range", "line_set",
     "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
     "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image",
-    "load_model", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
+    "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
     "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau",
     "lse", "lstm_cell", "lstm_forward", "lstm_init", "ltrim", "lu", "mae",
     "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain",
     "matlab_exec", "matmul", "max", "maxpool2d", "md2html", "mean",
     "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
-    "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize",
+    "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize",
     "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier",
     "mm", "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo",
     "monthly_profile", "move", "move_file", "mse", "mtimes", "mul",
@@ -41794,10 +42799,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "pause", "pca", "pca_components", "pca_explained_variance", "pca_model",
     "peak", "peek", "peek_byte", "peek_char", "peek_line", "percentile",
     "periodic_profile", "periodogram", "permutation_importance", "phase",
+    "pid_init",
     "pie", "pinv", "pipeline", "plot", "pmap", "point", "poisson", "polarplot",
     "poles", "polyfit", "polygon", "polyval", "pool", "pop", "pop_back",
     "pop_front", "porous", "pos_of", "pow", "pow2db", "preciseTimer",
-    "precision", "predict", "print", "printtex", "process", "processor",
+    "precision", "predict", "print", "printtex", "process", "process_is_running",
+    "process_kill", "process_pid", "process_poll", "process_read", "process_read_stderr",
+    "process_spawn", "process_wait", "processor",
     "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
     "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period",
     "pulse_width", "pump_watches", "push", "push_back", "push_front", "pwd",
@@ -41824,16 +42832,16 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean",
     "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
     "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa", "save",
-    "save_all", "save_image", "save_model", "savefig", "savgol", "sawtooth",
+    "save_all", "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score",
     "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
     "semaphore_available", "semaphore_release", "semilogx", "semilogy",
     "sequential", "sequential_split", "serial_open", "serial_ports", "series",
-    "set", "set_bit", "set_metadata", "set_start_time", "sfdr", "sgd", "sha256", "shape",
+    "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256", "shape",
     "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign",
     "signal", "signal_slice_time", "signal_unit", "similar", "simple_cnn",
     "simple_rnn_classifier", "simulate", "sin", "sinad", "sinad_estimate",
-    "sine", "sinh", "size", "sizeof", "skewness", "sleep", "slice_at", "smith",
+    "sine", "sinh", "size", "sizeof", "skewness", "sleep", "slice_at", "smc_init", "smith",
     "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter",
     "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
     "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum",
@@ -41854,10 +42862,11 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "transform", "transformer_block", "transpose", "tree_model", "triangle",
     "trim", "tsne", "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox",
     "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot", "uniform",
-    "unique", "unit_scale", "unpack", "update", "upper", "upsample", "val",
+    "unique", "unit_scale", "unpack", "unsetenv", "update", "upper", "upsample", "val",
     "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
     "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open",
-    "warburg_short", "warn", "waterfall", "welch", "where", "word_wrap",
+    "warburg_short", "warn", "waterfall", "welch", "where", "wigner_ville",
+    "word_wrap",
     "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
     "write_byte", "write_char", "write_csv", "write_double", "write_float",
     "write_int", "write_int16", "write_int32", "write_int64", "write_line",
@@ -42315,6 +43324,7 @@ fn shape_of(v: &Value) -> (usize, usize) {
         | Value::Mutex(_)
         | Value::Nothing
         | Value::Pool(_)
+        | Value::Process(_)
         | Value::Semaphore(_)
         | Value::Serial(_)
         | Value::TcpConn(_)
@@ -46514,6 +47524,319 @@ fn lms_update(m: &ModelHandle, args: &[Value]) -> R<Value> {
     ))))
 }
 
+/// One PID tick — the `update` half of the `pid_init` state protocol,
+/// reached as `state.update(error)` with `error` the current
+/// setpoint-minus-measurement.
+///
+/// Per tick, in exactly this order (the order is the contract):
+///   1. `integral = integral + error * dt`  (then clamped, if a clamp
+///      was given),
+///   2. `deriv = (error - e_prev) / dt`,
+///   3. `u = kp*error + ki*integral + kd*deriv`,
+///   4. `e_prev = error`.
+///
+/// i.e. `u[k] = Kp*e[k] + Ki*sum(e[i]*dt, i=0..k) + Kd*(e[k]-e[k-1])/dt`.
+/// Note that step 1 runs BEFORE `u` is formed, so the current error is
+/// already inside the integral term on the very tick it arrives. That is
+/// the standard discrete form; integrating after the output instead lags
+/// the integral action by one sample, which on a slow plant is invisible
+/// on a plot and shows up only as a tuning that will not transfer.
+///
+/// The error is supplied by the caller rather than a setpoint and a
+/// measurement, and `u` is applied by the caller too: the controller
+/// owns the recursion, not the loop. That keeps it usable for the cases
+/// where the error is not a plain subtraction (a wrapped angle, a
+/// ratio, a cascaded inner loop).
+///
+/// Anti-windup, when `integral_clamp` is set, is a symmetric clamp of
+/// the ACCUMULATOR (`|integral| <= clamp`), not of `u` — clamping the
+/// output instead leaves the accumulator free to grow without bound
+/// behind it, which is precisely the windup the limit is there to
+/// prevent. The clamped value is what is stored, so the state never
+/// carries a number the next tick would have to re-clamp.
+///
+/// Returns a NEW state; the receiver is untouched.
+fn pid_update(m: &ModelHandle, args: &[Value]) -> R<Value> {
+    let field = |name: &str| -> R<f64> {
+        m.field(name)
+            .ok_or_else(|| EvalError { msg: format!("update: pid state is missing its {name} field") })?
+            .as_num()
+            .map_err(|msg| EvalError { msg })
+    };
+    let kp = field("kp")?;
+    let ki = field("ki")?;
+    let kd = field("kd")?;
+    let dt = field("dt")?;
+    let integral_prev = field("integral")?;
+    let e_prev = field("e_prev")?;
+    let clamp_field = m
+        .field("integral_clamp")
+        .ok_or_else(|| EvalError { msg: "update: pid state is missing its integral_clamp field".into() })?
+        .clone();
+    let err = arg_get(args, 1)
+        .ok_or_else(|| EvalError {
+            msg: "update(pid_state, error) needs the current error (setpoint - measurement) as its argument".into(),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })?;
+
+    let mut integral = integral_prev + err * dt;
+    if let Value::Num(c) = clamp_field {
+        integral = integral.clamp(-c, c);
+    }
+    let deriv = (err - e_prev) / dt;
+    let u = kp * err + ki * integral + kd * deriv;
+
+    Ok(Value::Model(Arc::new(ModelHandle::new(
+        "pid",
+        vec![
+            ("kp".to_string(), Value::Num(kp)),
+            ("ki".to_string(), Value::Num(ki)),
+            ("kd".to_string(), Value::Num(kd)),
+            ("dt".to_string(), Value::Num(dt)),
+            ("integral".to_string(), Value::Num(integral)),
+            ("e_prev".to_string(), Value::Num(err)),
+            ("u".to_string(), Value::Num(u)),
+            ("integral_clamp".to_string(), clamp_field),
+        ],
+    ))))
+}
+
+// ---- control: sliding-mode and Mamdani fuzzy controllers (the `update`
+// half of the `smc_init` / `fuzzy_pid_init` state protocols) ----
+
+/// Read a controller state's numeric field, or say which one is missing.
+fn ctrl_field(m: &ModelHandle, name: &str) -> R<f64> {
+    m.field(name)
+        .ok_or_else(|| EvalError { msg: format!("update: {} state is missing its {name} field", m.kind) })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })
+}
+
+/// The error derivative for one controller step.
+///
+/// Returns `(e_dot, n_next)`. If the caller passed `error_dot=` it is used
+/// verbatim — the controller never second-guesses a measured derivative.
+/// Otherwise it is the backward difference `(e - e_prev)/dt`, and on the
+/// VERY FIRST update (`n == 0`) it is 0 rather than `e/dt`: with no
+/// previous sample there is no derivative, and pretending the error
+/// stepped from 0 to `e` in one `dt` produces the classic derivative kick
+/// — a huge spurious first output that looks like a tuning problem.
+fn ctrl_error_dot(
+    m: &ModelHandle,
+    error: f64,
+    dt: f64,
+    style: &[(String, Value)],
+) -> R<(f64, f64)> {
+    let n = ctrl_field(m, "n")?;
+    if let Some((_, v)) = style_entry(style, "error_dot") {
+        let ed = v.as_num().map_err(|msg| EvalError { msg })?;
+        return Ok((ed, n + 1.0));
+    }
+    let e_prev = ctrl_field(m, "e")?;
+    let ed = if n < 1.0 { 0.0 } else { (error - e_prev) / dt };
+    Ok((ed, n + 1.0))
+}
+
+/// The saturation function `sat(x) = clamp(x, -1, 1)`, and with a zero
+/// boundary layer the literal `sign(x)` (with `sign(0) = 0`) that it
+/// replaces. See `smc_init`'s doc comment for why `phi > 0` is the
+/// default.
+fn smc_sat(s: f64, phi: f64) -> f64 {
+    if phi <= 0.0 {
+        if s > 0.0 {
+            1.0
+        } else if s < 0.0 {
+            -1.0
+        } else {
+            0.0
+        }
+    } else {
+        (s / phi).clamp(-1.0, 1.0)
+    }
+}
+
+/// One sliding-mode control step — `state.update(error, error_dot=)`.
+///
+/// Returns a NEW state; the receiver is untouched.
+fn smc_update(m: &ModelHandle, args: &[Value], style: &[(String, Value)]) -> R<Value> {
+    let error = arg_get(args, 1)
+        .ok_or_else(|| EvalError {
+            msg: "update(smc_state, error, error_dot=) needs the current error as its argument".into(),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })?;
+    let k_gain = ctrl_field(m, "K")?;
+    let lambda = ctrl_field(m, "lambda")?;
+    let phi = ctrl_field(m, "phi")?;
+    let dt = ctrl_field(m, "dt")?;
+    let Some(Value::Str(surface)) = m.field("surface") else {
+        return e("update: malformed smc state (missing surface field)".to_string());
+    };
+    let surface = surface.clone();
+    let (e_dot, n_next) = ctrl_error_dot(m, error, dt, style)?;
+
+    // The surface the state was BUILT with, not one re-derived from
+    // whether `lambda` happens to be non-zero (see `smc_init`).
+    let s = if surface == "e" { error } else { e_dot + lambda * error };
+    // `u = u_eq + K*sat(s/phi)` with `u_eq = 0` (model-free).
+    let u = k_gain * smc_sat(s, phi);
+
+    Ok(Value::Model(Arc::new(ModelHandle::new(
+        "smc",
+        vec![
+            ("K".to_string(), Value::Num(k_gain)),
+            ("lambda".to_string(), Value::Num(lambda)),
+            ("phi".to_string(), Value::Num(phi)),
+            ("dt".to_string(), Value::Num(dt)),
+            ("surface".to_string(), Value::Str(surface)),
+            ("e".to_string(), Value::Num(error)),
+            ("e_dot".to_string(), Value::Num(e_dot)),
+            ("s".to_string(), Value::Num(s)),
+            ("u".to_string(), Value::Num(u)),
+            ("n".to_string(), Value::Num(n_next)),
+        ],
+    ))))
+}
+
+/// The five linguistic terms, in index order, shared by both inputs and
+/// the output: 0 = NB (negative big) .. 4 = PB (positive big).
+const FUZZY_CENTRES: [f64; 5] = [-1.0, -0.5, 0.0, 0.5, 1.0];
+/// Triangle half-width. 0.5 = the spacing of `FUZZY_CENTRES`, so adjacent
+/// memberships overlap and sum to exactly 1 everywhere on `-1..1`.
+const FUZZY_HALF_WIDTH: f64 = 0.5;
+
+/// The standard diagonal-symmetric 5x5 fuzzy-PD rule base.
+///
+/// Rows index the `error` term, columns the `error_dot` term, entries the
+/// output term, all on the NB..PB scale above. Written out literally
+/// rather than computed as `clamp(i + j - 2, 0, 4)` (which it equals)
+/// precisely so it can be read straight off against the table in any
+/// fuzzy-control text:
+///
+/// ```text
+///  e \ e_dot |  NB  NS  ZE  PS  PB
+///  ----------+---------------------
+///        NB  |  NB  NB  NB  NS  ZE
+///        NS  |  NB  NB  NS  ZE  PS
+///        ZE  |  NB  NS  ZE  PS  PB
+///        PS  |  NS  ZE  PS  PB  PB
+///        PB  |  ZE  PS  PB  PB  PB
+/// ```
+///
+/// The anti-diagonal is all ZE: a big negative error with a big positive
+/// error-rate is already being corrected, so the controller does nothing
+/// — that cancellation is the derivative action, and it is the reason
+/// this is a PD-type and not a P-type table.
+const FUZZY_RULES: [[usize; 5]; 5] = [
+    [0, 0, 0, 1, 2],
+    [0, 0, 1, 2, 3],
+    [0, 1, 2, 3, 4],
+    [1, 2, 3, 4, 4],
+    [2, 3, 4, 4, 4],
+];
+
+/// Triangular membership of `x` in term `i`.
+fn fuzzy_mf(x: f64, i: usize) -> f64 {
+    (1.0 - (x - FUZZY_CENTRES[i]).abs() / FUZZY_HALF_WIDTH).max(0.0)
+}
+
+/// Mamdani inference + centre-of-gravity defuzzification on the
+/// normalised `-1..1` universe.
+///
+/// Per rule: firing strength `w = min(mu_e[i], mu_edot[j])` (min is the
+/// Mamdani AND), the rule's output triangle CLIPPED at `w` (min
+/// implication). The 25 clipped sets are aggregated by max, and the
+/// centroid of that aggregate is integrated numerically over a fixed
+/// grid. A fully-unfired aggregate (only reachable if every strength is
+/// 0, which the overlapping MFs make impossible on `-1..1`) defuzzifies
+/// to 0 rather than dividing by zero.
+fn fuzzy_defuzzify(e_n: f64, edot_n: f64) -> f64 {
+    let mu_e: Vec<f64> = (0..5).map(|i| fuzzy_mf(e_n, i)).collect();
+    let mu_ed: Vec<f64> = (0..5).map(|j| fuzzy_mf(edot_n, j)).collect();
+
+    // Firing strength per OUTPUT term: several rules can point at the same
+    // consequent, and max-aggregation means only the strongest matters.
+    let mut out_strength = [0.0f64; 5];
+    for i in 0..5 {
+        for j in 0..5 {
+            let w = mu_e[i].min(mu_ed[j]);
+            let k = FUZZY_RULES[i][j];
+            if w > out_strength[k] {
+                out_strength[k] = w;
+            }
+        }
+    }
+
+    // Both integrals use the TRAPEZOIDAL rule, not a plain sum over the
+    // samples. That is not a refinement for its own sake: the aggregate is
+    // piecewise linear, so trapezoid integrates the denominator exactly
+    // and leaves only O(h^2) in the numerator, and the centroid comes out
+    // at the analytic value. A plain rectangle sum gives the two endpoints
+    // full weight instead of half, which biases the centroid outward --
+    // a fully saturated input defuzzified to 0.835 instead of the exact
+    // 5/6 = 0.8333, a systematic 0.2% overshoot on every single output.
+    const STEPS: usize = 400;
+    let mut num = 0.0;
+    let mut den = 0.0;
+    for p in 0..=STEPS {
+        let x = -1.0 + 2.0 * (p as f64) / (STEPS as f64);
+        let mut agg = 0.0f64;
+        for k in 0..5 {
+            let clipped = fuzzy_mf(x, k).min(out_strength[k]);
+            if clipped > agg {
+                agg = clipped;
+            }
+        }
+        let weight = if p == 0 || p == STEPS { 0.5 } else { 1.0 };
+        num += weight * x * agg;
+        den += weight * agg;
+    }
+    if den > 0.0 {
+        num / den
+    } else {
+        0.0
+    }
+}
+
+/// One fuzzy-controller step — `state.update(error, error_dot=)`.
+///
+/// Returns a NEW state; the receiver is untouched.
+fn fuzzy_pid_update(m: &ModelHandle, args: &[Value], style: &[(String, Value)]) -> R<Value> {
+    let error = arg_get(args, 1)
+        .ok_or_else(|| EvalError {
+            msg: "update(fuzzy_pid_state, error, error_dot=) needs the current error as its argument".into(),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })?;
+    let e_scale = ctrl_field(m, "error_scale")?;
+    let ed_scale = ctrl_field(m, "error_dot_scale")?;
+    let u_scale = ctrl_field(m, "output_scale")?;
+    let dt = ctrl_field(m, "dt")?;
+    let (e_dot, n_next) = ctrl_error_dot(m, error, dt, style)?;
+
+    // Onto the normalised universe the rule base is defined on. Clamping
+    // (not wrapping, not rescaling) is what makes a too-small
+    // `error_scale` saturate rather than alias.
+    let e_n = (error / e_scale).clamp(-1.0, 1.0);
+    let edot_n = (e_dot / ed_scale).clamp(-1.0, 1.0);
+    let u = u_scale * fuzzy_defuzzify(e_n, edot_n);
+
+    Ok(Value::Model(Arc::new(ModelHandle::new(
+        "fuzzy_pid",
+        vec![
+            ("error_scale".to_string(), Value::Num(e_scale)),
+            ("error_dot_scale".to_string(), Value::Num(ed_scale)),
+            ("output_scale".to_string(), Value::Num(u_scale)),
+            ("dt".to_string(), Value::Num(dt)),
+            ("e".to_string(), Value::Num(error)),
+            ("e_dot".to_string(), Value::Num(e_dot)),
+            ("u".to_string(), Value::Num(u)),
+            ("n".to_string(), Value::Num(n_next)),
+        ],
+    ))))
+}
+
 /// Extract a `Value::Model` handle, or a clear type error.
 fn as_model(v: &Value) -> R<Arc<ModelHandle>> {
     match v {
@@ -47936,6 +49259,11 @@ fn value_to_json(v: &Value) -> R<serde_json::Value> {
         // — an open OS file descriptor and read/write cursor position are
         // not data meant to round-trip through a saved workspace.
         Value::File(_) => e("save: a file handle can't be saved (it's a live OS file reference, not data)")?,
+        // A live handle just like `File`/`Timer`/`Worker`/`Mutex`/
+        // `Semaphore` above — a spawned OS process, its reader threads and
+        // its accumulated output buffers are not data meant to round-trip
+        // through a saved workspace.
+        Value::Process(_) => e("save: a process handle can't be saved (it's a live OS process reference, not data)")?,
         Value::Mmap(_) => e("save: a memory-mapped file handle can't be saved (it's a live OS mapping, not data)")?,
         // A still-pending lazy binding has no computed value to save yet —
         // clear error rather than either silently saving the unevaluated
@@ -54456,6 +55784,7 @@ fn value_len(v: &Value) -> usize {
         | Value::Mutex(_)
         | Value::Nothing
         | Value::Pool(_)
+        | Value::Process(_)
         | Value::Semaphore(_)
         | Value::Serial(_)
         | Value::TcpConn(_)
@@ -55191,6 +56520,7 @@ fn truthy(v: &Value) -> bool {
         Value::Image(img) => img.width > 0 && img.height > 0,
         Value::Timer(_) => true, // an opaque handle is always truthy, like Worker/Mutex/Semaphore/Model
         Value::File(_) => true, // an opaque handle is always truthy, like Timer/Worker/Mutex/Semaphore/Model
+        Value::Process(_) => true, // an opaque handle is always truthy, same convention
         Value::Mmap(_) => true, // an opaque handle is always truthy, same convention
         // Never actually reached in practice: every real evaluation path
         // (an `if` condition, `and`/`or`/`while`, ...) reaches a variable's
@@ -55244,6 +56574,7 @@ fn value_unchanged(a: &Value, b: &Value) -> bool {
         (Value::Mutex(x), Value::Mutex(y)) => Arc::ptr_eq(x, y),
         (Value::Semaphore(x), Value::Semaphore(y)) => Arc::ptr_eq(x, y),
         (Value::File(x), Value::File(y)) => Arc::ptr_eq(x, y),
+        (Value::Process(x), Value::Process(y)) => Arc::ptr_eq(x, y),
         (Value::Serial(x), Value::Serial(y)) => Arc::ptr_eq(x, y),
         (Value::Mmap(x), Value::Mmap(y)) => Arc::ptr_eq(x, y),
         (Value::TcpListener(x), Value::TcpListener(y)) => Arc::ptr_eq(x, y),
@@ -55366,7 +56697,7 @@ fn value_unchanged(a: &Value, b: &Value) -> bool {
         | (Value::Nothing, _) | (Value::Pool(_), _)
         | (Value::Semaphore(_), _) | (Value::Serial(_), _)
         | (Value::TcpConn(_), _) | (Value::TcpListener(_), _)
-        | (Value::Worker(_), _) | (Value::File(_), _)
+        | (Value::Worker(_), _) | (Value::File(_), _) | (Value::Process(_), _)
         | (Value::Signal(_, _, _), _)
         | (Value::Spectrum(..), _)
         | (Value::Circuit(_), _)
@@ -60915,6 +62246,428 @@ out = both.x");
         let mut it = Interp::new();
         let err = it.run("s = lms_init(2, 0.1)\ns = s.update(1)").unwrap_err();
         assert!(err.msg.contains("desired sample"), "got: {}", err.msg);
+    }
+
+    // ---- sliding-mode control (`smc_init` / `.update`) ----
+
+    #[test]
+    fn smc_matches_hand_computed_surface_and_control_for_both_surface_forms() {
+        // Every number here was worked out by hand from the definitions
+        // before being run, so this pins the arithmetic rather than
+        // recording whatever the implementation happened to produce.
+        //
+        // With `lambda=3, phi=1, dt=0.5` and `s = e_dot + lambda*e`:
+        //   step 1, e=1:   first update, so e_dot = 0 (no derivative kick),
+        //                  s = 0 + 3*1 = 3, u = 2*sat(3/1) = 2*1 = 2.
+        //   step 2, e=0.5: e_dot = (0.5 - 1)/0.5 = -1,
+        //                  s = -1 + 3*0.5 = 0.5, u = 2*(0.5/1) = 1.
+        // Step 2 lands INSIDE the boundary layer and step 1 outside it, so
+        // the saturating and the linear branch are both exercised.
+        let it = run(
+            "s0 = smc_init(2, lambda=3, phi=1, dt=0.5)\n\
+             s1 = s0.update(1)\n\
+             s2 = s1.update(0.5)\n\
+             ed1 = s1.e_dot\nss1 = s1.s\nu1 = s1.u\n\
+             ed2 = s2.e_dot\nss2 = s2.s\nu2 = s2.u\n\
+             u0_before = s0.u\nn0_before = s0.n\nsurf = s0.surface",
+        );
+        assert_eq!(num(&it, "ed1"), 0.0, "the first update has no previous error, so no derivative kick");
+        assert!((num(&it, "ss1") - 3.0).abs() < 1e-12);
+        assert!((num(&it, "u1") - 2.0).abs() < 1e-12, "outside the boundary layer u saturates at K");
+        assert!((num(&it, "ed2") + 1.0).abs() < 1e-12, "backward difference (0.5-1)/0.5");
+        assert!((num(&it, "ss2") - 0.5).abs() < 1e-12);
+        assert!((num(&it, "u2") - 1.0).abs() < 1e-12, "inside the boundary layer u is linear in s");
+        // Immutability, the same contract kalman/lms hold to.
+        assert_eq!(num(&it, "u0_before"), 0.0, "update must not mutate its receiver");
+        assert_eq!(num(&it, "n0_before"), 0.0, "update must not mutate its receiver");
+        assert!(
+            matches!(it.get("surf"), Some(Value::Str(s)) if s == "e_dot+lambda*e"),
+            "the chosen surface must be recorded on the state"
+        );
+    }
+
+    #[test]
+    fn smc_without_lambda_uses_the_plain_error_surface() {
+        // The documented minimal case: no `lambda=` means `s = e`, so with
+        // phi=1 and K=2 an error of 0.3 gives s=0.3 and u=2*0.3=0.6 --
+        // and crucially NOT a value that depends on e_dot.
+        let it = run(
+            "d = smc_init(2, phi=1)\n\
+             d1 = d.update(0.3)\n\
+             surf = d.surface\nlam = d.lambda\nss = d1.s\nu = d1.u",
+        );
+        assert!(matches!(it.get("surf"), Some(Value::Str(s)) if s == "e"));
+        assert_eq!(num(&it, "lam"), 0.0, "lambda is unused, and reads as 0 rather than as a surface choice");
+        assert!((num(&it, "ss") - 0.3).abs() < 1e-12);
+        assert!((num(&it, "u") - 0.6).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smc_uses_a_supplied_error_dot_verbatim_instead_of_differencing() {
+        // `error_dot=-2` must be taken as given, not recomputed: with
+        // lambda=3 and e=1, s = -2 + 3*1 = 1, u = 2*sat(1/1) = 2. If the
+        // controller silently differenced instead it would see e_dot = 0
+        // and s = 3 -- a different surface value, which is the point.
+        let it = run(
+            "o = smc_init(2, lambda=3, phi=1, dt=0.5)\n\
+             o1 = o.update(1, error_dot=-2)\n\
+             ed = o1.e_dot\nss = o1.s\nu = o1.u",
+        );
+        assert!((num(&it, "ed") + 2.0).abs() < 1e-12);
+        assert!((num(&it, "ss") - 1.0).abs() < 1e-12);
+        assert!((num(&it, "u") - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smc_output_is_bounded_by_k_however_large_the_error() {
+        // |u| <= K is the whole reason K is called the reaching-law gain.
+        let it = run("b = smc_init(5, phi=0.1)\nu = b.update(1000).u\nun = b.update(-1000).u");
+        assert!((num(&it, "u") - 5.0).abs() < 1e-12, "saturates at +K, never beyond");
+        assert!((num(&it, "un") + 5.0).abs() < 1e-12, "and symmetrically at -K");
+    }
+
+    #[test]
+    fn smc_drives_a_first_order_plant_to_its_closed_form_offset_with_no_chattering() {
+        // The real verification, run against a scalar first-order plant
+        // `y += (Kp*u - y)/tau * dt` with Kp = tau = 1, dt = 0.01.
+        //
+        // Inside the boundary layer u = K*e/phi = (2/0.05)*e = 40*e, and
+        // the plant's steady state is y = u, so
+        //     y = 40*(1 - y)  =>  y = 40/41 = 0.9756098...
+        // That CLOSED FORM is asserted, not a vague "got near 1": the
+        // residual offset is a real, predictable consequence of the
+        // boundary layer (ideal sliding would give exactly 1), so a test
+        // that only demanded y ~ 1 would be asserting the wrong thing.
+        //
+        // Chattering is then measured rather than asserted: `max_jump` is
+        // the largest step-to-step change in u over the settled tail. With
+        // phi > 0 the control is continuous in s and this must be ~0; the
+        // companion test below runs the identical plant with phi = 0.
+        let it = run(
+            "dt = 0.01\n\
+             s = smc_init(2, phi=0.05, dt=dt)\n\
+             y = 0\nu_prev = 0\nmax_u = 0\nmax_jump = 0\n\
+             for i = 0 to 1999\n\
+             \x20   s = s.update(1 - y)\n\
+             \x20   u = s.u\n\
+             \x20   if abs(u) > max_u\n\
+             \x20     max_u = abs(u)\n\
+             \x20   end if\n\
+             \x20   if i > 1500\n\
+             \x20     if abs(u - u_prev) > max_jump\n\
+             \x20       max_jump = abs(u - u_prev)\n\
+             \x20     end if\n\
+             \x20   end if\n\
+             \x20   u_prev = u\n\
+             \x20   y = y + (u - y) * dt\n\
+             end for",
+        );
+        let y = num(&it, "y");
+        assert!(
+            (y - 40.0 / 41.0).abs() < 1e-4,
+            "settled at {y}, closed form for this boundary layer is 40/41 = {}",
+            40.0 / 41.0
+        );
+        assert!(num(&it, "max_u") <= 2.0 + 1e-12, "|u| must never exceed K = 2, saw {}", num(&it, "max_u"));
+        assert!(
+            num(&it, "max_jump") < 0.01,
+            "with phi > 0 the control is continuous: settled step-to-step jump was {}",
+            num(&it, "max_jump")
+        );
+    }
+
+    #[test]
+    fn smc_with_a_zero_boundary_layer_chatters_at_full_amplitude() {
+        // The control case for the test above, and the empirical evidence
+        // that `phi` is what removes chattering rather than something else
+        // in the loop: the SAME plant with phi = 0 (literal sign(s)) swings
+        // u across the full +/-K range from one sample to the next, so the
+        // settled step-to-step jump is 2K = 4 instead of ~0.
+        let it = run(
+            "dt = 0.01\n\
+             s = smc_init(2, phi=0, dt=dt)\n\
+             y = 0\nu_prev = 0\nmax_jump = 0\n\
+             for i = 0 to 1999\n\
+             \x20   s = s.update(1 - y)\n\
+             \x20   u = s.u\n\
+             \x20   if i > 1500\n\
+             \x20     if abs(u - u_prev) > max_jump\n\
+             \x20       max_jump = abs(u - u_prev)\n\
+             \x20     end if\n\
+             \x20   end if\n\
+             \x20   u_prev = u\n\
+             \x20   y = y + (u - y) * dt\n\
+             end for",
+        );
+        assert!(
+            (num(&it, "max_jump") - 4.0).abs() < 1e-9,
+            "sign(s) switching must jump the full 2K = 4, saw {}",
+            num(&it, "max_jump")
+        );
+    }
+
+    #[test]
+    fn smc_init_rejects_a_nonpositive_gain_lambda_or_negative_boundary_layer() {
+        let mut it = Interp::new();
+        assert!(it.run("x = smc_init(0)").unwrap_err().msg.contains("K must be positive"));
+        let mut it = Interp::new();
+        assert!(it.run("x = smc_init(2, lambda=-1)").unwrap_err().msg.contains("lambda must be positive"));
+        let mut it = Interp::new();
+        assert!(it.run("x = smc_init(2, phi=-0.5)").unwrap_err().msg.contains("phi must be"));
+    }
+
+    // ---- Mamdani fuzzy control (`fuzzy_pid_init` / `.update`) ----
+
+    #[test]
+    fn fuzzy_pid_centres_on_zero_and_saturates_to_the_centroid_of_the_extreme_term() {
+        // The two degenerate cases, both against values known in advance.
+        //
+        // (e=0, e_dot=0) fires only the ZE/ZE rule, whose consequent is the
+        // ZE triangle -- symmetric about 0, so the centroid is exactly 0.
+        //
+        // A saturated input fires only PB/ZE -> PB. The aggregate is then
+        // the whole PB triangle (centred at 1, half-width 0.5) restricted
+        // to the universe's edge, whose centroid is 0.5 + (2/3)*0.5 = 5/6.
+        // So a fully saturated fuzzy controller reaches ~0.833 of
+        // `output_scale`, NOT 1.0 -- an intrinsic property of centre-of-
+        // gravity defuzzification, which is why this asserts 5/6 rather
+        // than "close to full scale".
+        let it = run(
+            "f = fuzzy_pid_init(1, 1, 1, 0.01)\n\
+             z = f.update(0, error_dot=0).u\n\
+             pb = f.update(1000, error_dot=0).u\n\
+             nb = f.update(-1000, error_dot=0).u",
+        );
+        assert!(num(&it, "z").abs() < 1e-9, "the centre of the rule table must defuzzify to 0, got {}", num(&it, "z"));
+        assert!(
+            (num(&it, "pb") - 5.0 / 6.0).abs() < 1e-4,
+            "saturated output {} should be the PB centroid 5/6 = {}",
+            num(&it, "pb"),
+            5.0 / 6.0
+        );
+        assert!((num(&it, "nb") + 5.0 / 6.0).abs() < 1e-4, "and symmetric for a large negative error");
+        for name in ["z", "pb", "nb"] {
+            assert!(num(&it, name).is_finite(), "{name} must be finite, not NaN or inf");
+        }
+    }
+
+    #[test]
+    fn fuzzy_pid_anti_diagonal_rules_cancel_to_zero() {
+        // A structural check on the rule TABLE rather than on one output: a
+        // big negative error with a big positive error-rate is already
+        // being corrected, so the standard table's anti-diagonal says do
+        // nothing. This is what distinguishes the PD-type table from a
+        // proportional one, and a table built with the wrong index
+        // arithmetic would fail here while still passing the plant test.
+        let it = run(
+            "f = fuzzy_pid_init(1, 1, 1, 0.01)\n\
+             a = f.update(-1000, error_dot=1000).u\n\
+             b = f.update(1000, error_dot=-1000).u",
+        );
+        assert!(num(&it, "a").abs() < 1e-9, "e=NB with e_dot=PB must give ZE, got {}", num(&it, "a"));
+        assert!(num(&it, "b").abs() < 1e-9, "e=PB with e_dot=NB must give ZE, got {}", num(&it, "b"));
+    }
+
+    #[test]
+    fn fuzzy_pid_output_is_monotone_in_the_error() {
+        // The rule table must be ordered, not merely non-degenerate: a
+        // larger error can never call for less control.
+        let it = run(
+            "f = fuzzy_pid_init(1, 1, 1, 0.01)\n\
+             a = f.update(0.1, error_dot=0).u\n\
+             b = f.update(0.4, error_dot=0).u\n\
+             c = f.update(0.8, error_dot=0).u",
+        );
+        let (a, b, c) = (num(&it, "a"), num(&it, "b"), num(&it, "c"));
+        assert!(a > 0.0 && a < b && b < c, "expected 0 < {a} < {b} < {c}");
+    }
+
+    #[test]
+    fn fuzzy_pid_drives_the_same_first_order_plant_to_its_setpoint() {
+        // The same scalar plant the SMC tests use, so the two controllers
+        // are compared on identical dynamics. A fuzzy PD controller has no
+        // integral term, so like any proportional law it settles with a
+        // small offset that shrinks as `output_scale` rises; this asserts
+        // it gets within 5% and that the control never went non-finite.
+        let it = run(
+            "dt = 0.01\n\
+             f = fuzzy_pid_init(1, 20, 20, dt)\n\
+             y = 0\nmax_u = 0\n\
+             for i = 0 to 1999\n\
+             \x20   f = f.update(1 - y)\n\
+             \x20   u = f.u\n\
+             \x20   if abs(u) > max_u\n\
+             \x20     max_u = abs(u)\n\
+             \x20   end if\n\
+             \x20   y = y + (u - y) * dt\n\
+             end for",
+        );
+        let y = num(&it, "y");
+        assert!((y - 1.0).abs() < 0.05, "settled at {y}, expected within 5% of the setpoint 1");
+        // The output can never exceed output_scale * 5/6 (the saturated
+        // centroid); anything beyond that means the defuzzifier ran away.
+        // The 1e-4 is the trapezoid rule's own O(h^2) residual on the
+        // normalised universe -- the same tolerance the saturation test
+        // above pins directly -- scaled up by `output_scale`, not slack
+        // chosen to make this pass.
+        assert!(
+            num(&it, "max_u") <= 20.0 * (5.0 / 6.0 + 1e-4),
+            "|u| exceeded the defuzzifier's own ceiling: {}",
+            num(&it, "max_u")
+        );
+    }
+
+    #[test]
+    fn fuzzy_pid_update_leaves_its_receiver_untouched() {
+        let it = run(
+            "f0 = fuzzy_pid_init(1, 1, 2, 0.01)\n\
+             f1 = f0.update(0.5)\n\
+             u_before = f0.u\nn_before = f0.n\nu_after = f1.u\nn_after = f1.n",
+        );
+        assert_eq!(num(&it, "u_before"), 0.0, "update must not mutate its receiver");
+        assert_eq!(num(&it, "n_before"), 0.0, "update must not mutate its receiver");
+        assert!(num(&it, "u_after") > 0.0, "a positive error must call for positive control");
+        assert_eq!(num(&it, "n_after"), 1.0);
+    }
+
+    #[test]
+    fn fuzzy_pid_init_rejects_nonpositive_scales_and_a_short_argument_list() {
+        let mut it = Interp::new();
+        assert!(it
+            .run("x = fuzzy_pid_init(0, 1, 1, 0.01)")
+            .unwrap_err()
+            .msg
+            .contains("error_scale must be positive"));
+        let mut it = Interp::new();
+        assert!(it.run("x = fuzzy_pid_init(1, 1, 1)").unwrap_err().msg.contains("needs 4 arguments"));
+    }
+
+    #[test]
+    fn pid_two_ticks_match_the_hand_computed_recursion_and_leave_the_receiver_untouched() {
+        // Kp=2, Ki=1, Kd=0.1, dt=0.5, worked by hand:
+        //   tick 1, e=1.0: integral = 0 + 1*0.5 = 0.5
+        //                  deriv    = (1 - 0)/0.5 = 2
+        //                  u = 2*1 + 1*0.5 + 0.1*2 = 2.7
+        //   tick 2, e=0.5: integral = 0.5 + 0.5*0.5 = 0.75
+        //                  deriv    = (0.5 - 1)/0.5 = -1
+        //                  u = 2*0.5 + 1*0.75 + 0.1*(-1) = 1.65
+        // All three of integral/e_prev/u are asserted per tick, not just
+        // `u`: a controller that accumulated the integral AFTER forming
+        // the output (the classic one-sample lag) still produces a
+        // plausible-looking `u` trajectory, and differs here on tick 1
+        // (u would be 2.2, not 2.7).
+        let it = run(
+            "s0 = pid_init(2, 1, 0.1, 0.5)\n\
+             s1 = s0.update(1.0)\n\
+             s2 = s1.update(0.5)\n\
+             u1 = s1.u\ni1 = s1.integral\np1 = s1.e_prev\n\
+             u2 = s2.u\ni2 = s2.integral\np2 = s2.e_prev\n\
+             u0_before = s0.u\ni0_before = s0.integral",
+        );
+        assert!((num(&it, "u1") - 2.7).abs() < 1e-12, "u1 was {}", num(&it, "u1"));
+        assert!((num(&it, "i1") - 0.5).abs() < 1e-12);
+        assert!((num(&it, "p1") - 1.0).abs() < 1e-12);
+        assert!((num(&it, "u2") - 1.65).abs() < 1e-12, "u2 was {}", num(&it, "u2"));
+        assert!((num(&it, "i2") - 0.75).abs() < 1e-12);
+        assert!((num(&it, "p2") - 0.5).abs() < 1e-12);
+        // the immutable-state half of the contract
+        assert_eq!(num(&it, "u0_before"), 0.0, "update must not mutate its receiver");
+        assert_eq!(num(&it, "i0_before"), 0.0, "update must not mutate its receiver");
+    }
+
+    #[test]
+    fn pid_integral_clamp_bounds_the_accumulator_and_its_absence_does_not() {
+        // The probe has to be able to come out either way, so the same
+        // three ticks are run clamped and unclamped and the two are
+        // required to DIFFER. With Kp=1, Ki=1, Kd=0, dt=1 and e=1 each
+        // tick the accumulator walks 1, 2, 3; a clamp of 2 holds the
+        // third at 2 (u = 1 + 2 = 3 rather than 1 + 3 = 4).
+        let it = run(
+            "c = pid_init(1, 1, 0, 1.0, integral_clamp=2)\n\
+             u = pid_init(1, 1, 0, 1.0)\n\
+             for i = 1 to 3\n\
+             \x20   c = c.update(1)\n\
+             \x20   u = u.update(1)\n\
+             end for\n\
+             ic = c.integral\niu = u.integral\nuc = c.u\nuu = u.u",
+        );
+        assert!((num(&it, "ic") - 2.0).abs() < 1e-12, "clamped integral was {}", num(&it, "ic"));
+        assert!((num(&it, "iu") - 3.0).abs() < 1e-12, "uncapped integral was {}", num(&it, "iu"));
+        assert!((num(&it, "uc") - 3.0).abs() < 1e-12);
+        assert!((num(&it, "uu") - 4.0).abs() < 1e-12);
+        // and the clamp is symmetric: a negative error winds down to -2
+        let it = run(
+            "c = pid_init(1, 1, 0, 1.0, integral_clamp=2)\n\
+             for i = 1 to 5\n\
+             \x20   c = c.update(-1)\n\
+             end for\n\
+             ic = c.integral",
+        );
+        assert!((num(&it, "ic") + 2.0).abs() < 1e-12, "clamped integral was {}", num(&it, "ic"));
+    }
+
+    #[test]
+    fn pid_stabilizes_a_first_order_plant_to_setpoint_with_no_overshoot() {
+        // The end-to-end check against a working, tested course lesson:
+        // a first-order plant `y += (K*u - y)/tau * dt` with K=2.0,
+        // tau=1.2, dt=0.05 driven to setpoint 1.0 over 200 ticks by
+        // Kp=2.0, Ki=1.5, Kd=0.1 reaches 95.1% at t=1s, settles at
+        // 1.0000, and never overshoots.
+        //
+        // The steady state is asserted too, and it is the part that
+        // cannot be fudged: holding y at the setpoint requires K*u = 1.0,
+        // so u MUST converge to 0.5 and — since the error has gone to
+        // zero, leaving only the integral term — the accumulator must
+        // converge to u/Ki = 1/3. A controller that merely looked
+        // convergent on the output (wrong Ki scaling, `dt` dropped from
+        // the integral, the term accumulated after the output instead of
+        // before) lands on a different accumulator for the same y, so
+        // these two catch what a settle-value assertion alone would not.
+        let it = run(
+            "setpoint = 1.0\ntau = 1.2\nK = 2.0\ndt = 0.05\n\
+             s = pid_init(2.0, 1.5, 0.1, dt)\n\
+             plant_y = 0.0\npeak = 0.0\nn_over = 0\nat1s = 0.0\n\
+             for k = 0 to 199\n\
+             \x20   err = setpoint - plant_y\n\
+             \x20   s = s.update(err)\n\
+             \x20   plant_y = plant_y + (K*s.u - plant_y)/tau * dt\n\
+             \x20   if plant_y > peak\n\
+             \x20       peak = plant_y\n\
+             \x20   end if\n\
+             \x20   if plant_y > setpoint\n\
+             \x20       n_over = n_over + 1\n\
+             \x20   end if\n\
+             \x20   if k == 20\n\
+             \x20       at1s = plant_y\n\
+             \x20   end if\n\
+             end for\n\
+             final_y = plant_y\nfinal_u = s.u\nfinal_i = s.integral",
+        );
+        let at1s = num(&it, "at1s");
+        assert!((at1s - 0.951).abs() < 5e-4, "at t=1s the plant was at {at1s}, expected 95.1%");
+        let final_y = num(&it, "final_y");
+        assert!((final_y - 1.0).abs() < 1e-4, "final value {final_y} should settle at 1.0000");
+        assert_eq!(num(&it, "n_over"), 0.0, "the response must not overshoot the setpoint");
+        // steady state: K*u = setpoint => u = 0.5, and integral = u/Ki
+        assert!((num(&it, "final_u") - 0.5).abs() < 1e-4, "steady-state u was {}", num(&it, "final_u"));
+        assert!(
+            (num(&it, "final_i") - 1.0 / 3.0).abs() < 1e-3,
+            "steady-state integral was {}, expected u/Ki = 1/3",
+            num(&it, "final_i")
+        );
+    }
+
+    #[test]
+    fn pid_init_rejects_a_nonpositive_dt_and_clamp_and_update_needs_an_error() {
+        let mut it = Interp::new();
+        let err = it.run("s = pid_init(1, 1, 0, 0)").unwrap_err();
+        assert!(err.msg.contains("dt must be positive"), "got: {}", err.msg);
+        let mut it = Interp::new();
+        let err = it.run("s = pid_init(1, 1, 0, 0.1, integral_clamp=0)").unwrap_err();
+        assert!(err.msg.contains("integral_clamp"), "got: {}", err.msg);
+        let mut it = Interp::new();
+        let err = it.run("s = pid_init(1, 1, 0, 0.1)\ns = s.update()").unwrap_err();
+        assert!(err.msg.contains("error"), "got: {}", err.msg);
     }
 
     #[test]
@@ -67685,6 +69438,149 @@ end for");
         let mut it = Interp::new();
         let err = it.run("load_image(\"does_not_exist_qu_test.bmp\")").unwrap_err();
         assert!(err.msg.contains("load_image"), "expected a load_image-specific error, got: {}", err.msg);
+    }
+
+    /// A photograph-shaped gradient for the format round-trip tests below.
+    #[cfg(test)]
+    fn round_trip_fixture() -> image::Image {
+        let (w, h) = (40usize, 24usize);
+        let mut pixels = Vec::with_capacity(w * h * 3);
+        for y in 0..h {
+            for x in 0..w {
+                pixels.push(((x * 255) / w) as u8);
+                pixels.push(((y * 255) / h) as u8);
+                pixels.push(if x > w / 2 { 200 } else { 60 });
+            }
+        }
+        image::Image::new(w, h, pixels).unwrap()
+    }
+
+    /// End-to-end through the real builtins: `save_image` to a `.jpg`,
+    /// `load_image` back, on actual bytes on disk.
+    ///
+    /// JPEG is LOSSY, so this deliberately does NOT assert pixel equality
+    /// the way the BMP test above does. It measures the RMS difference and
+    /// checks the file really is a JPEG (SOI marker) rather than a BMP that
+    /// happened to get a `.jpg` name -- which is exactly what the old
+    /// extension dispatch, with its `_ => encode_bmp` fallback, would have
+    /// silently produced before this pass.
+    #[test]
+    fn save_image_load_image_jpeg_round_trip_is_lossy_but_close() {
+        let path = std::env::temp_dir().join("qu_image_roundtrip_test.jpg");
+        let img = round_trip_fixture();
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(img.clone())));
+        let p = path.display().to_string().replace('\\', "\\\\");
+        it.run(&format!("save_image(\"{p}\", img)")).unwrap();
+
+        // The bytes on disk are a real JPEG, not a renamed BMP.
+        let on_disk = std::fs::read(&path).unwrap();
+        assert_eq!(&on_disk[0..3], &[0xFF, 0xD8, 0xFF], "`.jpg` did not get JPEG bytes");
+
+        let mut it2 = Interp::new();
+        it2.run(&format!("img2 = load_image(\"{p}\")")).unwrap();
+        let Some(Value::Image(loaded)) = it2.get("img2") else {
+            panic!("expected an image back from load_image");
+        };
+        assert_eq!((loaded.width, loaded.height), (img.width, img.height));
+        assert_ne!(loaded.pixels, img.pixels, "a JPEG round trip came back bit-identical -- that would mean the encoder is not actually JPEG");
+
+        let sq: f64 = img
+            .pixels
+            .iter()
+            .zip(loaded.pixels.iter())
+            .map(|(a, b)| {
+                let d = *a as f64 - *b as f64;
+                d * d
+            })
+            .sum();
+        let rms = (sq / img.pixels.len() as f64).sqrt();
+        println!("save_image/load_image .jpg round-trip RMS: {rms:.3} levels");
+        assert!(rms < 12.0, "JPEG round trip through the builtins was far worse than expected: RMS {rms}");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// `quality=` actually reaches the encoder: a low quality must produce
+    /// a smaller file than a high one. A test that only checked the call
+    /// was ACCEPTED would pass even if the argument were dropped on the
+    /// floor, which is the failure mode worth ruling out.
+    #[test]
+    fn save_image_jpeg_quality_changes_the_file() {
+        let img = round_trip_fixture();
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(img)));
+        let lo = std::env::temp_dir().join("qu_image_q20_test.jpg");
+        let hi = std::env::temp_dir().join("qu_image_q95_test.jpg");
+        let (lp, hp) = (
+            lo.display().to_string().replace('\\', "\\\\"),
+            hi.display().to_string().replace('\\', "\\\\"),
+        );
+        it.run(&format!("save_image(\"{lp}\", img, quality=20)")).unwrap();
+        it.run(&format!("save_image(\"{hp}\", img, quality=95)")).unwrap();
+        let (lo_len, hi_len) = (
+            std::fs::metadata(&lo).unwrap().len(),
+            std::fs::metadata(&hi).unwrap().len(),
+        );
+        println!("JPEG quality=20 -> {lo_len} bytes, quality=95 -> {hi_len} bytes");
+        assert!(lo_len < hi_len, "quality= did not reach the encoder: q20 was {lo_len} bytes, q95 was {hi_len}");
+
+        // Out of range is refused with a reason, not clamped silently.
+        let err = it.run(&format!("save_image(\"{lp}\", img, quality=0)")).unwrap_err();
+        assert!(err.msg.contains("1 to 100"), "got {}", err.msg);
+
+        let _ = std::fs::remove_file(lo);
+        let _ = std::fs::remove_file(hi);
+    }
+
+    /// TIFF, unlike JPEG, is written losslessly here -- so its round trip
+    /// through the builtins IS pixel-exact, same as BMP and PNG.
+    #[test]
+    fn save_image_load_image_tiff_round_trip_is_pixel_exact() {
+        let path = std::env::temp_dir().join("qu_image_roundtrip_test.tif");
+        let img = round_trip_fixture();
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(img.clone())));
+        let p = path.display().to_string().replace('\\', "\\\\");
+        it.run(&format!("save_image(\"{p}\", img)")).unwrap();
+
+        let on_disk = std::fs::read(&path).unwrap();
+        assert_eq!(&on_disk[0..4], b"II\x2A\x00", "`.tif` did not get TIFF bytes");
+
+        let mut it2 = Interp::new();
+        it2.run(&format!("img2 = load_image(\"{p}\")")).unwrap();
+        let Some(Value::Image(loaded)) = it2.get("img2") else {
+            panic!("expected an image back from load_image");
+        };
+        assert_eq!(**loaded, img, "TIFF round trip must be pixel-exact");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The format is sniffed from the BYTES on read, so a JPEG saved under
+    /// a misleading `.png` name still loads. This is the property the
+    /// module doc claims and the reason `decode` does not look at
+    /// extensions at all.
+    #[test]
+    fn a_jpeg_named_png_still_loads_because_bytes_win() {
+        let path = std::env::temp_dir().join("qu_image_liar_test.png");
+        let img = round_trip_fixture();
+        // Write real JPEG bytes under a `.png` name, behind the builtin's
+        // back -- the same situation as a file someone renamed by hand.
+        std::fs::write(
+            &path,
+            image::encode_jpeg(img.width, img.height, &img.pixels, 90).unwrap(),
+        )
+        .unwrap();
+        let mut it = Interp::new();
+        it.run(&format!(
+            "img2 = load_image(\"{}\")",
+            path.display().to_string().replace('\\', "\\\\")
+        ))
+        .unwrap();
+        let Some(Value::Image(loaded)) = it.get("img2") else {
+            panic!("expected an image back from load_image");
+        };
+        assert_eq!((loaded.width, loaded.height), (img.width, img.height));
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
@@ -83456,6 +85352,158 @@ a = map(names, upper)"#);
         let mut it = Interp::new();
         let err = it.run("import codec as c\nx = decode_flac(\"nope.flac\")").unwrap_err();
         assert!(err.msg.contains("could not read"), "bare, after an alias: {}", err.msg);
+    }
+
+    /// A real PDF committed in this repository, addressed from the crate
+    /// directory rather than the working directory so the test does not
+    /// depend on where cargo was invoked from. Forward slashes because a
+    /// Windows path's backslashes are ESCAPE SEQUENCES inside a Qu string
+    /// literal -- `\f` in a path would reach the interpreter as a form
+    /// feed and the file would simply not be found.
+    #[cfg(feature = "pdf")]
+    fn repo_pdf(rel: &str) -> String {
+        format!("{}/../../../{rel}", env!("CARGO_MANIFEST_DIR")).replace('\\', "/")
+    }
+
+    /// The module end to end on a REAL PDF, not a fixture: the numbers
+    /// below were read off the actual committed files (2026-09-23).
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_module_reads_a_real_pdf() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!("import pdf\nn = pdf.page_count(\"{p}\")\ni = pdf.info(\"{p}\")\nv = i.version\npg = i.pages"));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("n"));
+        assert!(matches!(it.get("pg"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("pg"));
+        assert!(matches!(it.get("v"), Some(Value::Str(s)) if s == "1.6"), "{:?}", it.get("v"));
+    }
+
+    /// `pdf.info` reports a missing metadata key as `none`, not `""` --
+    /// and a present one as the real string. Both on the same file, so
+    /// the test cannot pass by everything being one or the other.
+    ///
+    /// The fixture lives under `example_codes/`, excluded from the public
+    /// tree (`tools/make_public.sh`'s own `EXCLUDE_TREES` -- the author's
+    /// own prior projects, not Qu's), so this test skips rather than fails
+    /// when it's absent: a real Apache-FOP-produced document's exact
+    /// metadata shape isn't something worth hand-fabricating a fixture
+    /// for, and the private tree, where the real file lives, still runs
+    /// this for real.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_info_distinguishes_absent_metadata_from_empty() {
+        let p = repo_pdf("example_codes/crest_factor_reduction_project_vf/DFTUseful.pdf");
+        if !std::path::Path::new(&p).exists() {
+            eprintln!("skipping pdf_info_distinguishes_absent_metadata_from_empty: fixture not present in this tree");
+            return;
+        }
+        let it = run(&format!(
+            "import pdf\ni = pdf.info(\"{p}\")\nprod = i.producer\ntit = i.title\nenc = i.encrypted"
+        ));
+        assert!(
+            matches!(it.get("prod"), Some(Value::Str(s)) if s.contains("Apache FOP")),
+            "{:?}",
+            it.get("prod")
+        );
+        assert!(matches!(it.get("tit"), Some(Value::Nothing)), "{:?}", it.get("tit"));
+        assert!(matches!(it.get("enc"), Some(Value::Bool(false))), "{:?}", it.get("enc"));
+    }
+
+    /// The bytes round-trip that the `Value` layer is the whole risk of:
+    /// `pdf.merge` hands back a `Vec` of bytes, and feeding that straight
+    /// back into `pdf.page_count` has to work -- which it only does if the
+    /// byte vector survived the f64 conversion in both directions.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_merge_returns_bytes_that_feed_straight_back_in() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\nbytes = pdf.merge([\"{a}\", \"{b}\"])\nn = pdf.page_count(bytes)"
+        ));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 2.0), "{:?}", it.get("n"));
+    }
+
+    /// `pdf.extract_pages` likewise, and it must keep the RIGHT page.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_extract_pages_round_trips_through_the_value_layer() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\nm = pdf.merge([\"{a}\", \"{b}\"])\none = pdf.extract_pages(m, 2)\nn = pdf.page_count(one)"
+        ));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("n"));
+    }
+
+    /// Pages are counted from 1, and 0 is refused BY NAME rather than
+    /// quietly read as "the first page" -- see `pdf_page_list`.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_page_zero_is_refused_rather_than_silently_meaning_page_one() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!("import pdf\nx = pdf.extract_pages(\"{p}\", 0)"));
+        assert!(err.msg.contains("counted from 1"), "{}", err.msg);
+    }
+
+    /// The honesty check this module's text extraction exists to make.
+    /// This file is `pdfcrop` output: its text lives inside a Form
+    /// XObject, lopdf cannot see it, and the answer must be a loud error
+    /// rather than the empty string that would read as "no text here".
+    ///
+    /// Same `example_codes/`-exclusion skip as
+    /// `pdf_info_distinguishes_absent_metadata_from_empty` above -- see
+    /// its doc comment.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_extract_text_refuses_to_report_hidden_text_as_empty() {
+        let p = repo_pdf("example_codes/crest_factor_reduction_project_vf/addall-crop.pdf");
+        if !std::path::Path::new(&p).exists() {
+            eprintln!("skipping pdf_extract_text_refuses_to_report_hidden_text_as_empty: fixture not present in this tree");
+            return;
+        }
+        let err = run_err(&format!("import pdf\nx = pdf.extract_text(\"{p}\")"));
+        assert!(err.msg.contains("Form XObject"), "{}", err.msg);
+        // The same file's structural operations still work, which is what
+        // that error message promises the caller.
+        let it = run(&format!("import pdf\nn = pdf.page_count(\"{p}\")"));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("n"));
+    }
+
+    /// And where extraction genuinely works, it returns the real text.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_extract_text_reads_a_document_it_can_read() {
+        let p = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!("import pdf\nt = pdf.extract_text(\"{p}\")"));
+        match it.get("t") {
+            Some(Value::Str(s)) => assert!(s.contains("beeswarm"), "got {s:?}"),
+            other => panic!("expected text, got {other:?}"),
+        }
+    }
+
+    /// The writing form is denied in a sandbox and the byte-returning one
+    /// is not -- the same split `codec.write_wav`/`codec.encode_wav` has.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn the_pdf_writing_forms_are_the_ones_a_sandbox_denies() {
+        // Denied: it opens a file for writing.
+        let mut it = Interp::new();
+        let err = it
+            .run("import pdf\nsandbox_mode(true)\nx = pdf.write_merge(\"o.pdf\", [\"nope.pdf\"])")
+            .unwrap_err();
+        assert!(err.msg.contains("sandbox"), "write_merge: {}", err.msg);
+
+        // Allowed: it returns the bytes and never touches disk for
+        // OUTPUT. It still fails here -- on the missing INPUT -- and that
+        // is the point: the failure must be about reading the file, not
+        // about the sandbox, or this test would pass for the wrong
+        // reason and prove nothing about the deny list.
+        let mut it = Interp::new();
+        let err = it
+            .run("import pdf\nsandbox_mode(true)\nx = pdf.merge([\"nope.pdf\"])")
+            .unwrap_err();
+        assert!(err.msg.contains("could not read"), "merge: {}", err.msg);
+        assert!(!err.msg.contains("sandbox"), "merge must not be denied: {}", err.msg);
     }
 
     /// `MODULE_EXPORTS` is declared rather than derived from the dispatch
