@@ -3959,7 +3959,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
     ("pdf", &["extract_pages", "extract_text", "info", "merge", "page_count", "write_merge", "write_pages"]),
-    ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb"]),
+    ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
 
@@ -14314,6 +14314,55 @@ impl Interp {
             return Ok(Value::Image(Arc::new(image::Image { width: rw, height: rh, pixels })));
         }
 
+        // `image::watershed(surface, markers=)` is the fourth odd one out
+        // (§ SE/hit-miss/watershed pass, 2026-09-25): its first argument is
+        // a `Mat` -- the topographic surface to flood, typically a
+        // NEGATED `image.distance_transform(mask)` so each blob's own
+        // center floods first (see `qu_image::watershed`'s own doc comment
+        // for why) -- not a `Value::Image`. `markers=` is a required kwarg
+        // (not derived from local extrema when omitted -- see
+        // `qu_image::watershed`'s doc comment for why that is a deliberate
+        // refusal, not a gap), a labeled `Mat` the same shape as `surface`.
+        if f == "image::watershed" {
+            let Value::Mat(surface_m) = arg0(args)? else {
+                return e(format!(
+                    "image.watershed(surface, markers=) needs a Mat (e.g. -image.distance_transform(mask)) as `surface`, found {}",
+                    arg0(args)?.type_name()
+                ));
+            };
+            let (sh, sw) = surface_m.shape();
+            let Some((_, markers_v)) = style_entry(style, "markers") else {
+                return e(
+                    "image.watershed: `markers=` is required -- a labeled Mat the same shape as \
+                     `surface`, 0 = unlabeled, seeded with at least one pixel per region to grow \
+                     (deriving seeds from local extrema automatically is a different, \
+                     parameter-sensitive algorithm this function deliberately does not guess at)"
+                        .to_string(),
+                );
+            };
+            let Value::Mat(markers_m) = markers_v else {
+                return e(format!("image.watershed: `markers=` must be a Mat, found {}", markers_v.type_name()));
+            };
+            let (mh, mw) = markers_m.shape();
+            if (mh, mw) != (sh, sw) {
+                return e(format!(
+                    "image.watershed: `markers=` must be the same shape as `surface` ({sh}x{sw}), got {mh}x{mw}"
+                ));
+            }
+            let mut surface = vec![0f64; sh * sw];
+            let mut markers = vec![0i32; sh * sw];
+            for y in 0..sh {
+                for x in 0..sw {
+                    surface[y * sw + x] = surface_m.get(y, x).unwrap_or(0.0);
+                    markers[y * sw + x] = markers_m.get(y, x).unwrap_or(0.0).round() as i32;
+                }
+            }
+            let labels = qu_image::watershed(&surface, &markers, sw, sh);
+            let flat: Vec<f64> = labels.iter().map(|&l| l as f64).collect();
+            let mat = mat_from_rowmajor(sh, sw, &flat)?;
+            return Ok(Value::Mat(Arc::new(mat)));
+        }
+
         let Value::Image(img) = arg0(args)? else {
             return e(format!("{f}(img) needs an image, found {}", arg0(args)?.type_name()));
         };
@@ -20535,7 +20584,8 @@ self.eval_grad(loss, wrt)
             | "image::rgb2hsv"
             | "image::hsv2rgb"
             | "image::rgb2lab"
-            | "image::lab2rgb" => self.image_call(f, &args, &style),
+            | "image::lab2rgb"
+            | "image::watershed" => self.image_call(f, &args, &style),
             // Same shape again for `svg`, minus the `cfg` -- this module
             // is always compiled in (see `native_module`). These names
             // are reachable ONLY qualified as `svg.rect(...)` etc.: three
@@ -36327,6 +36377,220 @@ self.eval_grad(loss, wrt)
                 let out = img.convolve(&kernel, kr).map_err(|msg| EvalError { msg: format!("imfilter: {msg}") })?;
                 Ok(Value::Image(Arc::new(out)))
             }
+            // ---- Direct raster drawing/annotation (§ image toolkit design
+            // spec `docs/design/toolkit-image.md` §6 "Drawing/annotation",
+            // 2026-09-25) -- draws straight onto a pixel buffer and returns
+            // a NEW `Image` (same convention every other transform in this
+            // group already follows), distinct from the plotting system's
+            // own `annotate`/`text`/`arrow` builtins, which label a FIGURE
+            // (an SVG/PDF vector canvas with a data coordinate system), not
+            // a raw `Image`. Coordinates are plain pixel integers, top-left
+            // origin. See `image::Image::draw_line`/`draw_rect`/
+            // `draw_circle`/`draw_arrow`/`draw_text`'s own doc comments for
+            // the exact rasterization algorithm each uses.
+            "draw_line" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!(
+                        "draw_line(img, x0, y0, x1, y1, color=, [thickness=1]) needs an image, found {}",
+                        arg0(&args)?.type_name()
+                    ));
+                };
+                let img = img.clone();
+                let x0 = required_num_arg(&args, 1, "draw_line")?;
+                let y0 = required_num_arg(&args, 2, "draw_line")?;
+                let x1 = required_num_arg(&args, 3, "draw_line")?;
+                let y1 = required_num_arg(&args, 4, "draw_line")?;
+                let color = required_color_arg(&style, "draw_line")?;
+                let thickness = style_thickness(&style, "draw_line")?;
+                let out = img
+                    .draw_line(x0.round() as i64, y0.round() as i64, x1.round() as i64, y1.round() as i64, color, thickness)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `draw_rect(img, x, y, width, height, color=, [thickness=1],
+            // [filled=false])` -- axis-aligned rectangle, top-left corner
+            // `(x, y)`. `filled=true` ignores `thickness` (a fill has no
+            // stroke width — see `Image::draw_rect`'s own doc comment).
+            "draw_rect" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!(
+                        "draw_rect(img, x, y, width, height, color=, [thickness=1], [filled=false]) needs an image, found {}",
+                        arg0(&args)?.type_name()
+                    ));
+                };
+                let img = img.clone();
+                let x = required_num_arg(&args, 1, "draw_rect")?;
+                let y = required_num_arg(&args, 2, "draw_rect")?;
+                let width = required_num_arg(&args, 3, "draw_rect")?;
+                let height = required_num_arg(&args, 4, "draw_rect")?;
+                let color = required_color_arg(&style, "draw_rect")?;
+                let thickness = style_thickness(&style, "draw_rect")?;
+                let filled = style_entry(&style, "filled").is_some_and(|(_, v)| truthy(v));
+                let out = img
+                    .draw_rect(x.round() as i64, y.round() as i64, width.round() as i64, height.round() as i64, color, thickness, filled)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `draw_circle(img, cx, cy, radius, color=, [thickness=1],
+            // [filled=false])` -- `filled=true` fills the digital disk
+            // `dx^2+dy^2 <= radius^2`; `filled=false` strokes the midpoint
+            // (Bresenham) circle boundary. See `Image::draw_circle`'s own
+            // doc comment for why those are two different algorithms.
+            "draw_circle" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!(
+                        "draw_circle(img, cx, cy, radius, color=, [thickness=1], [filled=false]) needs an image, found {}",
+                        arg0(&args)?.type_name()
+                    ));
+                };
+                let img = img.clone();
+                let cx = required_num_arg(&args, 1, "draw_circle")?;
+                let cy = required_num_arg(&args, 2, "draw_circle")?;
+                let radius = required_num_arg(&args, 3, "draw_circle")?;
+                let color = required_color_arg(&style, "draw_circle")?;
+                let thickness = style_thickness(&style, "draw_circle")?;
+                let filled = style_entry(&style, "filled").is_some_and(|(_, v)| truthy(v));
+                let out = img
+                    .draw_circle(cx.round() as i64, cy.round() as i64, radius.round() as i64, color, thickness, filled)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `draw_arrow(img, x0, y0, x1, y1, color=, [thickness=1],
+            // [head_size=10])` -- a `draw_line` shaft plus a two-stroke
+            // arrowhead splayed +/-30 degrees back from the tip. See
+            // `Image::draw_arrow`'s own doc comment for the exact geometry.
+            "draw_arrow" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!(
+                        "draw_arrow(img, x0, y0, x1, y1, color=, [thickness=1], [head_size=10]) needs an image, found {}",
+                        arg0(&args)?.type_name()
+                    ));
+                };
+                let img = img.clone();
+                let x0 = required_num_arg(&args, 1, "draw_arrow")?;
+                let y0 = required_num_arg(&args, 2, "draw_arrow")?;
+                let x1 = required_num_arg(&args, 3, "draw_arrow")?;
+                let y1 = required_num_arg(&args, 4, "draw_arrow")?;
+                let color = required_color_arg(&style, "draw_arrow")?;
+                let thickness = style_thickness(&style, "draw_arrow")?;
+                let head_size = style_num(&style, "head_size").unwrap_or(10.0);
+                let out = img
+                    .draw_arrow(x0.round() as i64, y0.round() as i64, x1.round() as i64, y1.round() as i64, color, thickness, head_size)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `draw_scale_bar(img, length_physical, [pixel_size=], [unit=],
+            // [position="bottom-right"], color=, [margin=10], [thickness=4],
+            // [label=true], [font_scale=1])` -- draws a horizontal bar whose
+            // PIXEL length is `length_physical / pixel_size`, rounded to the
+            // nearest pixel. Reuses `image::regions`'s own `pixel_size=`/
+            // `unit=` convention exactly (see `qu-image/src/lib.rs`'s
+            // `regions` doc comment): omitting `pixel_size=` means
+            // `length_physical` IS already a pixel count (`unit=` then
+            // defaults to, and must be, `"px"`); giving both `unit=` with no
+            // `pixel_size=`, or `unit="px"` alongside one, are the same
+            // "unit with no scale" / "a unit that contradicts its own scale"
+            // errors `regions` reports, reworded for this builtin. `label`
+            // draws `length_physical` + the unit underneath the bar using
+            // `image::Image::draw_text`'s built-in bitmap font (digits/`.`/
+            // `-`/`%`/the handful of unit letters it supports; anything else
+            // renders blank — see that method's own doc comment for the
+            // full scope of this minimal font).
+            "draw_scale_bar" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!(
+                        "draw_scale_bar(img, length_physical, [pixel_size=], [unit=], color=, ...) needs an image, found {}",
+                        arg0(&args)?.type_name()
+                    ));
+                };
+                let img = img.clone();
+                let length_physical = required_num_arg(&args, 1, "draw_scale_bar")?;
+                if !(length_physical > 0.0) || !length_physical.is_finite() {
+                    return e(format!(
+                        "draw_scale_bar: length_physical must be a positive, finite number, found {length_physical}"
+                    ));
+                }
+                let pixel_size = style_num(&style, "pixel_size");
+                if let Some(p) = pixel_size {
+                    if !(p > 0.0) || !p.is_finite() {
+                        return e(format!(
+                            "draw_scale_bar: `pixel_size={p}` must be a positive, finite length per pixel"
+                        ));
+                    }
+                }
+                let unit = style_str(&style, "unit");
+                if let Some(u) = &unit {
+                    if pixel_size.is_none() && u != "px" {
+                        return e(
+                            "draw_scale_bar: `unit=` was given without `pixel_size=` -- a unit \
+                             name with no scale would label the bar as though it had been \
+                             converted"
+                                .to_string(),
+                        );
+                    }
+                    if u == "px" && pixel_size.is_some() {
+                        return e(
+                            "draw_scale_bar: `unit=\"px\"` with a `pixel_size=` is a \
+                             contradiction -- the length IS scaled, so name the unit it is \
+                             scaled to"
+                                .to_string(),
+                        );
+                    }
+                }
+                let unit_label = unit.unwrap_or_else(|| "px".to_string());
+                let bar_len_px = match pixel_size {
+                    Some(p) => (length_physical / p).round() as i64,
+                    None => length_physical.round() as i64,
+                };
+                if bar_len_px <= 0 {
+                    return e(format!(
+                        "draw_scale_bar: length_physical={length_physical} with pixel_size={pixel_size:?} \
+                         rounds to {bar_len_px} pixels, which is not drawable -- it must round to at least 1"
+                    ));
+                }
+                let color = required_color_arg(&style, "draw_scale_bar")?;
+                let margin = style_num(&style, "margin").unwrap_or(10.0).max(0.0).round() as i64;
+                let bar_height = style_thickness(&style, "draw_scale_bar")? as i64;
+                let position = style_str(&style, "position").unwrap_or_else(|| "bottom-right".to_string());
+                let label = style_entry(&style, "label").map(|(_, v)| truthy(v)).unwrap_or(true);
+                let font_scale = if style_entry(&style, "font_scale").is_some() {
+                    let fs = style_num(&style, "font_scale").unwrap_or(1.0);
+                    if !fs.is_finite() || fs < 1.0 || fs.fract() != 0.0 {
+                        return e(format!("draw_scale_bar: font_scale must be a positive integer, found {fs}"));
+                    }
+                    fs as usize
+                } else {
+                    1usize
+                };
+                let (w, h) = (img.width as i64, img.height as i64);
+                let (x0, y0) = match position.as_str() {
+                    "bottom-left" => (margin, h - margin - bar_height),
+                    "bottom-right" => (w - margin - bar_len_px, h - margin - bar_height),
+                    "top-left" => (margin, margin),
+                    "top-right" => (w - margin - bar_len_px, margin),
+                    other => {
+                        return e(format!(
+                            "draw_scale_bar: position must be one of \"bottom-left\"/\"bottom-right\"/\"top-left\"/\"top-right\", found {other:?}"
+                        ))
+                    }
+                };
+                let mut out = img.draw_rect(x0, y0, bar_len_px, bar_height, color, 1, true).map_err(|msg| EvalError { msg })?;
+                if label {
+                    let num_str = if length_physical.fract() == 0.0 {
+                        format!("{}", length_physical as i64)
+                    } else {
+                        format!("{length_physical:.1}")
+                    };
+                    let text = format!("{num_str} {unit_label}");
+                    let label_y = if position.starts_with("bottom") {
+                        y0 - 2 - (image::GLYPH_H as i64) * (font_scale as i64)
+                    } else {
+                        y0 + bar_height + 2
+                    };
+                    out = out.draw_text(x0, label_y, &text, color, font_scale).map_err(|msg| EvalError { msg })?;
+                }
+                Ok(Value::Image(Arc::new(out)))
+            }
             // ---- Binary morphology, blob (connected-component) analysis,
             // and foreground/background separation (§ blob-manipulation
             // pass, 2026-08-24). See `image::Image`'s own "Binary
@@ -36345,37 +36609,109 @@ self.eval_grad(loss, wrt)
             // `imerode(img, radius)` / `imdilate(img, radius)` — a square
             // structuring element of side `2*radius+1` (documented choice
             // over a disk — see `image::Image::erode`'s doc comment).
+            // Additive `se=` kwarg (§ SE/hit-miss/watershed pass,
+            // 2026-09-25): an explicit structuring-element mask `Image`
+            // (`disk()`/`line()`, or hand-built) in place of the
+            // radius-implied square — `radius` is simply not read at all
+            // when `se=` is given, so the old two-positional-argument form
+            // keeps working unchanged.
             "imerode" | "imdilate" => {
                 let Value::Image(img) = arg0(&args)? else {
                     return e(format!("{f}(img, radius) needs an image, found {}", arg0(&args)?.type_name()));
                 };
-                let radius = index_arg(&args, 1, f)?;
-                let out = if f == "imerode" { img.erode(radius) } else { img.dilate(radius) };
+                let out = if let Some(offsets) = se_offsets_arg(&style, f)? {
+                    if f == "imerode" { img.erode_se(&offsets) } else { img.dilate_se(&offsets) }
+                } else {
+                    let radius = index_arg(&args, 1, f)?;
+                    if f == "imerode" { img.erode(radius) } else { img.dilate(radius) }
+                };
                 Ok(Value::Image(Arc::new(out)))
             }
             // `imopen(img, radius)` (erode then dilate — removes small
             // foreground specks) / `imclose(img, radius)` (dilate then
-            // erode — fills small background holes).
+            // erode — fills small background holes). Same additive `se=`
+            // kwarg as `imerode`/`imdilate` above.
             "imopen" | "imclose" => {
                 let Value::Image(img) = arg0(&args)? else {
                     return e(format!("{f}(img, radius) needs an image, found {}", arg0(&args)?.type_name()));
                 };
-                let radius = index_arg(&args, 1, f)?;
-                let out = if f == "imopen" { img.open(radius) } else { img.close(radius) };
+                let out = if let Some(offsets) = se_offsets_arg(&style, f)? {
+                    if f == "imopen" { img.open_se(&offsets) } else { img.close_se(&offsets) }
+                } else {
+                    let radius = index_arg(&args, 1, f)?;
+                    if f == "imopen" { img.open(radius) } else { img.close(radius) }
+                };
                 Ok(Value::Image(Arc::new(out)))
             }
             // `imtophat(img, radius)` (original minus opening — extracts
             // small bright features / corrects a slowly-varying bright
             // background; the primary foreground/background separation
             // mechanism beyond a plain threshold) / `imbothat(img, radius)`
-            // (closing minus original — the dark-feature dual).
+            // (closing minus original — the dark-feature dual). Same
+            // additive `se=` kwarg as `imerode`/`imdilate` above.
             "imtophat" | "imbothat" => {
                 let Value::Image(img) = arg0(&args)? else {
                     return e(format!("{f}(img, radius) needs an image, found {}", arg0(&args)?.type_name()));
                 };
-                let radius = index_arg(&args, 1, f)?;
-                let out = if f == "imtophat" { img.tophat(radius) } else { img.bothat(radius) };
+                let out = if let Some(offsets) = se_offsets_arg(&style, f)? {
+                    if f == "imtophat" { img.tophat_se(&offsets) } else { img.bothat_se(&offsets) }
+                } else {
+                    let radius = index_arg(&args, 1, f)?;
+                    if f == "imtophat" { img.tophat(radius) } else { img.bothat(radius) }
+                };
                 Ok(Value::Image(Arc::new(out)))
+            }
+            // `hit_miss(img, se_fg, se_bg)` — the morphological
+            // hit-or-miss transform (§ SE/hit-miss/watershed pass,
+            // 2026-09-25): `se_fg`/`se_bg` are structuring-element mask
+            // `Image`s (same shape `disk()`/`line()`/`se=` above use), read
+            // via the same `image_to_se_offsets` conversion. See
+            // `image::Image::hit_miss`'s own doc comment for the exact
+            // matching rule and the border (out-of-range = background)
+            // convention.
+            "hit_miss" => {
+                let Value::Image(img) = arg0(&args)? else {
+                    return e(format!("hit_miss(img, se_fg, se_bg) needs an image, found {}", arg0(&args)?.type_name()));
+                };
+                let Some(Value::Image(se_fg)) = arg_get(&args, 1) else {
+                    return e(format!(
+                        "hit_miss(img, se_fg, se_bg) needs an Image (from disk()/line()) as se_fg, found {}",
+                        arg_get(&args, 1).map(|v| v.type_name()).unwrap_or("nothing")
+                    ));
+                };
+                let Some(Value::Image(se_bg)) = arg_get(&args, 2) else {
+                    return e(format!(
+                        "hit_miss(img, se_fg, se_bg) needs an Image (from disk()/line()) as se_bg, found {}",
+                        arg_get(&args, 2).map(|v| v.type_name()).unwrap_or("nothing")
+                    ));
+                };
+                let fg_offsets = image::Image::image_to_se_offsets(se_fg);
+                let bg_offsets = image::Image::image_to_se_offsets(se_bg);
+                let out = img.hit_miss(&fg_offsets, &bg_offsets);
+                Ok(Value::Image(Arc::new(out)))
+            }
+            // `disk(radius)` / `line(length, angle_degrees)` — structuring-
+            // element constructors (§ SE/hit-miss/watershed pass,
+            // 2026-09-25). Neither takes an image at all: both build a
+            // small binary-mask `Image` (the same "a mask is just a bool
+            // image" convention `docs/design/toolkit-image.md` §2 uses) a
+            // script can `imshow` directly, or pass as `se=`/`se_fg`/
+            // `se_bg` to the morphology builtins above. See
+            // `image::Image::disk_offsets`/`line_offsets`'s own doc
+            // comments for the exact shape each produces.
+            "disk" => {
+                let radius = index_arg(&args, 0, f)?;
+                let offsets = image::Image::disk_offsets(radius);
+                Ok(Value::Image(Arc::new(image::Image::se_mask_image(&offsets))))
+            }
+            "line" => {
+                let length = index_arg(&args, 0, f)?;
+                let angle_degrees = arg_get(&args, 1)
+                    .ok_or_else(|| EvalError { msg: "line(length, angle_degrees) needs an angle in degrees as its second argument".into() })?
+                    .as_num()
+                    .map_err(|msg| EvalError { msg })?;
+                let offsets = image::Image::line_offsets(length, angle_degrees);
+                Ok(Value::Image(Arc::new(image::Image::se_mask_image(&offsets))))
             }
             // ---- Contrast/intensity adjustment, arbitrary-angle rotation,
             // and synthetic noise (§ contrast/rotation/noise pass,
@@ -40425,6 +40761,23 @@ fn index_arg(args: &[Value], idx: usize, fname: &str) -> R<usize> {
     v.as_index().map_err(|m| EvalError { msg: m })
 }
 
+/// Reads `imerode`/`imdilate`/`imopen`/`imclose`/`imtophat`/`imbothat`'s
+/// optional `se=` kwarg: an arbitrary structuring-element mask `Image`
+/// (from `disk()`/`line()`, or any binary mask a script built by hand),
+/// converted to the offset list `Image::image_to_se_offsets` reads it as.
+/// `None` when `se=` wasn't given at all -- the caller falls back to its
+/// existing `radius`-implied square, unchanged. Always calls
+/// `style_entry` (marking `se` read) even on the `None` path, so a script
+/// that never passes it doesn't trip the "unread kwarg" check on the ones
+/// that do.
+fn se_offsets_arg(style: &[(String, Value)], fname: &str) -> R<Option<Vec<(isize, isize)>>> {
+    match style_entry(style, "se") {
+        None => Ok(None),
+        Some((_, Value::Image(se_img))) => Ok(Some(image::Image::image_to_se_offsets(se_img))),
+        Some((_, other)) => e(format!("{fname}: se= must be an Image (from disk()/line()), found {}", other.type_name())),
+    }
+}
+
 /// Reads argument `idx` strictly as a `Str` — unlike `text_arg` (which
 /// leniently formats any value), the string-manipulation builtins
 /// (`upper`/`lower`/`trim`/`split`/...) want a clear type error for
@@ -42978,6 +43331,53 @@ fn style_str_list(style: &[(String, Value)], key: &str) -> Option<R<Vec<String>>
         .map(|(_, v)| value_to_string_list(v, key))
 }
 
+/// A required (no-default) positional numeric argument — for the raster
+/// drawing builtins (`draw_line`/`draw_rect`/`draw_circle`/`draw_arrow`/
+/// `draw_scale_bar`), whose coordinates/sizes have no sane default the way
+/// `blur`'s `radius` or `resize`'s `method` do. Missing is a clear "expected
+/// N arguments" error, the same shape `imtranslate`'s inline `dx`/`dy`
+/// reads already use — this just gives that pattern one name instead of
+/// repeating it at every one of this group's several call sites.
+fn required_num_arg(args: &[Value], idx: usize, fname: &str) -> R<f64> {
+    arg_get(args, idx)
+        .ok_or_else(|| EvalError {
+            msg: format!("{fname}: expected a numeric argument at position {}", idx + 1),
+        })?
+        .as_num()
+        .map_err(|msg| EvalError { msg })
+}
+
+/// The required `color=` keyword shared by every raster-drawing builtin
+/// below. `"color"` is already one of `style_str`'s own `COLOR_KEYS`, so
+/// this reuses the exact same resolution path (named CSS colour, `#hex`, or
+/// `rgb(...)`) every other `color=`/`edgecolor=`/`facecolor=` keyword in the
+/// plotting system already goes through — an invalid colour is reported by
+/// the shared `COLOR_ERROR` mechanism `call_builtin` checks after dispatch,
+/// not reinvented here. Converts the resolved `#rrggbb` to the plain
+/// `(u8, u8, u8)` triple `Image::set_pixel` takes. There is no sane default
+/// ink colour for a drawing primitive, so omitting `color=` entirely is a
+/// clear error rather than a silent black/white default.
+fn required_color_arg(style: &[(String, Value)], fname: &str) -> R<(u8, u8, u8)> {
+    match style_str(style, "color") {
+        Some(hex) => Ok(plotting::hex_to_rgb(&hex)),
+        None => e(format!("{fname}: `color=` is required")),
+    }
+}
+
+/// The shared `thickness=` keyword (`draw_line`/`draw_rect`/`draw_circle`/
+/// `draw_arrow`): an optional named positive integer, default 1, the
+/// stroke-brush width every one of those builtins' own `Image` methods
+/// documents. A non-integer or non-positive value is a clear error rather
+/// than a silent floor/round, since a `thickness` of 0 or a fraction is not
+/// a smaller stroke, it's a different (undocumented) shape.
+fn style_thickness(style: &[(String, Value)], fname: &str) -> R<usize> {
+    let t = style_num(style, "thickness").unwrap_or(1.0);
+    if !t.is_finite() || t < 1.0 || t.fract() != 0.0 {
+        return e(format!("{fname}: thickness must be a positive integer, found {t}"));
+    }
+    Ok(t as usize)
+}
+
 /// 1st/99th- (or any-) percentile range over ALL pixel bytes combined (R,
 /// G, and B pooled into one distribution, not computed per-channel) — the
 /// auto-range `imadjust` falls back to when `in_low`/`in_high` are both
@@ -43823,9 +44223,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart",
     "dedent", "delay", "delta_e", "dense", "dense_layer", "describe", "det",
     "detect_saturation", "detrend", "device_used", "dft", "diag",
-    "diagram_pipeline", "dict", "diff", "dir", "dir_exists", "disp",
+    "diagram_pipeline", "dict", "diff", "dir", "dir_exists", "disk", "disp",
     "distinct", "distort", "div", "dominant_frequency", "donut", "dot",
-    "double_buffer", "downsample", "drop", "drop_row", "dropout",
+    "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line",
+    "draw_rect", "draw_scale_bar", "drop", "drop_row", "dropout",
     "dropout_layer", "duration", "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect",
     "edges", "eig", "elapsed", "elediv", "elemul", "elepow", "ellip",
     "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
@@ -43849,7 +44250,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "hamming74_encode", "hampel", "hann", "has_edge", "has_key",
     "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode",
     "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist",
-    "histeq", "histogram", "hline", "hmm", "hourly_profile", "hsl", "hstack",
+    "histeq", "histogram", "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack",
     "hsv", "html2md", "http_get", "huffman_decode", "huffman_encode", "hum",
     "hurst_exponent", "idct", "identity", "idft", "idwt", "ifft", "im",
     "imadjust", "imag", "image", "image_from_matrix", "image_new",
@@ -43867,7 +44268,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
     "layer_norm", "lcase", "least_squares", "left", "legend", "len", "length",
-    "levenshtein", "lfilter", "lgamma", "like", "line_at", "line_col",
+    "levenshtein", "lfilter", "lgamma", "like", "line", "line_at", "line_col",
     "line_count", "line_delete", "line_insert", "line_range", "line_set",
     "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
     "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image",
@@ -72651,6 +73052,155 @@ end for");
         assert!(closed.is_foreground(3, 3), "imclose should fill a small hole");
     }
 
+    // ---- draw_line / draw_rect / draw_circle / draw_arrow / draw_scale_bar
+    // dispatch (§ image toolkit drawing/annotation, 2026-09-25). The exact
+    // rasterization algorithms are already known-answer tested directly
+    // against `image::Image` in `image.rs`'s own test module; these check
+    // the builtin PLUMBING instead -- kwarg reading (`color=`, `thickness=`,
+    // `pixel_size=`/`unit=`), error paths, and that a real Qu script
+    // actually reaches the right `Image` method.
+
+    #[test]
+    fn draw_line_builtin_resolves_a_named_color_and_honors_thickness() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(20, 10, (0, 0, 0)))));
+        it.run(r#"out = draw_line(img, 2, 5, 10, 5, color="red", thickness=1)"#).unwrap();
+        let Some(Value::Image(out)) = it.get("out") else { panic!("expected an image") };
+        assert_eq!(out.get_pixel(2, 5), (255, 0, 0), "named color \"red\" must resolve to (255,0,0)");
+        assert_eq!(out.get_pixel(10, 5), (255, 0, 0));
+        assert_eq!(out.get_pixel(0, 0), (0, 0, 0), "background must be untouched");
+
+        let err = it
+            .run(r#"bad = draw_line(img, 0, 0, 5, 5, color="red", thickness=0)"#)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("thickness"), "{err}");
+
+        let err2 = it.run("nocolor = draw_line(img, 0, 0, 5, 5)").unwrap_err().to_string();
+        assert!(err2.contains("color"), "{err2}");
+    }
+
+    #[test]
+    fn draw_rect_and_draw_circle_builtins_honor_filled() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(20, 20, (0, 0, 0)))));
+        it.run(r##"r = draw_rect(img, 2, 2, 4, 3, color="#00ff00", filled=true)"##).unwrap();
+        let Some(Value::Image(r)) = it.get("r") else { panic!("expected an image") };
+        assert_eq!(r.get_pixel(3, 3), (0, 255, 0));
+        assert_eq!(r.get_pixel(10, 10), (0, 0, 0));
+
+        it.run(r#"c = draw_circle(img, 10, 10, 4, color="blue", filled=false, thickness=1)"#).unwrap();
+        let Some(Value::Image(c)) = it.get("c") else { panic!("expected an image") };
+        assert_eq!(c.get_pixel(10, 10), (0, 0, 0), "an unfilled circle's own center must stay background");
+        assert_eq!(c.get_pixel(14, 10), (0, 0, 255), "the boundary point at +radius on the x-axis must be set");
+    }
+
+    #[test]
+    fn draw_arrow_builtin_draws_a_shaft_and_a_head() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(30, 20, (0, 0, 0)))));
+        it.run(r#"a = draw_arrow(img, 0, 10, 20, 10, color="white", head_size=10)"#).unwrap();
+        let Some(Value::Image(a)) = it.get("a") else { panic!("expected an image") };
+        assert_eq!(a.get_pixel(0, 10), (255, 255, 255));
+        assert_eq!(a.get_pixel(20, 10), (255, 255, 255));
+        assert_eq!(a.get_pixel(11, 15), (255, 255, 255), "wing tip (see image.rs's own hand-worked test)");
+    }
+
+    /// `draw_scale_bar`'s bar-length computation is the one thing the task
+    /// explicitly says must not be faked -- this checks the exact pixel span
+    /// against a hand-computed position, independent of the implementation:
+    /// `pixel_size=0.5`, `length_physical=50` -> `50/0.5 = 100` px, and with
+    /// `margin=10`/`thickness=5` on a 300x200 canvas at `position=
+    /// "bottom-right"`, the bar occupies columns `190..=289`, rows
+    /// `185..=189` exactly.
+    #[test]
+    fn draw_scale_bar_pixel_length_matches_the_hand_computed_span() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(300, 200, (20, 20, 20)))));
+        it.run(
+            r#"out = draw_scale_bar(img, 50, pixel_size=0.5, unit="um", position="bottom-right", color="white", margin=10, thickness=5, label=false)"#,
+        )
+        .unwrap();
+        let Some(Value::Image(out)) = it.get("out") else { panic!("expected an image") };
+        let mut count = 0usize;
+        for y in 0..out.height {
+            for x in 0..out.width {
+                if out.get_pixel(x, y) == (255, 255, 255) {
+                    count += 1;
+                }
+            }
+        }
+        assert_eq!(count, 100 * 5, "bar must be exactly 100px x 5px = 500 white pixels");
+        // Exact hand-computed corners.
+        assert_eq!(out.get_pixel(190, 185), (255, 255, 255));
+        assert_eq!(out.get_pixel(289, 189), (255, 255, 255));
+        assert_eq!(out.get_pixel(189, 185), (20, 20, 20), "one column left of the bar must be untouched");
+        assert_eq!(out.get_pixel(290, 185), (20, 20, 20), "one column past the bar must be untouched");
+        assert_eq!(out.get_pixel(190, 190), (20, 20, 20), "one row below the bar must be untouched");
+    }
+
+    /// Same computation with `pixel_size=` omitted: `length_physical` is
+    /// already a pixel count (matches `image.regions`'s own "absence means
+    /// pixels" convention) -- `75` stays `75` px, no division at all.
+    #[test]
+    fn draw_scale_bar_without_pixel_size_treats_length_as_pixels() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(200, 150, (0, 0, 0)))));
+        it.run(r#"out = draw_scale_bar(img, 75, position="top-left", color="red", margin=5, thickness=3, label=false)"#)
+            .unwrap();
+        let Some(Value::Image(out)) = it.get("out") else { panic!("expected an image") };
+        let mut count = 0usize;
+        for y in 0..out.height {
+            for x in 0..out.width {
+                if out.get_pixel(x, y) == (255, 0, 0) {
+                    count += 1;
+                }
+            }
+        }
+        assert_eq!(count, 75 * 3);
+        assert_eq!(out.get_pixel(5, 5), (255, 0, 0));
+        assert_eq!(out.get_pixel(79, 7), (255, 0, 0));
+        assert_eq!(out.get_pixel(80, 5), (0, 0, 0));
+    }
+
+    #[test]
+    fn draw_scale_bar_rejects_the_same_unit_pixel_size_contradictions_regions_does() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(100, 100, (0, 0, 0)))));
+        let err = it
+            .run(r#"a = draw_scale_bar(img, 50, unit="um", color="white", label=false)"#)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("without `pixel_size="), "{err}");
+
+        let err2 = it
+            .run(r#"b = draw_scale_bar(img, 50, pixel_size=0.5, unit="px", color="white", label=false)"#)
+            .unwrap_err()
+            .to_string();
+        assert!(err2.contains("contradiction"), "{err2}");
+
+        let err3 = it
+            .run(r#"c = draw_scale_bar(img, 50, pixel_size=0.5, position="middle", color="white", label=false)"#)
+            .unwrap_err()
+            .to_string();
+        assert!(err3.contains("position"), "{err3}");
+    }
+
+    /// The label uses `draw_text`'s own bitmap font -- this just checks that
+    /// asking for a label actually changes pixels below/above the bar
+    /// (the exact glyph bitmap is already pinned down in `image.rs`'s
+    /// `draw_text_renders_the_documented_glyph_bitmap_exactly`).
+    #[test]
+    fn draw_scale_bar_label_true_draws_something_beyond_the_bar_itself() {
+        let mut it = Interp::new();
+        it.env.insert("img".to_string(), Value::Image(Arc::new(image::Image::filled(200, 150, (0, 0, 0)))));
+        it.run(r#"nolabel = draw_scale_bar(img, 40, position="top-left", color="white", margin=5, thickness=3, label=false)"#).unwrap();
+        it.run(r#"withlabel = draw_scale_bar(img, 40, position="top-left", color="white", margin=5, thickness=3, label=true)"#).unwrap();
+        let Some(Value::Image(a)) = it.get("nolabel") else { panic!() };
+        let Some(Value::Image(b)) = it.get("withlabel") else { panic!() };
+        assert_ne!(a.pixels, b.pixels, "label=true must draw more than label=false");
+    }
+
     #[test]
     fn imtophat_isolates_a_bright_speck_and_suppresses_a_flat_background() {
         let mut it = Interp::new();
@@ -72662,6 +73212,129 @@ end for");
         assert_eq!(th.get_pixel(0, 0), (0, 0, 0));
         let (v, _, _) = th.get_pixel(4, 4);
         assert!(v > 0, "expected the bright speck to survive imtophat, got {v}");
+    }
+
+    #[test]
+    fn disk_and_line_builtins_build_the_expected_se_mask_shapes() {
+        let mut it = Interp::new();
+        it.run("d = disk(2)").unwrap();
+        let Some(Value::Image(d)) = it.get("d") else { panic!("expected an image") };
+        // radius=2 -> a 5x5 mask, center foreground, the exact corner
+        // (distance^2 = 8 > 4) excluded.
+        assert_eq!((d.width, d.height), (5, 5));
+        assert!(d.is_foreground(2, 2), "the disk's own center must be foreground");
+        assert!(!d.is_foreground(0, 0), "the disk must exclude its bounding box's corner");
+        assert!(d.is_foreground(2, 0), "the disk must include the point straight above center (distance == radius)");
+
+        it.run("l = line(5, 0)").unwrap();
+        let Some(Value::Image(l)) = it.get("l") else { panic!("expected an image") };
+        assert_eq!((l.width, l.height), (5, 1), "a horizontal length-5 line SE is a 5x1 strip");
+        assert!((0..5).all(|x| l.is_foreground(x, 0)), "every pixel of a straight horizontal line SE must be foreground");
+    }
+
+    #[test]
+    fn imerode_se_kwarg_with_a_disk_survives_a_plus_shape_a_square_radius_would_wipe_out() {
+        // Same case the Rust-level `image.rs` unit test makes, run through
+        // the ACTUAL builtin dispatch (parsed Qu source, `se=` keyword
+        // argument and all) rather than calling `Image::erode_se`
+        // directly -- this is what a script actually has to be able to
+        // write.
+        let mut it = Interp::new();
+        let plus = binary_mask_image(&[
+            &[0, 0, 0, 0, 0],
+            &[0, 0, 1, 0, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 0, 1, 0, 0],
+            &[0, 0, 0, 0, 0],
+        ]);
+        it.env.insert("plus".to_string(), Value::Image(Arc::new(plus)));
+        // The plain radius=1 (square) form must still work unchanged --
+        // backward compatibility, and it must wipe the plus out entirely.
+        it.run("square_eroded = imerode(plus, 1)").unwrap();
+        let Some(Value::Image(square_eroded)) = it.get("square_eroded") else { panic!("expected an image") };
+        assert!(square_eroded.pixels.iter().all(|&p| p == 0), "a square radius=1 erosion must wipe out a 1-pixel-wide plus");
+
+        it.run("se = disk(1)\ndisk_eroded = imerode(plus, se=se)").unwrap();
+        let Some(Value::Image(disk_eroded)) = it.get("disk_eroded") else { panic!("expected an image") };
+        assert!(disk_eroded.is_foreground(2, 2), "the plus's center must survive a disk(1) `se=` erosion");
+        let fg_count = (0..5).flat_map(|y| (0..5).map(move |x| (x, y))).filter(|&(x, y)| disk_eroded.is_foreground(x, y)).count();
+        assert_eq!(fg_count, 1, "only the center pixel survives a disk(1) erosion of a 1-pixel-wide plus");
+    }
+
+    #[test]
+    fn hit_miss_builtin_isolates_the_top_left_corner_of_a_solid_square() {
+        let mut it = Interp::new();
+        let img = binary_mask_image(&[
+            &[0, 0, 0, 0, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 0, 0, 0, 0],
+        ]);
+        it.env.insert("img".to_string(), Value::Image(Arc::new(img)));
+        // Foreground SE: self, east, south, south-east (a 2x2 block whose
+        // top-left is the origin). Background SE: west, north, north-west.
+        // Built as small hand-placed `line`/`disk`-shaped masks would be
+        // awkward for an irregular 4-point pattern, so this constructs the
+        // SE mask `Image`s directly the same way a script could via
+        // `image_from_matrix` -- 255 = the required pixel, 0 = don't-care.
+        it.run(
+            "fg = image_from_matrix([0, 0, 0; 0, 255, 255; 0, 255, 255])\n\
+             bg = image_from_matrix([255, 255, 0; 255, 0, 0; 0, 0, 0])\n\
+             out = hit_miss(img, fg, bg)",
+        )
+        .unwrap();
+        let Some(Value::Image(out)) = it.get("out") else { panic!("expected an image") };
+        for y in 0..5 {
+            for x in 0..5 {
+                let expect = (x, y) == (1, 1);
+                assert_eq!(out.is_foreground(x, y), expect, "mismatch at ({x},{y})");
+            }
+        }
+    }
+
+    #[cfg(feature = "image")]
+    #[test]
+    fn image_watershed_separates_two_touching_blobs_via_the_actual_builtin() {
+        // The same known-answer case `qu-image`'s own unit test makes
+        // (two overlapping circles a naive connected-component labeling
+        // cannot split), run through `import image` + the real
+        // `image.watershed(surface, markers=)` dispatch: a `Mat` surface
+        // (the negated distance transform), a `Mat` of seed markers, and
+        // the result read back as a `Mat` of labels.
+        let mut it = Interp::new();
+        let (w, h) = (21usize, 13usize);
+        let in_a = |x: i64, y: i64| (x - 6).pow(2) + (y - 6).pow(2) <= 25;
+        let in_b = |x: i64, y: i64| (x - 14).pow(2) + (y - 6).pow(2) <= 25;
+        let mut rows: Vec<Vec<f64>> = Vec::with_capacity(h);
+        for y in 0..h as i64 {
+            let mut row = Vec::with_capacity(w);
+            for x in 0..w as i64 {
+                row.push(if in_a(x, y) || in_b(x, y) { 255.0 } else { 0.0 });
+            }
+            rows.push(row);
+        }
+        let mask_mat = Matrix::from_rows(&rows).unwrap();
+        it.env.insert("mask_mat".to_string(), Value::Mat(Arc::new(mask_mat)));
+        it.run(
+            "import image\n\
+             mask = image_from_matrix(mask_mat)\n\
+             dt = image.distance_transform(mask)\n\
+             surface = -dt\n\
+             markers = zeros(13, 21)\n\
+             markers[6, 6] = 1\n\
+             markers[6, 14] = 2\n\
+             labels = image.watershed(surface, markers=markers)",
+        )
+        .unwrap();
+        let Some(Value::Mat(labels)) = it.get("labels") else { panic!("expected a Mat") };
+        let (lh, lw) = labels.shape();
+        assert_eq!((lh, lw), (h, w));
+        let la = labels.get(6, 2).unwrap_or(0.0);
+        let lb = labels.get(6, 18).unwrap_or(0.0);
+        assert_eq!(la, 1.0, "circle A's own exclusive territory must carry marker 1's label, got {la}");
+        assert_eq!(lb, 2.0, "circle B's own exclusive territory must carry marker 2's label, got {lb}");
+        assert_ne!(la, lb, "the two touching circles must end up under two different labels");
     }
 
     #[test]

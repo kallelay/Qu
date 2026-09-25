@@ -4377,7 +4377,7 @@ pub fn colormap_color(name: &str, t: f64) -> String {
     rgb_to_hex(mix(r0, r1), mix(g0, g1), mix(b0, b1))
 }
 
-fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
+pub(crate) fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
     let h = hex.trim_start_matches('#');
     let r = u8::from_str_radix(h.get(0..2).unwrap_or("00"), 16).unwrap_or(0);
     let g = u8::from_str_radix(h.get(2..4).unwrap_or("00"), 16).unwrap_or(0);

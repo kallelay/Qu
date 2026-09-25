@@ -30,7 +30,7 @@
 <h1>imtophat</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
-<pre class="fnsig">result = <code>imtophat(img, radius)</code></pre>
+<pre class="fnsig">result = <code>imtophat(img, radius)</code> &lt;br&gt; <code>imtophat(img, se=)</code></pre>
 <p class="fnnote">Input: img, radius &middot; Output: result</p>
 <h2>What it is</h2>
 <p><code>img</code> is a binary/grayscale <code>Image</code>; <code>radius</code> is a positive integer. The image minus its opening: what the opening removed. The standard way to pull small bright features off an uneven background.</p>
@@ -38,10 +38,10 @@
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = imtophat(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is a binary/grayscale <code>Image</code>.</span></div>
+<tr><td class="iocode"><code>result = imtophat(img, radius) &lt;br&gt; imtophat(img, se=)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is a binary/grayscale <code>Image</code>.</span></div>
 <div class="ioitem"><code>radius</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>radius</code> is a positive integer.</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
-</td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>.</td></tr>
+</td><td><div class="ioitem"><code>imdilate</code> <span class="iotype">&mdash;</span><span class="iodesc">see "Structuring elements" above</span></div>
+</td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>. Same additive <code>se=</code> kwarg as <code>imdilate</code> (see "Structuring elements" above), added in v0.4.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -65,7 +65,7 @@ dark = <span class="f">imbothat</span>(img, <span class="n">1</span>)           
 <text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
 </svg></figure></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
-<p><code>imtophat(img, radius)</code> (original minus opening — extracts small bright features / corrects a slowly-varying bright background; the primary foreground/background separation mechanism beyond a plain threshold) / <code>imbothat(img, radius)</code> (closing minus original — the dark-feature dual).</p>
+<p><code>imtophat(img, radius)</code> (original minus opening — extracts small bright features / corrects a slowly-varying bright background; the primary foreground/background separation mechanism beyond a plain threshold) / <code>imbothat(img, radius)</code> (closing minus original — the dark-feature dual). Same additive <code>se=</code> kwarg as <code>imerode</code>/<code>imdilate</code> above.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>

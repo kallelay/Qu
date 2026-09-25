@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hit_miss — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>hit_miss</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>hit_miss(img, se_fg, se_bg)</code></pre>
+<p class="fnnote">Input: img, se_fg, se_bg &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is a binary <code>Image</code>; <code>se_fg</code>/<code>se_bg</code> are structuring-element mask <code>Image</code>s (from <code>disk()</code>/<code>line()</code>, or hand-built with e.g. <code>image_from_matrix</code>). The morphological hit-or-miss transform: output pixel <code>(x, y)</code> is foreground iff EVERY foreground pixel of <code>se_fg</code> (relative to its own center) lands on a foreground pixel of <code>img</code> at that offset from <code>(x, y)</code>, AND EVERY foreground pixel of <code>se_bg</code> lands on a BACKGROUND pixel — a position neither SE covers is a don't-care. Out-of-range neighbors count as background (same border convention <code>distance_transform</code>/<code>fill_holes</code> use). The standard way to isolate a specific local pattern (corners, endpoints, ...) in a binary image.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = hit_miss(img, se_fg, se_bg)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is a binary <code>Image</code>.</span></div>
+<div class="ioitem"><code>se_fg</code> <span class="iotype">Image</span><span class="iodesc"><code>se_fg</code>/<code>se_bg</code> are structuring-element mask <code>Image</code>s (from <code>disk()</code>/<code>line()</code>, or hand-built with e.g.</span></div>
+<div class="ioitem"><code>se_bg</code> <span class="iotype">Image</span><span class="iodesc"><code>se_fg</code>/<code>se_bg</code> are structuring-element mask <code>Image</code>s (from <code>disk()</code>/<code>line()</code>, or hand-built with e.g.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new binary <code>Image</code>, same dimensions as <code>img</code>. Added in v0.4.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>hit_miss(img, se_fg, se_bg)</code> — the morphological hit-or-miss transform (§ SE/hit-miss/watershed pass, 2026-09-25): <code>se_fg</code>/<code>se_bg</code> are structuring-element mask <code>Image</code>s (same shape <code>disk()</code>/<code>line()</code>/<code>se=</code> above use), read via the same <code>image_to_se_offsets</code> conversion. See <code>image::Image::hit_miss</code>'s own doc comment for the exact matching rule and the border (out-of-range = background) convention.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -30,7 +30,7 @@
 <h1>imdilate</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
-<pre class="fnsig">result = <code>imdilate(img, radius)</code></pre>
+<pre class="fnsig">result = <code>imdilate(img, radius)</code> &lt;br&gt; <code>imdilate(img, se=)</code></pre>
 <p class="fnnote">Input: img, radius &middot; Output: result</p>
 <h2>What it is</h2>
 <p><code>img</code> is a binary (0/255 mask-style) <code>Image</code>; <code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code> (a documented choice over a disk element). Performs binary morphological dilation, growing foreground regions.</p>
@@ -47,9 +47,9 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = imdilate(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a binary (0/255) <code>Image</code>.</span></div>
+<tr><td class="iocode"><code>result = imdilate(img, radius) &lt;br&gt; imdilate(img, se=)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a binary (0/255) <code>Image</code>.</span></div>
 <div class="ioitem"><code>radius</code> <span class="iotype">&mdash;</span><span class="iodesc">Dilation/erosion/opening/closing/top-hat/bottom-hat all reduce to their textbook binary definitions on a genuine mask: the foreground blob grows outward by <code>radius</code>, and every output pixel stays exactly <code>0</code> or <code>255</code> — no new grey levels ever appear.</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td><div class="ioitem"><code>Image</code> <span class="iotype">&mdash;</span><span class="iodesc">from <code>disk()</code>/<code>line()</code>, or hand-built</span></div>
 </td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
@@ -65,9 +65,9 @@ grown = <span class="f">imdilate</span>(binary_img, <span class="n">1</span>)
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = imdilate(img, radius)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a genuine grayscale (or color) <code>Image</code> with more than two intensity levels.</span></div>
+<tr><td class="iocode"><code>result = imdilate(img, radius) &lt;br&gt; imdilate(img, se=)</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> a genuine grayscale (or color) <code>Image</code> with more than two intensity levels.</span></div>
 <div class="ioitem"><code>radius</code> <span class="iotype">Image</span><span class="iodesc"><code>radius</code> is a positive integer, the half-width of a square structuring element of side <code>2*radius+1</code> (a documented choice over a disk element).</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td><div class="ioitem"><code>Image</code> <span class="iotype">&mdash;</span><span class="iodesc">from <code>disk()</code>/<code>line()</code>, or hand-built</span></div>
 </td><td><code>imdilate</code>/<code>imerode</code>/<code>imopen</code>/<code>imclose</code>/<code>imtophat</code>/<code>imbothat</code> are all implemented as a per-channel MAX (dilate) or MIN (erode) over the structuring window — true grayscale morphology, not "threshold then grow." Fed a smooth image, the intermediate grey levels shift around instead of snapping everything to black/white.</td></tr>
 </table></div>
 <h3>Examples</h3>
@@ -83,7 +83,7 @@ grown = <span class="f">imdilate</span>(gray_img, <span class="n">1</span>)
 </div>
 </div>
 <h2>How it works</h2>
-<p>and foreground/background separation (§ blob-manipulation pass, 2026-08-24). See <code>image::Image</code>'s own "Binary morphology..." doc-comment section for the full binary-mask convention this whole group shares: a <code>Value::Image</code> is treated as "binary" when every pixel is grayscale (R=G=B) with two intended levels, 0 = background / 255 = foreground (<code>is_foreground</code> actually reads <code>&gt;=128</code>, so a slightly antialiased mask still behaves sanely). No <code>threshold</code>/ <code>otsu_threshold</code> builtin existed in this shared working tree when this landed (a sibling agent's own lane) — this is a documented, independent design choice, not a guess at matching code that hadn't landed yet; reconcile if the sibling's own producer ends up using a different convention. <code>imerode(img, radius)</code> / <code>imdilate(img, radius)</code> — a square structuring element of side <code>2*radius+1</code> (documented choice over a disk — see <code>image::Image::erode</code>'s doc comment).</p>
+<p>and foreground/background separation (§ blob-manipulation pass, 2026-08-24). See <code>image::Image</code>'s own "Binary morphology..." doc-comment section for the full binary-mask convention this whole group shares: a <code>Value::Image</code> is treated as "binary" when every pixel is grayscale (R=G=B) with two intended levels, 0 = background / 255 = foreground (<code>is_foreground</code> actually reads <code>&gt;=128</code>, so a slightly antialiased mask still behaves sanely). No <code>threshold</code>/ <code>otsu_threshold</code> builtin existed in this shared working tree when this landed (a sibling agent's own lane) — this is a documented, independent design choice, not a guess at matching code that hadn't landed yet; reconcile if the sibling's own producer ends up using a different convention. <code>imerode(img, radius)</code> / <code>imdilate(img, radius)</code> — a square structuring element of side <code>2*radius+1</code> (documented choice over a disk — see <code>image::Image::erode</code>'s doc comment). Additive <code>se=</code> kwarg (§ SE/hit-miss/watershed pass, 2026-09-25): an explicit structuring-element mask <code>Image</code> (<code>disk()</code>/<code>line()</code>, or hand-built) in place of the radius-implied square — <code>radius</code> is simply not read at all when <code>se=</code> is given, so the old two-positional-argument form keeps working unchanged.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>

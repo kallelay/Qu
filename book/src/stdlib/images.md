@@ -107,9 +107,9 @@ on screen — the opposite visual sign from `imrotate`'s own `angle_degrees`.
 | `sharpen` | `sharpen(img)` | `img` is an `Image`. Applies a fixed 3x3 unsharp-mask sharpen kernel. Returns a new `Image`, same dimensions as `img`. |
 | `edge_detect` | `edge_detect(img)` | `img` is an `Image`. Applies a fixed 3x3 discrete Laplacian edge filter, highlighting intensity discontinuities. Returns a new `Image`, same dimensions as `img`. |
 | `imfilter` | `imfilter(img, kernel)` | `img` is an `Image`; `kernel` is an arbitrary odd-sized (e.g. 3x3, 5x5) square `Mat` of numeric weights. Generic 2-D convolution with edge-clamped borders — the escape hatch when `blur`/`sharpen`/`edge_detect`'s fixed kernels aren't enough. Returns a new `Image`, same dimensions as `img`. |
-| `imdilate` | `imdilate(img, radius)` | `img` is a binary (0/255 mask-style) `Image`; `radius` is a positive integer, the half-width of a square structuring element of side `2*radius+1` (a documented choice over a disk element). Performs binary morphological dilation, growing foreground regions. Returns a new `Image`, same dimensions as `img`. |
-| `imclose` | `imclose(img, radius)` | `img` is a binary `Image`; `radius` is a positive integer (same square structuring-element convention as `imdilate`). Morphological closing (dilate then erode) — fills small background holes without enlarging the overall shape. Returns a new `Image`, same dimensions. (`imopen`/`imerode`, erosion and opening, also exist alongside it in the same match arm pair but aren't in this chapter's requested scope — see the "More functions" table below.) |
-| `imbothat` | `imbothat(img, radius)` | `img` is a binary `Image`; `radius` is a positive integer. Bottom-hat: `imclose(img, radius) - img`, extracts small dark features / corrects a slowly-varying dark background. Returns a new `Image`, same dimensions. (`imtophat`, the bright-feature dual, is its sibling arm, documented below.) |
+| `imdilate` | `imdilate(img, radius)` <br> `imdilate(img, se=)` | `img` is a binary (0/255 mask-style) `Image`; `radius` is a positive integer, the half-width of a square structuring element of side `2*radius+1` (a documented choice over a disk element). Performs binary morphological dilation, growing foreground regions. Returns a new `Image`, same dimensions as `img`. **`se=`** is an optional named structuring-element mask `Image` (from `disk()`/`line()`, or hand-built) used in place of the radius-implied square — see "Structuring elements" below. `radius` is simply not read when `se=` is given, so the original two-positional-argument form keeps working unchanged. `se=` added in v0.4.0. |
+| `imclose` | `imclose(img, radius)` <br> `imclose(img, se=)` | `img` is a binary `Image`; `radius` is a positive integer (same square structuring-element convention as `imdilate`). Morphological closing (dilate then erode) — fills small background holes without enlarging the overall shape. Returns a new `Image`, same dimensions. (`imopen`/`imerode`, erosion and opening, also exist alongside it in the same match arm pair but aren't in this chapter's requested scope — see the "More functions" table below.) Same additive `se=` kwarg as `imdilate` above, added in v0.4.0. |
+| `imbothat` | `imbothat(img, radius)` <br> `imbothat(img, se=)` | `img` is a binary `Image`; `radius` is a positive integer. Bottom-hat: `imclose(img, radius) - img`, extracts small dark features / corrects a slowly-varying dark background. Returns a new `Image`, same dimensions. (`imtophat`, the bright-feature dual, is its sibling arm, documented below.) Same additive `se=` kwarg as `imdilate` above, added in v0.4.0. |
 | `histeq` | `histeq(img)` (alias of `imequalize`) | `img` is an `Image` of any size, color or grayscale. Global histogram equalization: builds a BT.601-luma cumulative distribution and remaps intensities to spread across the full range. RGB-preserving via luma-ratio remapping — not a grayscale-only fallback. Returns a new `Image`, same dimensions as `img`. |
 | `imadjust` | `imadjust(img, [in_low=], [in_high=], [out_low=0.0], [out_high=1.0], [gamma=1.0])` | `img` is an `Image`. `in_low`/`in_high` are optional named numbers in `[0,1]`, the input intensity range to stretch from; when **both** are omitted they auto-default to the image's own 1st/99th percentile (all channel bytes pooled) — robust to outlier pixels, like MATLAB's `stretchlim`. `out_low`/`out_high` are optional named numbers in `[0,1]` (default 0.0/1.0), the output range to stretch to. `gamma` is an optional named number (default 1.0) applying a power-law curve after the linear stretch. MATLAB-style contrast stretch, applied identically and independently to each of R/G/B. Returns a new `Image`, same dimensions as `img`. |
 | `imhist` | `imhist(img, [n_bins=256])` | `img` is an `Image`; `n_bins` is an optional positive integer (default 256; may be given positionally or as a named argument), the number of histogram bins. Computes raw per-bin BT.601-luma intensity **counts**. Returns a `Vec` of length `n_bins` — data, not a rendered plot. Pipe the result into `hist`/`bar` to actually draw it. |
@@ -137,6 +137,45 @@ mg = [10, 60, 110, 160, 210; 20, 70, 120, 170, 220; 30, 80, 130, 180, 230; 40, 9
 gray_img = image_from_matrix(mg)
 grown = imdilate(gray_img, 1)
 print(imhist(grown, n_bins=4))   # [0, 6, 7, 12] -- three separate bins in use, no black survives at all
+```
+
+### Structuring elements: `disk`, `line`, `se=`, and `hit_miss`
+
+*Added in v0.4.0.* `imdilate`/`imerode`/`imopen`/`imclose`/`imtophat`/`imbothat`'s
+`radius` argument always implies a **square** structuring element (side
+`2*radius+1`, every offset in the bounding box). `disk`/`line` build two other
+shapes, passed in as the `se=` keyword shown above instead of `radius`; a
+structuring element is represented the same way `docs/design/toolkit-image.md`
+§2 already frames a mask — "just a `bool` image" (here, an ordinary 0/255
+binary-mask `Image` you can `imshow` directly) — rather than a new value kind.
+
+| Function | Signature | Description |
+|---|---|---|
+| `disk` | `disk(radius)` | `radius` is a non-negative integer. Builds a disk-shaped structuring-element mask `Image`: a `(2*radius+1) x (2*radius+1)` binary mask, foreground wherever `dx*dx + dy*dy <= radius*radius` relative to its own center pixel. Unlike the `radius`-implied square, a disk excludes the four corner directions — `disk(1)` is a 5-pixel plus shape, not the full 3x3 block. Returns a new binary `Image`. Added in v0.4.0. |
+| `line` | `line(length, angle_degrees)` | `length` is a positive integer, the SE's length in pixels; `angle_degrees` is a number, the line's orientation (`0` = along +x, positive = counterclockwise as displayed, same convention as `imrotate`). Builds a line-segment structuring-element mask `Image` by Bresenham-rasterizing a `length`-pixel segment centered on its own middle pixel. `length <= 1` degenerates to a single center pixel. Returns a new binary `Image`, sized to the line's own bounding box. Added in v0.4.0. |
+| `hit_miss` | `hit_miss(img, se_fg, se_bg)` | `img` is a binary `Image`; `se_fg`/`se_bg` are structuring-element mask `Image`s (from `disk()`/`line()`, or hand-built with e.g. `image_from_matrix`). The morphological hit-or-miss transform: output pixel `(x, y)` is foreground iff EVERY foreground pixel of `se_fg` (relative to its own center) lands on a foreground pixel of `img` at that offset from `(x, y)`, AND EVERY foreground pixel of `se_bg` lands on a BACKGROUND pixel — a position neither SE covers is a don't-care. Out-of-range neighbors count as background (same border convention `distance_transform`/`fill_holes` use). The standard way to isolate a specific local pattern (corners, endpoints, ...) in a binary image. Returns a new binary `Image`, same dimensions as `img`. Added in v0.4.0. |
+
+```qu
+# disk(1) is a plus shape, not a 3x3 square: eroding a 1-pixel-wide plus
+# with the radius-implied square wipes it out completely, but a disk SE
+# of the same radius exactly matches the plus's own footprint and leaves
+# its center pixel standing.
+plus = image_from_matrix([0,0,0,0,0; 0,0,255,0,0; 0,255,255,255,0; 0,0,255,0,0; 0,0,0,0,0])
+square_eroded = imerode(plus, 1)
+print(imhist(square_eroded, n_bins=2))   # [25, 0] -- wiped out entirely
+
+se = disk(1)
+disk_eroded = imerode(plus, se=se)
+print(imhist(disk_eroded, n_bins=2))     # [24, 1] -- only the center pixel survives
+
+# hit_miss isolating the top-left corner of a solid 3x3 square: fg
+# requires self/east/south/south-east foreground, bg requires
+# west/north/north-west background -- true only at the one corner pixel.
+sq = image_from_matrix([0,0,0,0,0; 0,255,255,255,0; 0,255,255,255,0; 0,255,255,255,0; 0,0,0,0,0])
+fg = image_from_matrix([0,0,0; 0,255,255; 0,255,255])
+bg = image_from_matrix([255,255,0; 255,0,0; 0,0,0])
+corner = hit_miss(sq, fg, bg)
+print(imhist(corner, n_bins=2))          # [24, 1] -- exactly one corner pixel found
 ```
 
 #### Overloads: `imadjust`
@@ -176,6 +215,7 @@ print(imhist(auto, n_bins=8))   # [7, 0, 0, 0, 0, 0, 0, 1] -- stretched out to b
 | `adaptive_threshold` <br> *Added in v0.4.0* | `adaptive_threshold(image, block_size=, [method="mean"], [offset=0])` | `image` is an `Image`; `block_size` is a required odd positive integer, the side length of the per-pixel neighborhood. **Locally** adaptive, unlike `threshold`/`otsu` above: each pixel's own threshold is `mean(neighborhood) - offset`, where the neighborhood mean is a uniform box average (`method="mean"`) or a Gaussian-weighted one (`method="gaussian"`). Binarized with the same `>=` convention as `threshold`. Returns a binary `Image` of the same dimensions. |
 | `sauvola_threshold` <br> *Added in v0.4.0* | `sauvola_threshold(image, window_size=, [k=0.5], [r=128])` | `image` is an `Image`; `window_size` is a required odd positive integer. Sauvola's local threshold, `T = mean * (1 + k * (stddev/r - 1))` computed per pixel over `window_size`, purpose-built for document/text images whose illumination drifts across the frame — a case a single global `otsu` cut cannot separate cleanly. `k` (typically 0.2–0.5) controls how strongly local contrast shifts the threshold; `r` is the expected dynamic range of the local stddev (128 for 8-bit images). Binarized with the same `>=` convention as `threshold`. Returns a binary `Image` of the same dimensions. |
 | `clahe` <br> *Added in v0.4.0* | `clahe(image, tile_size=, [clip_limit=2.0])` | `image` is an `Image`; `tile_size` is a required positive integer, the pixel side length of each equalization tile (the last row/column of tiles shrinks to fit). Contrast-Limited Adaptive Histogram Equalization: `imequalize`'s tile-based local counterpart, with a clipped per-tile histogram (clip threshold `clip_limit * tile_pixel_count / 256`) and — the part a naive per-tile implementation skips — bilinear interpolation of each pixel's mapping between its four nearest tile centers, so there is no hard seam at a tile boundary. RGB-preserving via the same luma-ratio rescale `imequalize` uses. Returns an `Image` of the same dimensions. |
+| `image.watershed` <br> *Added in v0.4.0* (`import image`) | `image.watershed(surface, markers=)` | `surface` is a `Mat` (row-major, arbitrary real values) — the topographic surface to flood, typically a NEGATED `image.distance_transform(mask)` (so each blob's own center, the point farthest from any background, is the surface's deepest point and floods first) or a gradient magnitude. `markers=` is a **required** named `Mat`, the same shape as `surface`: `0` = unlabeled/to-be-flooded, any other value a seed already assigned to that label — required rather than derived from local extrema when omitted, because auto-deriving seeds is a separate, parameter-sensitive algorithm and a silent wrong guess would look like a wrong watershed instead of what it is. Marker-controlled watershed segmentation (priority-flood/Meyer's algorithm): floods strictly by ascending `surface` value, 4-connected, growing each marker's labeled region outward; where two different regions' flood-fronts meet, that pixel becomes a **watershed line** and is written `0` (the same value `markers` uses for "unlabeled", not `-1`) rather than joining either region — this is what stops two touching blobs from merging into one label. Returns a new `Mat` of labels, same shape as `surface`. Added in v0.4.0. |
 
 #### Overloads: `threshold`
 
@@ -215,6 +255,45 @@ differ more: its `Image` case returns a posterized *image* (evenly-spaced
 gray bands), while its `Signal`/plain-numeric case returns a raw 0-based
 *band index* rather than anything image-shaped.
 
+#### `image.watershed`: separating two touching blobs
+
+The property a plain connected-component labeling (`bwlabel`) cannot give
+you: two circles that overlap enough to form ONE connected blob still come
+back as two distinct labels, with a watershed line between them, as long as
+`markers=` seeds one point per circle's own center.
+
+```qu
+import image
+
+# Two overlapping circles -- one connected blob to bwlabel.
+w = 21
+h = 13
+mask_m = zeros(h, w)
+for y in 0 to h - 1
+  for x in 0 to w - 1
+    in_a = (x - 6) ^ 2 + (y - 6) ^ 2 <= 25
+    in_b = (x - 14) ^ 2 + (y - 6) ^ 2 <= 25
+    if in_a or in_b
+      mask_m[y, x] = 255
+    end if
+  end for
+end for
+mask = image_from_matrix(mask_m)
+
+n_blobs = bwlabel(mask).count
+print(n_blobs)   # 1 -- the two circles are one connected blob
+
+dt = image.distance_transform(mask)
+surface = -dt                 # each circle's own center floods first
+markers = zeros(h, w)
+markers[6, 6] = 1              # circle A's own center
+markers[6, 14] = 2             # circle B's own center
+labels = image.watershed(surface, markers=markers)
+
+print(labels[6, 2])    # 1 -- deep inside circle A only
+print(labels[6, 18])   # 2 -- deep inside circle B only
+```
+
 ## Region Analysis
 
 | Function | Signature | Description |
@@ -224,6 +303,40 @@ gray bands), while its `Signal`/plain-numeric case returns a raw 0-based
 | `bwareaopen` | `bwareaopen(binary_img, min_area)` (alias of `remove_small_blobs`) | `binary_img` is a binary `Image`; `min_area` is a number, the minimum pixel count a blob must have to survive. Labels internally (8-connectivity, matching MATLAB's default) and zeroes out every blob whose pixel count is below `min_area`. Returns a new binary `Image`, same dimensions as `binary_img`, with small blobs removed. |
 | `foreground_mask` | `foreground_mask(img, level, [radius=1])` | `img` is an `Image`, color or grayscale (BT.601 luma either way); `level` is a required number, the threshold cutoff 0–255; `radius` is an optional named positive integer (default 1), the structuring-element radius for the cleanup step. Thresholds `img` at `level`, then applies `imopen(radius)` to remove noise specks. `level` is a required argument by design — pair with `otsu_threshold` for auto-thresholding: `foreground_mask(img, otsu_threshold(img))`. Returns a new binary `Image`, same dimensions as `img`. |
 | `image.regions` | `image.regions(labeled, [pixel_size=], [unit=], [intensity_image=])` (`import image`) | `labeled` is a `Model` from `bwlabel`/`label_blobs`. Returns a `Table`, one row per non-empty label, ordered by label id — the `regionprops`-shaped measurement but as columns rather than a `List` of `Record`s, so a measurement can be filtered/grouped/joined/plotted with the language's ordinary table verbs. Columns: `label`; `area`, `centroid_x`, `centroid_y`, `bbox_width`, `bbox_height` (all suffixed `_px`/`_px2` with no `pixel_size=`, or `_<unit>`/`_<unit>2` when both `pixel_size=` and `unit=` are given — a unit with no scale, or `unit="px"` alongside a scale, is refused); `extent` (`area / bbox_area`, unitless, the scale cancels); `perimeter` (suffixed like the other lengths) — the region's outer boundary walked pixel-centre to pixel-centre (8-connected), summed and closed into a loop; a solid axis-aligned `W`x`H` rectangle measures `2*(W+H-2)`, NOT the `2*(W+H)` edge-crossing count some other tools report, because the border ring of a solid block is all orthogonal steps; `eccentricity` (`0`–`1`, from an equivalent ellipse fit to the region's second central moments — `0` for a circle/square, approaching `1` for a thin line); `orientation` (radians, `(-pi/2, pi/2]`, the equivalent ellipse's major-axis angle from `+x`, positive rotating towards `+y` — which is DOWN the image, i.e. clockwise on screen, not the counter-clockwise math-plot convention; `0` for an isotropic region by convention); `solidity` (`area / convex_hull_area`, unitless — the hull is built from every boundary pixel's four corners rather than its centre, so a solid convex region's hull area equals its own pixel-count area exactly and solidity is `1.0`, never slightly above it). `intensity_image=` is an optional `Image`, the ORIGINAL (non-labeled) image to measure — when given, an `intensity_mean` column (BT.601 luma mean per region) is appended; when omitted, no such column appears at all, rather than one filled with a placeholder. The `perimeter`/`eccentricity`/`orientation`/`solidity` columns and the `intensity_image=` keyword were added in v0.4.0. |
+
+## Drawing & Annotation
+
+Draws directly onto a raster `Image`'s pixel buffer and returns a NEW
+`Image` — the same "returns a new value, does not mutate the input"
+convention every other transform in this chapter follows. This is a
+different thing from the plotting system's own `annotate`/`text`/`arrow`
+builtins (see the Plotting chapter): those label a FIGURE — an SVG/PDF
+vector canvas with a data coordinate system — not a raw pixel buffer.
+Everything here takes plain pixel-integer coordinates, top-left origin,
+the same convention `crop`/`get_pixel` already use. A coordinate that
+lands (partly or entirely) outside the canvas is silently clipped rather
+than an error, the same way `imtranslate`'s `bbox="crop"` lets content
+move partly off-frame.
+
+| Function | Signature | Description |
+|---|---|---|
+| `draw_line` <br> *Added in v0.4.0* | `draw_line(img, x0, y0, x1, y1, color=, [thickness=1])` | `img` is an `Image`; `x0, y0, x1, y1` are numbers (pixel coordinates, rounded to the nearest integer). `color=` is required, in the same colour spelling every other `color=` keyword in this codebase accepts (a CSS name, `#rrggbb`/`#rgb` hex, or `rgb(...)`/`rgba(...)`). `thickness=` is an optional named positive integer (default 1), a square brush stamped at every point of a Bresenham line from `(x0,y0)` to `(x1,y1)` inclusive. Returns a new `Image`, same dimensions as `img`. |
+| `draw_rect` <br> *Added in v0.4.0* | `draw_rect(img, x, y, width, height, color=, [thickness=1], [filled=false])` | `img` is an `Image`; `x, y` are the top-left corner (pixel coordinates); `width, height` are positive numbers. `filled=true` paints the whole interior (`thickness` is ignored — a fill has no stroke width); `filled=false` (default) strokes the four edges with the given `thickness`. At `thickness=1` the outline is exactly `2*(width+height-2)` pixels for `width, height >= 2` — the same formula `image.regions`'s own `perimeter` column documents for a solid rectangle's boundary walk. Returns a new `Image`, same dimensions as `img`. |
+| `draw_circle` <br> *Added in v0.4.0* | `draw_circle(img, cx, cy, radius, color=, [thickness=1], [filled=false])` | `img` is an `Image`; `cx, cy` are the center (pixel coordinates); `radius` is a positive number. `filled=true` fills the digital disk (every pixel with `dx^2+dy^2 <= radius^2`); `filled=false` (default) strokes the boundary using the textbook midpoint (Bresenham) circle algorithm at the given `thickness`. Returns a new `Image`, same dimensions as `img`. |
+| `draw_arrow` <br> *Added in v0.4.0* | `draw_arrow(img, x0, y0, x1, y1, color=, [thickness=1], [head_size=10])` | `img` is an `Image`; draws a `draw_line`-style shaft from `(x0,y0)` to `(x1,y1)`, plus an arrowhead: two more strokes from the tip back along the reversed shaft direction, splayed +/-30 degrees, each `head_size` pixels long (a two-stroke arrowhead, not a filled triangle — chosen so the head reuses the exact same line rasterizer and `thickness` as the shaft). A zero-length shaft draws only the (single-point) shaft, with no head, since it has no defined direction. Returns a new `Image`, same dimensions as `img`. |
+| `draw_scale_bar` <br> *Added in v0.4.0* | `draw_scale_bar(img, length_physical, [pixel_size=], [unit=], color=, [position="bottom-right"], [margin=10], [thickness=4], [label=true], [font_scale=1])` | `img` is an `Image`; `length_physical` is a positive number. Draws a horizontal bar whose PIXEL length is `length_physical / pixel_size`, rounded to the nearest pixel — reusing `image.regions`'s own `pixel_size=`/`unit=` convention exactly: omitting `pixel_size=` means `length_physical` is already a pixel count (`unit=` then defaults to, and must be, `"px"`); giving `unit=` with no `pixel_size=`, or `unit="px"` alongside one, are refused for the same reason `image.regions` refuses them (a unit with no scale, or a scale with a contradictory unit). `position=` is one of `"bottom-left"`/`"bottom-right"` (default)/`"top-left"`/`"top-right"`, placed `margin=` pixels (default 10) from that corner. `thickness=` (default 4) is the bar's pixel height. `label=` (default `true`) draws `length_physical` and the unit underneath (bottom positions: above, to stay on-canvas) the bar using a built-in bitmap font — digits, `.`, `-`, `%`, and the handful of unit letters (`u`, `n`, `m`, `c`, `p`, `x`, `k`, `i`) a physical unit actually needs; any other character renders as blank space rather than an error. `font_scale=` (default 1) is an integer pixel-doubling factor for the label. Returns a new `Image`, same dimensions as `img`. |
+
+```qu
+img = image_new(300, 200, r=20, g=20, b=20)
+img = draw_line(img, 10, 10, 290, 10, color="yellow", thickness=2)
+img = draw_rect(img, 20, 30, 60, 40, color="cyan", thickness=2)
+img = draw_circle(img, 150, 100, 30, color="magenta", filled=true)
+img = draw_arrow(img, 200, 150, 260, 180, color="white", head_size=12)
+
+# A 100 px bar labeled "50 um" when pixel_size = 0.5 um/px.
+img = draw_scale_bar(img, 50, pixel_size=0.5, unit="um", position="bottom-right", color="white")
+save_image("/tmp/annotated.bmp", img)
+```
 
 ## Gradients, Edges & Colorspace (`image` module)
 
@@ -548,9 +661,9 @@ tools as a photograph.
 
 | Function | Signature | Description |
 |---|---|---|
-| `imerode` | `imerode(img, radius)` | `img` is a binary `Image`; `radius` is a positive integer, the half-width of a square structuring element of side `2*radius+1`. Binary morphological erosion — shrinks foreground regions and removes specks smaller than the element. Returns a new `Image`, same dimensions as `img`. |
-| `imopen` | `imopen(img, radius)` | `img` is a binary `Image`; `radius` is a positive integer (same structuring-element convention as `imerode`). Morphological opening (erode then dilate) — removes specks smaller than the structuring element while leaving larger shapes their size. Returns a new `Image`, same dimensions as `img`. |
-| `imtophat` | `imtophat(img, radius)` | `img` is a binary/grayscale `Image`; `radius` is a positive integer. The image minus its opening: what the opening removed. The standard way to pull small bright features off an uneven background. Returns a new `Image`, same dimensions as `img`. |
+| `imerode` | `imerode(img, radius)` <br> `imerode(img, se=)` | `img` is a binary `Image`; `radius` is a positive integer, the half-width of a square structuring element of side `2*radius+1`. Binary morphological erosion — shrinks foreground regions and removes specks smaller than the element. Returns a new `Image`, same dimensions as `img`. Same additive `se=` kwarg as `imdilate` (see "Structuring elements" above), added in v0.4.0. |
+| `imopen` | `imopen(img, radius)` <br> `imopen(img, se=)` | `img` is a binary `Image`; `radius` is a positive integer (same structuring-element convention as `imerode`). Morphological opening (erode then dilate) — removes specks smaller than the structuring element while leaving larger shapes their size. Returns a new `Image`, same dimensions as `img`. Same additive `se=` kwarg as `imdilate` (see "Structuring elements" above), added in v0.4.0. |
+| `imtophat` | `imtophat(img, radius)` <br> `imtophat(img, se=)` | `img` is a binary/grayscale `Image`; `radius` is a positive integer. The image minus its opening: what the opening removed. The standard way to pull small bright features off an uneven background. Returns a new `Image`, same dimensions as `img`. Same additive `se=` kwarg as `imdilate` (see "Structuring elements" above), added in v0.4.0. |
 | `imequalize` | `imequalize(img)` | `img` is an `Image` of any size. Histogram equalisation, spreading the intensities to fill the range (identical operation to `histeq` above). Reveals detail in a flat image and exaggerates noise in a clean one. Returns a new `Image`, same dimensions as `img`. |
 | `remove_small_blobs` | `remove_small_blobs(img, min_area)` | `img` is a binary `Image`; `min_area` is a number, the minimum pixel area a connected component must have to survive. Drop connected components below that area, after labelling internally (identical operation to `bwareaopen` above). The cheap alternative to tuning a filter. Returns a new binary `Image`, same dimensions as `img`. |
 | `label_blobs` | `label_blobs(img)` | `img` is a binary `Image`. Connected-component labelling: every separate region gets its own integer (identical operation to `bwlabel` above). Returns a `Model` (kind `"blobs"`) with `.labels`, `.count`, `.width`, `.height` fields. |

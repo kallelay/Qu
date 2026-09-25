@@ -1135,6 +1135,177 @@ fn polygon_area_shoelace(points: &[(f64, f64)]) -> f64 {
     (sum / 2.0).abs()
 }
 
+// ------------------------------------------------------------ watershed
+
+/// One priority-queue entry for `watershed`'s flood: ascending by
+/// `surface` value (so the queue floods low points first), ties broken by
+/// insertion order (`seq`) for a deterministic result independent of
+/// `HashMap`/iteration-order accidents. `f64` has no total order (NaN), so
+/// this wraps the comparison rather than deriving `Ord` -- `partial_cmp`
+/// unwrapped, since a NaN surface value is a caller bug this isn't trying
+/// to handle gracefully, matching this crate's other float-heavy code
+/// (`distance_transform`, `skeleton`) which makes the same assumption.
+#[derive(PartialEq)]
+struct FloodEntry {
+    value: f64,
+    seq: u64,
+    idx: usize,
+}
+impl Eq for FloodEntry {}
+impl Ord for FloodEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Reversed, so `BinaryHeap` (a max-heap) pops the SMALLEST value
+        // first -- turns it into the min-heap the flood needs without a
+        // separate `Reverse` wrapper at every call site.
+        other
+            .value
+            .partial_cmp(&self.value)
+            .unwrap()
+            .then_with(|| other.seq.cmp(&self.seq))
+    }
+}
+impl PartialOrd for FloodEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Marker-controlled watershed segmentation (priority-flood / Meyer's
+/// algorithm). `surface` (row-major, `w*h`) is the topographic surface to
+/// flood -- typically the NEGATED output of [`distance_transform`] (so a
+/// blob's centre, the point farthest from its boundary, is the surface's
+/// deepest point and floods first) or a gradient magnitude. `markers`
+/// (row-major, `w*h`, same shape) is the seed label buffer: `0` means
+/// unlabeled/to-be-flooded, any other value is a seed already assigned to
+/// that label.
+///
+/// Floods strictly by ascending `surface` value, 4-connected, via a binary
+/// min-heap: each unlabeled pixel adjacent to already-labeled territory is
+/// queued at its own surface value, and the queue always processes the
+/// globally lowest still-queued point next. When a queued pixel is
+/// popped, if every already-labeled neighbor it now has agrees on one
+/// label, it takes that label and queues its own unlabeled neighbors in
+/// turn; if its labeled neighbors disagree (two different regions'
+/// flood-fronts have both reached it), it becomes a **watershed line**
+/// pixel instead, and does not propagate further -- this is what stops
+/// two touching regions from merging into one.
+///
+/// **Watershed-line convention**: a line pixel is written `0`, the same
+/// value `markers` already uses for "unlabeled" (not `-1`), so the whole
+/// result stays a plain label buffer that composes with e.g. [`regions`]
+/// without a caller having to special-case a negative sentinel. The
+/// tradeoff this makes explicit: a genuinely unreached pixel (unreachable
+/// from any seed at all, which cannot happen here since the flood covers
+/// every pixel the surface has) and a real watershed-line pixel are both
+/// `0` in the output; they are only distinguishable, if it matters, by
+/// checking whether all of a `0` pixel's neighbors are non-zero (a line)
+/// or not.
+///
+/// **No `mask=`**: every pixel in `surface` is flooded, including regions
+/// with no nearby marker -- there is no "outside the region of interest"
+/// concept here, unlike some watershed variants. A caller that wants
+/// certain pixels excluded from ever taking a real label should pre-seed
+/// them as their own dedicated marker id and discard that id afterward,
+/// or restrict `surface`'s dynamic range so those pixels flood last.
+///
+/// **`markers` is required, not derived from local extrema when omitted.**
+/// A "derive seeds from the input automatically" fallback is a second,
+/// separate algorithm (peak/minima finding, itself parameter-sensitive --
+/// how close is "the same" extremum, how flat a plateau counts) bolted
+/// onto a function whose entire point is that a marker-CONTROLLED result
+/// is only as correct as the markers it's given. Silently guessing them
+/// would make a wrong guess look like a wrong watershed instead of what it
+/// actually is: a wrong guess. Refusing (by construction: this function
+/// simply requires the argument, and the dispatch arm around it names the
+/// keyword in its error) keeps that failure honest.
+pub fn watershed(surface: &[f64], markers: &[i32], w: usize, h: usize) -> Vec<i32> {
+    if w == 0 || h == 0 {
+        return Vec::new();
+    }
+    let n = w * h;
+    let mut labels = markers.to_vec();
+    let mut visited = vec![false; n];
+    let mut queued = vec![false; n];
+    for i in 0..n {
+        if labels[i] != 0 {
+            visited[i] = true;
+        }
+    }
+    let neighbors4 = |idx: usize| -> Vec<usize> {
+        let (x, y) = (idx % w, idx / w);
+        let mut out = Vec::with_capacity(4);
+        if x > 0 {
+            out.push(idx - 1);
+        }
+        if x + 1 < w {
+            out.push(idx + 1);
+        }
+        if y > 0 {
+            out.push(idx - w);
+        }
+        if y + 1 < h {
+            out.push(idx + w);
+        }
+        out
+    };
+    let mut heap: std::collections::BinaryHeap<FloodEntry> = std::collections::BinaryHeap::new();
+    let mut seq: u64 = 0;
+    let push = |heap: &mut std::collections::BinaryHeap<FloodEntry>, queued: &mut [bool], seq: &mut u64, idx: usize| {
+        if !queued[idx] {
+            queued[idx] = true;
+            heap.push(FloodEntry { value: surface[idx], seq: *seq, idx });
+            *seq += 1;
+        }
+    };
+    for i in 0..n {
+        if labels[i] != 0 {
+            for nb in neighbors4(i) {
+                if !visited[nb] {
+                    push(&mut heap, &mut queued, &mut seq, nb);
+                }
+            }
+        }
+    }
+    while let Some(FloodEntry { idx, .. }) = heap.pop() {
+        if visited[idx] {
+            continue;
+        }
+        let mut found: Option<i32> = None;
+        let mut conflict = false;
+        for nb in neighbors4(idx) {
+            let l = labels[nb];
+            if l != 0 {
+                match found {
+                    None => found = Some(l),
+                    Some(existing) if existing != l => conflict = true,
+                    _ => {}
+                }
+            }
+        }
+        visited[idx] = true;
+        match found {
+            Some(l) if !conflict => {
+                labels[idx] = l;
+                for nb in neighbors4(idx) {
+                    if !visited[nb] {
+                        push(&mut heap, &mut queued, &mut seq, nb);
+                    }
+                }
+            }
+            _ => {
+                // Either a genuine conflict (two regions met here -- a
+                // watershed line) or, defensively, no labeled neighbor at
+                // all (shouldn't happen: `idx` is only ever queued because
+                // a labeled neighbor pushed it, and labels only go from 0
+                // to non-zero, never back). Either way: leave it `0` and
+                // do not propagate past it.
+                labels[idx] = 0;
+            }
+        }
+    }
+    labels
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1628,5 +1799,115 @@ mod tests {
         let c = contours(&b, 4, 4, Some(0.5));
         assert_eq!(c.len(), 1);
         assert_eq!(c[0][0], (0.5, 0.5));
+    }
+
+    /// A plain 4-connected flood-fill component counter over a raw binary
+    /// mask -- deliberately naive, with no watershed-style splitting. Used
+    /// only to demonstrate the actual failure mode marker-controlled
+    /// watershed exists to fix: two touching/overlapping blobs are ONE
+    /// connected component to this, no matter how the flood is ordered.
+    fn count_4connected_components(mask: &[u8], w: usize, h: usize) -> usize {
+        let mut seen = vec![false; w * h];
+        let mut count = 0;
+        for start in 0..w * h {
+            if mask[start] == 0 || seen[start] {
+                continue;
+            }
+            count += 1;
+            let mut stack = vec![start];
+            seen[start] = true;
+            while let Some(idx) = stack.pop() {
+                let (x, y) = (idx % w, idx / w);
+                let candidates = [
+                    (x.checked_sub(1), Some(y)),
+                    (x.checked_add(1).filter(|&v| v < w), Some(y)),
+                    (Some(x), y.checked_sub(1)),
+                    (Some(x), y.checked_add(1).filter(|&v| v < h)),
+                ];
+                for (nx, ny) in candidates {
+                    if let (Some(nx), Some(ny)) = (nx, ny) {
+                        let nidx = ny * w + nx;
+                        if mask[nidx] != 0 && !seen[nidx] {
+                            seen[nidx] = true;
+                            stack.push(nidx);
+                        }
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn watershed_with_a_single_marker_labels_the_whole_flooded_surface() {
+        // Base case, no splitting possible: one marker, flat surface (so
+        // every tie is broken purely by queue order) -- the entire image
+        // must end up carrying that one label, with no `0` watershed lines
+        // anywhere (there is only ever one flood front, so it can never
+        // meet a DIFFERENT one).
+        let (w, h) = (6, 6);
+        let surface = vec![0.0f64; w * h];
+        let mut markers = vec![0i32; w * h];
+        markers[0] = 7;
+        let labels = watershed(&surface, &markers, w, h);
+        assert!(labels.iter().all(|&l| l == 7), "a single marker on a flat surface must flood everything with its own label, got {labels:?}");
+    }
+
+    #[test]
+    fn watershed_separates_two_touching_blobs_that_connected_components_cannot() {
+        // The actual point of watershed, made concrete: two circular blobs
+        // (radius 5, centers 8 apart -- overlapping by construction, not
+        // merely adjacent) that a plain connected-component labeling sees
+        // as ONE blob. Marker-controlled watershed, seeded with one marker
+        // per circle's own center, must recover the two original regions.
+        let (w, h) = (21usize, 13usize);
+        let in_a = |x: usize, y: usize| {
+            let (dx, dy) = (x as isize - 6, y as isize - 6);
+            dx * dx + dy * dy <= 25
+        };
+        let in_b = |x: usize, y: usize| {
+            let (dx, dy) = (x as isize - 14, y as isize - 6);
+            dx * dx + dy * dy <= 25
+        };
+        let mask = binary_img(w, h, |x, y| in_a(x, y) || in_b(x, y));
+
+        // Confirm the premise first: to a naive connected-component
+        // labeling, this really is one single blob, not a pair that
+        // happens to already be separable.
+        assert_eq!(
+            count_4connected_components(&mask, w, h),
+            1,
+            "the two circles must genuinely be one connected blob for this test to demonstrate anything"
+        );
+
+        let dt = distance_transform(&mask, w, h);
+        // Negate so each circle's own center -- the point farthest from
+        // any background, i.e. `distance_transform`'s local maximum -- is
+        // the DEEPEST point of the surface watershed floods from first.
+        let surface: Vec<f64> = dt.iter().map(|&d| -d).collect();
+
+        let mut markers = vec![0i32; w * h];
+        markers[6 * w + 6] = 1; // circle A's own center
+        markers[6 * w + 14] = 2; // circle B's own center
+
+        let labels = watershed(&surface, &markers, w, h);
+
+        // Two points deep inside each circle's EXCLUSIVE territory (not in
+        // the other circle at all), far from the overlap band.
+        assert!(in_a(2, 6) && !in_b(2, 6));
+        assert!(in_b(18, 6) && !in_a(18, 6));
+        let idx_a = 6 * w + 2;
+        let idx_b = 6 * w + 18;
+
+        assert_eq!(labels[idx_a], 1, "circle A's exclusive territory must carry marker 1's label, got {}", labels[idx_a]);
+        assert_eq!(labels[idx_b], 2, "circle B's exclusive territory must carry marker 2's label, got {}", labels[idx_b]);
+        assert_ne!(
+            labels[idx_a], labels[idx_b],
+            "watershed must separate the two touching blobs into two distinct labels -- \
+             naive connected-component labeling (confirmed above) cannot do this at all"
+        );
+
+        let distinct: std::collections::HashSet<i32> = labels.iter().copied().filter(|&l| l != 0).collect();
+        assert_eq!(distinct.len(), 2, "expected exactly the two seeded labels to appear in the output, got {distinct:?}");
     }
 }

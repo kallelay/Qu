@@ -396,6 +396,226 @@ impl Image {
         subtract_clamped(&closed, self)
     }
 
+    // ---- Structuring-element morphology (§ SE/hit-miss/watershed pass,
+    // 2026-09-25) ----
+    //
+    // `erode`/`dilate`/... above imply a square SE (side `2*radius+1`) --
+    // fine as a default, but not the only shape morphology actually needs
+    // (a disk avoids the square's diagonal bias; a line SE is how you
+    // isolate features at a specific orientation). Rather than invent a new
+    // `Value` variant for "structuring element," an SE is represented the
+    // way the design spec's §2 already frames a mask: "just a bool image"
+    // (the same 0/255 binary-mask convention `is_foreground` reads
+    // elsewhere in this module) -- `disk_offsets`/`line_offsets` build the
+    // *offset list* a shape implies, `se_mask_image` turns that into the
+    // `Image` a script actually holds and can `imshow`, and
+    // `image_to_se_offsets` is the inverse, reading an arbitrary
+    // caller-built mask image back into offsets. The `*_se` methods below
+    // are the arbitrary-offset generalization of `erode`/`dilate`/`open`/
+    // `close`/`tophat`/`bothat` above, which stay in place unchanged (and
+    // un-generalized) for backward compatibility and because a plain
+    // radius is the common case not worth an offset list for.
+
+    /// The offset list for a disk SE of the given `radius`: every integer
+    /// `(dx, dy)` with `dx*dx + dy*dy <= radius*radius`. `radius = 0` is a
+    /// single center pixel, matching `erode`/`dilate`'s own `radius = 0`
+    /// no-op convention (a 1x1 SE erodes/dilates nothing).
+    pub fn disk_offsets(radius: usize) -> Vec<(isize, isize)> {
+        let r = radius as isize;
+        let r2 = r * r;
+        let mut offsets = Vec::new();
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx * dx + dy * dy <= r2 {
+                    offsets.push((dx, dy));
+                }
+            }
+        }
+        offsets
+    }
+
+    /// The offset list for a line SE `length` pixels long at `angle_deg`
+    /// degrees (0 = pointing along +x, positive = counterclockwise as
+    /// displayed -- `imrotate`'s own convention, since image row `y` grows
+    /// downward). Centered on its own middle pixel: a `length`-pixel line
+    /// spans `length - 1` unit steps end to end, split evenly on either
+    /// side of the center and rounded to the nearest integer pixel, then
+    /// Bresenham-rasterized between the two rounded endpoints. `length <=
+    /// 1` degenerates to the single center pixel, same as `disk_offsets(0)`.
+    /// The two endpoints are rounded independently, so a line whose true
+    /// endpoints aren't exact integers (most angles) is not perfectly
+    /// point-symmetric about the center pixel -- a documented, cosmetic
+    /// rounding artifact, not a correctness issue for erosion/dilation.
+    pub fn line_offsets(length: usize, angle_deg: f64) -> Vec<(isize, isize)> {
+        if length <= 1 {
+            return vec![(0, 0)];
+        }
+        let rad = angle_deg.to_radians();
+        let half = (length as f64 - 1.0) / 2.0;
+        let ux = rad.cos();
+        let uy = -rad.sin();
+        let x0 = (-half * ux).round() as isize;
+        let y0 = (-half * uy).round() as isize;
+        let x1 = (half * ux).round() as isize;
+        let y1 = (half * uy).round() as isize;
+        bresenham_line(x0, y0, x1, y1)
+    }
+
+    /// Turns an offset list (from `disk_offsets`/`line_offsets`, or any
+    /// hand-built list) into the binary-mask `Image` a script actually
+    /// holds: the tightest odd-sized canvas that fits every offset,
+    /// centered exactly so `image_to_se_offsets` (below) reads the same
+    /// offsets back out. An empty offset list still produces a valid 1x1
+    /// all-background image rather than panicking (`unwrap_or(0)` on the
+    /// bounding-box scan).
+    pub fn se_mask_image(offsets: &[(isize, isize)]) -> Image {
+        let half_w = offsets.iter().map(|(dx, _)| dx.unsigned_abs()).max().unwrap_or(0);
+        let half_h = offsets.iter().map(|(_, dy)| dy.unsigned_abs()).max().unwrap_or(0);
+        let (w, h) = (2 * half_w + 1, 2 * half_h + 1);
+        let mut img = Image::filled(w, h, (0, 0, 0));
+        let (cx, cy) = (half_w as isize, half_h as isize);
+        for &(dx, dy) in offsets {
+            let x = (cx + dx) as usize;
+            let y = (cy + dy) as usize;
+            img.set_pixel(x, y, (255, 255, 255));
+        }
+        img
+    }
+
+    /// The inverse of `se_mask_image`: reads an arbitrary binary-mask
+    /// `Image` (an `se=` argument, however it was built) back into the
+    /// offset list `erode_se`/`dilate_se`/`hit_miss` want, relative to the
+    /// mask's own center pixel (`width/2`, `height/2`, integer division --
+    /// exact for the odd-sized masks `se_mask_image` produces, and a
+    /// documented, reasonable convention for an even-sized one a caller
+    /// built by hand). An all-background mask has no foreground offset to
+    /// report; rather than hand back an empty list (which would make
+    /// `erode_se`/`dilate_se` iterate zero offsets and silently return an
+    /// all-255/all-0 image), it falls back to the single center offset
+    /// `(0, 0)` -- the same "SE with nothing in it" edge case `disk_offsets`
+    /// hits at `radius = 0`.
+    pub fn image_to_se_offsets(img: &Image) -> Vec<(isize, isize)> {
+        let cx = (img.width / 2) as isize;
+        let cy = (img.height / 2) as isize;
+        let mut offsets = Vec::new();
+        for y in 0..img.height {
+            for x in 0..img.width {
+                if img.is_foreground(x, y) {
+                    offsets.push((x as isize - cx, y as isize - cy));
+                }
+            }
+        }
+        if offsets.is_empty() {
+            offsets.push((0, 0));
+        }
+        offsets
+    }
+
+    fn morph_filter_offsets(&self, offsets: &[(isize, isize)], is_dilate: bool) -> Image {
+        if offsets.is_empty() || self.width == 0 || self.height == 0 {
+            return self.clone();
+        }
+        let (w, h) = (self.width as isize, self.height as isize);
+        let mut out = vec![0u8; self.pixels.len()];
+        for y in 0..h {
+            for x in 0..w {
+                let mut acc = if is_dilate { [0u8; 3] } else { [255u8; 3] };
+                for &(dx, dy) in offsets {
+                    let sx = (x + dx).clamp(0, w - 1) as usize;
+                    let sy = (y + dy).clamp(0, h - 1) as usize;
+                    let (pr, pg, pb) = self.get_pixel(sx, sy);
+                    if is_dilate {
+                        acc[0] = acc[0].max(pr);
+                        acc[1] = acc[1].max(pg);
+                        acc[2] = acc[2].max(pb);
+                    } else {
+                        acc[0] = acc[0].min(pr);
+                        acc[1] = acc[1].min(pg);
+                        acc[2] = acc[2].min(pb);
+                    }
+                }
+                let di = (y as usize * self.width + x as usize) * 3;
+                out[di] = acc[0];
+                out[di + 1] = acc[1];
+                out[di + 2] = acc[2];
+            }
+        }
+        Image { width: self.width, height: self.height, pixels: out }
+    }
+
+    /// `erode`'s arbitrary-SE generalization: MIN over exactly the offsets
+    /// given, rather than a full `2*radius+1` square. Same replicate-border
+    /// convention as `erode`.
+    pub fn erode_se(&self, offsets: &[(isize, isize)]) -> Image {
+        self.morph_filter_offsets(offsets, false)
+    }
+
+    /// `dilate`'s arbitrary-SE generalization: MAX over exactly the offsets
+    /// given. Same replicate-border convention as `dilate`.
+    pub fn dilate_se(&self, offsets: &[(isize, isize)]) -> Image {
+        self.morph_filter_offsets(offsets, true)
+    }
+
+    /// `open`'s arbitrary-SE generalization: erode then dilate with the
+    /// same offset list.
+    pub fn open_se(&self, offsets: &[(isize, isize)]) -> Image {
+        self.erode_se(offsets).dilate_se(offsets)
+    }
+
+    /// `close`'s arbitrary-SE generalization: dilate then erode with the
+    /// same offset list.
+    pub fn close_se(&self, offsets: &[(isize, isize)]) -> Image {
+        self.dilate_se(offsets).erode_se(offsets)
+    }
+
+    /// `tophat`'s arbitrary-SE generalization.
+    pub fn tophat_se(&self, offsets: &[(isize, isize)]) -> Image {
+        let opened = self.open_se(offsets);
+        subtract_clamped(self, &opened)
+    }
+
+    /// `bothat`'s arbitrary-SE generalization.
+    pub fn bothat_se(&self, offsets: &[(isize, isize)]) -> Image {
+        let closed = self.close_se(offsets);
+        subtract_clamped(&closed, self)
+    }
+
+    /// The morphological hit-or-miss transform: output pixel `(x, y)` is
+    /// foreground iff EVERY `fg_offsets` position relative to `(x, y)` is
+    /// foreground in `self` AND EVERY `bg_offsets` position relative to
+    /// `(x, y)` is background. A position covered by neither list is a
+    /// don't-care, per the standard definition -- there is no requirement
+    /// that `fg_offsets`/`bg_offsets` partition a common window, or even
+    /// share the same bounding box. Out-of-range neighbors count as
+    /// background (the same border convention `distance_transform`/
+    /// `fill_holes` already use in `qu-image`), so a required-foreground
+    /// offset that falls outside the image can never match at the border.
+    /// Returns a new binary (0/255) `Image`, same dimensions as `self`.
+    pub fn hit_miss(&self, fg_offsets: &[(isize, isize)], bg_offsets: &[(isize, isize)]) -> Image {
+        let (w, h) = (self.width as isize, self.height as isize);
+        let mut out = vec![0u8; self.pixels.len()];
+        let fg_at = |x: isize, y: isize| -> bool {
+            if x < 0 || y < 0 || x >= w || y >= h {
+                false
+            } else {
+                self.is_foreground(x as usize, y as usize)
+            }
+        };
+        for y in 0..h {
+            for x in 0..w {
+                let matches = fg_offsets.iter().all(|&(dx, dy)| fg_at(x + dx, y + dy))
+                    && bg_offsets.iter().all(|&(dx, dy)| !fg_at(x + dx, y + dy));
+                if matches {
+                    let di = (y as usize * self.width + x as usize) * 3;
+                    out[di] = 255;
+                    out[di + 1] = 255;
+                    out[di + 2] = 255;
+                }
+            }
+        }
+        Image { width: self.width, height: self.height, pixels: out }
+    }
+
     /// Connected-component labeling (flood fill via an explicit stack, not
     /// recursion, so a large connected blob can't overflow the call stack).
     /// `connectivity` must be 4 (edge-adjacent only) or 8 (edge+diagonal).
@@ -1006,7 +1226,361 @@ impl Image {
         }
         Image::new(self.width, self.height, pixels)
     }
+
+    // ---- Direct raster drawing/annotation (§ image toolkit design spec
+    // §6 "Drawing/annotation", 2026-09-25) ----
+    //
+    // Everything below draws straight onto a pixel buffer and returns a new
+    // `Image` (the same "returns a new value, does not mutate the input"
+    // convention `crop`/`erode`/`imadjust`/every other transform in this
+    // file already follows) -- distinct from the plotting system's
+    // `annotate`/`text`/`arrow` builtins (`lib.rs`), which label a FIGURE
+    // (an SVG/PDF vector canvas with a data coordinate system), not a raw
+    // `Image` pixel buffer. Coordinates here are plain pixel integers, top-
+    // left origin, exactly `get_pixel`/`crop`'s own convention.
+    //
+    // Off-canvas coordinates are allowed and silently clipped (`checked_set`
+    // below), the same way `imtranslate`'s `bbox="crop"` lets content move
+    // partly off-frame rather than erroring -- a line/circle that is mostly
+    // on-canvas with one end wandering off it is a normal thing to draw, not
+    // a mistake to reject.
+
+    /// Bresenham's line algorithm (integer, minimal point set -- the
+    /// textbook form, e.g. Wikipedia's "Bresenham's line algorithm"): for a
+    /// horizontal or vertical line this is exactly the inclusive pixel run
+    /// from one endpoint to the other, which is what makes `draw_line`'s own
+    /// known-answer tests exact rather than approximate.
+    fn bresenham_points(x0: i64, y0: i64, x1: i64, y1: i64) -> Vec<(i64, i64)> {
+        let mut pts = Vec::new();
+        let dx = (x1 - x0).abs();
+        let dy = -(y1 - y0).abs();
+        let sx = if x0 < x1 { 1 } else { -1 };
+        let sy = if y0 < y1 { 1 } else { -1 };
+        let mut err = dx + dy;
+        let (mut x, mut y) = (x0, y0);
+        loop {
+            pts.push((x, y));
+            if x == x1 && y == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y += sy;
+            }
+        }
+        pts
+    }
+
+    /// The midpoint (Bresenham) circle algorithm's own point set for one
+    /// octant, reflected into all eight -- the textbook "draw a circle with
+    /// integers only" algorithm. Returns *offsets* from the center,
+    /// deduplicated (the two axis-aligned octant boundaries and the
+    /// diagonal `x == y` case would otherwise report the same pixel twice).
+    /// `radius = 3` produces exactly 16 offsets -- see `draw_circle`'s own
+    /// test, worked by hand against this same algorithm.
+    fn midpoint_circle_offsets(r: i64) -> Vec<(i64, i64)> {
+        let mut pts = std::collections::BTreeSet::new();
+        let (mut x, mut y) = (0i64, r);
+        let mut d = 3 - 2 * r;
+        while x <= y {
+            for (px, py) in [
+                (x, y), (y, x), (-x, y), (-y, x),
+                (x, -y), (y, -x), (-x, -y), (-y, -x),
+            ] {
+                pts.insert((px, py));
+            }
+            if d < 0 {
+                d += 4 * x + 6;
+            } else {
+                d += 4 * (x - y) + 10;
+                y -= 1;
+            }
+            x += 1;
+        }
+        pts.into_iter().collect()
+    }
+
+    /// Writes one pixel, silently doing nothing when `(x, y)` falls outside
+    /// the canvas -- see the module note above for why that is the
+    /// documented behavior here rather than an error.
+    fn checked_set(&mut self, x: i64, y: i64, color: (u8, u8, u8)) {
+        if x < 0 || y < 0 {
+            return;
+        }
+        let (xu, yu) = (x as usize, y as usize);
+        if xu < self.width && yu < self.height {
+            self.set_pixel(xu, yu, color);
+        }
+    }
+
+    /// Stamps a `thickness x thickness` square brush centered as closely as
+    /// possible on `(cx, cy)` -- the "thickness" behavior every drawing
+    /// primitive below shares, so a `thickness=3` line/rectangle-outline/
+    /// circle-outline all read the same stroke width the same way. Not a
+    /// disk brush: a square is exact and trivial to hand-verify pixel-by-
+    /// pixel (a disk brush's exact pixel membership at odd radii is a whole
+    /// second algorithm to get right, for a visual difference that mostly
+    /// shows up at a stroke width no built-in raster op here needs). Odd
+    /// `thickness` centers exactly; even `thickness` centers with one extra
+    /// row/column on the high side (`thickness=2` at `x` covers `x, x+1`).
+    fn stamp_brush(&mut self, cx: i64, cy: i64, thickness: usize, color: (u8, u8, u8)) {
+        let t = thickness.max(1) as i64;
+        let lo = (t - 1) / 2;
+        let hi = t - 1 - lo;
+        for dy in -lo..=hi {
+            for dx in -lo..=hi {
+                self.checked_set(cx + dx, cy + dy, color);
+            }
+        }
+    }
+
+    /// `draw_line(img, x0, y0, x1, y1, color, thickness)` -- a straight
+    /// stroke from `(x0, y0)` to `(x1, y1)` inclusive, via
+    /// [`Image::bresenham_points`] with a [`Image::stamp_brush`] of the
+    /// given `thickness` (>=1) stamped at every point on the path. Returns a
+    /// new `Image`, same dimensions as `self`.
+    pub fn draw_line(
+        &self,
+        x0: i64,
+        y0: i64,
+        x1: i64,
+        y1: i64,
+        color: (u8, u8, u8),
+        thickness: usize,
+    ) -> Result<Image, String> {
+        if thickness == 0 {
+            return Err("draw_line: thickness must be at least 1".to_string());
+        }
+        let mut out = self.clone();
+        for (x, y) in Self::bresenham_points(x0, y0, x1, y1) {
+            out.stamp_brush(x, y, thickness, color);
+        }
+        Ok(out)
+    }
+
+    /// `draw_rect(img, x, y, width, height, color, thickness, filled)` --
+    /// axis-aligned rectangle with top-left corner `(x, y)`. `filled=true`
+    /// paints every pixel of the `width x height` interior (`thickness` is
+    /// ignored in that case: a fill has no stroke width). `filled=false`
+    /// strokes the four edges with [`Image::stamp_brush`] at the given
+    /// `thickness`, walked via [`Image::bresenham_points`] so a corner is
+    /// never double-counted into a wrong pixel. At `thickness=1` the
+    /// outline is exactly the border ring -- `2*(width+height-2)` pixels for
+    /// `width, height >= 2`, the same formula `image::regions`'s own
+    /// `perimeter` column documents for a solid rectangle's boundary walk.
+    /// Returns a new `Image`, same dimensions as `self`.
+    pub fn draw_rect(
+        &self,
+        x: i64,
+        y: i64,
+        width: i64,
+        height: i64,
+        color: (u8, u8, u8),
+        thickness: usize,
+        filled: bool,
+    ) -> Result<Image, String> {
+        if width <= 0 || height <= 0 {
+            return Err("draw_rect: width and height must be positive".to_string());
+        }
+        if thickness == 0 {
+            return Err("draw_rect: thickness must be at least 1".to_string());
+        }
+        let mut out = self.clone();
+        if filled {
+            for yy in y..y + height {
+                for xx in x..x + width {
+                    out.checked_set(xx, yy, color);
+                }
+            }
+        } else {
+            let (x1, y1) = (x + width - 1, y + height - 1);
+            let edges = [(x, y, x1, y), (x1, y, x1, y1), (x1, y1, x, y1), (x, y1, x, y)];
+            for (ax, ay, bx, by) in edges {
+                for (px, py) in Self::bresenham_points(ax, ay, bx, by) {
+                    out.stamp_brush(px, py, thickness, color);
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// `draw_circle(img, cx, cy, radius, color, thickness, filled)`.
+    /// `filled=true` fills the digital disk `dx^2 + dy^2 <= radius^2`
+    /// (plain squared-distance membership -- easy to hand-verify: `radius=2`
+    /// has exactly 13 integer points inside it, see the test). `filled=false`
+    /// strokes the boundary [`Image::midpoint_circle_offsets`] returns (the
+    /// textbook midpoint/Bresenham circle algorithm) with
+    /// [`Image::stamp_brush`] at the given `thickness`. The fill and the
+    /// outline are deliberately two different algorithms rather than one
+    /// "outline, optionally widened until solid": the disk formula is exact
+    /// and trivial for a fill, where the midpoint algorithm is the
+    /// established one for a thin boundary. Returns a new `Image`, same
+    /// dimensions as `self`.
+    pub fn draw_circle(
+        &self,
+        cx: i64,
+        cy: i64,
+        radius: i64,
+        color: (u8, u8, u8),
+        thickness: usize,
+        filled: bool,
+    ) -> Result<Image, String> {
+        if radius <= 0 {
+            return Err("draw_circle: radius must be positive".to_string());
+        }
+        if thickness == 0 {
+            return Err("draw_circle: thickness must be at least 1".to_string());
+        }
+        let mut out = self.clone();
+        if filled {
+            let r2 = radius * radius;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    if dx * dx + dy * dy <= r2 {
+                        out.checked_set(cx + dx, cy + dy, color);
+                    }
+                }
+            }
+        } else {
+            for (dx, dy) in Self::midpoint_circle_offsets(radius) {
+                out.stamp_brush(cx + dx, cy + dy, thickness, color);
+            }
+        }
+        Ok(out)
+    }
+
+    /// `draw_arrow(img, x0, y0, x1, y1, color, thickness, head_size)` -- a
+    /// [`Image::draw_line`] shaft from `(x0, y0)` to `(x1, y1)`, plus an
+    /// arrowhead: two more strokes from the tip `(x1, y1)` back along the
+    /// reversed shaft direction, splayed +/-30 degrees, each `head_size`
+    /// pixels long (the "two short lines at an angle back from the tip"
+    /// convention -- picked over a filled triangle because it reuses
+    /// `draw_line`/`stamp_brush` exactly, so the arrowhead honors the same
+    /// `thickness` as the shaft with no second rasterizer). A zero-length
+    /// shaft (`(x0,y0) == (x1,y1)`) has no defined direction, so it draws
+    /// only the (single-point) shaft and no head. Returns a new `Image`,
+    /// same dimensions as `self`.
+    pub fn draw_arrow(
+        &self,
+        x0: i64,
+        y0: i64,
+        x1: i64,
+        y1: i64,
+        color: (u8, u8, u8),
+        thickness: usize,
+        head_size: f64,
+    ) -> Result<Image, String> {
+        if thickness == 0 {
+            return Err("draw_arrow: thickness must be at least 1".to_string());
+        }
+        if !(head_size > 0.0) || !head_size.is_finite() {
+            return Err("draw_arrow: head_size must be a positive, finite number".to_string());
+        }
+        let mut out = self.draw_line(x0, y0, x1, y1, color, thickness)?;
+        let (dx, dy) = ((x1 - x0) as f64, (y1 - y0) as f64);
+        if dx.abs() > 1e-12 || dy.abs() > 1e-12 {
+            let back = dy.atan2(dx) + std::f64::consts::PI;
+            let spread = 30f64.to_radians();
+            for sign in [-1.0, 1.0] {
+                let a = back + sign * spread;
+                let wx = (x1 as f64 + head_size * a.cos()).round() as i64;
+                let wy = (y1 as f64 + head_size * a.sin()).round() as i64;
+                out = out.draw_line(x1, y1, wx, wy, color, thickness)?;
+            }
+        }
+        Ok(out)
+    }
+
+    /// `draw_text(img, x, y, text, color, scale)` -- blits `text` starting
+    /// with its top-left corner at `(x, y)` using [`glyph_rows`]'s built-in
+    /// 3x5 bitmap font, each source pixel stamped as a `scale x scale`
+    /// square (`scale=1` is the raw 3x5 glyph). One column of gap between
+    /// characters. Exists because nothing in this codebase renders text
+    /// onto a raw pixel buffer -- the plotting system's text draws onto an
+    /// SVG/PDF vector canvas, not an `Image` (see `docs/design/
+    /// toolkit-image.md` §6's own note on this gap) -- and `draw_scale_bar`
+    /// needs a label. Deliberately minimal: digits, `.`, `-`, `%`, and the
+    /// handful of unit letters (`u`, `n`, `m`, `c`, `p`, `x`, `k`, `i`)
+    /// `draw_scale_bar` actually needs, not a general-purpose font. An
+    /// unsupported character renders as blank space rather than an error --
+    /// a label is not worth failing a whole drawing call over one glyph.
+    /// Returns a new `Image`, same dimensions as `self`.
+    pub fn draw_text(
+        &self,
+        x: i64,
+        y: i64,
+        text: &str,
+        color: (u8, u8, u8),
+        scale: usize,
+    ) -> Result<Image, String> {
+        if scale == 0 {
+            return Err("draw_text: scale must be at least 1".to_string());
+        }
+        let mut out = self.clone();
+        let mut cursor_x = x;
+        let s = scale as i64;
+        for ch in text.chars() {
+            let rows = glyph_rows(ch);
+            for (ry, bits) in rows.iter().enumerate() {
+                for rx in 0..GLYPH_W {
+                    let on = (bits >> (GLYPH_W - 1 - rx)) & 1 == 1;
+                    if !on {
+                        continue;
+                    }
+                    let base_x = cursor_x + (rx as i64) * s;
+                    let base_y = y + (ry as i64) * s;
+                    for sy in 0..s {
+                        for sx in 0..s {
+                            out.checked_set(base_x + sx, base_y + sy, color);
+                        }
+                    }
+                }
+            }
+            cursor_x += ((GLYPH_W + 1) as i64) * s;
+        }
+        Ok(out)
+    }
 }
+
+/// A minimal 3-column x 5-row bitmap font -- see [`Image::draw_text`]'s own
+/// doc comment for scope and why it exists at all. Each row is 3 bits,
+/// MSB = leftmost column. Only what `draw_scale_bar` labels actually need;
+/// anything else renders blank. `'m'`/`'n'` are visually close at 3 columns
+/// wide -- a known, documented limitation of a font this narrow, not a bug.
+fn glyph_rows(c: char) -> [u8; GLYPH_H] {
+    match c.to_ascii_lowercase() {
+        '0' => [0b111, 0b101, 0b101, 0b101, 0b111],
+        '1' => [0b010, 0b110, 0b010, 0b010, 0b111],
+        '2' => [0b111, 0b001, 0b111, 0b100, 0b111],
+        '3' => [0b111, 0b001, 0b111, 0b001, 0b111],
+        '4' => [0b101, 0b101, 0b111, 0b001, 0b001],
+        '5' => [0b111, 0b100, 0b111, 0b001, 0b111],
+        '6' => [0b111, 0b100, 0b111, 0b101, 0b111],
+        '7' => [0b111, 0b001, 0b001, 0b001, 0b001],
+        '8' => [0b111, 0b101, 0b111, 0b101, 0b111],
+        '9' => [0b111, 0b101, 0b111, 0b001, 0b111],
+        '.' => [0b000, 0b000, 0b000, 0b000, 0b010],
+        '-' => [0b000, 0b000, 0b111, 0b000, 0b000],
+        '%' => [0b101, 0b001, 0b010, 0b100, 0b101],
+        'u' => [0b101, 0b101, 0b101, 0b101, 0b111],
+        'n' => [0b000, 0b110, 0b101, 0b101, 0b101],
+        'm' => [0b000, 0b111, 0b111, 0b101, 0b101],
+        'c' => [0b011, 0b100, 0b100, 0b100, 0b011],
+        'p' => [0b111, 0b101, 0b111, 0b100, 0b100],
+        'k' => [0b101, 0b101, 0b110, 0b101, 0b101],
+        'i' => [0b111, 0b010, 0b010, 0b010, 0b111],
+        'x' => [0b101, 0b101, 0b010, 0b101, 0b101],
+        _ => [0b000, 0b000, 0b000, 0b000, 0b000],
+    }
+}
+
+pub(crate) const GLYPH_W: usize = 3;
+pub(crate) const GLYPH_H: usize = 5;
 
 /// Replicate-border padding by `pad` pixels on every side (clamp-to-edge,
 /// the same border convention `convolve`/`morph_filter` use inline via
@@ -1304,6 +1878,37 @@ fn subtract_clamped(a: &Image, b: &Image) -> Image {
         out[i] = a.pixels[i].saturating_sub(b.pixels[i]);
     }
     Image { width: a.width, height: a.height, pixels: out }
+}
+
+/// Textbook integer Bresenham line rasterization between two arbitrary
+/// points (inclusive of both endpoints), used by `Image::line_offsets` to
+/// turn a `(length, angle)` line SE into an actual pixel-offset list. Not
+/// tied to `Image` (no pixel buffer involved), so it lives as a free
+/// function rather than a method.
+fn bresenham_line(x0: isize, y0: isize, x1: isize, y1: isize) -> Vec<(isize, isize)> {
+    let mut points = Vec::new();
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+    let (mut x, mut y) = (x0, y0);
+    loop {
+        points.push((x, y));
+        if x == x1 && y == y1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y += sy;
+        }
+    }
+    points
 }
 
 /// Encodes `width x height` row-major RGB pixels as a 24-bit uncompressed
@@ -2056,6 +2661,168 @@ mod tests {
         assert_eq!(bh.get_pixel(0, 0), (0, 0, 0));
         let (v, _, _) = bh.get_pixel(4, 4);
         assert!(v > 0, "expected the isolated dark speck to survive bottom-hat, got {v}");
+    }
+
+    #[test]
+    fn disk_offsets_radius1_is_a_5cell_plus_not_the_9cell_square() {
+        // radius=1: the square SE `erode`/`dilate` imply is the full 3x3
+        // block (9 offsets, including the 4 diagonals). A disk of the same
+        // radius excludes the diagonals (each at distance sqrt(2) > 1),
+        // leaving the axis-aligned plus shape -- exactly 5 offsets. This is
+        // the whole point of a disk SE over a square one: independently
+        // verified against the actual disk equation, not against whatever
+        // the implementation happens to produce.
+        let mut offsets = Image::disk_offsets(1);
+        offsets.sort();
+        let mut expected = vec![(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)];
+        expected.sort();
+        assert_eq!(offsets, expected);
+    }
+
+    #[test]
+    fn disk_offsets_radius0_is_just_the_center_pixel() {
+        assert_eq!(Image::disk_offsets(0), vec![(0, 0)]);
+    }
+
+    #[test]
+    fn disk_erosion_survives_a_shape_a_square_erosion_would_wipe_out() {
+        // A plus-shaped blob (5 cells: center + 4 axis neighbors) has no
+        // interior pixel whose FULL 3x3 square neighborhood is all
+        // foreground (every arm is only 1 pixel wide), so a square erosion
+        // at radius 1 wipes it out completely. But every cell of the very
+        // same plus IS covered by a disk(1) (the plus shape *is* disk(1)'s
+        // own footprint) centered at the middle cell, so eroding with a
+        // disk SE must leave that center pixel standing. This is the
+        // concrete, independently-reasoned case a real disk SE has to get
+        // right that a mislabeled square implementation would fail.
+        let img = binary_from_grid(&[
+            &[0, 0, 0, 0, 0],
+            &[0, 0, 1, 0, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 0, 1, 0, 0],
+            &[0, 0, 0, 0, 0],
+        ]);
+        let square_eroded = img.erode(1);
+        assert!(
+            square_eroded.pixels.iter().all(|&p| p == 0),
+            "sanity check: a square erosion at radius 1 must wipe out a 1-pixel-wide plus"
+        );
+        let disk_eroded = img.erode_se(&Image::disk_offsets(1));
+        assert!(disk_eroded.is_foreground(2, 2), "the center of the plus must survive a disk(1) erosion");
+        let fg_count = (0..5).flat_map(|y| (0..5).map(move |x| (x, y))).filter(|&(x, y)| disk_eroded.is_foreground(x, y)).count();
+        assert_eq!(fg_count, 1, "only the center pixel has every disk(1) offset inside the plus");
+    }
+
+    #[test]
+    fn line_offsets_horizontal_length5_is_five_colinear_points_on_the_x_axis() {
+        // A textbook case with no rounding ambiguity: 0 degrees is along
+        // +x, so a length-5 line must be exactly {-2,-1,0,1,2} x {0}.
+        let mut offsets = Image::line_offsets(5, 0.0);
+        offsets.sort();
+        let mut expected: Vec<(isize, isize)> = (-2..=2).map(|dx| (dx, 0)).collect();
+        expected.sort();
+        assert_eq!(offsets, expected);
+    }
+
+    #[test]
+    fn line_offsets_vertical_length5_is_five_colinear_points_on_the_y_axis() {
+        // 90 degrees is straight up in the counterclockwise-as-displayed
+        // convention (`uy = -sin`, so +90 deg moves toward -y): the line
+        // must land on the y-axis, not the x-axis, and a mixed-up sin/cos
+        // would instead reproduce the horizontal case.
+        let mut offsets = Image::line_offsets(5, 90.0);
+        offsets.sort();
+        let mut expected: Vec<(isize, isize)> = (-2..=2).map(|dy| (0, dy)).collect();
+        expected.sort();
+        assert_eq!(offsets, expected);
+    }
+
+    #[test]
+    fn line_dilation_grows_only_along_the_lines_own_axis() {
+        // A single foreground pixel, dilated with a horizontal length-5
+        // line SE, must grow into a horizontal streak -- and must NOT grow
+        // vertically at all (a square or disk SE would). That directional
+        // asymmetry is the entire reason a line SE exists.
+        let mut img = Image::filled(9, 9, (0, 0, 0));
+        img.set_pixel(4, 4, (255, 255, 255));
+        let offsets = Image::line_offsets(5, 0.0);
+        let dilated = img.dilate_se(&offsets);
+        for x in 2..=6 {
+            assert!(dilated.is_foreground(x, 4), "expected the horizontal streak to cover x={x}");
+        }
+        assert!(!dilated.is_foreground(4, 3), "a horizontal line SE must not grow vertically (above)");
+        assert!(!dilated.is_foreground(4, 5), "a horizontal line SE must not grow vertically (below)");
+        assert!(!dilated.is_foreground(1, 4), "the streak must not overshoot the line's own length");
+    }
+
+    #[test]
+    fn se_mask_image_round_trips_through_image_to_se_offsets() {
+        let mut offsets = Image::disk_offsets(2);
+        offsets.sort();
+        let mask = Image::se_mask_image(&offsets);
+        let mut recovered = Image::image_to_se_offsets(&mask);
+        recovered.sort();
+        assert_eq!(offsets, recovered, "building the SE mask image and reading it back must reproduce the same offsets");
+    }
+
+    #[test]
+    fn erode_se_with_a_disk_mask_image_matches_disk_offsets_directly() {
+        // Exercises the actual `se=` path end to end: build the mask
+        // `Image` a script would pass as `se=`, recover offsets from it,
+        // and confirm the result is identical to erosion with the raw
+        // offset list -- not just "it runs," but pixel-exact agreement.
+        let img = binary_from_grid(&[
+            &[0, 0, 0, 0, 0, 0, 0],
+            &[0, 1, 1, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 1, 1, 0],
+            &[0, 0, 0, 0, 0, 0, 0],
+        ]);
+        let raw_offsets = Image::disk_offsets(1);
+        let via_mask = Image::image_to_se_offsets(&Image::se_mask_image(&raw_offsets));
+        assert_eq!(img.erode_se(&raw_offsets), img.erode_se(&via_mask));
+    }
+
+    #[test]
+    fn hit_miss_isolates_only_the_true_top_left_corner_of_a_solid_square() {
+        // A hand-constructible, independently-reasoned known-answer case:
+        // a solid 3x3 foreground square (rows/cols 1..=3) inside a 5x5
+        // background frame. The SE pair below requires self/E/S/SE
+        // foreground and W/N/NW background -- exactly the local pattern at
+        // a top-left corner, and only there. Every OTHER foreground pixel
+        // in the square has at least one of those "must be background"
+        // neighbors actually foreground (its own square), so this must not
+        // fire anywhere else -- the corner-isolation property, not just
+        // "produces a nonempty result."
+        let img = binary_from_grid(&[
+            &[0, 0, 0, 0, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 1, 1, 1, 0],
+            &[0, 0, 0, 0, 0],
+        ]);
+        // Foreground SE: self, east, south, south-east.
+        let fg = vec![(0, 0), (1, 0), (0, 1), (1, 1)];
+        // Background SE: west, north, north-west.
+        let bg = vec![(-1, 0), (0, -1), (-1, -1)];
+        let out = img.hit_miss(&fg, &bg);
+        for y in 0..5 {
+            for x in 0..5 {
+                let expect = (x, y) == (1, 1);
+                assert_eq!(out.is_foreground(x, y), expect, "mismatch at ({x},{y})");
+            }
+        }
+    }
+
+    #[test]
+    fn hit_miss_finds_nothing_in_an_all_background_image() {
+        let img = Image::filled(5, 5, (0, 0, 0));
+        let fg = vec![(0, 0)];
+        let bg = vec![(1, 0)];
+        let out = img.hit_miss(&fg, &bg);
+        assert!(out.pixels.iter().all(|&p| p == 0));
     }
 
     #[test]
@@ -2864,6 +3631,227 @@ mod tests {
         assert_eq!(&bytes[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
         assert_eq!(&bytes[12..16], b"IHDR");
         assert_eq!(&bytes[bytes.len() - 8..bytes.len() - 4], b"IEND");
+    }
+
+    // ---- Drawing/annotation (§ image toolkit design spec §6, 2026-09-25) --
+
+    const RED: (u8, u8, u8) = (255, 0, 0);
+
+    /// Every pixel not in `on` must be exactly `bg` -- the "and no others"
+    /// half of a known-answer test, not just "the expected ones got set".
+    fn assert_exactly(img: &Image, on: &[(i64, i64)], color: (u8, u8, u8), bg: (u8, u8, u8)) {
+        use std::collections::HashSet;
+        let on: HashSet<(i64, i64)> = on.iter().copied().collect();
+        for y in 0..img.height {
+            for x in 0..img.width {
+                let expect = if on.contains(&(x as i64, y as i64)) { color } else { bg };
+                assert_eq!(
+                    img.get_pixel(x, y),
+                    expect,
+                    "pixel ({x},{y}): expected {expect:?}, got {:?}",
+                    img.get_pixel(x, y)
+                );
+            }
+        }
+    }
+
+    /// A horizontal line at `thickness=1` is Bresenham at its simplest: the
+    /// inclusive pixel run from one endpoint to the other on a single row,
+    /// nothing else -- independently countable by hand (`|x1-x0|+1` pixels).
+    #[test]
+    fn draw_line_horizontal_sets_exactly_the_inclusive_pixel_run() {
+        let img = Image::filled(20, 10, (0, 0, 0));
+        let out = img.draw_line(2, 5, 10, 5, RED, 1).unwrap();
+        let expected: Vec<(i64, i64)> = (2..=10).map(|x| (x, 5)).collect();
+        assert_eq!(expected.len(), 9);
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
+    }
+
+    /// `thickness` stamps a square brush at every path point -- collapsed to
+    /// one point here (a zero-length "line") so the brush's own exact shape
+    /// is what is under test: `thickness=3` centers a 3x3 square on the
+    /// point, by `stamp_brush`'s own documented `lo=(t-1)/2, hi=t-1-lo` split.
+    #[test]
+    fn draw_line_thickness_stamps_a_centered_square_brush() {
+        let img = Image::filled(10, 10, (0, 0, 0));
+        let out = img.draw_line(5, 5, 5, 5, RED, 3).unwrap();
+        let mut expected = Vec::new();
+        for dy in -1..=1i64 {
+            for dx in -1..=1i64 {
+                expected.push((5 + dx, 5 + dy));
+            }
+        }
+        assert_eq!(expected.len(), 9);
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
+    }
+
+    #[test]
+    fn draw_line_rejects_zero_thickness() {
+        let img = Image::filled(4, 4, (0, 0, 0));
+        let err = img.draw_line(0, 0, 1, 1, RED, 0).unwrap_err();
+        assert!(err.contains("thickness"), "{err}");
+    }
+
+    /// A filled rectangle is the plain W*H interior block -- easy to
+    /// independently enumerate.
+    #[test]
+    fn draw_rect_filled_sets_exactly_the_interior_block() {
+        let img = Image::filled(12, 10, (0, 0, 0));
+        let out = img.draw_rect(2, 2, 5, 4, RED, 1, true).unwrap();
+        let mut expected = Vec::new();
+        for y in 2..2 + 4i64 {
+            for x in 2..2 + 5i64 {
+                expected.push((x, y));
+            }
+        }
+        assert_eq!(expected.len(), 20);
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
+    }
+
+    /// An unfilled rectangle's `thickness=1` outline is exactly the border
+    /// ring: `2*(w+h-2)` pixels for `w,h >= 2` -- the SAME formula
+    /// `image::regions`'s own `perimeter` column documents for a solid
+    /// rectangle's boundary walk (see `qu-image/src/lib.rs`'s `regions` doc
+    /// comment), which is a real, independent cross-check: two different
+    /// pieces of code, written for two different purposes, agree on the
+    /// same rectangle's boundary pixel count.
+    #[test]
+    fn draw_rect_outline_matches_the_perimeter_formula_regions_uses() {
+        let img = Image::filled(12, 10, (0, 0, 0));
+        let (w, h) = (5i64, 4i64);
+        let out = img.draw_rect(2, 2, w, h, RED, 1, false).unwrap();
+        let mut count = 0usize;
+        for y in 0..img.height {
+            for x in 0..img.width {
+                if out.get_pixel(x, y) == RED {
+                    count += 1;
+                }
+            }
+        }
+        assert_eq!(count, (2 * (w + h - 2)) as usize, "expected the regions()-style perimeter count");
+        // And spot-check the actual corners are on the ring.
+        assert_eq!(out.get_pixel(2, 2), RED);
+        assert_eq!(out.get_pixel(6, 5), RED);
+        assert_eq!(out.get_pixel(2, 5), RED);
+        assert_eq!(out.get_pixel(6, 2), RED);
+        // The interior must stay background.
+        assert_eq!(out.get_pixel(4, 3), (0, 0, 0));
+    }
+
+    #[test]
+    fn draw_rect_rejects_nonpositive_size() {
+        let img = Image::filled(4, 4, (0, 0, 0));
+        assert!(img.draw_rect(0, 0, 0, 2, RED, 1, true).is_err());
+        assert!(img.draw_rect(0, 0, 2, -1, RED, 1, true).is_err());
+    }
+
+    /// The filled disk `dx^2 + dy^2 <= r^2` at `radius=2`: hand-enumerating
+    /// every `(dx, dy)` in `-2..=2` gives 13 points (1 + 3 + 5 + 3 + 1, one
+    /// count per column) -- an independent count, not a re-run of the
+    /// implementation.
+    #[test]
+    fn draw_circle_filled_radius_2_has_exactly_13_pixels() {
+        let img = Image::filled(9, 9, (0, 0, 0));
+        let out = img.draw_circle(4, 4, 2, RED, 1, true).unwrap();
+        let mut count = 0usize;
+        for y in 0..img.height {
+            for x in 0..img.width {
+                if out.get_pixel(x, y) == RED {
+                    count += 1;
+                }
+            }
+        }
+        assert_eq!(count, 13);
+        // The exact set, independently enumerated by the disk formula.
+        let mut expected = Vec::new();
+        for dy in -2..=2i64 {
+            for dx in -2..=2i64 {
+                if dx * dx + dy * dy <= 4 {
+                    expected.push((4 + dx, 4 + dy));
+                }
+            }
+        }
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
+    }
+
+    /// The midpoint (Bresenham) circle algorithm at `radius=3`, worked by
+    /// hand from the textbook integer recurrence (`x=0,y=3,d=3-2r=-3`; the
+    /// standard `d<0 => d+=4x+6` / else `d+=4(x-y)+10, y-=1`, `x+=1` each
+    /// step): the octant walk visits `(0,3)`, `(1,3)`, `(2,2)` before
+    /// `x>y`, which reflect into exactly 16 offsets -- 4 axis points, 8 from
+    /// the `(1,3)` octant pair, 4 from the diagonal `(2,2)` (which collapses
+    /// under `x<->y` reflection). This is the same well-known small-radius
+    /// worked example the algorithm is usually taught with.
+    #[test]
+    fn draw_circle_outline_radius_3_matches_the_hand_worked_midpoint_algorithm() {
+        let img = Image::filled(11, 11, (0, 0, 0));
+        let (cx, cy) = (5i64, 5i64);
+        let out = img.draw_circle(cx, cy, 3, RED, 1, false).unwrap();
+        let offsets: [(i64, i64); 16] = [
+            (0, 3), (0, -3), (3, 0), (-3, 0),
+            (1, 3), (3, 1), (-1, 3), (-3, 1), (1, -3), (3, -1), (-1, -3), (-3, -1),
+            (2, 2), (-2, 2), (2, -2), (-2, -2),
+        ];
+        let expected: Vec<(i64, i64)> = offsets.iter().map(|&(dx, dy)| (cx + dx, cy + dy)).collect();
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
+    }
+
+    #[test]
+    fn draw_circle_rejects_nonpositive_radius() {
+        let img = Image::filled(4, 4, (0, 0, 0));
+        assert!(img.draw_circle(2, 2, 0, RED, 1, true).is_err());
+        assert!(img.draw_circle(2, 2, -3, RED, 1, false).is_err());
+    }
+
+    /// The shaft is a plain `draw_line`, already covered above -- this test
+    /// is about the arrowhead's own geometry: for a horizontal shaft
+    /// (pointing along `+x`), the reversed direction is 180 degrees, and the
+    /// two wing strokes are splayed +/-30 degrees from that, `head_size`
+    /// pixels long. Independently computed here with the same trig (not a
+    /// re-run of the implementation, but the identical documented formula
+    /// worked by hand): `wing = tip + head_size*(cos(150 deg), sin(150 deg))`
+    /// and `tip + head_size*(cos(210 deg), sin(210 deg))`, `head_size=10`,
+    /// `tip=(20,10)` -> `(20 - 10*0.8660254, 10 +/- 10*0.5)` ~= `(11.34, 15)`
+    /// and `(11.34, 5)`, rounding to `(11, 15)`/`(11, 5)` -- and a Bresenham
+    /// line always includes both its endpoints exactly, so those two pixels
+    /// must be set regardless of the path between them.
+    #[test]
+    fn draw_arrow_head_wingtips_match_the_hand_worked_trig() {
+        let img = Image::filled(30, 20, (0, 0, 0));
+        let out = img.draw_arrow(0, 10, 20, 10, RED, 1, 10.0).unwrap();
+        // Shaft endpoints.
+        assert_eq!(out.get_pixel(0, 10), RED);
+        assert_eq!(out.get_pixel(20, 10), RED);
+        // Hand-computed wingtip pixels (see doc comment above).
+        assert_eq!(out.get_pixel(11, 15), RED, "wing 1 tip");
+        assert_eq!(out.get_pixel(11, 5), RED, "wing 2 tip");
+    }
+
+    #[test]
+    fn draw_arrow_degenerate_zero_length_draws_no_head_and_does_not_panic() {
+        let img = Image::filled(10, 10, (0, 0, 0));
+        let out = img.draw_arrow(5, 5, 5, 5, RED, 1, 10.0).unwrap();
+        assert_eq!(out.get_pixel(5, 5), RED);
+    }
+
+    /// `draw_text`'s own bitmap font is fully under this crate's control, so
+    /// its exact pixel output for one glyph is independently checkable
+    /// against the documented `glyph_rows('5')` bit pattern -- not merely
+    /// "some pixels changed."
+    #[test]
+    fn draw_text_renders_the_documented_glyph_bitmap_exactly() {
+        let img = Image::filled(10, 10, (0, 0, 0));
+        let out = img.draw_text(0, 0, "5", RED, 1).unwrap();
+        let rows = glyph_rows('5');
+        let mut expected = Vec::new();
+        for (ry, bits) in rows.iter().enumerate() {
+            for rx in 0..GLYPH_W {
+                if (bits >> (GLYPH_W - 1 - rx)) & 1 == 1 {
+                    expected.push((rx as i64, ry as i64));
+                }
+            }
+        }
+        assert_exactly(&out, &expected, RED, (0, 0, 0));
     }
 }
 

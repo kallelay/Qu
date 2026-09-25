@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image.watershed — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>image.watershed</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>image.watershed(surface, markers=)</code></pre>
+<p class="fnnote">Input: surface, markers &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>surface</code> is a <code>Mat</code> (row-major, arbitrary real values) — the topographic surface to flood, typically a NEGATED <code>image.distance_transform(mask)</code> (so each blob's own center, the point farthest from any background, is the surface's deepest point and floods first) or a gradient magnitude. <code>markers=</code> is a <strong>required</strong> named <code>Mat</code>, the same shape as <code>surface</code>: <code>0</code> = unlabeled/to-be-flooded, any other value a seed already assigned to that label — required rather than derived from local extrema when omitted, because auto-deriving seeds is a separate, parameter-sensitive algorithm and a silent wrong guess would look like a wrong watershed instead of what it is. Marker-controlled watershed segmentation (priority-flood/Meyer's algorithm): floods strictly by ascending <code>surface</code> value, 4-connected, growing each marker's labeled region outward; where two different regions' flood-fronts meet, that pixel becomes a <strong>watershed line</strong> and is written <code>0</code> (the same value <code>markers</code> uses for "unlabeled", not <code>-1</code>) rather than joining either region — this is what stops two touching blobs from merging into one label.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = image.watershed(surface, markers=)</code></td><td><div class="ioitem"><code>surface</code> <span class="iotype">Mat</span><span class="iodesc"><code>surface</code> is a <code>Mat</code> (row-major, arbitrary real values) — the topographic surface to flood, typically a NEGATED <code>image.distance_transform(mask)</code> (so each blob's own center, the point farthest from any background, is the surface's deepest point and floods first) or a gradient magnitude.</span></div>
+<div class="ioitem"><code>markers</code> <span class="iotype">Mat</span><span class="iodesc"><code>markers=</code> is a <strong>required</strong> named <code>Mat</code>, the same shape as <code>surface</code>: <code>0</code> = unlabeled/to-be-flooded, any other value a seed already assigned to that label — required rather than derived from local extrema when omitted, because auto-deriving seeds is a separate, parameter-sensitive algorithm and a silent wrong guess would look like a wrong watershed instead of what it is.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Mat</span></div>
+</td><td>Returns a new <code>Mat</code> of labels, same shape as <code>surface</code>. Added in v0.4.0.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

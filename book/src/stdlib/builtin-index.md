@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1093 builtins, 1005 described.** The rest are
+**1101 builtins, 1013 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -244,6 +244,7 @@ program, and a misspelled call suggests the nearest match.
 | [`diff`](../fn/diff.html) | Returns the first difference (`x[i+1] - x[i]`), length N-1, same base type as `x`; a `Signal` input stays a `Signal` with the same `Fs` | [Collections & strings](collections-strings.md) |
 | [`dir`](../fn/dir.html) | The bare names inside `path` (a `Str`), sorted — `"a.qu"`, not `"tools/a.qu"` | [File I/O](file-io.md) |
 | [`dir_exists`](../fn/dir_exists.html) | Whether `path` (a `Str`) exists and is a regular file / a directory | [File I/O](file-io.md) |
+| [`disk`](../fn/disk.html) | Builds a disk-shaped structuring-element mask `Image`: a `(2*radius+1) x (2*radius+1)` binary mask, foreground wherever `dx*dx + dy*dy <= radius*radius` relative to its own center pixel | [Images](images.md) |
 | [`disp`](../fn/disp.html) | Writes its arguments, space-separated, and a newline, to stdout | [Collections & strings](collections-strings.md) |
 | [`distinct`](../fn/distinct.html) | Returns the same type: the unique values, in the order they first appear — which `unique` does not promise, since it sorts | [Collections & strings](collections-strings.md) |
 | [`distort`](../fn/distort.html) | Put the signal through a nonlinearity: `clip`, `soft`, `crossover`, `harmonic`, `quantize` | [Noise](noise.md) |
@@ -253,6 +254,11 @@ program, and a misspelled call suggests the nearest match.
 | [`dot`](../fn/dot.html) | Dot product of two equal-length vectors `a`, `b` (each a `Vec`; a length mismatch errors) | [Core maths](core-math.md) |
 | [`double_buffer`](../fn/double_buffer.html) | Returns a `double_buffer` handle; front AND back both start equal to `initial` | [Collections & strings](collections-strings.md) |
 | [`downsample`](../fn/downsample.html) | Lowers the sample rate by an integer factor, anti-aliasing first: applies a lowpass at the new Nyquist (`fs/(2*M)`, at the input rate) and only then keeps every `M`th sample | [Signal processing](signal-processing.md) |
+| [`draw_arrow`](../fn/draw_arrow.html) | A zero-length shaft draws only the (single-point) shaft, with no head, since it has no defined direction | [Images](images.md) |
+| [`draw_circle`](../fn/draw_circle.html) | `filled=true` fills the digital disk (every pixel with `dx^2+dy^2 <= radius^2`); `filled=false` (default) strokes the boundary using the textbook midpoint (Bresenham) circle algorithm at.. | [Images](images.md) |
+| [`draw_line`](../fn/draw_line.html) | Returns a new `Image`, same dimensions as `img` | [Images](images.md) |
+| [`draw_rect`](../fn/draw_rect.html) | `filled=true` paints the whole interior (`thickness` is ignored — a fill has no stroke width); `filled=false` (default) strokes the four edges with the given `thickness` | [Images](images.md) |
+| [`draw_scale_bar`](../fn/draw_scale_bar.html) | Draws a horizontal bar whose PIXEL length is `length_physical / pixel_size`, rounded to the nearest pixel — reusing `image.regions`'s own `pixel_size=`/`unit=` convention exactly: omitting.. | [Images](images.md) |
 | [`drop`](../fn/drop.html) | Returns the same type as `xs`: the first `n` elements (`take`) or everything after them (`drop`) | [Collections & strings](collections-strings.md) |
 | [`drop_row`](../fn/drop_row.html) | Returns a `Table` without those rows, by position | [Collections & strings](collections-strings.md) |
 | [`dropout`](../fn/dropout.html) | Zeroes a random share of the entries of `x` (a vector or matrix of any shape) at probability `rate` (a number in `[0, 1)`), and scales the surviving entries up by `1 / (1 - rate)`, so the.. | [Statistics & ML](statistics-ml.md) |
@@ -410,6 +416,7 @@ program, and a misspelled call suggests the nearest match.
 | [`hist`](../fn/hist.html) | Bins `samples` (Vec of numbers) into equal-width buckets and renders as bars; `bins` (integer, positional or `bins=` keyword) defaults to `ceil(sqrt(n))` for `n = len(samples)` | [Plotting](plotting.md) |
 | [`histeq`](../fn/histeq.html) | Global histogram equalization: builds a BT.601-luma cumulative distribution and remaps intensities to spread across the full range | [Images](images.md) |
 | [`histogram`](../fn/histogram.html) | Bins `samples` (Vec of numbers) into equal-width buckets and renders as bars; `bins` (integer, positional or `bins=` keyword) defaults to `ceil(sqrt(n))` for `n = len(samples)` | [Plotting](plotting.md) |
+| [`hit_miss`](../fn/hit_miss.html) | The morphological hit-or-miss transform: output pixel `(x, y)` is foreground iff EVERY foreground pixel of `se_fg` (relative to its own center) lands on a foreground pixel of `img` at that.. | [Images](images.md) |
 | [`hline`](../fn/hline.html) | Draws a horizontal reference line spanning the whole panel at `y` (number, data units) | [Plotting](plotting.md) |
 | [`hmm`](../fn/hmm.html) | Builds a discrete hidden Markov model from an `(S, S)` row-stochastic hidden-state transition matrix `transition`, an `(S, O)` row-stochastic emission matrix `emission` (`O` the number of.. | [Statistics & ML](statistics-ml.md) |
 | [`hourly_profile`](../fn/hourly_profile.html) | Returns a length-24 real vector, one bin per hour-of-day | [Signal processing](signal-processing.md) |
@@ -526,6 +533,7 @@ program, and a misspelled call suggests the nearest match.
 | [`lfilter`](../fn/lfilter.html) | Returns a same-length vector or `Signal` | [Signal processing](signal-processing.md) |
 | [`lgamma`](../fn/lgamma.html) | The gamma function (`gamma(n) = (n-1)!` for a positive integer `n`) and its natural log (`lgamma(x) = ln\|gamma(x)\|`) | [Core maths](core-math.md) |
 | [`like`](../fn/like.html) | BASIC's wildcard match, anchored at both ends: `*` any run, `?` any one character, `#` any digit, `[abc]`/`[!abc]` a set | [Collections & strings](collections-strings.md) |
+| [`line`](../fn/line.html) | Builds a line-segment structuring-element mask `Image` by Bresenham-rasterizing a `length`-pixel segment centered on its own middle pixel | [Images](images.md) |
 | [`lines`](../fn/lines.html) | Splits on either line ending, with no spurious empty last element when the text ends in a newline | [Collections & strings](collections-strings.md) |
 | [`linked_list`](../fn/linked_list.html) | Returns a `linked_list` handle: a new, empty double-ended list | [Collections & strings](collections-strings.md) |
 | [`linspace`](../fn/linspace.html) | Returns a length-`n` real vector, `n` linearly spaced points from `a` to `b` inclusive — the standard companion for building a time or frequency axis to plot alongside a.. | [Signal processing](signal-processing.md) |
@@ -1193,6 +1201,7 @@ leaves the qualified one available too.
 | [`image.hsv2rgb`](../fn/image.hsv2rgb.html) | Converts back to 8-bit RGB, rounding and clamping each channel to `0..255` | [Images](images.md) |
 | [`image.rgb2lab`](../fn/image.rgb2lab.html) | Per-pixel sRGB→CIE L\*a\*b\* conversion (D65 white point), the whole-`Image` counterpart to the scalar `to_lab`, reusing its exact conversion math | [Images](images.md) |
 | [`image.lab2rgb`](../fn/image.lab2rgb.html) | Converts back to 8-bit sRGB, clamped into gamut | [Images](images.md) |
+| [`image.watershed`](../fn/image.watershed.html) | Marker-controlled watershed segmentation (priority-flood/Meyer's algorithm): floods strictly by ascending `surface` value, 4-connected, growing each marker's labeled region outward; where.. | [Images](images.md) |
 | [`svg.rect`](../fn/svg.rect.html) | An axis-aligned rectangle with its top-left corner at (`x`, `y`) | [Images](images.md) |
 | [`svg.circle`](../fn/svg.circle.html) | A circle of radius `r` centred on (`cx`, `cy`); `r` must be 0 or more | [Images](images.md) |
 | [`svg.line`](../fn/svg.line.html) | A straight segment from (`x1`, `y1`) to (`x2`, `y2`) | [Images](images.md) |

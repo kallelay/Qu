@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>draw_scale_bar — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>draw_scale_bar</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>draw_scale_bar(img, length_physical, [pixel_size=], [unit=], color=, [position="bottom-right"], [margin=10], [thickness=4], [label=true], [font_scale=1])</code></pre>
+<p class="fnnote">Input: img, length_physical, pixel_size, unit, color, position, margin, thickness, label, font_scale &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>; <code>length_physical</code> is a positive number. Draws a horizontal bar whose PIXEL length is <code>length_physical / pixel_size</code>, rounded to the nearest pixel — reusing <code>image.regions</code>'s own <code>pixel_size=</code>/<code>unit=</code> convention exactly: omitting <code>pixel_size=</code> means <code>length_physical</code> is already a pixel count (<code>unit=</code> then defaults to, and must be, <code>"px"</code>); giving <code>unit=</code> with no <code>pixel_size=</code>, or <code>unit="px"</code> alongside one, are refused for the same reason <code>image.regions</code> refuses them (a unit with no scale, or a scale with a contradictory unit). <code>position=</code> is one of <code>"bottom-left"</code>/<code>"bottom-right"</code> (default)/<code>"top-left"</code>/<code>"top-right"</code>, placed <code>margin=</code> pixels (default 10) from that corner. <code>thickness=</code> (default 4) is the bar's pixel height. <code>label=</code> (default <code>true</code>) draws <code>length_physical</code> and the unit underneath (bottom positions: above, to stay on-canvas) the bar using a built-in bitmap font — digits, <code>.</code>, <code>-</code>, <code>%</code>, and the handful of unit letters (<code>u</code>, <code>n</code>, <code>m</code>, <code>c</code>, <code>p</code>, <code>x</code>, <code>k</code>, <code>i</code>) a physical unit actually needs; any other character renders as blank space rather than an error. <code>font_scale=</code> (default 1) is an integer pixel-doubling factor for the label.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = draw_scale_bar(img, length_physical, [pixel_size=], [unit=], color=, [position="bottom-right"], [margin=10], [thickness=4], [label=true], [font_scale=1])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>length_physical</code> <span class="iotype">number</span><span class="iodesc"><code>length_physical</code> is a positive number.</span></div>
+<div class="ioitem"><code>pixel_size</code> <span class="iotype">optional</span><span class="iodesc">giving <code>unit=</code> with no <code>pixel_size=</code>, or <code>unit="px"</code> alongside one, are refused for the same reason <code>image.regions</code> refuses them (a unit with no scale, or a scale with a contradictory unit).</span></div>
+<div class="ioitem"><code>unit</code> <span class="iotype">optional</span><span class="iodesc">giving <code>unit=</code> with no <code>pixel_size=</code>, or <code>unit="px"</code> alongside one, are refused for the same reason <code>image.regions</code> refuses them (a unit with no scale, or a scale with a contradictory unit).</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>position</code> <span class="iotype">optional (default <code>"bottom-right"</code>)</span><span class="iodesc"><code>position=</code> is one of <code>"bottom-left"</code>/<code>"bottom-right"</code> (default)/<code>"top-left"</code>/<code>"top-right"</code>, placed <code>margin=</code> pixels (default 10) from that corner.</span></div>
+<div class="ioitem"><code>margin</code> <span class="iotype">optional (default <code>10</code>)</span><span class="iodesc"><code>position=</code> is one of <code>"bottom-left"</code>/<code>"bottom-right"</code> (default)/<code>"top-left"</code>/<code>"top-right"</code>, placed <code>margin=</code> pixels (default 10) from that corner.</span></div>
+<div class="ioitem"><code>thickness</code> <span class="iotype">optional (default <code>4</code>)</span><span class="iodesc"><code>thickness=</code> (default 4) is the bar's pixel height.</span></div>
+<div class="ioitem"><code>label</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iodesc"><code>label=</code> (default <code>true</code>) draws <code>length_physical</code> and the unit underneath (bottom positions: above, to stay on-canvas) the bar using a built-in bitmap font — digits, <code>.</code>, <code>-</code>, <code>%</code>, and the handful of unit letters (<code>u</code>, <code>n</code>, <code>m</code>, <code>c</code>, <code>p</code>, <code>x</code>, <code>k</code>, <code>i</code>) a physical unit actually needs.</span></div>
+<div class="ioitem"><code>font_scale</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iodesc"><code>font_scale=</code> (default 1) is an integer pixel-doubling factor for the label.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>draw_scale_bar(img, length_physical, [pixel_size=], [unit=], [position="bottom-right"], color=, [margin=10], [thickness=4], [label=true], [font_scale=1])</code> -- draws a horizontal bar whose PIXEL length is <code>length_physical / pixel_size</code>, rounded to the nearest pixel. Reuses <code>image::regions</code>'s own <code>pixel_size=</code>/ <code>regions</code> doc comment): omitting <code>pixel_size=</code> means <code>length_physical</code> IS already a pixel count (<code>unit=</code> then defaults to, and must be, <code>"px"</code>); giving both <code>unit=</code> with no <code>pixel_size=</code>, or <code>unit="px"</code> alongside one, are the same "unit with no scale" / "a unit that contradicts its own scale" errors <code>regions</code> reports, reworded for this builtin. <code>label</code> draws <code>length_physical</code> + the unit underneath the bar using <code>image::Image::draw_text</code>'s built-in bitmap font (digits/<code>.</code>/ <code>-</code>/<code>%</code>/the handful of unit letters it supports; anything else renders blank — see that method's own doc comment for the full scope of this minimal font).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>draw_circle — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>draw_circle</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/images.html">Images</a></p>
+<pre class="fnsig">result = <code>draw_circle(img, cx, cy, radius, color=, [thickness=1], [filled=false])</code></pre>
+<p class="fnnote">Input: img, cx, cy, radius, color, thickness, filled &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>img</code> is an <code>Image</code>; <code>cx, cy</code> are the center (pixel coordinates); <code>radius</code> is a positive number. <code>filled=true</code> fills the digital disk (every pixel with <code>dx^2+dy^2 &lt;= radius^2</code>); <code>filled=false</code> (default) strokes the boundary using the textbook midpoint (Bresenham) circle algorithm at the given <code>thickness</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = draw_circle(img, cx, cy, radius, color=, [thickness=1], [filled=false])</code></td><td><div class="ioitem"><code>img</code> <span class="iotype">Image</span><span class="iodesc"><code>img</code> is an <code>Image</code>.</span></div>
+<div class="ioitem"><code>cx</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>cx, cy</code> are the center (pixel coordinates).</span></div>
+<div class="ioitem"><code>cy</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>cx, cy</code> are the center (pixel coordinates).</span></div>
+<div class="ioitem"><code>radius</code> <span class="iotype">number</span><span class="iodesc"><code>radius</code> is a positive number.</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>thickness</code> <span class="iotype">optional (default <code>1</code>)</span><span class="iodesc"><code>filled=false</code> (default) strokes the boundary using the textbook midpoint (Bresenham) circle algorithm at the given <code>thickness</code>.</span></div>
+<div class="ioitem"><code>filled</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>filled=true</code> fills the digital disk (every pixel with <code>dx^2+dy^2 &lt;= radius^2</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Image</span></div>
+</td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>draw_circle(img, cx, cy, radius, color=, [thickness=1], [filled=false])</code> -- <code>filled=true</code> fills the digital disk <code>dx^2+dy^2 &lt;= radius^2</code>; <code>filled=false</code> strokes the midpoint (Bresenham) circle boundary. See <code>Image::draw_circle</code>'s own doc comment for why those are two different algorithms.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>
