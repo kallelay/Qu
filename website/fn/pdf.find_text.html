@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf.find_text — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pdf.find_text</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>pdf.find_text(src, query, [case_sensitive=])</code></pre>
+<p class="fnnote">Input: src, query, case_sensitive &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Searches every page's <code>pdf.extract_text</code> output for <code>query</code> (built on that function, not a separate reconstruction — the same warning below applies: a page <code>extract_text</code> cannot read is a page this cannot search either, and errors the same way). <code>case_sensitive</code> defaults to <code>true</code>; passing <code>false</code> case-folds character-by-character rather than via a byte comparison.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pdf.find_text(src, query, [case_sensitive=])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>query</code> <span class="iotype">&mdash;</span><span class="iodesc">Searches every page's <code>pdf.extract_text</code> output for <code>query</code> (built on that function, not a separate reconstruction — the same warning below applies: a page <code>extract_text</code> cannot read is a page this cannot search either, and errors the same way).</span></div>
+<div class="ioitem"><code>case_sensitive</code> <span class="iotype">optional</span><span class="iodesc"><code>case_sensitive</code> defaults to <code>true</code>.</span></div>
+</td><td><div class="ioitem"><code>page</code> <span class="iotype">Num</span><span class="iodesc">from 1</span></div>
+<div class="ioitem"><code>offset</code> <span class="iotype">Num or string</span><span class="iodesc">a <strong>character</strong> offset into that page's <code>extract_text</code> string — not a byte offset, and not an on-page coordinate; this module reads PDF structure, not rendered glyph positions</span></div>
+<div class="ioitem"><code>length</code> <span class="iotype">Num</span><span class="iodesc">the match's length in characters</span></div>
+</td><td>Returns a <code>List</code> of <code>Record</code>s, one per match, each with <code>page</code> (<code>Num</code>, from 1), <code>offset</code> (<code>Num</code>, a <strong>character</strong> offset into that page's <code>extract_text</code> string — not a byte offset, and not an on-page coordinate; this module reads PDF structure, not rendered glyph positions) and <code>length</code> (<code>Num</code>, the match's length in characters).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf.text_diff — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pdf.text_diff</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>pdf.text_diff(src_a, src_b)</code></pre>
+<p class="fnnote">Input: src_a, src_b &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Page-by-page text diff of two documents, built entirely on <code>pdf.extract_text</code>/<code>pdf.page_count</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pdf.text_diff(src_a, src_b)</code></td><td><div class="ioitem"><code>src_a</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>src_b</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>pages_b</code> <span class="iotype">Num</span><span class="iodesc">each document's page count</span></div>
+<div class="ioitem"><code>page</code> <span class="iotype">Num</span><span class="iodesc"><code>Num</code></span></div>
+<div class="ioitem"><code>only_in_b</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>Bool</code></span></div>
+<div class="ioitem"><code>lines</code> <span class="iotype">List or Record</span><span class="iodesc"><code>List</code> of <code>Record</code>s with <code>kind</code> — <code>"same"</code>, <code>"added"</code> or <code>"removed"</code> — and <code>text</code>, from a line-based LCS diff; empty when the page exists on only one side</span></div>
+</td><td>Returns a <code>Record</code>: <code>pages_a</code>, <code>pages_b</code> (<code>Num</code>, each document's page count) and <code>differing_pages</code> — a <code>List</code> of <code>Record</code>s, <strong>only for pages that differ</strong> (a page present on only one side counts as differing too), each with <code>page</code> (<code>Num</code>), <code>only_in_a</code>/<code>only_in_b</code> (<code>Bool</code>) and <code>lines</code> (<code>List</code> of <code>Record</code>s with <code>kind</code> — <code>"same"</code>, <code>"added"</code> or <code>"removed"</code> — and <code>text</code>, from a line-based LCS diff; empty when the page exists on only one side).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1175,11 +1175,36 @@ leaves the qualified one available too.
 | [`xlsx.read`](../fn/xlsx.read.html) | Reads one worksheet of a workbook into a `Table`, the same type `read_csv` produces, so everything that consumes a CSV consumes a spreadsheet unchanged | [File I/O](file-io.md) |
 | [`xlsx.sheets`](../fn/xlsx.sheets.html) | Names a workbook's worksheets without reading any of them, so a program can find out what it is holding before deciding what to load | [File I/O](file-io.md) |
 | [`xlsx.write`](../fn/xlsx.write.html) | Writes a `Table` out as a one-worksheet workbook | [File I/O](file-io.md) |
+| [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page | [File I/O](file-io.md) |
+| [`pdf.add_attachment`](../fn/pdf.add_attachment.html) | Embeds a file under `filename` | [File I/O](file-io.md) |
+| [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |
+| [`pdf.add_link`](../fn/pdf.add_link.html) | Adds a `/Link` annotation over `rect=` that jumps to `target_page=` (one-based) of the SAME document | [File I/O](file-io.md) |
+| [`pdf.add_page`](../fn/pdf.add_page.html) | Inserts a blank page at `index` (numbered from 1; one past the last page appends) | [File I/O](file-io.md) |
+| [`pdf.annotations`](../fn/pdf.annotations.html) | A page's annotations as a `List` of `Record`s: `index` (`Num`, the handle `pdf.remove_annotation` takes), `type` (`Str`, the annotation's `/Subtype` verbatim — `"Text"`, `"Square"`,.. | [File I/O](file-io.md) |
+| [`pdf.attachments`](../fn/pdf.attachments.html) | The document's embedded files, listed via the catalog's `/Names`/`EmbeddedFiles` name tree, as a `List` of `Record`s: `filename` (`Str`) and `size` (`Num`, the decompressed byte length) | [File I/O](file-io.md) |
+| [`pdf.crop_box`](../fn/pdf.crop_box.html) | The page's `/CropBox` -- the region a viewer actually shows, which can be smaller than `/MediaBox` | [File I/O](file-io.md) |
+| [`pdf.crop_page`](../fn/pdf.crop_page.html) | Sets a page's `/CropBox` to the given rectangle (PDF points) | [File I/O](file-io.md) |
+| [`pdf.delete_page`](../fn/pdf.delete_page.html) | Removes `page`. Every other page's own resources, fonts and content are untouched | [File I/O](file-io.md) |
+| [`pdf.duplicate_page`](../fn/pdf.duplicate_page.html) | Inserts a copy of `page` immediately after it | [File I/O](file-io.md) |
+| [`pdf.extract_attachment`](../fn/pdf.extract_attachment.html) | The raw bytes of the first embedded file named `filename`; a name that is not there is a named error | [File I/O](file-io.md) |
 | [`pdf.extract_pages`](../fn/pdf.extract_pages.html) | A new PDF holding just the pages asked for | [File I/O](file-io.md) |
 | [`pdf.extract_text`](../fn/pdf.extract_text.html) | Text reconstructed from a PDF's content streams | [File I/O](file-io.md) |
+| [`pdf.find_text`](../fn/pdf.find_text.html) | Searches every page's `pdf.extract_text` output for `query` (built on that function, not a separate reconstruction — the same warning below applies: a page `extract_text` cannot read is a.. | [File I/O](file-io.md) |
 | [`pdf.info`](../fn/pdf.info.html) | Reads what a PDF says about itself, without extracting any content | [File I/O](file-io.md) |
+| [`pdf.media_box`](../fn/pdf.media_box.html) | The page's `/MediaBox` -- the boundary a PDF prints on, in PDF points (1/72 inch) | [File I/O](file-io.md) |
 | [`pdf.merge`](../fn/pdf.merge.html) | Joins several PDFs into one, in list order, keeping every page | [File I/O](file-io.md) |
+| [`pdf.move_page`](../fn/pdf.move_page.html) | Relocates page `from` so it becomes page `to`, keeping every other page's relative order | [File I/O](file-io.md) |
+| [`pdf.outlines`](../fn/pdf.outlines.html) | The document's bookmark/outline tree, flattened into a `Table` — one row per entry, depth-first | [File I/O](file-io.md) |
 | [`pdf.page_count`](../fn/pdf.page_count.html) | Counts a PDF's pages. `src` (string path, or `Vec` of bytes) is the document | [File I/O](file-io.md) |
+| [`pdf.remove_annotation`](../fn/pdf.remove_annotation.html) | Removes the `index`-th entry of a page's `/Annots` array (the `index` `pdf.annotations` reports), deleting the underlying object too | [File I/O](file-io.md) |
+| [`pdf.reverse_pages`](../fn/pdf.reverse_pages.html) | Reverses page order: the last page becomes the first and vice versa | [File I/O](file-io.md) |
+| [`pdf.rotate_page`](../fn/pdf.rotate_page.html) | Sets a page's `/Rotate` -- degrees a viewer turns the page CLOCKWISE before display | [File I/O](file-io.md) |
+| [`pdf.set_metadata`](../fn/pdf.set_metadata.html) | Writes into a PDF's `/Info` dictionary (creating it if the file has none), touching only the fields passed — a keyword left out is left exactly as it was, never cleared | [File I/O](file-io.md) |
+| [`pdf.split_at`](../fn/pdf.split_at.html) | Splits `src` into exactly two documents at `index` (numbered from 1): the first holds pages `1..index`, the second `index..page_count` | [File I/O](file-io.md) |
+| [`pdf.split_every`](../fn/pdf.split_every.html) | Splits `src` into consecutive chunks of up to `n` pages each, in document order (the last chunk may be shorter) | [File I/O](file-io.md) |
+| [`pdf.strip_metadata`](../fn/pdf.strip_metadata.html) | Removes a PDF's `/Info` dictionary entirely, and its catalog's `/Metadata` XMP stream reference if it has one (the XMP stream's own contents are not parsed — only the reference to it is.. | [File I/O](file-io.md) |
+| [`pdf.structural_diff`](../fn/pdf.structural_diff.html) | A coarse, non-content comparison: page count, per-page `/MediaBox` size, whether each document has an outline (`/Outlines`) and each document's total annotation count | [File I/O](file-io.md) |
+| [`pdf.text_diff`](../fn/pdf.text_diff.html) | Page-by-page text diff of two documents, built entirely on `pdf.extract_text`/`pdf.page_count` | [File I/O](file-io.md) |
 | [`pdf.write_merge`](../fn/pdf.write_merge.html) | Exactly `pdf.merge`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`pdf.write_pages`](../fn/pdf.write_pages.html) | Exactly `pdf.extract_pages`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`image.load`](../fn/image.load.html) | not described in a chapter yet | |

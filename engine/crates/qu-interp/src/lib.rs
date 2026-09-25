@@ -3958,7 +3958,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
     ("xlsx", &["read", "sheets", "write"]),
-    ("pdf", &["extract_pages", "extract_text", "info", "merge", "page_count", "write_merge", "write_pages"]),
+    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_pages", "extract_text", "find_text", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
@@ -13955,14 +13955,27 @@ impl Interp {
     /// `&[u8]`/`String`/`PdfInfo` lives here, the same split `xlsx_call`
     /// and `codec_call` keep against their own crates.
     ///
-    /// The six names divide by DESTINATION, exactly as `codec`'s
-    /// `write_wav`/`encode_wav` pair does: `merge`/`extract_pages` build a
-    /// new PDF and hand back its bytes, `write_merge`/`write_pages` build
-    /// the same PDF and write it to a path. Two names rather than an
-    /// `out =` kwarg because a function whose return TYPE depends on
-    /// whether a keyword was passed is the kind of thing a script gets
-    /// wrong once and never notices -- and because the sandbox has to be
-    /// able to deny the writing form by name, which it does.
+    /// `merge`/`extract_pages` and `write_merge`/`write_pages` divide by
+    /// DESTINATION, exactly as `codec`'s `write_wav`/`encode_wav` pair
+    /// does: the first two build a new PDF and hand back its bytes, the
+    /// second two build the same PDF and write it to a path. Two names
+    /// rather than an `out =` kwarg because a function whose return TYPE
+    /// depends on whether a keyword was passed is the kind of thing a
+    /// script gets wrong once and never notices -- and because the
+    /// sandbox has to be able to deny the writing form by name, which it
+    /// does.
+    ///
+    /// § page geometry / page-tree ops (2026-09-25): `media_box`/
+    /// `crop_box` read; `rotate_page`/`crop_page`/`add_page`/
+    /// `delete_page`/`duplicate_page`/`move_page`/`reverse_pages` each
+    /// build a new PDF and hand back its bytes -- same convention as
+    /// `merge`/`extract_pages`, no `write_*` sibling for any of them
+    /// (a script that wants one on disk pipes the bytes through
+    /// `write_pages`/ordinary file I/O; adding seven more names purely to
+    /// mirror the two existing ones did not seem worth the doubled
+    /// surface). `split_every`/`split_at` return a `List` of documents,
+    /// each a `Vec` of bytes, the same way `merge`'s own input is a
+    /// `List` of them.
     #[cfg(feature = "pdf")]
     fn pdf_call(&mut self, f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
         let short = f.rsplit("::").next().unwrap_or(f);
@@ -13986,6 +13999,7 @@ impl Interp {
                     ("title".into(), text(info.title)),
                     ("author".into(), text(info.author)),
                     ("subject".into(), text(info.subject)),
+                    ("keywords".into(), text(info.keywords)),
                     ("creator".into(), text(info.creator)),
                     ("producer".into(), text(info.producer)),
                     ("encrypted".into(), Value::Bool(info.encrypted)),
@@ -14060,6 +14074,469 @@ impl Interp {
                 }
                 let out = qu_pdf::merge(&docs).map_err(|msg| EvalError { msg })?;
                 self.pdf_deliver(out, dest, short)
+            }
+            // § metadata write / text search / diff (2026-09-25): appended
+            // as standalone arms rather than interleaved among the
+            // functions above -- two sibling lanes are touching this same
+            // `match` for page-geometry and bookmark/annotation work at
+            // the same time, and an addition at the end is the smallest
+            // possible diff against both of them.
+            "pdf::set_metadata" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let str_kw = |style: &[(String, Value)], key: &str| -> R<Option<String>> {
+                    match style_entry(style, key) {
+                        None => Ok(None),
+                        Some((_, Value::Str(s))) => Ok(Some(s.clone())),
+                        Some((_, other)) => e(format!(
+                            "{short}: {key}= is text, found {}",
+                            other.type_name()
+                        )),
+                    }
+                };
+                let edit = qu_pdf::MetadataEdit {
+                    title: str_kw(style, "title")?,
+                    author: str_kw(style, "author")?,
+                    subject: str_kw(style, "subject")?,
+                    keywords: str_kw(style, "keywords")?,
+                    creator: str_kw(style, "creator")?,
+                };
+                let out = qu_pdf::set_metadata(&bytes, &edit).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::strip_metadata" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let out = qu_pdf::strip_metadata(&bytes).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::find_text" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let query = text_arg(args, 1)?;
+                // `case_sensitive = false` opts INTO folding; the default
+                // matches `replace`/`contains`'s own default (`CaseMode::
+                // Sensitive`) rather than surprising a script that never
+                // mentioned case at all.
+                let case_sensitive = match style_entry(style, "case_sensitive") {
+                    None => true,
+                    Some((_, v)) => truthy(v),
+                };
+                let matches = qu_pdf::find_text(&bytes, &query, case_sensitive).map_err(|msg| {
+                    EvalError {
+                        msg: format!("{short}: {msg}"),
+                    }
+                })?;
+                Ok(Value::List(Arc::new(
+                    matches
+                        .into_iter()
+                        .map(|m| {
+                            Value::Record(Arc::new(vec![
+                                ("page".into(), Value::Num(m.page as f64)),
+                                ("offset".into(), Value::Num(m.offset as f64)),
+                                ("length".into(), Value::Num(m.length as f64)),
+                            ]))
+                        })
+                        .collect(),
+                )))
+            }
+            "pdf::text_diff" => {
+                let a = self.pdf_bytes(arg_get(args, 0), short)?;
+                let b = self.pdf_bytes(arg_get(args, 1), short)?;
+                let diff = qu_pdf::text_diff(&a, &b).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                let line_record = |line: qu_pdf::DiffLine| {
+                    let (kind, text) = match line {
+                        qu_pdf::DiffLine::Same(t) => ("same", t),
+                        qu_pdf::DiffLine::Added(t) => ("added", t),
+                        qu_pdf::DiffLine::Removed(t) => ("removed", t),
+                    };
+                    Value::Record(Arc::new(vec![
+                        ("kind".into(), Value::Str(kind.to_string())),
+                        ("text".into(), Value::Str(text)),
+                    ]))
+                };
+                let pages = diff
+                    .differing_pages
+                    .into_iter()
+                    .map(|p| {
+                        Value::Record(Arc::new(vec![
+                            ("page".into(), Value::Num(p.page as f64)),
+                            ("only_in_a".into(), Value::Bool(p.only_in_a)),
+                            ("only_in_b".into(), Value::Bool(p.only_in_b)),
+                            (
+                                "lines".into(),
+                                Value::List(Arc::new(
+                                    p.lines.into_iter().map(line_record).collect(),
+                                )),
+                            ),
+                        ]))
+                    })
+                    .collect();
+                Ok(Value::Record(Arc::new(vec![
+                    ("pages_a".into(), Value::Num(diff.page_count_a as f64)),
+                    ("pages_b".into(), Value::Num(diff.page_count_b as f64)),
+                    ("differing_pages".into(), Value::List(Arc::new(pages))),
+                ])))
+            }
+            // Bookmarks/outlines -- see `qu_pdf::OutlineEntry`'s doc
+            // comment for why the shape is a flat, indexed table rather
+            // than a nested structure, and why that same index is what
+            // `add_bookmark`'s `parent=` takes.
+            "pdf::outlines" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let rows = qu_pdf::outlines(&bytes)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                let mut index = Vec::with_capacity(rows.len());
+                let mut level = Vec::with_capacity(rows.len());
+                let mut parent_index = Vec::with_capacity(rows.len());
+                let mut title = Vec::with_capacity(rows.len());
+                let mut page_index = Vec::with_capacity(rows.len());
+                for (i, row) in rows.into_iter().enumerate() {
+                    index.push(i as f64);
+                    level.push(row.level as f64);
+                    // -1, not `none`: this is a numeric `Table` column,
+                    // which cannot hold a mix of numbers and `none` --
+                    // see `qu_pdf::OutlineEntry::parent`'s own doc
+                    // comment. -1 is never a valid row index, so it
+                    // cannot be confused with a real parent.
+                    parent_index.push(row.parent.map(|p| p as f64).unwrap_or(-1.0));
+                    title.push(row.title);
+                    // NaN for "not resolved", the same reason: a numeric
+                    // column, no `none`. `is_nan` on this column is the
+                    // caller's test for "no page".
+                    page_index.push(row.page.map(|p| p as f64).unwrap_or(f64::NAN));
+                }
+                let columns = vec![
+                    ("index".to_string(), table::Column::Num(index)),
+                    ("level".to_string(), table::Column::Num(level)),
+                    ("parent_index".to_string(), table::Column::Num(parent_index)),
+                    ("title".to_string(), table::Column::Str(title)),
+                    ("page_index".to_string(), table::Column::Num(page_index)),
+                ];
+                Ok(Value::Table(Arc::new(
+                    table::Table::from_columns(columns).map_err(|msg| EvalError { msg })?,
+                )))
+            }
+            "pdf::add_bookmark" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let title = text_arg(args, 1)?;
+                let Some(page_v) = arg_get(args, 2) else {
+                    return e(format!("{short}: needs a page number to point the bookmark at"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let parent = match style_entry(style, "parent") {
+                    Some((_, Value::Num(n))) if n.fract() == 0.0 && *n >= 0.0 => Some(*n as usize),
+                    Some((_, other)) => {
+                        return e(format!(
+                            "{short}: parent= is an index from pdf.outlines(), found {}",
+                            other.type_name()
+                        ))
+                    }
+                    None => None,
+                };
+                let out = qu_pdf::add_bookmark(&bytes, &title, page, parent)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                self.pdf_deliver(out, None, short)
+            }
+            // Annotations/links.
+            "pdf::annotations" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!("{short}: needs a page number"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let rows = qu_pdf::annotations(&bytes, page)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                let items: Vec<Value> = rows
+                    .into_iter()
+                    .map(|a| {
+                        Value::Record(Arc::new(vec![
+                            ("index".into(), Value::Num(a.index as f64)),
+                            ("type".into(), Value::Str(a.subtype)),
+                            ("rect".into(), Value::Vec(Arc::new(a.rect.to_vec()))),
+                            (
+                                "text".into(),
+                                match a.contents {
+                                    Some(s) => Value::Str(s),
+                                    None => Value::Nothing,
+                                },
+                            ),
+                        ]))
+                    })
+                    .collect();
+                Ok(Value::List(Arc::new(items)))
+            }
+            "pdf::structural_diff" => {
+                let a = self.pdf_bytes(arg_get(args, 0), short)?;
+                let b = self.pdf_bytes(arg_get(args, 1), short)?;
+                let diff = qu_pdf::structural_diff(&a, &b).map_err(|msg| EvalError {
+                    msg: format!("{short}: {msg}"),
+                })?;
+                let dim = |d: Option<(f64, f64)>| match d {
+                    Some((w, h)) => Value::Record(Arc::new(vec![
+                        ("width".into(), Value::Num(w)),
+                        ("height".into(), Value::Num(h)),
+                    ])),
+                    None => Value::Nothing,
+                };
+                let dims = diff
+                    .differing_dimensions
+                    .into_iter()
+                    .map(|d| {
+                        Value::Record(Arc::new(vec![
+                            ("page".into(), Value::Num(d.page as f64)),
+                            ("a".into(), dim(d.a)),
+                            ("b".into(), dim(d.b)),
+                        ]))
+                    })
+                    .collect();
+                Ok(Value::Record(Arc::new(vec![
+                    ("pages_a".into(), Value::Num(diff.page_count_a as f64)),
+                    ("pages_b".into(), Value::Num(diff.page_count_b as f64)),
+                    ("differing_dimensions".into(), Value::List(Arc::new(dims))),
+                    ("bookmarks_a".into(), Value::Bool(diff.has_bookmarks_a)),
+                    ("bookmarks_b".into(), Value::Bool(diff.has_bookmarks_b)),
+                    (
+                        "annotations_a".into(),
+                        Value::Num(diff.annotation_count_a as f64),
+                    ),
+                    (
+                        "annotations_b".into(),
+                        Value::Num(diff.annotation_count_b as f64),
+                    ),
+                ])))
+            }
+            "pdf::add_annotation" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!("{short}: needs a page number"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let Some((_, type_v)) = style_entry(style, "type") else {
+                    return e(format!(
+                        "{short}: needs type= -- e.g. \"Text\", \"Square\", \"Highlight\""
+                    ));
+                };
+                let kind = pdf_value_str(type_v, short, "type=")?;
+                let Some((_, rect_v)) = style_entry(style, "rect") else {
+                    return e(format!("{short}: needs rect= -- [x0, y0, x1, y1]"));
+                };
+                let rect = pdf_rect(rect_v, short)?;
+                let text = match style_entry(style, "text") {
+                    Some((_, v)) => Some(pdf_value_str(v, short, "text=")?),
+                    None => None,
+                };
+                let out = qu_pdf::add_annotation(&bytes, page, &kind, rect, text.as_deref())
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::remove_annotation" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!("{short}: needs a page number"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let Some(idx_v) = arg_get(args, 2) else {
+                    return e(format!(
+                        "{short}: needs the annotation's index, from pdf.annotations()"
+                    ));
+                };
+                let index = match idx_v {
+                    Value::Num(n) if n.fract() == 0.0 && *n >= 0.0 => *n as usize,
+                    other => {
+                        return e(format!(
+                            "{short}: index is a whole number counted from 0, found {}",
+                            other.type_name()
+                        ))
+                    }
+                };
+                let out = qu_pdf::remove_annotation(&bytes, page, index)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::add_link" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!("{short}: needs a page number"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let Some((_, rect_v)) = style_entry(style, "rect") else {
+                    return e(format!("{short}: needs rect= -- [x0, y0, x1, y1]"));
+                };
+                let rect = pdf_rect(rect_v, short)?;
+                let Some((_, target_v)) = style_entry(style, "target_page") else {
+                    return e(format!("{short}: needs target_page= -- the page the link jumps to"));
+                };
+                let target = pdf_one_page(target_v, short)?;
+                let out = qu_pdf::add_link(&bytes, page, rect, target)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                self.pdf_deliver(out, None, short)
+            }
+            // Attachments (embedded files).
+            "pdf::attachments" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let rows = qu_pdf::attachments(&bytes)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                let items: Vec<Value> = rows
+                    .into_iter()
+                    .map(|a| {
+                        Value::Record(Arc::new(vec![
+                            ("filename".into(), Value::Str(a.filename)),
+                            ("size".into(), Value::Num(a.size as f64)),
+                        ]))
+                    })
+                    .collect();
+                Ok(Value::List(Arc::new(items)))
+            }
+            "pdf::add_attachment" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let filename = text_arg(args, 1)?;
+                let data = self.pdf_bytes(arg_get(args, 2), short)?;
+                let out = qu_pdf::add_attachment(&bytes, &filename, &data)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::extract_attachment" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let filename = text_arg(args, 1)?;
+                let data = qu_pdf::extract_attachment(&bytes, &filename)
+                    .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                Ok(Value::Vec(Arc::new(data.into_iter().map(|b| b as f64).collect())))
+            }
+            "pdf::media_box" | "pdf::crop_box" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let b = if f == "pdf::media_box" {
+                    qu_pdf::media_box(&bytes, page)
+                } else {
+                    qu_pdf::crop_box(&bytes, page)
+                }
+                .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Record(Arc::new(vec![
+                    ("x0".into(), Value::Num(b.x0)),
+                    ("y0".into(), Value::Num(b.y0)),
+                    ("x1".into(), Value::Num(b.x1)),
+                    ("y1".into(), Value::Num(b.y1)),
+                ])))
+            }
+            "pdf::rotate_page" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let degrees = int_arg(args, 2)?;
+                let out = qu_pdf::rotate_page(&bytes, page, degrees).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::crop_page" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let x0 = pdf_required_num(args, 2, short, "x0")?;
+                let y0 = pdf_required_num(args, 3, short, "y0")?;
+                let x1 = pdf_required_num(args, 4, short, "x1")?;
+                let y1 = pdf_required_num(args, 5, short, "y1")?;
+                let out =
+                    qu_pdf::crop_page(&bytes, page, x0, y0, x1, y1).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::add_page" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(index_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: where? Pass a position (numbered from 1; one past the last \
+                         page appends)"
+                    ));
+                };
+                let index = pdf_one_page(index_v, short)?;
+                // No existing paper-size convention anywhere else in the
+                // engine (checked qu-core/qu-plot) -- A4 matches what
+                // `qu_pdf`'s own test fixtures already use, so a blank
+                // page added here looks like the ones already in this
+                // codebase's own PDFs unless a script says otherwise.
+                let width = style_num_checked(style, "width", PDF_DEFAULT_PAGE_WIDTH, short)?;
+                let height = style_num_checked(style, "height", PDF_DEFAULT_PAGE_HEIGHT, short)?;
+                let out = qu_pdf::add_page(&bytes, index, width, height).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::delete_page" | "pdf::duplicate_page" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let out = if f == "pdf::delete_page" {
+                    qu_pdf::delete_page(&bytes, page)
+                } else {
+                    qu_pdf::duplicate_page(&bytes, page)
+                }
+                .map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::move_page" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(from_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: move which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let from = pdf_one_page(from_v, short)?;
+                let Some(to_v) = arg_get(args, 2) else {
+                    return e(format!(
+                        "{short}: move it to which position? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let to = pdf_one_page(to_v, short)?;
+                let out = qu_pdf::move_page(&bytes, from, to).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::reverse_pages" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let out = qu_pdf::reverse_pages(&bytes).map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::split_every" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let n = int_arg(args, 1)?;
+                if n < 1 {
+                    return e(format!("{short}: n must be at least 1, got {n}"));
+                }
+                let parts = qu_pdf::split_every(&bytes, n as u32).map_err(|msg| EvalError { msg })?;
+                let delivered: R<Vec<Value>> = parts
+                    .into_iter()
+                    .map(|p| self.pdf_deliver(p, None, short))
+                    .collect();
+                Ok(Value::List(Arc::new(delivered?)))
+            }
+            "pdf::split_at" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(index_v) = arg_get(args, 1) else {
+                    return e(format!(
+                        "{short}: split before which page? Pass a page number (numbered from 1)"
+                    ));
+                };
+                let index = pdf_one_page(index_v, short)?;
+                let (a, b) = qu_pdf::split_at(&bytes, index).map_err(|msg| EvalError { msg })?;
+                let a = self.pdf_deliver(a, None, short)?;
+                let b = self.pdf_deliver(b, None, short)?;
+                Ok(Value::List(Arc::new(vec![a, b])))
             }
             other => e(format!("pdf: no such function `{other}`")),
         }
@@ -20554,15 +21031,42 @@ self.eval_grad(loss, wrt)
             | "codec::flac_info"
             | "codec::write_wav" => self.codec_call(f, &args, &style),
             // Same shape again for `pdf`; see `pdf_call` for the split
-            // between the four that return bytes and the two that write.
+            // between the ones that return bytes and the two that write.
             #[cfg(feature = "pdf")]
             "pdf::extract_pages"
             | "pdf::extract_text"
+            | "pdf::find_text"
             | "pdf::info"
             | "pdf::merge"
             | "pdf::page_count"
+            | "pdf::set_metadata"
+            | "pdf::strip_metadata"
+            | "pdf::structural_diff"
+            | "pdf::text_diff"
             | "pdf::write_merge"
-            | "pdf::write_pages" => self.pdf_call(f, &args, &style),
+            | "pdf::write_pages"
+            // Bookmarks/annotations/attachments, page geometry/page-tree ops
+            // -- see `pdf_call`'s own arms for the split between groups.
+            | "pdf::outlines"
+            | "pdf::add_bookmark"
+            | "pdf::annotations"
+            | "pdf::add_annotation"
+            | "pdf::remove_annotation"
+            | "pdf::add_link"
+            | "pdf::attachments"
+            | "pdf::add_attachment"
+            | "pdf::extract_attachment"
+            | "pdf::media_box"
+            | "pdf::crop_box"
+            | "pdf::rotate_page"
+            | "pdf::crop_page"
+            | "pdf::add_page"
+            | "pdf::delete_page"
+            | "pdf::duplicate_page"
+            | "pdf::move_page"
+            | "pdf::reverse_pages"
+            | "pdf::split_every"
+            | "pdf::split_at" => self.pdf_call(f, &args, &style),
             // Same shape again for `image`; `import image` opens the bare
             // names the same way `xlsx`/`codec` do above.
             #[cfg(feature = "image")]
@@ -43477,6 +43981,104 @@ fn pdf_page_list(v: &Value, short: &str) -> R<Vec<u32>> {
     }
     Ok(pages)
 }
+
+/// A single page-number argument (`media_box`/`rotate_page`/`delete_page`/
+/// `duplicate_page`'s "which page", `move_page`'s "from"/"to",
+/// `add_page`/`split_at`'s "where", and `pdf.outlines`/`add_bookmark`/
+/// `annotations`/`add_annotation`/`remove_annotation`/`add_link`'s own
+/// single-page argument) -- the same 1-based validation `pdf_page_list`
+/// gives a page LIST, so `media_box(doc, 0)` errors exactly the way
+/// `extract_pages(doc, 0)` already does, and a `Vec`/`List` argument in a
+/// single-page slot is refused by name rather than silently taking its
+/// first element.
+#[cfg(feature = "pdf")]
+fn pdf_one_page(v: &Value, short: &str) -> R<u32> {
+    match v {
+        Value::Vec(_) | Value::List(_) => e(format!(
+            "{short}: expected a single page number, found a list of them"
+        )),
+        other => {
+            let pages = pdf_page_list(other, short)?;
+            Ok(pages[0])
+        }
+    }
+}
+
+/// `rect=`'s argument, shared by `add_annotation` and `add_link`: `[x0,
+/// y0, x1, y1]` in PDF default user space, as either a `Vec` (`[10, 20,
+/// 110, 60]` builds one already) or a `List` of numbers.
+#[cfg(feature = "pdf")]
+fn pdf_rect(v: &Value, short: &str) -> R<[f64; 4]> {
+    let nums: Vec<f64> = match v {
+        Value::Vec(xs) => xs.as_ref().clone(),
+        Value::List(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for it in items.iter() {
+                match it {
+                    Value::Num(n) => out.push(*n),
+                    other => {
+                        return e(format!("{short}: rect= holds numbers, found {}", other.type_name()))
+                    }
+                }
+            }
+            out
+        }
+        other => {
+            return e(format!(
+                "{short}: rect= is [x0, y0, x1, y1], found {}",
+                other.type_name()
+            ))
+        }
+    };
+    match nums.as_slice() {
+        [a, b, c, d] => Ok([*a, *b, *c, *d]),
+        other => e(format!(
+            "{short}: rect= is [x0, y0, x1, y1] -- four numbers, found {}",
+            other.len()
+        )),
+    }
+}
+
+/// A required positional numeric argument, naming what is MISSING
+/// (`x0`/`y0`/`x1`/`y1`) rather than leaving `crop_page(doc, 1, 10, 10)`
+/// to read as a generic arity error with no indication of which
+/// coordinate the script forgot.
+#[cfg(feature = "pdf")]
+fn pdf_required_num(args: &[Value], idx: usize, short: &str, name: &str) -> R<f64> {
+    mark_arg_read(idx);
+    match args.get(idx) {
+        Some(v) => v.as_num().map_err(|_| EvalError {
+            msg: format!("{short}: {name} must be a number, found {}", v.type_name()),
+        }),
+        None => e(format!(
+            "{short}: needs {name} -- a crop rectangle is x0, y0, x1, y1"
+        )),
+    }
+}
+
+/// A style-key value read as plain text, for the handful of new `pdf.*`
+/// keywords (`type=`, `text=`) that take a string rather than a number
+/// or a path -- `text_arg` isn't it because that one tracks a POSITIONAL
+/// argument index, not a style key already pulled out by `style_entry`.
+#[cfg(feature = "pdf")]
+fn pdf_value_str(v: &Value, short: &str, what: &str) -> R<String> {
+    match v {
+        Value::Str(s) => Ok(s.clone()),
+        other => e(format!("{short}: {what} is a string, found {}", other.type_name())),
+    }
+}
+
+/// `pdf::add_page`'s default page size (PDF points, 1/72 inch) when
+/// `width=`/`height=` are omitted -- A4. No existing paper-size
+/// convention exists elsewhere in the engine (checked qu-core/qu-plot for
+/// one); A4 is what `qu_pdf`'s own test fixtures already use for their
+/// `/MediaBox`, so a blank page added here matches the ones already
+/// floating around this codebase's own test PDFs unless a script asks
+/// for something else.
+#[cfg(feature = "pdf")]
+const PDF_DEFAULT_PAGE_WIDTH: f64 = 595.0;
+#[cfg(feature = "pdf")]
+const PDF_DEFAULT_PAGE_HEIGHT: f64 = 842.0;
 
 fn text_arg(args: &[Value], idx: usize) -> R<String> {
     mark_arg_read(idx);
@@ -89184,6 +89786,374 @@ a = map(names, upper)"#);
             .unwrap_err();
         assert!(err.msg.contains("could not read"), "merge: {}", err.msg);
         assert!(!err.msg.contains("sandbox"), "merge must not be denied: {}", err.msg);
+    }
+
+    /// `pdf.set_metadata` writes only the keyword it was actually given;
+    /// every other `/Info` field has to survive exactly as `pdf.info`
+    /// reported it BEFORE the call, on a real committed PDF whose
+    /// original metadata this test never hand-waves. Only `subject` is
+    /// passed, so `subject` is the only field allowed to move.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_set_metadata_touches_only_the_field_passed() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             before = pdf.info(\"{p}\")\n\
+             out = pdf.set_metadata(\"{p}\", subject = \"Impedance notes\")\n\
+             after = pdf.info(out)\n\
+             before_title = before.title\n\
+             before_author = before.author\n\
+             after_title = after.title\n\
+             after_author = after.author\n\
+             after_subject = after.subject\n\
+             pages_ok = pdf.page_count(out) == pdf.page_count(\"{p}\")"
+        ));
+        // `Value` has no `PartialEq`, so compare via their string display
+        // form rather than the enum directly.
+        assert_eq!(
+            it.get("before_title").map(display_value),
+            it.get("after_title").map(display_value)
+        );
+        assert_eq!(
+            it.get("before_author").map(display_value),
+            it.get("after_author").map(display_value)
+        );
+        assert!(
+            matches!(it.get("after_subject"), Some(Value::Str(s)) if s == "Impedance notes"),
+            "{:?}",
+            it.get("after_subject")
+        );
+        assert!(matches!(it.get("pages_ok"), Some(Value::Bool(true))));
+    }
+
+    /// The other half of the same contract, at the API boundary rather
+    /// than in `qu-pdf` itself: no keyword at all is an error a script can
+    /// act on, not a silent no-op that writes an unreadable, unchanged
+    /// file back out.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_set_metadata_with_no_keywords_is_an_error() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!("import pdf\nx = pdf.set_metadata(\"{p}\")"));
+        assert!(err.msg.contains("nothing to set"), "{}", err.msg);
+    }
+
+    /// An unread keyword is a hard error everywhere else in this
+    /// language (see `reject_unread_kwargs`); `set_metadata` reads
+    /// exactly five keys, so a sixth, misspelled one (`titel=`, the
+    /// classic typo) must be caught too, not silently dropped. That check
+    /// only runs once a call has otherwise SUCCEEDED (a documented choice
+    /// -- "a second complaint about a keyword is noise on top of the real
+    /// error"), so `title=` is included here as a real, recognised field:
+    /// without it, `titel=` alone leaves nothing recognised, the call
+    /// fails on `qu_pdf`'s own "nothing to set" first, and the unread-
+    /// keyword check never gets a turn -- which is exactly what
+    /// `pdf_set_metadata_with_no_keywords_is_an_error` above already
+    /// covers, not what this test is for.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_set_metadata_rejects_an_unread_keyword() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!(
+            "import pdf\nx = pdf.set_metadata(\"{p}\", title = \"New\", titel = \"Typo\")"
+        ));
+        assert!(err.msg.contains("titel"), "{}", err.msg);
+    }
+
+    /// `pdf.strip_metadata` then `pdf.info` shows every field absent --
+    /// on a real file that `pdf_module_reads_a_real_pdf` already
+    /// establishes has a real version and page count, so this is
+    /// checking strip_metadata leaves THOSE alone while clearing
+    /// metadata, not comparing against nothing.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_strip_metadata_clears_info_but_not_structure() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             out = pdf.strip_metadata(\"{p}\")\n\
+             after = pdf.info(out)\n\
+             title = after.title\n\
+             author = after.author\n\
+             producer = after.producer\n\
+             pages = after.pages\n\
+             pages_ok = pdf.page_count(out) == pdf.page_count(\"{p}\")"
+        ));
+        assert!(matches!(it.get("title"), Some(Value::Nothing)), "{:?}", it.get("title"));
+        assert!(matches!(it.get("author"), Some(Value::Nothing)), "{:?}", it.get("author"));
+        assert!(matches!(it.get("producer"), Some(Value::Nothing)), "{:?}", it.get("producer"));
+        assert!(matches!(it.get("pages"), Some(Value::Num(n)) if *n >= 1.0));
+        assert!(matches!(it.get("pages_ok"), Some(Value::Bool(true))));
+    }
+
+    /// `pdf.find_text` on a document `extract_text` is already known (by
+    /// `pdf_extract_text_reads_a_document_it_can_read` above) to read
+    /// correctly -- so a hit here is checked against text this test can
+    /// independently confirm is really on the page, not merely against
+    /// `find_text`'s own idea of what the page says.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_find_text_locates_a_known_word() {
+        let p = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             hits = pdf.find_text(\"{p}\", \"beeswarm\")\n\
+             n = length(hits)\n\
+             page1 = hits[0].page\n\
+             offset_is_num = type(hits[0].offset) == \"number\""
+        ));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n >= 1.0), "{:?}", it.get("n"));
+        assert!(matches!(it.get("page1"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("page1"));
+        assert!(matches!(it.get("offset_is_num"), Some(Value::Bool(true))));
+    }
+
+    /// `case_sensitive = false` finds a query whose case does not match
+    /// the page text; the default (no keyword at all) must NOT find it,
+    /// so the test cannot pass by the keyword being ignored either way.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_find_text_case_sensitive_kwarg() {
+        let p = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             default_hits = length(pdf.find_text(\"{p}\", \"BEESWARM\"))\n\
+             folded_hits = length(pdf.find_text(\"{p}\", \"BEESWARM\", case_sensitive = false))"
+        ));
+        assert!(matches!(it.get("default_hits"), Some(Value::Num(n)) if *n == 0.0), "{:?}", it.get("default_hits"));
+        assert!(matches!(it.get("folded_hits"), Some(Value::Num(n)) if *n >= 1.0), "{:?}", it.get("folded_hits"));
+    }
+
+    /// `pdf.text_diff` on two genuinely different one-page documents:
+    /// page 1 must show up as differing, and the page counts it reports
+    /// must match `pdf.page_count` on each input independently.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_text_diff_flags_the_one_page_that_differs() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             d = pdf.text_diff(\"{a}\", \"{b}\")\n\
+             pa = d.pages_a\n\
+             pb = d.pages_b\n\
+             n = length(d.differing_pages)\n\
+             page1 = d.differing_pages[0].page"
+        ));
+        assert!(matches!(it.get("pa"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("pb"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0), "{:?}", it.get("n"));
+        assert!(matches!(it.get("page1"), Some(Value::Num(n)) if *n == 1.0));
+    }
+
+    /// `pdf.structural_diff` sees a page-count difference between a
+    /// one-page document and a two-page merge that starts with it --
+    /// `pdf.merge` is already independently tested elsewhere in this
+    /// file, so the second input here is built from a call this suite
+    /// already trusts, not from a hand-authored fixture.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_structural_diff_flags_a_page_count_difference() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             merged = pdf.merge([\"{a}\", \"{b}\"])\n\
+             d = pdf.structural_diff(\"{a}\", merged)\n\
+             pa = d.pages_a\n\
+             pb = d.pages_b\n\
+             extra = d.differing_dimensions[length(d.differing_dimensions) - 1]\n\
+             extra_page = extra.page\n\
+             extra_a_absent = extra.a == none"
+        ));
+        assert!(matches!(it.get("pa"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("pb"), Some(Value::Num(n)) if *n == 2.0));
+        assert!(matches!(it.get("extra_page"), Some(Value::Num(n)) if *n == 2.0));
+        assert!(matches!(it.get("extra_a_absent"), Some(Value::Bool(true))));
+    }
+
+    // ── Page geometry / page-tree ops (§ 2026-09-25) ─────────────────────
+    //
+    // Same real committed fixtures the existing pdf tests above use, so
+    // these numbers are independently checkable: `python3 -c "import re;
+    // print(re.findall(rb'MediaBox[^\]]*\]',
+    // open('docs/design/figure-reference/svg/13_markers_and_lines.pdf',
+    // 'rb').read()))"` on the raw file gives `MediaBox [0 0 720.00
+    // 1116.00]` directly, independent of anything this module computes.
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_media_box_reads_a_real_pdfs_size() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!(
+            "import pdf\nb = pdf.media_box(\"{p}\", 1)\nx0 = b.x0\ny0 = b.y0\nx1 = b.x1\ny1 = b.y1"
+        ));
+        assert!(matches!(it.get("x0"), Some(Value::Num(n)) if *n == 0.0));
+        assert!(matches!(it.get("y0"), Some(Value::Num(n)) if *n == 0.0));
+        assert!(matches!(it.get("x1"), Some(Value::Num(n)) if (*n - 720.0).abs() < 1e-6), "{:?}", it.get("x1"));
+        assert!(matches!(it.get("y1"), Some(Value::Num(n)) if (*n - 1116.0).abs() < 1e-6), "{:?}", it.get("y1"));
+    }
+
+    /// This fixture sets no `/CropBox` of its own -- `crop_box` must fall
+    /// back to the `/MediaBox` read above rather than erroring.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_crop_box_falls_back_to_media_box_on_a_real_pdf() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!("import pdf\nb = pdf.crop_box(\"{p}\", 1)\nx1 = b.x1\ny1 = b.y1"));
+        assert!(matches!(it.get("x1"), Some(Value::Num(n)) if (*n - 720.0).abs() < 1e-6));
+        assert!(matches!(it.get("y1"), Some(Value::Num(n)) if (*n - 1116.0).abs() < 1e-6));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_rotate_page_and_crop_page_round_trip_through_the_value_layer() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             rotated = pdf.rotate_page(\"{p}\", 1, 90)\n\
+             cropped = pdf.crop_page(rotated, 1, 10, 10, 500, 800)\n\
+             n = pdf.page_count(cropped)\n\
+             b = pdf.crop_box(cropped, 1)\n\
+             x0 = b.x0\n\
+             y1 = b.y1"
+        ));
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("x0"), Some(Value::Num(n)) if (*n - 10.0).abs() < 1e-6));
+        assert!(matches!(it.get("y1"), Some(Value::Num(n)) if (*n - 800.0).abs() < 1e-6));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_rotate_page_rejects_a_non_multiple_of_90_by_name() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!("import pdf\nx = pdf.rotate_page(\"{p}\", 1, 45)"));
+        assert!(err.msg.contains("multiple of 90"), "{}", err.msg);
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_crop_page_rejects_a_rectangle_outside_the_media_box_by_name() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!("import pdf\nx = pdf.crop_page(\"{p}\", 1, -10, 0, 500, 800)"));
+        assert!(err.msg.contains("falls outside"), "{}", err.msg);
+    }
+
+    /// `add_page`'s `width=`/`height=` kwargs, and that the pages after
+    /// the insertion point really shifted down -- built on `pdf.merge` of
+    /// two real fixtures the same way `pdf_extract_pages_round_trips_
+    /// through_the_value_layer` above is, so this needs no fixtures of
+    /// its own.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_add_page_and_delete_page_change_the_page_count_the_right_way() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             m = pdf.merge([\"{a}\", \"{b}\"])\n\
+             added = pdf.add_page(m, 2, width=300, height=400)\n\
+             n1 = pdf.page_count(added)\n\
+             box = pdf.media_box(added, 2)\n\
+             w = box.x1\n\
+             h = box.y1\n\
+             deleted = pdf.delete_page(added, 2)\n\
+             n2 = pdf.page_count(deleted)"
+        ));
+        assert!(matches!(it.get("n1"), Some(Value::Num(n)) if *n == 3.0), "{:?}", it.get("n1"));
+        assert!(matches!(it.get("w"), Some(Value::Num(n)) if (*n - 300.0).abs() < 1e-6));
+        assert!(matches!(it.get("h"), Some(Value::Num(n)) if (*n - 400.0).abs() < 1e-6));
+        assert!(matches!(it.get("n2"), Some(Value::Num(n)) if *n == 2.0), "{:?}", it.get("n2"));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_add_page_defaults_to_a4_when_no_size_is_given() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let it = run(&format!(
+            "import pdf\nm = pdf.add_page(\"{p}\", 2)\nbox = pdf.media_box(m, 2)\nw = box.x1\nh = box.y1"
+        ));
+        assert!(matches!(it.get("w"), Some(Value::Num(n)) if (*n - 595.0).abs() < 1e-6), "{:?}", it.get("w"));
+        assert!(matches!(it.get("h"), Some(Value::Num(n)) if (*n - 842.0).abs() < 1e-6), "{:?}", it.get("h"));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_duplicate_page_move_page_and_reverse_pages_all_keep_the_page_count() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             m = pdf.merge([\"{a}\", \"{b}\"])\n\
+             dup = pdf.duplicate_page(m, 1)\n\
+             n1 = pdf.page_count(dup)\n\
+             moved = pdf.move_page(dup, 3, 1)\n\
+             n2 = pdf.page_count(moved)\n\
+             rev = pdf.reverse_pages(moved)\n\
+             n3 = pdf.page_count(rev)"
+        ));
+        assert!(matches!(it.get("n1"), Some(Value::Num(n)) if *n == 3.0), "{:?}", it.get("n1"));
+        assert!(matches!(it.get("n2"), Some(Value::Num(n)) if *n == 3.0), "{:?}", it.get("n2"));
+        assert!(matches!(it.get("n3"), Some(Value::Num(n)) if *n == 3.0), "{:?}", it.get("n3"));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_delete_page_refuses_to_empty_a_single_page_document_by_name() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let err = run_err(&format!("import pdf\nx = pdf.delete_page(\"{p}\", 1)"));
+        assert!(err.msg.contains("only one page"), "{}", err.msg);
+    }
+
+    /// `split_every`/`split_at` return a `List` of documents -- `list[i]`
+    /// is real Qu indexing (0-based), the same as any other `List`.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_split_every_and_split_at_return_a_list_of_documents() {
+        let a = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let b = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let it = run(&format!(
+            "import pdf\n\
+             m = pdf.merge([\"{a}\", \"{b}\"])\n\
+             parts = pdf.split_every(m, 1)\n\
+             np = length(parts)\n\
+             n0 = pdf.page_count(parts[0])\n\
+             halves = pdf.split_at(m, 2)\n\
+             nf = pdf.page_count(halves[0])\n\
+             ns = pdf.page_count(halves[1])"
+        ));
+        assert!(matches!(it.get("np"), Some(Value::Num(n)) if *n == 2.0), "{:?}", it.get("np"));
+        assert!(matches!(it.get("n0"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("nf"), Some(Value::Num(n)) if *n == 1.0));
+        assert!(matches!(it.get("ns"), Some(Value::Num(n)) if *n == 1.0));
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_split_at_rejects_a_boundary_that_would_leave_a_half_empty_by_name() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let a = repo_pdf("docs/design/figure-reference/svg/14_chart_types.pdf");
+        let err = run_err(&format!(
+            "import pdf\nm = pdf.merge([\"{p}\", \"{a}\"])\nx = pdf.split_at(m, 1)"
+        ));
+        assert!(err.msg.contains("must be 2.."), "{}", err.msg);
+    }
+
+    /// `media_box`/`crop_box`/`rotate_page`/`crop_page`/`add_page`/
+    /// `delete_page`/`duplicate_page`/`move_page`/`reverse_pages`/
+    /// `split_every`/`split_at` are all denied nowhere -- unlike
+    /// `write_merge`/`write_pages`, none of them opens a file, so a
+    /// sandboxed script keeps every one of these.
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn the_new_pdf_tree_and_geometry_ops_are_not_denied_in_a_sandbox() {
+        let p = repo_pdf("docs/design/figure-reference/svg/13_markers_and_lines.pdf");
+        let mut it = Interp::new();
+        it.run(&format!(
+            "import pdf\nsandbox_mode(true)\nx = pdf.rotate_page(\"{p}\", 1, 90)\nn = pdf.page_count(x)"
+        ))
+        .unwrap();
+        assert!(matches!(it.get("n"), Some(Value::Num(n)) if *n == 1.0));
     }
 
     /// `MODULE_EXPORTS` is declared rather than derived from the dispatch

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf.add_annotation — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pdf.add_annotation</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>pdf.add_annotation(src, page_index, type=, rect=, text=)</code></pre>
+<p class="fnnote">Input: src, page_index, type, rect, text &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Adds a simple annotation to a page. <code>type=</code> (<code>Str</code>) is written verbatim as the PDF <code>/Subtype</code> — this does not validate it against PDF's own list. <code>rect=</code> is <code>[x0, y0, x1, y1]</code>. <code>text=</code> (optional <code>Str</code>) becomes the annotation's <code>/Contents</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pdf.add_annotation(src, page_index, type=, rect=, text=)</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>page_index</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>type</code> <span class="iotype">Str</span><span class="iodesc"><code>type=</code> (<code>Str</code>) is written verbatim as the PDF <code>/Subtype</code> — this does not validate it against PDF's own list.</span></div>
+<div class="ioitem"><code>rect</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>rect=</code> is <code>[x0, y0, x1, y1]</code>.</span></div>
+<div class="ioitem"><code>text</code> <span class="iotype">Str</span><span class="iodesc"><code>text=</code> (optional <code>Str</code>) becomes the annotation's <code>/Contents</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec</span></div>
+</td><td>Returns a <code>Vec</code> of bytes.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -769,11 +769,12 @@ welch(a.channels[0])
 ### Documents: `pdf`
 
 Reads and rearranges the *structure* of a PDF: how many pages it has,
-what it says about itself, and how to join or split files. It does not
-render, OCR, fill forms or redact — all four need a native library linked
-into the engine, and this module deliberately has no such dependency (see
-`docs/design/toolkit-pdf.md` for the larger roadmap this is the first
-slice of).
+what it says about itself, how to join or split files, how to write or
+strip its metadata, and how to search or diff its text and structure
+against another document. It does not render, OCR, fill forms or redact
+— all four need a native library linked into the engine, and this module
+deliberately has no such dependency (see `docs/design/toolkit-pdf.md` for
+the larger roadmap this is the first slice of).
 
 The same destination split as `codec` above: `pdf.merge` and
 `pdf.extract_pages` build a new PDF and hand back its **bytes**, while
@@ -795,12 +796,73 @@ named error rather than a silent synonym for the first page.
 | Function | Signature | Description |
 |---|---|---|
 | `pdf.page_count` <br> *Added in v0.3.0* | `pdf.page_count(src)` | Counts a PDF's pages. `src` (string path, or `Vec` of bytes) is the document. Counted by walking the page tree to its leaves rather than trusting the catalog's own `/Count` field, which a malformed or incrementally-updated file can disagree with. Returns a `Num`. |
-| `pdf.info` <br> *Added in v0.3.0* | `pdf.info(src)` | Reads what a PDF says about itself, without extracting any content. `src` (string path, or `Vec` of bytes) is the document. Returns a `Record` with fields: `pages` (`Num`, as `pdf.page_count`), `version` (`Str`, the header version such as `"1.6"`), `title`, `author`, `subject`, `creator`, `producer` (each `Str`, **or `none`** where the file's `/Info` dictionary omits the key — `none` and `""` are different answers and this does not merge them), and `encrypted` (`Bool`, whether the file carries an `/Encrypt` dictionary, which explains in advance why another call on it might fail). |
+| `pdf.info` <br> *Added in v0.3.0, `keywords` field added in v0.4.0* | `pdf.info(src)` | Reads what a PDF says about itself, without extracting any content. `src` (string path, or `Vec` of bytes) is the document. Returns a `Record` with fields: `pages` (`Num`, as `pdf.page_count`), `version` (`Str`, the header version such as `"1.6"`), `title`, `author`, `subject`, `keywords`, `creator`, `producer` (each `Str`, **or `none`** where the file's `/Info` dictionary omits the key — `none` and `""` are different answers and this does not merge them), and `encrypted` (`Bool`, whether the file carries an `/Encrypt` dictionary, which explains in advance why another call on it might fail). |
 | `pdf.merge` <br> *Added in v0.3.0* | `pdf.merge(list)` | Joins several PDFs into one, in list order, keeping every page. `list` is a `List` of sources (each a string path or a `Vec` of bytes); an empty list is an error. Bookmarks/outlines are dropped — a half-merged outline tree pointing at pages that moved is worse than none. Returns a `Vec` of bytes, the new PDF. |
 | `pdf.write_merge` <br> *Added in v0.3.0* | `pdf.write_merge(path, list)` | Exactly `pdf.merge`, written to a file instead of returned. `path` (string) is the destination, overwritten if it exists; `list` is as above. Denied in sandboxed execution. Returns `Nothing`. |
 | `pdf.extract_pages` <br> *Added in v0.3.0* | `pdf.extract_pages(src, pages)` | A new PDF holding just the pages asked for. `src` (string path, or `Vec` of bytes) is the document; `pages` is a page number, or a `Vec`/`List` of them (`1 to 3` works — it is already a `Vec`), numbered from 1. Pages come out in the **document's** order, not the order asked for, and a page the document does not have is a named error rather than a silently shorter file. Implemented by removing the other pages, so the ones that stay keep their own fonts, resources and annotations. Returns a `Vec` of bytes. |
 | `pdf.write_pages` <br> *Added in v0.3.0* | `pdf.write_pages(path, src, pages)` | Exactly `pdf.extract_pages`, written to a file instead of returned. `path` (string) is the destination, overwritten if it exists. Denied in sandboxed execution. Returns `Nothing`. |
 | `pdf.extract_text` <br> *Added in v0.3.0* | `pdf.extract_text(src, [pages], [page=])` | Text reconstructed from a PDF's content streams. `src` (string path, or `Vec` of bytes) is the document; `pages` (optional, positional or `page=`) is a page number or a `Vec`/`List` of them, defaulting to every page. Returns a `Str`. **Read the warning below before relying on this.** |
+| `pdf.set_metadata` <br> *Added in v0.4.0* | `pdf.set_metadata(src, [title=], [author=], [subject=], [keywords=], [creator=])` | Writes into a PDF's `/Info` dictionary (creating it if the file has none), touching **only** the fields passed — a keyword left out is left exactly as it was, never cleared. At least one keyword is required. An empty string (`title=""`) is a real written value, but reads back as `none` from `pdf.info` regardless, because `pdf.info` already treats an empty `/Info` string the same as an absent key; use `pdf.strip_metadata` to actually remove a field's presence. Returns a `Vec` of bytes, the new PDF — same destination convention as `pdf.merge`. |
+| `pdf.strip_metadata` <br> *Added in v0.4.0* | `pdf.strip_metadata(src)` | Removes a PDF's `/Info` dictionary entirely, and its catalog's `/Metadata` XMP stream reference if it has one (the XMP stream's own contents are not parsed — only the reference to it is removed, since this module has no XMP reader). A file with no `/Info` at all is not an error. Returns a `Vec` of bytes. |
+| `pdf.find_text` <br> *Added in v0.4.0* | `pdf.find_text(src, query, [case_sensitive=])` | Searches every page's `pdf.extract_text` output for `query` (built on that function, not a separate reconstruction — the same warning below applies: a page `extract_text` cannot read is a page this cannot search either, and errors the same way). `case_sensitive` defaults to `true`; passing `false` case-folds character-by-character rather than via a byte comparison. Returns a `List` of `Record`s, one per match, each with `page` (`Num`, from 1), `offset` (`Num`, a **character** offset into that page's `extract_text` string — not a byte offset, and not an on-page coordinate; this module reads PDF structure, not rendered glyph positions) and `length` (`Num`, the match's length in characters). |
+| `pdf.text_diff` <br> *Added in v0.4.0* | `pdf.text_diff(src_a, src_b)` | Page-by-page text diff of two documents, built entirely on `pdf.extract_text`/`pdf.page_count`. Returns a `Record`: `pages_a`, `pages_b` (`Num`, each document's page count) and `differing_pages` — a `List` of `Record`s, **only for pages that differ** (a page present on only one side counts as differing too), each with `page` (`Num`), `only_in_a`/`only_in_b` (`Bool`) and `lines` (`List` of `Record`s with `kind` — `"same"`, `"added"` or `"removed"` — and `text`, from a line-based LCS diff; empty when the page exists on only one side). |
+| `pdf.structural_diff` <br> *Added in v0.4.0* | `pdf.structural_diff(src_a, src_b)` | A coarse, non-content comparison: page count, per-page `/MediaBox` size, whether each document has an outline (`/Outlines`) and each document's total annotation count. Returns a `Record`: `pages_a`, `pages_b` (`Num`), `differing_dimensions` (`List` of `Record`s **only for pages whose size differs or that exist on only one side**, each with `page` (`Num`) and `a`/`b` — a `Record` `{width, height}` in PDF points, or `none` when that side lacks the page), `bookmarks_a`/`bookmarks_b` (`Bool`) and `annotations_a`/`annotations_b` (`Num`). Deliberately shallow — bookmark-by-bookmark or annotation-by-annotation comparison is a larger feature this does not attempt. |
+| `pdf.outlines` <br> *Added in v0.4.0* | `pdf.outlines(src)` | The document's bookmark/outline tree, flattened into a `Table` — one row per entry, depth-first. Columns: `index` (the row's own position, and the handle `parent=` below takes), `level` (`Num`, 0 for a top-level entry), `parent_index` (`Num`, the `index` of the entry this one is nested under, or `-1` for a top-level entry), `title` (`Str`), and `page_index` (`Num`, one-based, or `NaN` where the entry's destination is not a direct page reference this reads — a named destination or a non-`GoTo` action). An empty `Table` (zero rows), not an error, for a PDF with no outlines. |
+| `pdf.add_bookmark` <br> *Added in v0.4.0* | `pdf.add_bookmark(src, title, page_index, parent=)` | Adds a new outline entry titled `title`, pointing at `page_index` (one-based). `parent=` (optional `Num`) nests it under an existing entry, named by the `index` column of a prior `pdf.outlines(src)` call on THIS document — the one stable handle to an existing entry this module exposes. Omitted, the new entry is top-level. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.annotations` <br> *Added in v0.4.0* | `pdf.annotations(src, page_index)` | A page's annotations as a `List` of `Record`s: `index` (`Num`, the handle `pdf.remove_annotation` takes), `type` (`Str`, the annotation's `/Subtype` verbatim — `"Text"`, `"Square"`, `"Highlight"`, `"Link"`, ...), `rect` (`Vec` of 4 numbers, `[x0, y0, x1, y1]`), and `text` (`Str`, or `none` where the annotation carries no `/Contents`). An empty `List`, not an error, for a page with none. |
+| `pdf.add_annotation` <br> *Added in v0.4.0* | `pdf.add_annotation(src, page_index, type=, rect=, text=)` | Adds a simple annotation to a page. `type=` (`Str`) is written verbatim as the PDF `/Subtype` — this does not validate it against PDF's own list. `rect=` is `[x0, y0, x1, y1]`. `text=` (optional `Str`) becomes the annotation's `/Contents`. Returns a `Vec` of bytes. |
+| `pdf.remove_annotation` <br> *Added in v0.4.0* | `pdf.remove_annotation(src, page_index, index)` | Removes the `index`-th entry of a page's `/Annots` array (the `index` `pdf.annotations` reports), deleting the underlying object too. An out-of-range `index` is a named error. Returns a `Vec` of bytes. |
+| `pdf.add_link` <br> *Added in v0.4.0* | `pdf.add_link(src, page_index, rect=, target_page=)` | Adds a `/Link` annotation over `rect=` that jumps to `target_page=` (one-based) of the SAME document. Returns a `Vec` of bytes. |
+| `pdf.attachments` <br> *Added in v0.4.0* | `pdf.attachments(src)` | The document's embedded files, listed via the catalog's `/Names`/`EmbeddedFiles` name tree, as a `List` of `Record`s: `filename` (`Str`) and `size` (`Num`, the decompressed byte length). An empty `List`, not an error, for a document with none. Only the flat form of the name tree is read — see `pdf.add_attachment`. |
+| `pdf.add_attachment` <br> *Added in v0.4.0* | `pdf.add_attachment(src, filename, bytes)` | Embeds a file under `filename`. `bytes` is a path or a `Vec` of bytes, the same dual form every other `src` argument here takes. Creates the `/Names`/`EmbeddedFiles` chain if the document does not have one yet. Adding the same `filename` twice keeps both — `pdf.extract_attachment` then reads back the first. Returns a `Vec` of bytes. |
+| `pdf.extract_attachment` <br> *Added in v0.4.0* | `pdf.extract_attachment(src, filename)` | The raw bytes of the first embedded file named `filename`; a name that is not there is a named error. Returns a `Vec` of bytes. |
+| `pdf.media_box` <br> *Added in v0.4.0* | `pdf.media_box(src, page)` | The page's `/MediaBox` -- the boundary a PDF prints on, in PDF points (1/72 inch). `page` is a single page number. Resolves inheritance from an ancestor `/Pages` node when the page sets none of its own (the common case for a document where every page is the same size), the way a real reader does. Returns a `Record` with fields `x0`, `y0`, `x1`, `y1` (each `Num`): lower-left then upper-right corner. |
+| `pdf.crop_box` <br> *Added in v0.4.0* | `pdf.crop_box(src, page)` | The page's `/CropBox` -- the region a viewer actually shows, which can be smaller than `/MediaBox`. Falls back to `/MediaBox` when the page has no `/CropBox` of its own or inherited, which is what an absent `/CropBox` means per the spec, not an error. Same `Record` shape as `pdf.media_box`. |
+| `pdf.rotate_page` <br> *Added in v0.4.0* | `pdf.rotate_page(src, page, degrees)` | Sets a page's `/Rotate` -- degrees a viewer turns the page CLOCKWISE before display. `degrees` is **added** to whatever rotation the page already has (its own, or inherited), so calling this twice with `90` turns a page 180° total; must be a multiple of 90, refused by name otherwise. Result is normalized into `0..360`. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.crop_page` <br> *Added in v0.4.0* | `pdf.crop_page(src, page, x0, y0, x1, y1)` | Sets a page's `/CropBox` to the given rectangle (PDF points). Validated against the page's `/MediaBox`: an inverted/zero-area rectangle, or one reaching outside the media box, is refused by name rather than silently accepted. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.add_page` <br> *Added in v0.4.0* | `pdf.add_page(src, index, [width=], [height=])` | Inserts a blank page at `index` (numbered from 1; one past the last page appends). `width`/`height` are in PDF points, defaulting to A4 (595 × 842) when omitted -- no paper-size convention exists elsewhere in the engine, and this matches what this module's own test fixtures already use. The new page has a real, empty content stream (a legitimate blank page). Returns a `Vec` of bytes, the new PDF. |
+| `pdf.delete_page` <br> *Added in v0.4.0* | `pdf.delete_page(src, page)` | Removes `page`. Every other page's own resources, fonts and content are untouched. Deleting a document's only page is refused by name -- a zero-page PDF is not a document any reader can open. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.duplicate_page` <br> *Added in v0.4.0* | `pdf.duplicate_page(src, page)` | Inserts a copy of `page` immediately after it. The copy is a new page object -- rotating or cropping one afterward does not touch the other -- but shares its `/Contents`/`/Resources` with the original (legal in PDF, and far cheaper than duplicating a stream's bytes). Returns a `Vec` of bytes, the new PDF. |
+| `pdf.move_page` <br> *Added in v0.4.0* | `pdf.move_page(src, from, to)` | Relocates page `from` so it becomes page `to`, keeping every other page's relative order. Both are numbered from 1 and must already be within the document's page range. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.reverse_pages` <br> *Added in v0.4.0* | `pdf.reverse_pages(src)` | Reverses page order: the last page becomes the first and vice versa. Returns a `Vec` of bytes, the new PDF. |
+| `pdf.split_every` <br> *Added in v0.4.0* | `pdf.split_every(src, n)` | Splits `src` into consecutive chunks of up to `n` pages each, in document order (the last chunk may be shorter). Returns a `List`, each element a `Vec` of bytes (one document per chunk). |
+| `pdf.split_at` <br> *Added in v0.4.0* | `pdf.split_at(src, index)` | Splits `src` into exactly two documents at `index` (numbered from 1): the first holds pages `1..index`, the second `index..page_count`. Both halves must come out non-empty -- `index` must be strictly between 1 and the page count, refused by name otherwise. Returns a `List` of exactly 2 elements, each a `Vec` of bytes. |
+
+Bookmarks, annotations/links and attachments are all pure object-graph
+edits — no rendering, and no dependency beyond `lopdf`. Each mutating
+function (`pdf.add_bookmark`, `pdf.add_annotation`,
+`pdf.remove_annotation`, `pdf.add_link`, `pdf.add_attachment`) takes a
+source PDF and returns a **new** one as bytes, the same
+build-bytes-not-write-a-file shape `pdf.merge`/`pdf.extract_pages` use —
+there is no `pdf.write_bookmark`-style pair for these, so chain them by
+feeding one call's `Vec` output straight into the next call's `src`.
+
+```qu,ignore
+import pdf
+
+doc = pdf.merge(["intro.pdf", "results.pdf"])
+doc = pdf.add_bookmark(doc, "Introduction", 1)
+doc = pdf.add_bookmark(doc, "Results", 3)
+rows = pdf.outlines(doc)
+print(rows)  # index, level, parent_index, title, page_index
+
+doc = pdf.add_annotation(doc, 1, type = "Text", rect = [10, 10, 200, 40], text = "draft")
+doc = pdf.add_attachment(doc, "notes.txt", "notes.txt")
+pdf.write_pages("with_extras.pdf", doc, 1 to pdf.page_count(doc))
+```
+
+Every page-tree op above (`add_page`/`delete_page`/`duplicate_page`/
+`move_page`/`reverse_pages`/`split_every`/`split_at`) resolves any
+`/MediaBox`/`/CropBox`/`/Rotate`/`/Resources` a page inherits from an
+ancestor `/Pages` node and copies it directly onto the page before
+restructuring the tree -- so a page whose size came from an intermediate
+node, not its own dict, does not silently change size (or lose it) when
+it moves. None of the eleven functions above opens a file: like
+`pdf.merge`/`pdf.extract_pages`, they take bytes or a path and hand back
+bytes, so none is on the sandbox's deny list (only `pdf.write_merge`/
+`pdf.write_pages` are) and none has a `write_*` sibling of its own -- pipe
+the returned bytes into `pdf.write_pages` or ordinary file I/O to persist
+one.
 
 #### `pdf.extract_text` is the weak one, and says so
 
@@ -858,6 +920,30 @@ try
     print(t)
 catch err
     print("no text layer this engine can read: {err}")
+end
+```
+
+Metadata write, text search, and comparing two revisions of the same
+document:
+
+```qu,ignore
+import pdf
+
+# Only `subject` changes; title/author/producer/... are untouched.
+tagged = pdf.set_metadata("paper.pdf", subject = "Impedance spectroscopy")
+pdf.write_merge("tagged.pdf", [tagged])  # or write it out any other way
+
+hits = pdf.find_text("paper.pdf", "impedance", case_sensitive = false)
+for h in hits
+    print("page {h.page}, offset {h.offset}")
+end
+
+d = pdf.text_diff("draft_v1.pdf", "draft_v2.pdf")
+print("{length(d.differing_pages)} of {d.pages_b} pages changed")
+
+s = pdf.structural_diff("draft_v1.pdf", "draft_v2.pdf")
+if s.pages_a != s.pages_b
+    print("page count changed: {s.pages_a} -> {s.pages_b}")
 end
 ```
 
