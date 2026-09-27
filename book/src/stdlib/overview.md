@@ -22,6 +22,37 @@ extensively by the plotting and modeling builtins; where a whole family of
 functions shares the same named-argument convention, it is described once at
 the top of that chapter rather than repeated in every row.
 
+## Module block sugar: `with`
+
+*Added in v0.4.0.* A native module (`image`, `pdf`, `svg`, `xlsx`, `codec`,
+...) is called as `module.function(...)`, which reads fine for one or two
+calls but gets noisy in a longer pipeline that stays inside one module the
+whole time. `with <module> ... end` opens a block in which a **leading**
+`.function(...)` — a dot where an expression is expected, not a dot
+continuing something already written — is sugar for `<module>.function(...)`:
+
+```qu
+with image
+    img = .load("photo.png") |> .blur |> .sobel(direction="x")
+end
+```
+
+is exactly `img = image.load("photo.png") |> image.blur |> image.sobel(direction="x")`
+— same AST, same evaluation, nothing module-specific about the rewrite
+itself. `with <module>` also imports the module if it isn't already bound
+(so no separate `import image` line is needed first), and blocks nest: a
+`with pdf` written inside a `with image` block resolves a leading `.` against
+`pdf` until its own `end`, then back to `image` for the rest of the outer
+block. A leading `.` outside any `with` block is still a plain parse error,
+exactly as it always was — this is purely additive.
+
+This generalizes the older, closed `table.`/`timer.`/`signals.` alias set
+described in [File I/O](file-io.md) and [REPL, Diagnostics & Units](repl-diagnostics.md):
+those three rewrite to a *fixed* underlying builtin name each (`table.load`
+is always `read_csv`, nothing else), while `with <module>` works for any
+real module and any of its functions, because it resolves against the
+module's own dispatch instead of a hardcoded alias table.
+
 ## Chapters
 
 - [Core Math & Linear Algebra](core-math.md) — elementwise math, reductions,

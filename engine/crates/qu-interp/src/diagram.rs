@@ -307,6 +307,7 @@ fn stmt_label(s: &Stmt) -> Option<String> {
         // would misrepresent the control flow as simpler than it is.
         Stmt::ParallelFor { .. } => "parallel for".to_string(),
         Stmt::Unsafe { .. } => "unsafe".to_string(),
+        Stmt::With { module, .. } => format!("with {module}"),
         Stmt::Timer { .. } => "timer".to_string(),
         Stmt::OnElapsed { .. } => "on elapsed".to_string(),
         Stmt::Watch { .. } => "watch".to_string(),

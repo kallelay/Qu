@@ -8395,6 +8395,19 @@ impl Interp {
                 }
                 Ok(())
             }
+            // `with <module> ... end` — see `Stmt::With`'s doc comment.
+            // Every leading `.method(...)` inside `body` was already
+            // rewritten to `image.method(...)`-shaped AST at parse time, so
+            // this only has two jobs at eval time: make sure `module` is
+            // actually bound as a `Value::Module` (an inline `import`, so
+            // `with image ... end` works standalone without a separate
+            // `import image` line first — re-importing an already-bound
+            // module is a harmless no-op, see `exec_import`), then run the
+            // body as a plain sequential block, identically to an `if` body.
+            Stmt::With { module, body } => {
+                self.exec_import(&ImportSource::Native(module.clone()), None)?;
+                self.exec_block(body)
+            }
             // `every|after|at <seconds> [do] ... end` — registers the
             // callback; it does not run here. `run_for(duration)` is what
             // actually fires registered timers (see its doc comment for why
@@ -10143,6 +10156,31 @@ impl Interp {
         let v = self.eval(value)?;
         match stage {
             Expr::Name(f) => self.apply(f, vec![v], Vec::new()),
+            // `x |> image.blur` — a module-qualified stage with no call
+            // parens, so the piped value is the method's only argument.
+            // Pre-existing gap: only a bare `Expr::Name` stage (a plain
+            // function, no module) was handled before this; a `Value::
+            // Module` receiver fell all the way to the `_` arm below and
+            // errored "pipe stage must be a function" even though
+            // `x |> blur` (no module) and `image.blur(x)` (same call, not
+            // piped) both already worked. Same `Value::Module` carve-out
+            // `eval_call`'s `Expr::Field` branch already applies for an
+            // ordinary call — a module isn't a receiver to prepend, it's
+            // where the name lives — just reached from a pipe stage
+            // instead. Found wiring up `with <module> ... end`'s
+            // `.load(p) |> .blur` (see `Stmt::With`), which desugars to
+            // exactly this shape.
+            Expr::Field { value: recv_expr, name } => {
+                let recv = self.eval(recv_expr)?;
+                if let Value::Module(ns) = &recv {
+                    let qualified = format!("{ns}::{name}");
+                    if self.has_user_fn(&qualified) {
+                        return self.apply(&qualified, vec![v], Vec::new());
+                    }
+                    return self.call_named(&qualified, vec![v], None, None, Vec::new());
+                }
+                e("pipe stage must be a function")
+            }
             // `x |> f(a, b=..., c=...)` — the piped value becomes the
             // stage's first positional argument (`argv = [v, a, ...]`),
             // exactly like `eval_call_args` does for an ordinary call.
@@ -10163,6 +10201,23 @@ impl Interp {
                     let (mut argv, seed, _axis, style) = self.eval_call_args(args)?;
                     argv.insert(0, v);
                     self.apply_seeded(f, argv, seed, style)
+                } else if let Expr::Field { value: recv_expr, name } = &**callee {
+                    // `x |> image.blur(2, ...)` — same module carve-out as
+                    // the bare-Field arm above, with explicit args: the
+                    // piped value becomes the FIRST positional argument,
+                    // exactly like the plain-function `Expr::Call` arm
+                    // right above does for a non-module callee.
+                    let recv = self.eval(recv_expr)?;
+                    if let Value::Module(ns) = &recv {
+                        let qualified = format!("{ns}::{name}");
+                        let (mut argv, seed, _axis, style) = self.eval_call_args(args)?;
+                        argv.insert(0, v);
+                        if self.has_user_fn(&qualified) {
+                            return self.apply(&qualified, argv, style);
+                        }
+                        return self.call_named(&qualified, argv, seed, None, style);
+                    }
+                    e("pipe stage must be a function")
                 } else {
                     e("pipe stage must be a function")
                 }
@@ -89394,6 +89449,78 @@ a = map(names, upper)"#);
         let err = run_err("import image\nx = blur(1)");
         assert!(err.msg.contains("ambiguous"), "got: {}", err.msg);
         assert!(err.msg.contains("image.blur"), "the message must name the fix: {}", err.msg);
+    }
+
+    /// `x |> image.blur` (no call parens) -- a module-qualified pipe stage.
+    /// Was a pre-existing gap: `eval_pipe` only recognized a bare
+    /// `Expr::Name` stage (a plain function, no module), so this fell to
+    /// `_ => e("pipe stage must be a function")` even though `x |> blur`
+    /// (no module) and `image.blur(x)` (same call, not piped) both already
+    /// worked. Found wiring up `with <module> ... end`'s `.load(p) |>
+    /// .blur` (see `qu_syntax::Stmt::With`), which desugars to exactly
+    /// this shape. Checked against `image.blur(img)`'s own (non-piped)
+    /// result, not just "it doesn't error" -- a pipe stage that silently
+    /// returned the wrong value would be worse than the loud error it
+    /// replaces.
+    #[cfg(feature = "image")]
+    #[test]
+    fn pipe_into_a_bare_module_qualified_stage_now_works() {
+        let it = run(
+            "import image\n\
+             img = image_from_matrix(zeros(4, 4))\n\
+             a = img |> image.blur\n\
+             b = image.blur(img)",
+        );
+        let Some(Value::Image(a)) = it.get("a") else { panic!("expected a to be an Image") };
+        let Some(Value::Image(b)) = it.get("b") else { panic!("expected b to be an Image") };
+        assert_eq!(a.pixels, b.pixels);
+    }
+
+    /// `x |> image.blur(2)` -- module-qualified stage WITH explicit args.
+    /// The piped value becomes the first positional arg, same convention
+    /// the plain-function `x |> f(a, b)` arm already uses.
+    #[cfg(feature = "image")]
+    #[test]
+    fn pipe_into_a_module_qualified_stage_with_explicit_args_now_works() {
+        let it = run(
+            "import image\n\
+             img = image_from_matrix(zeros(4, 4))\n\
+             a = img |> image.blur(2)\n\
+             b = image.blur(img, 2)",
+        );
+        let Some(Value::Image(a)) = it.get("a") else { panic!("expected a to be an Image") };
+        let Some(Value::Image(b)) = it.get("b") else { panic!("expected b to be an Image") };
+        assert_eq!(a.pixels, b.pixels);
+    }
+
+    /// A non-module `Expr::Field`/`Expr::Call{Field}` pipe stage must keep
+    /// erroring exactly as it did before this fix -- the new branches only
+    /// fire when the receiver evaluates to `Value::Module`, everything
+    /// else falls through to the same `"pipe stage must be a function"`
+    /// error as always. `r.x` here is a plain record field, not a module.
+    #[test]
+    fn pipe_into_a_non_module_field_stage_still_errors_as_before() {
+        let err = run_err("r = {x = 5}\ny = 3 |> r.x");
+        assert!(err.msg.contains("pipe stage must be a function"), "got: {}", err.msg);
+    }
+
+    /// The exact motivating end-to-end shape: `with image` + a leading-dot
+    /// pipe chain, no explicit `import image` line and no module prefix
+    /// repeated on either side of `|>`.
+    #[cfg(feature = "image")]
+    #[test]
+    fn with_block_load_pipe_blur_matches_the_fully_qualified_equivalent() {
+        let it = run(
+            "with image\n\
+             img = image_from_matrix(zeros(4, 4)) |> .blur\n\
+             end\n\
+             ref_img = image.blur(image_from_matrix(zeros(4, 4)))",
+        );
+        let Some(Value::Image(img)) = it.get("img") else { panic!("expected img to be an Image") };
+        let Some(Value::Image(ref_img)) = it.get("ref_img") else {
+            panic!("expected ref_img to be an Image")
+        };
+        assert_eq!(img.pixels, ref_img.pixels);
     }
 
     /// Builds an 8x4 vertical-edge test image (left half luma 0, right half

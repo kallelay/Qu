@@ -535,6 +535,19 @@ pub enum Stmt {
         body: Vec<Stmt>,
         report_var: Option<String>,
     },
+    /// `with <module> ... end [with]` — the block form of the existing
+    /// `table.`/`timer.`/`signals.` dot-alias sugar (see `postfix_primary`),
+    /// generalized to any real module namespace instead of a fixed
+    /// three-name list. Purely a parse-time convenience: `module` is
+    /// recorded on the `Stmt` only for round-tripping/debugging, not
+    /// consulted at eval time — every leading `.method(...)` inside `body`
+    /// was already rewritten to `Expr::Field { value: Name(module), ... }`
+    /// at parse time (see `with_module_stack`), so this evaluates as a
+    /// plain sequential block, identically to an unadorned `if` body.
+    With {
+        module: String,
+        body: Vec<Stmt>,
+    },
     /// `parallel for Name in (RangeExpression|Expression) ... end parallel`
     /// (grammar §46.5) — each iteration runs in an ISOLATED environment (a
     /// snapshot of `env`/`funcs`/`block_funcs`, plus a freshly-drawn RNG
@@ -949,12 +962,15 @@ type PResult<T> = Result<T, ParseError>;
 pub struct Parser {
     toks: Vec<Token>,
     i: usize,
+    /// Active `with <module> ... end` scopes, innermost last. Purely a
+    /// parse-time stack — see `with_stmt`'s doc comment for what it's for.
+    with_module_stack: Vec<String>,
 }
 
 /// Parse a whole program from source text.
 pub fn parse(src: &str) -> PResult<Program> {
     let toks = lex(src);
-    let mut p = Parser { toks, i: 0 };
+    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new() };
     p.program()
 }
 
@@ -972,7 +988,7 @@ pub fn parse(src: &str) -> PResult<Program> {
 /// the interpolation bug write-up in IMPL.md for the full repro.
 pub fn parse_expr(src: &str) -> PResult<Expr> {
     let toks = lex(src);
-    let mut p = Parser { toks, i: 0 };
+    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new() };
     p.skip_terms();
     let e = p.range_expr()?;
     p.skip_terms();
@@ -1325,6 +1341,16 @@ impl Parser {
         }
         if self.at_kw("unsafe") {
             return self.unsafe_stmt();
+        }
+        // `with <module> ... end` — safe as an unconditional leading-keyword
+        // dispatch: `with` only ever appears elsewhere MID-construct
+        // (`parallel for ... with reduce(...)`, `pool name with cpu=...`),
+        // both reached from inside those statements' own parsing, never
+        // from this top-level dispatcher with `with` as the first token of
+        // a new statement. No lookahead needed, unlike `select case`/`type
+        // implicit` above.
+        if self.at_kw("with") {
+            return self.with_stmt();
         }
         // `memoize function name(params) ... end function` (§ function
         // memoization, 2026-08-31) — `memoize` is contextual, recognized
@@ -2371,6 +2397,29 @@ impl Parser {
         Ok(Stmt::Unsafe { body, report_var })
     }
 
+    // `with <module> ... end [with]` — see `Stmt::With`'s doc comment for
+    // what this desugars to and why. `module` is pushed onto
+    // `with_module_stack` for the DURATION OF PARSING the body only (popped
+    // before `expect_end` returns, including on the error path via the `?`
+    // early-return below — an unclosed `with` must not leave a stale module
+    // active for every statement parsed afterwards in the same file).
+    //
+    // Nests: `with image ... with pdf ... end ... end` tracks both, and a
+    // leading `.` inside the inner block resolves against `pdf` (the
+    // innermost active scope — `postfix_primary` reads `.last()`), while a
+    // leading `.` after the inner `end` but still inside the outer block
+    // resolves against `image` again.
+    fn with_stmt(&mut self) -> PResult<Stmt> {
+        self.bump(); // with
+        let module = self.expect_name()?;
+        self.with_module_stack.push(module.clone());
+        let body = self.block(&["end"]);
+        self.with_module_stack.pop();
+        let body = body?;
+        self.expect_end(&["with"])?;
+        Ok(Stmt::With { module, body })
+    }
+
     // `parallel for Name in RangeExpr ... end parallel` — see
     // `Stmt::ParallelFor`'s doc comment. `in` (not `=`, unlike plain `for`)
     // matches the grammar's own spelling exactly (§46.5); no ambiguity with
@@ -3097,7 +3146,31 @@ impl Parser {
     // `table.someCol` field access on a real `Table` value bound to a
     // variable named `table`, all fall straight through to `primary()`
     // below, completely unaffected.
+    // `with <module> ... end` (see `Stmt::With`): a leading `.method(...)`
+    // — i.e. a bare `.` where an expression is expected, not a postfix
+    // continuation of something already parsed — resolves against the
+    // innermost active `with` scope. `<module>` is any real module name
+    // (`image`, `pdf`, `svg`, `xlsx`, `codec`, ...), not a fixed alias list
+    // like `table`/`timer`/`signals` above: this returns a plain
+    // `Expr::Name(module)` and does NOT consume the `.` itself, so the
+    // ordinary `postfix()` loop right below picks it up from there and
+    // parses `.method`/`(args)` exactly as it would for `image.method(args)`
+    // written out in full — same `Expr::Field`/`Expr::Call` shape, so
+    // `qu-interp`'s existing `Value::Module` dispatch in `eval_call`
+    // handles it unchanged; nothing here is module-specific or needs to
+    // know what `image`/`pdf`/etc. are.
+    //
+    // Only fires on `Op(".") + Ident(_)` — a bare `.` before anything else
+    // (a digit, `.'` transpose, end of input) was already a parse error
+    // before `with` existed (`primary()` has no arm for a leading `.`), so
+    // this only ever changes behavior for scripts that opt in by writing
+    // `with <module>`.
     fn postfix_primary(&mut self) -> PResult<Expr> {
+        if self.at_op(".") && matches!(self.peek_at(1), Tok::Ident(_)) {
+            if let Some(module) = self.with_module_stack.last() {
+                return Ok(Expr::Name(module.clone()));
+            }
+        }
         if let Tok::Ident(ns) = self.peek().clone() {
             if matches!(ns.as_str(), "table" | "timer" | "signals") {
                 if let (Tok::Op("."), Tok::Ident(method)) =
@@ -4677,6 +4750,148 @@ mod tests {
         let err2 = parse("timer.frobnicate(1)").unwrap_err();
         assert!(err2.msg.contains("timer"));
         assert!(err2.msg.contains("frobnicate"));
+    }
+
+    // ------------------------------------------------------- `with <module> ... end`
+
+    #[test]
+    fn with_block_rewrites_a_leading_dot_call_to_the_module() {
+        let p = ok("with image\n.load(\"p.png\")\nend");
+        match &p.real()[0] {
+            Stmt::With { module, body } => {
+                assert_eq!(module, "image");
+                let body_real: Vec<&Stmt> =
+                    body.iter().filter(|s| !matches!(s, Stmt::SourceLine(_))).collect();
+                match body_real[0] {
+                    Stmt::Expr(Expr::Call { callee, args }) => {
+                        match callee.as_ref() {
+                            Expr::Field { value, name } => {
+                                assert!(matches!(value.as_ref(), Expr::Name(n) if n == "image"));
+                                assert_eq!(name, "load");
+                            }
+                            other => panic!("expected Expr::Field, got {other:?}"),
+                        }
+                        assert_eq!(args.len(), 1);
+                    }
+                    other => panic!("expected Expr::Call, got {other:?}"),
+                }
+            }
+            other => panic!("expected Stmt::With, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn with_block_leading_dot_works_as_a_pipe_stage_with_no_parens() {
+        // The exact motivating shape: `.load(p) |> .blur` inside `with image`.
+        // `.blur` has no `(`, so it must parse as a bare `Expr::Field`, not
+        // a `Call` -- same as `x |> image.blur` (no parens) already does.
+        let p = ok("with image\ny = .load(\"p.png\") |> .blur\nend");
+        match &p.real()[0] {
+            Stmt::With { body, .. } => {
+                let body_real: Vec<&Stmt> =
+                    body.iter().filter(|s| !matches!(s, Stmt::SourceLine(_))).collect();
+                match body_real[0] {
+                    Stmt::Assign { rhs: Expr::Pipe { value, stage }, .. } => {
+                        assert!(matches!(value.as_ref(), Expr::Call { callee, .. }
+                            if matches!(callee.as_ref(), Expr::Field { name, .. } if name == "load")));
+                        match stage.as_ref() {
+                            Expr::Field { value, name } => {
+                                assert!(matches!(value.as_ref(), Expr::Name(n) if n == "image"));
+                                assert_eq!(name, "blur");
+                            }
+                            other => panic!("expected a bare Expr::Field stage, got {other:?}"),
+                        }
+                    }
+                    other => panic!("expected Stmt::Assign with a Pipe rhs, got {other:?}"),
+                }
+            }
+            other => panic!("expected Stmt::With, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn with_block_accepts_either_bare_end_or_end_with() {
+        ok("with image\n.load(\"p.png\")\nend");
+        ok("with image\n.load(\"p.png\")\nend with");
+    }
+
+    #[test]
+    fn with_block_nests_and_resolves_the_innermost_module() {
+        // Inside the nested `with pdf`, a leading dot means `pdf`; after its
+        // `end`, still inside the outer block, it goes back to meaning
+        // `image` -- `with_module_stack` must be a stack, not a single slot.
+        let p = ok(
+            "with image\n\
+             .load(\"p.png\")\n\
+             with pdf\n\
+             .info(\"d.pdf\")\n\
+             end\n\
+             .blur(2)\n\
+             end",
+        );
+        match &p.real()[0] {
+            Stmt::With { module, body } => {
+                assert_eq!(module, "image");
+                let outer: Vec<&Stmt> =
+                    body.iter().filter(|s| !matches!(s, Stmt::SourceLine(_))).collect();
+                // outer[0] == .load(...) already covered above; outer[1] is
+                // the nested `with pdf`, outer[2] is `.blur(2)` back at the
+                // outer (image) level.
+                match outer[1] {
+                    Stmt::With { module, body } => {
+                        assert_eq!(module, "pdf");
+                        let inner: Vec<&Stmt> =
+                            body.iter().filter(|s| !matches!(s, Stmt::SourceLine(_))).collect();
+                        match inner[0] {
+                            Stmt::Expr(Expr::Call { callee, .. }) => {
+                                assert!(matches!(callee.as_ref(), Expr::Field { value, name }
+                                    if matches!(value.as_ref(), Expr::Name(n) if n == "pdf")
+                                        && name == "info"));
+                            }
+                            other => panic!("expected Expr::Call, got {other:?}"),
+                        }
+                    }
+                    other => panic!("expected nested Stmt::With, got {other:?}"),
+                }
+                match outer[2] {
+                    Stmt::Expr(Expr::Call { callee, .. }) => {
+                        assert!(matches!(callee.as_ref(), Expr::Field { value, name }
+                            if matches!(value.as_ref(), Expr::Name(n) if n == "image")
+                                && name == "blur"));
+                    }
+                    other => panic!("expected `.blur(2)` back at the outer level, got {other:?}"),
+                }
+            }
+            other => panic!("expected Stmt::With, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bare_leading_dot_outside_any_with_block_is_still_a_parse_error() {
+        // Regression guard: this must stay exactly as unsupported as it was
+        // before `with` existed -- `primary()` has no arm for a leading `.`.
+        assert!(parse(".load(\"p.png\")").is_err());
+    }
+
+    #[test]
+    fn ordinary_field_access_inside_a_with_block_is_unaffected() {
+        // `x.width` (a real preceding expression, not a LEADING dot) must
+        // parse exactly as it would outside any `with` block.
+        let p = ok("with image\ny = x.width\nend");
+        match &p.real()[0] {
+            Stmt::With { body, .. } => {
+                let body_real: Vec<&Stmt> =
+                    body.iter().filter(|s| !matches!(s, Stmt::SourceLine(_))).collect();
+                match body_real[0] {
+                    Stmt::Assign { rhs: Expr::Field { value, name }, .. } => {
+                        assert!(matches!(value.as_ref(), Expr::Name(n) if n == "x"));
+                        assert_eq!(name, "width");
+                    }
+                    other => panic!("expected a plain Expr::Field, got {other:?}"),
+                }
+            }
+            other => panic!("expected Stmt::With, got {other:?}"),
+        }
     }
 
     #[test]

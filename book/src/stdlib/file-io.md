@@ -597,6 +597,13 @@ is not a real namespace value; it still works as an ordinary variable name
 (`table = 5`) and the existing `table(...)` table-constructor call is
 completely unaffected (that's a different token shape — no `.` involved).
 
+*Added in v0.4.0:* for a **real** module rather than this fixed three-name
+alias set, see the `with <module> ... end` block form in the
+[Standard Library Reference overview](overview.md#module-block-sugar-with)
+— `with xlsx ... .read(path) ... end` reaches `xlsx.read`, `xlsx.write`,
+etc. the same way, for any module and any of its functions, not just
+`table`/`timer`/`signals`.
+
 ## Native Modules: `xlsx`, `codec` and `pdf`
 
 These are not builtins, and `builtins()` does not list them. They are
