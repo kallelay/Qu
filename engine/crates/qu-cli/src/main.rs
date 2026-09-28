@@ -103,7 +103,7 @@
 //!                       "run all cells, kernel stays alive". Plain `qu run
 //!                       <file.qu>` still exits the moment the script ends;
 //!                       this is the one command that keeps going.
-//!   qu eval "<src>"      run a one-liner
+//!   qu eval "<src>"      run a one-liner (all remaining args, joined)
 //!   qu diary <file.qu> [-o out.html]   run a script, export a Jupyter-style
 //!                       HTML transcript (code block + printed text/plot per
 //!                       top-level statement, in source order)
@@ -206,7 +206,7 @@ fn run() -> ExitCode {
         "parse" => cmd_parse(&args[1..]),
         "tokens" => cmd_tokens(arg(&args, 1)),
         "ast" => cmd_ast(arg(&args, 1)),
-        "eval" => cmd_eval(arg(&args, 1)),
+        "eval" => cmd_eval(eval_source(&args[1..]).as_deref()),
         "diary" => cmd_diary(&args[1..]),
         "docs" => cmd_docs(&args[1..]),
         "repl" => cmd_repl(&args[1..]),
@@ -1392,6 +1392,34 @@ fn cmd_ast(path: Option<&str>) -> Result<(), String> {
     }
 }
 
+/// The source `qu eval` runs, rebuilt from every argument after `eval`.
+///
+/// Two ways cmd.exe used to make `qu eval` print nothing and exit 0:
+/// - an unquoted `qu eval print (1)` arrives as TWO arguments, and only the
+///   first (the bare name `print`) was ever run -- `(1)` was dropped;
+/// - `qu eval 'print(1)'`, the spelling every doc uses, keeps its single
+///   quotes on cmd (only a POSIX shell strips them), so the source was a
+///   string literal that evaluates to itself and prints nothing.
+/// Joining the arguments with spaces fixes the first. For the second, one
+/// pair of wrapping single quotes is stripped: a whole one-liner that is
+/// just a string literal does nothing visible anyway, so no working
+/// command changes meaning.
+fn eval_source(args: &[String]) -> Option<String> {
+    if args.is_empty() {
+        return None;
+    }
+    let joined = args.join(" ");
+    let trimmed = joined.trim();
+    if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
+        let inner = &trimmed[1..trimmed.len() - 1];
+        // `'a' + 'b'` starts and ends with a quote but is not one literal.
+        if !inner.contains('\'') {
+            return Some(inner.to_string());
+        }
+    }
+    Some(joined)
+}
+
 fn cmd_eval(src: Option<&str>) -> Result<(), String> {
     let src = src.ok_or("expected a source string")?;
     let mut it = qu_interp::Interp::new();
@@ -1857,7 +1885,32 @@ fn print_help() {
 
 #[cfg(test)]
 mod tests {
-    use super::{builtin_docs_json, input_looks_complete, numbered_path, parse_diagnostics_json};
+    use super::{builtin_docs_json, eval_source, input_looks_complete, numbered_path, parse_diagnostics_json};
+
+    fn strs(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn eval_source_joins_unquoted_cmd_arguments() {
+        // cmd.exe: `qu eval print (1)` -> ["print", "(1)"]
+        assert_eq!(eval_source(&strs(&["print", "(1)"])).as_deref(), Some("print (1)"));
+    }
+
+    #[test]
+    fn eval_source_strips_single_quotes_cmd_leaves_in_place() {
+        // cmd.exe: `qu eval 'print(1)'` -> ["'print(1)'"]
+        assert_eq!(eval_source(&strs(&["'print(1)'"])).as_deref(), Some("print(1)"));
+        assert_eq!(eval_source(&strs(&["'print(\"a", "b\")'"])).as_deref(), Some("print(\"a b\")"));
+    }
+
+    #[test]
+    fn eval_source_leaves_ordinary_source_alone() {
+        assert_eq!(eval_source(&strs(&["print('a') + print('b')"])).as_deref(), Some("print('a') + print('b')"));
+        assert_eq!(eval_source(&strs(&["x = 'a'"])).as_deref(), Some("x = 'a'"));
+        assert_eq!(eval_source(&strs(&["'a' + 'b'"])).as_deref(), Some("'a' + 'b'"));
+        assert_eq!(eval_source(&[]), None);
+    }
 
     #[test]
     fn parse_diagnostics_json_reports_ok_true_and_empty_diagnostics_for_valid_source() {
