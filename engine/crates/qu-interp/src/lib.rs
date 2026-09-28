@@ -173,6 +173,7 @@ pub mod ml_honesty;
 pub mod regions_ops;
 pub mod distributions;
 pub mod multivariate;
+pub mod native_ops;
 pub mod surgery_ops;
 pub mod text_ops;
 pub mod file_meta_ops;
@@ -16422,6 +16423,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     ///     `tcp_send`, `tcp_recv`, `tcp_close`, `listen_pool`
     ///   - external process execution: `python_exec`, `js_exec`,
     ///     `matlab_exec`, `exec`, `shell`
+    ///   - native code: `load_library`, `native_call`
     ///   - file WRITES specifically (file READS stay allowed — a
     ///     sandboxed script can still read input data, just can't reach
     ///     the network, spawn external processes, or write to disk):
@@ -16452,6 +16454,10 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             // them is the whole point of the list, not an extension of it.
             "exec",
             "shell",
+            // `load_library`/`native_call` (2026-09-28) load and run native
+            // code -- strictly more than `exec` can do.
+            "load_library",
+            "native_call",
             "write_csv",
             "touch",
             // § signal-wav (2026-09-18): the dispatch name is qualified,
@@ -32699,6 +32705,9 @@ self.eval_grad(loss, wrt)
             // gamcdf/gaminv/gampdf, betacdf/betainv/betapdf,
             // expcdf/expinv/exppdf -- see `distributions.rs`.
             f if distributions::NAMES.contains(&f) => distributions::call(f, &args),
+            // `load_library(path)` / `native_call(lib, name, signature,
+            // ...)` -- see `native_ops.rs`; refused under `--sandbox`.
+            f if native_ops::NAMES.contains(&f) => native_ops::call(f, arg_all(&args)),
             "chi2pdf" => {
                 let k = arg_get(&args, 1).and_then(|v| v.as_num().ok()).unwrap_or(1.0);
                 if k <= 0.0 {
@@ -45115,7 +45124,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "line_count", "line_delete", "line_insert", "line_range", "line_set",
     "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
     "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image",
-    "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
+    "load_library", "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
     "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau",
     "lse", "lstm_cell", "lstm_forward", "lstm_init", "ltrim", "lu", "mae",
     "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain",
@@ -45128,7 +45137,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "multi_head_attention", "multi_otsu", "multisine", "multithreshold",
     "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
     "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
-    "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor",
+    "native_call", "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor",
     "norm", "normal", "normalize", "normcdf", "norminv", "normpdf", "now", "nrow", "numel",
     "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
     "otsu", "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",

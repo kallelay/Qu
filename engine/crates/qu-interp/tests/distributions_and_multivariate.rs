@@ -128,3 +128,31 @@ fn qda_names_reg_when_a_class_is_singular() {
     );
     assert!(msg.contains("reg="), "{msg}");
 }
+
+// ------------------------------------------------------------ native_call
+
+#[test]
+#[cfg(target_os = "linux")]
+fn native_call_reaches_the_c_math_library() {
+    let it = run(
+        "lib = load_library(\"libm.so.6\")\n\
+         c = lib.native_call(\"cos\", \"double(double)\", 0)\n\
+         p = native_call(lib, \"pow\", \"double(double, double)\", 2, 10)\n",
+    );
+    assert_eq!(num(&it, "c"), 1.0);
+    assert_eq!(num(&it, "p"), 1024.0);
+}
+
+#[test]
+fn native_code_is_refused_in_the_sandbox() {
+    let mut it = Interp::new();
+    it.set_sandboxed(true);
+    let msg = it.run("lib = load_library(\"libm.so.6\")\n").unwrap_err().to_string();
+    assert!(msg.contains("load_library"), "{msg}");
+}
+
+#[test]
+fn a_missing_library_or_function_is_a_named_error() {
+    let msg = err("lib = load_library(\"/no/such/library.so\")\n");
+    assert!(msg.contains("could not load") && msg.contains("/no/such/library.so"), "{msg}");
+}

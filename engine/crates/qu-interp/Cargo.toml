@@ -21,6 +21,11 @@ qu-syntax = { path = "../qu-syntax" }
 # `atanh` do NOT need this crate: `std::f64` already provides correct,
 # accurate implementations of all seven directly as inherent methods.
 libm = "0.2"
+# `load_library`/`native_call` (see `native_ops.rs`): dlopen/LoadLibrary
+# behind one API. Pure Rust over the OS loader, no C build step, so the
+# Windows build needs nothing new -- which is why the fixed-signature
+# design was chosen over libffi.
+libloading = "0.8"
 # For `UNITS`, so `similar_units` suggests from the same list the lexer
 # accepts rather than a second copy that could drift from it.
 qu-lexer = { path = "../qu-lexer" }

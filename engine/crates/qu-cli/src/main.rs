@@ -1441,10 +1441,12 @@ fn eval_source(args: &[String]) -> Option<String> {
 fn cmd_eval(src: Option<&str>) -> Result<(), String> {
     let src = src.ok_or("expected a source string")?;
     let mut it = qu_interp::Interp::new();
-    it.run(src).map_err(|e| e.to_string())?;
-    print!("{}", it.out);
-    io::stdout().flush().ok();
-    Ok(())
+    // Streams like `qu run`, so a one-liner that errors half way still
+    // shows what it printed before the error.
+    stream_stdout(&mut it, false);
+    let result = it.run(src).map_err(|e| e.to_string());
+    it.drain_out(true);
+    result
 }
 
 /// `qu docs --json` — dumps the compiled-in `BUILTIN_DOCS` table (name,
