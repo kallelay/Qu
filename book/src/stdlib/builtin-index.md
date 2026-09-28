@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1101 builtins, 1013 described.** The rest are
+**1126 builtins, 1038 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -99,6 +99,9 @@ program, and a misspelled call suggests the nearest match.
 | [`beeswarm`](../fn/beeswarm.html) | Every sample drawn, nudged sideways only as far as it must be to clear its neighbours, so the WIDTH is the count | [Plotting](plotting.md) |
 | [`before`](../fn/before.html) | `after` returns the piece of `s` past the first `mark`; `before` returns the piece up to it | [Collections & strings](collections-strings.md) |
 | [`before_last`](../fn/before_last.html) | Returns a `Str`: like `after`/`before` but searching from the end — the pair to reach for on a path or a dotted name | [Collections & strings](collections-strings.md) |
+| [`betacdf`](../fn/betacdf.html) | Beta cumulative distribution on `[0, 1]` -- the regularized incomplete beta function `I_x(a, b)` | [Statistics & ML](statistics-ml.md) |
+| [`betainv`](../fn/betainv.html) | Inverse of `betacdf`. Returns the same shape as `p`, in `[0, 1]` | [Statistics & ML](statistics-ml.md) |
+| [`betapdf`](../fn/betapdf.html) | Beta probability density. Returns the same shape as `x` | [Statistics & ML](statistics-ml.md) |
 | [`bin2dec`](../fn/bin2dec.html) | Reads a binary digit string as a number | [Collections & strings](collections-strings.md) |
 | [`binomial`](../fn/binomial.html) | Exact binomial draws. `n_trials` (a positive integer) is how many trials each draw counts successes over; `p` (a number in `[0, 1]`) is the success probability of one trial; `rows` and.. | [Statistics & ML](statistics-ml.md) |
 | [`bitand`](../fn/bitand.html) | Returns a `number`: the bitwise AND of `a` and `b` as 64-bit integers | [Collections & strings](collections-strings.md) |
@@ -146,6 +149,7 @@ program, and a misspelled call suggests the nearest match.
 | [`cheby2`](../fn/cheby2.html) | Returns a `Model` (kind `"filter"`, field `sos`) | [Signal processing](signal-processing.md) |
 | [`check_grads`](../fn/check_grads.html) | Verifies the analytic reverse-mode gradient of scalar-valued `f` at `x` against central finite differences of `f` itself — an independent route to the same number, which is the point: a.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`chi2cdf`](../fn/chi2cdf.html) | Chi-square cumulative distribution `P(X <= x)` at `x` (a number or vector, elementwise) with `k` degrees of freedom | [Statistics & ML](statistics-ml.md) |
+| [`chi2inv`](../fn/chi2inv.html) | Inverse of `chi2cdf`: the chi-square critical value with `k` degrees of freedom, `chi2inv(0.95, 1)` = 3.841 | [Statistics & ML](statistics-ml.md) |
 | [`chi2pdf`](../fn/chi2pdf.html) | Chi-square probability density at `x` (a number or vector, elementwise) with `k` degrees of freedom (a positive number), computed in log space so it survives modest `k` without overflowing | [Statistics & ML](statistics-ml.md) |
 | [`chirp`](../fn/chirp.html) | Identical to `sweep` above — same four positional arguments (start frequency, end frequency, sample rate, sample count) and the same `method=` (string, `"linear"` default or.. | [Plotting](plotting.md) |
 | [`chisquare`](../fn/chisquare.html) | Draws from the chi-square distribution with `k` degrees of freedom (a positive integer), same `rows`/`cols`/`seed=` shape as `rand` | [Statistics & ML](statistics-ml.md) |
@@ -301,10 +305,13 @@ program, and a misspelled call suggests the nearest match.
 | [`exec`](../fn/exec.html) | Runs `program` (a `Str`) and waits, capturing what it printed | [File I/O](file-io.md) |
 | [`exp`](../fn/exp.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
 | [`exp2`](../fn/exp2.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
+| [`expcdf`](../fn/expcdf.html) | Exponential cumulative distribution with mean `mu` (MATLAB's convention; note `exponential(rate)` draws take a rate) | [Statistics & ML](statistics-ml.md) |
+| [`expinv`](../fn/expinv.html) | Inverse of `expcdf`, `-mu * log(1 - p)` | [Statistics & ML](statistics-ml.md) |
 | [`explain`](../fn/explain.html) | The report says whether that function is running the fast register-only ("soft-compiled") tier or falls back to the ordinary tree-walking interpreter, and — when interpreted — which.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`explore`](../fn/explore.html) | Writes a self-contained HTML page to `path` (string) with one slider per parameter of function `"fn"` (string) | [Plotting](plotting.md) |
 | [`expm1`](../fn/expm1.html) | `e^x - 1`, computed so it stays accurate for `x` near zero (`expm1(1e-15)` does not lose precision to the cancellation that `exp(x) - 1` would hit there) | [Core maths](core-math.md) |
 | [`exponential`](../fn/exponential.html) | Exponential draws. `rate` (a positive number) is the rate, not the scale: the mean is `1/rate`, and NumPy instead takes `scale = 1/rate` directly, so a value copied from NumPy needs.. | [Statistics & ML](statistics-ml.md) |
+| [`exppdf`](../fn/exppdf.html) | Exponential probability density with mean `mu` | [Statistics & ML](statistics-ml.md) |
 | [`eye`](../fn/eye.html) | The `n×n` identity matrix (ones on the diagonal, zeros elsewhere) | [Core maths](core-math.md) |
 
 ## F
@@ -314,6 +321,7 @@ program, and a misspelled call suggests the nearest match.
 | [`f1`](../fn/f1.html) | Classification metrics on a length-`N` vector of true labels `actual` and a length-`N` vector of predicted labels `predicted`, each returning a single number macro-averaged over every class.. | [Statistics & ML](statistics-ml.md) |
 | [`fall_time`](../fn/fall_time.html) | Returns a single number: the transition time of the first complete rising (resp | [Signal processing](signal-processing.md) |
 | [`falling_edges`](../fn/falling_edges.html) | Returns a vector of the interpolated crossing positions of one polarity only — seconds for a `Signal`, samples otherwise (the same convention `find_pulses`'s `widths` field uses) | [Signal processing](signal-processing.md) |
+| [`fcdf`](../fn/fcdf.html) | F cumulative distribution at `x` with `d1` (numerator) and `d2` (denominator) degrees of freedom | [Statistics & ML](statistics-ml.md) |
 | [`fft`](../fn/fft.html) | On the FULL (two-sided) spectrum this returns, a real tone occupies TWO conjugate-symmetric bins, and scaling makes each of them independently read the tone's full peak amplitude (or RMS).. | [Signal processing](signal-processing.md) |
 | [`fftc`](../fn/fftc.html) | `rfft` returns a length-`floor(N/2)+1` complex vector, the one-sided half-spectrum; `fftc` returns a length-N complex vector, the full spectrum | [Signal processing](signal-processing.md) |
 | [`fftr`](../fn/fftr.html) | Deprecated — use `irfft`. The same function under a name that reads as `rfft`'s forward partner; it is actually `rfft`'s inverse, so the pair reads backwards | [Signal processing](signal-processing.md) |
@@ -340,6 +348,7 @@ program, and a misspelled call suggests the nearest match.
 | [`find_trigger`](../fn/find_trigger.html) | Returns a vector of 0-indexed integer sample indices, one per crossing, each being the first sample of the new state — a rising crossing at `i` means `x[i-1] < level <= x[i]` | [Signal processing](signal-processing.md) |
 | [`find_zero_crossings`](../fn/find_zero_crossings.html) | `find_trigger` at level zero. The default is both directions, unlike `find_trigger`'s own default: the zero-crossing rate is a count of every sign change, so `len(find_zero_crossings(x))`.. | [Signal processing](signal-processing.md) |
 | [`findpeaks`](../fn/findpeaks.html) | MATLAB-style `[peaks, locations] = findpeaks(x, ...)` | [Signal processing](signal-processing.md) |
+| [`finv`](../fn/finv.html) | Inverse of `fcdf` -- the F critical value: `finv(0.95, 5, 10)` = 3.326 | [Statistics & ML](statistics-ml.md) |
 | [`fir1`](../fn/fir1.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
 | [`firls`](../fn/firls.html) | Returns a `Model` (kind `"filter"`, field `b`, a length-`n+1` vector) | [Signal processing](signal-processing.md) |
 | [`first`](../fn/first.html) | Returns the first (`first`) or last (`last`) element (same element type as `xs` holds), or `none` when `xs` is empty | [Collections & strings](collections-strings.md) |
@@ -357,6 +366,7 @@ program, and a misspelled call suggests the nearest match.
 | [`foreground_mask`](../fn/foreground_mask.html) | Thresholds `img` at `level`, then applies `imopen(radius)` to remove noise specks | [Images](images.md) |
 | [`format`](../fn/format.html) | Interpolation (`{x:.2f}`) reads better inline; `format` is for a pattern held in a variable | [Collections & strings](collections-strings.md) |
 | [`forward`](../fn/forward.html) | Runs the forward algorithm on an `hmm` model `hmm` for a length-`T` integer observation-symbol sequence `obs` (each entry a 0-based column index into `emission`) | [Statistics & ML](statistics-ml.md) |
+| [`fpdf`](../fn/fpdf.html) | F probability density. Returns the same shape as `x` | [Statistics & ML](statistics-ml.md) |
 | [`freqz`](../fn/freqz.html) | Returns a length-`n` complex vector (`CVec`), the response `H(e^{jω})` at `n` points from DC to Nyquist inclusive | [Signal processing](signal-processing.md) |
 | [`fuzzy_pid_init`](../fn/fuzzy_pid_init.html) | A Mamdani fuzzy PD-type controller's initial state — the classic 2-input (`error`, `error_dot`), 1-output textbook fuzzy inference system | [Signal processing](signal-processing.md) |
 | [`fvtool`](../fn/fvtool.html) | MATLAB's Filter Visualization Tool: a 2x2 figure (magnitude response in dB, phase, group delay, impulse response) built from `freqz`/`group_delay`/`sosfilt` | [Signal processing](signal-processing.md) |
@@ -367,7 +377,10 @@ program, and a misspelled call suggests the nearest match.
 | | | |
 |---|---|---|
 | [`gain`](../fn/gain.html) | Returns the same shape as `x`, scaled by `10^(db/20)` — the AMPLITUDE convention, the same factor of 20 as `db2mag` | [Signal processing](signal-processing.md) |
+| [`gamcdf`](../fn/gamcdf.html) | Gamma cumulative distribution with shape `a` and scale `b` (mean `a*b`) -- MATLAB's parameterisation, not a rate | [Statistics & ML](statistics-ml.md) |
+| [`gaminv`](../fn/gaminv.html) | Inverse of `gamcdf`, same shape/scale parameters | [Statistics & ML](statistics-ml.md) |
 | [`gamma`](../fn/gamma.html) | The gamma function (`gamma(n) = (n-1)!` for a positive integer `n`) and its natural log (`lgamma(x) = ln\|gamma(x)\|`) | [Core maths](core-math.md) |
+| [`gampdf`](../fn/gampdf.html) | Gamma probability density, shape `a`, scale `b` | [Statistics & ML](statistics-ml.md) |
 | [`gaussian_process`](../fn/gaussian_process.html) | Gaussian-process regression on an `N`-row, `D`-column matrix `X` and a length-`N` target `y` | [Statistics & ML](statistics-ml.md) |
 | [`generate`](../fn/generate.html) | Runs greedy (argmax, no sampling knobs, no temperature) text completion on a model handle `model` from `llm_load`, given a string `prompt` and an integer cap `max_tokens` (default 64) on.. | [Statistics & ML](statistics-ml.md) |
 | [`gerischer`](../fn/gerischer.html) | `Zg/sqrt(k + jw)` — a coupled chemical reaction | [Signal processing](signal-processing.md) |
@@ -434,6 +447,8 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`ica`](../fn/ica.html) | The `(N, k)` recovered sources directly, as `pca(X, k)` sits beside `pca_model` | [Statistics & ML](statistics-ml.md) |
+| [`ica_model`](../fn/ica_model.html) | Independent component analysis (FastICA, logcosh contrast, symmetric decorrelation) recovering `k` sources from the `D` mixed columns of `X` | [Statistics & ML](statistics-ml.md) |
 | [`idct`](../fn/idct.html) | Returns a length-N real vector | [Signal processing](signal-processing.md) |
 | [`identity`](../fn/identity.html) | The `n×n` identity matrix (ones on the diagonal, zeros elsewhere) | [Core maths](core-math.md) |
 | [`idft`](../fn/idft.html) | Returns a length-N `CVec`. Inverse of `dft`, same O(n²) direct implementation | [Signal processing](signal-processing.md) |
@@ -525,6 +540,7 @@ program, and a misspelled call suggests the nearest match.
 | [`last_index_of`](../fn/last_index_of.html) | Returns a `number` (0-based character position of the last occurrence, searching from the end) or `none` if absent — so a miss cannot be mistaken for a position | [Collections & strings](collections-strings.md) |
 | [`layer_norm`](../fn/layer_norm.html) | Normalizes each row of an `N`-row, `D`-column matrix `x` independently to zero mean and unit variance, then applies a learned length-`D` per-feature scale `gamma` and shift `beta`, with.. | [Statistics & ML](statistics-ml.md) |
 | [`lcase`](../fn/lcase.html) | BASIC's names for `upper`/`lower`; `toupper`/`tolower` are C's names for the same thing | [Collections & strings](collections-strings.md) |
+| [`lda_model`](../fn/lda_model.html) | Linear discriminant analysis on an `N`-row, `D`-column `X` and a length-`N` vector of numeric class labels `y` (at least 2 classes) | [Statistics & ML](statistics-ml.md) |
 | [`least_squares`](../fn/least_squares.html) | Nonlinear least squares on a residual function you named, via Levenberg-Marquardt | [Core maths](core-math.md) |
 | [`left`](../fn/left.html) | The first `n` characters of a string | [Collections & strings](collections-strings.md) |
 | [`legend`](../fn/legend.html) | Shows or hides the key for the current panel | [Plotting](plotting.md) |
@@ -546,6 +562,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ln`](../fn/ln.html) | Natural logarithm, elementwise (`log` is an alias for `ln` — it is not base-10; see `log10` for that) | [Core maths](core-math.md) |
 | [`load`](../fn/load.html) | Restores every variable a `save`/`save_all` call wrote | [File I/O](file-io.md) |
 | [`load_image`](../fn/load_image.html) | Reads the file from disk and decodes it — PNG, BMP, JPEG and TIFF | [Images](images.md) |
+| [`load_library`](../fn/load_library.html) | Loads a native shared library (`.dll` on Windows, `.so` on Linux, `.dylib` on macOS) so its C functions can be called with `native_call` | [File I/O](file-io.md) |
 | [`load_model`](../fn/load_model.html) | Reads a model previously written by `save_model` back from the HDF5 file at the string `path` | [Statistics & ML](statistics-ml.md) |
 | [`load_svg`](../fn/load_svg.html) | Reads an SVG file back. Returns a `Record` with fields `width`, `height` (from the `width`/`height` attributes, falling back to the `viewBox` when those are absent or a percentage; absolute.. | [Images](images.md) |
 | [`log`](../fn/log.html) | Natural logarithm, elementwise (`log` is an alias for `ln` — it is not base-10; see `log10` for that) | [Core maths](core-math.md) |
@@ -633,6 +650,7 @@ program, and a misspelled call suggests the nearest match.
 | [`nadam`](../fn/nadam.html) | The Adam family of per-parameter adaptive-learning-rate optimizers, given `params` (a Tensor to optimize) and a learning rate `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
 | [`naive_bayes_model`](../fn/naive_bayes_model.html) | Gaussian naive Bayes classifier on an `N`-row, `D`-column `X` and a length-`N` categorical/integer target `y`, scored in log space so a product of small per-feature densities cannot.. | [Statistics & ML](statistics-ml.md) |
 | [`nand`](../fn/nand.html) | Returns a `bool`: logical NAND | [Collections & strings](collections-strings.md) |
+| [`native_call`](../fn/native_call.html) | Calls the C function `name` in a `load_library` handle, with its C `signature` stated as a string, because a library does not record its argument types | [File I/O](file-io.md) |
 | [`ncol`](../fn/ncol.html) | Returns a `number`: the column count | [Collections & strings](collections-strings.md) |
 | [`neighbors`](../fn/neighbors.html) | `has_edge(g, a, b)` returns a `bool`; `neighbors(g, name)` returns a `List` of `Str` node ids | [Collections & strings](collections-strings.md) |
 | [`nesterov_sgd`](../fn/nesterov_sgd.html) | Plain stochastic gradient descent (`sgd`) and its look-ahead variant (`nesterov_sgd`, which evaluates the gradient after applying the momentum step rather than before it), given `params` (a.. | [Statistics & ML](statistics-ml.md) |
@@ -643,6 +661,8 @@ program, and a misspelled call suggests the nearest match.
 | [`norm`](../fn/norm.html) | Euclidean (L2) norm; for a matrix this is the Frobenius norm (every element treated as one long vector), not a matrix operator norm | [Core maths](core-math.md) |
 | [`normal`](../fn/normal.html) | Draws from a Gaussian. `mu` (number) is the mean; `sigma` (number) is the standard deviation; `rows` and `cols` (numbers, optional) give the shape of the draw, one number for a vector and.. | [Statistics & ML](statistics-ml.md) |
 | [`normalize`](../fn/normalize.html) | Min-max scaling of `X` (a vector, an `N`-row/`D`-column matrix scaled column-wise, or a table scaled per numeric column) to `[0, 1]`: `(x - min) / (max - min)` | [Statistics & ML](statistics-ml.md) |
+| [`normcdf`](../fn/normcdf.html) | Normal cumulative distribution `P(X <= x)` at `x` (a number, vector or matrix, elementwise), mean `mu`, standard deviation `sigma` (positive) | [Statistics & ML](statistics-ml.md) |
+| [`norminv`](../fn/norminv.html) | Inverse of `normcdf`: the `x` with `normcdf(x) = p`, for probabilities `p` in `[0, 1]` (anything outside is an error, not NaN); `p = 0`/`1` give `-inf`/`inf` | [Statistics & ML](statistics-ml.md) |
 | [`normpdf`](../fn/normpdf.html) | Gaussian probability density at `x` (a number or vector, elementwise) with mean `mu` (default 0) and standard deviation `sigma` (default 1) | [Statistics & ML](statistics-ml.md) |
 | [`now`](../fn/now.html) | Returns the current time (UTC) as a `Record` with integer fields `.year`, `.month`, `.day`, `.hour`, `.minute`, `.second`, plus `.unix` (number, Unix epoch seconds, for arithmetic) and.. | [Concurrency](concurrency.md) |
 | [`nrow`](../fn/nrow.html) | Returns a `number`: the row count | [Collections & strings](collections-strings.md) |
@@ -699,6 +719,7 @@ program, and a misspelled call suggests the nearest match.
 | [`pinv`](../fn/pinv.html) | Moore-Penrose pseudo-inverse (SVD-based) of `A`, an `r×c` `Mat` or `CMat` | [Core maths](core-math.md) |
 | [`pipeline`](../fn/pipeline.html) | Composes one or more stage names (strings naming functions already defined in the program) into a single unfitted pipeline spec — every stage but the last must be a function `(X) -> X`; the.. | [Statistics & ML](statistics-ml.md) |
 | [`plot`](../fn/plot.html) | Draws a basic line (or, with a positional or `marker=` marker string such as `"o"`, a scatter-style) plot of `y` versus `x` | [Plotting](plotting.md) |
+| [`pls_model`](../fn/pls_model.html) | Partial least squares regression (PLS2, NIPALS) with `k` components on centered `X` (`N` x `D`) and `Y` (a length-`N` vector or an `N` x `Q` matrix) | [Statistics & ML](statistics-ml.md) |
 | [`pmap`](../fn/pmap.html) | Returns a `List`: `f` applied to every element | [Collections & strings](collections-strings.md) |
 | [`point`](../fn/point.html) | Marks a single position `(x, y)` (numbers, data units) with a dot | [Plotting](plotting.md) |
 | [`poisson`](../fn/poisson.html) | Exact Poisson draws. `lambda` (a positive number) is the rate, which is also the mean and the variance of the result; `rows` and `cols` (numbers, optional) give the shape of the draw, one.. | [Statistics & ML](statistics-ml.md) |
@@ -749,6 +770,7 @@ program, and a misspelled call suggests the nearest match.
 | [`q_learning`](../fn/q_learning.html) | Tabular temporal-difference learning on a `gridworld_env` `env` for an integer number of `episodes`, with learning rate `alpha`, discount factor `gamma`, and epsilon-greedy exploration rate.. | [Statistics & ML](statistics-ml.md) |
 | [`qam_demodulate`](../fn/qam_demodulate.html) | Nearest-constellation-point decision, the exact inverse of `qam_modulate` on clean symbols | [Signal processing](signal-processing.md) |
 | [`qam_modulate`](../fn/qam_modulate.html) | Maps each group of `log2(order)` bits to one point of the standard Gray-coded square constellation — the first half of the group labels the in-phase level, the second half the quadrature one | [Signal processing](signal-processing.md) |
+| [`qda_model`](../fn/qda_model.html) | Quadratic discriminant analysis: like `lda_model` but each class has its own covariance, so the boundaries are quadratic | [Statistics & ML](statistics-ml.md) |
 | [`qr`](../fn/qr.html) | Thin QR decomposition of `A` (`r×c` `Mat`), `A = Q·R` | [Core maths](core-math.md) |
 | [`quantile`](../fn/quantile.html) | Linear-interpolation quantile (NumPy's default `interpolation="linear"` method) | [Core maths](core-math.md) |
 | [`quantile_normalize`](../fn/quantile_normalize.html) | Rank-based scaling of `X` (vector, matrix column-wise, or table per numeric column): each value is replaced by its rank against its own column, rescaled uniform onto `[0, 1]` | [Statistics & ML](statistics-ml.md) |
@@ -810,7 +832,7 @@ program, and a misspelled call suggests the nearest match.
 | [`regex_find_all`](../fn/regex_find_all.html) | Returns a `List` of `Str` — every match, in order | [Collections & strings](collections-strings.md) |
 | [`regex_groups`](../fn/regex_groups.html) | Returns a `List` of `Str` — the capture groups of the first match, group 1 onward; a group that did not participate is an empty string | [Collections & strings](collections-strings.md) |
 | [`regex_match`](../fn/regex_match.html) | Returns a `bool`: whether the pattern occurs anywhere in `s` | [Collections & strings](collections-strings.md) |
-| [`regex_replace`](../fn/regex_replace.html) | `s`, `pattern` and `repl` are `Str`s; optional `count` (number, default: all occurrences) caps how many replacements are made. `$1` and `${name}` in `repl` refer to capture groups. Returns.. | [Collections & strings](collections-strings.md) |
+| [`regex_replace`](../fn/regex_replace.html) | Replaces every match of the regular expression `pattern` in `s` with `repl` | [Collections & strings](collections-strings.md) |
 | [`regex_split`](../fn/regex_split.html) | Returns a `List` of `Str`, split on every match of the pattern | [Collections & strings](collections-strings.md) |
 | [`regionprops`](../fn/regionprops.html) | Takes that result and returns a `List` of one `Record` per blob, in label-id order, each with fields: `label` (integer id), `area` (pixel count), `centroid_x`, `centroid_y` (real.. | [Images](images.md) |
 | [`regions`](../fn/regions.html) | Added in v0.2.4. The signal's regions as a list of records with `start`, `end` and `label`, in start order | [Signal processing](signal-processing.md) |
@@ -995,6 +1017,7 @@ program, and a misspelled call suggests the nearest match.
 | [`tan`](../fn/tan.html) | Standard trigonometric functions, computed elementwise | [Core maths](core-math.md) |
 | [`tanh`](../fn/tanh.html) | Hyperbolic sine/cosine/tangent, elementwise | [Core maths](core-math.md) |
 | [`tape_reset`](../fn/tape_reset.html) | Discards every entry recorded so far on the autodiff tape, freeing the memory a chain of `param`/`grad` calls has built up | [Statistics & ML](statistics-ml.md) |
+| [`tcdf`](../fn/tcdf.html) | Student t cumulative distribution at `t` with `nu` (positive, need not be an integer) degrees of freedom | [Statistics & ML](statistics-ml.md) |
 | [`tcp_accept`](../fn/tcp_accept.html) | Returns a `TcpListener` handle from `tcp_listen`, and a `TcpConn` handle from `tcp_accept` | [Concurrency](concurrency.md) |
 | [`tcp_close`](../fn/tcp_close.html) | `sock` must be a `TcpConn` handle (from `tcp_accept`/`tcp_connect`) — not a `TcpListener`; calling it on a listener errors, since a listener has no explicit close and simply releases its OS.. | [Concurrency](concurrency.md) |
 | [`tcp_connect`](../fn/tcp_connect.html) | `tcp_connect(host, port)`: `host` (string, hostname or IP) and `port` (integer 0-65535) — blocks until connected (or the OS gives up and errors), returning a `TcpConn` handle, the.. | [Concurrency](concurrency.md) |
@@ -1011,6 +1034,7 @@ program, and a misspelled call suggests the nearest match.
 | [`threshold`](../fn/threshold.html) | Elementwise binary threshold, general-purpose (not image-specific) | [Images](images.md) |
 | [`tic`](../fn/tic.html) | Starts (or restarts) the single global stopwatch | [REPL & diagnostics](repl-diagnostics.md) |
 | [`timestamps`](../fn/timestamps.html) | Added in v0.2.4. The absolute time axis as a vector, `start_time + i/Fs` for each sample | [Signal processing](signal-processing.md) |
+| [`tinv`](../fn/tinv.html) | Inverse of `tcdf` -- the t critical value: `tinv(0.975, 10)` is 2.228 | [Statistics & ML](statistics-ml.md) |
 | [`title`](../fn/title.html) | Sets the current panel's title to `text` (string) | [Plotting](plotting.md) |
 | [`tkeo`](../fn/tkeo.html) | Returns a length-`(N-2)` vector (like `diff`, doesn't pad — the definition needs a neighbor on each side) | [Signal processing](signal-processing.md) |
 | [`tmp_file`](../fn/tmp_file.html) | Creates a new empty file under the OS temp directory with a name nothing else will collide with (process id, nanosecond clock, and a counter — any one alone has a plausible collision window) | [File I/O](file-io.md) |
@@ -1029,6 +1053,7 @@ program, and a misspelled call suggests the nearest match.
 | [`tolower`](../fn/tolower.html) | Returns a `Str`: C's names for `upper`/`lower`, accepted so a ported line does not have to be edited | [Collections & strings](collections-strings.md) |
 | [`touch`](../fn/touch.html) | Unix `touch` semantics. `path` (string) is the filesystem path: creates an empty file if it doesn't exist; if it already exists, updates its modification time WITHOUT altering its content | [File I/O](file-io.md) |
 | [`toupper`](../fn/toupper.html) | Returns a `Str`: C's names for `upper`/`lower`, accepted so a ported line does not have to be edited | [Collections & strings](collections-strings.md) |
+| [`tpdf`](../fn/tpdf.html) | Student t probability density at `t` with `nu` degrees of freedom | [Statistics & ML](statistics-ml.md) |
 | [`trace`](../fn/trace.html) | The sum of the diagonal of `M`, a square (or rectangular — only `min(rows,cols)` diagonal entries are summed) `Mat` | [Core maths](core-math.md) |
 | [`track`](../fn/track.html) | Wraps a plain number, vector, or matrix `v` as a fresh, differentiable Tensor — a new leaf node on the autodiff tape with no inputs of its own, so `grad` treats it as something to.. | [Statistics & ML](statistics-ml.md) |
 | [`train_loop`](../fn/train_loop.html) | Runs the fit loop inside the engine rather than stepping it from Qu: `loss_fn_name` a string naming an in-scope function `(params) -> number`, `params` the Tensor (from `param(...)`) or.. | [Statistics & ML](statistics-ml.md) |
@@ -1175,6 +1200,86 @@ leaves the qualified one available too.
 | [`xlsx.read`](../fn/xlsx.read.html) | Reads one worksheet of a workbook into a `Table`, the same type `read_csv` produces, so everything that consumes a CSV consumes a spreadsheet unchanged | [File I/O](file-io.md) |
 | [`xlsx.sheets`](../fn/xlsx.sheets.html) | Names a workbook's worksheets without reading any of them, so a program can find out what it is holding before deciding what to load | [File I/O](file-io.md) |
 | [`xlsx.write`](../fn/xlsx.write.html) | Writes a `Table` out as a one-worksheet workbook | [File I/O](file-io.md) |
+| [`xlsx.new`](../fn/xlsx.new.html) | A new workbook with one empty sheet, `Sheet1` | [File I/O](file-io.md) |
+| [`xlsx.open`](../fn/xlsx.open.html) | Opens an existing workbook for editing in place and returns a handle (a small `Model`); every `xlsx.*` edit below changes the workbook behind it until `xlsx.save_as` | [File I/O](file-io.md) |
+| [`xlsx.save_as`](../fn/xlsx.save_as.html) | Writes the workbook to `path` (overwriting) | [File I/O](file-io.md) |
+| [`xlsx.discard`](../fn/xlsx.discard.html) | Releases the handle early; handles otherwise live until the run ends | [File I/O](file-io.md) |
+| [`xlsx.get_cell`](../fn/xlsx.get_cell.html) | The value of one cell, `cell` as Excel shows it (`"B3"`); `sheet` is a name or a 0-based index | [File I/O](file-io.md) |
+| [`xlsx.set_cell`](../fn/xlsx.set_cell.html) | Sets one cell to a number, string, boolean, or `none` (empty) | [File I/O](file-io.md) |
+| [`xlsx.formula`](../fn/xlsx.formula.html) | The formula in a cell without its leading `=`, or `none` | [File I/O](file-io.md) |
+| [`xlsx.set_formula`](../fn/xlsx.set_formula.html) | Stores a formula (the `=` is optional) | [File I/O](file-io.md) |
+| [`xlsx.fill_formula`](../fn/xlsx.fill_formula.html) | Stores `formula` in every cell of `range`, shifting its relative references from the range's first cell the way Excel's fill-down does (`$`-anchored parts, string literals and quoted sheet.. | [File I/O](file-io.md) |
+| [`xlsx.get_range`](../fn/xlsx.get_range.html) | A rectangular range (`"A1:C20"`) as a list of rows of cell values; with `numeric=true`, a matrix with `NaN` for anything that is not a number | [File I/O](file-io.md) |
+| [`xlsx.set_range`](../fn/xlsx.set_range.html) | Writes a `Table` (its column names first, unless `header=false`), a matrix, a vector (one column) or a list of rows, with its top-left corner at `anchor` | [File I/O](file-io.md) |
+| [`xlsx.used_range`](../fn/xlsx.used_range.html) | The smallest range covering every non-empty cell, e.g. `"A1:D20"`, or `none` for an empty sheet | [File I/O](file-io.md) |
+| [`xlsx.add_sheet`](../fn/xlsx.add_sheet.html) | Adds an empty sheet. `xlsx.rename_sheet(wb, sheet, new)` and `xlsx.delete_sheet(wb, sheet)` rename and remove (the last sheet cannot be removed) | [File I/O](file-io.md) |
+| [`xlsx.rename_sheet`](../fn/xlsx.rename_sheet.html) | not described in a chapter yet | |
+| [`xlsx.delete_sheet`](../fn/xlsx.delete_sheet.html) | not described in a chapter yet | |
+| [`xlsx.insert_rows`](../fn/xlsx.insert_rows.html) | Inserts `n` rows before 1-based `row`, shifting references | [File I/O](file-io.md) |
+| [`xlsx.delete_rows`](../fn/xlsx.delete_rows.html) | not described in a chapter yet | |
+| [`xlsx.insert_columns`](../fn/xlsx.insert_columns.html) | not described in a chapter yet | |
+| [`xlsx.delete_columns`](../fn/xlsx.delete_columns.html) | not described in a chapter yet | |
+| [`xlsx.column_width`](../fn/xlsx.column_width.html) | Column width in Excel's character units (0-255); `xlsx.row_height(wb, sheet, row, points)` sets a row's height | [File I/O](file-io.md) |
+| [`xlsx.row_height`](../fn/xlsx.row_height.html) | not described in a chapter yet | |
+| [`xlsx.format_cells`](../fn/xlsx.format_cells.html) | Formats every cell of `range`: colours as `#rrggbb`, `number_format` in Excel's own codes (`0.00`, `0.00E+00`, `yyyy-mm-dd`), `align` left/center/right | [File I/O](file-io.md) |
+| [`xlsx.merge`](../fn/xlsx.merge.html) | Merges a range into one cell | [File I/O](file-io.md) |
+| [`xlsx.freeze_panes`](../fn/xlsx.freeze_panes.html) | Freezes the rows above and the columns left of `cell`: `"A2"` keeps the header row in view, `"B2"` the header row and first column | [File I/O](file-io.md) |
+| [`xlsx.define_name`](../fn/xlsx.define_name.html) | A workbook-level defined name, e.g. `xlsx.define_name(wb, "Frequency", "Data!$A$2:$A$100")` | [File I/O](file-io.md) |
+| [`xlsx.to_pdf`](../fn/xlsx.to_pdf.html) | Converts the workbook to PDF through LibreOffice (see `docx.to_pdf`) | [File I/O](file-io.md) |
+| [`docx.new`](../fn/docx.new.html) | A new, empty A4 document with Normal, Title and Heading 1-3 styles | [File I/O](file-io.md) |
+| [`docx.open`](../fn/docx.open.html) | Opens a Word document for reading and editing and returns a handle | [File I/O](file-io.md) |
+| [`docx.save_as`](../fn/docx.save_as.html) | Writes the document (overwriting) | [File I/O](file-io.md) |
+| [`docx.discard`](../fn/docx.discard.html) | not described in a chapter yet | |
+| [`docx.full_text`](../fn/docx.full_text.html) | Every paragraph's text in document order -- body, tables, text boxes -- one per line, tabs and line breaks included | [File I/O](file-io.md) |
+| [`docx.paragraphs`](../fn/docx.paragraphs.html) | The body-level paragraphs as a `List` of `Str` | [File I/O](file-io.md) |
+| [`docx.headings`](../fn/docx.headings.html) | A `List` of `{level, text}` records for heading-styled paragraphs, resolved through the document's own style names (so a German `Überschrift 1` counts); the Title style is level 0 | [File I/O](file-io.md) |
+| [`docx.find_text`](../fn/docx.find_text.html) | Indices of the body paragraphs containing `text`, as a vector | [File I/O](file-io.md) |
+| [`docx.replace_text`](../fn/docx.replace_text.html) | Replaces `old` with `new` everywhere text lives -- body, tables, text boxes, headers, footers, footnotes, endnotes, comments -- even where Word split the text across formatting runs | [File I/O](file-io.md) |
+| [`docx.set_paragraph`](../fn/docx.set_paragraph.html) | Replaces body paragraph `i`'s text, keeping its paragraph style and its first run's character formatting | [File I/O](file-io.md) |
+| [`docx.insert_paragraph`](../fn/docx.insert_paragraph.html) | Inserts a paragraph so it becomes body paragraph `i`; takes the same keywords as `add_paragraph` | [File I/O](file-io.md) |
+| [`docx.remove_paragraph`](../fn/docx.remove_paragraph.html) | not described in a chapter yet | |
+| [`docx.add_heading`](../fn/docx.add_heading.html) | Appends a heading; level 0 is the Title style, 1-9 the Heading styles (created in the document's style sheet if it lacks them) | [File I/O](file-io.md) |
+| [`docx.add_paragraph`](../fn/docx.add_paragraph.html) | Appends a paragraph. `size` in points, `color` `#rrggbb`, `align` left/center/right/justify, `style` a paragraph style id (`Quote`) | [File I/O](file-io.md) |
+| [`docx.add_page_break`](../fn/docx.add_page_break.html) | Appends a page break | [File I/O](file-io.md) |
+| [`docx.add_table`](../fn/docx.add_table.html) | Appends a bordered table from a `Table` (its column names become a bold header row that repeats on each page), a matrix or a list of rows | [File I/O](file-io.md) |
+| [`docx.add_image`](../fn/docx.add_image.html) | Appends a PNG, JPEG or GIF as its own paragraph | [File I/O](file-io.md) |
+| [`docx.tables`](../fn/docx.tables.html) | Every body table as a list of rows of cell texts | [File I/O](file-io.md) |
+| [`docx.set_cell`](../fn/docx.set_cell.html) | not described in a chapter yet | |
+| [`docx.comments`](../fn/docx.comments.html) | `{author, date, text}` records | [File I/O](file-io.md) |
+| [`docx.footnotes`](../fn/docx.footnotes.html) | not described in a chapter yet | |
+| [`docx.endnotes`](../fn/docx.endnotes.html) | not described in a chapter yet | |
+| [`docx.info`](../fn/docx.info.html) | A record of the document properties (title, creator, created, modified, ...) plus counts: paragraphs, words, characters, tables, images, comments, headings | [File I/O](file-io.md) |
+| [`docx.set_info`](../fn/docx.set_info.html) | not described in a chapter yet | |
+| [`docx.accept_changes`](../fn/docx.accept_changes.html) | Accepts every tracked change (insertions kept, deletions dropped, formatting changes kept) in every part of the document; `docx.reject_changes(doc)` does the opposite | [File I/O](file-io.md) |
+| [`docx.reject_changes`](../fn/docx.reject_changes.html) | not described in a chapter yet | |
+| [`docx.to_markdown`](../fn/docx.to_markdown.html) | The content as Markdown: headings as `#`, tables as pipe tables, list paragraphs as `-` items | [File I/O](file-io.md) |
+| [`docx.to_latex`](../fn/docx.to_latex.html) | The content as LaTeX: Title as `\title`, headings as `\section`/`\subsection`, bold/italic/underline kept, list paragraphs as `itemize`, tables as `tabular`, images as `\includegraphics`,.. | [File I/O](file-io.md) |
+| [`docx.to_pdf`](../fn/docx.to_pdf.html) | Converts to PDF by running LibreOffice headless in a private profile (so it neither needs nor disturbs an open LibreOffice) | [File I/O](file-io.md) |
+| [`pptx.new`](../fn/pptx.new.html) | A new, empty 16:9 presentation with four layouts: Title Slide, Title and Content, Title Only, Blank | [File I/O](file-io.md) |
+| [`pptx.open`](../fn/pptx.open.html) | Opens a presentation for reading and editing and returns a handle -- surgical editing, as `docx.open` | [File I/O](file-io.md) |
+| [`pptx.save_as`](../fn/pptx.save_as.html) | Writes the presentation. Refused under `--sandbox` | [File I/O](file-io.md) |
+| [`pptx.discard`](../fn/pptx.discard.html) | not described in a chapter yet | |
+| [`pptx.info`](../fn/pptx.info.html) | Document properties plus `slides`, `width_mm`, `height_mm` and `layouts` | [File I/O](file-io.md) |
+| [`pptx.set_info`](../fn/pptx.set_info.html) | not described in a chapter yet | |
+| [`pptx.slide_count`](../fn/pptx.slide_count.html) | The number of slides. `pptx.slides(p)` returns every slide's text; `pptx.slide_text(p, i)` one slide's (a line per paragraph, tables included); `pptx.slide_title(p, i)` its title.. | [File I/O](file-io.md) |
+| [`pptx.slides`](../fn/pptx.slides.html) | not described in a chapter yet | |
+| [`pptx.slide_text`](../fn/pptx.slide_text.html) | not described in a chapter yet | |
+| [`pptx.slide_title`](../fn/pptx.slide_title.html) | not described in a chapter yet | |
+| [`pptx.notes`](../fn/pptx.notes.html) | not described in a chapter yet | |
+| [`pptx.find_text`](../fn/pptx.find_text.html) | Indices of the slides containing `text` | [File I/O](file-io.md) |
+| [`pptx.replace_text`](../fn/pptx.replace_text.html) | Replaces across every slide (and the speaker notes unless `notes=false`), across formatting runs, keeping each match's formatting | [File I/O](file-io.md) |
+| [`pptx.layouts`](../fn/pptx.layouts.html) | The layout names `add_slide` can use | [File I/O](file-io.md) |
+| [`pptx.add_slide`](../fn/pptx.add_slide.html) | Adds a slide from a layout (by name, case-insensitive, or index; default Title and Content), filling its title placeholder and its body placeholder (`body` a string, one bullet per line, or.. | [File I/O](file-io.md) |
+| [`pptx.delete_slide`](../fn/pptx.delete_slide.html) | Deletes a slide with its notes, and removes it from any section | [File I/O](file-io.md) |
+| [`pptx.move_slide`](../fn/pptx.move_slide.html) | not described in a chapter yet | |
+| [`pptx.duplicate_slide`](../fn/pptx.duplicate_slide.html) | not described in a chapter yet | |
+| [`pptx.hide_slide`](../fn/pptx.hide_slide.html) | not described in a chapter yet | |
+| [`pptx.unhide_slide`](../fn/pptx.unhide_slide.html) | not described in a chapter yet | |
+| [`pptx.add_text`](../fn/pptx.add_text.html) | Adds a text box to slide `i`. Positions are millimetres from the top-left corner or lengths (`20 mm`); `size` in points | [File I/O](file-io.md) |
+| [`pptx.add_image`](../fn/pptx.add_image.html) | Adds a PNG/JPEG/GIF; give one of `w`/`h` and the other follows the aspect ratio, neither and it is centred at 96 dpi | [File I/O](file-io.md) |
+| [`pptx.add_table`](../fn/pptx.add_table.html) | Adds a table (from a `Table`, matrix or list of rows) in PowerPoint's built-in Medium Style 2 | [File I/O](file-io.md) |
+| [`pptx.to_markdown`](../fn/pptx.to_markdown.html) | One `## Slide N: title` section per slide, the other text as bullets and the notes as a quote | [File I/O](file-io.md) |
+| [`pptx.to_pdf`](../fn/pptx.to_pdf.html) | Converts to PDF through LibreOffice, as `docx.to_pdf` | [File I/O](file-io.md) |
 | [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page | [File I/O](file-io.md) |
 | [`pdf.add_attachment`](../fn/pdf.add_attachment.html) | Embeds a file under `filename` | [File I/O](file-io.md) |
 | [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |

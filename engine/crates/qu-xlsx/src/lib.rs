@@ -18,6 +18,8 @@
 //! the same thing `read_csv` produces and every table builtin already
 //! understands.
 
+pub mod workbook;
+
 use calamine::{Data, Reader};
 
 /// A sheet as columns, ready for `Table::from_columns`.

@@ -43,8 +43,12 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # the same bar `xlsx`/`codec` do, and `import pdf` has to actually resolve
 # from the `qu` binary or the module is unreachable no matter how it is
 # built -- the exact failure found here in 2026-09-09.
-default = ["xlsx", "codec", "image", "pdf"]
+default = ["xlsx", "codec", "image", "pdf", "docx", "pptx"]
 xlsx = ["qu-interp/xlsx"]
+# The Office toolkit (docs/design/toolkit-office.md): pure Rust, same bar
+# as `xlsx`, so on by default for the same reason.
+docx = ["qu-interp/docx"]
+pptx = ["qu-interp/pptx"]
 codec = ["qu-interp/codec"]
 image = ["qu-interp/image"]
 pdf = ["qu-interp/pdf"]

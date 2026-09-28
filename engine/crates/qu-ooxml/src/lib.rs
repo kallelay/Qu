@@ -327,6 +327,107 @@ pub fn relative_target(source_part: &str, part: &str) -> String {
     out.join("/")
 }
 
+// ------------------------------------------------------------------ convert
+
+/// Where LibreOffice is: `QU_SOFFICE` if set, else `soffice`/`libreoffice`
+/// on PATH, else the standard install locations.
+pub fn find_office() -> Option<std::path::PathBuf> {
+    if let Ok(p) = std::env::var("QU_SOFFICE") {
+        let p = std::path::PathBuf::from(p);
+        return p.exists().then_some(p);
+    }
+    let exe = if cfg!(windows) { ["soffice.exe", "soffice.com"] } else { ["soffice", "libreoffice"] };
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            for e in exe {
+                let c = dir.join(e);
+                if c.is_file() {
+                    return Some(c);
+                }
+            }
+        }
+    }
+    let fixed: &[&str] = if cfg!(windows) {
+        &["C:\\Program Files\\LibreOffice\\program\\soffice.exe", "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe"]
+    } else if cfg!(target_os = "macos") {
+        &["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+    } else {
+        &["/usr/bin/soffice", "/usr/lib/libreoffice/program/soffice", "/opt/libreoffice/program/soffice"]
+    };
+    fixed.iter().map(std::path::PathBuf::from).find(|p| p.is_file())
+}
+
+/// Convert an Office file (`bytes`, of type `ext`) to `to` (`pdf`, `html`,
+/// `txt`, ...) by running LibreOffice headless in a private profile, so it
+/// neither needs nor disturbs a LibreOffice the user has open.
+///
+/// Laying out a document -- fonts, line breaking, pagination, floats -- is
+/// a word processor's whole job; this hands it to one rather than
+/// pretending to. No LibreOffice, no conversion: the error says how to get
+/// it rather than producing something that only looks like a PDF.
+pub fn convert_with_office(bytes: &[u8], ext: &str, to: &str, timeout_s: u64) -> Result<Vec<u8>, String> {
+    let office = find_office().ok_or(
+        "converting needs LibreOffice, which was not found -- install it (libreoffice.org), or point \
+         QU_SOFFICE at its soffice executable",
+    )?;
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("qu-office-{}-{n}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| format!("convert: cannot create a temporary folder: {e}"))?;
+    let cleanup = |r: Result<Vec<u8>, String>| {
+        let _ = std::fs::remove_dir_all(&dir);
+        r
+    };
+    let input = dir.join(format!("document.{ext}"));
+    if let Err(e) = std::fs::write(&input, bytes) {
+        return cleanup(Err(format!("convert: cannot write the temporary input: {e}")));
+    }
+    let profile = dir.join("profile");
+    let profile_url = format!("file:///{}", profile.to_string_lossy().replace('\\', "/").trim_start_matches('/'));
+    let mut child = match std::process::Command::new(&office)
+        .arg("--headless")
+        .arg("--norestore")
+        .arg("--nolockcheck")
+        .arg(format!("-env:UserInstallation={profile_url}"))
+        .arg("--convert-to")
+        .arg(to)
+        .arg("--outdir")
+        .arg(&dir)
+        .arg(&input)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => return cleanup(Err(format!("convert: could not start LibreOffice at `{}`: {e}", office.display()))),
+    };
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if start.elapsed().as_secs() >= timeout_s => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return cleanup(Err(format!("convert: LibreOffice took longer than {timeout_s} s and was stopped")));
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(50)),
+            Err(e) => return cleanup(Err(format!("convert: waiting for LibreOffice failed: {e}"))),
+        }
+    }
+    let mut stderr = String::new();
+    if let Some(mut s) = child.stderr.take() {
+        let _ = s.read_to_string(&mut stderr);
+    }
+    let out_ext = to.split(':').next().unwrap_or(to);
+    match std::fs::read(dir.join(format!("document.{out_ext}"))) {
+        Ok(b) => cleanup(Ok(b)),
+        Err(_) => {
+            let why = stderr.lines().filter(|l| !l.contains("javaldx")).collect::<Vec<_>>().join(" ");
+            cleanup(Err(format!("convert: LibreOffice produced no {out_ext} ({})", if why.trim().is_empty() { "no message" } else { why.trim() })))
+        }
+    }
+}
+
 // ------------------------------------------------------------------ images
 
 /// Pixel size and content type of a PNG, JPEG or GIF, from its header.

@@ -277,6 +277,126 @@ impl Document {
         out.join("\n\n") + "\n"
     }
 
+    /// LaTeX for the document's content: headings as sections, bold/
+    /// italic/underline runs, bullet paragraphs as `itemize`, tables as
+    /// `tabular`, images as `\includegraphics` of `figures/<name>`. Returns
+    /// the source and the image files it refers to (path, bytes), so the
+    /// caller can write them beside the `.tex`. Content, not layout: page
+    /// geometry and custom styles are not carried over, by design.
+    pub fn to_latex(&self, full: bool) -> (String, Vec<(String, Vec<u8>)>) {
+        let styles = self.style_names();
+        let rels = self.pkg.rels(&self.main).unwrap_or_default();
+        let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+        let mut body: Vec<String> = Vec::new();
+        let mut title: Option<String> = None;
+        let mut in_list = false;
+        for e in self.body().elems() {
+            let is_item = e.name == "w:p" && e.child("w:pPr").and_then(|p| p.child("w:numPr")).is_some();
+            if in_list && !is_item {
+                body.push("\\end{itemize}".into());
+                in_list = false;
+            }
+            match e.name.as_str() {
+                "w:p" => {
+                    let mut images = Vec::new();
+                    for d in e.find_all("w:drawing") {
+                        let rid = d.find_all("a:blip").first().and_then(|b| b.attr("r:embed")).map(String::from);
+                        let cx = d.find_all("wp:extent").first().and_then(|x| x.attr("cx")?.parse::<f64>().ok());
+                        if let (Some(rid), Some(r)) = (rid.as_deref(), rid.as_deref().and_then(|id| rels.iter().find(|r| r.id == id))) {
+                            let _ = rid;
+                            let part = qu_ooxml::resolve_target(&self.main, &r.target);
+                            if let Some(bytes) = self.pkg.get(&part) {
+                                let name = format!("figures/{}", part.rsplit('/').next().unwrap_or("image"));
+                                if !files.iter().any(|(n, _)| *n == name) {
+                                    files.push((name.clone(), bytes.to_vec()));
+                                }
+                                let width = cx.map(|c| format!("width={:.1}mm", c / qu_ooxml::EMU_PER_MM)).unwrap_or_else(|| "width=\\linewidth".into());
+                                images.push(format!("\\begin{{center}}\n\\includegraphics[{width}]{{{name}}}\n\\end{{center}}"));
+                            }
+                        }
+                    }
+                    let text = latex_runs(e);
+                    if text.trim().is_empty() {
+                        body.extend(images);
+                        continue;
+                    }
+                    match heading_level(e, &styles) {
+                        Some(0) => title = Some(text.trim().to_string()),
+                        Some(l) => {
+                            let cmd = match l {
+                                1 => "section",
+                                2 => "subsection",
+                                3 => "subsubsection",
+                                _ => "paragraph",
+                            };
+                            body.push(format!("\\{cmd}{{{}}}", text.trim()));
+                        }
+                        None if is_item => {
+                            if !in_list {
+                                body.push("\\begin{itemize}".into());
+                                in_list = true;
+                            }
+                            body.push(format!("  \\item {}", text.trim()));
+                        }
+                        None => {
+                            let align = e.child("w:pPr").and_then(|p| p.child("w:jc")).and_then(|j| j.attr("w:val"));
+                            body.push(match align {
+                                Some("center") => format!("\\begin{{center}}\n{text}\n\\end{{center}}"),
+                                Some("right") | Some("end") => format!("\\begin{{flushright}}\n{text}\n\\end{{flushright}}"),
+                                _ => text,
+                            });
+                        }
+                    }
+                    body.extend(images);
+                }
+                "w:tbl" => {
+                    let rows: Vec<Vec<String>> = e
+                        .elems()
+                        .filter(|r| r.name == "w:tr")
+                        .map(|r| r.elems().filter(|c| c.name == "w:tc").map(|c| c.elems().filter(|p| p.name == "w:p").map(latex_runs).collect::<Vec<_>>().join(" \\newline ")).collect())
+                        .collect();
+                    let ncols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+                    if ncols == 0 {
+                        continue;
+                    }
+                    let mut t = format!("\\begin{{center}}\n\\begin{{tabular}}{{|{}|}}\n\\hline", vec!["l"; ncols].join("|"));
+                    for r in &rows {
+                        let mut cells = r.clone();
+                        cells.resize(ncols, String::new());
+                        t.push_str(&format!("\n{} \\\\ \\hline", cells.join(" & ")));
+                    }
+                    t.push_str("\n\\end{tabular}\n\\end{center}");
+                    body.push(t);
+                }
+                _ => {}
+            }
+        }
+        if in_list {
+            body.push("\\end{itemize}".into());
+        }
+        let content = body.join("\n\n");
+        if !full {
+            return (content + "\n", files);
+        }
+        let props = self.pkg.core_properties();
+        let prop = |k: &str| props.iter().find(|(n, _)| n == k).map(|(_, v)| v.trim().to_string()).filter(|v| !v.is_empty());
+        let title = title.or_else(|| prop("title").map(|t| latex_escape(&t)));
+        let mut doc = String::from(
+            "\\documentclass[11pt,a4paper]{article}\n\\usepackage[utf8]{inputenc}\n\\usepackage[T1]{fontenc}\n\\usepackage{lmodern}\n\\usepackage{graphicx}\n\\usepackage[margin=25mm]{geometry}\n\\usepackage[hidelinks]{hyperref}\n",
+        );
+        if let Some(t) = &title {
+            doc.push_str(&format!("\\title{{{t}}}\n"));
+            doc.push_str(&format!("\\author{{{}}}\n\\date{{}}\n", prop("creator").map(|a| latex_escape(&a)).unwrap_or_default()));
+        }
+        doc.push_str("\n\\begin{document}\n");
+        if title.is_some() {
+            doc.push_str("\\maketitle\n\n");
+        }
+        doc.push_str(&content);
+        doc.push_str("\n\n\\end{document}\n");
+        (doc, files)
+    }
+
     // ------------------------------------------------------------ editing
 
     /// Replace `old` with `new` everywhere text lives: body, tables, text
@@ -644,6 +764,79 @@ fn para_display_text(p: &Element) -> String {
     s
 }
 
+/// LaTeX special characters escaped for running text.
+pub fn latex_escape(s: &str) -> String {
+    let mut o = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => o.push_str("\\textbackslash{}"),
+            '{' | '}' | '$' | '&' | '#' | '_' | '%' => {
+                o.push('\\');
+                o.push(c);
+            }
+            '^' => o.push_str("\\textasciicircum{}"),
+            '~' => o.push_str("\\textasciitilde{}"),
+            '<' => o.push_str("\\textless{}"),
+            '>' => o.push_str("\\textgreater{}"),
+            _ => o.push(c),
+        }
+    }
+    o
+}
+
+/// A paragraph's runs as LaTeX, keeping bold/italic/underline and line
+/// breaks, adjacent runs of the same formatting merged.
+fn latex_runs(p: &Element) -> String {
+    fn on(rpr: Option<&Element>, tag: &str) -> bool {
+        rpr.and_then(|r| r.child(tag)).is_some_and(|b| !matches!(b.attr("w:val"), Some("0") | Some("false") | Some("none")))
+    }
+    let mut segs: Vec<((bool, bool, bool), String)> = Vec::new();
+    fn walk(e: &Element, segs: &mut Vec<((bool, bool, bool), String)>) {
+        for c in e.elems() {
+            match c.name.as_str() {
+                "w:r" => {
+                    let rpr = c.child("w:rPr");
+                    let fmt = (on(rpr, "w:b"), on(rpr, "w:i"), on(rpr, "w:u"));
+                    let mut text = String::new();
+                    for x in c.elems() {
+                        match x.name.as_str() {
+                            "w:t" => text.push_str(&latex_escape(&x.text())),
+                            "w:tab" => text.push_str("\\quad "),
+                            "w:br" if x.attr("w:type") != Some("page") => text.push_str("\\\\\n"),
+                            _ => {}
+                        }
+                    }
+                    match segs.last_mut() {
+                        Some((f, s)) if *f == fmt => s.push_str(&text),
+                        _ => segs.push((fmt, text)),
+                    }
+                }
+                "w:p" | "w:del" | "w:moveFrom" | "w:drawing" => {}
+                _ => walk(c, segs),
+            }
+        }
+    }
+    walk(p, &mut segs);
+    segs.into_iter()
+        .map(|((b, i, u), s)| {
+            if s.trim().is_empty() {
+                return s;
+            }
+            let mut s = s;
+            if u {
+                s = format!("\\underline{{{s}}}");
+            }
+            if i {
+                s = format!("\\textit{{{s}}}");
+            }
+            if b {
+                s = format!("\\textbf{{{s}}}");
+            }
+            s
+        })
+        .collect()
+}
+
 fn heading_level(p: &Element, styles: &[(String, String)]) -> Option<u32> {
     let ppr = p.child("w:pPr")?;
     if let Some(id) = ppr.child("w:pStyle").and_then(|s| s.attr("w:val")) {
@@ -877,6 +1070,29 @@ mod tests {
         let mut r = make();
         r.resolve_changes(false).unwrap();
         assert_eq!(r.paragraphs()[0], "keep old");
+    }
+
+    #[test]
+    fn latex_keeps_structure_and_escapes() {
+        let mut d = Document::new();
+        d.add_heading("A & B report", 0).unwrap();
+        d.add_heading("Results", 1).unwrap();
+        d.add_paragraph("Z = 50% of R_1 in $", &Format { bold: true, ..Format::default() }).unwrap();
+        d.add_table(&[vec!["f".into(), "Z".into()], vec!["1".into(), "2".into()]], true).unwrap();
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+        png.extend_from_slice(&100u32.to_be_bytes());
+        png.extend_from_slice(&50u32.to_be_bytes());
+        d.add_image(&png, Some(60.0), None).unwrap();
+        let (tex, files) = d.to_latex(true);
+        assert!(tex.contains("\\title{A \\& B report}"), "{tex}");
+        assert!(tex.contains("\\section{Results}"));
+        assert!(tex.contains("\\textbf{Z = 50\\% of R\\_1 in \\$}"), "{tex}");
+        assert!(tex.contains("\\begin{tabular}{|l|l|}") && tex.contains("\\textbf{f} & \\textbf{Z} \\\\ \\hline"), "{tex}");
+        assert!(tex.contains("\\includegraphics[width=60.0mm]{figures/image1.png}"), "{tex}");
+        assert_eq!(files.len(), 1);
+        assert!(tex.starts_with("\\documentclass") && tex.trim_end().ends_with("\\end{document}"));
+        let (body, _) = d.to_latex(false);
+        assert!(!body.contains("\\documentclass"));
     }
 
     #[test]

@@ -9,10 +9,10 @@ Ahmed's broader "Utopic ... Specification" (`specs.md`) too — this session
 doesn't have visibility into that file's current state, so not merged in
 here.
 
-**Status**: pure roadmap for DOCX and PPTX (no crate exists yet). XLSX is
-partially shipped already — see "What's already real" below — and this
-doc is mostly roadmap for XLSX too, since what's shipped covers only bulk
-read/write, not the rich cell/formula/chart API sketched here.
+**Status (2026-09-28, v0.4.3)**: implemented as `import docx`, `import
+pptx`, and workbook editing in `import xlsx` -- see "What shipped" at the
+end. The sections between are the original roadmap, kept as written; the
+parts not yet built are listed there too.
 
 **Ahmed's own framing, and why it's right**: "we probably need to have
 them as lib files not core!" This matches the repo's own standing policy
@@ -419,3 +419,64 @@ File
 ├── Office (Docx / Pptx / Xlsx)
 └── ML/Data
 ```
+
+
+## What shipped (2026-09-28)
+
+**Crates.** `qu-ooxml` (new, shared): the OPC package as ordered parts,
+an XML tree that round-trips what it parsed (comments, PIs, attribute
+order, unknown elements), relationships, content types, core properties,
+image sizing, and find/replace that works across formatting runs.
+`qu-docx` and `qu-pptx` (new) build on it. `qu-xlsx` gains
+`umya-spreadsheet` for in-place editing, beside `calamine`/
+`rust_xlsxwriter`. Features `docx`/`pptx` in `qu-interp` (default off),
+on by default in `qu-cli` alongside `xlsx`/`pdf`.
+
+**The safety split, as decided above.** Every edit is surgical: only the
+parts an operation touches are re-serialized; everything else is written
+back byte for byte (tested: an unknown `customXml` part and the theme
+survive edits unchanged). `office_oxide`/`docx-rs`/`pptx` were not
+adopted -- the in-house layer is ~600 lines with one dependency (`zip`),
+and it keeps the "never rebuild from a model" rule under our control.
+
+**Qu surface** (book: file-io, "Office documents"): documents are
+handles (`doc = docx.open(p)` ... `docx.save_as(doc, p)`), because a
+document is a mutable thing with identity. Names avoid every builtin
+(`save_as`, `get_cell`, `full_text`, `slide_title`, `format_cells`)
+because `import` opens module names bare and a clash would make the
+builtin ambiguous. Lengths are millimetres or length quantities (`20 mm`,
+`2 cm`); font sizes points (Qu has no `pt` unit yet).
+
+- DOCX: full_text, paragraphs, headings (style-name aware), find/replace
+  across all story parts, set/insert/remove paragraph, add heading/
+  paragraph (formatting)/table/image/page break, tables + set_cell,
+  comments, footnotes/endnotes, info/set_info, accept/reject tracked
+  changes, to_markdown, **to_latex** (sections, runs, lists, tabular,
+  figures extracted), **to_pdf**.
+- PPTX: slide text/title/notes, find/replace (+notes), add slide from a
+  layout with title/body placeholders, delete/move/duplicate/hide slides,
+  text boxes, images and tables at mm positions, info, to_markdown,
+  **to_pdf**, new decks from a built-in 16:9 template.
+- XLSX workbooks: open/new/save_as, get/set cell, formula/set_formula/
+  fill_formula (relative-reference shifting), get/set range, used_range,
+  add/rename/delete sheets, insert/delete rows and columns, widths/
+  heights, format_cells, merge, freeze_panes, define_name, **to_pdf**.
+
+**PDF conversion** runs LibreOffice headless in a private profile
+(`qu_ooxml::convert_with_office`). Laying out a document is a word
+processor's job; Qu hands it to one and says so when none is installed
+(`QU_SOFFICE` overrides discovery). Refused under `--sandbox`, like
+`exec`.
+
+**Validation.** Generated files were opened by LibreOffice (rendered to
+PDF and inspected) and by python-docx/python-pptx/openpyxl as independent
+readers. Not yet opened in Microsoft Office itself.
+
+**Not built yet** (from the roadmap above): charts (Excel XY/Nyquist
+convenience charts, PowerPoint charts), conditional formatting and data
+validation, pivot tables, DOCX sections/headers/footers editing and page
+setup, lists/numbering creation, cross-references/fields/TOC, PPTX
+animations/masters/themes editing and speaker-notes creation on a slide
+that has none, rendering a PDF page to an image (needs PDFium or MuPDF --
+see `toolkit-pdf.md`), and formula evaluation (formulas are stored and
+calculated by Excel/LibreOffice on open).

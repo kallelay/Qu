@@ -444,8 +444,8 @@ do both well.
 |---|---|---|
 | `exec` | `exec(program, [args], [shell=], [cwd=], [stdin=])` | Runs `program` (a `Str`) and **waits**, capturing what it printed. `args` is an optional `List` of arguments passed to the OS as separate items — not joined into a command line and re-split — so a path with a space in it needs no quoting rule. `shell=true` instead reads `program` as a whole command line for `cmd /C` (Windows) or `sh -c`, so pipes and `&&` work. `cwd=` (a `Str`) runs it in that directory without moving the caller. `stdin=` (a `Str`) is written to the program's input, which is then closed, so a program reading to EOF gets exactly that and does not hang. Returns a `Record` with `stdout` (a `Str`), `stderr` (a `Str`), `success` (a `Bool`) and `exit_code` (a `Num`) — the same four fields `python_exec`/`js_exec`/`matlab_exec` already give back. |
 | `shell` | `shell(command, [style])` | Hands `command` (a `Str`) to the OS shell and returns **immediately**, without waiting — Visual Basic's `Shell`, which is where the window styles come from too. `style` (an optional `Str`, positional or `style=`) is one of `"normal"` (the default), `"hidden"` (also spelled `"ghost"`), `"minimized"` or `"maximized"`. Returns a `Num`: the process id. |
-| `load_library` | `load_library(path)` | Loads a native shared library (`.dll` on Windows, `.so` on Linux, `.dylib` on macOS) so its C functions can be called with `native_call`. Loading runs the library's own initialisation code, and the library stays loaded until the process exits. Refused under `qu run --sandbox`. Returns a library handle. Added in v0.4.1. |
-| `native_call` | `native_call(lib, name, signature, args...)` | Calls the C function `name` in a `load_library` handle, with its C `signature` stated as a string, because a library does not record its argument types. Three shapes are supported: scalars, `R(T, ...)` with 0-6 arguments all of one type `T` in `double`/`int32`/`int64` and `R` one of those or `void` (`"double(double, double)"`); an array kernel, `R(double*, N)` with `N` `int32` or `int64`, which receives a copy of a vector and its length, `void` returning the modified copy (`"void(double*, int32)"`); and an array transform, `void(double*, double*, N)`, input and same-length output, returning the output. Any other signature is refused before any native code runs. A wrong signature is undefined behaviour and a crash in the library ends the interpreter -- `try` cannot catch it. Callable as `lib.native_call(...)`. Refused under `--sandbox`. Added in v0.4.1. |
+| `load_library` | `load_library(path)` | Loads a native shared library (`.dll` on Windows, `.so` on Linux, `.dylib` on macOS) so its C functions can be called with `native_call`. Loading runs the library's own initialisation code, and the library stays loaded until the process exits. Refused under `qu run --sandbox`. Returns a library handle. Added in v0.4.3. |
+| `native_call` | `native_call(lib, name, signature, args...)` | Calls the C function `name` in a `load_library` handle, with its C `signature` stated as a string, because a library does not record its argument types. Three shapes are supported: scalars, `R(T, ...)` with 0-6 arguments all of one type `T` in `double`/`int32`/`int64` and `R` one of those or `void` (`"double(double, double)"`); an array kernel, `R(double*, N)` with `N` `int32` or `int64`, which receives a copy of a vector and its length, `void` returning the modified copy (`"void(double*, int32)"`); and an array transform, `void(double*, double*, N)`, input and same-length output, returning the output. Any other signature is refused before any native code runs. A wrong signature is undefined behaviour and a crash in the library ends the interpreter -- `try` cannot catch it. Callable as `lib.native_call(...)`. Refused under `--sandbox`. Added in v0.4.3. |
 
 **A program that fails is not a Qu error.** A non-zero exit comes back as
 `success = false`, not as an exception — `exec("git", ("diff",
@@ -606,7 +606,7 @@ alias set, see the `with <module> ... end` block form in the
 etc. the same way, for any module and any of its functions, not just
 `table`/`timer`/`signals`.
 
-## Native Modules: `xlsx`, `codec` and `pdf`
+## Native Modules: `xlsx`, `codec`, `pdf`, `docx` and `pptx`
 
 These are not builtins, and `builtins()` does not list them. They are
 modules compiled into the engine, and a program reaches them through
@@ -958,6 +958,127 @@ end
 
 None of the `pdf` examples here are run by the build: they need document
 files that are not in the repository.
+
+### Office documents: `docx`, `pptx`, and editing workbooks with `xlsx`
+
+Word documents, PowerPoint presentations and Excel workbooks, opened as
+**handles** and edited in place. `doc = docx.open("paper.docx")` returns a
+small handle value; every edit changes the document behind it, and
+`docx.save_as(doc, path)` writes it out. This is file-handle semantics on
+purpose: a document is a mutable thing with an identity, like an open file.
+
+The editing is *surgical* (see `docs/design/toolkit-office.md`). The
+original package is kept, only the parts an operation touches are
+rewritten, and everything else a file holds -- themes, fonts, embedded
+objects, macros, custom XML, vendor extensions -- is written back byte for
+byte. That is the difference between editing someone's thesis and
+reconstructing a lookalike of it.
+
+The function names never coincide with a builtin (`save_as`, not `save`;
+`get_cell`, not `get`), so importing these modules never makes a builtin
+ambiguous.
+
+```qu,ignore
+import docx
+import pptx
+import xlsx
+
+doc = docx.open("paper.docx")
+docx.replace_text(doc, "2025", "2026")
+docx.add_heading(doc, "Results", 1)
+docx.add_paragraph(doc, "The measured impedance was 42.3 ohm.", bold = true)
+docx.add_table(doc, table(f = [1000, 2000], Z = [42.3, 40.1]))
+docx.add_image(doc, "nyquist.png", width = 12 cm)
+docx.save_as(doc, "paper_2026.docx")
+docx.to_pdf(doc, "paper_2026.pdf")          # needs LibreOffice
+docx.to_latex(doc, "latex/paper.tex")       # images go to latex/figures/
+
+p = pptx.open("lecture.pptx")
+s = pptx.add_slide(p, title = "Impedance Spectroscopy", body = ["Nyquist", "Bode"])
+pptx.add_image(p, s, "eis.png", x = 120 mm, y = 40 mm, w = 100 mm)
+pptx.save_as(p, "lecture_new.pptx")
+
+wb = xlsx.open("results.xlsx")
+xlsx.set_cell(wb, "Results", "A1", "Frequency")
+xlsx.fill_formula(wb, "Results", "C2:C100", "=A2*B2")
+xlsx.freeze_panes(wb, "Results", "A2")
+xlsx.save_as(wb, "results_new.xlsx")
+```
+
+#### Word: `docx`
+
+| Function | Signature | Description |
+|---|---|---|
+| `docx.open` <br> *Added in v0.4.3* | `docx.open(path)` | Opens a Word document for reading and editing and returns a handle. Editing is surgical: only the parts an operation changes are rewritten, and everything else -- themes, fonts, embedded objects, custom XML, macros, extensions Qu has never heard of -- is written back byte for byte. |
+| `docx.new` <br> *Added in v0.4.3* | `docx.new()` | A new, empty A4 document with Normal, Title and Heading 1-3 styles. Returns a handle. |
+| `docx.save_as` <br> *Added in v0.4.3* | `docx.save_as(doc, path)` | Writes the document (overwriting). Refused under `--sandbox`. `docx.discard(doc)` releases the handle early. |
+| `docx.full_text` <br> *Added in v0.4.3* | `docx.full_text(doc)` | Every paragraph's text in document order -- body, tables, text boxes -- one per line, tabs and line breaks included. |
+| `docx.paragraphs` <br> *Added in v0.4.3* | `docx.paragraphs(doc)` | The body-level paragraphs as a `List` of `Str`. Their positions are the indices `set_paragraph`/`insert_paragraph`/`remove_paragraph` use (0-based). |
+| `docx.headings` <br> *Added in v0.4.3* | `docx.headings(doc)` | A `List` of `{level, text}` records for heading-styled paragraphs, resolved through the document's own style names (so a German `Überschrift 1` counts); the Title style is level 0. |
+| `docx.find_text` <br> *Added in v0.4.3* | `docx.find_text(doc, text)` | Indices of the body paragraphs containing `text`, as a vector. |
+| `docx.replace_text` <br> *Added in v0.4.3* | `docx.replace_text(doc, old, new)` | Replaces `old` with `new` everywhere text lives -- body, tables, text boxes, headers, footers, footnotes, endnotes, comments -- even where Word split the text across formatting runs. The replacement keeps the formatting of the run each match starts in. Returns the number of replacements. |
+| `docx.set_paragraph` <br> *Added in v0.4.3* | `docx.set_paragraph(doc, i, text)` | Replaces body paragraph `i`'s text, keeping its paragraph style and its first run's character formatting. |
+| `docx.insert_paragraph` <br> *Added in v0.4.3* | `docx.insert_paragraph(doc, i, text, [formatting])` | Inserts a paragraph so it becomes body paragraph `i`; takes the same keywords as `add_paragraph`. `docx.remove_paragraph(doc, i)` deletes one. |
+| `docx.add_heading` <br> *Added in v0.4.3* | `docx.add_heading(doc, text, [level=1])` | Appends a heading; level 0 is the Title style, 1-9 the Heading styles (created in the document's style sheet if it lacks them). |
+| `docx.add_paragraph` <br> *Added in v0.4.3* | `docx.add_paragraph(doc, text, [bold=], [italic=], [underline=], [size=], [font=], [color=], [align=], [style=])` | Appends a paragraph. `size` in points, `color` `#rrggbb`, `align` left/center/right/justify, `style` a paragraph style id (`Quote`). `\n` in `text` is a line break, `\t` a tab. |
+| `docx.add_table` <br> *Added in v0.4.3* | `docx.add_table(doc, data, [header=])` | Appends a bordered table from a `Table` (its column names become a bold header row that repeats on each page), a matrix or a list of rows. |
+| `docx.add_image` <br> *Added in v0.4.3* | `docx.add_image(doc, path, [width=], [height=])` | Appends a PNG, JPEG or GIF as its own paragraph. `width`/`height` are millimetres or lengths (`6 cm`); give one and the other follows the aspect ratio, neither and it is placed at 96 dpi capped to the text width. |
+| `docx.add_page_break` <br> *Added in v0.4.3* | `docx.add_page_break(doc)` | Appends a page break. |
+| `docx.tables` <br> *Added in v0.4.3* | `docx.tables(doc)` | Every body table as a list of rows of cell texts. `docx.set_cell(doc, table, row, col, text)` changes one cell (all 0-based), keeping its formatting. |
+| `docx.comments` <br> *Added in v0.4.3* | `docx.comments(doc)` | `{author, date, text}` records. `docx.footnotes(doc)` and `docx.endnotes(doc)` return the notes' texts. |
+| `docx.info` <br> *Added in v0.4.3* | `docx.info(doc)` | A record of the document properties (title, creator, created, modified, ...) plus counts: paragraphs, words, characters, tables, images, comments, headings. `docx.set_info(doc, title=, author=, subject=, keywords=, description=, category=)` sets them. |
+| `docx.accept_changes` <br> *Added in v0.4.3* | `docx.accept_changes(doc)` | Accepts every tracked change (insertions kept, deletions dropped, formatting changes kept) in every part of the document; `docx.reject_changes(doc)` does the opposite. Returns the number of revision marks resolved. |
+| `docx.to_markdown` <br> *Added in v0.4.3* | `docx.to_markdown(doc)` | The content as Markdown: headings as `#`, tables as pipe tables, list paragraphs as `-` items. |
+| `docx.to_latex` <br> *Added in v0.4.3* | `docx.to_latex(doc, [path], [full=true])` | The content as LaTeX: Title as `\title`, headings as `\section`/`\subsection`, bold/italic/underline kept, list paragraphs as `itemize`, tables as `tabular`, images as `\includegraphics`, special characters escaped. With `path`, writes the `.tex` and the images into `figures/` beside it. `full=false` returns the body only, for `\input`. Content, not appearance: page layout and custom styles are not carried over. Returns the source. |
+| `docx.to_pdf` <br> *Added in v0.4.3* | `docx.to_pdf(doc, path, [timeout=300])` | Converts to PDF by running LibreOffice headless in a private profile (so it neither needs nor disturbs an open LibreOffice). Laying out a document is a word processor's whole job, so Qu hands it to one: no LibreOffice, no conversion, and the error says how to get it (or set `QU_SOFFICE` to its `soffice` executable). Refused under `--sandbox`. Returns the PDF's size in bytes. |
+
+#### PowerPoint: `pptx`
+
+| Function | Signature | Description |
+|---|---|---|
+| `pptx.open` <br> *Added in v0.4.3* | `pptx.open(path)` | Opens a presentation for reading and editing and returns a handle -- surgical editing, as `docx.open`. Slides are numbered from 0 in the order PowerPoint shows them. |
+| `pptx.new` <br> *Added in v0.4.3* | `pptx.new()` | A new, empty 16:9 presentation with four layouts: Title Slide, Title and Content, Title Only, Blank. |
+| `pptx.save_as` <br> *Added in v0.4.3* | `pptx.save_as(p, path)` | Writes the presentation. Refused under `--sandbox`. `pptx.discard(p)` releases the handle. |
+| `pptx.slide_count` <br> *Added in v0.4.3* | `pptx.slide_count(p)` | The number of slides. `pptx.slides(p)` returns every slide's text; `pptx.slide_text(p, i)` one slide's (a line per paragraph, tables included); `pptx.slide_title(p, i)` its title placeholder's text or `none`; `pptx.notes(p, i)` its speaker notes. |
+| `pptx.find_text` <br> *Added in v0.4.3* | `pptx.find_text(p, text)` | Indices of the slides containing `text`. |
+| `pptx.replace_text` <br> *Added in v0.4.3* | `pptx.replace_text(p, old, new, [notes=true])` | Replaces across every slide (and the speaker notes unless `notes=false`), across formatting runs, keeping each match's formatting. Returns the count. |
+| `pptx.layouts` <br> *Added in v0.4.3* | `pptx.layouts(p)` | The layout names `add_slide` can use. |
+| `pptx.add_slide` <br> *Added in v0.4.3* | `pptx.add_slide(p, [layout=], [title=], [body=], [at=])` | Adds a slide from a layout (by name, case-insensitive, or index; default Title and Content), filling its title placeholder and its body placeholder (`body` a string, one bullet per line, or a list). `at` inserts at that position instead of appending. Returns the new slide's index. |
+| `pptx.delete_slide` <br> *Added in v0.4.3* | `pptx.delete_slide(p, i)` | Deletes a slide with its notes, and removes it from any section. `pptx.move_slide(p, from, to)` reorders; `pptx.duplicate_slide(p, i)` copies a slide (without its notes) right after itself and returns the copy's index; `pptx.hide_slide`/`pptx.unhide_slide(p, i)` skip it in the slide show. |
+| `pptx.add_text` <br> *Added in v0.4.3* | `pptx.add_text(p, i, text, [x=], [y=], [w=100], [h=20], [size=], [bold=], [italic=], [color=], [font=], [align=])` | Adds a text box to slide `i`. Positions are millimetres from the top-left corner or lengths (`20 mm`); `size` in points. Newlines start new paragraphs. |
+| `pptx.add_image` <br> *Added in v0.4.3* | `pptx.add_image(p, i, path, [x=], [y=], [w=], [h=])` | Adds a PNG/JPEG/GIF; give one of `w`/`h` and the other follows the aspect ratio, neither and it is centred at 96 dpi. |
+| `pptx.add_table` <br> *Added in v0.4.3* | `pptx.add_table(p, i, data, [x=], [y=], [w=200], [h=], [size=14], [header=])` | Adds a table (from a `Table`, matrix or list of rows) in PowerPoint's built-in Medium Style 2. |
+| `pptx.info` <br> *Added in v0.4.3* | `pptx.info(p)` | Document properties plus `slides`, `width_mm`, `height_mm` and `layouts`. `pptx.set_info` sets properties as `docx.set_info` does. |
+| `pptx.to_markdown` <br> *Added in v0.4.3* | `pptx.to_markdown(p)` | One `## Slide N: title` section per slide, the other text as bullets and the notes as a quote. |
+| `pptx.to_pdf` <br> *Added in v0.4.3* | `pptx.to_pdf(p, path, [timeout=300])` | Converts to PDF through LibreOffice, as `docx.to_pdf`. |
+
+#### Editing a workbook: `xlsx`
+
+`xlsx.read`/`xlsx.write` above move whole tables and cannot change a file;
+these open one and edit it in place.
+
+| Function | Signature | Description |
+|---|---|---|
+| `xlsx.open` <br> *Added in v0.4.3* | `xlsx.open(path)` | Opens an existing workbook for editing in place and returns a handle (a small `Model`); every `xlsx.*` edit below changes the workbook behind it until `xlsx.save_as`. Everything the file holds that these functions do not touch -- other sheets, charts, formats -- is read and written back. |
+| `xlsx.new` <br> *Added in v0.4.3* | `xlsx.new()` | A new workbook with one empty sheet, `Sheet1`. Returns a handle. |
+| `xlsx.save_as` <br> *Added in v0.4.3* | `xlsx.save_as(wb, path)` | Writes the workbook to `path` (overwriting). Refused under `--sandbox`. |
+| `xlsx.discard` <br> *Added in v0.4.3* | `xlsx.discard(wb)` | Releases the handle early; handles otherwise live until the run ends. |
+| `xlsx.get_cell` <br> *Added in v0.4.3* | `xlsx.get_cell(wb, sheet, cell)` | The value of one cell, `cell` as Excel shows it (`"B3"`); `sheet` is a name or a 0-based index. Returns a number, string, boolean, or `none` for an empty cell. A formula cell returns the value last cached in the file, if any -- formulas are stored, not evaluated. |
+| `xlsx.set_cell` <br> *Added in v0.4.3* | `xlsx.set_cell(wb, sheet, cell, value)` | Sets one cell to a number, string, boolean, or `none` (empty). NaN and infinity are refused -- Excel has no representation for them. |
+| `xlsx.formula` <br> *Added in v0.4.3* | `xlsx.formula(wb, sheet, cell)` | The formula in a cell without its leading `=`, or `none`. |
+| `xlsx.set_formula` <br> *Added in v0.4.3* | `xlsx.set_formula(wb, sheet, cell, formula)` | Stores a formula (the `=` is optional). Excel and LibreOffice calculate it when the file is opened; `xlsx.read` of a freshly written formula cell sees no value yet. |
+| `xlsx.fill_formula` <br> *Added in v0.4.3* | `xlsx.fill_formula(wb, sheet, range, formula)` | Stores `formula` in every cell of `range`, shifting its relative references from the range's first cell the way Excel's fill-down does (`$`-anchored parts, string literals and quoted sheet names stay). Returns the number of cells written. |
+| `xlsx.get_range` <br> *Added in v0.4.3* | `xlsx.get_range(wb, sheet, range, [numeric=false])` | A rectangular range (`"A1:C20"`) as a list of rows of cell values; with `numeric=true`, a matrix with `NaN` for anything that is not a number. |
+| `xlsx.set_range` <br> *Added in v0.4.3* | `xlsx.set_range(wb, sheet, anchor, data, [header=true])` | Writes a `Table` (its column names first, unless `header=false`), a matrix, a vector (one column) or a list of rows, with its top-left corner at `anchor`. |
+| `xlsx.used_range` <br> *Added in v0.4.3* | `xlsx.used_range(wb, sheet)` | The smallest range covering every non-empty cell, e.g. `"A1:D20"`, or `none` for an empty sheet. |
+| `xlsx.add_sheet` <br> *Added in v0.4.3* | `xlsx.add_sheet(wb, name)` | Adds an empty sheet. `xlsx.rename_sheet(wb, sheet, new)` and `xlsx.delete_sheet(wb, sheet)` rename and remove (the last sheet cannot be removed). |
+| `xlsx.insert_rows` <br> *Added in v0.4.3* | `xlsx.insert_rows(wb, sheet, row, [n=1])` | Inserts `n` rows before 1-based `row`, shifting references. Also `xlsx.delete_rows`, and `xlsx.insert_columns`/`xlsx.delete_columns(wb, sheet, "C", [n])` by column letter. |
+| `xlsx.column_width` <br> *Added in v0.4.3* | `xlsx.column_width(wb, sheet, col, width)` | Column width in Excel's character units (0-255); `xlsx.row_height(wb, sheet, row, points)` sets a row's height. |
+| `xlsx.format_cells` <br> *Added in v0.4.3* | `xlsx.format_cells(wb, sheet, range, [bold=], [italic=], [size=], [font=], [color=], [background=], [number_format=], [align=])` | Formats every cell of `range`: colours as `#rrggbb`, `number_format` in Excel's own codes (`0.00`, `0.00E+00`, `yyyy-mm-dd`), `align` left/center/right. Returns the number of cells formatted. |
+| `xlsx.merge` <br> *Added in v0.4.3* | `xlsx.merge(wb, sheet, range)` | Merges a range into one cell. |
+| `xlsx.freeze_panes` <br> *Added in v0.4.3* | `xlsx.freeze_panes(wb, sheet, cell)` | Freezes the rows above and the columns left of `cell`: `"A2"` keeps the header row in view, `"B2"` the header row and first column. |
+| `xlsx.define_name` <br> *Added in v0.4.3* | `xlsx.define_name(wb, name, address)` | A workbook-level defined name, e.g. `xlsx.define_name(wb, "Frequency", "Data!$A$2:$A$100")`. |
+| `xlsx.to_pdf` <br> *Added in v0.4.3* | `xlsx.to_pdf(wb, path, [timeout=300])` | Converts the workbook to PDF through LibreOffice (see `docx.to_pdf`). Returns the PDF's size in bytes. |
 
 ## Data-Format Conversion (JSON / CSV / XML)
 

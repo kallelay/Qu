@@ -174,6 +174,8 @@ pub mod regions_ops;
 pub mod distributions;
 pub mod multivariate;
 pub mod native_ops;
+#[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
+pub mod office_ops;
 pub mod surgery_ops;
 pub mod text_ops;
 pub mod file_meta_ops;
@@ -3960,7 +3962,9 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     // from the book's index rather than failing (found the hard way,
     // 2026-09-18 -- splitting this entry deleted all four `codec.*` rows).
     ("codec", &["decode_flac", "decode_mp3", "decode_wav", "encode_wav", "flac_info", "write_wav"]),
-    ("xlsx", &["read", "sheets", "write"]),
+    ("xlsx", &["read", "sheets", "write", "new", "open", "save_as", "discard", "get_cell", "set_cell", "formula", "set_formula", "fill_formula", "get_range", "set_range", "used_range", "add_sheet", "rename_sheet", "delete_sheet", "insert_rows", "delete_rows", "insert_columns", "delete_columns", "column_width", "row_height", "format_cells", "merge", "freeze_panes", "define_name", "to_pdf"]),
+    ("docx", &["new", "open", "save_as", "discard", "full_text", "paragraphs", "headings", "find_text", "replace_text", "set_paragraph", "insert_paragraph", "remove_paragraph", "add_heading", "add_paragraph", "add_page_break", "add_table", "add_image", "tables", "set_cell", "comments", "footnotes", "endnotes", "info", "set_info", "accept_changes", "reject_changes", "to_markdown", "to_latex", "to_pdf"]),
+    ("pptx", &["new", "open", "save_as", "discard", "info", "set_info", "slide_count", "slides", "slide_text", "slide_title", "notes", "find_text", "replace_text", "layouts", "add_slide", "delete_slide", "move_slide", "duplicate_slide", "hide_slide", "unhide_slide", "add_text", "add_image", "add_table", "to_markdown", "to_pdf"]),
     ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_pages", "extract_text", "find_text", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
@@ -4187,6 +4191,9 @@ pub struct Interp {
     /// script that calls `write_report`.
     pub keep_transcript: bool,
     transcript: String,
+    /// Open Office documents (`docx.open`, `pptx.new`, `xlsx.open`, ...),
+    /// by slot; a handle value names its slot. See `office_ops.rs`.
+    office_handles: Vec<Option<Box<dyn std::any::Any + Send>>>,
     /// Backs the `read_line(prompt)` builtin: called with the prompt
     /// string, blocks (from the builtin's point of view) until it returns
     /// the line the user typed. `None` by default, in which case
@@ -6321,6 +6328,7 @@ impl Interp {
             out_drained: 0,
             keep_transcript: false,
             transcript: String::new(),
+            office_handles: Vec::new(),
             on_input: None,
             interrupt: None,
             exit_code: None,
@@ -8663,6 +8671,13 @@ impl Interp {
         // returns a NEW vector, not `v` -- still warns.
         if let Some(current) = self.var_get(recv_name) {
             if value_unchanged(current, value) {
+                return;
+            }
+            // `docx.replace_text(doc, ...)`: the receiver is a MODULE, so
+            // this is a namespaced function call, not a method on a value
+            // -- there is no `docx` value to update, and a function that
+            // edits a handle and returns a count is a legitimate statement.
+            if matches!(current, Value::Module(_)) {
                 return;
             }
         }
@@ -15169,6 +15184,8 @@ impl Interp {
             // for `xml_ops`), so there is nothing for a flag to buy back.
             ("svg", true),
             ("pdf", cfg!(feature = "pdf")),
+            ("docx", cfg!(feature = "docx")),
+            ("pptx", cfg!(feature = "pptx")),
         ];
         match KNOWN.iter().find(|(n, _)| *n == name) {
             Some((_, true)) => Ok(true),
@@ -16458,6 +16475,15 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             // code -- strictly more than `exec` can do.
             "load_library",
             "native_call",
+            // Office documents: writing them to disk, and `to_pdf`, which
+            // runs LibreOffice (an external program, like `exec`).
+            "docx::save_as",
+            "docx::to_latex",
+            "docx::to_pdf",
+            "pptx::save_as",
+            "pptx::to_pdf",
+            "xlsx::save_as",
+            "xlsx::to_pdf",
             "write_csv",
             "touch",
             // § signal-wav (2026-09-18): the dispatch name is qualified,
@@ -21157,6 +21183,16 @@ self.eval_grad(loss, wrt)
             // in BUILTIN_NAMES.
             #[cfg(feature = "xlsx")]
             "xlsx::read" | "xlsx::sheets" | "xlsx::write" => self.xlsx_call(f, &args, &style),
+            // `import docx` / `import pptx`, and the workbook functions of
+            // `import xlsx` (`xlsx.open`, `xlsx.set_cell`, ...) -- see
+            // `office_ops.rs`.
+            #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
+            f if f.split_once("::").is_some_and(|(m, n)| match m {
+                "docx" => office_ops::DOCX_NAMES.contains(&n),
+                "pptx" => office_ops::PPTX_NAMES.contains(&n),
+                "xlsx" => office_ops::XLSX_NAMES.contains(&n),
+                _ => false,
+            }) => self.office_call(f, arg_all(&args), &style),
             // Same shape for `codec`; `import codec` additionally opens
             // the bare names, which `open_module_name` rewrites to these.
             #[cfg(feature = "codec")]
@@ -90553,7 +90589,9 @@ a = map(names, upper)"#);
             for name in *names {
                 let mut it = Interp::new();
                 let src = format!("import {ns}\nx = {ns}.{name}()");
-                let err = it.run(&src).unwrap_err();
+                // A function that needs no arguments (`docx.new()`) runs
+                // cleanly, which proves it dispatches just as well.
+                let Err(err) = it.run(&src) else { continue };
                 assert!(
                     !err.msg.contains("unknown function") && !err.msg.contains("no such function"),
                     "{ns}::{name} is declared in MODULE_EXPORTS but does not dispatch: {}",

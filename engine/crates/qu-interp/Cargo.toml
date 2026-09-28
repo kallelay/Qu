@@ -287,9 +287,18 @@ qu-pdf = { path = "../qu-pdf", optional = true }
 # `qu_image::blob_boxes` as `image.regions`, so the three cannot drift. The
 # crate has no dependencies of its own, so this costs one small compile.
 qu-image = { path = "../qu-image" }
+# `import docx` / `import pptx` (and `xlsx.to_pdf`): the Office toolkit,
+# docs/design/toolkit-office.md. Optional, default-off, same "a module a
+# script asks for by name" call as `qu-xlsx`; `qu-ooxml` is the shared
+# package layer, pure Rust over the `zip` crate.
+qu-ooxml = { path = "../qu-ooxml", optional = true }
+qu-docx = { path = "../qu-docx", optional = true }
+qu-pptx = { path = "../qu-pptx", optional = true }
 
 [features]
-xlsx = ["dep:qu-xlsx"]
+xlsx = ["dep:qu-xlsx", "dep:qu-ooxml"]
+docx = ["dep:qu-docx", "dep:qu-ooxml"]
+pptx = ["dep:qu-pptx", "dep:qu-ooxml"]
 codec = ["dep:qu-codec"]
 pdf = ["dep:qu-pdf"]
 image = []
