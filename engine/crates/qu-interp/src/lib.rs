@@ -4166,6 +4166,24 @@ pub struct Interp {
     /// caller of `Interp::new`/`run` (every test, the REPL, `qu run`
     /// without a live flag) sees zero behavior change.
     pub on_print: Option<Box<dyn FnMut(&str) + Send>>,
+    /// Where `out` streams to while the script runs, when set: `qu run`'s
+    /// stdout. Unlike `on_print` above, which sees only what `print`/
+    /// `write` produce, this is handed EVERYTHING in `out` -- `help()`,
+    /// `warning()`, the `· plot` notes -- by `drain_out`, in order, and
+    /// `out` is emptied as it goes, so a script that runs for days does
+    /// not hold every line it ever printed in memory. The `bool` asks the
+    /// sink to flush now (`flush()`, `sleep`, `read_input`, end of run)
+    /// rather than whenever its own buffering decides.
+    pub out_sink: Option<Box<dyn FnMut(&str, bool) + Send>>,
+    /// Bytes already handed to `out_sink` -- what keeps `out_mark`
+    /// positions meaningful after `out` has been drained under them.
+    out_drained: usize,
+    /// Keep a copy of what `drain_out` hands on, in `transcript`, for
+    /// `write_report`'s "everything printed so far". Off by default so a
+    /// streaming run stays flat in memory; `qu run` turns it on only for a
+    /// script that calls `write_report`.
+    pub keep_transcript: bool,
+    transcript: String,
     /// Backs the `read_line(prompt)` builtin: called with the prompt
     /// string, blocks (from the builtin's point of view) until it returns
     /// the line the user typed. `None` by default, in which case
@@ -6296,6 +6314,10 @@ impl Interp {
             loop_depth: 0,
             out: String::new(),
             on_print: None,
+            out_sink: None,
+            out_drained: 0,
+            keep_transcript: false,
+            transcript: String::new(),
             on_input: None,
             interrupt: None,
             exit_code: None,
@@ -16533,6 +16555,40 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         if let Some(cb) = self.on_print.as_mut() {
             cb(&msg);
         }
+        self.drain_out(false);
+    }
+
+    /// Hand everything pending in `out` to `out_sink`, if one is set, and
+    /// empty `out`. `flush` asks the sink to push it all the way out now.
+    /// A no-op without a sink, so every caller that reads `out` afterwards
+    /// (tests, the REPL, `--report`, the kernel) sees what it always did.
+    pub fn drain_out(&mut self, flush: bool) {
+        if let Some(sink) = self.out_sink.as_mut() {
+            if !self.out.is_empty() || flush {
+                sink(&self.out, flush);
+                if self.keep_transcript {
+                    self.transcript.push_str(&self.out);
+                }
+                self.out_drained += self.out.len();
+                self.out.clear();
+            }
+        }
+    }
+
+    /// A position in everything this run has output, drained or not.
+    /// Pairs with `out_rewind` for the builtins that silence what a user
+    /// callback prints (`animate`, `explore`, `capture`).
+    pub(crate) fn out_mark(&self) -> usize {
+        self.out_drained + self.out.len()
+    }
+
+    /// Drop what was output after `mark`. Only what has not been drained
+    /// yet can be taken back; what already reached the sink stays out.
+    pub(crate) fn out_rewind(&mut self, mark: usize) {
+        let rel = mark.saturating_sub(self.out_drained);
+        if rel < self.out.len() {
+            self.out.truncate(rel);
+        }
     }
 
     /// `apply_unit`, with an unknown unit turned into a runtime error
@@ -20143,6 +20199,7 @@ self.eval_grad(loss, wrt)
                 if let Some(cb) = self.on_print.as_mut() {
                     cb(&line);
                 }
+                self.drain_out(false);
                 Ok(Value::Nothing)
             }
             // `write(f, s)` (§ file I/O, 2026-08-24) — raw string/bytes to
@@ -20181,6 +20238,7 @@ self.eval_grad(loss, wrt)
                 if let Some(cb) = self.on_print.as_mut() {
                     cb(&text);
                 }
+                self.drain_out(false);
                 Ok(Value::Nothing)
             }
             // `read_input([prompt])` — reads one line of interactive input.
@@ -20200,6 +20258,9 @@ self.eval_grad(loss, wrt)
             // case.
             "read_input" => {
                 let prompt = if args.is_empty() { String::new() } else { text_arg(&args, 0)? };
+                // Whatever was printed before the question must be on
+                // screen before the program waits for an answer.
+                self.drain_out(true);
                 if let Some(cb) = self.on_input.as_mut() {
                     Ok(Value::Str(cb(&prompt)))
                 } else {
@@ -20596,6 +20657,14 @@ self.eval_grad(loss, wrt)
             // `flush(path)` — write the document out. Format comes from
             // the EXTENSION, the same way `savefig` already chooses, so
             // there is one way to say this in the language rather than two.
+            // `flush()` with no arguments -- push everything printed so far
+            // out now, for a `write("50%... ")` progress line with no
+            // newline. `print` and `sleep` already flush on a terminal;
+            // this is for the cases they do not cover.
+            "flush" if arg_all(&args).is_empty() => {
+                self.drain_out(true);
+                Ok(Value::Nothing)
+            }
             "flush" => {
                 let r = report_ref_arg(&args, 0, f)?;
                 let path = text_arg(&args, 1)?;
@@ -20653,7 +20722,7 @@ self.eval_grad(loss, wrt)
                 let cell = report::ReportCell {
                     title: String::new(),
                     source: self.source.clone(),
-                    output: self.out.clone(),
+                    output: format!("{}{}", self.transcript, self.out),
                     figures: self.all_figures_svg(self.figure.width, self.figure.height, false),
                 };
                 let profile_html = if self.profiling {
@@ -20695,6 +20764,10 @@ self.eval_grad(loss, wrt)
                 if !ms.is_finite() || ms < 0.0 {
                     return e("sleep: ms must be a non-negative, finite number of milliseconds");
                 }
+                // A script that sleeps is usually a watcher looping on it;
+                // what it printed this round should be visible while it
+                // waits, even when stdout is a file or a pipe.
+                self.drain_out(true);
                 std::thread::sleep(std::time::Duration::from_millis(ms as u64));
                 Ok(Value::Nothing)
             }
@@ -28635,8 +28708,14 @@ self.eval_grad(loss, wrt)
                 // `pattern=` picks the language the needle is written in.
                 // Literal is the default and takes the hand-written path,
                 // which needs no regex at all for the commonest call.
-                match pattern_kind_arg(&style, f)? {
-                    PatternKind::Literal => {
+                let kind = pattern_kind_arg(&style, f)?;
+                // `keep=` -- occurrences inside this text are left alone
+                // (see `keep_arg`). Only a call that uses it leaves the
+                // hand-written literal path below.
+                let keep = keep_arg(&style, f, |p| search_regex(p, kind, mode, f))?;
+                let spans = keep_spans(&s, &keep);
+                match kind {
+                    PatternKind::Literal if keep.is_empty() => {
                         Ok(Value::Str(replace_with_case(&s, &old, &new, count, mode)))
                     }
                     kind => {
@@ -28657,7 +28736,11 @@ self.eval_grad(loss, wrt)
                         //     now  "bX bX"
                         //
                         // The empty match at position 0 ate the first slot.
-                        for m in re.find_iter(&s).filter(|m| m.end() > m.start()).take(limit) {
+                        for m in re
+                            .find_iter(&s)
+                            .filter(|m| m.end() > m.start() && !in_kept(&spans, m.start(), m.end()))
+                            .take(limit)
+                        {
                             out.push_str(&s[at..m.start()]);
                             match mode {
                                 CaseMode::Preserve => {
@@ -28743,13 +28826,36 @@ self.eval_grad(loss, wrt)
                 let s = str_arg(&args, 0)?;
                 let re = compile_regex(&str_arg(&args, 1)?, f)?;
                 let rep = str_arg(&args, 2)?;
-                Ok(Value::Str(match arg_get(&args, 3) {
-                    Some(v) => {
-                        let n = v.as_index().map_err(|m| EvalError { msg: m })?;
-                        re.replacen(&s, n, rep.as_str()).into_owned()
-                    }
-                    None => re.replace_all(&s, rep.as_str()).into_owned(),
-                }))
+                let count = match arg_get(&args, 3) {
+                    Some(v) => Some(v.as_index().map_err(|m| EvalError { msg: m })?),
+                    None => None,
+                };
+                // `keep=` -- regexes here, like the pattern (see `keep_arg`).
+                let keep = keep_arg(&style, f, |p| compile_regex(p, f))?;
+                if keep.is_empty() {
+                    return Ok(Value::Str(match count {
+                        Some(n) => re.replacen(&s, n, rep.as_str()).into_owned(),
+                        None => re.replace_all(&s, rep.as_str()).into_owned(),
+                    }));
+                }
+                let spans = keep_spans(&s, &keep);
+                let mut out = String::with_capacity(s.len());
+                let mut at = 0usize;
+                for caps in re
+                    .captures_iter(&s)
+                    .filter(|c| {
+                        let m = c.get(0).unwrap();
+                        !in_kept(&spans, m.start(), m.end())
+                    })
+                    .take(count.unwrap_or(usize::MAX))
+                {
+                    let m = caps.get(0).unwrap();
+                    out.push_str(&s[at..m.start()]);
+                    caps.expand(&rep, &mut out);
+                    at = m.end();
+                }
+                out.push_str(&s[at..]);
+                Ok(Value::Str(out))
             }
             // `like(s, pattern)` — BASIC's wildcard match, which is what
             // most "does this look like that" questions actually want and
@@ -39778,7 +39884,7 @@ self.eval_grad(loss, wrt)
                 // frames of that is four hundred lines of "· plot: figure 1".
                 // The frames are an implementation detail of one animation;
                 // the animation reports itself once, below.
-                let quiet_from = self.out.len();
+                let quiet_from = self.out_mark();
                 let mut bodies: Vec<String> = Vec::with_capacity(frames);
                 for i in 0..frames {
                     self.figure = plotting::Figure::default();
@@ -39793,7 +39899,7 @@ self.eval_grad(loss, wrt)
                     bodies.push(plotting::render_svg(&self.figure, w, h, embed_fonts && i == 0));
                 }
                 self.figure = saved;
-                self.out.truncate(quiet_from);
+                self.out_rewind(quiet_from);
 
                 let total = frames as f64 / fps;
                 let mut out = String::with_capacity(bodies.iter().map(|b| b.len()).sum::<usize>() + 4096);
@@ -39909,7 +40015,7 @@ self.eval_grad(loss, wrt)
 
                 let (w, h) = (self.figure.width, self.figure.height);
                 let saved = std::mem::take(&mut self.figure);
-                let quiet_from = self.out.len();
+                let quiet_from = self.out_mark();
                 let mut bodies: Vec<String> = Vec::with_capacity(total);
                 // Row-major over the parameters, last one varying fastest —
                 // the order the JavaScript below indexes with.
@@ -39935,7 +40041,7 @@ self.eval_grad(loss, wrt)
                     bodies.push(plotting::render_svg(&self.figure, w, h, false));
                 }
                 self.figure = saved;
-                self.out.truncate(quiet_from);
+                self.out_rewind(quiet_from);
 
                 let mut page = String::with_capacity(bodies.iter().map(|b| b.len()).sum::<usize>() + 8192);
                 page.push_str(
@@ -40057,12 +40163,12 @@ self.eval_grad(loss, wrt)
                     .filter_map(|i| args.get(i).cloned())
                     .collect();
                 let saved = std::mem::take(&mut self.figure);
-                let quiet_from = self.out.len();
+                let quiet_from = self.out_mark();
                 self.figure = plotting::Figure::default();
                 let outcome = self.call_named(&name, extra, None, None, Vec::new());
                 let drawn = std::mem::take(&mut self.figure);
                 self.figure = saved;
-                self.out.truncate(quiet_from);
+                self.out_rewind(quiet_from);
                 outcome.map_err(|err| EvalError {
                     msg: format!("capture: `{name}`: {}", err.msg),
                 })?;
@@ -41594,6 +41700,50 @@ fn search_regex(needle: &str, kind: PatternKind, mode: CaseMode, fname: &str) ->
     // matching half is the same as `insensitive`.
     let prefix = if mode == CaseMode::Sensitive { "" } else { "(?i)" };
     compile_regex(&format!("{prefix}{body}"), fname)
+}
+
+/// `keep=` on `replace`/`regex_replace`: the text to leave alone, as one
+/// string or a list of them, each compiled by `compile` -- the same pattern
+/// language the needle uses, so `replace(s, "<", "&lt;", keep="<?>")` is
+/// literal and `pattern="wildcard"` makes `keep="<?>"` mean `<`, any one
+/// character, `>`. Stands in for the lookahead the `regex` crate lacks:
+/// `<(?!br>)` is not expressible, `keep="<br>"` is.
+fn keep_arg(
+    style: &[(String, Value)],
+    fname: &str,
+    compile: impl Fn(&str) -> R<regex::Regex>,
+) -> R<Vec<regex::Regex>> {
+    let items: Vec<String> = match style_entry(style, "keep") {
+        None => return Ok(Vec::new()),
+        Some((_, Value::Str(s))) => vec![s.clone()],
+        Some((_, Value::List(xs))) => xs
+            .iter()
+            .map(|v| match v {
+                Value::Str(s) => Ok(s.clone()),
+                other => e(format!("{fname}: `keep=` takes strings, found {} in the list", other.type_name())),
+            })
+            .collect::<R<_>>()?,
+        Some((_, other)) => {
+            return e(format!("{fname}: `keep=` takes a string or a list of strings, found {}", other.type_name()))
+        }
+    };
+    items.iter().filter(|p| !p.is_empty()).map(|p| compile(p)).collect()
+}
+
+/// Byte spans of `s` covered by any `keep=` pattern, sorted by start.
+fn keep_spans(s: &str, keep: &[regex::Regex]) -> Vec<(usize, usize)> {
+    let mut spans: Vec<(usize, usize)> = keep
+        .iter()
+        .flat_map(|re| re.find_iter(s).filter(|m| m.end() > m.start()).map(|m| (m.start(), m.end())))
+        .collect();
+    spans.sort_unstable();
+    spans
+}
+
+/// Does the match `start..end` touch any kept span? An empty match counts
+/// as touching one only when it falls strictly inside it.
+fn in_kept(spans: &[(usize, usize)], start: usize, end: usize) -> bool {
+    spans.iter().any(|&(a, b)| a < end.max(start + 1) && start < b && !(start == end && start == a))
 }
 
 /// How `replace`/`contains`/`find` treat letter case.
@@ -60409,6 +60559,67 @@ mod tests {
         let mut it = Interp::new();
         it.run(src).unwrap_or_else(|e| panic!("run failed: {e}"));
         it
+    }
+
+    #[test]
+    fn replace_keep_leaves_occurrences_inside_kept_text_alone() {
+        let it = run(r##"
+            print(replace("a<b <?> c<br>", "<", "&lt;", keep="<?>"))
+            print(replace("a<b <?> c<br>", "<", "&lt;", keep=("<?>", "<br>")))
+            print(replace("<x> <?>", "<", "&lt;", keep="<?>", pattern="wildcard"))
+            print(replace("<a> <a> <b>", "<", "[", 1, keep="<a>"))
+            print(replace("AbA", "a", "x", keep="b", case="insensitive"))
+            print(regex_replace("<p><br><i>", "<([a-z]+)>", "[$1]", keep="<br>"))
+            print(regex_replace("x1 y2 x3", "[0-9]", "#", keep=("y[0-9]")))
+        "##);
+        assert_eq!(
+            it.out,
+            "a&lt;b <?> c&lt;br>\n\
+             a&lt;b <?> c<br>\n\
+             <x> <?>\n\
+             <a> <a> [b>\n\
+             xbx\n\
+             [p]<br>[i]\n\
+             x# y2 x#\n"
+        );
+    }
+
+    #[test]
+    fn replace_keep_rejects_what_is_not_a_string() {
+        assert!(run_err(r#"replace("a", "a", "b", keep=3)"#).msg.contains("keep="));
+    }
+
+    #[test]
+    fn out_sink_streams_everything_in_order_and_empties_out() {
+        let got = Arc::new(StdMutex::new(Vec::<(String, bool)>::new()));
+        let sink = got.clone();
+        let mut it = Interp::new();
+        it.out_sink = Some(Box::new(move |s: &str, flush: bool| {
+            sink.lock().unwrap().push((s.to_string(), flush));
+        }));
+        it.run("print(1)\nwrite(\"a\")\nflush()\nsleep(0)\nprint(2)").unwrap();
+        let got = got.lock().unwrap().clone();
+        let text: String = got.iter().map(|(s, _)| s.as_str()).collect();
+        assert_eq!(text, "1\na2\n");
+        assert!(it.out.is_empty(), "streamed output must not also pile up in `out`");
+        // `flush()` and `sleep` each asked for a real flush.
+        assert_eq!(got.iter().filter(|(_, f)| *f).count(), 2, "{got:?}");
+    }
+
+    #[test]
+    fn out_rewind_after_a_drain_neither_panics_nor_eats_later_text() {
+        let mut it = Interp::new();
+        it.out_sink = Some(Box::new(|_: &str, _: bool| {}));
+        it.out.push_str("é"); // two bytes, so a stale offset would split it
+        let mark = it.out_mark();
+        it.drain_out(false);
+        it.out.push_str("é");
+        it.out_rewind(mark);
+        assert_eq!(it.out, "");
+        let mark = it.out_mark();
+        it.out.push_str("xy");
+        it.out_rewind(mark);
+        assert_eq!(it.out, "");
     }
 
     /// `run`'s counterpart for the cases where the error IS the behaviour

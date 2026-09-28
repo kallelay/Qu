@@ -481,10 +481,29 @@ fn run_embedded_bundle(
     // exactly as before. The bundle is an overlay, not a replacement.
     it.set_script_path(exe_path);
     it.set_bundled_sources(&root, files.into_iter().collect());
-    it.run(&entry_src).map_err(|e| e.to_string())?;
-    print!("{}", it.out);
-    io::stdout().flush().ok();
-    Ok(())
+    stream_stdout(&mut it, false);
+    let result = it.run(&entry_src).map_err(|e| e.to_string());
+    it.drain_out(true);
+    result
+}
+
+/// Stream a script's output to stdout while it runs (`Interp::out_sink`),
+/// instead of printing it all once `run` returns -- which a watcher loop
+/// never does. On a terminal, or with `per_write` (`--live`, for a host
+/// reading a pipe line by line), every write goes out at once; into a
+/// file or pipe it is buffered, and `flush()`, `sleep`, `read_input` and
+/// the end of the run push it out. Unbuffered, 300k `print`s into a pipe
+/// took 1.26s against 0.19s.
+fn stream_stdout(it: &mut qu_interp::Interp, per_write: bool) {
+    use std::io::IsTerminal;
+    let per_write = per_write || io::stdout().is_terminal();
+    let mut w = io::BufWriter::with_capacity(64 * 1024, io::stdout());
+    it.out_sink = Some(Box::new(move |s: &str, flush: bool| {
+        let _ = w.write_all(s.as_bytes());
+        if flush || per_write {
+            let _ = w.flush();
+        }
+    }));
 }
 
 fn run_embedded_script(exe_path: &std::path::Path, script_bytes: Vec<u8>, script_args: Vec<String>) -> Result<(), String> {
@@ -493,10 +512,10 @@ fn run_embedded_script(exe_path: &std::path::Path, script_bytes: Vec<u8>, script
     let mut it = qu_interp::Interp::new();
     it.script_args = script_args;
     it.set_script_path(exe_path);
-    it.run(&src).map_err(|e| e.to_string())?;
-    print!("{}", it.out);
-    io::stdout().flush().ok();
-    Ok(())
+    stream_stdout(&mut it, false);
+    let result = it.run(&src).map_err(|e| e.to_string());
+    it.drain_out(true);
+    result
 }
 
 /// `qu build <file.qu> [-o <output>]` — see this file's module doc comment
@@ -791,16 +810,10 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
                     return Err("--report expects a path argument".into());
                 }
             }
-            // `--live` -- stream each `print`/`disp`/`writeline`/`echo`/
-            // `write` call to real stdout THE MOMENT it happens, instead of
-            // the normal "accumulate into `it.out`, print it all at once
-            // after `run` returns" behavior (see `Interp::on_print`'s own
-            // doc comment for why that distinction matters: a script with a
-            // real infinite loop -- e.g. `serial_open(...)` + `while true`
-            // + `print(sample)`, QuStudio's live serial-plotter feature --
-            // would otherwise never produce any visible output at all,
-            // since `run` never returns). Skips the final bulk `print!(
-            // "{}", it.out)` below to avoid printing everything twice.
+            // `--live` -- output streams by default now (see
+            // `stream_stdout`); this only makes every write go out at once
+            // even into a pipe, for a host like QuStudio's live serial
+            // plotter that reads the pipe line by line.
             "--live" => live = true,
             // `--emit-ui <path>` / `--ui-values <path>` -- the two halves of
             // the immediate-mode GUI loop (see `qu_interp::UiWidget`): the
@@ -850,11 +863,14 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
     if profile {
         it.set_profiling(true);
     }
-    if live {
-        it.on_print = Some(Box::new(|s: &str| {
-            print!("{s}");
-            io::stdout().flush().ok();
-        }));
+    // `--report` attributes output to cells after the fact, so it is the
+    // one mode that still collects everything and prints it at the end.
+    let streaming = report_path.is_none();
+    if streaming {
+        stream_stdout(&mut it, live);
+        // `write_report` reports everything printed so far, which streaming
+        // would otherwise have handed on and forgotten.
+        it.keep_transcript = src.contains("write_report");
     }
     if let Some(path) = ui_values {
         // Must land BEFORE the run: the `ui_*` builtins read these as they
@@ -895,7 +911,9 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
     let run_elapsed = run_start.elapsed();
     let peak_rss = monitor.stop_and_join();
 
-    if !live {
+    if streaming {
+        it.drain_out(true);
+    } else {
         print!("{}", it.out);
         io::stdout().flush().ok();
     }

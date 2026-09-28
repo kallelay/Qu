@@ -20,7 +20,7 @@ slice, so a multi-byte UTF-8 string indexes by character, not by byte.
 | `reverse` | `reverse(x)` | `x` is a `Str`, `List`, `Vec`, or `Mask`. Unicode-aware character reversal for a `Str` (same type back); element-order reversal for a `List`/`Vec`/`Mask` (same type and shape back). Returns exactly the same type and length as `x`. |
 | `upper` | `upper(s)` | `s` is a `Str`. Unicode-aware uppercase conversion. Returns a `Str` the same length (in characters). |
 | `lower` | `lower(s)` | `s` is a `Str`. Unicode-aware lowercase conversion. Returns a `Str` the same length (in characters). |
-| `replace` | `replace(s, old, new)` | `s` is the `Str` to search; `old` and `new` are `Str`s. Every literal (non-regex) occurrence of `old` in `s` is replaced by `new`. Returns a `Str`. |
+| `replace` | `replace(s, old, new, [count], [case=], [pattern=], [keep=])` | `s` is the `Str` to search; `old` and `new` are `Str`s. Every literal (non-regex) occurrence of `old` in `s` is replaced by `new`. Optional `keep` (a `Str` or a `List` of them, in the same pattern language as `old`) leaves alone any occurrence that falls inside that text: `replace(s, "<", "&lt;", keep="<br>")`. Returns a `Str`. |
 | `starts_with` | `starts_with(s, prefix)` | `s` and `prefix` are `Str`s. Returns a `bool`: `true` if `s` starts with `prefix`. |
 | `ends_with` | `ends_with(s, suffix)` | `s` and `suffix` are `Str`s. Returns a `bool`: `true` if `s` ends with `suffix`. |
 | `flip` | `flip(s)` | `s` is a `Str`. The same as `reverse` on a string — the word a BASIC hand reaches for. Returns a `Str`. |
@@ -123,7 +123,7 @@ else here can be written as a loop, and this cannot.
 | `regex_find` | `regex_find(s, pattern)` | `s` and `pattern` are `Str`s. Returns a `Str` (the first match) or `none` — not an empty string, so "matched empty" and "did not match" stay apart. |
 | `regex_find_all` | `regex_find_all(s, pattern)` | `s` and `pattern` are `Str`s. Returns a `List` of `Str` — every match, in order. |
 | `regex_groups` | `regex_groups(s, pattern)` | `s` and `pattern` are `Str`s (`pattern` containing `(...)` capture groups). Returns a `List` of `Str` — the capture groups of the first match, group 1 onward; a group that did not participate is an empty string. Returns `none` if nothing matched. |
-| `regex_replace` | `regex_replace(s, pattern, repl, [count])` | `s`, `pattern` and `repl` are `Str`s; optional `count` (number, default: all occurrences) caps how many replacements are made. `$1` and `${name}` in `repl` refer to capture groups. Returns a `Str`. |
+| `regex_replace` | `regex_replace(s, pattern, repl, [count])` | `s`, `pattern` and `repl` are `Str`s; optional `count` (number, default: all occurrences) caps how many replacements are made. `$1` and `${name}` in `repl` refer to capture groups. Optional `keep=` (a regex, or a `List` of them) leaves alone any match that falls inside text it matches -- the stand-in for lookahead, which Qu's regex engine does not have. Returns a `Str`. |
 | `regex_split` | `regex_split(s, pattern)` | `s` and `pattern` are `Str`s. Returns a `List` of `Str`, split on every match of the pattern. |
 | `regex_count` | `regex_count(s, pattern)` | `s` and `pattern` are `Str`s. Returns a `number`: how many non-overlapping matches occur. |
 | `like` | `like(s, pattern)` | `s` and `pattern` are `Str`s. BASIC's wildcard match, anchored at both ends: `*` any run, `?` any one character, `#` any digit, `[abc]`/`[!abc]` a set. Returns a `bool`. |
