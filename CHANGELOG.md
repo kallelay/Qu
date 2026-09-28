@@ -10,6 +10,60 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-09-28
+
+Office toolkit (docs/design/toolkit-office.md): `import docx`, `import
+pptx`, and in-place workbook editing in `import xlsx`. Documents are
+handles (`open`/`new` ... `save_as`), and editing is surgical -- only the
+parts an operation touches are rewritten, everything else in the package
+(themes, fonts, embedded objects, macros, custom XML) is kept byte for
+byte. Word: text, paragraphs, headings, find/replace across runs and
+every story part, headings/paragraphs/tables/images/page breaks, cells,
+comments, footnotes, tracked-change accept/reject, `to_markdown`,
+`to_latex` (figures extracted). PowerPoint: slide text/titles/notes,
+replace, add slides from layouts, delete/move/duplicate/hide, text boxes,
+images and tables at mm positions. Excel: cells, formulas with
+fill-down reference shifting, ranges, sheets, rows/columns, formats,
+merge, freeze panes, defined names. `to_pdf` for all three through
+LibreOffice when installed. New crates `qu-ooxml` (shared package layer),
+`qu-docx`, `qu-pptx`; `qu-xlsx` gains `umya-spreadsheet`. Function names
+avoid every builtin, so these imports never make a builtin ambiguous.
+
+`pdf.render(src, page, dpi=)`: a PDF page to an Image through PDFium,
+loaded at run time (no native build step); `QU_PDFIUM` or a library file
+beside `qu`.
+
+Statistics and models: `normcdf`/`norminv`, `tcdf`/`tinv`/`tpdf`,
+`chi2inv`, `fcdf`/`finv`/`fpdf`, `gamcdf`/`gaminv`/`gampdf`,
+`betacdf`/`betainv`/`betapdf`, `expcdf`/`expinv`/`exppdf` (MATLAB names
+and parameterisations, broadcasting); `lda_model`, `qda_model`,
+`pls_model`, `ica_model`/`ica` on the `predict`/`transform` protocol.
+
+`load_library`/`native_call`: call C functions in a `.dll`/`.so`/`.dylib`
+with a stated signature (scalars of one type, or double-array kernels);
+refused under `--sandbox`.
+
+Output: `qu run` and `qu eval` now stream output as it is printed
+(line-flushed on a terminal, buffered into files and pipes) instead of
+printing everything when the script ends -- a watcher loop shows each
+round, and output before an error is no longer lost; `flush()` and
+`sleep`/`read_input` push pending output out; `--report` keeps the old
+behaviour and `--live` still forces per-line flushing into pipes.
+`replace`/`regex_replace` gain `keep=` (leave matches inside the kept text
+alone -- the stand-in for lookahead). `qu eval` joins all its arguments
+and strips the single quotes cmd.exe leaves in place.
+
+`regionprops`/`blob_stats`, `image_regions` and `image.regions` now share
+one measurement implementation; names and result shapes are unchanged.
+
+**Behaviour changes:** `image_regions(..., unit="px", pixel_size=...)` is
+now refused (it labelled scaled numbers as pixels), and `unit="px"`
+without `pixel_size=` is accepted. `qu-image` is always linked; the
+`image` feature still gates the `image.*` module.
+
+**Known open:** `sleep` takes milliseconds while its documentation says
+seconds -- unchanged pending a decision on which is right.
+
 ## [0.4.0] - 2026-09-24
 
 ML toolkit: function-level autodiff transforms (`jacobian`, `hessian`,
