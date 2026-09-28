@@ -1,0 +1,12 @@
+[package]
+name = "qu-ooxml"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The OOXML package layer shared by Qu's docx/pptx modules: ZIP parts, an order- and content-preserving XML tree, relationships, content types, metadata."
+
+[dependencies]
+# The one dependency: reading and writing the ZIP container. Default
+# features off -- an Office package only ever uses Deflate, and the
+# default set pulls in bzip2/zstd/lzma/AES that no .docx contains.
+zip = { version = "2", default-features = false, features = ["deflate"] }
