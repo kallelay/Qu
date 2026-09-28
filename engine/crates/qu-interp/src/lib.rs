@@ -37701,48 +37701,29 @@ self.eval_grad(loss, wrt)
                     None => return e(format!("{f}: malformed blob model (missing `count`)")),
                 };
                 let (h, w) = labels.shape();
-                // 1-indexed accumulators (index 0 unused, background).
-                let mut area = vec![0u64; count + 1];
-                let mut sum_x = vec![0f64; count + 1];
-                let mut sum_y = vec![0f64; count + 1];
-                let mut min_x = vec![usize::MAX; count + 1];
-                let mut max_x = vec![0usize; count + 1];
-                let mut min_y = vec![usize::MAX; count + 1];
-                let mut max_y = vec![0usize; count + 1];
-                for y in 0..h {
-                    for x in 0..w {
-                        let lbl = labels.get(y, x).unwrap_or(0.0).round() as i64;
-                        if lbl <= 0 || lbl as usize > count {
-                            continue;
-                        }
-                        let l = lbl as usize;
-                        area[l] += 1;
-                        sum_x[l] += x as f64;
-                        sum_y[l] += y as f64;
-                        min_x[l] = min_x[l].min(x);
-                        max_x[l] = max_x[l].max(x);
-                        min_y[l] = min_y[l].min(y);
-                        max_y[l] = max_y[l].max(y);
-                    }
-                }
-                let mut out = Vec::with_capacity(count);
-                for l in 1..=count {
-                    if area[l] == 0 {
-                        continue; // shouldn't happen for a well-formed label map
-                    }
-                    let a = area[l] as f64;
-                    let rec = vec![
-                        ("label".to_string(), Value::Num(l as f64)),
-                        ("area".to_string(), Value::Num(a)),
-                        ("centroid_x".to_string(), Value::Num(sum_x[l] / a)),
-                        ("centroid_y".to_string(), Value::Num(sum_y[l] / a)),
-                        ("bbox_x".to_string(), Value::Num(min_x[l] as f64)),
-                        ("bbox_y".to_string(), Value::Num(min_y[l] as f64)),
-                        ("bbox_width".to_string(), Value::Num((max_x[l] - min_x[l] + 1) as f64)),
-                        ("bbox_height".to_string(), Value::Num((max_y[l] - min_y[l] + 1) as f64)),
-                    ];
-                    out.push(Value::Record(Arc::new(rec)));
-                }
+                let flat: Vec<f64> = (0..h)
+                    .flat_map(|y| (0..w).map(move |x| (y, x)))
+                    .map(|(y, x)| labels.get(y, x).unwrap_or(0.0))
+                    .collect();
+                // The same first pass `image.regions`/`image_regions` measure
+                // with (`qu_image::blob_boxes`), so the three cannot drift;
+                // this name keeps its list-of-records shape, which existing
+                // scripts index into.
+                let out: Vec<Value> = qu_image::blob_boxes(&flat, h, w, count)
+                    .into_iter()
+                    .map(|b| {
+                        Value::Record(Arc::new(vec![
+                            ("label".to_string(), Value::Num(b.label as f64)),
+                            ("area".to_string(), Value::Num(b.area as f64)),
+                            ("centroid_x".to_string(), Value::Num(b.centroid_x)),
+                            ("centroid_y".to_string(), Value::Num(b.centroid_y)),
+                            ("bbox_x".to_string(), Value::Num(b.min_x as f64)),
+                            ("bbox_y".to_string(), Value::Num(b.min_y as f64)),
+                            ("bbox_width".to_string(), Value::Num((b.max_x - b.min_x + 1) as f64)),
+                            ("bbox_height".to_string(), Value::Num((b.max_y - b.min_y + 1) as f64)),
+                        ]))
+                    })
+                    .collect();
                 Ok(Value::List(Arc::new(out)))
             }
             // `remove_small_blobs(binary_img, min_area)` (alias

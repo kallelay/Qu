@@ -12,10 +12,13 @@
 //! **Why a new name rather than changing `regionprops`.** Changing what
 //! `regionprops` returns would silently change the output of every script
 //! that already indexes its list — the failure mode being that nothing
-//! errors, it just returns something shaped differently. Errors-into-answers
-//! first: this is new surface and can break nothing, so it lands now;
-//! whether `regionprops` should eventually become an alias is a decision
-//! that changes existing programs, and therefore Ahmed's, not this module's.
+//! errors, it just returns something shaped differently.
+//!
+//! **One measurement, three shapes (decided 2026-09-28).** `regionprops`/
+//! `blob_stats` (list of records), `image_regions` (7-column Table) and
+//! `image.regions` (full Table) keep their names and shapes, but all three
+//! now measure through `qu_image::blob_boxes`/`qu_image::regions` -- they
+//! had been three independent copies of the same pixel loop.
 //!
 //! **Why `image_regions`, not the originally-written `regions`.** A signal-
 //! toolkit accessor named `regions(signal)` (calibration/markers metadata,
@@ -65,93 +68,43 @@ fn regions(args: &[Value], style: &[(String, Value)]) -> R<Value> {
         None => return e("image_regions: malformed blob model (missing `count`)".to_string()),
     };
 
-    // `pixel_size=` is the edge length of one pixel. Absent means the
-    // measurement stays in pixels and says so in the column names, rather
-    // than defaulting to 1 of some unit nobody stated -- the spectrogram
-    // `fs=1` default is exactly the trap being avoided here.
-    let scale = style_num(style, "pixel_size");
-    if let Some(p) = scale {
-        if !(p > 0.0) || !p.is_finite() {
-            return e(format!(
-                "image_regions: `pixel_size={p}` must be a positive, finite length per pixel"
-            ));
-        }
-    }
-    let unit = style_str(style, "unit");
-    if unit.is_some() && scale.is_none() {
-        return e(
-            "image_regions: `unit=` was given without `pixel_size=` -- a unit name with no \
-             scale would label pixel counts as though they had been converted"
-                .to_string(),
-        );
-    }
-    let unit = unit.unwrap_or_else(|| "px".to_string());
-    let (len_suffix, area_suffix) = match scale {
-        None => ("_px".to_string(), "_px2".to_string()),
-        Some(_) => (format!("_{unit}"), format!("_{unit}2")),
-    };
-    let k = scale.unwrap_or(1.0);
-
     let (h, w) = labels.shape();
-    let mut area = vec![0u64; count + 1];
-    let mut sum_x = vec![0f64; count + 1];
-    let mut sum_y = vec![0f64; count + 1];
-    let mut min_x = vec![usize::MAX; count + 1];
-    let mut max_x = vec![0usize; count + 1];
-    let mut min_y = vec![usize::MAX; count + 1];
-    let mut max_y = vec![0usize; count + 1];
-    for y in 0..h {
-        for x in 0..w {
-            let lbl = labels.get(y, x).unwrap_or(0.0).round() as i64;
-            if lbl <= 0 || lbl as usize > count {
-                continue;
-            }
-            let l = lbl as usize;
-            area[l] += 1;
-            sum_x[l] += x as f64;
-            sum_y[l] += y as f64;
-            min_x[l] = min_x[l].min(x);
-            max_x[l] = max_x[l].max(x);
-            min_y[l] = min_y[l].min(y);
-            max_y[l] = max_y[l].max(y);
-        }
-    }
-
-    let mut label_c = Vec::new();
-    let mut area_c = Vec::new();
-    let mut cx_c = Vec::new();
-    let mut cy_c = Vec::new();
-    let mut bw_c = Vec::new();
-    let mut bh_c = Vec::new();
-    let mut ext_c = Vec::new();
-    for l in 1..=count {
-        if area[l] == 0 {
-            continue;
-        }
-        let a = area[l] as f64;
-        let bw = (max_x[l] - min_x[l] + 1) as f64;
-        let bh = (max_y[l] - min_y[l] + 1) as f64;
-        label_c.push(l as f64);
-        area_c.push(a * k * k);
-        cx_c.push((sum_x[l] / a) * k);
-        cy_c.push((sum_y[l] / a) * k);
-        bw_c.push(bw * k);
-        bh_c.push(bh * k);
-        // Extent is a ratio, so it is unitless and the scale cancels --
-        // stated explicitly because a column that silently did NOT scale
-        // would look identical to one that was forgotten.
-        ext_c.push(a / (bw * bh));
-    }
-
-    let t = Table::from_columns(vec![
-        ("label".to_string(), Column::Num(label_c)),
-        (format!("area{area_suffix}"), Column::Num(area_c)),
-        (format!("centroid_x{len_suffix}"), Column::Num(cx_c)),
-        (format!("centroid_y{len_suffix}"), Column::Num(cy_c)),
-        (format!("bbox_width{len_suffix}"), Column::Num(bw_c)),
-        (format!("bbox_height{len_suffix}"), Column::Num(bh_c)),
-        ("extent".to_string(), Column::Num(ext_c)),
-    ])
+    let flat: Vec<f64> = (0..h)
+        .flat_map(|y| (0..w).map(move |x| (y, x)))
+        .map(|(y, x)| labels.get(y, x).unwrap_or(0.0))
+        .collect();
+    // The measurement itself is `image.regions`'s (`qu_image::regions`),
+    // so the two can never disagree; this name keeps the seven columns it
+    // has always returned. Its unit checks are that function's too.
+    let rt = qu_image::regions(
+        &flat,
+        h,
+        w,
+        count,
+        style_num(style, "pixel_size"),
+        style_str(style, "unit").as_deref(),
+        None,
+    )
+    .map_err(|msg| EvalError {
+        msg: match msg.strip_prefix("regions:") {
+            Some(rest) => format!("image_regions:{rest}"),
+            None => msg,
+        },
+    })?;
+    let keep = |name: &str| {
+        name == "label"
+            || name == "extent"
+            || ["area_", "centroid_x_", "centroid_y_", "bbox_width_", "bbox_height_"]
+                .iter()
+                .any(|p| name.starts_with(p))
+    };
+    let t = Table::from_columns(
+        rt.columns
+            .into_iter()
+            .filter(|(name, _)| keep(name))
+            .map(|(name, vals)| (name, Column::Num(vals)))
+            .collect(),
+    )
     .map_err(|msg| EvalError {
         msg: format!("image_regions: {msg}"),
     })?;

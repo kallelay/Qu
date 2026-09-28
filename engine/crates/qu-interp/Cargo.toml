@@ -275,13 +275,19 @@ qu-pdf = { path = "../qu-pdf", optional = true }
 # `qu-xlsx` just above. Pure Rust over the plain pixel/label types the
 # interpreter's own `Value::Image`/`Value::Mat` already convert to and from
 # -- no interpreter dependency, no system library.
-qu-image = { path = "../qu-image", optional = true }
+#
+# Always linked since 2026-09-28, while the `image` feature still decides
+# whether the `image.*` module is exposed: the always-on `regionprops`/
+# `blob_stats`/`image_regions` measure through the same
+# `qu_image::blob_boxes` as `image.regions`, so the three cannot drift. The
+# crate has no dependencies of its own, so this costs one small compile.
+qu-image = { path = "../qu-image" }
 
 [features]
 xlsx = ["dep:qu-xlsx"]
 codec = ["dep:qu-codec"]
 pdf = ["dep:qu-pdf"]
-image = ["dep:qu-image"]
+image = []
 gpu = ["dep:qu-gpu"]
 backend-torch = ["dep:tch"]
 backend-tensorflow = ["dep:tensorflow"]

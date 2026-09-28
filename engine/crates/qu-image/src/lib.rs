@@ -48,6 +48,64 @@ pub fn luma(px: &[u8]) -> Vec<f64> {
     out
 }
 
+/// One labeled region's first-pass measurements, in pixels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlobBox {
+    pub label: usize,
+    pub area: u64,
+    pub centroid_x: f64,
+    pub centroid_y: f64,
+    pub min_x: usize,
+    pub max_x: usize,
+    pub min_y: usize,
+    pub max_y: usize,
+}
+
+/// The one pass over a label matrix that every region measurement starts
+/// from: area, centroid and bounding box per label `1..=count`, in label
+/// order, empty labels skipped. `regions` builds its table on it and
+/// `regionprops`/`blob_stats`/`image_regions` build theirs on `regions` or
+/// on this -- three copies of this loop had grown up independently, and
+/// three copies can disagree.
+pub fn blob_boxes(labels: &[f64], h: usize, w: usize, count: usize) -> Vec<BlobBox> {
+    let mut area = vec![0u64; count + 1];
+    let mut sum_x = vec![0f64; count + 1];
+    let mut sum_y = vec![0f64; count + 1];
+    let mut min_x = vec![usize::MAX; count + 1];
+    let mut max_x = vec![0usize; count + 1];
+    let mut min_y = vec![usize::MAX; count + 1];
+    let mut max_y = vec![0usize; count + 1];
+    for y in 0..h {
+        for x in 0..w {
+            let lbl = labels[y * w + x].round() as i64;
+            if lbl <= 0 || lbl as usize > count {
+                continue;
+            }
+            let l = lbl as usize;
+            area[l] += 1;
+            sum_x[l] += x as f64;
+            sum_y[l] += y as f64;
+            min_x[l] = min_x[l].min(x);
+            max_x[l] = max_x[l].max(x);
+            min_y[l] = min_y[l].min(y);
+            max_y[l] = max_y[l].max(y);
+        }
+    }
+    (1..=count)
+        .filter(|&l| area[l] > 0)
+        .map(|l| BlobBox {
+            label: l,
+            area: area[l],
+            centroid_x: sum_x[l] / area[l] as f64,
+            centroid_y: sum_y[l] / area[l] as f64,
+            min_x: min_x[l],
+            max_x: max_x[l],
+            min_y: min_y[l],
+            max_y: max_y[l],
+        })
+        .collect()
+}
+
 /// `regions(labels, h, w, count, pixel_size=, unit=, intensity=)` — the
 /// spec's §5.
 ///
@@ -177,41 +235,27 @@ pub fn regions(
     };
     let k = pixel_size.unwrap_or(1.0);
 
+    // First pass shared with every other region measurement (see
+    // `blob_boxes`), spread back into per-label arrays for the second.
+    // Raw (unscaled) centroids are needed before the second pass can
+    // accumulate deviations from them -- central moments require the mean
+    // first, so this is a genuine two-pass computation.
     let mut area = vec![0u64; count + 1];
-    let mut sum_x = vec![0f64; count + 1];
-    let mut sum_y = vec![0f64; count + 1];
-    let mut min_x = vec![usize::MAX; count + 1];
+    let mut min_x = vec![0usize; count + 1];
     let mut max_x = vec![0usize; count + 1];
-    let mut min_y = vec![usize::MAX; count + 1];
+    let mut min_y = vec![0usize; count + 1];
     let mut max_y = vec![0usize; count + 1];
-    for y in 0..h {
-        for x in 0..w {
-            let lbl = labels[y * w + x].round() as i64;
-            if lbl <= 0 || lbl as usize > count {
-                continue;
-            }
-            let l = lbl as usize;
-            area[l] += 1;
-            sum_x[l] += x as f64;
-            sum_y[l] += y as f64;
-            min_x[l] = min_x[l].min(x);
-            max_x[l] = max_x[l].max(x);
-            min_y[l] = min_y[l].min(y);
-            max_y[l] = max_y[l].max(y);
-        }
-    }
-
-    // Raw (unscaled) centroids, needed before the second pass can accumulate
-    // deviations from them -- central moments require the mean first, so
-    // this is a genuine two-pass computation, not an optimization left on
-    // the table.
     let mut raw_cx = vec![0f64; count + 1];
     let mut raw_cy = vec![0f64; count + 1];
-    for l in 1..=count {
-        if area[l] > 0 {
-            raw_cx[l] = sum_x[l] / area[l] as f64;
-            raw_cy[l] = sum_y[l] / area[l] as f64;
-        }
+    for b in blob_boxes(labels, h, w, count) {
+        let l = b.label;
+        area[l] = b.area;
+        min_x[l] = b.min_x;
+        max_x[l] = b.max_x;
+        min_y[l] = b.min_y;
+        max_y[l] = b.max_y;
+        raw_cx[l] = b.centroid_x;
+        raw_cy[l] = b.centroid_y;
     }
 
     let mut mu20 = vec![0f64; count + 1];

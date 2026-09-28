@@ -147,6 +147,90 @@ m[6,6] = 255.0
 lab = bwlabel(image_from_matrix(m))
 "#;
 
+/// Two blobs of different shape (an L and a bar), so a mix-up between
+/// labels or axes cannot pass by symmetry.
+const TWO_BLOBS: &str = r#"
+m = zeros(12, 12)
+m[2,2] = 255.0
+m[3,2] = 255.0
+m[4,2] = 255.0
+m[4,3] = 255.0
+m[8,4] = 255.0
+m[8,5] = 255.0
+m[8,6] = 255.0
+m[8,7] = 255.0
+lab = bwlabel(image_from_matrix(m))
+flat = image_regions(lab)
+recs = regionprops(lab)
+stats = blob_stats(lab)
+"#;
+
+fn num(v: &Value) -> f64 {
+    match v {
+        Value::Num(n) => *n,
+        other => panic!("expected a number, got {other:?}"),
+    }
+}
+
+/// Every measurement `regionprops` gives for blob `i`, compared with the
+/// same row of the table `table` in a run of `src`.
+fn assert_table_matches_regionprops(src: &str, table: &str) {
+    let it = run(src);
+    let Some(Value::List(recs)) = it.get("recs") else { panic!("regionprops must stay a list") };
+    assert_eq!(recs.len(), 2, "fixture must label two blobs");
+    for (i, rec) in recs.iter().enumerate() {
+        let Value::Record(fields) = rec else { panic!("regionprops items must stay records") };
+        let f = |name: &str| num(&fields.iter().find(|(k, _)| k == name).unwrap().1);
+        let mut it2 = run(src);
+        it2.run(&format!(
+            "v = [{table}.area_px2[{i}], {table}.centroid_x_px[{i}], {table}.centroid_y_px[{i}], \
+             {table}.bbox_width_px[{i}], {table}.bbox_height_px[{i}], {table}.label[{i}]]"
+        ))
+        .unwrap();
+        let v: Vec<f64> = match it2.get("v") {
+            Some(Value::Vec(v)) => v.to_vec(),
+            other => panic!("expected a vector, got {other:?}"),
+        };
+        assert_eq!(
+            v,
+            vec![f("area"), f("centroid_x"), f("centroid_y"), f("bbox_width"), f("bbox_height"), f("label")],
+            "{table} disagrees with regionprops on blob {i}"
+        );
+    }
+}
+
+#[test]
+fn regionprops_and_image_regions_measure_the_same() {
+    assert_table_matches_regionprops(TWO_BLOBS, "flat");
+}
+
+#[test]
+#[cfg(feature = "image")]
+fn regionprops_and_image_dot_regions_measure_the_same() {
+    let src = format!("{TWO_BLOBS}\nimport image\nfull = image.regions(lab)\n");
+    assert_table_matches_regionprops(&src, "full");
+}
+
+#[test]
+fn regionprops_and_image_regions_keep_their_shapes() {
+    let it = run(TWO_BLOBS);
+    let Some(Value::List(recs)) = it.get("recs") else { panic!("regionprops must stay a list") };
+    let Value::Record(fields) = &recs[0] else { panic!("regionprops items must stay records") };
+    let names: Vec<&str> = fields.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        names,
+        ["label", "area", "centroid_x", "centroid_y", "bbox_x", "bbox_y", "bbox_width", "bbox_height"]
+    );
+    let Some(Value::Record(first)) = recs.first() else { unreachable!() };
+    let bbox_x = num(&first.iter().find(|(k, _)| k == "bbox_x").unwrap().1);
+    assert_eq!(bbox_x, 2.0, "the L starts in column 2 (0-based)");
+    assert!(matches!(it.get("stats"), Some(Value::List(l)) if l.len() == 2), "blob_stats is regionprops");
+
+    let mut it = run(TWO_BLOBS);
+    it.run("n = ncol(flat)").unwrap();
+    assert_eq!(num_of(&it, "n"), 7.0, "image_regions keeps its seven columns");
+}
+
 #[test]
 fn the_fixture_actually_contains_a_blob() {
     // Guards every test below: if labelling ever stops finding this blob,
