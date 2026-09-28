@@ -171,6 +171,8 @@ fn mat_to_value(v: &matfile::MatValue) -> Value {
 pub mod bytes_ops;
 pub mod ml_honesty;
 pub mod regions_ops;
+pub mod distributions;
+pub mod multivariate;
 pub mod surgery_ops;
 pub mod text_ops;
 pub mod file_meta_ops;
@@ -22567,6 +22569,11 @@ self.eval_grad(loss, wrt)
             // must match what the scaler was fit on.
             "transform" => {
                 let m = as_model(arg0(&args)?)?;
+                if let Some(new_x) = arg_get(&args, 1) {
+                    if let Some(result) = multivariate::transform(&m, new_x) {
+                        return result;
+                    }
+                }
                 if m.kind != "scaler" {
                     return e(format!("transform: no transform operation defined for `{}` models", m.kind));
                 }
@@ -25777,6 +25784,50 @@ self.eval_grad(loss, wrt)
                     ("mean".to_string(), Value::Vec(Arc::new(means))),
                 ];
                 Ok(Value::Model(Arc::new(ModelHandle::new("pca", fields))))
+            }
+            // `lda_model(X, y)`, `qda_model(X, y, [reg=])`,
+            // `pls_model(X, Y, k)`, `ica_model(X, k, [max_iter=], [tol=],
+            // [seed=])` and `ica(X, k, ...)` -- see `multivariate.rs`.
+            "lda_model" | "qda_model" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let y = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: format!("{f}(X, y) needs 2 arguments"),
+                })?)?;
+                if f == "lda_model" {
+                    multivariate::lda_fit(&x, &y)
+                } else {
+                    multivariate::qda_fit(&x, &y, style_num(&style, "reg").unwrap_or(0.0))
+                }
+            }
+            "pls_model" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let y = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "pls_model(X, Y, k) needs 3 arguments".into(),
+                })?;
+                let k = arg_get(&args, 2)
+                    .ok_or_else(|| EvalError { msg: "pls_model(X, Y, k) needs a component count k".into() })?
+                    .as_index()
+                    .map_err(|msg| EvalError { msg })?;
+                multivariate::pls_fit(&x, y, k)
+            }
+            "ica_model" | "ica" => {
+                let x = arg0(&args)?.to_matrix().map_err(|msg| EvalError { msg })?;
+                let k = arg_get(&args, 1)
+                    .ok_or_else(|| EvalError { msg: format!("{f}(X, k) needs a source count k") })?
+                    .as_index()
+                    .map_err(|msg| EvalError { msg })?;
+                let max_iter = style_num(&style, "max_iter").unwrap_or(1000.0);
+                let tol = style_num(&style, "tol").unwrap_or(1e-6);
+                let seed = style_num(&style, "seed").unwrap_or(0.0);
+                if !(max_iter >= 1.0) || !(tol > 0.0) || !(seed >= 0.0) {
+                    return e(format!("{f}: max_iter must be >= 1, tol > 0 and seed >= 0"));
+                }
+                let model = multivariate::ica_fit(&x, k, max_iter as usize, tol, seed as u64)?;
+                if f == "ica_model" {
+                    return Ok(model);
+                }
+                let Value::Model(m) = &model else { unreachable!() };
+                multivariate::transform(m, &Value::Mat(Arc::new(x))).expect("ica model has a transform")
             }
             // `tree_model(X, y, [max_depth=], [min_samples_split=], [kind=])`
             // — a single CART-style tree (see `TreeArrays`'s own doc comment
@@ -32644,6 +32695,10 @@ self.eval_grad(loss, wrt)
             // `x^(k/2-1)*exp(-x/2)/(2^(k/2)*Gamma(k/2))` overflows/
             // underflows for even modest `k`) then exponentiated.
             // Broadcasts over a vector `x` like any elemental-math builtin.
+            // normcdf/norminv, tcdf/tinv/tpdf, chi2inv, fcdf/finv/fpdf,
+            // gamcdf/gaminv/gampdf, betacdf/betainv/betapdf,
+            // expcdf/expinv/exppdf -- see `distributions.rs`.
+            f if distributions::NAMES.contains(&f) => distributions::call(f, &args),
             "chi2pdf" => {
                 let k = arg_get(&args, 1).and_then(|v| v.as_num().ok()).unwrap_or(1.0);
                 if k <= 0.0 {
@@ -44989,14 +45044,14 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan",
     "atanh", "available", "avgpool2d", "band_power", "band_zero", "bar",
     "base64_decode", "base64_encode", "basin_hopping", "beamform", "beeswarm",
-    "before", "before_last", "bin2dec", "binomial", "bitand", "bitcmp",
+    "before", "before_last", "betacdf", "betainv", "betapdf", "bin2dec", "binomial", "bitand", "bitcmp",
     "bitor", "bitshift", "bitxor", "blackman", "blob_stats", "block_process",
     "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude", "bode_phase",
     "bootstrap_ci", "box", "boxplot", "brier", "bubble", "builtins", "butter",
     "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate",
     "capacitor", "capitalize", "capture", "casefold", "cast", "cat", "cbrt",
     "cd", "ceil", "channel", "channel_len", "channel_recv", "channel_send",
-    "channel_try_recv", "chars", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2pdf",
+    "channel_try_recv", "chars", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2inv", "chi2pdf",
     "chirp", "chisquare", "chol", "chr", "circle", "circuit", "circuit_fit",
     "circuit_impedance", "clahe", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
     "coherence", "colorbar", "colormap", "cols", "compare", "compile",
@@ -45020,17 +45075,17 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error",
     "errorbar", "estimate", "estimate_complexity", "estimate_frequency",
-    "exec", "exit", "exp", "exp2", "explain", "explore", "expm1", "exponential", "eye",
-    "f1", "fall_time", "falling_edges", "fft", "fftc", "fftr", "fifo",
+    "exec", "exit", "exp", "exp2", "expcdf", "expinv", "explain", "explore", "expm1", "exponential", "exppdf", "eye",
+    "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
     "figure", "figure_background", "figure_size", "file_exists", "file_info", "file_size",
     "fill_between", "fill_missing", "filter", "filter_ba", "filter_init",
     "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
     "find_missing", "find_outliers", "find_peaks", "find_pulses",
-    "find_trigger", "find_zero_crossings", "findpeaks", "fir1", "firls",
+    "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls",
     "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud",
     "floor", "fold", "fontfamily", "fontsize", "fopen", "foreground_mask",
-    "format", "forward", "freqz", "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamma",
-    "gaussian_process", "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
+    "format", "forward", "fpdf", "freqz", "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gaminv", "gamma",
+    "gampdf", "gaussian_process", "generate", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
     "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
     "gradient_boosting_model", "graph", "grayscale", "grep", "grid",
     "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell",
@@ -45040,7 +45095,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist",
     "histeq", "histogram", "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack",
     "hsv", "html2md", "http_get", "huffman_decode", "huffman_encode", "hum",
-    "hurst_exponent", "idct", "identity", "idft", "idwt", "ifft", "im",
+    "hurst_exponent", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
     "imadjust", "imag", "image", "image_from_matrix", "image_new",
     "image_regions", "imagesc",
     "imbothat", "imclose", "imdilate", "imequalize", "imerode", "imfilter",
@@ -45055,7 +45110,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model",
     "knn_model", "kurtosis", "lab", "label_blobs", "last", "last_index_of",
-    "layer_norm", "lcase", "least_squares", "left", "legend", "len", "length",
+    "layer_norm", "lcase", "lda_model", "least_squares", "left", "legend", "len", "length",
     "levenshtein", "lfilter", "lgamma", "like", "line", "line_at", "line_col",
     "line_count", "line_delete", "line_insert", "line_range", "line_set",
     "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
@@ -45074,7 +45129,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
     "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
     "nbytes", "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor",
-    "norm", "normal", "normalize", "normpdf", "now", "nrow", "numel",
+    "norm", "normal", "normalize", "normcdf", "norminv", "normpdf", "now", "nrow", "numel",
     "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
     "otsu", "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
     "palette", "panel", "parallel", "param", "parse_as", "parse_csv",
@@ -45085,7 +45140,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "peak", "peek", "peek_byte", "peek_char", "peek_line", "percentile",
     "periodic_profile", "periodogram", "permutation_importance", "phase",
     "pid_init",
-    "pie", "pinv", "pipeline", "plot", "pmap", "point", "poisson", "polarplot",
+    "pie", "pinv", "pipeline", "plot", "pls_model", "pmap", "point", "poisson", "polarplot",
     "poles", "polyfit", "polygon", "polyval", "pool", "pop", "pop_back",
     "pop_front", "porous", "pos_of", "pow", "pow2db", "preciseTimer",
     "precision", "predict", "print", "printtex", "process", "process_is_running",
@@ -45095,7 +45150,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period",
     "pulse_width", "pump_watches", "push", "push_back", "push_front", "pwd",
     "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qam_demodulate",
-    "qam_modulate", "qr", "quantile", "quantile_normalize", "queue",
+    "qam_modulate", "qda_model", "qr", "quantile", "quantile_normalize", "queue",
     "quick_mlp", "r2", "raincloud", "rand", "randi", "randn",
     "random_forest_model", "random_walk", "range", "range_decode",
     "range_encode", "rank", "rans_decode", "rans_encode", "re", "read",
@@ -45137,12 +45192,12 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi",
     "subplot", "substr", "subtract", "sum", "svd", "svm_model", "svr_model",
     "swap", "swap_endian", "sweep", "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh",
-    "tape_reset", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
+    "tape_reset", "tcdf", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
-    "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps", "title", "tkeo",
+    "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps", "tinv", "title", "tkeo",
     "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit",
-    "tolower", "touch", "toupper", "trace", "track", "train_loop",
+    "tolower", "touch", "toupper", "tpdf", "trace", "track", "train_loop",
     "train_test_split", "train_val_test_split", "transfer_function",
     "transform", "transformer_block", "transpose", "tree_model", "triangle",
     "trim", "tsne", "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox",
@@ -57266,6 +57321,10 @@ fn circuit_fit_model(
 }
 
 fn model_predict(interp: &mut Interp, m: &ModelHandle, xnew_val: &Value) -> R<Value> {
+    // lda / qda / pls / ica -- see `multivariate.rs`.
+    if let Some(result) = multivariate::predict(m, xnew_val) {
+        return result;
+    }
     match m.kind.as_str() {
         // `fit.predict(freqs)` — the fitted circuit's own spectrum, on any
         // frequency axis, in Hz. Not the training axis: a fit is useful
