@@ -3290,4 +3290,113 @@ mod tests {
             );
         }
     }
+
+    /// Rasterises for real when PDFium can be found (`QU_PDFIUM`, beside
+    /// the test binary, or the system library path); without it, the
+    /// error must say where to get it. At 72 dpi a page is one pixel per
+    /// point of its media box, and a text page is mostly white paper.
+    #[test]
+    fn render_rasterises_or_says_where_to_get_pdfium() {
+        let pdf = build_pdf(2, None);
+        match render(&pdf, 2, 72.0) {
+            Ok(r) => {
+                let mb = media_box(&pdf, 2).unwrap();
+                let (w, h) = ((mb.x1 - mb.x0).round() as usize, (mb.y1 - mb.y0).round() as usize);
+                assert_eq!((r.width, r.height), (w, h));
+                assert_eq!(r.rgb.len(), w * h * 3);
+                let white = r.rgb.chunks_exact(3).filter(|p| p.iter().all(|&c| c > 250)).count();
+                assert!(white > w * h * 9 / 10, "a text page is mostly paper");
+                assert!(white < w * h, "and not entirely: the page has text on it");
+                assert!(render(&pdf, 3, 72.0).unwrap_err().contains("has 2"));
+                assert!(render(&pdf, 1, 0.0).unwrap_err().contains("dpi"));
+            }
+            Err(e) => assert!(e.contains("pdfium-binaries"), "{e}"),
+        }
+    }
+}
+
+// ------------------------------------------------------------------ render
+
+/// A rendered page: `width * height * 3` bytes of RGB, row-major, top row first.
+#[derive(Debug)]
+pub struct Rendered {
+    pub width: usize,
+    pub height: usize,
+    pub rgb: Vec<u8>,
+}
+
+static PDFIUM: std::sync::OnceLock<Result<pdfium_render::prelude::Pdfium, String>> = std::sync::OnceLock::new();
+
+/// Where the PDFium library is looked for, in order: `QU_PDFIUM` (the file
+/// itself, or its folder), the folder the running program is in, then the
+/// system's library search path.
+fn pdfium() -> Result<&'static pdfium_render::prelude::Pdfium, String> {
+    use pdfium_render::prelude::Pdfium;
+    PDFIUM
+        .get_or_init(|| {
+            let mut tried = Vec::new();
+            let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+            if let Ok(p) = std::env::var("QU_PDFIUM") {
+                let p = std::path::PathBuf::from(p);
+                candidates.push(if p.is_dir() { Pdfium::pdfium_platform_library_name_at_path(&p) } else { p });
+            }
+            if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.to_path_buf())) {
+                candidates.push(Pdfium::pdfium_platform_library_name_at_path(&dir));
+            }
+            for c in candidates {
+                if c.is_file() {
+                    match Pdfium::bind_to_library(&c) {
+                        Ok(b) => return Ok(Pdfium::new(b)),
+                        Err(e) => tried.push(format!("{}: {e}", c.display())),
+                    }
+                }
+            }
+            match Pdfium::bind_to_system_library() {
+                Ok(b) => Ok(Pdfium::new(b)),
+                Err(_) => Err(format!(
+                    "pdf.render needs the PDFium library ({}), which was not found{}. Download the build \
+                     for your platform from https://github.com/bblanchon/pdfium-binaries/releases and put \
+                     the library file next to the qu program, or set QU_PDFIUM to its path",
+                    Pdfium::pdfium_platform_library_name().to_string_lossy(),
+                    if tried.is_empty() { String::new() } else { format!(" (could not load: {})", tried.join("; ")) }
+                )),
+            }
+        })
+        .as_ref()
+        .map_err(|e| e.clone())
+}
+
+/// Render page `page` (1-based, as everywhere in this module) at `dpi`
+/// dots per inch, on white, annotations included.
+pub fn render(bytes: &[u8], page: u32, dpi: f64) -> Result<Rendered, String> {
+    use pdfium_render::prelude::*;
+    if !(dpi > 0.0 && dpi <= 2400.0) {
+        return Err(format!("pdf.render: dpi={dpi} -- use a value between 1 and 2400"));
+    }
+    let pdfium = pdfium()?;
+    let doc = pdfium.load_pdf_from_byte_slice(bytes, None).map_err(|e| format!("pdf.render: cannot open the PDF: {e}"))?;
+    let n = doc.pages().len() as u32;
+    if page == 0 || page > n {
+        return Err(format!("pdf.render: page {page} does not exist -- the document has {n} (pages count from 1)"));
+    }
+    let p = doc.pages().get((page - 1) as PdfPageIndex).map_err(|e| format!("pdf.render: page {page}: {e}"))?;
+    let scale = (dpi / 72.0) as f32;
+    let w_px = (p.width().value * scale).round();
+    let h_px = (p.height().value * scale).round();
+    if w_px * h_px > 400_000_000.0 {
+        return Err(format!("pdf.render: {w_px}x{h_px} pixels is too large -- lower dpi="));
+    }
+    let cfg = PdfRenderConfig::new().scale_page_by_factor(scale).render_form_data(true).render_annotations(true);
+    let bmp = p.render_with_config(&cfg).map_err(|e| format!("pdf.render: page {page}: {e}"))?;
+    let (w, h) = (bmp.width() as usize, bmp.height() as usize);
+    let rgba = bmp.as_rgba_bytes();
+    let mut rgb = Vec::with_capacity(w * h * 3);
+    for px in rgba.chunks_exact(4) {
+        // Composite onto white: a transparent pixel is paper, not black.
+        let a = px[3] as u32;
+        for c in &px[..3] {
+            rgb.push(((*c as u32 * a + 255 * (255 - a)) / 255) as u8);
+        }
+    }
+    Ok(Rendered { width: w, height: h, rgb })
 }

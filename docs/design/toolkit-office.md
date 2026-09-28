@@ -468,6 +468,11 @@ processor's job; Qu hands it to one and says so when none is installed
 (`QU_SOFFICE` overrides discovery). Refused under `--sandbox`, like
 `exec`.
 
+**PDF rendering** (`pdf.render(src, page, dpi=)`, in the `pdf` module):
+PDFium bound at run time through `pdfium-render` (no C build step), found
+via `QU_PDFIUM`, beside the `qu` executable, or the system library path.
+Together with `to_pdf` this closes the loop document -> PDF -> image.
+
 **Validation.** Generated files were opened by LibreOffice (rendered to
 PDF and inspected) and by python-docx/python-pptx/openpyxl as independent
 readers. Not yet opened in Microsoft Office itself.
@@ -477,6 +482,5 @@ convenience charts, PowerPoint charts), conditional formatting and data
 validation, pivot tables, DOCX sections/headers/footers editing and page
 setup, lists/numbering creation, cross-references/fields/TOC, PPTX
 animations/masters/themes editing and speaker-notes creation on a slide
-that has none, rendering a PDF page to an image (needs PDFium or MuPDF --
-see `toolkit-pdf.md`), and formula evaluation (formulas are stored and
+that has none, and formula evaluation (formulas are stored and
 calculated by Excel/LibreOffice on open).

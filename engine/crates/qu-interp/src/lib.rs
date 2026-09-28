@@ -3965,7 +3965,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("xlsx", &["read", "sheets", "write", "new", "open", "save_as", "discard", "get_cell", "set_cell", "formula", "set_formula", "fill_formula", "get_range", "set_range", "used_range", "add_sheet", "rename_sheet", "delete_sheet", "insert_rows", "delete_rows", "insert_columns", "delete_columns", "column_width", "row_height", "format_cells", "merge", "freeze_panes", "define_name", "to_pdf"]),
     ("docx", &["new", "open", "save_as", "discard", "full_text", "paragraphs", "headings", "find_text", "replace_text", "set_paragraph", "insert_paragraph", "remove_paragraph", "add_heading", "add_paragraph", "add_page_break", "add_table", "add_image", "tables", "set_cell", "comments", "footnotes", "endnotes", "info", "set_info", "accept_changes", "reject_changes", "to_markdown", "to_latex", "to_pdf"]),
     ("pptx", &["new", "open", "save_as", "discard", "info", "set_info", "slide_count", "slides", "slide_text", "slide_title", "notes", "find_text", "replace_text", "layouts", "add_slide", "delete_slide", "move_slide", "duplicate_slide", "hide_slide", "unhide_slide", "add_text", "add_image", "add_table", "to_markdown", "to_pdf"]),
-    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_pages", "extract_text", "find_text", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "write_merge", "write_pages"]),
+    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_pages", "extract_text", "find_text", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
@@ -14100,6 +14100,20 @@ impl Interp {
                     ("encrypted".into(), Value::Bool(info.encrypted)),
                 ])))
             }
+            // `pdf.render(src, [page=1], [dpi=150])` -- one page to an
+            // Image, through PDFium loaded at run time (see
+            // `qu_pdf::render` for where the library is looked for).
+            "pdf::render" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let page = match arg_get(args, 1).or_else(|| style_entry(style, "page").map(|(_, v)| v)) {
+                    Some(v) => v.as_index().map_err(|m| EvalError { msg: format!("{short}: page: {m}") })? as u32,
+                    None => 1,
+                };
+                let dpi = style_num(style, "dpi").unwrap_or(150.0);
+                let r = qu_pdf::render(&bytes, page, dpi).map_err(|msg| EvalError { msg })?;
+                let img = image::Image::new(r.width, r.height, r.rgb).map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                Ok(Value::Image(Arc::new(img)))
+            }
             "pdf::page_count" => {
                 let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
                 let n = qu_pdf::page_count(&bytes).map_err(|msg| EvalError {
@@ -21206,6 +21220,7 @@ self.eval_grad(loss, wrt)
             // between the ones that return bytes and the two that write.
             #[cfg(feature = "pdf")]
             "pdf::extract_pages"
+            | "pdf::render"
             | "pdf::extract_text"
             | "pdf::find_text"
             | "pdf::info"

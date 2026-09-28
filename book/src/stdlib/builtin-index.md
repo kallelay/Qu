@@ -1302,6 +1302,7 @@ leaves the qualified one available too.
 | [`pdf.outlines`](../fn/pdf.outlines.html) | The document's bookmark/outline tree, flattened into a `Table` — one row per entry, depth-first | [File I/O](file-io.md) |
 | [`pdf.page_count`](../fn/pdf.page_count.html) | Counts a PDF's pages. `src` (string path, or `Vec` of bytes) is the document | [File I/O](file-io.md) |
 | [`pdf.remove_annotation`](../fn/pdf.remove_annotation.html) | Removes the `index`-th entry of a page's `/Annots` array (the `index` `pdf.annotations` reports), deleting the underlying object too | [File I/O](file-io.md) |
+| [`pdf.render`](../fn/pdf.render.html) | Renders one page (numbered from 1) to an `Image` -- text, vector graphics, images and annotations, composited onto white -- at `dpi` dots per inch (a page is `width_in_points * dpi / 72`.. | [File I/O](file-io.md) |
 | [`pdf.reverse_pages`](../fn/pdf.reverse_pages.html) | Reverses page order: the last page becomes the first and vice versa | [File I/O](file-io.md) |
 | [`pdf.rotate_page`](../fn/pdf.rotate_page.html) | Sets a page's `/Rotate` -- degrees a viewer turns the page CLOCKWISE before display | [File I/O](file-io.md) |
 | [`pdf.set_metadata`](../fn/pdf.set_metadata.html) | Writes into a PDF's `/Info` dictionary (creating it if the file has none), touching only the fields passed — a keyword left out is left exactly as it was, never cleared | [File I/O](file-io.md) |

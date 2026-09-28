@@ -42,6 +42,14 @@ which is a real distribution/packaging cost — worth weighing against
 even if it means giving up rendering/OCR/forms/redaction until a second
 pass.
 
+**Update 2026-09-28 (v0.4.3): rendering landed** as `pdf.render(src,
+page, dpi=)`, the second pass this paragraph anticipated. The packaging
+cost is paid the cheap way: `pdfium-render` binds PDFium through its C
+API at RUN time, so nothing native is compiled and the build is
+unchanged; only a script that renders needs the library file (found via
+`QU_PDFIUM`, beside `qu`, or the system path, with an error naming the
+download otherwise). OCR, forms and redaction remain open.
+
 ---
 
 ## Why PDF needs its own semantic layer

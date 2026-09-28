@@ -23,3 +23,10 @@ description = "PDF structure — page counts, metadata, merge and page extractio
 # else. Worth revisiting when it reaches 1.0 and the roadmap's
 # encryption/optimization/PDF-A rows come up.
 lopdf = "0.45"
+# `pdf.render`: a page to pixels. Rasterising PDF is a job for a real PDF
+# engine, so this binds Google's PDFium -- the one inside Chrome -- AT RUN
+# TIME through its C API (dlopen/LoadLibrary): nothing is compiled, and
+# the library file is only needed by a script that renders. Default
+# features off drops the `image` crate; the raw bitmap is enough.
+pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_latest", "thread_safe"] }
+
