@@ -72441,6 +72441,7 @@ end for");
         assert_eq!(it.get("q").and_then(|v| v.as_num().ok()), Some(8.0));
     }
 
+    #[test]
     fn warn_prints_but_does_not_raise() {
         let it = run("warn(\"careful\")\nx = 1");
         assert!(it.out.contains("careful"));
