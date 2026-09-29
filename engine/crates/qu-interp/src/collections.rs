@@ -635,12 +635,28 @@ pub fn seq_where(interp: &mut Interp, args: &[Value]) -> R<Value> {
     Ok(Value::List(Arc::new(out)))
 }
 
-/// `any(xs, "pred")` / `all(xs, "pred")`.
+/// The one-argument `any(mask)` / `all(mask)`: is any / every element
+/// true (non-zero)? A mask, numeric vector, matrix or all-number list goes
+/// through the shared numeric coercion, which reads a mask as 0/1 -- so
+/// `any(x > 3)` is MATLAB's and NumPy's spelling. `None` for anything that
+/// coercion refuses, so that call keeps the predicate form's own error.
+fn truth_vector(args: &[Value]) -> Option<Vec<f64>> {
+    match args {
+        [v] => crate::to_vec(v).ok(),
+        _ => None,
+    }
+}
+
+/// `any(xs, "pred")` / `all(xs, "pred")`, and the one-argument
+/// `any(mask)` / `all(mask)` over a mask or numeric vector.
 ///
 /// Both short-circuit. On an EMPTY sequence `any` is false and `all` is
 /// true -- the standard vacuous-truth reading, and the one that keeps
 /// `all(xs, p) == !any(xs, not_p)` honest.
 pub fn seq_any(interp: &mut Interp, args: &[Value]) -> R<Value> {
+    if let Some(xs) = truth_vector(args) {
+        return Ok(Value::Bool(xs.iter().any(|x| *x != 0.0)));
+    }
     let (xs, f) = predicate(interp, args, "any")?;
     for x in xs {
         let hit = interp.apply(&f, vec![x], Vec::new())?;
@@ -652,6 +668,9 @@ pub fn seq_any(interp: &mut Interp, args: &[Value]) -> R<Value> {
 }
 
 pub fn seq_all(interp: &mut Interp, args: &[Value]) -> R<Value> {
+    if let Some(xs) = truth_vector(args) {
+        return Ok(Value::Bool(xs.iter().all(|x| *x != 0.0)));
+    }
     let (xs, f) = predicate(interp, args, "all")?;
     for x in xs {
         let hit = interp.apply(&f, vec![x], Vec::new())?;

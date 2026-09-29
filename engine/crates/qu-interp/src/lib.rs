@@ -12211,6 +12211,20 @@ impl Interp {
         };
         let a = densify(a);
         let b = densify(b);
+        // A mask in ARITHMETIC reads as 0/1 (MATLAB's `(x > 0) * 2`,
+        // NumPy's `mask * 1.0`), matching `to_cow`'s reduction arm, so
+        // `(x <= c) * 1` and `sum(x <= c)` agree. Only the arithmetic
+        // operators: comparisons and `and`/`or` keep their own mask and
+        // truthiness semantics below.
+        let arith = matches!(op, "+" | "-" | "*" | ".*" | "/" | "./" | "^" | "**" | ".^" | "mod");
+        let numify = |v: Value| match v {
+            Value::Mask(m) if arith => {
+                Value::Vec(Arc::new(m.iter().map(|&t| if t { 1.0 } else { 0.0 }).collect()))
+            }
+            other => other,
+        };
+        let a = numify(a);
+        let b = numify(b);
         // Complex + 2-D takes priority over both the flat-complex and the
         // real-matrix paths: either operand is a genuine complex matrix, or a
         // complex value (scalar/vector) meets a real matrix (e.g. a complex
@@ -43642,6 +43656,15 @@ fn to_cow(v: &Value) -> R<Cow<'_, [f64]>> {
         Value::Vec(xs) => Ok(Cow::Borrowed(xs.as_slice())),
         Value::Num(n) => Ok(Cow::Owned(vec![*n])),
         Value::Bool(b) => Ok(Cow::Owned(vec![if *b { 1.0 } else { 0.0 }])),
+        // A mask reads as 0/1, the way MATLAB and NumPy treat logicals in
+        // a reduction. Without this, `sum(x <= c)` / `mean(x <= c)` -- the
+        // natural way to count, or take the fraction of, elements meeting a
+        // condition (an empirical CDF is exactly `mean(x <= c)`) -- was
+        // "expected a numeric vector, found mask", and the only working
+        // spelling was `length(find(mask))`. Done here rather than per
+        // builtin so every reduction (`sum`, `mean`, `cumsum`, `prod`, ...)
+        // gets it at once.
+        Value::Mask(m) => Ok(Cow::Owned(m.iter().map(|&t| if t { 1.0 } else { 0.0 }).collect())),
         // matrices reduce as their flat column-major buffer
         Value::Mat(m) => Ok(Cow::Borrowed(m.as_slice())),
         Value::Signal(xs, _, _) => Ok(Cow::Borrowed(xs.as_slice())),
@@ -73321,6 +73344,72 @@ end for");
             }
             other => panic!("ys is not a list: {other:?}"),
         }
+    }
+
+    #[test]
+    fn numeric_reductions_read_a_mask_as_zero_one() {
+        // `sum(x <= c)` counts, `mean(x <= c)` is the fraction -- the
+        // MATLAB/NumPy idiom, and an empirical CDF in one call.
+        let it = run(
+            "x = [1, 2, 3]\ns = sum(x <= 2)\nm = mean(x <= 2)\n\
+             c = cumsum(x <= 2)\np = prod(x <= 2)\nsa = sum(x <= 3)",
+        );
+        let num = |k: &str| match it.get(k) {
+            Some(Value::Num(n)) => *n,
+            other => panic!("{k}: expected a number, got {other:?}"),
+        };
+        assert_eq!(num("s"), 2.0);
+        assert!((num("m") - 2.0 / 3.0).abs() < 1e-12);
+        assert_eq!(num("p"), 0.0);
+        assert_eq!(num("sa"), 3.0);
+        assert!(matches!(it.get("c"), Some(Value::Vec(v)) if **v == vec![1.0, 2.0, 2.0]));
+    }
+
+    #[test]
+    fn reductions_over_an_all_false_and_an_empty_mask() {
+        let it = run(
+            "x = [1, 2, 3]\nf = x > 10\nsf = sum(f)\nmf = mean(f)\n\
+             e = x[f] > 0\nse = sum(e)\nae = any(e)\nle = all(e)",
+        );
+        assert!(matches!(it.get("e"), Some(Value::Mask(m)) if m.is_empty()));
+        assert!(matches!(it.get("sf"), Some(Value::Num(n)) if *n == 0.0));
+        assert!(matches!(it.get("mf"), Some(Value::Num(n)) if *n == 0.0));
+        assert!(matches!(it.get("se"), Some(Value::Num(n)) if *n == 0.0));
+        // vacuous truth, same as the predicate form on an empty sequence
+        assert!(matches!(it.get("ae"), Some(Value::Bool(false))));
+        assert!(matches!(it.get("le"), Some(Value::Bool(true))));
+        // `mean` of an empty mask is the same error as `mean` of `[]`,
+        // not a silent 0 or NaN.
+        let err = run_err("x = [1, 2, 3]\nmean(x[x > 10] > 0)");
+        assert!(err.msg.contains("empty"), "{}", err.msg);
+    }
+
+    #[test]
+    fn any_and_all_take_a_bare_mask() {
+        let it = run(
+            "x = [1, 2, 3]\na1 = any(x > 2)\na0 = any(x > 5)\n\
+             l1 = all(x > 0)\nl0 = all(x > 1)\nn1 = any([0, 0, 2])",
+        );
+        assert!(matches!(it.get("a1"), Some(Value::Bool(true))));
+        assert!(matches!(it.get("a0"), Some(Value::Bool(false))));
+        assert!(matches!(it.get("l1"), Some(Value::Bool(true))));
+        assert!(matches!(it.get("l0"), Some(Value::Bool(false))));
+        assert!(matches!(it.get("n1"), Some(Value::Bool(true))));
+    }
+
+    #[test]
+    fn mask_arithmetic_reads_as_zero_one() {
+        let it = run(
+            "x = [1, 2, 3]\na = (x <= 2) * 1\nb = (x <= 2) + (x >= 2)\n\
+             c = 1 - (x <= 2)\ns = sum((x <= 2) * 1)",
+        );
+        assert!(matches!(it.get("a"), Some(Value::Vec(v)) if **v == vec![1.0, 1.0, 0.0]));
+        assert!(matches!(it.get("b"), Some(Value::Vec(v)) if **v == vec![1.0, 2.0, 1.0]));
+        assert!(matches!(it.get("c"), Some(Value::Vec(v)) if **v == vec![0.0, 0.0, 1.0]));
+        assert!(matches!(it.get("s"), Some(Value::Num(n)) if *n == 2.0));
+        // masks still index as masks, not as 0/1 positions
+        let it = run("x = [10, 20, 30]\ny = x[x > 15]");
+        assert!(matches!(it.get("y"), Some(Value::Vec(v)) if **v == vec![20.0, 30.0]));
     }
 
     #[test]

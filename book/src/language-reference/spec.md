@@ -934,6 +934,13 @@ block (§44.4): the expression form returns indices, while the block form applie
 multiple statements under a mask. A deferred `:=` binding recomputes the mask when
 forced; ordinary `=` captures the current index vector.
 
+In numeric reductions and arithmetic a mask reads as `1` for true and `0`
+for false, as in MATLAB and NumPy: `sum(x <= c)` counts the elements meeting
+the condition, `mean(x <= c)` is their fraction (an empirical CDF at `c`),
+`cumsum(mask)` is a running count, and `(x > 0) * 2` / `1 - mask` are
+numeric `Vec`s. `any(mask)` / `all(mask)` take a bare mask. Indexing is
+unaffected — `x[mask]` still selects, it does not gather positions `0`/`1`.
+
 For visualization, a gathered vector carries its source-index provenance so
 `plot(x[idx], "o")` places markers at the corresponding positions of a preceding
 `plot(x)`. This provenance is plotting metadata, not another numeric dimension;

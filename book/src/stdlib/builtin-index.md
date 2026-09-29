@@ -47,12 +47,12 @@ program, and a misspelled call suggests the nearest match.
 | [`after`](../fn/after.html) | `after` returns the piece of `s` past the first `mark`; `before` returns the piece up to it | [Collections & strings](collections-strings.md) |
 | [`after_last`](../fn/after_last.html) | Returns a `Str`: like `after`/`before` but searching from the end — the pair to reach for on a path or a dotted name | [Collections & strings](collections-strings.md) |
 | [`algorigram`](../fn/algorigram.html) | Renders a flowchart of the named function's control flow: `if`/`else` as a decision diamond with `yes`/`no` branches that rejoin, `while`/`for`/`do...loop` as a decision with a routed.. | [Plotting](plotting.md) |
-| [`all`](../fn/all.html) | Returns a `bool`: whether every (`all`) or at least one (`any`) element satisfies it | [Collections & strings](collections-strings.md) |
+| [`all`](../fn/all.html) | With ONE argument, `any(mask)` / `all(mask)` take a boolean mask or numeric `Vec`/`Mat` and return whether any / every element is true (non-zero) — `any(x > 3)`; an empty mask is `false`.. | [Collections & strings](collections-strings.md) |
 | [`and`](../fn/and.html) | Returns a `bool`. Both short-circuit: the right side is not evaluated when the left already decides the answer, so `i < len(xs) and xs[i] > 0` is a safe guard | [Collections & strings](collections-strings.md) |
 | [`angle`](../fn/angle.html) | Complex argument — the angle from the positive real axis, in radians (`atan2(im, re)`) — on a `Complex`/`CVec`/`CMat`; on a signed real scalar or real `Vec`/`Mat` it degrades to `0` for a.. | [Core maths](core-math.md) |
 | [`animate`](../fn/animate.html) | Calls function `"fn"` (string) once per frame index from `0` to `frames - 1` (integer) and writes the sequence to `path` (string) as one animated SVG, no JavaScript | [Plotting](plotting.md) |
 | [`annotate`](../fn/annotate.html) | Same as `text` — label `text` (string) at `(x, y)` (numbers, data units) — but also draws a marker dot at that point | [Plotting](plotting.md) |
-| [`any`](../fn/any.html) | Returns a `bool`: whether every (`all`) or at least one (`any`) element satisfies it | [Collections & strings](collections-strings.md) |
+| [`any`](../fn/any.html) | With ONE argument, `any(mask)` / `all(mask)` take a boolean mask or numeric `Vec`/`Mat` and return whether any / every element is true (non-zero) — `any(x > 3)`; an empty mask is `false`.. | [Collections & strings](collections-strings.md) |
 | [`append`](../fn/append.html) | Returns a NEW `Vec`/`List` with `value` added at the end | [Collections & strings](collections-strings.md) |
 | [`append_all`](../fn/append_all.html) | Appends `s` to the end of the file at `path`, creating it if absent | [Collections & strings](collections-strings.md) |
 | [`append_text`](../fn/append_text.html) | Appends `s` to the end of the file at `path`, creating it if absent | [Collections & strings](collections-strings.md) |
