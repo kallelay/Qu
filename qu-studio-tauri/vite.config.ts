@@ -26,7 +26,9 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    minify: 'esbuild',
+    // Vite 8's own minifier (Oxc); `'esbuild'` would need esbuild installed
+    // separately now, and Vite 8 no longer bundles it.
+    minify: 'oxc',
   },
   // monaco-editor's own bundled worker code trips esbuild's dependency
   // pre-bundler ("Invalid regular expression: /\\\/: \ at end of pattern"),
