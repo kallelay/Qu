@@ -43,6 +43,17 @@ longer truncated to whole milliseconds.
 Release notes on GitHub now carry the changelog since the previous
 release instead of the whole file.
 
+Dependencies: ureq 3, zip 8, calamine 0.36, rust_xlsxwriter 0.99, wgpu
+30, nalgebra 0.35, thiserror 2, libloading 0.9, hmac 0.13 / sha2 0.11,
+tokenizers 0.22, hdf5-metno 0.15 (`http_get`, `qu-gpu` and Qu Studio's
+hosted-LLM client ported). `hf-hub` is gone: 1.0 is async-only, so
+`llm_load` now downloads model files itself (streamed through a `.part`
+file, so an interrupted download is never mistaken for a cached one),
+reads models an earlier version already cached,
+and honours `HF_HOME`/`HF_HUB_CACHE`/`HF_TOKEN`; the musl OpenSSL
+workaround it needed is gone with it. Frontends: vite 8 (the npm audit
+is clean in both packages), fast-uri 3.1.8.
+
 ## [0.4.3] - 2026-09-28
 
 Office toolkit (docs/design/toolkit-office.md): `import docx`, `import

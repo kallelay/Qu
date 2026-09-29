@@ -55,9 +55,12 @@
 //! (which resolves the redirect itself instead of hand-parsing the header)
 //! has no such bug -- confirmed by running both against the real network
 //! before picking this design (see [`fetch_tokenizer_json`]'s own doc
-//! comment). So: the big model file goes through `hf_hub::api::sync::Api`
-//! as normal; the tokenizer file is fetched by hand and cached next to
-//! hf-hub's own cache root.
+//! comment). Since v0.4.4 the model file is fetched the same way and the
+//! `hf-hub` crate is gone: hf-hub 1.0 became an async-only client (tokio,
+//! reqwest, xet), which this crate deliberately never pulls in. Both files
+//! go through one blocking [`download_to`] and are cached under the same
+//! Hugging Face root as before; a model hf-hub 0.3 already downloaded is
+//! found in its `hub/models--*/snapshots/*/` layout and not fetched again.
 //!
 //! **Lazy, on-demand loading.** Nothing in this crate touches the network,
 //! the filesystem beyond a cache-dir check, or allocates any model memory
@@ -73,7 +76,6 @@
 use candle_core::quantized::gguf_file;
 use candle_core::{Device, Tensor};
 use candle_transformers::models::quantized_llama::ModelWeights;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tokenizers::Tokenizer;
@@ -182,15 +184,81 @@ pub fn load(model_name_or_path: &str) -> Result<LlmModel, String> {
 }
 
 fn load_known(km: &KnownModel) -> Result<(PathBuf, Tokenizer), String> {
-    let api = hf_hub::api::sync::Api::new()
-        .map_err(|err| format!("llm_load: couldn't set up the Hugging Face cache: {err}"))?;
-    let gguf_path = api.model(km.gguf_repo.to_string()).get(km.gguf_file).map_err(|err| {
-        format!("llm_load: couldn't download `{}/{}`: {err}", km.gguf_repo, km.gguf_file)
-    })?;
+    let gguf_path = fetch_model_file(km.gguf_repo, km.gguf_file)?;
     let tok_path = fetch_tokenizer_json(km.tokenizer_repo, km.tokenizer_file)?;
     let tokenizer = Tokenizer::from_file(&tok_path)
         .map_err(|err| format!("llm_load: couldn't parse tokenizer `{}`: {err}", tok_path.display()))?;
     Ok((gguf_path, tokenizer))
+}
+
+/// The Hugging Face state root: `$HF_HOME`, else `~/.cache/huggingface` --
+/// the same root hf-hub 0.3 used, so existing downloads are reused.
+fn hf_home() -> PathBuf {
+    if let Some(h) = std::env::var_os("HF_HOME").filter(|h| !h.is_empty()) {
+        return PathBuf::from(h);
+    }
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"));
+    match home {
+        Some(h) => PathBuf::from(h).join(".cache").join("huggingface"),
+        None => PathBuf::from(".cache").join("huggingface"),
+    }
+}
+
+/// hf-hub's model cache (`$HF_HUB_CACHE`, else `<hf_home>/hub`).
+fn hf_hub_cache() -> PathBuf {
+    match std::env::var_os("HF_HUB_CACHE").filter(|h| !h.is_empty()) {
+        Some(h) => PathBuf::from(h),
+        None => hf_home().join("hub"),
+    }
+}
+
+/// `file` from `repo`'s `main` branch: a copy hf-hub already cached
+/// (`models--org--name/snapshots/<rev>/file`), then this crate's own cache,
+/// else downloaded into the latter.
+fn fetch_model_file(repo: &str, file: &str) -> Result<PathBuf, String> {
+    let snapshots = hf_hub_cache().join(format!("models--{}", repo.replace('/', "--"))).join("snapshots");
+    if let Ok(revs) = std::fs::read_dir(&snapshots) {
+        for rev in revs.flatten() {
+            let cand = rev.path().join(file);
+            if cand.is_file() {
+                return Ok(cand);
+            }
+        }
+    }
+    let dest = hf_home().join("qu-llm-models").join(repo.replace('/', "--")).join(file);
+    if dest.is_file() {
+        return Ok(dest);
+    }
+    download_to(repo, file, &dest)?;
+    Ok(dest)
+}
+
+/// Streams `https://huggingface.co/<repo>/resolve/main/<file>` into `dest`
+/// through a `.part` file renamed on success, so an interrupted download
+/// never leaves a truncated file that a later call would take as cached.
+/// Sends `HF_TOKEN` when set (gated repositories). Only the connection has a
+/// timeout: a multi-gigabyte model can legitimately take a long time.
+fn download_to(repo: &str, file: &str, dest: &std::path::Path) -> Result<(), String> {
+    let dir = dest.parent().ok_or_else(|| format!("llm_load: bad cache path `{}`", dest.display()))?;
+    std::fs::create_dir_all(dir)
+        .map_err(|err| format!("llm_load: couldn't create cache dir `{}`: {err}", dir.display()))?;
+    let url = format!("https://huggingface.co/{repo}/resolve/main/{file}");
+    let agent: ureq::Agent =
+        ureq::Agent::config_builder().timeout_connect(Some(std::time::Duration::from_secs(30))).build().into();
+    let mut req = agent.get(&url);
+    if let Some(tok) = std::env::var("HF_TOKEN").ok().filter(|t| !t.is_empty()) {
+        req = req.header("Authorization", format!("Bearer {tok}"));
+    }
+    let resp = req.call().map_err(|err| format!("llm_load: couldn't download `{url}`: {err}"))?;
+    let part = dest.with_extension("part");
+    let mut out = std::fs::File::create(&part)
+        .map_err(|err| format!("llm_load: couldn't write `{}`: {err}", part.display()))?;
+    std::io::copy(&mut resp.into_body().into_reader(), &mut out).map_err(|err| {
+        let _ = std::fs::remove_file(&part);
+        format!("llm_load: couldn't read the response body from `{url}`: {err}")
+    })?;
+    drop(out);
+    std::fs::rename(&part, dest).map_err(|err| format!("llm_load: couldn't write `{}`: {err}", dest.display()))
 }
 
 fn load_local(gguf_path_str: &str) -> Result<(PathBuf, Tokenizer), String> {
@@ -211,7 +279,8 @@ fn load_local(gguf_path_str: &str) -> Result<(PathBuf, Tokenizer), String> {
 }
 
 /// Downloads `tokenizer_file` from `repo`'s `main` branch with a plain
-/// blocking `ureq::get` instead of `hf_hub::api::sync::Api::get`.
+/// blocking `ureq::get` (this was the one file fetched by hand before the
+/// model file went the same way).
 ///
 /// hf-hub 0.3.2's own download path failed here with "relative URL without
 /// a base" -- confirmed by running it against the real network while
@@ -229,30 +298,16 @@ fn load_local(gguf_path_str: &str) -> Result<(PathBuf, Tokenizer), String> {
 /// instead of hand-parsing it -- so this function just does that, and skips
 /// `hf_hub` entirely for this one file.
 ///
-/// Cached by hand under a `qu-llm-tokenizers` directory next to hf-hub's
-/// own cache root (so it still respects a custom `HF_HOME`), keyed by repo
+/// Cached by hand under a `qu-llm-tokenizers` directory in the Hugging
+/// Face root (so it still respects a custom `HF_HOME`), keyed by repo
 /// name, so a second `load` call for the same known model doesn't
 /// re-download it.
 fn fetch_tokenizer_json(repo: &str, file: &str) -> Result<PathBuf, String> {
-    let cache_root = hf_hub::Cache::default()
-        .path()
-        .parent()
-        .map(|p| p.join("qu-llm-tokenizers"))
-        .unwrap_or_else(|| PathBuf::from(".qu-llm-tokenizers"));
-    let dest_dir = cache_root.join(repo.replace('/', "--"));
-    let dest = dest_dir.join(file);
+    let dest = hf_home().join("qu-llm-tokenizers").join(repo.replace('/', "--")).join(file);
     if dest.exists() {
         return Ok(dest);
     }
-    std::fs::create_dir_all(&dest_dir)
-        .map_err(|err| format!("llm_load: couldn't create cache dir `{}`: {err}", dest_dir.display()))?;
-    let url = format!("https://huggingface.co/{repo}/resolve/main/{file}");
-    let resp = ureq::get(&url).call().map_err(|err| format!("llm_load: couldn't download `{url}`: {err}"))?;
-    let mut bytes = Vec::new();
-    resp.into_reader()
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("llm_load: couldn't read the response body from `{url}`: {err}"))?;
-    std::fs::write(&dest, &bytes).map_err(|err| format!("llm_load: couldn't write `{}`: {err}", dest.display()))?;
+    download_to(repo, file, &dest)?;
     Ok(dest)
 }
 

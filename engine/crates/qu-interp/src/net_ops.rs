@@ -3,10 +3,9 @@
 //! client at all (grepped first, confirmed zero hits for `http_get`/`ureq`/
 //! any HTTP verb anywhere in `qu-interp`) — this is that, kept deliberately
 //! minimal per the brief: GET only, no custom headers/auth/POST in this
-//! pass. Uses `ureq` — the same crate (and major version, `"2"`) `qu-llm`'s
-//! `hf-hub` dependency already pulls into this workspace for its own model
-//! downloads (checked `crates/qu-llm/Cargo.toml` first) — so this is not a
-//! second HTTP client entering the dependency tree.
+//! pass. Uses `ureq` — the same crate (and major version, `"3"`) `qu-llm`
+//! uses for its own model downloads — so this is not a second HTTP client
+//! entering the dependency tree.
 //!
 //! **Return shape**: always a `Value::Str` — the response body, UTF-8
 //! decoded LOSSILY (same convention `read_all_text`/text-mode `read_all`
@@ -63,26 +62,33 @@ fn http_get(args: &[Value]) -> R<Value> {
 /// immediately lossy-decoding the whole body to one `Value::Str` the way
 /// `http_get` itself does. `label` names the calling builtin in error text.
 fn fetch_body(label: &str, url: &str) -> R<Vec<u8>> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(30))
-        .timeout(Duration::from_secs(30))
-        .build();
+    // ureq 3: statuses are inspected here rather than surfaced as errors,
+    // so a non-2xx keeps its reason phrase; the global timeout bounds the
+    // whole request as ureq 2's `timeout` did.
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(30)))
+        .timeout_global(Some(Duration::from_secs(30)))
+        .http_status_as_error(false)
+        .build()
+        .into();
     match agent.get(url).call() {
-        Ok(resp) => {
+        Ok(resp) if resp.status().is_success() => {
             let mut body = Vec::new();
-            resp.into_reader().read_to_end(&mut body).map_err(|err| EvalError {
+            resp.into_body().into_reader().read_to_end(&mut body).map_err(|err| EvalError {
                 msg: format!("{label}: could not read the response body from `{url}`: {err}"),
             })?;
             Ok(body)
         }
-        Err(ureq::Error::Status(code, resp)) => {
-            let status_text = resp.status_text().to_string();
+        Ok(resp) => {
+            let status = resp.status();
             e(format!(
-                "{label}: `{url}` returned HTTP {code} ({status_text}) — not a successful (2xx) response"
+                "{label}: `{url}` returned HTTP {} ({}) — not a successful (2xx) response",
+                status.as_u16(),
+                status.canonical_reason().unwrap_or("")
             ))
         }
-        Err(ureq::Error::Transport(t)) => e(format!(
-            "{label}: could not reach `{url}`: {t} (network error, DNS failure, TLS failure, or timeout — a 30s timeout applies to the whole request)"
+        Err(err) => e(format!(
+            "{label}: could not reach `{url}`: {err} (network error, DNS failure, TLS failure, or timeout — a 30s timeout applies to the whole request)"
         )),
     }
 }

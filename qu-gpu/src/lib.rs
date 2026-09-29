@@ -64,9 +64,10 @@ impl GpuContext {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: None,
                 force_fallback_adapter: false,
+                apply_limit_buckets: false,
             })
             .await
-            .ok_or(GpuError::NoAdapter)?;
+            .map_err(|_| GpuError::NoAdapter)?;
         let adapter_info = adapter.get_info();
         let (device, queue) = adapter
             .request_device(
@@ -74,8 +75,8 @@ impl GpuContext {
                     label: Some("Qu compute device"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::downlevel_defaults(),
+                    ..Default::default()
                 },
-                None,
             )
             .await
             .map_err(|error| GpuError::Device(error.to_string()))?;
@@ -105,14 +106,16 @@ impl GpuContext {
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Qu multisine pipeline layout"),
-            bind_group_layouts: &[&layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Qu batched multisine pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: "main",
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
         });
 
         let matmul_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -139,14 +142,16 @@ impl GpuContext {
         });
         let matmul_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Qu matmul pipeline layout"),
-            bind_group_layouts: &[&matmul_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&matmul_layout)],
+            immediate_size: 0,
         });
         let matmul_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Qu matmul pipeline"),
             layout: Some(&matmul_pipeline_layout),
             module: &matmul_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
         });
 
         Ok(Self {
@@ -295,12 +300,16 @@ impl GpuContext {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|error| GpuError::Map(error.to_string()))?;
         receiver
             .recv()
             .map_err(|error| GpuError::Map(error.to_string()))?
             .map_err(|error| GpuError::Map(error.to_string()))?;
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|error| GpuError::Map(error.to_string()))?;
         let output = bytemuck::cast_slice::<u8, f32>(&mapped).to_vec();
         drop(mapped);
         staging.unmap();
@@ -398,12 +407,16 @@ impl GpuContext {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|error| GpuError::Map(error.to_string()))?;
         receiver
             .recv()
             .map_err(|error| GpuError::Map(error.to_string()))?
             .map_err(|error| GpuError::Map(error.to_string()))?;
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|error| GpuError::Map(error.to_string()))?;
         let output = bytemuck::cast_slice::<u8, f32>(&mapped).to_vec();
         drop(mapped);
         staging.unmap();

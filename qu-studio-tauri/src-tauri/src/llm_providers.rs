@@ -301,8 +301,8 @@ pub fn apply_update(config_dir: &Path, update: ProviderSettingsUpdate) -> Result
 /// as a string. The one and only place either hosted provider touches the
 /// network, so it is also the one place that has to be careful never to
 /// let an API key leak into the `Err` it returns: `ureq::Error`'s own
-/// `Display` impl can include the request URL and, for a `Status` error,
-/// the response body -- both are safe to surface (this app builds the URL
+/// `Display` impl can include the request URL, and a non-2xx response's
+/// body is shown -- both are safe to surface (this app builds the URL
 /// itself with no key in it, and a provider's own error response is never
 /// going to contain the key WE sent, since providers don't echo the
 /// `Authorization`/`x-api-key` header back) -- but headers themselves are
@@ -315,26 +315,32 @@ fn http_post_json(
     body: &serde_json::Value,
     provider_label: &str,
 ) -> Result<String, String> {
-    let mut req = ureq::post(url);
+    // ureq 3: statuses come back as responses (not errors) so a
+    // provider's own error body can be shown; every `Err` is a transport
+    // failure.
+    let agent: ureq::Agent = ureq::Agent::config_builder().http_status_as_error(false).build().into();
+    let mut req = agent.post(url);
     for (k, v) in headers {
-        req = req.set(k, v);
+        req = req.header(*k, *v);
     }
     match req.send_json(body.clone()) {
-        Ok(resp) => resp
-            .into_string()
+        Ok(resp) if resp.status().is_success() => resp
+            .into_body()
+            .read_to_string()
             .map_err(|_| format!("{provider_label}: could not read response body")),
-        Err(ureq::Error::Status(code, resp)) => {
+        Ok(resp) => {
             // Provider's own error message (e.g. `{"error":{"message":"Incorrect API key..."}}`)
             // -- useful for the user, never contains the key we sent.
-            let text = resp.into_string().unwrap_or_default();
+            let code = resp.status().as_u16();
+            let text = resp.into_body().read_to_string().unwrap_or_default();
             let snippet: String = text.chars().take(300).collect();
             Err(format!("{provider_label}: HTTP {code}: {snippet}"))
         }
-        Err(ureq::Error::Transport(_)) => {
-            // Deliberately NOT formatting the `Transport` value itself --
-            // it can include the target host/URL, which is fine, but this
-            // keeps the contract simple: transport failures always get the
-            // same generic, key-free message regardless of what ureq's
+        Err(_) => {
+            // Deliberately NOT formatting the error itself -- it can
+            // include the target host/URL, which is fine, but this keeps
+            // the contract simple: transport failures always get the same
+            // generic, key-free message regardless of what ureq's
             // internals happen to include in a given version.
             Err(format!(
                 "{provider_label}: network request failed (no internet connection, DNS failure, \
