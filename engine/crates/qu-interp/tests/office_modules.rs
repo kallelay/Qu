@@ -187,6 +187,5 @@ fn to_pdf_uses_libreoffice_or_says_it_is_missing() {
 }
 
 fn qu_ooxml_present() -> bool {
-    ["soffice", "libreoffice"].iter().any(|b| std::process::Command::new(b).arg("--version").output().is_ok_and(|o| o.status.success()))
-        || std::env::var("QU_SOFFICE").is_ok()
+    qu_ooxml::find_office().is_some()
 }

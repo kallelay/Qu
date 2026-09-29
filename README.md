@@ -6,8 +6,8 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0%20%2F%20CC--BY--SA--4.0-blue"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-informational">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-~2%2C200%20passing-brightgreen">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.4-informational">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C000%2B%20passing-brightgreen">
 </p>
 
 An array language for measurement science: signals, spectra, impedance,
@@ -99,11 +99,34 @@ colorbars, thirty-odd marker glyphs.
 
 **Data in the shapes instruments produce it.** MATLAB `.mat` files read
 natively, CSV with the provenance headers instruments emit, raw binary
-arrays and structs, images.
+arrays and structs, images (PNG, BMP, JPEG, TIFF).
 
-**The rest.** Tables, statistics, a machine-learning set (SVM, forests,
-gradient boosting, k-NN, PCA, GMM, MLPs), parallel `pmap`/pools, GPU
-matmul, serial and TCP I/O.
+**Statistics you can check.** Every family on the distribution
+relationships chart under MATLAB's names — `*pdf`/`*cdf`/`*inv`/`*rnd`/
+`*stat`, and maximum-likelihood `*fit` for twelve of them (76 functions),
+checked against SciPy and mpmath. Every least-squares fit (`curve_fit`,
+`least_squares`, `circuit_fit`) reports standard errors, confidence
+intervals and p-values, with an optional bootstrap. `sum`, `mean` and
+`dot` use compensated summation.
+
+**Machine learning.** SVM, forests, gradient boosting, k-NN, naive
+Bayes, PCA, LDA/QDA, PLS, ICA, GMM, Gaussian processes, isolation forest,
+NMF, ARIMA, MLPs, and `jacobian`/`hessian`/`vmap` on the autodiff tape.
+
+**Documents and images as data.** `import docx`, `import pptx` and
+in-place `import xlsx` editing (only the parts an edit touches are
+rewritten; `to_pdf` needs LibreOffice installed). `import pdf` reads
+structure and text, edits pages, bookmarks and annotations, and
+`pdf.render` rasterises a page through PDFium, loaded at run time. Image
+measurement, adaptive thresholding, morphology, watershed and drawing
+overlays (`import image` for the module functions); `save_svg`/`load_svg`
+and `import svg` shape constructors.
+
+**The rest.** Tables, parallel `pmap`/pools, GPU matmul, serial and TCP
+I/O, shell and process control (environment, timeouts, monitored child
+processes), `load_library`/`native_call` for C functions in a shared
+library (refused under `--sandbox`), and `with <module> … end` blocks.
+`qu run` streams its output as it prints.
 
 ## Qu Studio
 
@@ -190,11 +213,11 @@ language is organised against.
 
 ## Status
 
-Version 0.3.0, and honest about what that means: one implementation, a
+Version 0.4.4, and honest about what that means: one implementation, a
 small number of users, and a specification that is ahead of the engine in
 places. The numerical core is checked against reference implementations —
 several ports reproduce NumPy, SciPy and MATLAB results exactly — and the
-test suite runs to several thousand cases. It is being used for real
+test suite runs to over three thousand cases. It is being used for real
 work; it has not yet been used for *your* real work, and that is the
 difference between 0.x and 1.0.
 
