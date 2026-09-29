@@ -12,6 +12,20 @@ changes are called out.
 
 ## [0.4.4] - 2026-09-29
 
+Every family on the distribution-relationships chart, under MATLAB's names:
+continuous and discrete uniform, Bernoulli, binomial, geometric, negative
+binomial, Poisson, hypergeometric, normal, log-normal, exponential,
+Weibull, gamma, beta, chi-square, Student t and F, each with `*pdf`
+(mass for the discrete ones), `*cdf`, `*inv`, `*rnd` and `*stat`
+(`.mean`/`.var`), and maximum-likelihood `*fit` for twelve of them
+(`.params`, `.loglik`; `normfit`, `lognfit`, `expfit`, `gamfit`,
+`wblfit`, `betafit`, `unifit`, `poissfit`, `binofit`, `geofit`,
+`nbinfit`, `bernfit`) -- 76 new builtins. Discrete masses use Loader's
+saddle-point algorithm (as R/SciPy), full precision where a difference of
+`lgamma`s loses 12 digits; discrete samplers invert the CDF exactly
+(table-driven for wide distributions: a million binomial(1e6, 0.3) draws
+in 33 ms). Checked against SciPy and mpmath: worst error a few ulp.
+
 Parameter uncertainty on every least-squares fit (`curve_fit`,
 `least_squares`, `circuit_fit`/`sysid`): `stderr`, `cov`, `correlation`,
 `t`, `p_values` (Student t on `dof = n - p`), `ci` at `level=`, `rmse`,

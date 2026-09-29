@@ -64,6 +64,24 @@ pub fn regularized_lower_incomplete_gamma(a: f64, x: f64) -> f64 {
     }
 }
 
+/// Regularized upper incomplete gamma `Q(a, x) = 1 - P(a, x)`, computed
+/// directly on the side where it is small (the continued fraction for
+/// `x >= a+1`) so a far-tail value keeps its relative precision instead of
+/// being `1 - (1 - tiny)`. `Q(k+1, lambda)` is the Poisson CDF at `k`.
+pub fn regularized_upper_incomplete_gamma(a: f64, x: f64) -> f64 {
+    if a <= 0.0 || x < 0.0 {
+        return f64::NAN;
+    }
+    if x == 0.0 {
+        return 1.0;
+    }
+    if x < a + 1.0 {
+        1.0 - gamma_series(a, x)
+    } else {
+        gamma_continued_fraction(a, x)
+    }
+}
+
 fn gamma_series(a: f64, x: f64) -> f64 {
     let gln = ln_gamma(a);
     let mut ap = a;

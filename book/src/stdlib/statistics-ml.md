@@ -1367,6 +1367,158 @@ walk = random_walk(20, drift = 0.1, volatility = 1.0, seed = 3)
 print("random walk, last value: {round(walk[19], 3)}")
 ```
 
+## Distribution families
+
+Every family on the usual distribution-relationships chart has the same
+five operations under MATLAB's names: `<fam>pdf` (for a discrete family,
+the probability mass), `<fam>cdf`, `<fam>inv`, `<fam>rnd` and `<fam>stat`,
+plus `<fam>fit` for the maximum-likelihood fits. `pdf`/`cdf`/`inv`
+broadcast over a vector or matrix first argument; the parameters are
+numbers. A parameter outside its range, or a probability outside
+`[0, 1]`, is an error that names it, not a NaN. (`normpdf`, `normcdf`,
+`norminv`, `tcdf`/`tinv`/`tpdf`, `chi2pdf`/`chi2cdf`/`chi2inv`,
+`fcdf`/`finv`/`fpdf`, `gam*`, `beta*` and `exp*` are listed under
+*Random distributions* above.)
+
+| Family | Prefix | Parameters | Support |
+|---|---|---|---|
+| Continuous uniform | `unif` | `a`, `b` (default 0, 1) | `[a, b]` |
+| Discrete uniform | `unid` | `N` | `1..N` |
+| Bernoulli | `bern` | `p` | `0, 1` |
+| Binomial | `bino` | `n` trials, `p` | `0..n` |
+| Geometric | `geo` | `p` | failures before the first success, `0, 1, ...` |
+| Negative binomial | `nbin` | `r` successes, `p` | failures before the `r`-th success |
+| Poisson | `poiss` | `lambda` | `0, 1, ...` |
+| Hypergeometric | `hyge` | population `M`, successes in it `K`, draws `N` | `max(0, N+K-M)..min(K, N)` |
+| Normal | `norm` | `mu`, `sigma` (default 0, 1) | all reals |
+| Log-normal | `logn` | `mu`, `sigma` of `log(x)` (default 0, 1) | `x > 0` |
+| Exponential | `exp` | mean `mu` (default 1) | `x >= 0` |
+| Weibull | `wbl` | scale `a`, shape `b` (default 1, 1) | `x >= 0` |
+| Gamma | `gam` | shape `a`, **scale** `b` (default 1) | `x >= 0` |
+| Beta | `beta` | `a`, `b` | `[0, 1]` |
+| Chi-square | `chi2` | `k` | `x >= 0` |
+| Student t | `t` | `nu` | all reals |
+| F | `f` | `d1`, `d2` | `x >= 0` |
+
+Two spellings are MATLAB's own irregular ones: `poisstat` (not
+`poissstat`) and `unifit` (not `uniffit`). The `*stat` and `*fit` results
+use Qu's named-field protocol -- `normstat(1, 2).var`, `gamfit(x).a` --
+rather than multiple return values.
+
+**Accuracy.** The binomial, Poisson, negative binomial and hypergeometric
+masses use Loader's saddle-point algorithm (as R and SciPy do), so they
+keep full precision where a difference of `lgamma` values would lose a
+dozen digits (`binopdf(10, 1000, 0.01)`, `poisspdf(519, 500)`); their CDFs
+take the incomplete-beta/gamma prefactor from that same mass. Checked
+against SciPy and 50-digit mpmath across tails and parameter ranges: the
+worst relative error is a few units in the last place. The samplers
+invert the CDF exactly for the discrete families (walking from the mode,
+or a table built once per call for a wide distribution), and use
+Marsaglia-Tsang for the gamma family; 200,000-draw checks of every
+sampler's mean, variance and CDF agree with theory.
+
+| Function | Signature | Description |
+|---|---|---|
+| `unifpdf` | `unifpdf(x, a, b)` | Probability density of the continuous uniform distribution at `x` (a number, vector or matrix, elementwise). Support: `[a, b]`. Returns the same shape as `x`. Added in v0.4.4. |
+| `unifcdf` | `unifcdf(x, a, b)` | Cumulative continuous uniform distribution `P(X <= x)`. Returns values in `[0, 1]`, the same shape as `x`. Added in v0.4.4. |
+| `unifinv` | `unifinv(p, a, b)` | Inverse of `unifcdf`: the `x` with `unifcdf(x) = p`, for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `unidpdf` | `unidpdf(k, N)` | Probability mass of the discrete uniform distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `1, 2, ..., N`. Returns the same shape as `k`. Added in v0.4.4. |
+| `unidcdf` | `unidcdf(k, N)` | Cumulative discrete uniform distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `unidinv` | `unidinv(p, N)` | Inverse of `unidcdf`: the smallest support point whose CDF reaches `p` (so `unidinv(unidcdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `bernpdf` | `bernpdf(k, p)` | Probability mass of the Bernoulli distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `0, 1`. Returns the same shape as `k`. Added in v0.4.4. |
+| `berncdf` | `berncdf(k, p)` | Cumulative Bernoulli distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `berninv` | `berninv(p, p)` | Inverse of `berncdf`: the smallest support point whose CDF reaches `p` (so `berninv(berncdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `binopdf` | `binopdf(k, n, p)` | Probability mass of the binomial distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `0..n` successes in `n` trials. Returns the same shape as `k`. Added in v0.4.4. |
+| `binocdf` | `binocdf(k, n, p)` | Cumulative binomial distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `binoinv` | `binoinv(p, n, p)` | Inverse of `binocdf`: the smallest support point whose CDF reaches `p` (so `binoinv(binocdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `geopdf` | `geopdf(k, p)` | Probability mass of the geometric distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `0, 1, 2, ...` failures before the first success. Returns the same shape as `k`. Added in v0.4.4. |
+| `geocdf` | `geocdf(k, p)` | Cumulative geometric distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `geoinv` | `geoinv(p, p)` | Inverse of `geocdf`: the smallest support point whose CDF reaches `p` (so `geoinv(geocdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `nbinpdf` | `nbinpdf(k, r, p)` | Probability mass of the negative binomial distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `0, 1, 2, ...` failures before the `r`-th success (`r > 0` need not be whole). Returns the same shape as `k`. Added in v0.4.4. |
+| `nbincdf` | `nbincdf(k, r, p)` | Cumulative negative binomial distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `nbininv` | `nbininv(p, r, p)` | Inverse of `nbincdf`: the smallest support point whose CDF reaches `p` (so `nbininv(nbincdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `poisspdf` | `poisspdf(k, lambda)` | Probability mass of the Poisson distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: `0, 1, 2, ...`. Returns the same shape as `k`. Added in v0.4.4. |
+| `poisscdf` | `poisscdf(k, lambda)` | Cumulative Poisson distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `poissinv` | `poissinv(p, lambda)` | Inverse of `poisscdf`: the smallest support point whose CDF reaches `p` (so `poissinv(poisscdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `hygepdf` | `hygepdf(k, M, K, N)` | Probability mass of the hypergeometric distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k`. Support: successes in `N` draws without replacement from `M` items, `K` of them successes. Returns the same shape as `k`. Added in v0.4.4. |
+| `hygecdf` | `hygecdf(k, M, K, N)` | Cumulative hypergeometric distribution `P(X <= k)`, a step function of `floor(k)`. Returns values in `[0, 1]`, the same shape as `k`. Added in v0.4.4. |
+| `hygeinv` | `hygeinv(p, M, K, N)` | Inverse of `hygecdf`: the smallest support point whose CDF reaches `p` (so `hygeinv(hygecdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `lognpdf` | `lognpdf(x, [mu=0], [sigma=1])` | Probability density of the log-normal distribution at `x` (a number, vector or matrix, elementwise). Support: `x > 0`; `mu`/`sigma` are the mean and deviation of `log(x)`. Returns the same shape as `x`. Added in v0.4.4. |
+| `logncdf` | `logncdf(x, [mu=0], [sigma=1])` | Cumulative log-normal distribution `P(X <= x)`. Returns values in `[0, 1]`, the same shape as `x`. Added in v0.4.4. |
+| `logninv` | `logninv(p, [mu=0], [sigma=1])` | Inverse of `logncdf`: the `x` with `logncdf(x) = p`, for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `wblpdf` | `wblpdf(x, [a=1], [b=1])` | Probability density of the Weibull distribution at `x` (a number, vector or matrix, elementwise). Support: `x >= 0`; scale `a`, shape `b`. Returns the same shape as `x`. Added in v0.4.4. |
+| `wblcdf` | `wblcdf(x, [a=1], [b=1])` | Cumulative Weibull distribution `P(X <= x)`. Returns values in `[0, 1]`, the same shape as `x`. Added in v0.4.4. |
+| `wblinv` | `wblinv(p, [a=1], [b=1])` | Inverse of `wblcdf`: the `x` with `wblcdf(x) = p`, for `p` in `[0, 1]` (outside is an error). Returns the same shape as `p`. Added in v0.4.4. |
+| `unifstat` | `unifstat([a=0], [b=1])` | Mean and variance of the continuous uniform distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `unidstat` | `unidstat(N)` | Mean and variance of the discrete uniform distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `bernstat` | `bernstat(p)` | Mean and variance of the Bernoulli distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `binostat` | `binostat(n, p)` | Mean and variance of the binomial distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `geostat` | `geostat(p)` | Mean and variance of the geometric distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `nbinstat` | `nbinstat(r, p)` | Mean and variance of the negative binomial distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `poisstat` | `poisstat(lambda)` | Mean and variance of the Poisson distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `hygestat` | `hygestat(M, K, N)` | Mean and variance of the hypergeometric distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `normstat` | `normstat([mu=0], [sigma=1])` | Mean and variance of the normal distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `lognstat` | `lognstat([mu=0], [sigma=1])` | Mean and variance of the log-normal distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `expstat` | `expstat([mu=1])` | Mean and variance of the exponential distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `wblstat` | `wblstat([a=1], [b=1])` | Mean and variance of the Weibull distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `gamstat` | `gamstat(a, [b=1])` | Mean and variance of the gamma distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `betastat` | `betastat(a, b)` | Mean and variance of the beta distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `chi2stat` | `chi2stat(k)` | Mean and variance of the chi-square distribution with these parameters, as a result with fields `.mean` and `.var`. Added in v0.4.4. |
+| `tstat` | `tstat(nu)` | Mean and variance of the Student t distribution with these parameters, as a result with fields `.mean` and `.var`. `nan` where the moment does not exist (`tstat(1)`), `inf` where it diverges. Added in v0.4.4. |
+| `fstat` | `fstat(d1, d2)` | Mean and variance of the F distribution with these parameters, as a result with fields `.mean` and `.var`. `nan` where the moment does not exist (`tstat(1)`), `inf` where it diverges. Added in v0.4.4. |
+| `unifrnd` | `unifrnd(a, b, [rows], [cols], [seed=])` | Random draws from the continuous uniform distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `unidrnd` | `unidrnd(N, [rows], [cols], [seed=])` | Random draws from the discrete uniform distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `bernrnd` | `bernrnd(p, [rows], [cols], [seed=])` | Random draws from the Bernoulli distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `binornd` | `binornd(n, p, [rows], [cols], [seed=])` | Random draws from the binomial distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `geornd` | `geornd(p, [rows], [cols], [seed=])` | Random draws from the geometric distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `nbinrnd` | `nbinrnd(r, p, [rows], [cols], [seed=])` | Random draws from the negative binomial distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `poissrnd` | `poissrnd(lambda, [rows], [cols], [seed=])` | Random draws from the Poisson distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `hygernd` | `hygernd(M, K, N, [rows], [cols], [seed=])` | Random draws from the hypergeometric distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `normrnd` | `normrnd(mu, sigma, [rows], [cols], [seed=])` | Random draws from the normal distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `lognrnd` | `lognrnd(mu, sigma, [rows], [cols], [seed=])` | Random draws from the log-normal distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `exprnd` | `exprnd(mu, [rows], [cols], [seed=])` | Random draws from the exponential distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `wblrnd` | `wblrnd(a, b, [rows], [cols], [seed=])` | Random draws from the Weibull distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `gamrnd` | `gamrnd(a, b, [rows], [cols], [seed=])` | Random draws from the gamma distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `betarnd` | `betarnd(a, b, [rows], [cols], [seed=])` | Random draws from the beta distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `chi2rnd` | `chi2rnd(k, [rows], [cols], [seed=])` | Random draws from the chi-square distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `trnd` | `trnd(nu, [rows], [cols], [seed=])` | Random draws from the Student t distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `frnd` | `frnd(d1, d2, [rows], [cols], [seed=])` | Random draws from the F distribution. Every parameter is required here (the size follows them); `rows`/`cols` and `seed=` work as for `rand`, and `seed(n)` governs unseeded calls. Returns a number, vector or `(rows, cols)` matrix. Added in v0.4.4. |
+| `normfit` | `normfit(x)` | Maximum-likelihood fit: a result with the named parameters `mu`, `sigma`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). `sigma` is the sample standard deviation (n - 1), as MATLAB's. NaN/inf data are an error. Added in v0.4.4. |
+| `lognfit` | `lognfit(x)` | Maximum-likelihood fit: a result with the named parameters `mu`, `sigma`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). `normfit` of `log(x)`; data must be positive. NaN/inf data are an error. Added in v0.4.4. |
+| `expfit` | `expfit(x)` | Maximum-likelihood fit: a result with the named parameters `mu`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). The sample mean; data must be non-negative. NaN/inf data are an error. Added in v0.4.4. |
+| `gamfit` | `gamfit(x)` | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). Shape by Newton on `log(a) - digamma(a) = log(mean) - mean(log x)`; positive data. NaN/inf data are an error. Added in v0.4.4. |
+| `wblfit` | `wblfit(x)` | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). Shape from its score equation (bracketed bisection, scale-free), then `a`; positive data. NaN/inf data are an error. Added in v0.4.4. |
+| `betafit` | `betafit(x)` | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). Two-dimensional Newton on the digamma equations from the method-of-moments start; data strictly in `(0, 1)`. NaN/inf data are an error. Added in v0.4.4. |
+| `unifit` | `unifit(x)` | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). The sample minimum and maximum. NaN/inf data are an error. Added in v0.4.4. |
+| `poissfit` | `poissfit(x)` | Maximum-likelihood fit: a result with the named parameters `lambda`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). The sample mean; non-negative whole numbers. NaN/inf data are an error. Added in v0.4.4. |
+| `binofit` | `binofit(x, n)` | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). Pooled `sum(x) / (n * length(x))` for counts out of `n` trials each. NaN/inf data are an error. Added in v0.4.4. |
+| `geofit` | `geofit(x)` | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). `1 / (1 + mean)`; failure counts. NaN/inf data are an error. Added in v0.4.4. |
+| `nbinfit` | `nbinfit(x)` | Maximum-likelihood fit: a result with the named parameters `r`, `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). `r` from the digamma likelihood equation; needs overdispersed data (variance above the mean) -- otherwise an error pointing to `poissfit`. NaN/inf data are an error. Added in v0.4.4. |
+| `bernfit` | `bernfit(x)` | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate). The proportion of ones; data of 0s and 1s. NaN/inf data are an error. Added in v0.4.4. |
+
+The chart's arrows are identities you can check -- a geometric is a
+negative binomial with `r = 1`, a Bernoulli is a binomial with one trial, a
+chi-square is a gamma with shape `k/2` and scale 2, an exponential is a
+gamma with shape 1 -- and the Poisson is the binomial's limit for large `n`
+and small `n p`:
+
+```qu
+print("geo = nbin(r=1): {geopdf(3, 0.2)} {nbinpdf(3, 1, 0.2)}")
+print("bern = bino(n=1): {bernpdf(1, 0.3)} {binopdf(1, 1, 0.3)}")
+print("chi2 = gam(k/2, 2): {chi2cdf(4.5, 3)} {gamcdf(4.5, 1.5, 2)}")
+print("exp = gam(1, mu): {expcdf(2, 3)} {gamcdf(2, 1, 3)}")
+print("bino -> poiss: {binocdf(3, 10000, 0.0004)} vs {poisscdf(3, 4)}")
+
+s = hygestat(50, 10, 12)
+print("hypergeometric mean {s.mean}, variance {round(s.var, 4)}")
+
+x = gamrnd(2.5, 1.5, 5000, 1, seed = 7)
+g = gamfit(x)
+print("gamfit: a = {round(g.a, 2)}, b = {round(g.b, 2)}, loglik = {round(g.loglik, 1)}")
+k = binoinv(0.95, 20, 0.3)
+print("95% of Binomial(20, 0.3) draws are <= {k}: binocdf = {round(binocdf(k, 20, 0.3), 4)}")
+```
+
 ## Putting it together
 
 Everything above shows one call at a time. Two things only make sense as a

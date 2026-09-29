@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1127 builtins, 1039 described.** The rest are
+**1203 builtins, 1115 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -99,11 +99,26 @@ program, and a misspelled call suggests the nearest match.
 | [`beeswarm`](../fn/beeswarm.html) | Every sample drawn, nudged sideways only as far as it must be to clear its neighbours, so the WIDTH is the count | [Plotting](plotting.md) |
 | [`before`](../fn/before.html) | `after` returns the piece of `s` past the first `mark`; `before` returns the piece up to it | [Collections & strings](collections-strings.md) |
 | [`before_last`](../fn/before_last.html) | Returns a `Str`: like `after`/`before` but searching from the end — the pair to reach for on a path or a dotted name | [Collections & strings](collections-strings.md) |
+| [`berncdf`](../fn/berncdf.html) | Cumulative Bernoulli distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`bernfit`](../fn/bernfit.html) | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`berninv`](../fn/berninv.html) | Inverse of `berncdf`: the smallest support point whose CDF reaches `p` (so `berninv(berncdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`bernpdf`](../fn/bernpdf.html) | Probability mass of the Bernoulli distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`bernrnd`](../fn/bernrnd.html) | Random draws from the Bernoulli distribution | [Statistics & ML](statistics-ml.md) |
+| [`bernstat`](../fn/bernstat.html) | Mean and variance of the Bernoulli distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`betacdf`](../fn/betacdf.html) | Beta cumulative distribution on `[0, 1]` -- the regularized incomplete beta function `I_x(a, b)` | [Statistics & ML](statistics-ml.md) |
+| [`betafit`](../fn/betafit.html) | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
 | [`betainv`](../fn/betainv.html) | Inverse of `betacdf`. Returns the same shape as `p`, in `[0, 1]` | [Statistics & ML](statistics-ml.md) |
 | [`betapdf`](../fn/betapdf.html) | Beta probability density. Returns the same shape as `x` | [Statistics & ML](statistics-ml.md) |
+| [`betarnd`](../fn/betarnd.html) | Random draws from the beta distribution | [Statistics & ML](statistics-ml.md) |
+| [`betastat`](../fn/betastat.html) | Mean and variance of the beta distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`bin2dec`](../fn/bin2dec.html) | Reads a binary digit string as a number | [Collections & strings](collections-strings.md) |
+| [`binocdf`](../fn/binocdf.html) | Cumulative binomial distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`binofit`](../fn/binofit.html) | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`binoinv`](../fn/binoinv.html) | Inverse of `binocdf`: the smallest support point whose CDF reaches `p` (so `binoinv(binocdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
 | [`binomial`](../fn/binomial.html) | Exact binomial draws. `n_trials` (a positive integer) is how many trials each draw counts successes over; `p` (a number in `[0, 1]`) is the success probability of one trial; `rows` and.. | [Statistics & ML](statistics-ml.md) |
+| [`binopdf`](../fn/binopdf.html) | Probability mass of the binomial distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`binornd`](../fn/binornd.html) | Random draws from the binomial distribution | [Statistics & ML](statistics-ml.md) |
+| [`binostat`](../fn/binostat.html) | Mean and variance of the binomial distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`bitand`](../fn/bitand.html) | Returns a `number`: the bitwise AND of `a` and `b` as 64-bit integers | [Collections & strings](collections-strings.md) |
 | [`bitcmp`](../fn/bitcmp.html) | Returns a `number`: the bitwise complement (`!a`) as a 64-bit integer | [Collections & strings](collections-strings.md) |
 | [`bitor`](../fn/bitor.html) | Returns a `number`: the bitwise OR | [Collections & strings](collections-strings.md) |
@@ -151,6 +166,8 @@ program, and a misspelled call suggests the nearest match.
 | [`chi2cdf`](../fn/chi2cdf.html) | Chi-square cumulative distribution `P(X <= x)` at `x` (a number or vector, elementwise) with `k` degrees of freedom | [Statistics & ML](statistics-ml.md) |
 | [`chi2inv`](../fn/chi2inv.html) | Inverse of `chi2cdf`: the chi-square critical value with `k` degrees of freedom, `chi2inv(0.95, 1)` = 3.841 | [Statistics & ML](statistics-ml.md) |
 | [`chi2pdf`](../fn/chi2pdf.html) | Chi-square probability density at `x` (a number or vector, elementwise) with `k` degrees of freedom (a positive number), computed in log space so it survives modest `k` without overflowing | [Statistics & ML](statistics-ml.md) |
+| [`chi2rnd`](../fn/chi2rnd.html) | Random draws from the chi-square distribution | [Statistics & ML](statistics-ml.md) |
+| [`chi2stat`](../fn/chi2stat.html) | Mean and variance of the chi-square distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`chirp`](../fn/chirp.html) | Identical to `sweep` above — same four positional arguments (start frequency, end frequency, sample rate, sample count) and the same `method=` (string, `"linear"` default or.. | [Plotting](plotting.md) |
 | [`chisquare`](../fn/chisquare.html) | Draws from the chi-square distribution with `k` degrees of freedom (a positive integer), same `rows`/`cols`/`seed=` shape as `rand` | [Statistics & ML](statistics-ml.md) |
 | [`chol`](../fn/chol.html) | Lower-triangular Cholesky factor `L` of `A = L·Lᵀ`, where `A` is a symmetric positive-definite `n×n` `Mat`; errors clearly if `A` isn't positive-definite | [Core maths](core-math.md) |
@@ -306,12 +323,15 @@ program, and a misspelled call suggests the nearest match.
 | [`exp`](../fn/exp.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
 | [`exp2`](../fn/exp2.html) | Returns exactly the same type and shape as `x` | [Core maths](core-math.md) |
 | [`expcdf`](../fn/expcdf.html) | Exponential cumulative distribution with mean `mu` (MATLAB's convention; note `exponential(rate)` draws take a rate) | [Statistics & ML](statistics-ml.md) |
+| [`expfit`](../fn/expfit.html) | Maximum-likelihood fit: a result with the named parameters `mu`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
 | [`expinv`](../fn/expinv.html) | Inverse of `expcdf`, `-mu * log(1 - p)` | [Statistics & ML](statistics-ml.md) |
 | [`explain`](../fn/explain.html) | The report says whether that function is running the fast register-only ("soft-compiled") tier or falls back to the ordinary tree-walking interpreter, and — when interpreted — which.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`explore`](../fn/explore.html) | Writes a self-contained HTML page to `path` (string) with one slider per parameter of function `"fn"` (string) | [Plotting](plotting.md) |
 | [`expm1`](../fn/expm1.html) | `e^x - 1`, computed so it stays accurate for `x` near zero (`expm1(1e-15)` does not lose precision to the cancellation that `exp(x) - 1` would hit there) | [Core maths](core-math.md) |
 | [`exponential`](../fn/exponential.html) | Exponential draws. `rate` (a positive number) is the rate, not the scale: the mean is `1/rate`, and NumPy instead takes `scale = 1/rate` directly, so a value copied from NumPy needs.. | [Statistics & ML](statistics-ml.md) |
 | [`exppdf`](../fn/exppdf.html) | Exponential probability density with mean `mu` | [Statistics & ML](statistics-ml.md) |
+| [`exprnd`](../fn/exprnd.html) | Random draws from the exponential distribution | [Statistics & ML](statistics-ml.md) |
+| [`expstat`](../fn/expstat.html) | Mean and variance of the exponential distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`eye`](../fn/eye.html) | The `n×n` identity matrix (ones on the diagonal, zeros elsewhere) | [Core maths](core-math.md) |
 
 ## F
@@ -368,6 +388,8 @@ program, and a misspelled call suggests the nearest match.
 | [`forward`](../fn/forward.html) | Runs the forward algorithm on an `hmm` model `hmm` for a length-`T` integer observation-symbol sequence `obs` (each entry a 0-based column index into `emission`) | [Statistics & ML](statistics-ml.md) |
 | [`fpdf`](../fn/fpdf.html) | F probability density. Returns the same shape as `x` | [Statistics & ML](statistics-ml.md) |
 | [`freqz`](../fn/freqz.html) | Returns a length-`n` complex vector (`CVec`), the response `H(e^{jω})` at `n` points from DC to Nyquist inclusive | [Signal processing](signal-processing.md) |
+| [`frnd`](../fn/frnd.html) | Random draws from the F distribution | [Statistics & ML](statistics-ml.md) |
+| [`fstat`](../fn/fstat.html) | Mean and variance of the F distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`fuzzy_pid_init`](../fn/fuzzy_pid_init.html) | A Mamdani fuzzy PD-type controller's initial state — the classic 2-input (`error`, `error_dot`), 1-output textbook fuzzy inference system | [Signal processing](signal-processing.md) |
 | [`fvtool`](../fn/fvtool.html) | MATLAB's Filter Visualization Tool: a 2x2 figure (magnitude response in dB, phase, group delay, impulse response) built from `freqz`/`group_delay`/`sosfilt` | [Signal processing](signal-processing.md) |
 | [`fzero`](../fn/fzero.html) | Returns a single number, the root | [Signal processing](signal-processing.md) |
@@ -378,11 +400,20 @@ program, and a misspelled call suggests the nearest match.
 |---|---|---|
 | [`gain`](../fn/gain.html) | Returns the same shape as `x`, scaled by `10^(db/20)` — the AMPLITUDE convention, the same factor of 20 as `db2mag` | [Signal processing](signal-processing.md) |
 | [`gamcdf`](../fn/gamcdf.html) | Gamma cumulative distribution with shape `a` and scale `b` (mean `a*b`) -- MATLAB's parameterisation, not a rate | [Statistics & ML](statistics-ml.md) |
+| [`gamfit`](../fn/gamfit.html) | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
 | [`gaminv`](../fn/gaminv.html) | Inverse of `gamcdf`, same shape/scale parameters | [Statistics & ML](statistics-ml.md) |
 | [`gamma`](../fn/gamma.html) | The gamma function (`gamma(n) = (n-1)!` for a positive integer `n`) and its natural log (`lgamma(x) = ln\|gamma(x)\|`) | [Core maths](core-math.md) |
 | [`gampdf`](../fn/gampdf.html) | Gamma probability density, shape `a`, scale `b` | [Statistics & ML](statistics-ml.md) |
+| [`gamrnd`](../fn/gamrnd.html) | Random draws from the gamma distribution | [Statistics & ML](statistics-ml.md) |
+| [`gamstat`](../fn/gamstat.html) | Mean and variance of the gamma distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`gaussian_process`](../fn/gaussian_process.html) | Gaussian-process regression on an `N`-row, `D`-column matrix `X` and a length-`N` target `y` | [Statistics & ML](statistics-ml.md) |
 | [`generate`](../fn/generate.html) | Runs greedy (argmax, no sampling knobs, no temperature) text completion on a model handle `model` from `llm_load`, given a string `prompt` and an integer cap `max_tokens` (default 64) on.. | [Statistics & ML](statistics-ml.md) |
+| [`geocdf`](../fn/geocdf.html) | Cumulative geometric distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`geofit`](../fn/geofit.html) | Maximum-likelihood fit: a result with the named parameters `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`geoinv`](../fn/geoinv.html) | Inverse of `geocdf`: the smallest support point whose CDF reaches `p` (so `geoinv(geocdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`geopdf`](../fn/geopdf.html) | Probability mass of the geometric distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`geornd`](../fn/geornd.html) | Random draws from the geometric distribution | [Statistics & ML](statistics-ml.md) |
+| [`geostat`](../fn/geostat.html) | Mean and variance of the geometric distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`gerischer`](../fn/gerischer.html) | `Zg/sqrt(k + jw)` — a coupled chemical reaction | [Signal processing](signal-processing.md) |
 | [`get`](../fn/get.html) | `get` returns the stored value (any type) or `none` if `key` is absent | [Collections & strings](collections-strings.md) |
 | [`getenv`](../fn/getenv.html) | Reads one environment variable | [File I/O](file-io.md) |
@@ -442,6 +473,11 @@ program, and a misspelled call suggests the nearest match.
 | [`huffman_encode`](../fn/huffman_encode.html) | Canonical Huffman coding of `data` (a `Str`, or a `Vec` of 0-255 byte values) | [File I/O](file-io.md) |
 | [`hum`](../fn/hum.html) | Adds simulated mains pickup to `x`, a length-N signal vector, given the sample rate `fs` in Hz | [Noise](noise.md) |
 | [`hurst_exponent`](../fn/hurst_exponent.html) | Returns a single number: 0.5 is a random walk, above that persistent, below it mean-reverting — long-range dependence | [Signal processing](signal-processing.md) |
+| [`hygecdf`](../fn/hygecdf.html) | Cumulative hypergeometric distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`hygeinv`](../fn/hygeinv.html) | Inverse of `hygecdf`: the smallest support point whose CDF reaches `p` (so `hygeinv(hygecdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`hygepdf`](../fn/hygepdf.html) | Probability mass of the hypergeometric distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`hygernd`](../fn/hygernd.html) | Random draws from the hypergeometric distribution | [Statistics & ML](statistics-ml.md) |
+| [`hygestat`](../fn/hygestat.html) | Mean and variance of the hypergeometric distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 
 ## I
 
@@ -571,6 +607,12 @@ program, and a misspelled call suggests the nearest match.
 | [`log2`](../fn/log2.html) | Base-10 / base-2 logarithm, elementwise, same domain behavior as `ln` on a non-positive element | [Core maths](core-math.md) |
 | [`logistic_model`](../fn/logistic_model.html) | Binary logistic regression on an `N`-row, `D`-column `X` and a length-`N` 0/1 target `y` | [Statistics & ML](statistics-ml.md) |
 | [`loglog`](../fn/loglog.html) | Plots equal-length numeric Vecs `x`, `y` like `plot` and additionally sets both axes to log scale | [Plotting](plotting.md) |
+| [`logncdf`](../fn/logncdf.html) | Cumulative log-normal distribution `P(X <= x)` | [Statistics & ML](statistics-ml.md) |
+| [`lognfit`](../fn/lognfit.html) | Maximum-likelihood fit: a result with the named parameters `mu`, `sigma`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`logninv`](../fn/logninv.html) | Inverse of `logncdf`: the `x` with `logncdf(x) = p`, for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`lognpdf`](../fn/lognpdf.html) | Probability density of the log-normal distribution at `x` (a number, vector or matrix, elementwise) | [Statistics & ML](statistics-ml.md) |
+| [`lognrnd`](../fn/lognrnd.html) | Random draws from the log-normal distribution | [Statistics & ML](statistics-ml.md) |
+| [`lognstat`](../fn/lognstat.html) | Mean and variance of the log-normal distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`logspace`](../fn/logspace.html) | Returns a length-`n` real vector, `n` logarithmically spaced points, `10^linspace(a, b, n)` — used for frequency axes in Bode-style plots and rLKK's default DRT grid | [Signal processing](signal-processing.md) |
 | [`logsumexp`](../fn/logsumexp.html) | Numerically stable `log(sum(exp(x)))`, via the usual max-shift so a large input can't overflow `exp` | [Core maths](core-math.md) |
 | [`low_time`](../fn/low_time.html) | Returns a single number: the sum of the widths of every complete pulse above (`high_time`) or below (`low_time`) the threshold, in seconds for a `Signal` and samples otherwise | [Signal processing](signal-processing.md) |
@@ -651,6 +693,12 @@ program, and a misspelled call suggests the nearest match.
 | [`naive_bayes_model`](../fn/naive_bayes_model.html) | Gaussian naive Bayes classifier on an `N`-row, `D`-column `X` and a length-`N` categorical/integer target `y`, scored in log space so a product of small per-feature densities cannot.. | [Statistics & ML](statistics-ml.md) |
 | [`nand`](../fn/nand.html) | Returns a `bool`: logical NAND | [Collections & strings](collections-strings.md) |
 | [`native_call`](../fn/native_call.html) | Calls the C function `name` in a `load_library` handle, with its C `signature` stated as a string, because a library does not record its argument types | [File I/O](file-io.md) |
+| [`nbincdf`](../fn/nbincdf.html) | Cumulative negative binomial distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`nbinfit`](../fn/nbinfit.html) | Maximum-likelihood fit: a result with the named parameters `r`, `p`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`nbininv`](../fn/nbininv.html) | Inverse of `nbincdf`: the smallest support point whose CDF reaches `p` (so `nbininv(nbincdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`nbinpdf`](../fn/nbinpdf.html) | Probability mass of the negative binomial distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`nbinrnd`](../fn/nbinrnd.html) | Random draws from the negative binomial distribution | [Statistics & ML](statistics-ml.md) |
+| [`nbinstat`](../fn/nbinstat.html) | Mean and variance of the negative binomial distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`ncol`](../fn/ncol.html) | Returns a `number`: the column count | [Collections & strings](collections-strings.md) |
 | [`neighbors`](../fn/neighbors.html) | `has_edge(g, a, b)` returns a `bool`; `neighbors(g, name)` returns a `List` of `Str` node ids | [Collections & strings](collections-strings.md) |
 | [`nesterov_sgd`](../fn/nesterov_sgd.html) | Plain stochastic gradient descent (`sgd`) and its look-ahead variant (`nesterov_sgd`, which evaluates the gradient after applying the momentum step rather than before it), given `params` (a.. | [Statistics & ML](statistics-ml.md) |
@@ -662,8 +710,11 @@ program, and a misspelled call suggests the nearest match.
 | [`normal`](../fn/normal.html) | Draws from a Gaussian. `mu` (number) is the mean; `sigma` (number) is the standard deviation; `rows` and `cols` (numbers, optional) give the shape of the draw, one number for a vector and.. | [Statistics & ML](statistics-ml.md) |
 | [`normalize`](../fn/normalize.html) | Min-max scaling of `X` (a vector, an `N`-row/`D`-column matrix scaled column-wise, or a table scaled per numeric column) to `[0, 1]`: `(x - min) / (max - min)` | [Statistics & ML](statistics-ml.md) |
 | [`normcdf`](../fn/normcdf.html) | Normal cumulative distribution `P(X <= x)` at `x` (a number, vector or matrix, elementwise), mean `mu`, standard deviation `sigma` (positive) | [Statistics & ML](statistics-ml.md) |
+| [`normfit`](../fn/normfit.html) | Maximum-likelihood fit: a result with the named parameters `mu`, `sigma`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
 | [`norminv`](../fn/norminv.html) | Inverse of `normcdf`: the `x` with `normcdf(x) = p`, for probabilities `p` in `[0, 1]` (anything outside is an error, not NaN); `p = 0`/`1` give `-inf`/`inf` | [Statistics & ML](statistics-ml.md) |
 | [`normpdf`](../fn/normpdf.html) | Gaussian probability density at `x` (a number or vector, elementwise) with mean `mu` (default 0) and standard deviation `sigma` (default 1) | [Statistics & ML](statistics-ml.md) |
+| [`normrnd`](../fn/normrnd.html) | Random draws from the normal distribution | [Statistics & ML](statistics-ml.md) |
+| [`normstat`](../fn/normstat.html) | Mean and variance of the normal distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`now`](../fn/now.html) | Returns the current time (UTC) as a `Record` with integer fields `.year`, `.month`, `.day`, `.hour`, `.minute`, `.second`, plus `.unix` (number, Unix epoch seconds, for arithmetic) and.. | [Concurrency](concurrency.md) |
 | [`nrow`](../fn/nrow.html) | Returns a `number`: the row count | [Collections & strings](collections-strings.md) |
 | [`numel`](../fn/numel.html) | Total element count of `x`: `1` for a scalar, its length for a `Vec`/`CVec`/`Signal`, `rows*cols` for a `Mat`, a Unicode-aware character count for a `Str`, and the element/node count for.. | [Core maths](core-math.md) |
@@ -722,7 +773,13 @@ program, and a misspelled call suggests the nearest match.
 | [`pls_model`](../fn/pls_model.html) | Partial least squares regression (PLS2, NIPALS) with `k` components on centered `X` (`N` x `D`) and `Y` (a length-`N` vector or an `N` x `Q` matrix) | [Statistics & ML](statistics-ml.md) |
 | [`pmap`](../fn/pmap.html) | Returns a `List`: `f` applied to every element | [Collections & strings](collections-strings.md) |
 | [`point`](../fn/point.html) | Marks a single position `(x, y)` (numbers, data units) with a dot | [Plotting](plotting.md) |
+| [`poisscdf`](../fn/poisscdf.html) | Cumulative Poisson distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`poissfit`](../fn/poissfit.html) | Maximum-likelihood fit: a result with the named parameters `lambda`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`poissinv`](../fn/poissinv.html) | Inverse of `poisscdf`: the smallest support point whose CDF reaches `p` (so `poissinv(poisscdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
 | [`poisson`](../fn/poisson.html) | Exact Poisson draws. `lambda` (a positive number) is the rate, which is also the mean and the variance of the result; `rows` and `cols` (numbers, optional) give the shape of the draw, one.. | [Statistics & ML](statistics-ml.md) |
+| [`poisspdf`](../fn/poisspdf.html) | Probability mass of the Poisson distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`poissrnd`](../fn/poissrnd.html) | Random draws from the Poisson distribution | [Statistics & ML](statistics-ml.md) |
+| [`poisstat`](../fn/poisstat.html) | Mean and variance of the Poisson distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`polarplot`](../fn/polarplot.html) | Converts polar coordinates `theta` (Vec of numbers, radians) and `r` (Vec of numbers, radius) to Cartesian (`x=r·cos θ`, `y=r·sin θ`) and draws an ordinary line/scatter series | [Plotting](plotting.md) |
 | [`poles`](../fn/poles.html) | Returns a complex vector (`CVec`), one entry per pole across all sections/taps | [Signal processing](signal-processing.md) |
 | [`polyfit`](../fn/polyfit.html) | Fits a least-squares polynomial of the given integer `degree` to a length-`N` vector `x` and a length-`N` vector `y` | [Statistics & ML](statistics-ml.md) |
@@ -1067,7 +1124,9 @@ program, and a misspelled call suggests the nearest match.
 | [`tree_model`](../fn/tree_model.html) | One CART decision tree on an `N`-row, `D`-column matrix `X` and a length-`N` target `y`, with `max_depth` (integer, default 20) limiting tree depth, `min_samples_split` (integer, default 2).. | [Statistics & ML](statistics-ml.md) |
 | [`triangle`](../fn/triangle.html) | Each generates one period-repeating waveform: `freq` (number, Hz), `fs` (number, sample rate in Hz), `n` (integer, sample count) are all scalars, in that order | [Plotting](plotting.md) |
 | [`trim`](../fn/trim.html) | Strips characters from both ends of a string | [Collections & strings](collections-strings.md) |
+| [`trnd`](../fn/trnd.html) | Random draws from the Student t distribution | [Statistics & ML](statistics-ml.md) |
 | [`tsne`](../fn/tsne.html) | t-SNE embedding of an `N`-row, `D`-column matrix `X` into `n_components` dimensions (an integer, default 2), controlled by `perplexity` (a number balancing local vs. global structure; unset.. | [Statistics & ML](statistics-ml.md) |
+| [`tstat`](../fn/tstat.html) | Mean and variance of the Student t distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`tv_denoise`](../fn/tv_denoise.html) | Total-variation denoising: `y` is a length-N number vector; `lambda` is an optional positional number, the smoothing penalty, default `1.0` — larger values remove more variation | [Noise](noise.md) |
 | [`type`](../fn/type.html) | Returns a `Str`: the value's type, e.g. `"number"`, `"string"`, `"vector"`, `"matrix"`, `"table"`, `"layer"` | [Collections & strings](collections-strings.md) |
 
@@ -1083,7 +1142,18 @@ program, and a misspelled call suggests the nearest match.
 | [`ui_slider`](../fn/ui_slider.html) | Declares a slider control (for a value you sweep) in an `explore` page or Qu Studio, labeled `label` (string) with range `min`..`max` (numbers) | [Plotting](plotting.md) |
 | [`ui_text`](../fn/ui_text.html) | Declares a free-text field, labeled `label` (string) | [Plotting](plotting.md) |
 | [`undershoot`](../fn/undershoot.html) | Returns a single number, a percent of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going,.. | [Signal processing](signal-processing.md) |
+| [`unidcdf`](../fn/unidcdf.html) | Cumulative discrete uniform distribution `P(X <= k)`, a step function of `floor(k)` | [Statistics & ML](statistics-ml.md) |
+| [`unidinv`](../fn/unidinv.html) | Inverse of `unidcdf`: the smallest support point whose CDF reaches `p` (so `unidinv(unidcdf(k, ...), ...)` is `k`), for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`unidpdf`](../fn/unidpdf.html) | Probability mass of the discrete uniform distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
+| [`unidrnd`](../fn/unidrnd.html) | Random draws from the discrete uniform distribution | [Statistics & ML](statistics-ml.md) |
+| [`unidstat`](../fn/unidstat.html) | Mean and variance of the discrete uniform distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
+| [`unifcdf`](../fn/unifcdf.html) | Cumulative continuous uniform distribution `P(X <= x)` | [Statistics & ML](statistics-ml.md) |
+| [`unifinv`](../fn/unifinv.html) | Inverse of `unifcdf`: the `x` with `unifcdf(x) = p`, for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`unifit`](../fn/unifit.html) | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
 | [`uniform`](../fn/uniform.html) | Draws from the uniform distribution on `[a, b)`, two numbers `a < b`, with the same `rows`/`cols`/`seed=` shape as `rand` | [Statistics & ML](statistics-ml.md) |
+| [`unifpdf`](../fn/unifpdf.html) | Probability density of the continuous uniform distribution at `x` (a number, vector or matrix, elementwise) | [Statistics & ML](statistics-ml.md) |
+| [`unifrnd`](../fn/unifrnd.html) | Random draws from the continuous uniform distribution | [Statistics & ML](statistics-ml.md) |
+| [`unifstat`](../fn/unifstat.html) | Mean and variance of the continuous uniform distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`unique`](../fn/unique.html) | Returns a `Vec`: a sorted, de-duplicated copy | [Collections & strings](collections-strings.md) |
 | [`unit_scale`](../fn/unit_scale.html) | Returns the scale factor a `unit name = ...` declaration registered, or errors naming `name` if nothing was ever declared under it | [REPL & diagnostics](repl-diagnostics.md) |
 | [`update`](../fn/update.html) | Estimation-family only: the measurement-update half of a filter, called on a state Record `state` with filter-specific arguments (an observation matrix/function, a measurement vector, and a.. | [Statistics & ML](statistics-ml.md) |
@@ -1118,6 +1188,12 @@ program, and a misspelled call suggests the nearest match.
 | [`warburg_short`](../fn/warburg_short.html) | `Rw tanh(x)/x`, `x = sqrt(jw tau)` — finite length, transmissive boundary | [Signal processing](signal-processing.md) |
 | [`warn`](../fn/warn.html) | Non-fatal — execution continues on the next line, unlike `error` | [REPL & diagnostics](repl-diagnostics.md) |
 | [`waterfall`](../fn/waterfall.html) | A 2-D approximation of the stacked-trace look — no true 3-D projection yet | [Plotting](plotting.md) |
+| [`wblcdf`](../fn/wblcdf.html) | Cumulative Weibull distribution `P(X <= x)` | [Statistics & ML](statistics-ml.md) |
+| [`wblfit`](../fn/wblfit.html) | Maximum-likelihood fit: a result with the named parameters `a`, `b`, plus `.params` (the same as a vector), `.n` and `.loglik` (the log-likelihood at the estimate) | [Statistics & ML](statistics-ml.md) |
+| [`wblinv`](../fn/wblinv.html) | Inverse of `wblcdf`: the `x` with `wblcdf(x) = p`, for `p` in `[0, 1]` (outside is an error) | [Statistics & ML](statistics-ml.md) |
+| [`wblpdf`](../fn/wblpdf.html) | Probability density of the Weibull distribution at `x` (a number, vector or matrix, elementwise) | [Statistics & ML](statistics-ml.md) |
+| [`wblrnd`](../fn/wblrnd.html) | Random draws from the Weibull distribution | [Statistics & ML](statistics-ml.md) |
+| [`wblstat`](../fn/wblstat.html) | Mean and variance of the Weibull distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`welch`](../fn/welch.html) | Returns a `spectrum` of `nperseg/2 + 1` one-sided bins (DC to Nyquist), stamped `norm = "density"` — SciPy's `"density"` scaling, units²/Hz | [Signal processing](signal-processing.md) |
 | [`where`](../fn/where.html) | One argument `mask` (a `Vec`/`Mat` of booleans, typically produced by a comparison like `x < 0`) returns a `Vec` of the 0-based indices where it is true. Three arguments — `cond` (a boolean.. | [Core maths](core-math.md) |
 | [`wigner_ville`](../fn/wigner_ville.html) | Wigner-Ville distribution: the quadratic time-frequency distribution `W(t,f) = ∫ x(t+τ/2)*conj(x(t-τ/2))*exp(-2πifτ) dτ`, discretized over the analytic signal | [Signal processing](signal-processing.md) |
