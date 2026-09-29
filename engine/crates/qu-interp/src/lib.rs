@@ -172,6 +172,7 @@ pub mod bytes_ops;
 pub mod ml_honesty;
 pub mod regions_ops;
 pub mod distributions;
+pub(crate) mod fit_stats;
 pub mod multivariate;
 pub mod native_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
@@ -30661,6 +30662,14 @@ self.eval_grad(loss, wrt)
             // automatic differentiation. Model kind `"curve_fit"`, fields
             // `params`, `cost` (the residual sum of squares at the
             // returned parameters), and `converged`.
+            //
+            // Also `[method="lm"|"gauss_newton"|"gradient_descent"]`,
+            // `[level=0.95]`, `[bootstrap=0]`, `[seed=]`: every fit carries
+            // its linearized parameter uncertainty (`stderr`, `cov`,
+            // `correlation`, `t`, `p_values`, `ci`, `dof`, `rmse`,
+            // `sigma`, `r_squared`, `note`, ...) and, with `bootstrap=N`, a
+            // residual bootstrap (`bootstrap_stderr`, `bootstrap_ci`). See
+            // `fit_stats.rs`; `summary(fit)` prints the table.
             "curve_fit" => {
                 let model_name = text_arg(&args, 0)?;
                 if !self.has_user_fn(&model_name) {
@@ -30678,8 +30687,24 @@ self.eval_grad(loss, wrt)
                 let p0 = to_vec(arg_get(&args, 3).ok_or_else(|| EvalError {
                     msg: "curve_fit(model, xdata, ydata, p0) needs at least 4 arguments".into(),
                 })?)?;
-                let max_iter = style_num(&style, "max_iter").unwrap_or(200.0) as usize;
+                let method = fit_stats::Method::parse("curve_fit", style_str(&style, "method"))?;
+                let default_iter = if method == fit_stats::Method::GradientDescent { 2000.0 } else { 200.0 };
+                let max_iter = style_num(&style, "max_iter").unwrap_or(default_iter) as usize;
                 let tol = style_num(&style, "tol").unwrap_or(1e-10);
+                let level = fit_stats::check_level("curve_fit", style_num_checked(&style, "level", 0.95, "curve_fit")?)?;
+                let n_boot = style_num_checked(&style, "bootstrap", 0.0, "curve_fit")?;
+                if !(n_boot >= 0.0 && n_boot.fract() == 0.0) {
+                    return e(format!("curve_fit: bootstrap= must be a non-negative whole number of resamples, got {n_boot}"));
+                }
+                let n_boot = n_boot as usize;
+                let seed_kw = style_num(&style, "seed");
+                // Drawn from the session stream only when a bootstrap
+                // actually runs, so a plain fit never perturbs it.
+                let boot_seed = match seed_kw {
+                    Some(s) => s as u64,
+                    None if n_boot > 0 => self.rng.next_u64(),
+                    None => 0,
+                };
                 let err_slot: std::rc::Rc<std::cell::RefCell<Option<String>>> = std::rc::Rc::new(std::cell::RefCell::new(None));
                 // `xdata` as a single `Value::Vec`, built once and cloned
                 // (cheap: `Value::Vec` is `Arc`-backed) into every
@@ -30706,8 +30731,7 @@ self.eval_grad(loss, wrt)
                 // with a scalar-only branch on `x`) falls back to the
                 // original one-call-per-point path, unchanged.
                 let vectorized: std::cell::Cell<Option<bool>> = std::cell::Cell::new(None);
-                let result = numeric::optimize::levenberg_marquardt(
-                    |params| {
+                let mut resid = |params: &[f64]| -> Vec<f64> {
                         if err_slot.borrow().is_some() {
                             return vec![0.0; xdata.len()];
                         }
@@ -30734,21 +30758,47 @@ self.eval_grad(loss, wrt)
                                 Err(err) => { *err_slot.borrow_mut() = Some(err.msg); 0.0 }
                             }
                         }).collect()
-                    },
-                    &p0, max_iter, tol,
+                };
+                let result = fit_stats::solve(
+                    fit_stats::LmFlavour::CurveFit, method, &mut resid, &p0, None, None, max_iter, tol,
                 );
                 if let Some(msg) = err_slot.borrow_mut().take() {
                     return e(msg);
                 }
-                let result = result.map_err(|ne| EvalError { msg: ne.to_string() })?;
-                Ok(Value::Model(Arc::new(ModelHandle::new(
-                    "curve_fit",
-                    vec![
-                        ("params".to_string(), Value::Vec(Arc::new(result.params))),
-                        ("cost".to_string(), Value::Num(result.cost)),
-                        ("converged".to_string(), Value::Bool(result.converged)),
-                    ],
-                ))))
+                let result = result?;
+                let unc = fit_stats::uncertainty(&mut resid, &result.params, None, None, level, None);
+                if let Some(msg) = err_slot.borrow_mut().take() {
+                    return e(format!("curve_fit: the model failed while computing parameter uncertainty at the solution: {msg}"));
+                }
+                let ybar = ydata.iter().sum::<f64>() / ydata.len().max(1) as f64;
+                let tss: f64 = ydata.iter().map(|y| (y - ybar) * (y - ybar)).sum();
+                let r_squared = if tss > 0.0 { 1.0 - unc.rss / tss } else { f64::NAN };
+                let mut fields = vec![
+                    ("params".to_string(), Value::Vec(Arc::new(result.params.clone()))),
+                    ("cost".to_string(), Value::Num(result.cost)),
+                    ("converged".to_string(), Value::Bool(result.converged)),
+                    ("method".to_string(), Value::Str(method.name().to_string())),
+                    ("iterations".to_string(), Value::Num(result.iterations as f64)),
+                    ("r_squared".to_string(), Value::Num(r_squared)),
+                ];
+                fields.extend(unc.fields);
+                if n_boot > 0 {
+                    let p_hat = result.params.clone();
+                    let boot = fit_stats::bootstrap("curve_fit", n_boot, boot_seed, level, &unc.residual, p_hat.len(), &mut |shift: &[f64]| {
+                        let r = fit_stats::solve(
+                            fit_stats::LmFlavour::CurveFit,
+                            method,
+                            &mut |p: &[f64]| resid(p).iter().zip(shift).map(|(a, b)| a + b).collect(),
+                            &p_hat, None, None, max_iter, tol,
+                        );
+                        if let Some(msg) = err_slot.borrow_mut().take() {
+                            return e(format!("curve_fit: the model failed during bootstrap=: {msg}"));
+                        }
+                        Ok(r.ok().map(|r| r.params))
+                    })?;
+                    fields.extend(boot);
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new("curve_fit", fields))))
             }
             // `minimize(f, x0, [grad=], [max_iter=200], [tol=1e-8])` —
             // L-BFGS, a quasi-Newton ("pseudo-Newton") multivariate
@@ -30820,6 +30870,11 @@ self.eval_grad(loss, wrt)
             // negative capacitance evaluated once can put NaN through the
             // whole residual, so the bound has to hold at evaluation time,
             // not just at the solution.
+            //
+            // `method=`, `level=`, `bootstrap=`, `seed=` and the uncertainty
+            // fields are `curve_fit`'s (see there and `fit_stats.rs`); a
+            // parameter on an active bound is flagged in `at_bound`, since
+            // its linearized stderr does not hold there.
             "least_squares" => {
                 let fn_name = text_arg(&args, 0)?;
                 if !self.has_user_fn(&fn_name) {
@@ -30847,46 +30902,91 @@ self.eval_grad(loss, wrt)
                         }
                     }
                 }
-                let max_iter = style_num(&style, "max_iter").unwrap_or(200.0) as usize;
+                let method = fit_stats::Method::parse("least_squares", style_str(&style, "method"))?;
+                let default_iter = if method == fit_stats::Method::GradientDescent { 2000.0 } else { 200.0 };
+                let max_iter = style_num(&style, "max_iter").unwrap_or(default_iter) as usize;
                 let tol = style_num(&style, "tol").unwrap_or(1e-10);
+                let level = fit_stats::check_level("least_squares", style_num_checked(&style, "level", 0.95, "least_squares")?)?;
+                let n_boot = style_num_checked(&style, "bootstrap", 0.0, "least_squares")?;
+                if !(n_boot >= 0.0 && n_boot.fract() == 0.0) {
+                    return e(format!("least_squares: bootstrap= must be a non-negative whole number of resamples, got {n_boot}"));
+                }
+                let n_boot = n_boot as usize;
+                let boot_seed = match style_num(&style, "seed") {
+                    Some(s) => s as u64,
+                    None if n_boot > 0 => self.rng.next_u64(),
+                    None => 0,
+                };
                 let err_slot: std::rc::Rc<std::cell::RefCell<Option<String>>> =
                     std::rc::Rc::new(std::cell::RefCell::new(None));
                 let self_cell = std::cell::RefCell::new(self);
-                let result = numeric::linalg::nonlinear_least_squares(
-                    |p| {
-                        let mut it = self_cell.borrow_mut();
-                        if err_slot.borrow().is_some() {
-                            return Vec::new();
+                let resid = |p: &[f64]| -> Vec<f64> {
+                    let mut it = self_cell.borrow_mut();
+                    if err_slot.borrow().is_some() {
+                        return Vec::new();
+                    }
+                    let arg = Value::Vec(Arc::new(p.to_vec()));
+                    match it.apply(&fn_name, vec![arg], Vec::new()).and_then(|v| to_vec(&v)) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            *err_slot.borrow_mut() = Some(err.msg);
+                            Vec::new()
                         }
-                        let arg = Value::Vec(Arc::new(p.to_vec()));
-                        match it.apply(&fn_name, vec![arg], Vec::new()).and_then(|v| to_vec(&v)) {
-                            Ok(v) => v,
-                            Err(err) => {
-                                *err_slot.borrow_mut() = Some(err.msg);
-                                Vec::new()
-                            }
-                        }
-                    },
-                    &x0,
-                    lower.as_deref(),
-                    upper.as_deref(),
-                    max_iter,
-                    tol,
+                    }
+                };
+                let (lo, hi) = (lower.as_deref(), upper.as_deref());
+                let result = fit_stats::solve(
+                    fit_stats::LmFlavour::LeastSquares, method, &mut &resid, &x0, lo, hi, max_iter, tol,
                 );
                 if let Some(msg) = err_slot.borrow_mut().take() {
                     return e(msg);
                 }
-                let r = result.map_err(|ne| EvalError { msg: ne.to_string() })?;
-                Ok(Value::Model(Arc::new(ModelHandle::new(
-                    "least_squares",
-                    vec![
-                        ("params".to_string(), Value::Vec(Arc::new(r.parameters))),
-                        ("residual".to_string(), Value::Vec(Arc::new(r.residual))),
-                        ("cost".to_string(), Value::Num(r.cost)),
-                        ("iterations".to_string(), Value::Num(r.iterations as f64)),
-                        ("converged".to_string(), Value::Bool(r.converged)),
-                    ],
-                ))))
+                let r = result?;
+                let unc = fit_stats::uncertainty(&mut &resid, &r.params, lo, hi, level, None);
+                if let Some(msg) = err_slot.borrow_mut().take() {
+                    return e(format!("least_squares: f failed while computing parameter uncertainty at the solution: {msg}"));
+                }
+                let residual = r.residual.clone().unwrap_or_else(|| unc.residual.clone());
+                let mut fields = vec![
+                    ("params".to_string(), Value::Vec(Arc::new(r.params.clone()))),
+                    ("residual".to_string(), Value::Vec(Arc::new(residual))),
+                    ("cost".to_string(), Value::Num(r.cost)),
+                    ("iterations".to_string(), Value::Num(r.iterations as f64)),
+                    ("converged".to_string(), Value::Bool(r.converged)),
+                    ("method".to_string(), Value::Str(method.name().to_string())),
+                ];
+                fields.extend(unc.fields);
+                if n_boot > 0 {
+                    let p_hat = r.params.clone();
+                    let boot = fit_stats::bootstrap("least_squares", n_boot, boot_seed, level, &unc.residual, p_hat.len(), &mut |shift: &[f64]| {
+                        let fit = fit_stats::solve(
+                            fit_stats::LmFlavour::LeastSquares,
+                            method,
+                            &mut |p: &[f64]| resid(p).iter().zip(shift).map(|(a, b)| a + b).collect(),
+                            &p_hat, lo, hi, max_iter, tol,
+                        );
+                        if let Some(msg) = err_slot.borrow_mut().take() {
+                            return e(format!("least_squares: f failed during bootstrap=: {msg}"));
+                        }
+                        Ok(fit.ok().map(|f| f.params))
+                    })?;
+                    fields.extend(boot);
+                }
+                Ok(Value::Model(Arc::new(ModelHandle::new("least_squares", fields))))
+            }
+            // `summary(fit)` -- the parameter table of a least-squares fit
+            // (`curve_fit`, `least_squares`, `circuit_fit`/`sysid`):
+            // estimate, stderr, t, P>|t| and the `level=` interval per
+            // parameter, bootstrap columns when the fit ran `bootstrap=`,
+            // and the fit's `note`. Returns the table as a string.
+            "summary" => {
+                let m = as_model(arg0(&args)?)?;
+                match m.kind.as_str() {
+                    "curve_fit" | "least_squares" | "circuit_fit" => fit_stats::summary_text(&m).map(Value::Str),
+                    other => e(format!(
+                        "summary: no parameter table for a `{other}` model -- summary() covers curve_fit, least_squares and circuit_fit fits"
+                    )),
+                }
             }
             // `basin_hopping(f, x0, [grad=], [n_iter=100], [step_size=1.0],
             // [temperature=1.0], [seed=])` — global optimization: repeats
@@ -32283,9 +32383,10 @@ self.eval_grad(loss, wrt)
                     lower,
                     upper,
                 };
+                let level = fit_stats::check_level("circuit_fit", style_num_checked(&style, "level", 0.95, "circuit_fit")?)?;
                 let r = qu_core::circuit_fit::fit(&template, &freqs, &z, &sigma, &p0, &opts)
                     .map_err(|msg| EvalError { msg })?;
-                Ok(circuit_fit_model(&template, r, None))
+                Ok(circuit_fit_model(&template, r, None, level))
             }
             // `sysid(freqs, z, [circuit_topology=], [criterion=], ...)` --
             // system identification: which circuit, not just which
@@ -32311,6 +32412,7 @@ self.eval_grad(loss, wrt)
             // only way for a reader to see that is to see the column.
             "sysid" => {
                 let (freqs, z) = circuit_fit_data(&args, "sysid")?;
+                let level = fit_stats::check_level("sysid", style_num_checked(&style, "level", 0.95, "sysid")?)?;
                 let criterion = style_str(&style, "criterion").unwrap_or_else(|| "aic".into());
                 if criterion != "aic" && criterion != "bic" {
                     return e(format!(
@@ -32401,7 +32503,7 @@ self.eval_grad(loss, wrt)
                         }
                     ),
                 })?;
-                Ok(circuit_fit_model(&template, r, Some((criterion, rows))))
+                Ok(circuit_fit_model(&template, r, Some((criterion, rows)), level))
             }
             // A circuit is a model and carries no frequency axis; this is
             // what turns it into data. Frequencies are in Hz, the axis
@@ -45250,7 +45352,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "stackbar", "stair", "stamp", "standardize", "start", "start_time",
     "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step",
     "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi",
-    "subplot", "substr", "subtract", "sum", "svd", "svm_model", "svr_model",
+    "subplot", "substr", "subtract", "sum", "summary", "svd", "svm_model", "svr_model",
     "swap", "swap_endian", "sweep", "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh",
     "tape_reset", "tcdf", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "thd", "thd_n",
@@ -57319,8 +57421,46 @@ fn circuit_fit_model(
     template: &qu_core::circuit::Circuit,
     r: qu_core::circuit_fit::FitResult,
     sysid: Option<(String, Vec<(String, usize, f64, f64, f64)>)>,
+    level: f64,
 ) -> Value {
     let names = template.param_names();
+    // Student-t columns on the fit's own stderr. The fit runs magnitudes in
+    // log10 space, so their interval is built THERE and mapped back --
+    // `p * 10^(-/+ t sd_x)`, asymmetric and never negative -- where a
+    // symmetric `p -/+ t stderr` would happily report a negative resistance.
+    let np = r.params.len();
+    let dof = r.residual.len() as i64 - np as i64;
+    let (t_stat, p_values, mut ci) = fit_stats::t_columns(&r.params, &r.stderr, dof, level);
+    if dof > 0 {
+        let tq = distributions::t_inv(0.5 + level / 2.0, dof as f64);
+        for (j, role) in template.param_roles().iter().enumerate().take(np) {
+            if *role == qu_core::circuit::ParamRole::Magnitude && r.params[j] > 0.0 {
+                let sd_x = r.stderr[j] / (r.params[j] * std::f64::consts::LN_10);
+                ci[j] = r.params[j] * 10f64.powf(-tq * sd_x);
+                ci[np + j] = r.params[j] * 10f64.powf(tq * sd_x);
+            }
+        }
+    }
+    let mut notes: Vec<String> = Vec::new();
+    if dof <= 0 {
+        notes.push(format!(
+            "no uncertainty: {} residual(s) for {np} parameter(s) leaves dof = {dof} <= 0 -- t/p_values/ci are NaN",
+            r.residual.len()
+        ));
+    } else {
+        let bad: Vec<&str> = (0..np).filter(|&j| r.stderr[j].is_infinite()).map(|j| names[j].as_str()).collect();
+        if !bad.is_empty() {
+            notes.push(format!("not identifiable from this data (stderr = inf): {}", bad.join(", ")));
+        }
+    }
+    let pinned: Vec<&str> = (0..np).filter(|&j| r.at_bound.get(j).copied().unwrap_or(false)).map(|j| names[j].as_str()).collect();
+    if !pinned.is_empty() {
+        notes.push(format!(
+            "on a bound (see at_bound), where the linearized stderr/t/p_values/ci do not hold: {}",
+            pinned.join(", ")
+        ));
+    }
+    let at_bound = Value::List(Arc::new(r.at_bound.iter().map(|b| Value::Bool(*b)).collect()));
     let fitted = template
         .with_params(&r.params)
         .unwrap_or_else(|_| template.clone());
@@ -57336,6 +57476,13 @@ fn circuit_fit_model(
             )),
         ),
         ("stderr".to_string(), Value::Vec(Arc::new(r.stderr.clone()))),
+        ("level".to_string(), Value::Num(level)),
+        ("dof".to_string(), Value::Num(dof as f64)),
+        ("t".to_string(), Value::Vec(Arc::new(t_stat))),
+        ("p_values".to_string(), Value::Vec(Arc::new(p_values))),
+        ("ci".to_string(), Value::Mat(Arc::new(numeric::matrix::Matrix::from_col_major(np, 2, ci)))),
+        ("at_bound".to_string(), at_bound),
+        ("note".to_string(), Value::Str(notes.join("; "))),
         ("residual".to_string(), Value::Vec(Arc::new(r.residual))),
         ("chi2".to_string(), Value::Num(r.chi2)),
         ("chi2_red".to_string(), Value::Num(r.chi2_red)),

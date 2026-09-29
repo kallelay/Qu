@@ -82,6 +82,10 @@ pub struct FitResult {
     /// One-sigma error on each parameter, in linear space. `inf` marks a
     /// parameter this data does not constrain.
     pub stderr: Vec<f64>,
+    /// `true` for a parameter that finished on its lower or upper bound
+    /// (the caller's or the role default). Its `stderr` is the linearized
+    /// one and does not describe a distribution truncated at the bound.
+    pub at_bound: Vec<bool>,
     pub iterations: usize,
     pub converged: bool,
     /// How many starts were actually run.
@@ -338,6 +342,12 @@ pub fn fit(
         f64::NAN
     };
     let stderr = standard_errors(&residual_at, &x_best, &params, &roles, chi2_red);
+    let at_bound: Vec<bool> = (0..np)
+        .map(|j| {
+            let tol = 1e-9 * (hi_x[j] - lo_x[j]).abs().max(1e-12);
+            (x_best[j] - lo_x[j]).abs() <= tol || (hi_x[j] - x_best[j]).abs() <= tol
+        })
+        .collect();
 
     Ok(FitResult {
         params,
@@ -345,6 +355,7 @@ pub fn fit(
         chi2,
         chi2_red,
         stderr,
+        at_bound,
         iterations,
         converged,
         starts,

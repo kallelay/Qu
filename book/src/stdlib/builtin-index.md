@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1126 builtins, 1038 described.** The rest are
+**1127 builtins, 1039 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -999,6 +999,7 @@ program, and a misspelled call suggests the nearest match.
 | [`substr`](../fn/substr.html) | Plain aliases of the same implementation (`mid` exists purely for BASIC/Excel discoverability) | [Collections & strings](collections-strings.md) |
 | [`subtract`](../fn/subtract.html) | The operators as named functions, so an operation can be passed where a name is what you can pass | [Core maths](core-math.md) |
 | [`sum`](../fn/sum.html) | Sum of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal` (real; additionally accepts a `CVec`/`CMat` and returns a `Complex` in that case) | [Core maths](core-math.md) |
+| [`summary`](../fn/summary.html) | The parameter table of a least-squares fit (`curve_fit`, `least_squares`, `circuit_fit`/`sysid`): one row per parameter with estimate, stderr, t, P> | [Signal processing](signal-processing.md) |
 | [`svd`](../fn/svd.html) | Thin SVD of `A` (`r×c` `Mat` or `CMat`), `A = U·diag(s)·Vᵀ` | [Core maths](core-math.md) |
 | [`svm_model`](../fn/svm_model.html) | Binary-classification support-vector machine by simplified SMO on an `N`-row, `D`-column `X` and a length-`N` target `y` that must take exactly two distinct values (no one-vs-rest wrapper) | [Statistics & ML](statistics-ml.md) |
 | [`svr_model`](../fn/svr_model.html) | Support-vector regression on an `N`-row, `D`-column `X` and a length-`N` numeric target `y` | [Statistics & ML](statistics-ml.md) |

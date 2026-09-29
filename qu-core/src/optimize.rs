@@ -231,6 +231,476 @@ pub fn levenberg_marquardt(
     Ok(LmResult { params: x, cost, iterations, converged })
 }
 
+/// Clamp `x` into the box `[lower, upper]` (either side optional, and
+/// either vector may be shorter than `x` -- missing entries are unbounded).
+fn project_into_box(x: &mut [f64], lower: Option<&[f64]>, upper: Option<&[f64]>) {
+    for (j, v) in x.iter_mut().enumerate() {
+        if let Some(lo) = lower.and_then(|l| l.get(j)) {
+            if *v < *lo {
+                *v = *lo;
+            }
+        }
+        if let Some(hi) = upper.and_then(|u| u.get(j)) {
+            if *v > *hi {
+                *v = *hi;
+            }
+        }
+    }
+}
+
+fn sum_sq(r: &[f64]) -> f64 {
+    r.iter().map(|v| v * v).sum()
+}
+
+/// Finite-difference step for a parameter currently at `v`: relative to the
+/// parameter's own size (an ohm and a farad in one vector cannot share an
+/// absolute step), falling back to `scale` itself at exactly zero.
+fn fd_step(v: f64, scale: f64) -> f64 {
+    let h = scale * v.abs();
+    if h > 0.0 && h.is_finite() {
+        h
+    } else {
+        scale
+    }
+}
+
+/// `cbrt(eps)`: the step that balances truncation against rounding error
+/// for a central difference, leaving ~`eps^(2/3)` (~1e-11) relative error.
+const CENTRAL_STEP: f64 = 6.055_454_452_393_343e-6;
+/// `sqrt(eps)`, the same balance for a forward difference (~1e-8 error).
+const FORWARD_STEP: f64 = 1.490_116_119_384_765_6e-8;
+
+/// Numerical Jacobian of `residuals` at `x` (where `r0 = residuals(x)`),
+/// never evaluated outside the box: central differences when `central`
+/// and both neighbours are inside the box, otherwise a one-sided
+/// difference pointing INTO the box. The step actually taken
+/// (`(x + h) - x`, after rounding) is the one divided by.
+fn box_jacobian(
+    residuals: &mut dyn FnMut(&[f64]) -> Vec<f64>,
+    x: &[f64],
+    r0: &[f64],
+    lower: Option<&[f64]>,
+    upper: Option<&[f64]>,
+    central: bool,
+) -> Result<Matrix, NumericError> {
+    let n = x.len();
+    let m = r0.len();
+    let mut data = vec![0.0; m * n]; // column-major: column j = d r / d x_j
+    let mut eval = |xp: &[f64]| -> Result<Vec<f64>, NumericError> {
+        let r = residuals(xp);
+        if r.len() != m {
+            return Err(NumericError::ShapeMismatch { expected: m, found: r.len() });
+        }
+        Ok(r)
+    };
+    for j in 0..n {
+        let h = fd_step(x[j], if central { CENTRAL_STEP } else { FORWARD_STEP });
+        let lo = lower.and_then(|l| l.get(j).copied()).unwrap_or(f64::NEG_INFINITY);
+        let hi = upper.and_then(|u| u.get(j).copied()).unwrap_or(f64::INFINITY);
+        let fwd_ok = x[j] + h <= hi;
+        let bwd_ok = x[j] - h >= lo;
+        let col = &mut data[j * m..(j + 1) * m];
+        let mut xp = x.to_vec();
+        if central && fwd_ok && bwd_ok {
+            xp[j] = x[j] + h;
+            let hp = xp[j] - x[j];
+            let rp = eval(&xp)?;
+            xp[j] = x[j] - h;
+            let hm = x[j] - xp[j];
+            let rm = eval(&xp)?;
+            for i in 0..m {
+                col[i] = (rp[i] - rm[i]) / (hp + hm);
+            }
+        } else if fwd_ok {
+            xp[j] = x[j] + h;
+            let hp = xp[j] - x[j];
+            let rp = eval(&xp)?;
+            for i in 0..m {
+                col[i] = (rp[i] - r0[i]) / hp;
+            }
+        } else if bwd_ok {
+            xp[j] = x[j] - h;
+            let hm = x[j] - xp[j];
+            let rm = eval(&xp)?;
+            for i in 0..m {
+                col[i] = (r0[i] - rm[i]) / hm;
+            }
+        }
+        // Neither: the box is narrower than the step. The column stays
+        // zero -- the parameter is pinned, and the caller sees it as
+        // unidentifiable rather than as a derivative invented from a
+        // point outside the box.
+    }
+    Ok(Matrix::from_col_major(m, n, data))
+}
+
+/// `J^T r` for a column-major `(m, n)` Jacobian.
+fn jt_times(jac: &Matrix, r: &[f64]) -> Vec<f64> {
+    let m = jac.rows();
+    let d = jac.as_slice();
+    (0..jac.cols()).map(|j| d[j * m..(j + 1) * m].iter().zip(r).map(|(a, b)| a * b).sum()).collect()
+}
+
+fn norm2(v: &[f64]) -> f64 {
+    v.iter().map(|x| x * x).sum::<f64>().sqrt()
+}
+
+/// Plain Gauss-Newton with step-halving line search: nonlinear least
+/// squares on `sum(residuals(params)^2)`, optionally inside a box (every
+/// trial point is projected into `[lower, upper]` before it is
+/// evaluated, the same contract as [`linalg::nonlinear_least_squares`]).
+///
+/// Each iteration solves the LINEARIZED problem `min ||J d - r||` (through
+/// an SVD pseudo-inverse, so a rank-deficient `J` gives the minimum-norm
+/// step rather than a failure), then tries `x - t d` for `t = 1, 1/2,
+/// 1/4, ...` until the cost decreases. No damping: near a solution with
+/// small residuals it converges quadratically, like the Newton method it
+/// approximates; far from one, or on a large-residual problem, it can
+/// crawl where [`levenberg_marquardt`] would not.
+///
+/// Converged when an accepted step is small relative to `x`
+/// (`||dx|| <= tol (1 + ||x||)`), or a FULL step (`t = 1`) improves the
+/// cost by less than `tol` relative. When no fraction of the step
+/// decreases the cost at all, the point is accepted as converged only if
+/// the proposed step was already negligible (`<= 1e-6 (1 + ||x||)`) --
+/// otherwise `converged = false`: a stalled Gauss-Newton is a stalled
+/// Gauss-Newton, not a solution.
+pub fn gauss_newton(
+    mut residuals: impl FnMut(&[f64]) -> Vec<f64>,
+    x0: &[f64],
+    lower: Option<&[f64]>,
+    upper: Option<&[f64]>,
+    max_iter: usize,
+    tol: f64,
+) -> Result<LmResult, NumericError> {
+    if x0.is_empty() {
+        return Err(NumericError::EmptyInput("gauss_newton: needs at least one parameter"));
+    }
+    let mut x = x0.to_vec();
+    project_into_box(&mut x, lower, upper);
+    let mut r = residuals(&x);
+    if r.is_empty() {
+        return Err(NumericError::EmptyInput("gauss_newton: the residual"));
+    }
+    let mut cost = sum_sq(&r);
+    let mut converged = false;
+    let mut iterations = 0;
+    for _ in 0..max_iter {
+        iterations += 1;
+        let jac = box_jacobian(&mut residuals, &x, &r, lower, upper, false)?;
+        let delta = linalg::least_squares(&jac, &Matrix::from_column(&r), Some(1e-10))
+            .map_err(|e| NumericError::Decomposition(format!("gauss_newton: {e}")))?;
+        let d = delta.as_slice();
+        let xnorm = norm2(&x);
+        let mut t = 1.0;
+        let mut accepted = None;
+        for _ in 0..40 {
+            let mut trial: Vec<f64> = x.iter().zip(d).map(|(xi, di)| xi - t * di).collect();
+            project_into_box(&mut trial, lower, upper);
+            let rt = residuals(&trial);
+            let ct = sum_sq(&rt);
+            if rt.len() == r.len() && ct.is_finite() && ct < cost {
+                accepted = Some((trial, rt, ct));
+                break;
+            }
+            t *= 0.5;
+        }
+        match accepted {
+            None => {
+                converged = norm2(d) <= 1e-6 * (1.0 + xnorm);
+                break;
+            }
+            Some((trial, rt, ct)) => {
+                let dx: Vec<f64> = trial.iter().zip(&x).map(|(a, b)| a - b).collect();
+                let rel = (cost - ct) / cost.max(f64::MIN_POSITIVE);
+                x = trial;
+                r = rt;
+                cost = ct;
+                if norm2(&dx) <= tol * (1.0 + norm2(&x)) || (t == 1.0 && rel < tol) || cost == 0.0 {
+                    converged = true;
+                    break;
+                }
+            }
+        }
+    }
+    Ok(LmResult { params: x, cost, iterations, converged })
+}
+
+/// Steepest descent on `0.5 * ||residuals(params)||^2`, with a projected
+/// Armijo backtracking line search (optionally inside a box, like
+/// [`gauss_newton`]). The gradient `J^T r` uses a CENTRAL-difference
+/// Jacobian: the stopping rule below needs a gradient accurate near zero,
+/// which forward differences cannot give on a problem with nonzero
+/// residuals at the solution.
+///
+/// Honest about being slow. Its rate is linear with ratio
+/// `~(kappa - 1)/(kappa + 1)` in the condition number of `J^T J`, so a
+/// well-conditioned problem converges in tens of iterations and a curved
+/// valley (Rosenbrock) takes thousands. It declares `converged` only on
+/// first-order optimality, never on "the cost stopped moving much":
+///
+/// * every gradient component, as a cosine between that Jacobian column and
+///   the residual (`|J_j . r| / (||J_j|| ||r||)`, scale-free and `0`
+///   exactly at a least-squares solution), is below `max(tol, 1e-8)`; or
+/// * the cost has fallen to `tol` times its starting value (a zero-residual
+///   problem, where the residual direction never becomes orthogonal).
+///
+/// Running out of `max_iter`, or a line search that finds no decrease,
+/// returns `converged = false` with the best point reached.
+pub fn gradient_descent(
+    mut residuals: impl FnMut(&[f64]) -> Vec<f64>,
+    x0: &[f64],
+    lower: Option<&[f64]>,
+    upper: Option<&[f64]>,
+    max_iter: usize,
+    tol: f64,
+) -> Result<LmResult, NumericError> {
+    if x0.is_empty() {
+        return Err(NumericError::EmptyInput("gradient_descent: needs at least one parameter"));
+    }
+    let mut x = x0.to_vec();
+    project_into_box(&mut x, lower, upper);
+    let mut r = residuals(&x);
+    if r.is_empty() {
+        return Err(NumericError::EmptyInput("gradient_descent: the residual"));
+    }
+    let mut cost = sum_sq(&r);
+    let cost0 = cost;
+    let gtol = tol.max(1e-8);
+    let mut step: Option<f64> = None;
+    let mut converged = false;
+    let mut iterations = 0;
+    let optimal = |jac: &Matrix, g: &[f64], r: &[f64], cost: f64, x: &[f64]| -> bool {
+        if cost == 0.0 || cost <= tol * cost0 {
+            return true;
+        }
+        let m = jac.rows();
+        let rn = norm2(r);
+        g.iter().enumerate().all(|(j, gj)| {
+            // A component pinned at a bound, with the gradient pushing it
+            // further out, is optimal in that coordinate.
+            let at_lo = lower.and_then(|l| l.get(j)).is_some_and(|lo| x[j] <= *lo);
+            let at_hi = upper.and_then(|u| u.get(j)).is_some_and(|hi| x[j] >= *hi);
+            if (at_lo && *gj > 0.0) || (at_hi && *gj < 0.0) {
+                return true;
+            }
+            let cn = norm2(&jac.as_slice()[j * m..(j + 1) * m]);
+            cn == 0.0 || gj.abs() <= gtol * cn * rn
+        })
+    };
+    loop {
+        let jac = box_jacobian(&mut residuals, &x, &r, lower, upper, true)?;
+        let g = jt_times(&jac, &r);
+        if optimal(&jac, &g, &r, cost, &x) {
+            converged = true;
+            break;
+        }
+        if iterations >= max_iter {
+            break;
+        }
+        iterations += 1;
+        let gn = norm2(&g);
+        if gn == 0.0 || !gn.is_finite() {
+            break;
+        }
+        // Grow the previous accepted step a little each time, so a step
+        // that had to be cut once is not stuck small forever.
+        let mut t = step.map(|s| 2.0 * s).unwrap_or(1.0 / gn);
+        let mut accepted = None;
+        for _ in 0..60 {
+            let mut trial: Vec<f64> = x.iter().zip(&g).map(|(xi, gi)| xi - t * gi).collect();
+            project_into_box(&mut trial, lower, upper);
+            let moved: f64 = trial.iter().zip(&x).map(|(a, b)| (a - b) * (a - b)).sum();
+            let rt = residuals(&trial);
+            let ct = sum_sq(&rt);
+            // Projected Armijo on f = 0.5 ||r||^2:
+            //   f(x_t) <= f(x) - (c / t) ||x_t - x||^2.
+            if moved > 0.0 && rt.len() == r.len() && ct.is_finite() && 0.5 * ct <= 0.5 * cost - 1e-4 / t * moved {
+                accepted = Some((trial, rt, ct));
+                break;
+            }
+            t *= 0.5;
+        }
+        match accepted {
+            None => break,
+            Some((trial, rt, ct)) => {
+                x = trial;
+                r = rt;
+                cost = ct;
+                step = Some(t);
+            }
+        }
+    }
+    Ok(LmResult { params: x, cost, iterations, converged })
+}
+
+/// Parameter covariance of a least-squares fit, linearized at the solution.
+pub struct FitCovariance {
+    /// Number of residuals.
+    pub n: usize,
+    /// Number of parameters.
+    pub p: usize,
+    /// `n - p`; zero or negative means there is no residual variance to
+    /// estimate, and every statistic below is `NaN`.
+    pub dof: i64,
+    /// Residual sum of squares at the solution.
+    pub rss: f64,
+    /// The residual at the solution.
+    pub residual: Vec<f64>,
+    /// `(n, p)` central-difference Jacobian at the solution.
+    pub jacobian: Matrix,
+    /// `rss / dof` (`NaN` when `dof <= 0`).
+    pub s2: f64,
+    /// `s2 * (J^T J)^+`, `(p, p)`. Rows and columns of an unidentifiable
+    /// parameter are `NaN`, with `inf` on the diagonal.
+    pub cov: Matrix,
+    /// `sqrt(diag(cov))`; `inf` for an unidentifiable parameter.
+    pub stderr: Vec<f64>,
+    /// `cov[i,j] / (stderr[i] stderr[j])`, `NaN` wherever undefined.
+    pub correlation: Matrix,
+    /// Numerical rank of the (column-scaled) Jacobian.
+    pub rank: usize,
+    /// `false` for a parameter the data does not determine (it loads on a
+    /// direction of `J` whose singular value has collapsed).
+    pub identifiable: Vec<bool>,
+    /// `true` for a parameter sitting on its `lower`/`upper` bound, where
+    /// the linearized standard error does not describe the uncertainty
+    /// (the estimate's distribution is truncated there).
+    pub at_bound: Vec<bool>,
+    /// Condition number of the column-scaled Jacobian (`inf` when
+    /// rank-deficient).
+    pub condition_number: f64,
+}
+
+/// Relative singular-value cutoff below which a direction of the scaled
+/// Jacobian counts as unidentifiable. Far above `eps`, on purpose: the
+/// Jacobian is a central difference with ~`1e-11` relative error, so an
+/// exactly redundant pair of parameters shows up as a singular value near
+/// `1e-11 * s_max`, not zero -- an `eps`-sized cutoff would miss it and
+/// report a finite, meaningless standard error instead.
+const RANK_CUTOFF: f64 = 1e-9;
+
+/// Parameter uncertainty for a least-squares fit: the Jacobian `J` of
+/// `residuals` at `params` (central differences, one-sided inside
+/// `lower`/`upper` at a bound), and `cov = s^2 (J^T J)^+` with
+/// `s^2 = RSS / (n - p)` -- the standard linearized (Gauss-Newton)
+/// covariance that scipy's `curve_fit` and statsmodels report. For a
+/// model linear in its parameters it is exactly the OLS covariance.
+///
+/// Computed through the SVD of `J` with each column scaled by its
+/// parameter's magnitude, rather than by forming and inverting `J^T J`:
+/// forming `J^T J` squares the condition number, and scaling removes the
+/// fake ill-conditioning of parameters in different units. When `J` is
+/// rank-deficient the pseudo-inverse is used, and every parameter that
+/// loads on a collapsed direction is marked unidentifiable with `inf`
+/// standard error -- the pseudo-inverse alone would report a small,
+/// meaningless number for exactly those parameters.
+pub fn fit_covariance(
+    residuals: &mut dyn FnMut(&[f64]) -> Vec<f64>,
+    params: &[f64],
+    lower: Option<&[f64]>,
+    upper: Option<&[f64]>,
+) -> Result<FitCovariance, NumericError> {
+    let p = params.len();
+    if p == 0 {
+        return Err(NumericError::EmptyInput("fit_covariance: needs at least one parameter"));
+    }
+    let residual = residuals(params);
+    let n = residual.len();
+    if n == 0 {
+        return Err(NumericError::EmptyInput("fit_covariance: the residual"));
+    }
+    let jacobian = box_jacobian(residuals, params, &residual, lower, upper, true)?;
+    let rss = sum_sq(&residual);
+    let dof = n as i64 - p as i64;
+    let s2 = if dof > 0 { rss / dof as f64 } else { f64::NAN };
+
+    let at_bound: Vec<bool> = (0..p)
+        .map(|j| {
+            let x = params[j];
+            let near = |b: f64| x == b || (x - b).abs() <= 1e-10 * b.abs().max(x.abs());
+            lower.and_then(|l| l.get(j)).is_some_and(|b| near(*b))
+                || upper.and_then(|u| u.get(j)).is_some_and(|b| near(*b))
+        })
+        .collect();
+
+    if jacobian.as_slice().iter().any(|v| !v.is_finite()) {
+        return Err(NumericError::Decomposition(
+            "the Jacobian at the solution is not finite (the model returns NaN/inf next to the fitted parameters)".into(),
+        ));
+    }
+    // Column scaling by the parameter's own magnitude.
+    let scale: Vec<f64> = params.iter().map(|v| if *v != 0.0 && v.is_finite() { v.abs() } else { 1.0 }).collect();
+    let mut scaled = jacobian.as_slice().to_vec();
+    for j in 0..p {
+        for v in &mut scaled[j * n..(j + 1) * n] {
+            *v *= scale[j];
+        }
+    }
+    let svd = linalg::svd(&Matrix::from_col_major(n, p, scaled))
+        .map_err(|e| NumericError::Decomposition(format!("fit_covariance: {e}")))?;
+    let s = &svd.singular_values;
+    let smax = s.iter().cloned().fold(0.0f64, f64::max);
+    let keep: Vec<bool> = s.iter().map(|&v| smax > 0.0 && v > RANK_CUTOFF * smax).collect();
+    let rank = keep.iter().filter(|k| **k).count();
+    let k_rows = svd.v_t.rows();
+    let vt = svd.v_t.as_slice();
+    let v = |kk: usize, j: usize| vt[j * k_rows + kk];
+    // A parameter is identifiable when its unit vector lies in the row space
+    // spanned by the kept directions.
+    let identifiable: Vec<bool> = (0..p)
+        .map(|j| {
+            let in_span: f64 = (0..s.len().min(k_rows)).filter(|&kk| keep[kk]).map(|kk| v(kk, j) * v(kk, j)).sum();
+            in_span >= 1.0 - 1e-6
+        })
+        .collect();
+    let smin_kept = s.iter().zip(&keep).filter(|(_, k)| **k).map(|(v, _)| *v).fold(f64::INFINITY, f64::min);
+    let condition_number = if rank == p { smax / smin_kept } else { f64::INFINITY };
+
+    let mut cov = vec![0.0; p * p];
+    for a in 0..p {
+        for b in 0..p {
+            let val = if !identifiable[a] || !identifiable[b] {
+                if a == b { f64::INFINITY } else { f64::NAN }
+            } else {
+                let mut acc = 0.0;
+                for kk in 0..s.len().min(k_rows) {
+                    if keep[kk] {
+                        acc += v(kk, a) * v(kk, b) / (s[kk] * s[kk]);
+                    }
+                }
+                acc * scale[a] * scale[b] * s2
+            };
+            cov[b * p + a] = if dof > 0 { val } else { f64::NAN };
+        }
+    }
+    let stderr: Vec<f64> = (0..p).map(|j| cov[j * p + j].sqrt()).collect();
+    let mut corr = vec![f64::NAN; p * p];
+    for a in 0..p {
+        for b in 0..p {
+            if stderr[a].is_finite() && stderr[b].is_finite() {
+                corr[b * p + a] = if a == b { 1.0 } else { cov[b * p + a] / (stderr[a] * stderr[b]) };
+            }
+        }
+    }
+    Ok(FitCovariance {
+        n,
+        p,
+        dof,
+        rss,
+        residual,
+        jacobian,
+        s2,
+        cov: Matrix::from_col_major(p, p, cov),
+        stderr,
+        correlation: Matrix::from_col_major(p, p, corr),
+        rank,
+        identifiable,
+        at_bound,
+        condition_number,
+    })
+}
+
 pub struct MinimizeResult {
     pub params: Vec<f64>,
     pub value: f64,
@@ -577,5 +1047,135 @@ mod tests {
         let result = basin_hopping(f, &[0.0, 0.0], 20, 1.0, 0.5, 7, Some(&mut grad)).unwrap();
         close(result.params[0], 1.0, 1e-3);
         close(result.params[1], 2.0, 1e-3);
+    }
+
+    // ---- Gauss-Newton / gradient descent / fit covariance ----------------
+
+    /// y = 5 exp(-0.5 x) on 0..3.8, noiseless.
+    fn decay_residuals() -> impl FnMut(&[f64]) -> Vec<f64> {
+        let xs: Vec<f64> = (0..20).map(|i| i as f64 * 0.2).collect();
+        let ys: Vec<f64> = xs.iter().map(|&x| 5.0 * (-0.5 * x).exp()).collect();
+        move |p: &[f64]| xs.iter().zip(&ys).map(|(&x, &y)| p[0] * (-p[1] * x).exp() - y).collect()
+    }
+
+    #[test]
+    fn gauss_newton_fits_an_exponential_decay() {
+        let r = gauss_newton(decay_residuals(), &[1.0, 1.0], None, None, 100, 1e-12).unwrap();
+        assert!(r.converged);
+        close(r.params[0], 5.0, 1e-7);
+        close(r.params[1], 0.5, 1e-7);
+        assert!(r.iterations < 30, "{} iterations", r.iterations);
+    }
+
+    #[test]
+    fn gauss_newton_solves_rosenbrock_residuals() {
+        // r = (10 (y - x^2), 1 - x): a zero-residual problem, GN territory.
+        let f = |p: &[f64]| vec![10.0 * (p[1] - p[0] * p[0]), 1.0 - p[0]];
+        let r = gauss_newton(f, &[-1.2, 1.0], None, None, 100, 1e-12).unwrap();
+        assert!(r.converged);
+        close(r.params[0], 1.0, 1e-8);
+        close(r.params[1], 1.0, 1e-8);
+    }
+
+    #[test]
+    fn gauss_newton_stays_inside_its_box() {
+        // Unconstrained optimum a = 5; upper bound 4 must hold.
+        let r = gauss_newton(decay_residuals(), &[1.0, 1.0], None, Some(&[4.0, 10.0]), 100, 1e-12).unwrap();
+        assert!(r.params[0] <= 4.0);
+        close(r.params[0], 4.0, 1e-12);
+    }
+
+    #[test]
+    fn gradient_descent_converges_on_a_well_conditioned_problem() {
+        // Linear residual A p - b with cond(A^T A) = 4.
+        let f = |p: &[f64]| vec![p[0] - 1.0, 2.0 * p[1] + 3.0, 0.1];
+        let r = gradient_descent(f, &[0.0, 0.0], None, None, 500, 1e-10).unwrap();
+        assert!(r.converged, "iterations = {}", r.iterations);
+        close(r.params[0], 1.0, 1e-6);
+        close(r.params[1], -1.5, 1e-6);
+    }
+
+    #[test]
+    fn gradient_descent_says_so_when_it_has_not_converged() {
+        // Rosenbrock's curved valley: steepest descent zig-zags for
+        // thousands of iterations. Fifty is nowhere near enough, and the
+        // result must say so rather than claim the point it stopped at.
+        let f = |p: &[f64]| vec![10.0 * (p[1] - p[0] * p[0]), 1.0 - p[0]];
+        let r = gradient_descent(f, &[-1.2, 1.0], None, None, 50, 1e-10).unwrap();
+        assert!(!r.converged);
+        assert_eq!(r.iterations, 50);
+        assert!((r.params[0] - 1.0).abs() > 1e-3);
+    }
+
+    #[test]
+    fn gradient_descent_respects_bounds() {
+        let f = |p: &[f64]| vec![p[0] - 3.0, p[1] + 1.0];
+        let r = gradient_descent(f, &[0.0, 0.0], Some(&[-10.0, 0.0]), Some(&[2.0, 10.0]), 500, 1e-10).unwrap();
+        assert!(r.converged);
+        close(r.params[0], 2.0, 1e-12);
+        close(r.params[1], 0.0, 1e-12);
+    }
+
+    #[test]
+    fn fit_covariance_is_the_ols_covariance_for_a_linear_model() {
+        // y = b0 + b1 x with a fixed perturbation; closed form
+        // cov = s^2 (X^T X)^-1, s^2 = RSS / (n - 2).
+        let xs: Vec<f64> = (0..10).map(|i| i as f64).collect();
+        let ys: Vec<f64> = xs
+            .iter()
+            .enumerate()
+            .map(|(i, &x)| 1.5 + 0.7 * x + [0.3, -0.2, 0.1, -0.4, 0.25][i % 5])
+            .collect();
+        let n = xs.len() as f64;
+        let (sx, sy) = (xs.iter().sum::<f64>(), ys.iter().sum::<f64>());
+        let sxx: f64 = xs.iter().map(|x| x * x).sum();
+        let sxy: f64 = xs.iter().zip(&ys).map(|(x, y)| x * y).sum();
+        let det = n * sxx - sx * sx;
+        let b1 = (n * sxy - sx * sy) / det;
+        let b0 = (sy - b1 * sx) / n;
+        let rss: f64 = xs.iter().zip(&ys).map(|(x, y)| (y - b0 - b1 * x).powi(2)).sum();
+        let s2 = rss / (n - 2.0);
+        let (v00, v11, v01) = (s2 * sxx / det, s2 * n / det, -s2 * sx / det);
+        let mut f = move |p: &[f64]| -> Vec<f64> { xs.iter().zip(&ys).map(|(x, y)| p[0] + p[1] * x - y).collect() };
+        let c = fit_covariance(&mut f, &[b0, b1], None, None).unwrap();
+        assert_eq!(c.dof, 8);
+        assert_eq!(c.rank, 2);
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs();
+        assert!(rel(c.cov.get(0, 0).unwrap(), v00) < 1e-8);
+        assert!(rel(c.cov.get(1, 1).unwrap(), v11) < 1e-8);
+        assert!(rel(c.cov.get(0, 1).unwrap(), v01) < 1e-8);
+        assert!(rel(c.stderr[1], v11.sqrt()) < 1e-8);
+        close(c.correlation.get(0, 1).unwrap(), v01 / (v00 * v11).sqrt(), 1e-8);
+    }
+
+    #[test]
+    fn fit_covariance_marks_an_unidentifiable_parameter() {
+        // y = a * b * x: only the product is determined.
+        let xs: Vec<f64> = (1..=8).map(|i| i as f64).collect();
+        let ys: Vec<f64> =
+            xs.iter().enumerate().map(|(i, x)| 6.0 * x + if i % 2 == 0 { 0.1 } else { -0.1 }).collect();
+        let mut f = move |p: &[f64]| -> Vec<f64> { xs.iter().zip(&ys).map(|(x, y)| p[0] * p[1] * x - y).collect() };
+        let c = fit_covariance(&mut f, &[2.0, 3.0], None, None).unwrap();
+        assert_eq!(c.rank, 1);
+        assert_eq!(c.identifiable, vec![false, false]);
+        assert!(c.stderr.iter().all(|s| s.is_infinite()));
+        assert!(c.condition_number.is_infinite());
+    }
+
+    #[test]
+    fn fit_covariance_without_degrees_of_freedom_is_nan_not_a_division_by_zero() {
+        let mut f = |p: &[f64]| vec![p[0] - 1.0, p[1] - 2.0];
+        let c = fit_covariance(&mut f, &[1.0, 2.0], None, None).unwrap();
+        assert_eq!(c.dof, 0);
+        assert!(c.s2.is_nan());
+        assert!(c.stderr.iter().all(|s| s.is_nan()));
+    }
+
+    #[test]
+    fn fit_covariance_flags_a_parameter_on_its_bound() {
+        let mut f = |p: &[f64]| vec![p[0] - 3.0, p[0] - 2.0, p[1] + 1.0, p[1] + 2.0];
+        let c = fit_covariance(&mut f, &[2.0, -1.5], None, Some(&[2.0, 5.0])).unwrap();
+        assert_eq!(c.at_bound, vec![true, false]);
+        assert!(c.stderr[0].is_finite(), "one-sided difference keeps the column");
     }
 }

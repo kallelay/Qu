@@ -380,7 +380,7 @@ fn beta_inv_lower(p: f64, a: f64, b: f64) -> f64 {
 
 // ------------------------------------------------------------ Student t
 
-fn t_cdf(t: f64, nu: f64) -> f64 {
+pub(crate) fn t_cdf(t: f64, nu: f64) -> f64 {
     if t.is_infinite() {
         return if t > 0.0 { 1.0 } else { 0.0 };
     }
@@ -398,7 +398,7 @@ fn t_pdf(t: f64, nu: f64) -> f64 {
     .exp()
 }
 
-fn t_inv(p: f64, nu: f64) -> f64 {
+pub(crate) fn t_inv(p: f64, nu: f64) -> f64 {
     if p <= 0.0 {
         return f64::NEG_INFINITY;
     }
