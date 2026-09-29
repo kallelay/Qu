@@ -57,6 +57,12 @@ longer truncated to whole milliseconds.
 Release notes on GitHub now carry the changelog since the previous
 release instead of the whole file.
 
+Boolean masks read as 0/1 in numeric reductions and arithmetic, as in
+MATLAB and NumPy: `sum(x <= c)` counts, `mean(x <= c)` is the fraction
+(an empirical CDF), `cumsum`/`prod` accept masks, `(x > 0) * 2` is
+numeric, and `any(mask)`/`all(mask)` take a bare mask. Indexing with a
+mask is unchanged.
+
 Dependencies: ureq 3, zip 8, calamine 0.36, rust_xlsxwriter 0.99, wgpu
 30, nalgebra 0.35, thiserror 2, libloading 0.9, hmac 0.13 / sha2 0.11,
 tokenizers 0.22, hdf5-metno 0.15 (`http_get`, `qu-gpu` and Qu Studio's
