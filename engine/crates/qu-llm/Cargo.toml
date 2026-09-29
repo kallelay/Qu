@@ -25,7 +25,7 @@ candle-transformers = "0.11"
 # Keeping `onig`/`progressbar`, the other two upstream defaults, since
 # `onig` affects actual pretokenizer *behavior* (not just training speed)
 # and `progressbar` is a real (if cosmetic) download-progress feature.
-tokenizers = { version = "0.20", default-features = false, features = ["onig", "progressbar"] }
+tokenizers = { version = "0.22", default-features = false, features = ["onig", "progressbar"] }
 # Sync-only (`ureq`-backed) HF Hub client, for the one file this crate DOES
 # hand to it -- the big LFS-tracked `.gguf` blob, which downloads fine
 # through hf-hub's normal metadata/redirect path (LFS files redirect to a
@@ -36,14 +36,14 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig", "
 # tree just for a model download. See `lib.rs`'s `fetch_tokenizer_json` doc
 # comment for why the tokenizer file is fetched by hand instead of through
 # this same client.
-hf-hub = "0.3"
+hf-hub = "1.0"
 # Used directly (not just transitively via hf-hub's `ureq` feature) to fetch
 # `tokenizer.json` by hand -- see `lib.rs`'s `fetch_tokenizer_json` doc
 # comment for the hf-hub 0.3.2 bug this works around (its own redirect-
 # metadata code fails on a small, non-LFS file's relative `Location`
 # header; a plain `ureq::get(...).call()` follows the SAME redirect
 # correctly since it doesn't hand-parse the header at all).
-ureq = "2"
+ureq = "3"
 
 # hf-hub -> native-tls -> openssl-sys, for musl only (see below).
 [target.'cfg(target_env = "musl")'.dependencies]
