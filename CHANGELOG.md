@@ -10,6 +10,29 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-09-29
+
+Parameter uncertainty on every least-squares fit (`curve_fit`,
+`least_squares`, `circuit_fit`/`sysid`): `stderr`, `cov`, `correlation`,
+`t`, `p_values` (Student t on `dof = n - p`), `ci` at `level=`, `rmse`,
+`sigma`, and a `note` for zero degrees of freedom or unidentifiable
+parameters. `bootstrap=N` (with `seed=`) adds residual-resampling
+`bootstrap_stderr`/`bootstrap_ci`. `method=` selects `"lm"` (default),
+`"gauss_newton"` or `"gradient_descent"`. `summary(fit)` prints the
+parameter table. `least_squares` flags parameters pinned on a bound in
+`at_bound`.
+
+Accuracy and performance audit (docs/perf-audit-2026-09-28.md):
+`sum`, `mean`, `dot`, `cumsum` and tensor sum/mean use compensated
+(Neumaier) summation; `mean` no longer overflows on large finite values;
+`norm` no longer overflows/underflows; `var`/`std` use a corrected
+two-pass on the compensated mean. `median`/`quantile` use selection
+instead of a full sort (5-11x faster, identical results), which also
+speeds up `table_describe`. `s = s + "..."` string building appends in
+place when the terms provably run no user code (linear instead of
+quadratic). Leak probes (streamed printing, Office handles, repeated
+fits, general values) show flat memory.
+
 ## [0.4.3] - 2026-09-28
 
 Office toolkit (docs/design/toolkit-office.md): `import docx`, `import
