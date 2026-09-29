@@ -1,0 +1,59 @@
+# Accuracy probes (perf audit 2026-09-28). Every reference below is exact
+# by construction, not taken from another library.
+# Output: ACC <case> <got> <expected> <abs_err>
+
+function check(name, got, want)
+    print("ACC {name} {got} {want} {abs(got - want)}")
+end function
+
+# 1. Summation. 1e8 followed by 1e6 copies of 0.1... we avoid 0.1 (inexact)
+#    and use values whose exact sum is known: one big value plus many
+#    small ones that a naive left-to-right sum rounds away.
+#    x = [1e16, 1, 1, ..., 1 (1e6 times)]  ->  exact sum 1e16 + 1e6.
+n = 1000000
+x = ones(n + 1)
+x[0] = 1e16
+check("sum_big_plus_ones", sum(x), 1e16 + 1e6)
+check("mean_big_plus_ones", mean(x), (1e16 + 1e6) / (n + 1))
+
+# 2. Alternating large/small cancellation: [1, 1e100, 1, -1e100] -> 2.
+check("sum_cancel", sum([1, 1e100, 1, -1e100]), 2)
+
+# 3. Many 0.1s: the exact sum of n copies of the double nearest 0.1 is
+#    n * 0.1000000000000000055511151231257827 (the double's true value).
+#    Reference computed as n * 0.1 in one rounding (error <= 0.5 ulp).
+m = 10000000
+t = ones(m) * 0.1
+check("sum_1e7_tenths", sum(t), m * 0.1)
+
+# 4. Variance with a large offset: x = 1e9 + [0, 1, 2, ..., 9]; sample
+#    variance of 0..9 is exactly 55/6.
+v = 1e9 + (0 to 9)
+check("var_offset_1e9", var(v), 55 / 6)
+check("std_offset_1e9", std(v), sqrt(55 / 6))
+w = 1e12 + (0 to 99999)
+# sample variance of 0..N-1 is N(N+1)/12
+check("var_offset_1e12_n1e5", var(w), 100000 * 100001 / 12)
+
+# 5. Quantile / median definitions (NumPy "linear"):
+q = [3, 1, 4, 1, 5, 9, 2, 6]
+check("median_even", median(q), 3.5)
+check("quantile_0.25", quantile(q, 0.25), 1.75)
+check("quantile_0.9", quantile(q, 0.9), 6.9)
+
+# 6. cumsum drift: cumsum of 1e7 tenths, last element vs m*0.1
+cs = cumsum(t)
+check("cumsum_last_1e7_tenths", cs[m - 1], m * 0.1)
+
+# 7. log/exp overflow guards
+check("logsumexp_big", logsumexp([1000, 1000]), 1000 + log(2))
+check("log1p_tiny", log1p(1e-20), 1e-20)
+check("expm1_tiny", expm1(1e-20), 1e-20)
+check("norm_big", norm([3e200, 4e200]), 5e200)
+check("norm_tiny", norm([3e-200, 4e-200]), 5e-200)
+
+# 8. dot with cancellation: [1e16, 1, -1e16] . [1, 1, 1] = 1
+check("dot_cancel", dot([1e16, 1, -1e16], [1, 1, 1]), 1)
+
+# 9. mean of values near max double must not overflow
+check("mean_near_max", mean([1e308, 1e308]), 1e308)

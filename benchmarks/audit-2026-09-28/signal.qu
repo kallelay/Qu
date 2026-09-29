@@ -1,0 +1,42 @@
+# FFT and filtering (perf audit 2026-09-28).
+# Sizes N and 4N. fft is n log n (ratio ~4.4); filter/filtfilt are O(n*order).
+# Output: BENCH <case> <n> <seconds>
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+seed(3)
+lp = butter(4, "low", 100, 1000)
+h = ones(64) / 64
+for n in (1048576, 4194304)
+    x = randn(n)
+
+    tic()
+    X = fft(x)
+    report("fft_pow2", n, toc())
+
+    tic()
+    xr = ifft(X)
+    report("ifft_pow2", n, toc())
+
+    tic()
+    X2 = fft(x[0:n - 2])
+    report("fft_nonpow2", n - 1, toc())
+
+    tic()
+    y = filter_ba(h, [1], x)
+    report("filter_fir64", n, toc())
+
+    tic()
+    y = filtfilt(lp, x)
+    report("filtfilt_butter4", n, toc())
+
+    tic()
+    y = conv(x, h)
+    report("conv_64tap", n, toc())
+
+    tic()
+    y = conv(x[0:65535], x[0:65535])
+    report("conv_64k_x_64k", 65536, toc())
+end for

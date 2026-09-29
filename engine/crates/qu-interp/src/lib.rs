@@ -4194,6 +4194,7 @@ pub struct Interp {
     transcript: String,
     /// Open Office documents (`docx.open`, `pptx.new`, `xlsx.open`, ...),
     /// by slot; a handle value names its slot. See `office_ops.rs`.
+    #[cfg_attr(not(any(feature = "docx", feature = "pptx", feature = "xlsx")), allow(dead_code))]
     office_handles: Vec<Option<Box<dyn std::any::Any + Send>>>,
     /// Backs the `read_line(prompt)` builtin: called with the prompt
     /// string, blocks (from the builtin's point of view) until it returns
@@ -8056,6 +8057,9 @@ impl Interp {
                     if self.try_selfrebind_append(name, rhs)?.is_some() {
                         return Ok(());
                     }
+                    if self.try_selfrebind_concat(name, rhs)?.is_some() {
+                        return Ok(());
+                    }
                 }
                 let v = self.eval(rhs)?;
                 let v = if op.is_empty() {
@@ -10494,6 +10498,92 @@ impl Interp {
     /// `value`) happens before it is called, and every path after it
     /// calls `var_set` unconditionally, including on error, so the
     /// placeholder value is never observable.
+    /// § self-rebind string building (perf audit, 2026-09-28): `s = s + a
+    /// (+ b ...)` with `s` a string appends to `s`'s own buffer instead of
+    /// copying the whole string on every pass -- the audit measured the
+    /// ordinary path quadratic (4x the iterations, 11.5x the time).
+    ///
+    /// Byte-identical to the ordinary `+`: string concatenation renders the
+    /// right side with `display_value`, which is exactly what is appended.
+    /// Taken only when evaluating the terms cannot run user code (literals
+    /// without `{}` interpolation, names, builtin calls, plain indexing), so
+    /// the one thing that changes -- `s` is read after the terms instead of
+    /// before -- cannot be observed. Anything else takes the ordinary path.
+    fn try_selfrebind_concat(&mut self, name: &str, rhs: &Expr) -> R<Option<()>> {
+        let mut terms: Vec<&Expr> = Vec::new();
+        let mut cur = rhs;
+        loop {
+            match cur {
+                Expr::Binary { op, lhs, rhs: r } if op == "+" => {
+                    terms.push(r.as_ref());
+                    cur = lhs.as_ref();
+                }
+                Expr::Name(n) if n == name && !terms.is_empty() => break,
+                _ => return Ok(None),
+            }
+        }
+        // Syntactic pre-filter, before any variable lookup: string building
+        // almost always has a visibly textual term (a literal or `str(...)`),
+        // and a numeric accumulator (`acc = acc + x`) -- the far commoner
+        // shape in a hot loop -- must not pay a lookup to be turned away.
+        let textual = |t: &&Expr| match t {
+            Expr::Str(_) | Expr::RawStr(_) => true,
+            Expr::Call { callee, .. } => matches!(callee.as_ref(), Expr::Name(f) if matches!(f.as_str(), "str" | "upper" | "lower" | "trim" | "chr" | "join")),
+            _ => false,
+        };
+        if !terms.iter().any(textual) {
+            return Ok(None);
+        }
+        if !matches!(self.var_get(name), Some(Value::Str(_))) {
+            return Ok(None);
+        }
+        if !terms.iter().all(|t| self.expr_runs_no_user_code(t)) {
+            return Ok(None);
+        }
+        terms.reverse();
+        let mut vals = Vec::with_capacity(terms.len());
+        for t in &terms {
+            vals.push(self.eval(t)?);
+        }
+        let Some(Value::Str(mut acc)) = self.var_take(name) else {
+            return Ok(None);
+        };
+        for v in &vals {
+            match v {
+                Value::Str(x) => acc.push_str(x),
+                other => acc.push_str(&display_value(other)),
+            }
+        }
+        self.var_set(name, Value::Str(acc));
+        Ok(Some(()))
+    }
+
+    /// Conservative: true only for a term whose evaluation provably runs no
+    /// user code AND yields a plain string, number or boolean -- so the
+    /// ordinary `+` would have taken exactly `binop`'s string branch (no
+    /// tensor, no operator overload, no unit rule) for it.
+    fn expr_runs_no_user_code(&self, e: &Expr) -> bool {
+        const TEXT_BUILTINS: &[&str] = &["str", "upper", "lower", "trim", "chr", "join"];
+        let plain = |v: Option<&Value>| matches!(v, Some(Value::Str(_)) | Some(Value::Num(_)) | Some(Value::Bool(_)));
+        match e {
+            Expr::Int(_) | Expr::Float(_) | Expr::Bool(_) | Expr::RawStr(_) => true,
+            Expr::Str(s) => !s.contains('{'),
+            Expr::Name(n) => plain(self.var_get(n)),
+            Expr::Call { callee, args } => {
+                matches!(callee.as_ref(), Expr::Name(f) if TEXT_BUILTINS.contains(&f.as_str()) && !self.has_user_fn(f))
+                    && args.iter().all(|a| match a {
+                        Arg::Pos(x) | Arg::Named(_, x) => self.expr_runs_no_user_code(x) || matches!(x, Expr::Name(n) if matches!(self.var_get(n), Some(Value::List(_)) | Some(Value::Vec(_)))),
+                    })
+            }
+            Expr::Index { value, indices } => {
+                matches!(value.as_ref(), Expr::Name(n) if matches!(self.var_get(n), Some(Value::Vec(_)) | Some(Value::Str(_))))
+                    && indices.len() == 1
+                    && matches!(&indices[0], Idx::Expr(x) if matches!(x, Expr::Int(_)) || matches!(x, Expr::Name(n) if matches!(self.var_get(n), Some(Value::Num(_)))))
+            }
+            _ => false,
+        }
+    }
+
     fn try_selfrebind_append(&mut self, name: &str, rhs: &Expr) -> R<Option<()>> {
         let Expr::Call { callee, args } = rhs else {
             return Ok(None);
@@ -12451,11 +12541,9 @@ impl Interp {
     fn tensor_reduce(&mut self, name: &str, a: Value) -> R<Value> {
         let (a_val, a_node) = untensor(a);
         let xs = to_vec(&a_val)?;
-        let n = xs.len().max(1) as f64;
-        let total: f64 = xs.iter().sum();
         let result = Value::Num(match name {
-            "sum" => total,
-            "mean" => total / n,
+            "sum" => ksum(xs.iter().copied()),
+            "mean" => kmean(&xs),
             _ => unreachable!("tensor_reduce only called for sum/mean"),
         });
         let node = self.tape.len();
@@ -22399,7 +22487,7 @@ self.eval_grad(loss, wrt)
                 },
                 other => {
                     let xs = apply_on_invalid("sum", to_cow(other)?, &style)?;
-                    Ok(Value::Num(xs.iter().sum()))
+                    Ok(Value::Num(ksum(xs.iter().copied())))
                 }
             },
             "prod" => Ok(Value::Num(to_vec(arg0(&args)?)?.iter().product())),
@@ -22408,7 +22496,7 @@ self.eval_grad(loss, wrt)
                 if xs.is_empty() {
                     return e("mean of empty vector");
                 }
-                Ok(Value::Num(xs.iter().sum::<f64>() / xs.len() as f64))
+                Ok(Value::Num(kmean(&xs)))
             }
             // one argument reduces; two arguments are elementwise (clip idiom).
             "max" => {
@@ -23628,7 +23716,7 @@ self.eval_grad(loss, wrt)
                     ));
                 }
                 let xs = to_cow(arg0(&args)?)?;
-                Ok(Value::Num(xs.iter().map(|x| x * x).sum::<f64>().sqrt()))
+                Ok(Value::Num(scaled_norm2(&xs)))
             }
             // smooth-max family: `logsumexp(x)`, `smoothmax(x[, beta])`, `softmax(x)`.
             "logsumexp" | "lse" => {
@@ -26566,7 +26654,7 @@ self.eval_grad(loss, wrt)
                 if a.len() != b.len() {
                     return e(format!("dot length mismatch: {} vs {}", a.len(), b.len()));
                 }
-                Ok(Value::Num(a.iter().zip(&b).map(|(x, y)| x * y).sum()))
+                Ok(Value::Num(ksum(a.iter().zip(&b).map(|(x, y)| x * y))))
             }
 
             // `range(a, b)` / `range(a, b, step)` -> inclusive integer-ish range
@@ -33659,12 +33747,21 @@ self.eval_grad(loss, wrt)
             "cumsum" => {
                 let src = arg0(&args)?;
                 let xs = to_vec(src)?;
-                let mut acc = 0.0;
+                // Compensated running sum (see `ksum`): a running total of
+                // ten million 0.1s drifted by 1.6e-4 the naive way.
+                let (mut acc, mut comp) = (0.0f64, 0.0f64);
                 let out: Vec<f64> = xs
                     .iter()
-                    .map(|x| {
-                        acc += x;
-                        acc
+                    .map(|&x| {
+                        let t = acc + x;
+                        if acc.abs() >= x.abs() {
+                            comp += (acc - t) + x;
+                        } else {
+                            comp += (x - t) + acc;
+                        }
+                        acc = t;
+                        let r = acc + comp;
+                        if r.is_nan() && !acc.is_nan() { acc } else { r }
                     })
                     .collect();
                 // a signal's running sum is still a signal, same Fs — the
@@ -46354,17 +46451,80 @@ fn sigma_delta_1bit(xs: &[f64]) -> Vec<f64> {
         .collect()
 }
 
+/// Neumaier-compensated summation (§ perf/accuracy audit, 2026-09-28).
+///
+/// Naive left-to-right summation lost everything the audit threw at it:
+/// `1e16` plus a million `1`s summed to exactly `1e16`, `[1, 1e100, 1,
+/// -1e100]` to `0` (not `2`), and ten million `0.1`s drifted by `1.6e-4`.
+/// Neumaier's variant of Kahan carries the rounding error of every add,
+/// including the case plain Kahan misses (an addend larger than the running
+/// sum), for about one extra add and compare per element. An infinity
+/// propagates as itself rather than turning the correction into `NaN`.
+pub(crate) fn ksum<I: IntoIterator<Item = f64>>(it: I) -> f64 {
+    let (mut s, mut c) = (0.0f64, 0.0f64);
+    for x in it {
+        let t = s + x;
+        if s.abs() >= x.abs() {
+            c += (s - t) + x;
+        } else {
+            c += (x - t) + s;
+        }
+        s = t;
+    }
+    let r = s + c;
+    if r.is_nan() && !s.is_nan() {
+        s
+    } else {
+        r
+    }
+}
+
+/// The mean, compensated, and finite whenever the inputs are: when the sum
+/// itself overflows (`mean([1e308, 1e308])` was `inf`) it is recomputed
+/// from pre-divided terms.
+pub(crate) fn kmean(xs: &[f64]) -> f64 {
+    let n = xs.len() as f64;
+    let s = ksum(xs.iter().copied());
+    if s.is_finite() || xs.iter().any(|x| !x.is_finite()) {
+        s / n
+    } else {
+        ksum(xs.iter().map(|x| x / n))
+    }
+}
+
+/// The Euclidean norm without overflow or underflow: scaled by the largest
+/// magnitude, the way BLAS `nrm2` does (`norm([3e200, 4e200])` was `inf`,
+/// `norm([3e-200, 4e-200])` was `0`).
+pub(crate) fn scaled_norm2(xs: &[f64]) -> f64 {
+    // One pass when the squares neither overflow nor underflow (the usual
+    // case); the scaled two-pass form only when they might.
+    let ss = ksum(xs.iter().map(|x| x * x));
+    if ss.is_finite() && ss > 1e-280 {
+        return ss.sqrt();
+    }
+    let m = xs.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+    if m == 0.0 || !m.is_finite() {
+        return if xs.iter().any(|x| x.is_nan()) { f64::NAN } else { m };
+    }
+    m * ksum(xs.iter().map(|x| (x / m) * (x / m))).sqrt()
+}
+
 fn median_of(xs: &[f64]) -> R<f64> {
     if xs.is_empty() {
         return e("median: empty input");
     }
-    let mut sorted = xs.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    let n = sorted.len();
+    // Selection, not a full sort: O(n) instead of O(n log n) -- the audit
+    // measured median at the cost of `sort` itself. `total_cmp` keeps the
+    // order (and NaN placement) exactly what sorting gave.
+    let mut v = xs.to_vec();
+    let n = v.len();
+    let (_, &mut hi, _) = v.select_nth_unstable_by(n / 2, f64::total_cmp);
     Ok(if n % 2 == 1 {
-        sorted[n / 2]
+        hi
     } else {
-        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+        // The lower middle is the largest of the left partition.
+        let lo = v[..n / 2].iter().copied().max_by(f64::total_cmp).unwrap();
+        (lo + hi) / 2.0
     })
 }
 
@@ -46378,17 +46538,19 @@ fn quantile_of(xs: &[f64], q: f64) -> R<f64> {
     if !(0.0..=1.0).contains(&q) {
         return e("quantile: q must be between 0 and 1");
     }
-    let mut sorted = xs.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    let n = sorted.len();
+    let n = xs.len();
     if n == 1 {
-        return Ok(sorted[0]);
+        return Ok(xs[0]);
     }
     let pos = q * (n - 1) as f64;
     let lo = pos.floor() as usize;
     let hi = pos.ceil() as usize;
     let frac = pos - lo as f64;
-    Ok(sorted[lo] * (1.0 - frac) + sorted[hi] * frac)
+    // Selection for the two order statistics instead of a full sort.
+    let mut v = xs.to_vec();
+    let (_, &mut a, right) = v.select_nth_unstable_by(lo, f64::total_cmp);
+    let b = if hi == lo { a } else { right.iter().copied().min_by(f64::total_cmp).unwrap() };
+    Ok(a * (1.0 - frac) + b * frac)
 }
 
 /// The original index of the element at order-statistic position `q`
@@ -46423,8 +46585,23 @@ fn variance(xs: &[f64]) -> f64 {
     if xs.len() < 2 {
         return 0.0;
     }
-    let m = xs.iter().sum::<f64>() / xs.len() as f64;
-    xs.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (xs.len() as f64 - 1.0)
+    // Two-pass with a compensated mean, plus the corrected-two-pass term
+    // `(sum d)^2 / n`, which removes what is left of the mean's own
+    // rounding error (Chan, Golub & LeVeque).
+    let n = xs.len() as f64;
+    let m = kmean(xs);
+    // One fused pass for both sums; `sd` is tiny (it is the mean's
+    // residual error), so plain accumulation of it is enough, and `ss` is a
+    // sum of non-negative terms, which does not cancel.
+    let (mut sd, mut ss) = (0.0f64, 0.0f64);
+    for &x in xs {
+        let d = x - m;
+        sd += d;
+        ss += d * d;
+    }
+    let v = (ss - sd * sd / n) / (n - 1.0);
+    // Not `.max(0.0)`: that would turn a NaN (a NaN/inf input) into 0.
+    if v < 0.0 { 0.0 } else { v }
 }
 
 fn std_dev(xs: &[f64]) -> f64 {
@@ -60806,6 +60983,74 @@ mod tests {
         let mut it = Interp::new();
         it.run(src).unwrap_or_else(|e| panic!("run failed: {e}"));
         it
+    }
+
+    // ---- perf/accuracy audit (2026-09-28) ----
+
+    fn num_of(src: &str) -> f64 {
+        let it = run(&format!("v = {src}"));
+        match it.get("v") {
+            Some(Value::Num(x)) => *x,
+            other => panic!("{src} gave {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reductions_are_compensated_and_overflow_safe() {
+        // Every case below failed with naive summation.
+        let it = run("x = ones(1000001)\nx[0] = 1e16\ns = sum(x)\nm = mean(x)\nt = ones(10000000) * 0.1\nst = sum(t)\nc = cumsum(t)\nlast = c[9999999]");
+        let get = |n: &str| match it.get(n) { Some(Value::Num(v)) => *v, o => panic!("{o:?}") };
+        assert_eq!(get("s"), 1e16 + 1e6);
+        assert_eq!(get("st"), 1e6);
+        assert_eq!(get("last"), 1e6);
+        assert_eq!(num_of("sum([1, 1e100, 1, -1e100])"), 2.0);
+        assert_eq!(num_of("dot([1e16, 1, -1e16], [1, 1, 1])"), 1.0);
+        assert_eq!(num_of("mean([1e308, 1e308])"), 1e308);
+        assert!((num_of("norm([3e200, 4e200])") / 5e200 - 1.0).abs() < 1e-15);
+        assert!((num_of("norm([3e-200, 4e-200])") / 5e-200 - 1.0).abs() < 1e-15);
+        assert_eq!(num_of("var(1e12 + (0 to 99999))"), 100000.0 * 100001.0 / 12.0);
+        // Infinities and NaN still propagate as themselves.
+        assert_eq!(num_of("sum([1, inf, 2])"), f64::INFINITY);
+        assert!(num_of("sum([1, nan, 2])").is_nan());
+        assert!(num_of("sum([inf, -inf])").is_nan());
+    }
+
+    #[test]
+    fn selection_median_and_quantile_match_the_sorting_definition() {
+        let mut rng = Rng::new(11);
+        for n in 1..60usize {
+            let xs: Vec<f64> = (0..n).map(|_| (rng.next_u64() % 17) as f64 - 8.0).collect();
+            let mut sorted = xs.clone();
+            sorted.sort_by(f64::total_cmp);
+            let med = if n % 2 == 1 { sorted[n / 2] } else { (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0 };
+            assert_eq!(median_of(&xs).unwrap(), med, "n={n}");
+            for &q in &[0.0, 0.1, 0.25, 0.5, 0.9, 1.0] {
+                let pos = q * (n - 1) as f64;
+                let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
+                let want = sorted[lo] * (1.0 - (pos - lo as f64)) + sorted[hi] * (pos - lo as f64);
+                assert_eq!(quantile_of(&xs, q).unwrap(), want, "n={n} q={q}");
+            }
+        }
+    }
+
+    #[test]
+    fn string_self_append_is_in_place_and_identical() {
+        let it = run(
+            "function tag(i)\n  return \"<\" + str(i) + \">\"\nend function\nxs = [1.5, 2]\nws = (\"a\", \"b\")\ns = \"s\"\nt = s\nfor i = 0 to 1\n  s = s + i + \":\" + xs[i]\n  s = s + str(i) + upper(\"x\") + join(ws, \"-\")\n  s = s + tag(i) + \"{i}\"\nend for\ns = s + true",
+        );
+        let text = |n: &str| match it.get(n) { Some(Value::Str(v)) => v.clone(), o => panic!("{o:?}") };
+        assert_eq!(text("s"), "s0:1.50Xa-b<0>01:21Xa-b<1>1true");
+        assert_eq!(text("t"), "s", "an alias does not see the appends");
+        // Linear, not quadratic: 4x the appends in well under 16x the time.
+        let time = |n: usize| {
+            let mut it = Interp::new();
+            let t0 = std::time::Instant::now();
+            it.run(&format!("u = \"\"\nfor i = 1 to {n}\n  u = u + \"xy\"\nend for")).unwrap();
+            t0.elapsed().as_secs_f64()
+        };
+        let _ = time(2000);
+        let ratio = time(160_000) / time(40_000).max(1e-6);
+        assert!(ratio < 10.0, "4x the appends took {ratio:.1}x the time -- quadratic again?");
     }
 
     #[test]

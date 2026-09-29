@@ -1,0 +1,49 @@
+# Distribution and multivariate-model functions (perf audit 2026-09-28).
+# These builtins (normcdf/norminv/tinv/chi2inv, lda_model/pls_model/
+# ica_model) landed on the 2026-09-28 distributions commit; on an older
+# binary this script stops at the first unknown name.
+# Output: BENCH <case> <n> <seconds>
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+seed(5)
+for n in (100000, 400000)
+    p = rand(n) * 0.998 + 0.001
+    z = randn(n)
+
+    tic()
+    c = normcdf(z)
+    report("normcdf", n, toc())
+
+    tic()
+    q = norminv(p)
+    report("norminv", n, toc())
+
+    tic()
+    q = tinv(p, 7)
+    report("tinv_nu7", n, toc())
+
+    tic()
+    q = chi2inv(p, 5)
+    report("chi2inv_k5", n, toc())
+end for
+
+for n in (2000, 8000)
+    X = randn(n, 10)
+    labels = floor(rand(n) * 3)
+    Y = randn(n, 2)
+
+    tic()
+    m = lda_model(X, labels)
+    report("lda_model", n, toc())
+
+    tic()
+    m = pls_model(X, Y, 3)
+    report("pls_model", n, toc())
+
+    tic()
+    m = ica_model(X, 3)
+    report("ica_model", n, toc())
+end for

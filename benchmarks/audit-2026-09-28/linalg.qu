@@ -1,0 +1,48 @@
+# Dense linear algebra (perf audit 2026-09-28).
+# Sizes n and 2n: matmul/inv/solve/svd/eig are O(n^3), so a ratio near 8
+# is expected; transpose is O(n^2) (ratio near 4).
+# Output: BENCH <case> <n> <seconds>
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+seed(2)
+for n in (200, 400)
+    A = randn(n, n)
+    B = randn(n, n)
+    b = randn(n)
+
+    tic()
+    C = A * B
+    report("matmul", n, toc())
+
+    tic()
+    T = transpose(A)
+    report("transpose", n, toc())
+
+    tic()
+    Ai = inv(A)
+    report("inv", n, toc())
+
+    tic()
+    xs = solve(A, b)
+    report("solve", n, toc())
+
+    tic()
+    s = svd(A)
+    report("svd", n, toc())
+
+    S = A + transpose(A)
+    tic()
+    ev = eig(S)
+    report("eig_symmetric", n, toc())
+
+    tic()
+    ev = eig(A)
+    report("eig_general", n, toc())
+
+    tic()
+    d = det(A)
+    report("det", n, toc())
+end for

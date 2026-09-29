@@ -1,0 +1,72 @@
+# Table and string/regex operations (perf audit 2026-09-28).
+# Sizes N and 4N; ratio ~4 linear, ~4.7 for sorts.
+# Output: BENCH <case> <n> <seconds>
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+seed(4)
+for n in (250000, 1000000)
+    g = floor(rand(n) * 50)
+    v = randn(n)
+    w = rand(n)
+    df = table(group = g, value = v, weight = w)
+
+    tic()
+    f = filter(df, df.value > 0)
+    report("table_filter", n, toc())
+
+    tic()
+    s = sort_by(df, "value")
+    report("table_sort_by", n, toc())
+
+    tic()
+    a = group_by_agg(df, "group", (("value", "mean"), ("value", "std"), ("weight", "sum")))
+    report("table_group_by_agg", n, toc())
+
+    tic()
+    d = describe(df)
+    report("table_describe", n, toc())
+
+    p = tmp_file()
+    tic()
+    write_csv(df, p)
+    report("write_csv", n, toc())
+
+    tic()
+    df2 = read_csv(p)
+    report("read_csv", n, toc())
+end for
+
+for n in (20000, 80000)
+    words = ()
+    for i = 1 to n
+        words = append(words, "item{i}")
+    end for
+    txt = join(words, " ")
+
+    tic()
+    c = regex_count(txt, "item[0-9]+5")
+    report("regex_count", n, toc())
+
+    tic()
+    r = regex_replace(txt, "[0-9]+", "#")
+    report("regex_replace", n, toc())
+
+    tic()
+    parts = split(txt, " ")
+    report("split", n, toc())
+
+    tic()
+    u = upper(txt)
+    report("upper", n, toc())
+
+    tic()
+    j = join(parts, ",")
+    report("join", n, toc())
+
+    tic()
+    ln = lines(replace(txt, " ", "\n"))
+    report("replace_lines", n, toc())
+end for

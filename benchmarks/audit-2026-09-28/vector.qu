@@ -1,0 +1,77 @@
+# Elementwise vector math and reductions (perf audit 2026-09-28).
+# Sizes N and 4N; a ratio near 4 is linear, near 4.7 is n log n.
+# Output: BENCH <case> <n> <seconds>
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+seed(1)
+for n in (1000000, 4000000)
+    x = randn(n)
+    y = randn(n)
+
+    tic()
+    z = x .* y + 2 * x - y ./ 3
+    report("ew_arith_chain", n, toc())
+
+    tic()
+    z = exp(x) + sin(y)
+    report("ew_exp_sin", n, toc())
+
+    tic()
+    z = sqrt(abs(x))
+    report("ew_sqrt_abs", n, toc())
+
+    tic()
+    m = x > 0
+    report("ew_compare", n, toc())
+
+    tic()
+    z = x[x > 0]
+    report("logical_gather", n, toc())
+
+    tic()
+    s = sum(x)
+    report("sum", n, toc())
+
+    tic()
+    s = mean(x)
+    report("mean", n, toc())
+
+    tic()
+    s = std(x)
+    report("std", n, toc())
+
+    tic()
+    s = var(x)
+    report("var", n, toc())
+
+    tic()
+    s = median(x)
+    report("median", n, toc())
+
+    tic()
+    s = quantile(x, 0.9)
+    report("quantile", n, toc())
+
+    tic()
+    s = sort(x)
+    report("sort", n, toc())
+
+    tic()
+    s = cumsum(x)
+    report("cumsum", n, toc())
+
+    tic()
+    s = max(x)
+    report("max", n, toc())
+
+    tic()
+    s = dot(x, y)
+    report("dot", n, toc())
+
+    tic()
+    s = norm(x)
+    report("norm", n, toc())
+end for

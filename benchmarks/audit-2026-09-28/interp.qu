@@ -1,0 +1,123 @@
+# Interpreter-overhead benchmarks (perf audit 2026-09-28).
+#
+# Each case runs at two sizes, N and 4N. A linear operation shows a ratio
+# near 4; a quadratic one near 16. Output lines are
+#   BENCH <case> <n> <seconds>
+# so run.sh can tabulate them. Run: qu run interp.qu
+
+function report(name, n, dt)
+    print("BENCH {name} {n} {dt}")
+end function
+
+function add1(a)
+    return a + 1
+end function
+
+function scalar_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = s + i * 0.5
+    end for
+    return s
+end function
+
+function call_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = add1(s)
+    end for
+    return s
+end function
+
+function builtin_call_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = s + abs(i)
+    end for
+    return s
+end function
+
+function index_write_loop(n)
+    y = zeros(n)
+    for k = 0 to n - 1
+        y[k] = k * 2
+    end for
+    return y
+end function
+
+function index_read_loop(x)
+    s = 0.0
+    for k = 0 to len(x) - 1
+        s = s + x[k]
+    end for
+    return s
+end function
+
+function string_build_loop(n)
+    s = ""
+    for i = 1 to n
+        s = s + "x"
+    end for
+    return s
+end function
+
+function list_append_loop(n)
+    acc = ()
+    for i = 1 to n
+        acc = append(acc, i)
+    end for
+    return acc
+end function
+
+function many_locals_loop(n)
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e1 = 5
+    f1 = 6
+    s = 0
+    for i = 1 to n
+        s = s + a + b + c + d + e1 + f1
+    end for
+    return s
+end function
+
+# warm-up
+_ = scalar_loop(1000)
+
+for n in (250000, 1000000)
+    tic()
+    _ = scalar_loop(n)
+    report("scalar_loop", n, toc())
+
+    tic()
+    _ = many_locals_loop(n)
+    report("many_locals_loop", n, toc())
+
+    tic()
+    _ = call_loop(n)
+    report("user_fn_call_loop", n, toc())
+
+    tic()
+    _ = builtin_call_loop(n)
+    report("builtin_call_loop", n, toc())
+
+    tic()
+    y = index_write_loop(n)
+    report("index_write_loop", n, toc())
+
+    tic()
+    _ = index_read_loop(y)
+    report("index_read_loop", n, toc())
+end for
+
+for n in (20000, 80000)
+    tic()
+    s = string_build_loop(n)
+    report("string_concat_loop", n, toc())
+
+    tic()
+    l = list_append_loop(n)
+    report("list_append_loop", n, toc())
+end for

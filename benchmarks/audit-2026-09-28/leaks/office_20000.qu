@@ -1,0 +1,10 @@
+import docx
+import xlsx
+for i = 1 to 200
+    d = docx.new()
+    docx.add_paragraph(d, "hello " + str(i))
+    docx.discard(d)
+    w = xlsx.new()
+    xlsx.set_cell(w, "Sheet1", "A1", i)
+    xlsx.discard(w)
+end for
