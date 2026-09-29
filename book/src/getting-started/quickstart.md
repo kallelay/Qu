@@ -58,6 +58,27 @@ type `:help` inside the REPL for the full list. The rest of this chapter
 uses `qu run <file>` for every example; every one of them works pasted into
 the REPL too.
 
+**Or run a script, then keep going.** Give `repl` a file and it runs the
+file first, then leaves you at the prompt with everything the script
+defined still in place (like `python -i`). With `hello.qu` extended to
+also set `msg = "hi"`:
+
+```bash
+qu repl hello.qu
+```
+```
+Hello, Qu!
+qu> print(msg)
+hi
+qu>
+```
+
+Top-level variables and function definitions carry over. If the script
+fails (a runtime error, or a file that cannot be read), `qu repl` prints
+the error and exits with status 1 rather than giving you a prompt. This
+is the quickest way to load your data and setup once, then try things
+against it.
+
 ### `qu run` flags for running untrusted or unattended scripts
 
 `qu run <file.qu>` takes a few flags for running a script you don't fully

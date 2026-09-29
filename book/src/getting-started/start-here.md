@@ -38,6 +38,10 @@ Try `17 * 3`, or `2 ^ 10`, or `sqrt(2)`.
 
 To leave, type `exit` or press Ctrl+D.
 
+Later, when you have a program in a file, `qu repl yourfile.qu` runs it
+and then leaves you at the same kind of prompt with the program's
+variables still there, so you can look around in the results.
+
 ## Names for things
 
 Typing the same number repeatedly is tedious, so you give things names:

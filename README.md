@@ -179,7 +179,16 @@ inspection.
 cargo build --release --manifest-path engine/Cargo.toml
 engine/target/release/qu run catalog/demo_hello.qu
 engine/target/release/qu repl
+engine/target/release/qu repl catalog/demo_hello.qu   # run the file, then keep its variables at the prompt
 ```
+
+`qu repl <file.qu>` runs the script first and leaves its variables and
+functions defined at the prompt (like `python -i`), so you can inspect
+results without re-running. If the script fails it prints the error and
+exits with status 1 instead of giving you a prompt. The wiki's
+[Running Qu](https://github.com/kallelay/Qu/wiki/Running-Qu) page covers
+every way to run Qu (`run`, `eval`, `diary`, `repl`, sandboxing, resource
+caps).
 
 The [book](book/src/SUMMARY.md) is the place to start reading: a guided
 tour, three fundamentals volumes, and a standard-library reference
