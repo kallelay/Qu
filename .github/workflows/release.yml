@@ -205,10 +205,28 @@ jobs:
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
 
+      # The release body is the CHANGELOG from this version's `## [x.y.z]`
+      # heading down to the previous release tag's heading -- every version
+      # since the last published release, not the whole file. The whole
+      # file only when the tag has no section (e.g. a workflow_dispatch run).
+      - name: Release notes
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          git fetch --tags --quiet origin || true
+          prev="$(git tag --list 'v*' --sort=-v:refname | grep -vx "v$ver" | head -1)"
+          prev="${prev#v}"
+          awk -v v="$ver" -v p="$prev" '
+            index($0, "## [" v "]") == 1 { on = 1 }
+            on && p != "" && index($0, "## [" p "]") == 1 { exit }
+            on { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then cp CHANGELOG.md RELEASE_NOTES.md; fi
+          cat RELEASE_NOTES.md
+
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          body_path: CHANGELOG.md
+          body_path: RELEASE_NOTES.md
           draft: true
           generate_release_notes: true
 

@@ -20897,15 +20897,29 @@ self.eval_grad(loss, wrt)
             // codebase already accepts as inherently non-reproducible
             // elsewhere (`tic`/`toc`).
             "sleep" => {
-                let ms = arg0(&args)?.as_num().map_err(|m| EvalError { msg: m })?;
+                // A bare number is milliseconds; a time quantity (`2 s`,
+                // `250 ms`) is taken in its own unit (SI-normalised to
+                // seconds, so it is converted here).
+                const TIME: Dim = Dim([1, 0, 0, 0, 0, 0, 0]);
+                let ms = match arg0(&args)? {
+                    Value::Unit(sec, UnitTag::Dim(d, _)) if *d == TIME => sec * 1000.0,
+                    Value::Quantity(inner, UnitTag::Dim(d, _)) if *d == TIME => match **inner {
+                        Value::Num(sec) => sec * 1000.0,
+                        _ => return e("sleep: takes one duration, not a collection"),
+                    },
+                    Value::Unit(..) | Value::Quantity(..) => {
+                        return e("sleep: takes a time -- milliseconds, or a duration like `2 s` or `250 ms`")
+                    }
+                    v => v.as_num().map_err(|m| EvalError { msg: format!("sleep: {m}") })?,
+                };
                 if !ms.is_finite() || ms < 0.0 {
-                    return e("sleep: ms must be a non-negative, finite number of milliseconds");
+                    return e("sleep: the duration must be non-negative and finite (a bare number is milliseconds)");
                 }
                 // A script that sleeps is usually a watcher looping on it;
                 // what it printed this round should be visible while it
                 // waits, even when stdout is a file or a pipe.
                 self.drain_out(true);
-                std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+                std::thread::sleep(std::time::Duration::from_secs_f64(ms / 1000.0));
                 Ok(Value::Nothing)
             }
             // `timer([interval])` / `preciseTimer([interval])` — a real,
@@ -89070,6 +89084,17 @@ sb = size(b)");
             "elapsed: {:?}",
             start.elapsed()
         );
+    }
+
+    #[test]
+    fn sleep_takes_a_time_quantity_in_its_own_unit() {
+        let start = std::time::Instant::now();
+        let _ = run("sleep(0.05 s)\nsleep(20 ms)");
+        let t = start.elapsed();
+        assert!(t >= std::time::Duration::from_millis(70), "elapsed: {t:?}");
+        assert!(t < std::time::Duration::from_secs(2), "`0.05 s` read as 50 s? elapsed: {t:?}");
+        let mut it = Interp::new();
+        assert!(it.run("sleep(3 V)").unwrap_err().msg.contains("time"));
     }
 
     #[test]

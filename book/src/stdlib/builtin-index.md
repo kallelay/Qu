@@ -948,7 +948,7 @@ program, and a misspelled call suggests the nearest match.
 | [`size`](../fn/size.html) | The full shape of `A` as a 2-element `Vec`, `[rows, cols]`, using the same per-type shape rules as `rows`/`cols` above | [Core maths](core-math.md) |
 | [`sizeof`](../fn/sizeof.html) | Deprecated — use `shape`. The same function under a name that means a byte count in every language it could have come from | [Collections & strings](collections-strings.md) |
 | [`skewness`](../fn/skewness.html) | Third standardized moment, population form, of a length-`N` numeric vector `x` | [Statistics & ML](statistics-ml.md) |
-| [`sleep`](../fn/sleep.html) | Pauses the calling thread for that long | [Concurrency](concurrency.md) |
+| [`sleep`](../fn/sleep.html) | Pauses the calling thread for that long, first flushing printed output | [Concurrency](concurrency.md) |
 | [`smc_init`](../fn/smc_init.html) | A first-order sliding-mode controller's initial state | [Signal processing](signal-processing.md) |
 | [`smith`](../fn/smith.html) | Impedance on the reflection-coefficient plane: `z = Z/z0`, `Γ = (z−1)/(z+1)`, drawn on the unit disc ruled by constant-resistance circles and constant-reactance arcs | [Plotting](plotting.md) |
 | [`smooth`](../fn/smooth.html) | One word for the smoothers. `x` is a length-N number vector; `window` is a named/positional odd integer, default `5`; `method` is a named string, one of `"savgol"` (default), `"moving"`,.. | [Noise](noise.md) |

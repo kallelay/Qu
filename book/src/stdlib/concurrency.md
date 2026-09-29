@@ -356,7 +356,7 @@ function run_listener()
 end function
 
 w = spawn("run_listener")     # the "remote" side, on its own thread here
-sleep(0.3)                    # give it time to bind before connecting
+sleep(300 ms)                 # give it time to bind before connecting
 
 pool workers with cpu=1, remote=("127.0.0.1:9321")
 end pool
@@ -573,7 +573,7 @@ data as it arrives."
 | Function | Signature | Description |
 |---|---|---|
 | `now` | `now()` | Takes no arguments. Returns the current time (UTC) as a `Record` with integer fields `.year`, `.month`, `.day`, `.hour`, `.minute`, `.second`, plus `.unix` (number, Unix epoch seconds, for arithmetic) and `.iso` (string, an ISO-8601 timestamp you can print or store). |
-| `sleep` | `sleep(seconds)` | `seconds` (number, fractional values honoured, e.g. `0.5` for half a second). Pauses the calling thread for that long. Returns `none`. |
+| `sleep` | `sleep(duration)` | `duration`: a time quantity in any time unit (`sleep(2 s)`, `sleep(250 ms)`, `sleep(10 us)`), or a bare number, which is **milliseconds** (`sleep(50)` is 50 ms; fractions honoured). Pauses the calling thread for that long, first flushing printed output. A non-time unit (`sleep(3 V)`), a negative or a non-finite duration is an error. *Units accepted since v0.4.4.* Returns `none`. |
 | `sysinfo` | `sysinfo()` | Takes no arguments. Returns a `Record` describing this machine: `.os`/`.arch`/`.hostname`/`.cpu`/`.qu_version`/`.build` (strings), `.logical_cores` (integer), `.physical_cores` and `.total_memory` (number, or `none` when the platform doesn't report them), and `.gpu`/`.gpu_reason` (string, or `none`/an explanatory string when this build has no GPU support). What to branch on before sizing a pool. |
 | `mem_usage` | `mem_usage()` | Takes no arguments. Returns this process's resident-set size right now, in bytes (a `Num`) — what THIS run has actually mapped in, not the machine's total memory (`sysinfo()`'s job). `none` on a platform this isn't implemented for (anything but Windows and Linux today). Call it before and after the code being compared and take the difference: the question "which of these two ways of computing the same result used more memory" that timing alone can't answer. See also `profile_start`/`profile_end` (repl-diagnostics chapter) for the same reading bundled with elapsed time into one clean before/after window, instead of two bare `mem_usage()` calls. |
 | `pool` | `pool(n)` | `n` (integer, number of local cpu workers). Returns a `Pool` handle, unregistered and scoped to wherever it's used. `pmap` makes one of these implicitly under the hood; make it explicit (or use the named `pool ... end pool` form above) when several stages should share workers rather than each starting their own. |

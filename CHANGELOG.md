@@ -33,6 +33,16 @@ place when the terms provably run no user code (linear instead of
 quadratic). Leak probes (streamed printing, Office handles, repeated
 fits, general values) show flat memory.
 
+`sleep` takes a duration in any time unit -- `sleep(2 s)`, `sleep(250
+ms)`, `sleep(10 us)` -- and a bare number stays milliseconds, as it
+always was in the engine (the reference had wrongly documented seconds;
+the one book example that followed it, `sleep(0.3)`, now reads `sleep(300
+ms)`). A non-time unit is an error, and sub-millisecond durations are no
+longer truncated to whole milliseconds.
+
+Release notes on GitHub now carry the changelog since the previous
+release instead of the whole file.
+
 ## [0.4.3] - 2026-09-28
 
 Office toolkit (docs/design/toolkit-office.md): `import docx`, `import
