@@ -18,6 +18,7 @@
 //! the same thing `read_csv` produces and every table builtin already
 //! understands.
 
+pub mod surgical;
 pub mod workbook;
 
 use calamine::{Data, Reader};

@@ -24,3 +24,8 @@ rust_xlsxwriter = "0.99"
 # rust_xlsxwriter only creates. Pure Rust. See
 # docs/design/toolkit-office.md.
 umya-spreadsheet = { version = "3", default-features = false }
+# The OPC package layer shared with qu-docx/qu-pptx: charts, conditional
+# formats and validations are added to the saved package surgically, so a
+# workbook whose cells were not edited keeps every other part byte for
+# byte. Also home of the DrawingML chart writer a pptx chart lane reuses.
+qu-ooxml = { path = "../qu-ooxml" }

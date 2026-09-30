@@ -20,6 +20,7 @@
 //! package by default, change the minimum XML, never rebuild a document
 //! from a parsed model.
 
+pub mod chart;
 pub mod xml;
 
 use std::io::{Cursor, Read, Write};
@@ -184,6 +185,16 @@ impl Package {
 
     /// Add a relationship from `part` and return its new id (`rIdN`).
     pub fn add_rel(&mut self, part: &str, rel_type: &str, target: &str) -> Result<String, String> {
+        self.add_rel_mode(part, rel_type, target, false)
+    }
+
+    /// Add a relationship to something outside the package (a hyperlink's
+    /// URL): `TargetMode="External"`, target written as given.
+    pub fn add_external_rel(&mut self, part: &str, rel_type: &str, target: &str) -> Result<String, String> {
+        self.add_rel_mode(part, rel_type, target, true)
+    }
+
+    fn add_rel_mode(&mut self, part: &str, rel_type: &str, target: &str, external: bool) -> Result<String, String> {
         let rp = rels_path(part);
         let mut d = if self.has(&rp) {
             self.get_xml(&rp)?
@@ -192,9 +203,11 @@ impl Package {
         };
         let used: Vec<String> = d.root.elems().filter_map(|e| e.attr("Id").map(String::from)).collect();
         let id = (1..).map(|n| format!("rId{n}")).find(|c| !used.contains(c)).unwrap();
-        d.root.children.push(Node::Elem(
-            Element::new("Relationship").with_attr("Id", &id).with_attr("Type", rel_type).with_attr("Target", target),
-        ));
+        let mut rel = Element::new("Relationship").with_attr("Id", &id).with_attr("Type", rel_type).with_attr("Target", target);
+        if external {
+            rel.set_attr("TargetMode", "External");
+        }
+        d.root.children.push(Node::Elem(rel));
         self.set_xml(&rp, &d);
         Ok(id)
     }
@@ -277,6 +290,7 @@ pub const REL_CORE_PROPS: &str = "http://schemas.openxmlformats.org/package/2006
 pub const REL_EXT_PROPS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties";
 pub const REL_OFFICE_DOC: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
 pub const REL_IMAGE: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+pub const REL_HYPERLINK: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
 /// `word/document.xml` -> `word/_rels/document.xml.rels`; `""` (the
 /// package itself) -> `_rels/.rels`.
@@ -655,6 +669,31 @@ mod tests {
         assert_eq!(relative_target("ppt/slides/slide1.xml", "ppt/media/image1.png"), "../media/image1.png");
         assert_eq!(rels_path("word/document.xml"), "word/_rels/document.xml.rels");
         assert_eq!(rels_path(""), "_rels/.rels");
+    }
+
+    #[test]
+    fn external_rels_carry_target_mode_and_ids_do_not_collide() {
+        let mut p = Package::empty();
+        let a = p.add_rel("ppt/slides/slide1.xml", REL_IMAGE, "../media/image1.png").unwrap();
+        let b = p.add_external_rel("ppt/slides/slide1.xml", REL_HYPERLINK, "https://example.org/a?b=1&c=2").unwrap();
+        assert_eq!((a.as_str(), b.as_str()), ("rId1", "rId2"));
+        let rels = p.rels("ppt/slides/slide1.xml").unwrap();
+        assert!(!rels[0].external);
+        assert!(rels[1].external);
+        assert_eq!(rels[1].target, "https://example.org/a?b=1&c=2", "the URL round-trips through escaping");
+        assert!(p.get_str("ppt/slides/_rels/slide1.xml.rels").unwrap().contains("TargetMode=\"External\""));
+    }
+
+    #[test]
+    fn external_relationships_carry_target_mode() {
+        let mut p = Package::empty();
+        let a = p.add_rel("word/document.xml", "urn:t/styles", "styles.xml").unwrap();
+        let b = p.add_external_rel("word/document.xml", "urn:t/hyperlink", "https://x.org/?a=1&b=2").unwrap();
+        assert_eq!((a.as_str(), b.as_str()), ("rId1", "rId2"));
+        let rels = p.rels("word/document.xml").unwrap();
+        assert!(!rels[0].external && rels[1].external);
+        assert_eq!(rels[1].target, "https://x.org/?a=1&b=2");
+        assert!(p.get_str("word/_rels/document.xml.rels").unwrap().contains("Target=\"https://x.org/?a=1&amp;b=2\" TargetMode=\"External\""));
     }
 
     #[test]

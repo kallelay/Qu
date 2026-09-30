@@ -30,16 +30,16 @@
 <h1>all</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
-<pre class="fnsig">result = <code>all(xs, predicate)</code></pre>
+<pre class="fnsig">result = <code>all(xs, [predicate])</code></pre>
 <p class="fnnote">Input: xs, predicate &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined.</p>
+<p>With ONE argument, <code>any(mask)</code> / <code>all(mask)</code> take a boolean mask or numeric <code>Vec</code>/<code>Mat</code> and return whether any / every element is true (non-zero) — <code>any(x &gt; 3)</code>; an empty mask is <code>false</code> for <code>any</code>, <code>true</code> for <code>all</code>. With a predicate: <code>xs</code> is a <code>Vec</code>/<code>List</code>; <code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = all(xs, predicate)</code></td><td><div class="ioitem"><code>xs</code> <span class="iotype">Vec or List</span><span class="iodesc"><code>xs</code> is a <code>Vec</code>/<code>List</code>.</span></div>
-<div class="ioitem"><code>predicate</code> <span class="iotype">bool or Str</span><span class="iodesc"><code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined.</span></div>
+<tr><td class="iocode"><code>result = all(xs, [predicate])</code></td><td><div class="ioitem"><code>xs</code> <span class="iotype">Vec or List</span><span class="iodesc">With a predicate: <code>xs</code> is a <code>Vec</code>/<code>List</code>.</span></div>
+<div class="ioitem"><code>predicate</code> <span class="iotype">bool or Str, optional</span><span class="iodesc"><code>predicate</code> is a one-argument function returning a <code>bool</code> — the function itself (<code>is_even</code>, <code>sqrt</code>, <code>(x) := x &gt; 2</code>), or a <code>Str</code> naming one you defined.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">bool or string</span></div>
 </td><td>Returns a <code>bool</code>: whether every (<code>all</code>) or at least one (<code>any</code>) element satisfies it. As a <strong>quoted name</strong> a builtin is refused, because a string is indistinguishable from a typo; passed as a <strong>value</strong>, without quotes, it is allowed.</td></tr>
 </table></div>

@@ -30,7 +30,7 @@
 <h1>transform</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
-<pre class="fnsig">result = <code>scaler.transform(newX)</code></pre>
+<pre class="fnsig">result = <code>scaler.transform(newX)</code> or <code>model.transform(Xnew)</code></pre>
 <p class="fnnote">Input: newX &middot; Output: result</p>
 <h2>What it is</h2>
 <p>Applies a fitted scaler Record <code>scaler</code>'s stored parameters to a new matrix/vector/table <code>newX</code> with the same columns it was fitted on. Never refits, even if <code>newX</code>'s own statistics differ.</p>
@@ -38,9 +38,9 @@
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = scaler.transform(newX)</code></td><td><div class="ioitem"><code>newX</code> <span class="iotype">Record, matrix, or vector</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = scaler.transform(newX) or model.transform(Xnew)</code></td><td><div class="ioitem"><code>newX</code> <span class="iotype">Record, matrix, or vector</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
-</td><td>Returns a value the same shape as <code>newX</code>.</td></tr>
+</td><td>Returns a value the same shape as <code>newX</code>. For an <code>lda</code>, <code>pls</code> or <code>ica</code> model, <code>model.transform(Xnew)</code> projects <code>Xnew</code> onto the model's discriminant axes, X-scores or independent sources instead.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

@@ -15,6 +15,9 @@
 use qu_ooxml::xml::{Doc, Element, Node};
 use qu_ooxml::{replace_in_paragraph, Package, WORD};
 
+mod structure;
+pub use structure::{page_size_named, page_size_names, SectionInfo};
+
 const NS_W: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const NS_R: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const NS_WP: &str = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
@@ -699,21 +702,35 @@ impl Document {
         if let Some((id, _)) = self.style_names().into_iter().find(|(_, n)| *n == want) {
             return Ok(id);
         }
-        let part = match self.related_part("/styles") {
-            Some(p) => p,
-            None => {
-                let p = "word/styles.xml".to_string();
-                self.pkg.set(&p, format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<w:styles xmlns:w=\"{NS_W}\"/>").into_bytes());
-                self.pkg.add_override(&p, CT_STYLES)?;
-                self.pkg.add_rel(&self.main, REL_STYLES, "styles.xml")?;
-                p
-            }
-        };
+        let part = self.styles_part_or_create()?;
         let mut d = self.pkg.get_xml(&part)?;
         let (id, name) = if level == 0 { ("Title".to_string(), "Title".to_string()) } else { (format!("Heading{level}"), format!("heading {level}")) };
         d.root.children.push(Node::Elem(heading_style(&id, &name, level)));
         self.pkg.set_xml(&part, &d);
         Ok(id)
+    }
+
+    /// The style sheet part, created (empty, and wired up) if the document
+    /// has none.
+    fn styles_part_or_create(&mut self) -> Result<String, String> {
+        if let Some(p) = self.related_part("/styles") {
+            return Ok(p);
+        }
+        let p = self.fresh_part("word/styles.xml");
+        self.pkg.set(&p, format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<w:styles xmlns:w=\"{NS_W}\"/>").into_bytes());
+        self.pkg.add_override(&p, CT_STYLES)?;
+        self.pkg.add_rel(&self.main, REL_STYLES, &qu_ooxml::relative_target(&self.main, &p))?;
+        Ok(p)
+    }
+
+    /// `want` if no part has that name yet, else `want` with a number
+    /// before the extension (`word/numbering1.xml`).
+    fn fresh_part(&self, want: &str) -> String {
+        if !self.pkg.has(want) {
+            return want.to_string();
+        }
+        let (stem, ext) = want.rsplit_once('.').unwrap_or((want, "xml"));
+        self.pkg.next_name(stem, &format!(".{ext}"))
     }
 
     /// The part the main document relates to with a type ending `suffix`.

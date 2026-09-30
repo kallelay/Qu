@@ -10,6 +10,20 @@ changes are called out.
 
 ## [Unreleased]
 
+`import pptx` edits inside slides: speaker notes can now be written
+(`set_notes`, creating the notes page -- and a notes master if the deck has
+none -- for a slide that has no notes), shapes can be listed with their
+kind, position and text (`shapes`) and edited (`set_shape_text`,
+`set_slide_title`, `move_shape`, `resize_shape`, `delete_shape`,
+`bring_to_front`, `send_to_back`), text runs can carry hyperlinks
+(`set_link`, `links`), and the theme's colour and font schemes can be read
+and set (`theme_colors`, `theme_fonts`, `set_theme_colors`,
+`set_theme_fonts`). Each edit rewrites only the parts it touches.
+
+- `import docx` edits document structure: hyperlinks (`add_link`, `links`), comment creation (`add_comment`), bookmarks and cross-references (`add_bookmark`, `bookmarks`, `add_cross_ref`), fields (`add_field`, `fields`, `add_toc` -- a dirty TOC field Word builds on open; no invented entries), headers/footers per section with `#page`/`#pages` fields (`set_header`, `set_footer`, `header_text`, `footer_text`), page setup and sections (`sections`, `page_setup`, `add_section_break`), and bulleted/numbered lists (`add_list_item`, `set_list`) -- each creating the styles/settings/numbering/comments/header part when the document has none, and leaving every other part byte for byte.
+
+- **xlsx: charts, conditional formatting, data validation.** `xlsx.add_chart` (scatter/line/bar/barh from cell ranges, titles, axis titles and limits, log axes, placement and size), `xlsx.add_nyquist_chart` (Z' vs -Z'' with equal axis scaling for impedance spectroscopy), `xlsx.conditional_format` (comparisons, between, text contains), `xlsx.color_scale`, `xlsx.add_validation` (lists from values or cells, whole/decimal ranges, custom formulas, prompt and error messages). Written into the saved package part by part (the DrawingML chart writer lives in `qu-ooxml` for reuse); a workbook whose cells were not edited now keeps every untouched part byte for byte, and one opened and saved with no edit at all is written back unchanged.
+
 ## [0.4.4] - 2026-09-29
 
 Every family on the distribution-relationships chart, under MATLAB's names:

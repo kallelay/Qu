@@ -1303,6 +1303,11 @@ leaves the qualified one available too.
 | [`xlsx.freeze_panes`](../fn/xlsx.freeze_panes.html) | Freezes the rows above and the columns left of `cell`: `"A2"` keeps the header row in view, `"B2"` the header row and first column | [File I/O](file-io.md) |
 | [`xlsx.define_name`](../fn/xlsx.define_name.html) | A workbook-level defined name, e.g. `xlsx.define_name(wb, "Frequency", "Data!$A$2:$A$100")` | [File I/O](file-io.md) |
 | [`xlsx.to_pdf`](../fn/xlsx.to_pdf.html) | Converts the workbook to PDF through LibreOffice (see `docx.to_pdf`) | [File I/O](file-io.md) |
+| [`xlsx.add_chart`](../fn/xlsx.add_chart.html) | Adds a native Excel chart that refers to the cells, so it follows later edits in Excel/LibreOffice | [File I/O](file-io.md) |
+| [`xlsx.add_nyquist_chart`](../fn/xlsx.add_nyquist_chart.html) | A Nyquist plot for impedance spectroscopy: Z' (range `re`) along x, -Z'' up, the axes on the SAME scale with square gridlines, so a semicircle stays round | [File I/O](file-io.md) |
+| [`xlsx.conditional_format`](../fn/xlsx.conditional_format.html) | Highlights the cells of `range` that satisfy `rule`: `"greater_than"`, `"less_than"`, `"greater_equal"`, `"less_equal"`, `"equal"`, `"not_equal"`, `"between"`/`"not_between"` (two values,.. | [File I/O](file-io.md) |
+| [`xlsx.color_scale`](../fn/xlsx.color_scale.html) | Colours every cell of `range` on a scale from its lowest value (`low`) to its highest (`high`); with `mid=` a three-colour scale centred on the 50th percentile | [File I/O](file-io.md) |
+| [`xlsx.add_validation`](../fn/xlsx.add_validation.html) | Restricts what can be typed into `range` | [File I/O](file-io.md) |
 | [`docx.new`](../fn/docx.new.html) | A new, empty A4 document with Normal, Title and Heading 1-3 styles | [File I/O](file-io.md) |
 | [`docx.open`](../fn/docx.open.html) | Opens a Word document for reading and editing and returns a handle | [File I/O](file-io.md) |
 | [`docx.save_as`](../fn/docx.save_as.html) | Writes the document (overwriting) | [File I/O](file-io.md) |
@@ -1332,6 +1337,24 @@ leaves the qualified one available too.
 | [`docx.to_markdown`](../fn/docx.to_markdown.html) | The content as Markdown: headings as `#`, tables as pipe tables, list paragraphs as `-` items | [File I/O](file-io.md) |
 | [`docx.to_latex`](../fn/docx.to_latex.html) | The content as LaTeX: Title as `\title`, headings as `\section`/`\subsection`, bold/italic/underline kept, list paragraphs as `itemize`, tables as `tabular`, images as `\includegraphics`,.. | [File I/O](file-io.md) |
 | [`docx.to_pdf`](../fn/docx.to_pdf.html) | Converts to PDF by running LibreOffice headless in a private profile (so it neither needs nor disturbs an open LibreOffice) | [File I/O](file-io.md) |
+| [`docx.links`](../fn/docx.links.html) | Every hyperlink in the body (tables included) as `{text, url}` records; internal links come back as `#name` | [File I/O](file-io.md) |
+| [`docx.add_link`](../fn/docx.add_link.html) | Makes body paragraph `i` -- all of it, or the first occurrence of the text `on` (case-sensitive) -- a hyperlink to `url` | [File I/O](file-io.md) |
+| [`docx.add_comment`](../fn/docx.add_comment.html) | Attaches a comment to body paragraph `i` (or to the text `on` in it), creating the document's comments part when it has none | [File I/O](file-io.md) |
+| [`docx.bookmarks`](../fn/docx.bookmarks.html) | not described in a chapter yet | |
+| [`docx.add_bookmark`](../fn/docx.add_bookmark.html) | Puts a bookmark named `name` around body paragraph `i` (or the text `on` in it) -- the target for `add_cross_ref` and `#name` links | [File I/O](file-io.md) |
+| [`docx.add_cross_ref`](../fn/docx.add_cross_ref.html) | Appends a cross-reference to bookmark `name` at the end of body paragraph `i`: `show="text"` shows the bookmarked text (a `REF` field, filled in now with the true text), `"page"` its page.. | [File I/O](file-io.md) |
+| [`docx.fields`](../fn/docx.fields.html) | not described in a chapter yet | |
+| [`docx.add_field`](../fn/docx.add_field.html) | Appends any field -- `"PAGE"`, `"NUMPAGES"`, `"DATE \\@ \"d MMMM yyyy\""`, `"REF name \\h"` -- to the end of body paragraph `i`, marked dirty so the word processor computes it on open;.. | [File I/O](file-io.md) |
+| [`docx.add_toc`](../fn/docx.add_toc.html) | Inserts a table-of-contents field for heading levels 1 to `levels`, before body paragraph `at` (or at the end), optionally under a `title` paragraph | [File I/O](file-io.md) |
+| [`docx.sections`](../fn/docx.sections.html) | Each section's page setup as a record: `width`, `height`, `top`, `bottom`, `left`, `right` (mm), `orientation` (`"portrait"`/`"landscape"`), `start` (`next_page`, `continuous`, `even_page`,.. | [File I/O](file-io.md) |
+| [`docx.page_setup`](../fn/docx.page_setup.html) | Changes page size (`"A4"`, `"A3"`, `"A5"`, `"B5"`, `"Letter"`, `"Legal"`, or `[width, height]`), orientation (`"portrait"`/`"landscape"`, which swaps width and height) and margins.. | [File I/O](file-io.md) |
+| [`docx.add_section_break`](../fn/docx.add_section_break.html) | Ends the current section at the end of the document; what is added next is a new section starting `next_page`, `continuous`, `even_page` or `odd_page`, with the same page setup until.. | [File I/O](file-io.md) |
+| [`docx.header_text`](../fn/docx.header_text.html) | The text of a section's header (following inheritance from earlier sections), one line per paragraph, or `none` if it has none | [File I/O](file-io.md) |
+| [`docx.footer_text`](../fn/docx.footer_text.html) | not described in a chapter yet | |
+| [`docx.set_header`](../fn/docx.set_header.html) | Sets a header's text, replacing its content (creating the header part if there is none) | [File I/O](file-io.md) |
+| [`docx.set_footer`](../fn/docx.set_footer.html) | not described in a chapter yet | |
+| [`docx.add_list_item`](../fn/docx.add_list_item.html) | Appends a bulleted (`kind="bullet"`) or numbered (`kind="number"`) list paragraph at nesting `level` 0-8, creating the document's numbering definitions when it has none | [File I/O](file-io.md) |
+| [`docx.set_list`](../fn/docx.set_list.html) | Makes existing body paragraph `i` a list item, or plain again with `kind="none"` | [File I/O](file-io.md) |
 | [`pptx.new`](../fn/pptx.new.html) | A new, empty 16:9 presentation with four layouts: Title Slide, Title and Content, Title Only, Blank | [File I/O](file-io.md) |
 | [`pptx.open`](../fn/pptx.open.html) | Opens a presentation for reading and editing and returns a handle -- surgical editing, as `docx.open` | [File I/O](file-io.md) |
 | [`pptx.save_as`](../fn/pptx.save_as.html) | Writes the presentation. Refused under `--sandbox` | [File I/O](file-io.md) |
@@ -1357,6 +1380,21 @@ leaves the qualified one available too.
 | [`pptx.add_table`](../fn/pptx.add_table.html) | Adds a table (from a `Table`, matrix or list of rows) in PowerPoint's built-in Medium Style 2 | [File I/O](file-io.md) |
 | [`pptx.to_markdown`](../fn/pptx.to_markdown.html) | One `## Slide N: title` section per slide, the other text as bullets and the notes as a quote | [File I/O](file-io.md) |
 | [`pptx.to_pdf`](../fn/pptx.to_pdf.html) | Converts to PDF through LibreOffice, as `docx.to_pdf` | [File I/O](file-io.md) |
+| [`pptx.set_notes`](../fn/pptx.set_notes.html) | Sets slide `i`'s speaker notes (newlines start paragraphs) | [File I/O](file-io.md) |
+| [`pptx.shapes`](../fn/pptx.shapes.html) | The slide's top-level shapes, back to front, as records with `id`, `name`, `kind` (`text`, `placeholder`, `shape`, `picture`, `table`, `chart`, `graphic`, `group`, `connector`),.. | [File I/O](file-io.md) |
+| [`pptx.set_shape_text`](../fn/pptx.set_shape_text.html) | Replaces a text box's, placeholder's or shape's text, one paragraph per line, keeping the first run's formatting | [File I/O](file-io.md) |
+| [`pptx.delete_shape`](../fn/pptx.delete_shape.html) | Deletes a shape; a relationship only it used goes too, and an image no other part uses is removed from the package | [File I/O](file-io.md) |
+| [`pptx.move_shape`](../fn/pptx.move_shape.html) | Moves a shape (mm or lengths); `pptx.resize_shape(p, i, shape, [w=], [h=])` resizes it | [File I/O](file-io.md) |
+| [`pptx.resize_shape`](../fn/pptx.resize_shape.html) | not described in a chapter yet | |
+| [`pptx.set_slide_title`](../fn/pptx.set_slide_title.html) | Sets the slide's title placeholder text, adding the title placeholder from the slide's layout if the slide has none | [File I/O](file-io.md) |
+| [`pptx.bring_to_front`](../fn/pptx.bring_to_front.html) | Draws the shape on top of the others; `pptx.send_to_back(p, i, shape)` behind them | [File I/O](file-io.md) |
+| [`pptx.send_to_back`](../fn/pptx.send_to_back.html) | not described in a chapter yet | |
+| [`pptx.set_link`](../fn/pptx.set_link.html) | Makes every occurrence of `text` in the shape a hyperlink to `url` (splitting a run where the match is only part of it; the pieces keep its formatting), or without `text=` all of the.. | [File I/O](file-io.md) |
+| [`pptx.links`](../fn/pptx.links.html) | not described in a chapter yet | |
+| [`pptx.theme_colors`](../fn/pptx.theme_colors.html) | The theme's colour scheme as a record of `#RRGGBB` strings: `dk1`, `lt1`, `dk2`, `lt2`, `accent1`...`accent6`, `hlink`, `folHlink` | [File I/O](file-io.md) |
+| [`pptx.theme_fonts`](../fn/pptx.theme_fonts.html) | not described in a chapter yet | |
+| [`pptx.set_theme_colors`](../fn/pptx.set_theme_colors.html) | Sets colour-scheme slots (`"#RRGGBB"`); `pptx.set_theme_fonts(p, [major=], [minor=])` sets the heading/body typefaces | [File I/O](file-io.md) |
+| [`pptx.set_theme_fonts`](../fn/pptx.set_theme_fonts.html) | not described in a chapter yet | |
 | [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page | [File I/O](file-io.md) |
 | [`pdf.add_attachment`](../fn/pdf.add_attachment.html) | Embeds a file under `filename` | [File I/O](file-io.md) |
 | [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |

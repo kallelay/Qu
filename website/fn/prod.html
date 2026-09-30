@@ -33,12 +33,12 @@
 <pre class="fnsig">result = <code>prod(x)</code></pre>
 <p class="fnnote">Input: x &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Product of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, real only (unlike <code>sum</code>, does not accept a <code>CVec</code>/<code>CMat</code>). With no other argument, reduces to one scalar <code>Num</code>. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a <code>Vec</code> of length <code>cols</code>/<code>rows</code>. <code>prod</code> does NOT accept <code>on_invalid=</code> — that keyword was added to <code>sum</code> and the other nine reductions listed in this section's intro, not to <code>prod</code>.</p>
+<p>Product of every element of <code>x</code> — a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>, real only (unlike <code>sum</code>, does not accept a <code>CVec</code>/<code>CMat</code>). A boolean mask counts as 0/1, like every numeric reduction. With no other argument, reduces to one scalar <code>Num</code>. On a <code>Mat</code>, the optional <code>axis=</code> keyword (<code>0</code> or <code>1</code>) reduces along just that dimension instead, returning a <code>Vec</code> of length <code>cols</code>/<code>rows</code>. <code>prod</code> does NOT accept <code>on_invalid=</code> — that keyword was added to <code>sum</code> and the other nine reductions listed in this section's intro, not to <code>prod</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = prod(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, Signal, CVec, CMat, or Num</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = prod(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, Signal, CVec, CMat, boolean, or Num</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, Num, or Vec</span></div>
 </td><td>Returns a scalar <code>Num</code>, or that <code>Vec</code> under <code>axis=</code>.</td></tr>
 </table></div>

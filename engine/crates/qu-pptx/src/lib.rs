@@ -10,6 +10,9 @@
 //! Slides are numbered from 0 in presentation order (the order of
 //! `p:sldIdLst`, which is what PowerPoint shows, not the part file names).
 
+mod edit;
+pub use edit::{Order, ShapeInfo, ShapeRef, THEME_SLOTS};
+
 use qu_ooxml::xml::{Doc, Element, Node};
 use qu_ooxml::{mm_to_emu, relative_target, replace_in_paragraph, resolve_target, Package, DRAWING};
 
@@ -42,7 +45,7 @@ pub struct TextFormat {
 }
 
 /// A rectangle in millimetres from the slide's top-left corner.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
     pub x: f64,
     pub y: f64,
@@ -601,9 +604,14 @@ fn placeholder_sp(id: u64, name: &str, ph: &(Option<String>, Option<String>), li
 }
 
 fn paragraph(text: &str, rpr: &Element, algn: Option<&str>) -> Element {
+    paragraph_ppr(text, rpr, algn.map(|a| Element::new("a:pPr").with_attr("algn", a)))
+}
+
+/// A paragraph of one run with the given paragraph properties.
+fn paragraph_ppr(text: &str, rpr: &Element, ppr: Option<Element>) -> Element {
     let mut p = Element::new("a:p");
-    if let Some(a) = algn {
-        p = p.with_child(Element::new("a:pPr").with_attr("algn", a));
+    if let Some(ppr) = ppr {
+        p = p.with_child(ppr);
     }
     if text.is_empty() {
         let mut end = rpr.clone();
