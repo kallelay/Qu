@@ -13,8 +13,42 @@ deliberately stays shallow so it stays fast.
 
 ## 1. Install and run
 
-Qu ships today as **source you build yourself** — there is no packaged
-binary or installer yet. You need a working Rust toolchain
+Each [release](https://github.com/kallelay/Qu/releases/latest) carries a
+prebuilt `qu` command-line binary per platform (`.zip`, `.tar.gz`, and
+`.deb` on Linux) plus Qu Studio installers. Whether `qu` then works from an
+ordinary terminal depends on which package you installed:
+
+| Package | `qu` on your `PATH` afterwards? |
+|---|---|
+| Qu Studio Windows setup (`Qu Studio_<version>_x64-setup.exe`) | **Yes** — adds its install folder (which holds the bundled `qu.exe`) to *your user's* `PATH`; the uninstaller removes exactly that entry. Open a new terminal afterwards. |
+| Qu Studio `.msi`, macOS `.dmg`, Linux `.AppImage` / `.deb` / `.rpm` | **No** — `qu` is bundled for Studio's own use only. Install the command-line build too, or add the folder yourself. |
+| Command-line Windows setup (`qu-<version>-windows-<arch>-setup.exe`) | **Yes** — see below; adds `qu` to your user `PATH`, no admin needed. |
+| Command-line `.zip` / `.tar.gz` | No — unpack it and put the folder on `PATH` yourself. |
+| Command-line `.deb` | Yes — installs `qu` into `/usr/bin`. |
+
+The Windows setup also copies the Qu syntax integration into VS Code,
+Sublime Text and Notepad++ when it finds that editor's per-user settings
+folder (skipped silently otherwise; see `editors/` for manual installs).
+
+**On Windows, from a release** (releases after 0.4.4): download
+`qu-<version>-windows-x86_64-setup.exe` (or `-arm64-setup.exe` for
+Windows on ARM) and run it. It installs `qu.exe` for your user only — no
+administrator prompt — into `%LOCALAPPDATA%\Programs\Qu` and adds that
+folder to your user `PATH`, leaving the rest of the `PATH` exactly as it
+was. Open a **new** terminal and `qu --version` works. Switches:
+
+```text
+qu-<version>-windows-x86_64-setup.exe /S                  silent, per-user
+qu-<version>-windows-x86_64-setup.exe /S /D=C:\Tools\Qu   silent, chosen folder (/D= must be last)
+qu-<version>-windows-x86_64-setup.exe /ALLUSERS           machine-wide (Program Files, system PATH; asks for admin)
+```
+
+To uninstall, use *Settings → Apps* ("Qu … (command line)"), or run
+`uninstall.exe /S` from the install folder. It removes the files it
+installed and its own `PATH` entry, and nothing else. The plain `.zip` is
+still there if you would rather put `qu.exe` somewhere yourself.
+
+**From source**, on any platform: you need a working Rust toolchain
 ([rustup.rs](https://rustup.rs)) and a clone of this repository:
 
 ```bash

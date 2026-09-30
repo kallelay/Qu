@@ -181,6 +181,49 @@ jobs:
             tar czf "$DIR.tar.gz" "$DIR"
           fi
 
+      # Windows legs only: an NSIS installer for the same qu.exe, published
+      # next to the zip as qu-<ver>-windows-<arch>-setup.exe. It puts `qu`
+      # on the PATH (per-user by default). Script and PATH logic live in
+      # installer/windows/; end-to-end checks in installer-verify-cli.yml.
+      # continue-on-error: an installer problem must not hold back the zip,
+      # which the release has always shipped -- the missing setup.exe then
+      # shows as this step's failure annotation.
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = "$env:RELEASE_TAG" -replace '^v', ''
+          if (-not $version) { $version = 'dev' }
+          $arch = '${{ matrix.name }}' -replace '^windows-', ''
+          $src = Join-Path $PWD "qu-$version-${{ matrix.name }}"
+          if (-not (Test-Path "$src\qu.exe")) { throw "no $src\qu.exe -- did Package change?" }
+
+          # String-only tests of the PATH logic the installer runs.
+          & powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\tests\path-logic.tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'path-logic tests failed' }
+
+          function Find-Makensis {
+            $c = Get-Command makensis -ErrorAction SilentlyContinue
+            if ($c) { return $c.Source }
+            foreach ($p in "${env:ProgramFiles(x86)}\NSIS\makensis.exe", "$env:ProgramFiles\NSIS\makensis.exe") {
+              if ($p -and (Test-Path $p)) { return $p }
+            }
+            return $null
+          }
+          $mk = Find-Makensis
+          if (-not $mk) {
+            choco install nsis -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'choco install nsis failed' }
+            $mk = Find-Makensis
+          }
+          if (-not $mk) { throw 'makensis not found' }
+          & $mk -VERSION
+          & $mk -WX "-DVERSION=$version" "-DARCH=$arch" "-DSRCDIR=$src" "-DOUTDIR=$PWD" installer\windows\qu.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis failed ($LASTEXITCODE)" }
+          Get-ChildItem "qu-$version-windows-$arch-setup.exe"
+
       - name: Build .deb
         if: matrix.deb
         run: |
@@ -196,6 +239,7 @@ jobs:
             qu-*.zip
             qu-*.tar.gz
             qu-*.deb
+            qu-*-setup.exe
           if-no-files-found: error
 
   publish:
@@ -209,6 +253,21 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      # The Windows installer build is continue-on-error so a packaging bug
+      # cannot hold back the zip, but the download page and quickstart say
+      # the installer exists. Fail here, loudly, if either one is missing,
+      # instead of publishing a release that silently lacks it.
+      - name: Require the Windows installers
+        run: |
+          missing=0
+          for arch in x86_64 arm64; do
+            if ! ls dist/qu-*-windows-${arch}-setup.exe >/dev/null 2>&1; then
+              echo "::error::no qu-*-windows-${arch}-setup.exe in the build artifacts"
+              missing=1
+            fi
+          done
+          exit $missing
 
       - name: Checksums
         run: |
