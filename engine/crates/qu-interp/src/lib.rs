@@ -85107,8 +85107,18 @@ sb = size(b)");
         assert!(!path.exists(), "the file left its original path");
         #[cfg(any(target_os = "linux", target_os = "windows"))]
         {
-            let items: Vec<_> = trash::os_limited::list().unwrap().into_iter().filter(|i| i.name == name.as_str()).collect();
-            assert_eq!(items.len(), 1, "the file is in the trash, not deleted");
+            // Match on the stem: Windows reports the Recycle Bin's display
+            // name, which drops ".txt" while Explorer hides known extensions
+            // (the default, and the case on the CI runners).
+            let stem = name.trim_end_matches(".txt");
+            let all = trash::os_limited::list().unwrap();
+            let seen: Vec<String> = all
+                .iter()
+                .filter(|i| i.name.to_string_lossy().contains("qu_fo_trash"))
+                .map(|i| format!("{:?} in {:?}", i.name, i.original_parent))
+                .collect();
+            let items: Vec<_> = all.into_iter().filter(|i| i.name == name.as_str() || i.name == stem).collect();
+            assert_eq!(items.len(), 1, "the file is in the trash, not deleted; trash holds {seen:?} of {} items", seen.len());
             let _ = trash::os_limited::purge_all(items);
         }
     }
