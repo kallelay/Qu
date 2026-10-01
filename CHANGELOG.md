@@ -33,6 +33,18 @@ module object, which crashed React. The CI smoke test now opens every
 top-level tab. The editor coloured everything after a transpose (`X_b' *
 errors`) as a string, to the end of the file: a `'` right after a name,
 number or closing bracket is now highlighted as the operator it is.
+
+Qu Studio's terminal has a **`qu>` prompt**: after Run, keep going in the
+same session -- the script's variables are there (Enter runs, Shift+Enter
+adds a line, Up/Down recall). A **REPL** setting in the terminal header
+chooses one **shared** session for the whole window (as before) or one
+session **per file**; in per-file mode the Variables and Figures panels
+follow the active file, and closing a file ends its session. The Variables
+panel hides the built-in constants (`pi`, `e`, `inf`, `QuCr`, `QuTab`, ...)
+behind a toggle unless reassigned (`--emit-vars` and the kernel mark them
+`"system": true`); plotting a variable from it no longer blanks the window
+(the same `react-plotly.js` import as the Interactive tab). Opening a figure
+zooms it out of its thumbnail.
 `qu-jupyter install --system` and `qu-jupyter uninstall` are new.
 
 ## [0.4.5] - 2026-10-01

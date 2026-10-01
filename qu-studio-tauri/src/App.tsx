@@ -289,6 +289,20 @@ interface Variable {
   type: string;
   value: string;
   size?: string;
+  system?: boolean;
+}
+
+// "Shared": one interpreter for the whole window -- Run in any file and
+// the terminal prompt all see the same variables. "Per file": each file
+// gets its own interpreter, and the prompt talks to the active file's.
+type ReplMode = 'shared' | 'perFile';
+const REPL_MODE_KEY = 'qu-studio.replMode';
+function loadReplMode(): ReplMode {
+  try {
+    return localStorage.getItem(REPL_MODE_KEY) === 'perFile' ? 'perFile' : 'shared';
+  } catch {
+    return 'shared';
+  }
 }
 
 // Mirrors the Rust `PlotVar` struct in src-tauri/src/main.rs. `shape` is
@@ -801,6 +815,15 @@ function App() {
   const currentTab: FileTab | null = tabs.find((t) => t.id === activeFileId) ?? null;
   const code = currentTab?.content ?? '';
 
+  const [replMode, setReplMode] = useState<ReplMode>(loadReplMode);
+  useEffect(() => {
+    try { localStorage.setItem(REPL_MODE_KEY, replMode); } catch { /* per-viewer convenience only */ }
+  }, [replMode]);
+  const sessionOf = (tab: FileTab | null) => (tab ? tab.path || `tab:${tab.id}` : 'shared');
+  const replSession = replMode === 'shared' ? 'shared' : sessionOf(currentTab);
+  const replSessionRef = useRef(replSession);
+  replSessionRef.current = replSession;
+
   // Screen vs publication is a property of the SCRIPT, not of the viewer:
   // the engine draws the figure, so the toggle reads and writes the code's
   // own `theme(...)` line. That also means the choice is saved with the
@@ -1094,14 +1117,51 @@ function App() {
     }
   }, [terminalLines]);
 
+  // The last response of every REPL session, so switching file in per-file
+  // mode shows THAT file's variables and figures, not the previous one's.
+  const sessionResults = useRef(new Map<string, ExecuteResponse>());
+  useEffect(() => {
+    const r = sessionResults.current.get(replSession);
+    setFigureImages(r?.plots ?? []);
+    setVariables(r?.variables ?? []);
+    setNumericVariables(r?.data ?? []);
+  }, [replSession]);
+
+  // A closed file's interpreter is ended with it (per-file mode only; the
+  // shared one lives as long as the window).
+  const openSessions = useRef(new Set<string>());
+  useEffect(() => {
+    const now = new Set(tabs.map((t) => sessionOf(t)));
+    for (const key of openSessions.current) {
+      if (!now.has(key) && key !== 'shared') {
+        sessionResults.current.delete(key);
+        invoke('repl_close', { session: key }).catch(() => {});
+      }
+    }
+    openSessions.current = now;
+  }, [tabs]);
+
+  const [promptInput, setPromptInput] = useState('');
+  const promptHistory = useRef<string[]>([]);
+  const promptHistoryPos = useRef(-1);
+
   // Execute code
-  const executeCode = useCallback(async (codeToRun: string = code) => {
+  // `fromPrompt`: a line typed at the terminal's `qu>` prompt. It runs in
+  // the same session as Run (so it sees the file's variables) and is echoed
+  // like a REPL line instead of announced as a run.
+  const executeCode = useCallback(async (codeToRun: string = code, opts?: { fromPrompt?: boolean }) => {
+    const fromPrompt = opts?.fromPrompt ?? false;
+    const session = replSessionRef.current;
     // Claim this run. Anything that returns holding an older token is a
     // run the user has already superseded.
     runToken.current += 1;
     const myToken = runToken.current;
     setExecutionState({ isRunning: true, progress: 0, error: null });
-    addTerminalLine(`> Executing...`);
+    if (fromPrompt) {
+      codeToRun.split('\n').forEach((l, i) => addTerminalLine(`${i === 0 ? 'qu>' : '...'} ${l}`));
+    } else {
+      addTerminalLine(`> Executing...`);
+    }
     
     try {
       const start = performance.now();
@@ -1115,18 +1175,22 @@ function App() {
       // see `kernel_run_response`'s doc comment on the Rust side.
       const response = await invoke<ExecuteResponse>('repl_run', {
         code: codeToRun,
+        session,
       });
 
       const elapsed = performance.now() - start;
+      sessionResults.current.set(session, response);
 
       // Figures land in the response regardless of whether the script also
       // hit a runtime error partway through (e.g. `plot(x, y)` followed by
       // an unrelated later error still produced a figure) -- set this
       // unconditionally, matching `output`'s own "show whatever we got"
       // handling below rather than gating it on success.
-      if (myToken !== runToken.current) {
-        // A newer run started while this one was still going. Its results
-        // are the ones that match the code on screen; drop these.
+      if (myToken !== runToken.current || session !== replSessionRef.current) {
+        // A newer run started while this one was still going, or the user
+        // switched to another file's session: what is on screen belongs to
+        // that one. (The response is kept above for when they switch back.)
+        if (myToken === runToken.current) setExecutionState({ isRunning: false, progress: 100, error: null });
         return;
       }
       // `response.plots` is now the persistent kernel's WHOLE accumulated
@@ -1172,7 +1236,7 @@ function App() {
           error: null,
           elapsed_ms: elapsed,
         });
-        addTerminalLine(`✓ Completed in ${elapsed.toFixed(2)} ms`, 'success');
+        if (!fromPrompt) addTerminalLine(`✓ Completed in ${elapsed.toFixed(2)} ms`, 'success');
       }
       
     } catch (error: any) {
@@ -1186,6 +1250,33 @@ function App() {
     }
   }, [code, keepFigures]);
 
+  const submitPrompt = useCallback(() => {
+    const line = promptInput;
+    if (!line.trim() || executionState.isRunning) return;
+    promptHistory.current = [...promptHistory.current.filter((h) => h !== line), line].slice(-200);
+    promptHistoryPos.current = -1;
+    setPromptInput('');
+    void executeCode(line, { fromPrompt: true });
+  }, [promptInput, executionState.isRunning, executeCode]);
+
+  const onPromptKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const hist = promptHistory.current;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitPrompt();
+    } else if (e.key === 'ArrowUp' && !promptInput.includes('\n') && hist.length) {
+      e.preventDefault();
+      const pos = promptHistoryPos.current === -1 ? hist.length - 1 : Math.max(0, promptHistoryPos.current - 1);
+      promptHistoryPos.current = pos;
+      setPromptInput(hist[pos]);
+    } else if (e.key === 'ArrowDown' && promptHistoryPos.current !== -1) {
+      e.preventDefault();
+      const pos = promptHistoryPos.current + 1;
+      promptHistoryPos.current = pos >= hist.length ? -1 : pos;
+      setPromptInput(pos >= hist.length ? '' : hist[pos]);
+    }
+  }, [promptInput, submitPrompt]);
+
   // Restarts the Code editor Run button's persistent `qu kernel` (see
   // `repl_bridge.rs`'s `repl_restart`): kills the live interpreter and
   // clears everything this session's UI was showing FROM it, so the next
@@ -1197,7 +1288,8 @@ function App() {
   const restartKernel = useCallback(async () => {
     if (executionState.isRunning) return;
     try {
-      await invoke('repl_restart');
+      await invoke('repl_restart', { session: replSession });
+      sessionResults.current.delete(replSession);
       setVariables([]);
       setNumericVariables([]);
       setFigureImages([]);
@@ -1207,7 +1299,7 @@ function App() {
     } catch (error: any) {
       addTerminalLine(`❌ Restart failed: ${error.message ?? error}`, 'error');
     }
-  }, [executionState.isRunning]);
+  }, [executionState.isRunning, replSession]);
 
   // Builds the "cheap context" the brief asks for: the current buffer plus
   // the last error, when there is one -- no RAG, no symbol indexing, just
@@ -2689,9 +2781,23 @@ function App() {
                 <TerminalIcon size={13} />
                 <span className="text-[11px] font-semibold uppercase tracking-wider">Terminal</span>
               </div>
-              <button onClick={clearTerminal} className="qu-bar-icon" style={{ width: 24, height: 24 }} title="Clear terminal">
-                <X size={14} />
-              </button>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-[11px]" title="Shared: one Qu session for the whole window -- every file and the prompt see the same variables. Per file: each file runs in its own session, and the prompt talks to the active file's.">
+                  REPL
+                  <select
+                    aria-label="REPL session"
+                    value={replMode}
+                    onChange={(e) => setReplMode(e.target.value as ReplMode)}
+                    className="qu-repl-mode"
+                  >
+                    <option value="shared">shared</option>
+                    <option value="perFile">per file</option>
+                  </select>
+                </label>
+                <button onClick={clearTerminal} className="qu-bar-icon" style={{ width: 24, height: 24 }} title="Clear terminal">
+                  <X size={14} />
+                </button>
+              </div>
             </div>
             <div
               ref={terminalRef}
@@ -2703,9 +2809,33 @@ function App() {
               ))}
               {terminalLines.length === 0 && (
                 <div style={{ color: 'var(--qu-muted)' }}>
-                  Ready &mdash; press Run, or Ctrl+Enter.
+                  Ready &mdash; press Run, or Ctrl+Enter, or type Qu at the prompt below.
                 </div>
               )}
+            </div>
+            <div
+              className="flex items-start gap-2 px-3 py-1.5 border-t font-mono text-[12.5px]"
+              style={{ borderColor: 'var(--qu-border)' }}
+            >
+              <span style={{ color: 'var(--qu-accent, #4a8cff)', paddingTop: 1 }}>qu&gt;</span>
+              <textarea
+                aria-label="Qu prompt"
+                className="qu-repl-input flex-1 bg-transparent outline-none resize-none"
+                rows={Math.min(6, promptInput.split('\n').length)}
+                value={promptInput}
+                disabled={executionState.isRunning}
+                spellCheck={false}
+                placeholder={
+                  executionState.isRunning
+                    ? 'Running…'
+                    : replMode === 'shared'
+                      ? 'Qu in the shared session (Run’s variables included) · Enter runs · Shift+Enter new line · ↑ history'
+                      : `Qu in ${currentTab?.name ?? 'this file'}’s session · Enter runs · Shift+Enter new line · ↑ history`
+                }
+                onChange={(e) => setPromptInput(e.target.value)}
+                onKeyDown={onPromptKey}
+                style={{ color: 'var(--qu-text)' }}
+              />
             </div>
           </div>
         </div>

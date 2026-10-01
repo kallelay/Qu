@@ -153,6 +153,20 @@ export interface FigureViewerProps {
   emptyHint?: React.ReactNode;
 }
 
+/** Open the dialog with a zoom effect: it fades in while growing to full
+ *  size. Skipped when the user asks for reduced motion. */
+function zoomIn(dialog: HTMLDialogElement) {
+  if (typeof dialog.animate !== "function") return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  dialog.animate(
+    [
+      { transform: "scale(0.85)", opacity: 0 },
+      { transform: "scale(1)", opacity: 1 },
+    ],
+    { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+  );
+}
+
 export const FigureViewer: React.FC<FigureViewerProps> = ({
   images,
   theme = "light",
@@ -294,7 +308,10 @@ export const FigureViewer: React.FC<FigureViewerProps> = ({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (expanded && !dialog.open) dialog.showModal();
+    if (expanded && !dialog.open) {
+      dialog.showModal();
+      zoomIn(dialog);
+    }
     if (!expanded && dialog.open) dialog.close();
   }, [expanded]);
 

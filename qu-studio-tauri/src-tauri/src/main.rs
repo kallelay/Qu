@@ -15,7 +15,7 @@ mod serial_protocol;
 mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
 mod repl_bridge;
-use repl_bridge::{repl_run, repl_restart, ReplState};
+use repl_bridge::{repl_close, repl_restart, repl_run, ReplState};
 use llm_bridge::{
     llm_chat, llm_complete, llm_fix_error, llm_transform_code, get_llm_provider_config,
     set_llm_provider_config, test_llm_provider,
@@ -170,6 +170,10 @@ pub struct VariableInfo {
     #[serde(rename = "type")]
     pub kind: String,
     pub value: String,
+    /// A built-in constant at its start-up value (`pi`, `QuCr`, ...); the
+    /// Variables panel hides these unless asked.
+    #[serde(default)]
+    pub system: bool,
 }
 
 /// Shape of the JSON `qu run --emit-vars` writes (see `qu-cli`'s
@@ -184,6 +188,8 @@ struct RawVariableJson {
     #[serde(rename = "type")]
     kind: String,
     preview: String,
+    #[serde(default)]
+    system: bool,
 }
 
 /// One parse-error diagnostic for QuStudio's inline (squiggle) diagnostics
@@ -430,6 +436,7 @@ fn read_vars_output(dir: &Path) -> Vec<VariableInfo> {
                 name: r.name,
                 kind: r.kind,
                 value: r.preview,
+                system: r.system,
             })
             .collect(),
         Err(e) => {
@@ -1219,6 +1226,7 @@ fn main() {
             execute_code,
             repl_run,
             repl_restart,
+            repl_close,
             save_figures,
             check_syntax,
             open_file,

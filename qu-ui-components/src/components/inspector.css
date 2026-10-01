@@ -783,6 +783,17 @@
 .qu-figure-dialog::backdrop {
   background: #080f20b3;
   backdrop-filter: blur(4px);
+  animation: qu-backdrop-in 240ms ease-out;
+}
+@keyframes qu-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qu-figure-dialog::backdrop {
+    animation: none;
+  }
 }
 .qu-figure-dialog[open] {
   display: flex;

@@ -1132,6 +1132,22 @@ fn render_profile_report(it: &qu_interp::Interp, total_elapsed: std::time::Durat
 /// at a further byte length here purely as a defensive backstop in case a
 /// future `Value` variant's `display_value` arm doesn't already truncate
 /// the way `Vec`/`Mat`/`CVec`/`CMat` do today.
+/// The names a fresh interpreter starts with (`pi`, `e`, `inf`, `QuCr`,
+/// `QuTab`, ...) and how each displays. A binding with one of these names
+/// that still shows the same value is marked `"system": true`, so the
+/// Studio Variables panel can hide it; a reassigned `e = 5` is the user's.
+fn builtin_constants() -> &'static std::collections::HashMap<String, String> {
+    static BUILTINS: std::sync::OnceLock<std::collections::HashMap<String, String>> = std::sync::OnceLock::new();
+    BUILTINS.get_or_init(|| {
+        let fresh = qu_interp::Interp::new();
+        fresh.global_bindings().map(|(n, v)| (n.to_string(), qu_interp::display_value(v))).collect()
+    })
+}
+
+fn is_builtin_constant(name: &str, display: &str) -> bool {
+    builtin_constants().get(name).is_some_and(|d| d == display)
+}
+
 fn vars_to_json(it: &qu_interp::Interp) -> String {
     const MAX_PREVIEW: usize = 200;
     let mut bindings: Vec<(&str, &qu_interp::Value)> = it.global_bindings().collect();
@@ -1143,15 +1159,21 @@ fn vars_to_json(it: &qu_interp::Interp) -> String {
             out.push(',');
         }
         let mut preview = qu_interp::display_value(v);
+        let system = is_builtin_constant(name, &preview);
         if preview.len() > MAX_PREVIEW {
-            preview.truncate(MAX_PREVIEW);
+            let mut cut = MAX_PREVIEW;
+            while !preview.is_char_boundary(cut) {
+                cut -= 1;
+            }
+            preview.truncate(cut);
             preview.push_str("...");
         }
         out.push_str(&format!(
-            "{{\"name\":{},\"type\":{},\"preview\":{}}}",
+            "{{\"name\":{},\"type\":{},\"preview\":{},\"system\":{}}}",
             json_string(name),
             json_string(v.type_name()),
-            json_string(&preview)
+            json_string(&preview),
+            system
         ));
     }
     out.push(']');

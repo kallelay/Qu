@@ -17,23 +17,13 @@
 //! this crate's `main.rs` `invoke_handler` list, where `execute_code`
 //! remains registered unmodified).
 //!
-//! **One interpreter per SESSION, not per tab.** QuStudio's frontend
-//! (`qu-studio-tauri/src/App.tsx`) keeps multiple open files as tabs in ONE
-//! editor state, but there is exactly one Run button and one Variables/
-//! Figures panel pair for the whole window -- there is no per-tab
-//! execution context anywhere in the existing UI (the Interactive-Mode
-//! panel, the Variables panel, the Figures panel are all singletons keyed
-//! off "whatever `execute_code`/now `repl_run` last returned", not off a
-//! tab id). Per-tab interpreters would need per-tab Variables/Figures
-//! panels and a tab-switch story for what "Restart" even means, none of
-//! which exists today -- so per-SESSION (one `qu kernel` child process for
-//! the whole Tauri backend, in `ReplState`, exactly parallel to
-//! `LiveRunState`'s existing single-`Mutex<Option<...>>` shape) is the
-//! simpler, defensible choice: it matches how almost every Studio user
-//! actually works (one primary file at a time) and how the surrounding UI
-//! is already built. A user who wants a second independent session can
-//! open a second QuStudio window (a second OS process, hence a second
-//! `ReplState`).
+//! **Sessions.** Every call names a session key (`session`, default
+//! `"shared"`), and each key gets its own `qu kernel` process. The frontend
+//! decides the key from its "REPL: shared / per file" setting: shared mode
+//! sends one key for the whole window (the original behaviour -- define `x`
+//! in one file's Run, use it from another or from the terminal prompt);
+//! per-file mode sends the tab's path or id, so each file runs in its own
+//! interpreter and the terminal prompt talks to the active file's one.
 //!
 //! **Restart.** `repl_restart` kills the live child outright (rather than
 //! sending it a `{"op":"restart"}` request and trusting the still-running
@@ -43,17 +33,17 @@
 //! clean slate as this design can get.
 //!
 //! **Locking.** `ReplState.inner` is a plain `std::sync::Mutex`, not an
-//! async-aware one -- deliberately: every call `.take()`s the kernel out
-//! (leaving `None` behind) and drops the guard BEFORE doing anything that
-//! awaits (the write + the response read), then re-inserts it when done.
-//! The lock itself is therefore never held across an `.await` point. This
-//! app has exactly one Run button and one Restart action for one session,
-//! so two calls racing to `.take()` the same kernel at once is not a
-//! realistic concern in practice; the frontend also disables Run while a
-//! request is in flight (see `App.tsx`).
+//! async-aware one -- deliberately: every call removes its session's kernel
+//! from the map and drops the guard BEFORE doing anything that awaits (the
+//! write + the response read), then re-inserts it when done. The lock is
+//! therefore never held across an `.await` point. Two calls racing for the
+//! SAME session would find it missing and spawn a second kernel, so the
+//! frontend allows one request per session at a time: Run and the terminal
+//! prompt are both disabled while either is in flight (see `App.tsx`).
 
 use crate::{find_qu_executable, ExecuteResponse, PlotVar, VariableInfo, QU_EXE_NAME};
 use base64::Engine as _;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::api::process::{CommandChild, CommandEvent};
 use tauri::async_runtime::Receiver;
@@ -69,7 +59,14 @@ struct ReplKernel {
 /// one per session (not per tab) and why a plain `std::sync::Mutex`.
 #[derive(Default)]
 pub struct ReplState {
-    inner: Mutex<Option<ReplKernel>>,
+    inner: Mutex<HashMap<String, ReplKernel>>,
+}
+
+/// The session a call without one belongs to: everything, in shared mode.
+const SHARED_SESSION: &str = "shared";
+
+fn session_key(session: Option<String>) -> String {
+    session.filter(|s| !s.is_empty()).unwrap_or_else(|| SHARED_SESSION.to_string())
 }
 
 /// Spawns a fresh `qu kernel` child process -- same sidecar-then-PATH-
@@ -172,6 +169,7 @@ fn parse_run_response(v: serde_json::Value, elapsed_ms: f64) -> ExecuteResponse 
                         name: item.get("name")?.as_str()?.to_string(),
                         kind: item.get("type")?.as_str()?.to_string(),
                         value: item.get("preview")?.as_str()?.to_string(),
+                        system: item.get("system").and_then(|b| b.as_bool()).unwrap_or(false),
                     })
                 })
                 .collect()
@@ -214,10 +212,15 @@ fn parse_run_response(v: serde_json::Value, elapsed_ms: f64) -> ExecuteResponse 
 /// there is nothing left worth keeping once the transport itself is
 /// broken.
 #[tauri::command]
-pub async fn repl_run(code: String, state: State<'_, ReplState>) -> Result<ExecuteResponse, String> {
+pub async fn repl_run(
+    code: String,
+    session: Option<String>,
+    state: State<'_, ReplState>,
+) -> Result<ExecuteResponse, String> {
     let start = std::time::Instant::now();
+    let key = session_key(session);
 
-    let mut kernel = state.inner.lock().unwrap().take();
+    let mut kernel = state.inner.lock().unwrap().remove(&key);
     if kernel.is_none() {
         kernel = Some(spawn_kernel()?);
     }
@@ -230,13 +233,13 @@ pub async fn repl_run(code: String, state: State<'_, ReplState>) -> Result<Execu
     match result {
         Ok(resp) => {
             // Success -- hand the (still-alive) kernel back for the next call.
-            *state.inner.lock().unwrap() = Some(kernel);
+            state.inner.lock().unwrap().insert(key, kernel);
             Ok(parse_run_response(resp, elapsed_ms))
         }
         Err(e) => {
             // Transport failure: the kernel is unusable, so it is
-            // deliberately NOT put back -- `state.inner` stays `None`, and
-            // the next `repl_run` spawns a fresh process from scratch.
+            // deliberately NOT put back, and the next `repl_run` for this
+            // session spawns a fresh process from scratch.
             let _ = kernel.child.kill();
             Ok(ExecuteResponse {
                 success: false,
@@ -259,9 +262,16 @@ pub async fn repl_run(code: String, state: State<'_, ReplState>) -> Result<Execu
 /// observes is: every variable/function/figure defined so far is gone, and
 /// the next Run starts from a completely clean interpreter.
 #[tauri::command]
-pub fn repl_restart(state: State<ReplState>) -> Result<(), String> {
-    if let Some(kernel) = state.inner.lock().unwrap().take() {
+pub fn repl_restart(session: Option<String>, state: State<ReplState>) -> Result<(), String> {
+    if let Some(kernel) = state.inner.lock().unwrap().remove(&session_key(session)) {
         let _ = kernel.child.kill();
     }
     Ok(())
+}
+
+/// Ends a session for good (its tab was closed): same as `repl_restart`,
+/// named for what the caller means.
+#[tauri::command]
+pub fn repl_close(session: String, state: State<ReplState>) -> Result<(), String> {
+    repl_restart(Some(session), state)
 }

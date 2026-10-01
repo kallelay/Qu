@@ -145,3 +145,23 @@ fn asking_for_help_still_succeeds() {
         assert!(text.contains("commands:"), "should print the banner:\n{text}");
     }
 }
+
+#[test]
+fn emit_vars_marks_untouched_builtin_constants_as_system() {
+    // Qu Studio hides these in its Variables panel; a reassigned one is the
+    // user's own variable again.
+    let dir = std::env::temp_dir().join(format!("qu_emit_vars_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("v.qu");
+    std::fs::write(&script, "x = 3\ne = 5\n").unwrap();
+    let json = dir.join("v.json");
+    let (code, text) = run(&["run", &script.to_string_lossy(), "--emit-vars", &json.to_string_lossy()]);
+    assert_eq!(code, 0, "{text}");
+    let vars: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+    let system = |n: &str| vars.iter().find(|v| v["name"] == n).map(|v| v["system"].as_bool().unwrap());
+    assert_eq!(system("x"), Some(false));
+    assert_eq!(system("e"), Some(false), "reassigned: the user's");
+    assert_eq!(system("pi"), Some(true));
+    assert_eq!(system("QuCr"), Some(true));
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -10,6 +10,7 @@ import {
   Database,
   Download,
   Search,
+  Sigma,
   X,
 } from "lucide-react";
 import { cn } from "../utils/cn";
@@ -30,6 +31,8 @@ export interface Variable {
   type: string;
   value: string;
   size?: string;
+  /** A built-in constant still at its start-up value (pi, e, QuCr, ...). */
+  system?: boolean;
 }
 export interface VariableExplorerProps {
   variables?: Variable[];
@@ -403,14 +406,23 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
   const [descending, setDescending] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const types = useMemo(
-    () => [...new Set(variables.map((v) => v.type))].sort(),
+  const [showSystem, setShowSystem] = useState(false);
+  const systemCount = useMemo(
+    () => variables.filter((v) => v.system).length,
     [variables],
+  );
+  const visible = useMemo(
+    () => (showSystem ? variables : variables.filter((v) => !v.system)),
+    [variables, showSystem],
+  );
+  const types = useMemo(
+    () => [...new Set(visible.map((v) => v.type))].sort(),
+    [visible],
   );
   const activeType = types.includes(type) ? type : "all";
   const filtered = useMemo(
     () =>
-      variables
+      visible
         .filter(
           (v) =>
             (activeType === "all" || v.type === activeType) &&
@@ -423,7 +435,7 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
             (descending ? -1 : 1) *
             a.name.localeCompare(b.name, undefined, { numeric: true }),
         ),
-    [variables, activeType, query, descending],
+    [visible, activeType, query, descending],
   );
   const numericByName = useMemo(
     () => new Map(numericData.map((v) => [v.name, v])),
@@ -443,11 +455,11 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
       <div className="qu-section-header">
         <Database size={15} />
         <h2>Variables</h2>
-        <span className="qu-count">{variables.length}</span>
+        <span className="qu-count">{visible.length}</span>
         <span className="qu-spacer" />
         <span className="qu-note">{isRunning ? "Running…" : "Last run"}</span>
       </div>
-      {variables.length === 0 ? (
+      {visible.length === 0 && systemCount === 0 ? (
         <div className="qu-empty">
           <Database size={26} />
           <strong>Your workspace, at a glance</strong>
@@ -511,6 +523,24 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
             >
               {descending ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />}
             </button>
+            {systemCount > 0 && (
+              <button
+                className="qu-icon-button"
+                aria-pressed={showSystem}
+                aria-label={
+                  showSystem
+                    ? "Hide built-in constants"
+                    : "Show built-in constants"
+                }
+                title={`${showSystem ? "Hide" : "Show"} ${systemCount} built-in constants (pi, e, inf, QuCr, QuTab, …)`}
+                onClick={() => {
+                  setShowSystem(!showSystem);
+                  setPage(0);
+                }}
+              >
+                <Sigma size={15} />
+              </button>
+            )}
           </div>
           <div className="qu-variable-columns">
             <span>Name / type</span>
