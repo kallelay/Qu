@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xlsx.add_chart — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>xlsx.add_chart</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>xlsx.add_chart(wb, sheet, kind, y, [x=], [names=], [colors=], [title=], [x_title=], [y_title=], [at=], [width=160], [height=90], [lines=], [markers=], [legend=], [x_min=], [x_max=], [y_min=], [y_max=], [x_log=false], [y_log=false], [equal_axes=false])</code></pre>
+<p class="fnnote">Input: wb, sheet, kind, y, x, names, colors, title, x_title, y_title, at, width, height, lines, markers, legend, x_min, x_max, y_min, y_max, x_log, y_log, equal_axes &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Adds a native Excel chart that refers to the cells, so it follows later edits in Excel/LibreOffice. <code>kind</code> is <code>"scatter"</code> (XY, both axes numeric), <code>"line"</code>, <code>"bar"</code> (vertical) or <code>"barh"</code> (horizontal). <code>y</code> is a range string (<code>"B2:B40"</code>, <code>"Data!B2:B40"</code>) or a list of them, one series each; <code>x=</code> is one range shared by all series or one per series (x values for scatter, category labels for line/bar). <code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette). <code>at=</code> is the top-left cell (default: two columns right of the used range, row 2); <code>width</code>/<code>height</code> in millimetres or lengths. Scatter draws lines and markers by default (<code>lines=false</code> for points only), line charts lines only. Axis limits, log scales and <code>equal_axes=true</code> (one unit the same length along both axes) are scatter-only. A legend appears when there are several series or names.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>xlsx.add_chart(wb, sheet, kind, y, [x=], [names=], [colors=], [title=], [x_title=], [y_title=], [at=], [width=160], [height=90], [lines=], [markers=], [legend=], [x_min=], [x_max=], [y_min=], [y_max=], [x_log=false], [y_log=false], [equal_axes=false])</code></td><td><div class="ioitem"><code>wb</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>sheet</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"scatter"</code> (XY, both axes numeric), <code>"line"</code>, <code>"bar"</code> (vertical) or <code>"barh"</code> (horizontal).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">string</span><span class="iodesc"><code>y</code> is a range string (<code>"B2:B40"</code>, <code>"Data!B2:B40"</code>) or a list of them, one series each.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">optional</span><span class="iodesc"><code>x=</code> is one range shared by all series or one per series (x values for scatter, category labels for line/bar).</span></div>
+<div class="ioitem"><code>names</code> <span class="iotype">optional</span><span class="iodesc"><code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette).</span></div>
+<div class="ioitem"><code>colors</code> <span class="iotype">optional</span><span class="iodesc"><code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette).</span></div>
+<div class="ioitem"><code>title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>at</code> <span class="iotype">optional</span><span class="iodesc"><code>at=</code> is the top-left cell (default: two columns right of the used range, row 2).</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">optional (default <code>160</code>)</span><span class="iodesc"><code>width</code>/<code>height</code> in millimetres or lengths.</span></div>
+<div class="ioitem"><code>height</code> <span class="iotype">optional (default <code>90</code>)</span><span class="iodesc"><code>width</code>/<code>height</code> in millimetres or lengths.</span></div>
+<div class="ioitem"><code>lines</code> <span class="iotype">optional</span><span class="iodesc">Scatter draws lines and markers by default (<code>lines=false</code> for points only), line charts lines only.</span></div>
+<div class="ioitem"><code>markers</code> <span class="iotype">optional</span><span class="iodesc">Scatter draws lines and markers by default (<code>lines=false</code> for points only), line charts lines only.</span></div>
+<div class="ioitem"><code>legend</code> <span class="iotype">optional</span><span class="iodesc">A legend appears when there are several series or names.</span></div>
+<div class="ioitem"><code>x_min</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_max</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_min</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_max</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_log</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_log</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>equal_axes</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Axis limits, log scales and <code>equal_axes=true</code> (one unit the same length along both axes) are scatter-only.</span></div>
+</td><td><span class="ionone">no output</span></td><td>Adds a native Excel chart that refers to the cells, so it follows later edits in Excel/LibreOffice.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

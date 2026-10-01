@@ -36,21 +36,56 @@
   <div class="tablewrap"><table>
     <thead><tr><th>Platform</th><th class="mono">Target</th><th>Package</th></tr></thead>
     <tbody>
-      <tr><td>Windows (Intel / AMD)</td><td class="mono">x86_64-pc-windows-msvc</td><td>.zip</td></tr>
-      <tr><td>Windows on ARM</td><td class="mono">aarch64-pc-windows-msvc</td><td>.zip</td></tr>
+      <tr><td>Windows (Intel / AMD)</td><td class="mono">x86_64-pc-windows-msvc</td><td>.zip and -setup.exe</td></tr>
+      <tr><td>Windows on ARM</td><td class="mono">aarch64-pc-windows-msvc</td><td>.zip and -setup.exe</td></tr>
       <tr><td>Linux (Intel / AMD)</td><td class="mono">x86_64-unknown-linux-gnu</td><td>.tar.gz and .deb</td></tr>
       <tr><td>Linux on ARM</td><td class="mono">aarch64-unknown-linux-gnu</td><td>.tar.gz and .deb</td></tr>
       <tr><td>Linux, any distribution</td><td class="mono">x86_64-unknown-linux-musl</td>
           <td>.tar.gz, statically linked</td></tr>
       <tr><td>macOS (Apple silicon)</td><td class="mono">aarch64-apple-darwin</td><td>.tar.gz</td></tr>
-      <tr><td>macOS (Intel)</td><td class="mono">x86_64-apple-darwin</td><td>.tar.gz</td></tr>
     </tbody>
   </table></div>
+  <p class="sub" style="margin-top:12px">There is no separate macOS Intel command-line
+  build: its CI runner was never scheduled, so it was dropped from the release matrix.
+  Intel Macs can build from source (below) or use Qu Studio's universal macOS app.</p>
   <p style="margin-top:20px"><a class="btn primary" href="https://github.com/kallelay/Qu/releases/latest">Latest release</a>
      <a class="btn ghost" href="changelog.html">What changed</a></p>
+  <div class="note"><p>The Windows <code>-setup.exe</code> installs <code>qu</code> for the
+  current user (no admin prompt) into <code>%LOCALAPPDATA%\Programs\Qu</code> and adds it to
+  the user <code>PATH</code>. <code>/S</code> installs silently, <code>/D=&lt;folder&gt;</code>
+  (last) picks the folder, <code>/ALLUSERS</code> installs machine-wide. Uninstall from
+  Settings &rarr; Apps or with <code>uninstall.exe /S</code>; it removes only its own files
+  and <code>PATH</code> entry.</p></div>
   <div class="note"><p>Every release carries <code>SHA256SUMS</code>. The static musl
   build is the one to reach for on an older enterprise distribution or in a minimal
   container &mdash; it depends on nothing.</p></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Qu Studio, and <code>qu</code> on your PATH</h2>
+  <p class="sub">Qu Studio installers are on the same release page and bundle their own
+  <code>qu</code> binary. Only one of them makes that <code>qu</code> usable from an
+  ordinary terminal.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Package</th><th>Puts <code>qu</code> on PATH?</th></tr></thead>
+    <tbody>
+      <tr><td>Qu Studio for Windows, <code>&hellip;_x64-setup.exe</code></td>
+          <td>Yes, for your user account. Its install folder, which holds <code>qu.exe</code>,
+          is added to your user <code>PATH</code>; the uninstaller removes exactly that
+          entry. Open a new terminal afterwards.</td></tr>
+      <tr><td>Qu Studio <code>.msi</code>, macOS <code>.dmg</code>, Linux
+          <code>.AppImage</code>, <code>.deb</code>, <code>.rpm</code></td>
+          <td>No. The bundled <code>qu</code> is for Studio's own use; install a
+          command-line build from the table above as well.</td></tr>
+      <tr><td>Command-line <code>.zip</code> / <code>.tar.gz</code></td>
+          <td>No. Unpack it and add the folder to <code>PATH</code> yourself.</td></tr>
+      <tr><td>Command-line <code>.deb</code></td>
+          <td>Yes. It installs <code>qu</code> into <code>/usr/bin</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><p>The Windows setup also copies Qu syntax support into VS Code,
+  Sublime Text and Notepad++ if it finds that editor's settings folder, and skips it
+  silently otherwise. See <a href="editors.html">Editors</a> for manual installs.</p></div>
 </div></section>
 
 <section><div class="wrap">

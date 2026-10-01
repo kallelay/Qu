@@ -30,27 +30,44 @@
 <h1>replace</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
-<pre class="fnsig">result = <code>replace(s, old, new)</code></pre>
-<p class="fnnote">Input: s, old, new &middot; Output: result</p>
+<pre class="fnsig">result = <code>replace(s, old, new, [count], [case=], [pattern=], [keep=])</code></pre>
+<p class="fnnote">Input: s, old, new, count, case, pattern, keep &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>.</p>
+<p><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>. Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = replace(s, old, new)</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is the <code>Str</code> to search.</span></div>
+<tr><td class="iocode"><code>result = replace(s, old, new, [count], [case=], [pattern=], [keep=])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is the <code>Str</code> to search.</span></div>
 <div class="ioitem"><code>old</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
 <div class="ioitem"><code>new</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>case</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>pattern</code> <span class="iotype">Str or List, optional</span><span class="iodesc">Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</span></div>
+<div class="ioitem"><code>keep</code> <span class="iotype">Str or List, optional</span><span class="iodesc">Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
 </td><td>Returns a <code>Str</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="f">replace</span>(<span class="s">"the programme, the Programme, the PROGRAMME"</span>,
+        <span class="s">"programme"</span>, <span class="s">"program"</span>, <span class="a">case</span>=<span class="s">"preserve"</span>)
+<span class="c"># "the program, the Program, the PROGRAM"</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <div class="example"><pre class="hl"><code><span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>)                     <span class="c"># "axb Z"   the dot is a dot</span>
 <span class="f">replace</span>(<span class="s">"axb a.b"</span>, <span class="s">"a.b"</span>, <span class="s">"Z"</span>, <span class="a">pattern</span>=<span class="s">"regex"</span>)    <span class="c"># "Z Z"</span>
 <span class="f">replace</span>(<span class="s">"a1 b2 c3"</span>, <span class="s">"?#"</span>, <span class="s">"X"</span>, <span class="a">pattern</span>=<span class="s">"wildcard"</span>) <span class="c"># "X X X"</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>env = <span class="f">jsonify</span>(<span class="n">3</span> + <span class="n">4j</span>)
+plain = <span class="f">replace</span>(env, <span class="s">"\"type\":\"complex\","</span>, <span class="s">""</span>)
+v = <span class="f">parse_json</span>(plain)
+<span class="f">print</span>(plain)         <span class="c"># {"re":3.0,"im":4.0}</span>
+<span class="f">print</span>(<span class="f">type</span>(v))       <span class="c"># record</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>{"re":3.0,"im":4.0}
+record</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example hasout"><pre class="hl"><code>s = <span class="s">"  Measurement Lane  "</span>
 <span class="f">print</span>(<span class="s">"[{trim(s)}]"</span>)              <span class="c"># [Measurement Lane]</span>
 <span class="f">print</span>(<span class="f">upper</span>(<span class="f">trim</span>(s)))             <span class="c"># MEASUREMENT LANE</span>

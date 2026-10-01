@@ -215,15 +215,15 @@ const QU_LANGUAGE_CONFIG = {
   extensions: ['.qu'],
   aliases: ['Qu', 'qu'],
   keywords: [
-    'and', 'as', 'assert', 'backend', 'break', 'catch', 'const', 'constant',
-    'continue', 'data', 'def', 'dimension', 'device', 'each', 'elif', 'else',
-    'end', 'error', 'export', 'false', 'for', 'from', 'function', 'if',
-    'import', 'in', 'input', 'let', 'local', 'model', 'module', 'namespace',
-    'not', 'on', 'or', 'param', 'read', 'render', 'return', 'select', 'skip',
+    'and', 'as', 'assert', 'backend', 'break', 'by', 'catch', 'const', 'constant',
+    'continue', 'data', 'def', 'dimension', 'device', 'do', 'each', 'elseif', 'else',
+    'end', 'error', 'export', 'false', 'for', 'from', 'function', 'global', 'if',
+    'import', 'in', 'input', 'let', 'local', 'mod', 'model', 'module', 'namespace',
+    'new', 'none', 'not', 'on', 'or', 'param', 'read', 'render', 'return', 'select', 'skip',
     'step', 'sub', 'table', 'then', 'to', 'train', 'true', 'try', 'type',
     'until', 'using', 'warn', 'where', 'while', 'with', 'animate', 'ease',
     'frame', 'hold', 'collect', 'method', 'signal', 'spectrum', 'cases',
-    'otherwise', 'unit', 'repeat', 'loop', 'elsewhere', 'optional', 'pure',
+    'otherwise', 'unit', 'unsafe', 'repeat', 'loop', 'elsewhere', 'optional', 'pure',
     'elemental', 'swap', 'fit', 'use', 'inline', 'project', 'parallel',
     'restore', 'every', 'after', 'spawn', 'async', 'await', 'run', 'simd',
     'sketch', 'window', 'circuit', 'compose', 'distributed', 'schedule',
@@ -240,7 +240,8 @@ const QU_LANGUAGE_CONFIG = {
   operators: [
     '=', '==', '!=', '<', '>', '<=', '>=', '+', '-', '*', '/', '\\',
     '.*', './', '.\\', '^', '**', ':=', '->', '|>', '&&', '||', '!',
-    '&', '|', '~', '@', '?', '??', '+=', '-=', '*=', '/=', '.='
+    '&', '|', '~', '@', '?', '??', '+=', '-=', '*=', '/=', '.=', '^=', '=>',
+    '.^', '.*=', './='
   ],
   symbols:  /[=><!~?:&|+\-*\\^@]+/,
   escapes:  /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,

@@ -1,0 +1,234 @@
+name: Verify Studio installer (Windows NSIS)
+
+# Builds ONLY the Qu Studio NSIS setup.exe for x86_64 Windows, exactly the
+# way release.yml's `studio` job builds it (same sidecar build, same npm
+# install, same Tauri CLI from the lockfile), then actually runs it on a
+# throwaway runner to check what it does to the user's PATH -- the part
+# that cannot be checked on a developer machine without editing that
+# machine's real PATH.
+#
+# Checks, all against HKCU\Environment\Path read raw (unexpanded):
+#   1. install adds exactly one entry, the install dir, and preserves the
+#      previous value byte for byte (plus the registry value type);
+#   2. a NEW process whose PATH is built from the registry (as a fresh
+#      logon would build it) resolves `qu` to <installdir>\qu.exe and
+#      `qu --version` reports the engine version -- and, as a negative
+#      control, the same construction does NOT find qu before install;
+#   3. a second install over the first leaves PATH unchanged;
+#   4. silent uninstall restores PATH exactly (value absent if it was);
+#   5. 1-4 again with a >2000-char PATH (NSIS strings cap at 1024), with
+#      a >2000-char PATH ending in ';', and with no user PATH at all.
+#
+# Manual only. It builds the engine and Studio from scratch (~20 min).
+# Tauri 2 migration: the build step changes (tauri-cli 2, `bundle` config),
+# the checks themselves should carry over unchanged.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_PROFILE_RELEASE_LTO: "thin"
+
+jobs:
+  nsis:
+    name: Build and verify NSIS setup.exe (windows-x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      TARGET: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: studio-windows-x86_64
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: qu-studio-tauri/package-lock.json
+
+      # Same as release.yml: the sidecar is built from this checkout and
+      # placed where tauri.conf.json's externalBin expects it.
+      - name: Build the qu engine (sidecar)
+        shell: bash
+        run: |
+          set -e
+          cargo build --release --locked --target "$TARGET" --manifest-path engine/Cargo.toml
+          mkdir -p qu-studio-tauri/src-tauri/binaries
+          cp "engine/target/$TARGET/release/qu.exe" "qu-studio-tauri/src-tauri/binaries/qu-$TARGET.exe"
+
+      # Same as release.yml (see the long comment there for why two
+      # explicit installs with a retry).
+      - name: Install frontend dependencies
+        shell: bash
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if npm ci --prefix qu-ui-components && npm ci --prefix qu-studio-tauri --ignore-scripts; then
+              exit 0
+            fi
+            echo "install failed (attempt $attempt/3) -- retrying after a moment"
+            sleep 10
+          done
+          echo "install failed 3 times" >&2
+          exit 1
+
+      # release.yml uses tauri-apps/tauri-action@v0, which runs the
+      # project's own `tauri` npm script (the lockfile-pinned CLI). Called
+      # directly here so only the NSIS bundle is produced.
+      - name: Build the NSIS installer
+        working-directory: qu-studio-tauri
+        shell: bash
+        run: npm run tauri -- build --bundles nsis
+
+      - name: Locate setup.exe
+        id: setup
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem "qu-studio-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe")
+          if ($exe.Count -ne 1) { throw "expected exactly one setup.exe, found $($exe.Count)" }
+          "path=$($exe[0].FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "setup.exe: $($exe[0].FullName) ($($exe[0].Length) bytes)"
+
+      - name: Install / idempotence / uninstall, PATH checks
+        shell: pwsh
+        env:
+          SETUP: ${{ steps.setup.outputs.path }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          $expectedVersion = (Select-String -Path engine/Cargo.toml -Pattern '^version = "(.+)"' |
+                              Select-Object -First 1).Matches[0].Groups[1].Value
+          # A space in the install dir on purpose (the default one,
+          # %LOCALAPPDATA%\Qu Studio, has one too).
+          $dir = Join-Path $env:RUNNER_TEMP 'Qu Studio PATH test'
+
+          function Get-UserPath {
+            $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+            try {
+              $v = $k.GetValue('Path', $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+              if ($null -eq $v) { return [pscustomobject]@{ Exists = $false; Value = $null; Kind = $null } }
+              return [pscustomobject]@{ Exists = $true; Value = [string]$v; Kind = $k.GetValueKind('Path') }
+            } finally { $k.Close() }
+          }
+          function Set-UserPath($value) {   # $null deletes the value
+            $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+            try {
+              if ($null -eq $value) { $k.DeleteValue('Path', $false) }
+              else { $k.SetValue('Path', $value, [Microsoft.Win32.RegistryValueKind]::ExpandString) }
+            } finally { $k.Close() }
+          }
+          function Assert($cond, $msg) { if (-not $cond) { throw "FAIL: $msg" } ; Write-Host "  ok: $msg" }
+          function Show($label, $p) {
+            if ($p.Exists) { Write-Host "  $label ($($p.Kind), $($p.Value.Length) chars): $($p.Value)" }
+            else { Write-Host "  ${label}: <no user Path value>" }
+          }
+          function Assert-SamePath($a, $b, $msg) {
+            Assert (($a.Exists -eq $b.Exists) -and ($a.Value -ceq $b.Value) -and ($a.Kind -eq $b.Kind)) $msg
+          }
+
+          function Run-Setup {
+            # /D must be last and unquoted, even with spaces (NSIS rule).
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList "/S /D=$dir" -Wait -PassThru
+            Assert ($p.ExitCode -eq 0) "setup.exe /S exited 0 (got $($p.ExitCode))"
+          }
+          function Run-Uninstall {
+            # _?= makes the uninstaller run in place and wait, instead of
+            # copying itself to %TEMP% and returning immediately.
+            $p = Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList "/S _?=$dir" -Wait -PassThru
+            Assert ($p.ExitCode -eq 0) "uninstall.exe /S exited 0 (got $($p.ExitCode))"
+            Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+          }
+
+          # A NEW process, with PATH built the way a fresh logon builds it:
+          # machine Path, then user Path, both expanded -- rather than this
+          # runner step's inherited environment, which no installer can
+          # change. Returns the resolved qu path ('' if not found) and output.
+          function Resolve-QuInNewProcess {
+            $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+            $user    = [Environment]::GetEnvironmentVariable('Path', 'User')   # expanded
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "$env:SystemRoot\System32\cmd.exe"
+            $psi.Arguments = '/d /c "where qu.exe && qu --version"'
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $psi.WorkingDirectory = $env:RUNNER_TEMP
+            $psi.EnvironmentVariables['PATH'] = "$machine;$user"
+            $proc = [System.Diagnostics.Process]::Start($psi)
+            $out = $proc.StandardOutput.ReadToEnd(); $err = $proc.StandardError.ReadToEnd()
+            $proc.WaitForExit()
+            $lines = @($out -split "`r?`n" | Where-Object { $_ -ne '' })
+            return [pscustomobject]@{ Exit = $proc.ExitCode; Lines = $lines; Err = $err }
+          }
+
+          function Test-Scenario($name, $startValue, [switch]$KeepRunnerValue) {
+            Write-Host "=== scenario: $name ==="
+            if (-not $KeepRunnerValue) { Set-UserPath $startValue }
+            if (Test-Path $dir) { throw "install dir already exists: $dir" }
+            $before = Get-UserPath; Show 'before' $before
+
+            $pre = Resolve-QuInNewProcess
+            Assert ($pre.Exit -ne 0) "negative control: qu not resolvable in a new process before install"
+
+            Run-Setup
+            $after = Get-UserPath; Show 'after install' $after
+            Assert (Test-Path (Join-Path $dir 'qu.exe')) "qu.exe sidecar installed at $dir\qu.exe"
+            Assert (Test-Path (Join-Path $dir '_up_\_up_\editors\vscode-qu\package.json')) "editor resources at the path the installer's QU_EDITORS_DIR assumes"
+
+            if (-not $before.Exists -or $before.Value -eq '') { $expected = $dir }
+            elseif ($before.Value.EndsWith(';')) { $expected = $before.Value + $dir + ';' }
+            else { $expected = $before.Value + ';' + $dir }
+            Assert ($after.Value -ceq $expected) "PATH after install = previous value + one entry, previous value preserved exactly"
+            $expectedKind = if ($before.Exists) { $before.Kind } else { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+            Assert ($after.Kind -eq $expectedKind) "registry type is $expectedKind"
+            $n = @($after.Value.Split(';') | Where-Object { $_.TrimEnd('\') -ieq $dir }).Count
+            Assert ($n -eq 1) "install dir appears exactly once (found $n)"
+
+            $r = Resolve-QuInNewProcess
+            Write-Host ($r.Lines -join "`n"); if ($r.Err) { Write-Host $r.Err }
+            Assert ($r.Exit -eq 0) "new process ran 'where qu && qu --version' successfully"
+            Assert ($r.Lines[0] -ieq (Join-Path $dir 'qu.exe')) "qu resolves via PATH to the installed sidecar"
+            Assert ($r.Lines[-1] -ceq "qu $expectedVersion") "qu --version prints 'qu $expectedVersion'"
+
+            Run-Setup
+            $again = Get-UserPath; Show 'after 2nd install' $again
+            Assert-SamePath $again $after "second install leaves PATH unchanged (idempotent)"
+
+            Run-Uninstall
+            $restored = Get-UserPath; Show 'after uninstall' $restored
+            if (-not $before.Exists -or $before.Value -eq '') {
+              Assert ((-not $restored.Exists) -or $restored.Value -eq '') "PATH restored to empty/absent"
+            } else {
+              Assert-SamePath $restored $before "uninstall restores PATH exactly (value and type)"
+            }
+          }
+
+          $runnerOriginal = Get-UserPath
+          Show 'runner original' $runnerOriginal
+          $long = (1..70 | ForEach-Object { 'C:\Tools\qu-installer-long-path-test-entry-{0:d3}\bin' -f $_ }) -join ';'
+          if ($long.Length -le 2000) { throw "test setup: long PATH is only $($long.Length) chars" }
+          try {
+            Test-Scenario 'runner PATH as found' $null -KeepRunnerValue
+            Test-Scenario 'long PATH (>2000 chars)' ($long + ';%USERPROFILE%\bin')
+            Test-Scenario 'long PATH ending in ;' ($long + ';')
+            Test-Scenario 'no user PATH value' $null
+            Write-Host "ALL CHECKS PASSED"
+          } finally {
+            if ($runnerOriginal.Exists) {
+              $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+              $k.SetValue('Path', $runnerOriginal.Value, $runnerOriginal.Kind); $k.Close()
+            } else { Set-UserPath $null }
+          }

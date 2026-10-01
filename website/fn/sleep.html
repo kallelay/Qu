@@ -30,16 +30,16 @@
 <h1>sleep</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
-<pre class="fnsig"><code>sleep(seconds)</code></pre>
-<p class="fnnote">Input: seconds &middot; Output: no output</p>
+<pre class="fnsig"><code>sleep(duration)</code></pre>
+<p class="fnnote">Input: duration &middot; Output: no output</p>
 <h2>What it is</h2>
-<p><code>seconds</code> (number, fractional values honoured, e.g. <code>0.5</code> for half a second). Pauses the calling thread for that long.</p>
+<p><code>duration</code>: a time quantity in any time unit (<code>sleep(2 s)</code>, <code>sleep(250 ms)</code>, <code>sleep(10 us)</code>), or a bare number, which is <strong>milliseconds</strong> (<code>sleep(50)</code> is 50 ms; fractions honoured). Pauses the calling thread for that long, first flushing printed output. A non-time unit (<code>sleep(3 V)</code>), a negative or a non-finite duration is an error. *Units accepted since v0.4.4.* Returns <code>none</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>sleep(seconds)</code></td><td><div class="ioitem"><code>seconds</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-</td><td><span class="ionone">no output</span></td><td><code>0.5</code> for half a second). Pauses the calling thread for that long.</td></tr>
+<tr><td class="iocode"><code>sleep(duration)</code></td><td><div class="ioitem"><code>duration</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Pauses the calling thread for that long, first flushing printed output. *Units accepted since v0.4.4.* Returns <code>none</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

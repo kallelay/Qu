@@ -33,12 +33,12 @@
 <pre class="fnsig">result = <code>cumsum(x)</code></pre>
 <p class="fnnote">Input: x &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code> is a numeric <code>Vec</code> or <code>Signal</code>.</p>
+<p><code>x</code> is a numeric <code>Vec</code> or <code>Signal</code>; a boolean mask counts as 0/1, so <code>cumsum(x &gt; c)</code> is a running count.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = cumsum(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec or Signal</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = cumsum(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">Vec, Signal, or boolean</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Signal</span></div>
 </td><td>Returns the running sum, same type/length as <code>x</code>; a <code>Signal</code> input stays a <code>Signal</code> with the same <code>Fs</code>.</td></tr>
 </table></div>

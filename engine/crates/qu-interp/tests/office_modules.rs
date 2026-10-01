@@ -84,6 +84,118 @@ images = info.images
 }
 
 #[test]
+fn docx_structure_links_comments_sections_lists_fields() {
+    let (a, b) = (tmp("s1.docx"), tmp("s2.docx"));
+    let it = run(&format!(
+        r##"
+import docx
+doc = docx.new()
+docx.add_heading(doc, "Method", 1)
+docx.add_paragraph(doc, "See the Qu website for details.")
+docx.add_paragraph(doc, "As shown in ")
+docx.add_link(doc, 1, "https://example.org/qu", on="Qu website")
+docx.add_comment(doc, 1, "Cite it", on="details", author="Ahmed", initials="AK", date="2026-09-30T10:00:00Z")
+docx.add_bookmark(doc, 0, "method")
+docx.add_cross_ref(doc, 2, "method")
+docx.add_cross_ref(doc, 2, "method", show="page")
+docx.add_toc(doc, levels=2, at=0, title="Contents")
+docx.set_header(doc, "Qu report", align="right")
+docx.set_footer(doc, "Page #page of #pages", align="center")
+docx.add_list_item(doc, "first")
+docx.add_list_item(doc, "nested", level=1)
+docx.add_list_item(doc, "step", kind="number")
+docx.add_section_break(doc, start="continuous")
+docx.add_paragraph(doc, "wide")
+docx.page_setup(doc, section=1, orientation="landscape", margins=15 mm)
+docx.page_setup(doc, section=0, size="Letter", top=2 cm)
+docx.save_as(doc, "{a}")
+d = docx.open("{a}")
+links = docx.links(d)
+link_text = links[0].text
+link_url = links[0].url
+c = docx.comments(d)
+c_author = c[0].author
+c_text = c[0].text
+marks = docx.bookmarks(d)
+mark = marks[0].name
+fs = docx.fields(d)
+nf = len(fs)
+toc = fs[0]
+ref = fs[1]
+xref = docx.paragraphs(d)[4]
+head = docx.header_text(d)
+foot = docx.footer_text(d)
+none_first = docx.header_text(d, kind="first")
+s = docx.sections(d)
+ns = len(s)
+w0 = s[0].width
+top0 = s[0].top
+o1 = s[1].orientation
+w1 = s[1].width
+left1 = s[1].left
+start1 = s[1].start
+inherited = docx.header_text(d, section=1)
+md = docx.to_markdown(d)
+docx.set_header(d, "Appendix", section=1)
+docx.set_list(d, 5, kind="none")
+docx.save_as(d, "{b}")
+e = docx.open("{b}")
+h0 = docx.header_text(e, section=0)
+h1 = docx.header_text(e, section=1)
+"##
+    ));
+    assert_eq!(text(&it, "link_text"), "Qu website");
+    assert_eq!(text(&it, "link_url"), "https://example.org/qu");
+    assert_eq!(text(&it, "c_author"), "Ahmed");
+    assert_eq!(text(&it, "c_text"), "Cite it");
+    assert_eq!(text(&it, "mark"), "method");
+    assert_eq!(num(&it, "nf"), 3.0);
+    assert_eq!(text(&it, "toc"), "TOC \\o \"1-2\" \\h \\z \\u");
+    assert_eq!(text(&it, "ref"), "REF method \\h");
+    assert_eq!(text(&it, "xref"), "As shown in Method", "paragraph 4 after the TOC title and field");
+    assert_eq!(text(&it, "head"), "Qu report");
+    assert_eq!(text(&it, "foot"), "Page 1 of 1");
+    assert!(matches!(it.get("none_first"), Some(Value::Nothing)));
+    assert_eq!(num(&it, "ns"), 2.0);
+    assert_eq!(num(&it, "w0"), 215.9);
+    assert_eq!(num(&it, "top0"), 20.0);
+    assert_eq!(text(&it, "o1"), "landscape");
+    assert_eq!(num(&it, "w1"), 297.0);
+    assert_eq!(num(&it, "left1"), 15.0);
+    assert_eq!(text(&it, "start1"), "continuous");
+    assert_eq!(text(&it, "inherited"), "Qu report");
+    assert!(text(&it, "md").contains("- first\n\n- nested\n\n- step"), "{}", text(&it, "md"));
+    assert_eq!(text(&it, "h0"), "Qu report");
+    assert_eq!(text(&it, "h1"), "Appendix");
+}
+
+#[test]
+fn docx_structure_arguments_are_checked() {
+    let pre = "import docx\nd = docx.new()\ndocx.add_paragraph(d, \"hello world\")\n";
+    let bad = |tail: &str| err(&format!("{pre}{tail}"));
+    assert!(bad("docx.add_link(d, 0, \"https://x\", onn=\"hello\")").contains("onn"), "unread keyword is an error");
+    assert!(bad("docx.add_link(d, 0, \"https://x\", on=\"absent\")").contains("does not contain"));
+    assert!(bad("docx.add_link(d, 3, \"https://x\")").contains("paragraph 3"));
+    assert!(bad("docx.add_comment(d, 0, \"c\", on=5)").contains("string"));
+    assert!(bad("docx.add_cross_ref(d, 0, \"nope\")").contains("no bookmark"));
+    assert!(bad("docx.add_toc(d, levels=12)").contains("1 to 9"));
+    assert!(bad("docx.page_setup(d, size=\"A9\")").contains("A4"));
+    assert!(bad("docx.page_setup(d, orientation=\"sideways\")").contains("landscape"));
+    assert!(bad("docx.page_setup(d)").contains("at least one"));
+    assert!(bad("docx.page_setup(d, margins=3 s)").contains("length"));
+    assert!(bad("docx.set_header(d, \"h\", kind=\"odd-ish\")").contains("default, first or even"));
+    assert!(bad("docx.set_footer(d, \"h\", section=4)").contains("section 4"));
+    assert!(bad("docx.add_list_item(d, \"x\", kind=\"roman\")").contains("bullet or number"));
+    assert!(bad("docx.add_section_break(d, start=\"later\")").contains("next_page"));
+    // A bad list call leaves no stray paragraph behind.
+    let mut it = Interp::new();
+    let _ = it.run(&format!("{pre}n0 = len(docx.paragraphs(d))"));
+    let _ = it.run("docx.add_list_item(d, \"x\", level=12)");
+    it.run("n1 = len(docx.paragraphs(d))").unwrap();
+    assert_eq!(num(&it, "n0"), num(&it, "n1"));
+}
+
+#[test]
 fn pptx_slides_shapes_and_rearranging() {
     let (a, img) = (tmp("a.pptx"), tmp("p.png"));
     png(&img);
@@ -117,6 +229,92 @@ md = pptx.to_markdown(q)
 }
 
 #[test]
+fn pptx_notes_shapes_links_and_theme() {
+    let (a, b) = (tmp("n.pptx"), tmp("n2.pptx"));
+    let it = run(&format!(
+        r##"
+import pptx
+p = pptx.new()
+pptx.add_slide(p, title="Results", body=["one", "two"])
+pptx.add_slide(p, layout="Title Only")
+pptx.add_text(p, 0, "see the Nyquist plot", x=20, y=150, w=10 cm, h=2 cm, size=20)
+pptx.save_as(p, "{a}")
+q = pptx.open("{a}")
+before = pptx.notes(q, 0)
+pptx.set_notes(q, 0, "Speak slowly.\nPause.")
+sh = pptx.shapes(q, 0)
+nshapes = len(sh)
+kind2 = sh[2].kind
+tb = sh[2].id
+title_w = sh[0].w
+pptx.set_shape_text(q, 0, tb, "the Nyquist plot, again")
+pptx.move_shape(q, 0, tb, x=3 cm)
+pptx.resize_shape(q, 0, "Title 1", h=25)
+pptx.bring_to_front(q, 0, "Title 1")
+nlinks = pptx.set_link(q, 0, tb, "https://example.org/nyquist", text="Nyquist")
+pptx.set_slide_title(q, 1, "Made here")
+pptx.set_theme_colors(q, accent1="#123456")
+pptx.set_theme_fonts(q, major="Georgia")
+pptx.save_as(q, "{b}")
+r = pptx.open("{b}")
+notes = pptx.notes(r, 0)
+other = pptx.notes(r, 1)
+sh2 = pptx.shapes(r, 0)
+last_name = sh2[2].name
+moved_x = sh2[1].x
+title_h = sh2[2].h
+lk = pptx.links(r, 0)
+link_text = lk[0].text
+link_url = lk[0].url
+title1 = pptx.slide_title(r, 1)
+body0 = pptx.slide_text(r, 0)
+accent = pptx.theme_colors(r).accent1
+major = pptx.theme_fonts(r).major
+pptx.delete_shape(r, 0, tb)
+after_delete = len(pptx.shapes(r, 0))
+"##
+    ));
+    assert_eq!(text(&it, "before"), "");
+    assert_eq!(num(&it, "nshapes"), 3.0);
+    assert_eq!(text(&it, "kind2"), "text");
+    assert!((num(&it, "title_w") - 10515600.0 / 36000.0).abs() < 1e-9, "inherited from the master");
+    assert_eq!(text(&it, "notes"), "Speak slowly.\nPause.");
+    assert_eq!(text(&it, "other"), "");
+    assert_eq!(text(&it, "last_name"), "Title 1", "brought to front");
+    assert_eq!(num(&it, "moved_x"), 30.0);
+    assert_eq!(num(&it, "title_h"), 25.0);
+    assert_eq!(num(&it, "nlinks"), 1.0);
+    assert_eq!(text(&it, "link_text"), "Nyquist");
+    assert_eq!(text(&it, "link_url"), "https://example.org/nyquist");
+    assert_eq!(text(&it, "title1"), "Made here");
+    assert!(text(&it, "body0").contains("the Nyquist plot, again"));
+    assert_eq!(text(&it, "accent"), "#123456");
+    assert_eq!(text(&it, "major"), "Georgia");
+    assert_eq!(num(&it, "after_delete"), 2.0);
+}
+
+#[test]
+fn pptx_shape_edits_check_their_arguments() {
+    let base = "import pptx\np = pptx.new()\npptx.add_slide(p, title=\"T\")\n";
+    assert!(err(&format!("{base}pptx.set_shape_text(p, 0, 42, \"x\")")).contains("no shape id 42"));
+    assert!(err(&format!("{base}pptx.set_shape_text(p, 0, [1, 2], \"x\")")).contains("id (a whole number) or its name"));
+    assert!(err(&format!("{base}pptx.move_shape(p, 0, \"Title 1\")")).contains("give x= and/or y="));
+    assert!(err(&format!("{base}pptx.move_shape(p, 0, \"Title 1\", x=3 s)")).contains("length"));
+    // A misspelt slot is an unread keyword, not silently ignored.
+    assert!(err(&format!("{base}pptx.set_theme_colors(p, accent7=\"#000000\")")).contains("accent7"));
+    assert!(err(&format!("{base}pptx.set_theme_colors(p, accent1=\"#000000\", acent2=\"#111111\")")).contains("acent2"));
+    assert!(err(&format!("{base}pptx.set_theme_colors(p, accent1=\"blue\")")).contains("#rrggbb"));
+    assert!(err(&format!("{base}pptx.set_link(p, 0, \"Title 1\", \"https://x\", text=\"nope\")")).contains("does not occur"));
+    // Editing in memory is allowed in the sandbox; only writing is refused.
+    let mut it = Interp::new();
+    it.set_sandboxed(true);
+    it.run(&format!("{base}pptx.set_notes(p, 0, \"n\")\nn = pptx.notes(p, 0)")).unwrap();
+    assert_eq!(text(&it, "n"), "n");
+    let msg = it.run(&format!("pptx.save_as(p, \"{}\")", tmp("sb.pptx"))).unwrap_err().to_string();
+    assert!(msg.contains("save_as"), "{msg}");
+}
+
+#[test]
 fn xlsx_workbook_edit_in_place() {
     let (a, b) = (tmp("a.xlsx"), tmp("b.xlsx"));
     let it = run(&format!(
@@ -147,6 +345,75 @@ names = xlsx.sheets("{b}")
     assert_eq!(text(&it, "used"), "A1:C3");
     assert_eq!(num(&it, "back"), 99.0);
     assert!(matches!(it.get("m"), Some(Value::Mat(m)) if m.shape() == (2, 2)));
+}
+
+/// Charts, conditional formats and validations through the language; the
+/// package-level known answers live in qu-xlsx's `charts_cf_dv` tests.
+#[test]
+fn xlsx_charts_conditional_formats_and_validation() {
+    let (a, b) = (tmp("ch.xlsx"), tmp("ch_edit.xlsx"));
+    let it = run(&format!(
+        r##"
+import xlsx
+wb = xlsx.new()
+xlsx.set_range(wb, "Sheet1", "A1", table(f=[1, 10, 100, 1000], Zre=[110, 90, 40, 12], Zim=[-5, -45, -40, -3]))
+xlsx.add_chart(wb, "Sheet1", "scatter", ["B2:B5", "C2:C5"], x="A2:A5", names=["Z'", "Z''"], title="Bode", x_title="f / Hz", x_log=true, at="F2", width=12 cm, height=80)
+xlsx.add_chart(wb, "Sheet1", "bar", "B2:B5", x="A2:A5", colors=["teal"], legend=false)
+helper = xlsx.add_nyquist_chart(wb, "Sheet1", "B2:B5", "C2:C5", title="Nyquist")
+xlsx.conditional_format(wb, "Sheet1", "B2:B5", "greater_than", 50)
+xlsx.conditional_format(wb, "Sheet1", "C2:C5", "between", -40, -10, fill="#DDEEFF", bold=true)
+xlsx.conditional_format(wb, "Sheet1", "A1:C1", "contains", "Z", color="red")
+xlsx.color_scale(wb, "Sheet1", "A2:A5", mid="#FFEB84")
+xlsx.add_validation(wb, "Sheet1", "H2:H10", "list", values=["pass", "fail"], prompt="Result?")
+xlsx.add_validation(wb, "Sheet1", "I2:I10", "whole", min=0, max=100, error="0-100 only", error_style="warning")
+xlsx.add_validation(wb, "Sheet1", "J2:J10", "list", source="A2:A5")
+xlsx.add_validation(wb, "Sheet1", "K2:K10", "custom", formula="=K2>A2")
+xlsx.save_as(wb, "{a}")
+w = xlsx.open("{a}")
+hf = xlsx.formula(w, "Sheet1", "D3")
+head = xlsx.get_cell(w, "Sheet1", "D1")
+xlsx.set_cell(w, "Sheet1", "B2", 111)
+xlsx.save_as(w, "{b}")
+back = xlsx.read("{b}").Zre[0]
+"##
+    ));
+    assert_eq!(text(&it, "helper"), "D2:D5");
+    assert_eq!(text(&it, "hf"), "-C3");
+    assert_eq!(text(&it, "head"), "-Zim");
+    assert_eq!(num(&it, "back"), 111.0);
+    let pkg = qu_ooxml::Package::open(&a).unwrap();
+    let charts: Vec<String> = pkg.names().into_iter().filter(|n| n.starts_with("xl/charts/")).collect();
+    assert_eq!(charts.len(), 3);
+    let c1 = pkg.get_str("xl/charts/chart1.xml").unwrap();
+    assert!(c1.contains("<c:logBase val=\"10\"/>") && c1.contains("Sheet1!$C$2:$C$5") && c1.contains("<c:v>Z''</c:v>"));
+    assert!(pkg.get_str("xl/charts/chart2.xml").unwrap().contains("<a:srgbClr val=\"008080\"/>"), "colour names resolve");
+    let ws = pkg.get_str("xl/worksheets/sheet1.xml").unwrap();
+    assert_eq!(ws.matches("<conditionalFormatting").count(), 4);
+    assert_eq!(ws.matches("<dataValidation ").count(), 4);
+    assert!(ws.contains("<formula1>\"pass,fail\"</formula1>") && ws.contains("<formula1>K2&gt;A2</formula1>"));
+    // The later cell edit went through the model; the charts came along.
+    let edited = qu_ooxml::Package::open(&b).unwrap();
+    assert_eq!(edited.names().into_iter().filter(|n| n.starts_with("xl/charts/")).count(), 3);
+}
+
+#[test]
+fn xlsx_chart_arguments_are_checked() {
+    let pre = "import xlsx\nw = xlsx.new()\nxlsx.set_range(w, \"Sheet1\", \"A1\", table(a=[1, 3], b=[2, 4]))\n";
+    assert!(err(&format!("{pre}xlsx.add_chart(w, \"Sheet1\", \"pie\", \"B2:B3\")")).contains("scatter, line, bar"));
+    assert!(err(&format!("{pre}xlsx.add_chart(w, \"Sheet1\", \"line\", \"B2:B3\", colour=\"red\")")).contains("colour"), "unread keywords are errors");
+    let m = err(&format!("{pre}xlsx.add_nyquist_chart(w, \"Sheet1\", \"A2:A3\", \"B2:B3\", x_min=0)"));
+    assert!(m.contains("x_min"), "a Nyquist chart sets its own limits: {m}");
+    assert!(err(&format!("{pre}xlsx.add_chart(w, \"Sheet1\", \"scatter\", \"B2:B3\", width=3 s)")).contains("length"));
+    assert!(err(&format!("{pre}xlsx.conditional_format(w, \"Sheet1\", \"A1:B2\", \"bigger\", 1)")).contains("greater_than"));
+    assert!(err(&format!("{pre}xlsx.conditional_format(w, \"Sheet1\", \"A1:B2\", \"greater_than\", 1, fill=\"notacolour\")")).contains("fill="));
+    assert!(err(&format!("{pre}xlsx.add_validation(w, \"Sheet1\", \"A1\", \"list\", values=[\"a\"], min=1)")).contains("min"), "min= means nothing to a list");
+    assert!(err(&format!("{pre}xlsx.add_validation(w, \"Sheet1\", \"A1\", \"list\")")).contains("values="));
+    // Editing in memory is allowed in the sandbox; only writing the file is not.
+    let mut it = Interp::new();
+    it.set_sandboxed(true);
+    it.run(&format!("{pre}xlsx.add_chart(w, \"Sheet1\", \"line\", \"B2:B3\")\nxlsx.add_validation(w, \"Sheet1\", \"C1\", \"whole\", min=0)")).unwrap();
+    let msg = it.run(&format!("xlsx.save_as(w, \"{}\")", tmp("sb.xlsx"))).unwrap_err().to_string();
+    assert!(msg.contains("save_as"), "{msg}");
 }
 
 #[test]
@@ -187,6 +454,5 @@ fn to_pdf_uses_libreoffice_or_says_it_is_missing() {
 }
 
 fn qu_ooxml_present() -> bool {
-    ["soffice", "libreoffice"].iter().any(|b| std::process::Command::new(b).arg("--version").output().is_ok_and(|o| o.status.success()))
-        || std::env::var("QU_SOFFICE").is_ok()
+    qu_ooxml::find_office().is_some()
 }

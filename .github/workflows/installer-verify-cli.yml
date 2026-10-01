@@ -1,0 +1,114 @@
+name: Verify CLI installer (Windows)
+
+# End-to-end test of the `qu` command-line installer (installer/windows/).
+# The installer edits the Windows PATH in the registry, so it cannot be
+# tested safely on a developer's machine -- this runs it for real on a
+# throwaway runner: silent install to a temp dir, `qu --version` resolved
+# via PATH from a NEW process, reinstall (no duplicate entry), silent
+# uninstall (PATH restored byte for byte), a PATH longer than 2000
+# characters, a missing PATH, REG_SZ vs REG_EXPAND_SZ, a pre-existing
+# entry, the default directory, and a machine-wide /ALLUSERS install.
+# See installer/windows/tests/verify-installer.ps1 for the checks.
+#
+# Manual only. With `tag` empty it builds qu.exe and the installer from the
+# dispatched commit; with `tag` (e.g. v0.4.5) it downloads that release's
+# published setup.exe instead and tests exactly what users get.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag whose published setup.exe to test (empty = build from this commit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: installer (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch: x86_64
+          - name: windows-arm64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PATH logic unit tests (strings only)
+        shell: pwsh
+        run: |
+          & powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\tests\path-logic.tests.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Install Rust
+        if: inputs.tag == ''
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        if: inputs.tag == ''
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build qu and the installer from this commit
+        if: inputs.tag == ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo build --release --locked --target ${{ matrix.target }} --manifest-path engine/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo build failed' }
+          $version = (& "engine\target\${{ matrix.target }}\release\qu.exe" --version) -replace '^qu ', ''
+          $src = Join-Path $env:RUNNER_TEMP 'qu-src'
+          New-Item -ItemType Directory -Force $src | Out-Null
+          Copy-Item "engine\target\${{ matrix.target }}\release\qu.exe", README.md, LICENSE, NOTICE $src
+          $mk = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          if (-not $mk) {
+            foreach ($p in "${env:ProgramFiles(x86)}\NSIS\makensis.exe", "$env:ProgramFiles\NSIS\makensis.exe") {
+              if ($p -and (Test-Path $p)) { $mk = $p; break }
+            }
+          }
+          if (-not $mk) {
+            choco install nsis -y --no-progress
+            $mk = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          }
+          & $mk -VERSION
+          & $mk -WX "-DVERSION=$version" "-DARCH=${{ matrix.arch }}" "-DSRCDIR=$src" "-DOUTDIR=$env:RUNNER_TEMP" installer\windows\qu.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis failed ($LASTEXITCODE)" }
+          "QU_SETUP=$env:RUNNER_TEMP\qu-$version-windows-${{ matrix.arch }}-setup.exe" >> $env:GITHUB_ENV
+          "QU_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Download the published installer
+        if: inputs.tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:TAG -replace '^v', ''
+          $name = "qu-$version-windows-${{ matrix.arch }}-setup.exe"
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern $name --pattern SHA256SUMS --dir $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw "could not download $name from $env:TAG" }
+          $want = (Get-Content "$env:RUNNER_TEMP\SHA256SUMS" | Where-Object { $_ -match "\s\*?$([regex]::Escape($name))$" }) -split '\s+' | Select-Object -First 1
+          $got = (Get-FileHash "$env:RUNNER_TEMP\$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $want -or $want.ToLowerInvariant() -ne $got) { throw "SHA256 mismatch for $name (SHA256SUMS: '$want', file: $got)" }
+          "QU_SETUP=$env:RUNNER_TEMP\$name" >> $env:GITHUB_ENV
+          "QU_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Install / reinstall / uninstall against the real registry
+        shell: pwsh
+        run: |
+          & installer\windows\tests\verify-installer.ps1 -Setup $env:QU_SETUP -Version $env:QU_VERSION
+          if ($LASTEXITCODE -ne 0) { exit 1 }

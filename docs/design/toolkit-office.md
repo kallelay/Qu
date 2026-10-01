@@ -477,10 +477,47 @@ Together with `to_pdf` this closes the loop document -> PDF -> image.
 PDF and inspected) and by python-docx/python-pptx/openpyxl as independent
 readers. Not yet opened in Microsoft Office itself.
 
+**DOCX structure (2026-09-30, v0.4.5, `qu-docx/src/structure.rs`)**:
+hyperlinks (external and `#bookmark`), comment creation, bookmarks,
+cross-references (`REF`/`PAGEREF`), arbitrary fields, TOC, headers and
+footers per section/kind with `#page`/`#pages` fields, page size/
+orientation/margins, section breaks, bulleted/numbered lists with Qu's own
+abstractNum definitions (reused, continued, restartable). Missing parts
+(styles, settings, numbering, comments, header/footer) are created with
+their content type and relationship; new elements go in schema order
+(`w:sectPr`, `w:pPr`, `w:settings`). Text anchors (`on=`) split runs at
+their edges. Validated with LibreOffice (PDF render: live page fields,
+per-section headers, landscape section, list numbering) and python-docx,
+on a new document, a bare package with none of those parts, and a
+LibreOffice-written file (theme, fontTable, customXml, docProps byte
+identical after editing). Finding: LibreOffice does not rebuild a TOC when
+it opens a .docx (dirty flag, `updateFields` and Word's `w:sdt` wrapper
+all tried), so the field carries an "update fields" line as its result.
+
 **Not built yet** (from the roadmap above): charts (Excel XY/Nyquist
 convenience charts, PowerPoint charts), conditional formatting and data
-validation, pivot tables, DOCX sections/headers/footers editing and page
-setup, lists/numbering creation, cross-references/fields/TOC, PPTX
-animations/masters/themes editing and speaker-notes creation on a slide
-that has none, and formula evaluation (formulas are stored and
-calculated by Excel/LibreOffice on open).
+validation, pivot tables, PPTX animations and slide-master/layout
+editing, and formula evaluation (formulas are stored and calculated by
+Excel/LibreOffice on open).
+
+**PPTX shapes, notes, links and theme (v0.4.5, branch
+`claude/office-pptx-shapes`).** `set_notes` now writes notes on a slide
+that has none: a `notesSlide` part with its two relationships (notes
+master, slide), the slide's relationship to it and a content-type
+override; when the deck has no notes master a minimal one is created
+with its own copy of the slide theme (a notes master must own a theme)
+and listed in `p:notesMasterIdLst`. The slide XML itself is not touched.
+`shapes` lists top-level shapes (a group is one) with kind, mm geometry
+-- a placeholder with no `a:xfrm` reports the box it inherits, matched by
+`idx` in the layout and by type in the master -- and text; shapes are
+addressed by `p:cNvPr id` or name, and an `mc:AlternateContent` shape is
+edited in every branch. `set_link` splits runs at match boundaries and
+adds an external `hyperlink` relationship (removed again if nothing
+matched). `delete_shape` drops relationships only that shape used and an
+image part no relationship in the package targets any more (charts and
+other targets are left as orphans -- not cleaned). Theme edits rewrite
+only the theme part the first slide master uses. Known-answer tests
+assert the exact set of parts each edit changes, with an unknown
+`customXml` part and the other slides byte-identical. Still out of this
+lane: charts (the xlsx lane owns the chart-XML writer), animations,
+master/layout editing, shapes nested inside groups.

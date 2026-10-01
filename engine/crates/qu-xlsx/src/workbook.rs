@@ -12,10 +12,20 @@
 //! LibreOffice recalculate on open, and a formula cell read back here
 //! reports its formula text (and whatever cached value the file had).
 
+use crate::surgical::{self, CfRule, CfStyle, CfValue, ChartReq, CondReq, Pending, Rng, SeriesReq, ValKind, ValidReq};
+pub use qu_ooxml::chart::ChartKind;
 use umya_spreadsheet as umya;
 
 pub struct Workbook {
     book: umya::Workbook,
+    /// The file as opened. Saved unchanged (plus the pending edits) while
+    /// no cell-level edit has gone through the model.
+    source: Option<Vec<u8>>,
+    /// A cell/sheet edit went through `umya`, so saving must re-serialize.
+    model_dirty: bool,
+    /// Charts, conditional formats, validations: applied to the package at
+    /// save time (see `surgical.rs`).
+    pending: Vec<Pending>,
 }
 
 /// A cell's value as the language sees it.
@@ -97,24 +107,43 @@ fn hex(c: &str) -> Result<String, String> {
 
 impl Workbook {
     pub fn open(path: &str) -> Result<Self, String> {
-        let book = umya::reader::xlsx::read(path).map_err(err(&format!("xlsx.open: `{path}`")))?;
-        Ok(Workbook { book })
+        let bytes = std::fs::read(path).map_err(err(&format!("xlsx.open: `{path}`")))?;
+        let book = umya::reader::xlsx::read_reader(std::io::Cursor::new(&bytes), true).map_err(err(&format!("xlsx.open: `{path}`")))?;
+        Ok(Workbook { book, source: Some(bytes), model_dirty: false, pending: Vec::new() })
     }
 
     /// A new workbook with one empty sheet, `Sheet1`.
     pub fn new() -> Self {
-        Workbook { book: umya::new_file() }
+        Workbook { book: umya::new_file(), source: None, model_dirty: true, pending: Vec::new() }
     }
 
     pub fn save(&self, path: &str) -> Result<(), String> {
-        umya::writer::xlsx::write(&self.book, path).map_err(err(&format!("xlsx.save: `{path}`")))
+        let bytes = self.to_bytes().map_err(|e| format!("xlsx.save: `{path}`: {e}"))?;
+        std::fs::write(path, bytes).map_err(err(&format!("xlsx.save: `{path}`")))
     }
 
     /// The workbook as `.xlsx` bytes, for conversion without a file.
+    ///
+    /// Cell edits go through the `umya` model, which rebuilds the package;
+    /// with none, the package is the file as opened. Charts, conditional
+    /// formats and validations are then added to it part by part.
     pub fn to_bytes(&self) -> Result<Vec<u8>, String> {
-        let mut out = std::io::Cursor::new(Vec::new());
-        umya::writer::xlsx::write_writer(&self.book, &mut out).map_err(err("xlsx"))?;
-        Ok(out.into_inner())
+        let base = match (&self.source, self.model_dirty) {
+            (Some(b), false) => b.clone(),
+            _ => {
+                let mut out = std::io::Cursor::new(Vec::new());
+                umya::writer::xlsx::write_writer(&self.book, &mut out).map_err(err("xlsx"))?;
+                out.into_inner()
+            }
+        };
+        if self.pending.is_empty() {
+            return Ok(base);
+        }
+        let mut pkg = qu_ooxml::Package::from_bytes(&base)?;
+        for p in &self.pending {
+            surgical::apply(&mut pkg, p, self)?;
+        }
+        pkg.to_bytes()
     }
 
     pub fn sheet_names(&self) -> Vec<String> {
@@ -127,6 +156,7 @@ impl Workbook {
 
     fn sheet_mut(&mut self, name: &str) -> Result<&mut umya::Worksheet, String> {
         let names = self.sheet_names();
+        self.model_dirty = true;
         self.book.sheet_by_name_mut(name).map_err(|_| format!("no sheet named `{name}` -- the workbook has: {}", names.join(", ")))
     }
 
@@ -234,12 +264,18 @@ impl Workbook {
         if self.sheet_names().iter().any(|n| n == name) {
             return Err(format!("the workbook already has a sheet named `{name}`"));
         }
+        self.model_dirty = true;
         self.book.new_sheet(name).map(|_| ()).map_err(err("add_sheet"))
     }
 
     pub fn rename_sheet(&mut self, old: &str, new: &str) -> Result<(), String> {
         let i = self.sheet_names().iter().position(|n| n == old).ok_or_else(|| format!("no sheet named `{old}`"))?;
-        self.book.set_sheet_name(i, new).map_err(err("rename_sheet"))
+        self.model_dirty = true;
+        self.book.set_sheet_name(i, new).map_err(err("rename_sheet"))?;
+        for p in &mut self.pending {
+            p.rename_sheet(old, new);
+        }
+        Ok(())
     }
 
     pub fn delete_sheet(&mut self, name: &str) -> Result<(), String> {
@@ -247,6 +283,8 @@ impl Workbook {
             return Err("cannot delete the only sheet -- a workbook needs at least one".into());
         }
         self.sheet(name)?;
+        self.model_dirty = true;
+        self.pending.retain(|p| p.sheet() != name);
         self.book.remove_sheet_by_name(name).map_err(err("delete_sheet"))
     }
 
@@ -388,8 +426,396 @@ impl Workbook {
         let mut d = umya::DefinedName::default();
         d.set_name(name);
         d.set_address(address);
+        self.model_dirty = true;
         self.book.add_defined_names(d);
         Ok(())
+    }
+}
+
+/// What `add_chart` is asked for, before the ranges are checked.
+#[derive(Clone, Debug)]
+pub struct ChartOptions {
+    pub kind: ChartKind,
+    /// One range per series (`"B2:B40"`, `"Data!B2:B40"`).
+    pub y: Vec<String>,
+    /// None, one range shared by every series, or one per series.
+    pub x: Vec<String>,
+    pub names: Vec<String>,
+    pub colors: Vec<String>,
+    pub title: Option<String>,
+    pub x_title: Option<String>,
+    pub y_title: Option<String>,
+    /// Top-left cell; default: two columns right of the used range, row 2.
+    pub at: Option<String>,
+    pub width_mm: Option<f64>,
+    pub height_mm: Option<f64>,
+    pub lines: Option<bool>,
+    pub markers: Option<bool>,
+    pub x_min: Option<f64>,
+    pub x_max: Option<f64>,
+    pub y_min: Option<f64>,
+    pub y_max: Option<f64>,
+    pub x_log: bool,
+    pub y_log: bool,
+    pub legend: Option<bool>,
+    pub equal_axes: bool,
+}
+
+impl ChartOptions {
+    pub fn new(kind: ChartKind) -> Self {
+        ChartOptions {
+            kind,
+            y: Vec::new(),
+            x: Vec::new(),
+            names: Vec::new(),
+            colors: Vec::new(),
+            title: None,
+            x_title: None,
+            y_title: None,
+            at: None,
+            width_mm: None,
+            height_mm: None,
+            lines: None,
+            markers: None,
+            x_min: None,
+            x_max: None,
+            y_min: None,
+            y_max: None,
+            x_log: false,
+            y_log: false,
+            legend: None,
+            equal_axes: false,
+        }
+    }
+}
+
+/// `"scatter"`/`"xy"`, `"line"`, `"bar"`/`"column"` (vertical), `"barh"` (horizontal).
+pub fn chart_kind(name: &str) -> Result<ChartKind, String> {
+    match name.to_ascii_lowercase().as_str() {
+        "scatter" | "xy" => Ok(ChartKind::Scatter),
+        "line" => Ok(ChartKind::Line),
+        "bar" | "column" => Ok(ChartKind::Column),
+        "barh" => Ok(ChartKind::Bar),
+        other => Err(format!("chart kind \"{other}\" -- use scatter, line, bar (vertical) or barh (horizontal)")),
+    }
+}
+
+/// A comparison rule by its Qu name.
+pub fn cf_operator(rule: &str) -> Option<&'static str> {
+    Some(match rule {
+        "greater_than" => "greaterThan",
+        "less_than" => "lessThan",
+        "greater_equal" => "greaterThanOrEqual",
+        "less_equal" => "lessThanOrEqual",
+        "equal" => "equal",
+        "not_equal" => "notEqual",
+        "between" => "between",
+        "not_between" => "notBetween",
+        _ => return None,
+    })
+}
+
+impl surgical::Cells for Workbook {
+    fn number(&self, sheet: &str, col: u32, row: u32) -> Option<f64> {
+        match self.book.sheet_by_name(sheet).ok().map(|ws| cell_value(ws.cell((col, row)))) {
+            Some(CellValue::Num(x)) => Some(x),
+            _ => None,
+        }
+    }
+
+    fn text(&self, sheet: &str, col: u32, row: u32) -> String {
+        match self.book.sheet_by_name(sheet).ok().map(|ws| cell_value(ws.cell((col, row)))) {
+            Some(CellValue::Num(x)) => format!("{x}"),
+            Some(CellValue::Str(s)) => s,
+            Some(CellValue::Bool(b)) => (if b { "TRUE" } else { "FALSE" }).to_string(),
+            _ => String::new(),
+        }
+    }
+
+    fn col_width(&self, sheet: &str, col: u32) -> f64 {
+        let Ok(ws) = self.book.sheet_by_name(sheet) else { return 8.43 };
+        match ws.column_dimension_by_number(col).map(|c| c.width()) {
+            Some(w) if w > 0.0 => w,
+            _ => Some(ws.sheet_format_properties().default_column_width()).filter(|w| *w > 0.0).unwrap_or(8.43),
+        }
+    }
+
+    fn row_height(&self, sheet: &str, row: u32) -> f64 {
+        let Ok(ws) = self.book.sheet_by_name(sheet) else { return 15.0 };
+        match ws.row_dimension(row).map(|r| r.height()) {
+            Some(h) if h > 0.0 => h,
+            _ => Some(ws.sheet_format_properties().default_row_height()).filter(|h| *h > 0.0).unwrap_or(15.0),
+        }
+    }
+}
+
+impl Workbook {
+    fn sheet_range(&self, text: &str, default_sheet: &str) -> Result<Rng, String> {
+        let r = surgical::parse_ref(text, default_sheet)?;
+        self.sheet(&r.sheet)?;
+        Ok(r)
+    }
+
+    /// The cell two columns right of the used range, row 2 (`B2` on an empty sheet).
+    fn free_anchor(&self, sheet: &str) -> Result<(u32, u32), String> {
+        Ok(match self.used_range(sheet)? {
+            Some(u) => (parse_range(&u)?.2 + 2, 2),
+            None => (2, 2),
+        })
+    }
+
+    /// Charts on this workbook that are not saved yet.
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
+
+    /// Add a chart to `sheet` from cell ranges. The chart refers to the
+    /// cells (it follows later edits in Excel/LibreOffice) and carries a
+    /// cached copy of their current values for readers that do not
+    /// recalculate.
+    pub fn add_chart(&mut self, sheet: &str, o: &ChartOptions) -> Result<(), String> {
+        self.add_chart_with(sheet, o, None)
+    }
+
+    fn add_chart_with(&mut self, sheet: &str, o: &ChartOptions, negated_from: Option<Rng>) -> Result<(), String> {
+        self.sheet(sheet)?;
+        if o.y.is_empty() {
+            return Err("add_chart needs at least one y range".into());
+        }
+        let n = o.y.len();
+        if o.x.len() > 1 && o.x.len() != n {
+            return Err(format!("{n} y ranges but {} x ranges -- give one x range for all, or one per series", o.x.len()));
+        }
+        if !o.names.is_empty() && o.names.len() != n {
+            return Err(format!("{n} series but {} names", o.names.len()));
+        }
+        if !o.colors.is_empty() && o.colors.len() != n {
+            return Err(format!("{n} series but {} colors", o.colors.len()));
+        }
+        if o.equal_axes && o.kind != ChartKind::Scatter {
+            return Err("equal_axes= needs a scatter chart -- only there are both axes numeric".into());
+        }
+        if (o.x_log || o.x_min.is_some() || o.x_max.is_some()) && o.kind != ChartKind::Scatter {
+            return Err("x_min=/x_max=/x_log= need a scatter chart -- a line or bar chart's x axis is categories".into());
+        }
+        for c in &o.colors {
+            surgical::hex6(c)?;
+        }
+        let mut series = Vec::with_capacity(n);
+        for (i, y) in o.y.iter().enumerate() {
+            let y = self.sheet_range(y, sheet)?;
+            if !y.is_line() {
+                return Err(format!("y range `{}` is a block -- a series is one row or one column", y.a1()));
+            }
+            let x = match o.x.len() {
+                0 => None,
+                1 => Some(self.sheet_range(&o.x[0], sheet)?),
+                _ => Some(self.sheet_range(&o.x[i], sheet)?),
+            };
+            if let Some(x) = &x {
+                if !x.is_line() || x.len() != y.len() {
+                    return Err(format!("x range `{}` has {} cells but y range `{}` has {}", x.a1(), x.len(), y.a1(), y.len()));
+                }
+            }
+            series.push(SeriesReq { name: o.names.get(i).cloned(), x, y, color: o.colors.get(i).cloned(), negated_from: if i == 0 { negated_from.clone() } else { None } });
+        }
+        let at = match &o.at {
+            Some(a) => parse_cell(a)?,
+            None => self.free_anchor(sheet)?,
+        };
+        let (w, h) = (o.width_mm.unwrap_or(if o.equal_axes { 150.0 } else { 160.0 }), o.height_mm.unwrap_or(if o.equal_axes { 110.0 } else { 90.0 }));
+        if !(20.0..=2000.0).contains(&w) || !(20.0..=2000.0).contains(&h) {
+            return Err(format!("chart size {w} x {h} mm -- each side must be 20 to 2000 mm"));
+        }
+        let scatter = o.kind == ChartKind::Scatter;
+        let req = ChartReq {
+            sheet: sheet.to_string(),
+            kind: o.kind,
+            title: o.title.clone(),
+            x_title: o.x_title.clone(),
+            y_title: o.y_title.clone(),
+            legend: o.legend.unwrap_or(n > 1 || !o.names.is_empty()),
+            series,
+            at,
+            width_mm: w,
+            height_mm: h,
+            lines: o.lines.unwrap_or(true),
+            markers: o.markers.unwrap_or(scatter),
+            x_min: o.x_min,
+            x_max: o.x_max,
+            y_min: o.y_min,
+            y_max: o.y_max,
+            x_log: o.x_log,
+            y_log: o.y_log,
+            equal_axes: o.equal_axes,
+        };
+        // Build it once now, so a bad axis or colour is reported at the
+        // call and not at save time.
+        let spec = surgical::chart_spec(&req, self)?;
+        qu_ooxml::chart::chart_part(&spec)?;
+        self.pending.push(Pending::Chart(req));
+        Ok(())
+    }
+
+    /// A Nyquist plot (impedance spectroscopy): Z' along x, -Z'' up, both
+    /// axes on the same scale so a semicircle looks like one.
+    ///
+    /// `re`/`im` are the ranges holding Z' and Z''. With `negate` (the
+    /// usual case: Z'' stored with its sign, negative for a capacitive
+    /// arc) a helper column of `=-Z''` formulas is written -- `helper` names
+    /// its column, default the first free column right of the used range --
+    /// and plotted; its range is returned. Without it `im` is plotted as is
+    /// and no cell changes.
+    pub fn add_nyquist_chart(&mut self, sheet: &str, re: &str, im: &str, negate: bool, helper: Option<&str>, mut o: ChartOptions) -> Result<Option<String>, String> {
+        let re_r = self.sheet_range(re, sheet)?;
+        let im_r = self.sheet_range(im, sheet)?;
+        if !re_r.is_line() || !im_r.is_line() || re_r.len() != im_r.len() {
+            return Err(format!("Z' range `{}` and Z'' range `{}` must be single columns (or rows) of the same length", re_r.a1(), im_r.a1()));
+        }
+        let mut plotted = im_r.clone();
+        let mut helper_col = None;
+        if negate {
+            if im_r.c1 != im_r.c2 {
+                return Err("negate=true writes a helper COLUMN, so Z'' must be a column range".into());
+            }
+            let col = match helper {
+                Some(c) => parse_cell(&format!("{c}1"))?.0,
+                None => self.free_anchor(&im_r.sheet)?.0 - 1,
+            };
+            if col == im_r.c1 || (col == re_r.c1 && re_r.sheet == im_r.sheet) {
+                return Err(format!("helper column {} would overwrite the data", column_letters(col)));
+            }
+            plotted = Rng { sheet: im_r.sheet.clone(), c1: col, r1: im_r.r1, c2: col, r2: im_r.r2 };
+            helper_col = Some(col);
+        }
+        o.kind = ChartKind::Scatter;
+        o.equal_axes = true;
+        o.x = vec![re_r.absolute()];
+        o.y = vec![plotted.absolute()];
+        o.x_title.get_or_insert_with(|| "Z' / Ω".to_string());
+        o.y_title.get_or_insert_with(|| "-Z'' / Ω".to_string());
+        if o.lines.is_none() {
+            o.lines = Some(false);
+        }
+        // The chart is checked before any cell is written, so a refused
+        // call leaves the sheet as it was.
+        self.add_chart_with(sheet, &o, negate.then(|| im_r.clone()))?;
+        let Some(col) = helper_col else { return Ok(None) };
+        let s = im_r.sheet.clone();
+        let dest = format!("{}{}:{}{}", column_letters(col), im_r.r1, column_letters(col), im_r.r2);
+        self.fill_formula(&s, &dest, &format!("=-{}{}", column_letters(im_r.c1), im_r.r1))?;
+        if im_r.r1 > 1 {
+            let head = format!("{}{}", column_letters(col), im_r.r1 - 1);
+            if self.get(&s, &head)? == CellValue::Empty {
+                let label = match self.get(&s, &format!("{}{}", column_letters(im_r.c1), im_r.r1 - 1))? {
+                    CellValue::Str(t) if !t.is_empty() => format!("-{t}"),
+                    _ => "-Z''".to_string(),
+                };
+                self.set(&s, &head, &CellValue::Str(label))?;
+            }
+        }
+        Ok(Some(dest))
+    }
+
+    /// Highlight the cells of `range` that satisfy a rule, with a fill,
+    /// font colour and/or bold.
+    pub fn conditional_format(&mut self, sheet: &str, range: &str, rule: CfRule, style: CfStyle) -> Result<(), String> {
+        let range = self.sheet_range(range, sheet)?;
+        if range.sheet != sheet {
+            return Err("the range must be on the sheet being formatted (give it without a sheet name)".into());
+        }
+        match &rule {
+            CfRule::Cell { op, b, .. } => {
+                let two = matches!(*op, "between" | "notBetween");
+                if two != b.is_some() {
+                    return Err(if two { "between/not_between need two values".into() } else { "only between/not_between take a second value".into() });
+                }
+            }
+            CfRule::Contains(t) if t.is_empty() => return Err("contains: the text to look for is empty".into()),
+            CfRule::Scale(cs) => {
+                if !(2..=3).contains(&cs.len()) {
+                    return Err("a colour scale has two or three colours".into());
+                }
+                for c in cs {
+                    surgical::hex6(c)?;
+                }
+            }
+            _ => {}
+        }
+        if !matches!(rule, CfRule::Scale(_)) {
+            if style.fill.is_none() && style.color.is_none() && !style.bold {
+                return Err("give the highlight: fill=, color= and/or bold=".into());
+            }
+            for c in style.fill.iter().chain(style.color.iter()) {
+                surgical::hex6(c)?;
+            }
+        }
+        self.pending.push(Pending::Cond(CondReq { range, rule, style }));
+        Ok(())
+    }
+
+    /// Restrict what can be typed into `range`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_validation(&mut self, sheet: &str, range: &str, kind: ValKind, prompt: Option<String>, prompt_title: Option<String>, error: Option<String>, error_title: Option<String>, error_style: Option<String>, allow_blank: bool) -> Result<(), String> {
+        let range = self.sheet_range(range, sheet)?;
+        if range.sheet != sheet {
+            return Err("the range must be on the sheet being validated (give it without a sheet name)".into());
+        }
+        match &kind {
+            ValKind::List(items) => {
+                if items.is_empty() {
+                    return Err("a list validation needs at least one value".into());
+                }
+                if let Some(bad) = items.iter().find(|s| s.contains(',') || s.contains('"')) {
+                    return Err(format!("list value \"{bad}\" -- an inline list cannot hold commas or quotes; put the values in cells and use source="));
+                }
+                let len = items.iter().map(|s| s.chars().count() + 1).sum::<usize>();
+                if len > 256 {
+                    return Err(format!("the list is {len} characters -- Excel allows 255 inline; put the values in cells and use source="));
+                }
+            }
+            ValKind::ListFrom(r) => {
+                self.sheet(&r.sheet)?;
+                if !r.is_line() {
+                    return Err("source= must be one row or one column".into());
+                }
+            }
+            ValKind::Number(_, lo, hi) => {
+                if lo.is_none() && hi.is_none() {
+                    return Err("give min=, max= or both".into());
+                }
+                if let (Some(a), Some(b)) = (lo, hi) {
+                    if a > b {
+                        return Err(format!("min ({a}) is above max ({b})"));
+                    }
+                }
+            }
+            ValKind::Custom(f) if f.trim().trim_start_matches('=').is_empty() => return Err("the custom formula is empty".into()),
+            _ => {}
+        }
+        let error_style = error_style.unwrap_or_else(|| "stop".into());
+        if !matches!(error_style.as_str(), "stop" | "warning" | "information") {
+            return Err(format!("error_style=\"{error_style}\" -- use stop, warning or information"));
+        }
+        for (what, v, max) in [("prompt", &prompt, 255), ("prompt_title", &prompt_title, 32), ("error", &error, 255), ("error_title", &error_title, 32)] {
+            if v.as_ref().is_some_and(|s| s.chars().count() > max) {
+                return Err(format!("{what}= is longer than Excel's {max} characters"));
+            }
+        }
+        self.pending.push(Pending::Valid(ValidReq { range, kind, prompt, prompt_title, error, error_title, error_style, allow_blank }));
+        Ok(())
+    }
+}
+
+/// A rule's comparison value from a Qu number or string (`"=..."` is a formula).
+pub fn cf_value_num(x: f64) -> CfValue {
+    CfValue::Num(x)
+}
+
+pub fn cf_value_text(s: &str) -> CfValue {
+    match s.strip_prefix('=') {
+        Some(f) => CfValue::Formula(f.to_string()),
+        None => CfValue::Text(s.to_string()),
     }
 }
 

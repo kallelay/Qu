@@ -15,8 +15,10 @@ cargo build --release --manifest-path engine/Cargo.toml
 engine/target/release/qu repl
 ```
 
-`qu run script.qu` runs a file. `qu repl` gives you a prompt. Everything
-below works in either.
+`qu run script.qu` runs a file. `qu repl` gives you a prompt. `qu repl
+script.qu` does both: it runs the file, then leaves you at a prompt with
+the script's variables still defined. Everything below works in any of
+them.
 
 ## 2. Numbers, vectors, and printing
 

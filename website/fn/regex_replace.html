@@ -30,18 +30,19 @@
 <h1>regex_replace</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
-<pre class="fnsig">result = <code>regex_replace(s, pattern, repl, [count])</code></pre>
-<p class="fnnote">Input: s, pattern, repl, count &middot; Output: result</p>
+<pre class="fnsig">result = <code>regex_replace(s, pattern, repl, [count], [keep=])</code></pre>
+<p class="fnnote">Input: s, pattern, repl, count, keep &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s; optional <code>count</code> (number, default: all occurrences) caps how many replacements are made. <code>$1</code> and <code>${name}</code> in <code>repl</code> refer to capture groups.</p>
+<p>Replaces every match of the regular expression <code>pattern</code> in <code>s</code> with <code>repl</code>. <code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s; optional <code>count</code> (number, default: all occurrences) caps how many replacements are made. <code>$1</code> and <code>${name}</code> in <code>repl</code> refer to capture groups. Optional <code>keep=</code> (a regex, or a <code>List</code> of them) leaves alone any match that falls inside text it matches -- the stand-in for lookahead, which Qu's regex engine does not have.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = regex_replace(s, pattern, repl, [count])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s.</span></div>
-<div class="ioitem"><code>pattern</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s.</span></div>
-<div class="ioitem"><code>repl</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s.</span></div>
+<tr><td class="iocode"><code>result = regex_replace(s, pattern, repl, [count], [keep=])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code>, <code>pattern</code> and <code>repl</code> are <code>Str</code>s.</span></div>
+<div class="ioitem"><code>pattern</code> <span class="iotype">&mdash;</span><span class="iodesc">Replaces every match of the regular expression <code>pattern</code> in <code>s</code> with <code>repl</code>.</span></div>
+<div class="ioitem"><code>repl</code> <span class="iotype">&mdash;</span><span class="iodesc">Replaces every match of the regular expression <code>pattern</code> in <code>s</code> with <code>repl</code>.</span></div>
 <div class="ioitem"><code>count</code> <span class="iotype">number, optional</span><span class="iodesc">optional <code>count</code> (number, default: all occurrences) caps how many replacements are made.</span></div>
+<div class="ioitem"><code>keep</code> <span class="iotype">List, optional</span><span class="iodesc">Optional <code>keep=</code> (a regex, or a <code>List</code> of them) leaves alone any match that falls inside text it matches -- the stand-in for lookahead, which Qu's regex engine does not have.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
 </td><td>Returns a <code>Str</code>.</td></tr>
 </table></div>
