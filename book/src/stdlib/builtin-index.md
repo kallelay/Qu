@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1203 builtins, 1115 described.** The rest are
+**1207 builtins, 1119 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -350,7 +350,9 @@ program, and a misspelled call suggests the nearest match.
 | [`figure_background`](../fn/figure_background.html) | Sets the current figure's SVG background fill to `color` (string: `"#rrggbb"` hex or a CSS named colour; default `"#ffffff"`), passed straight through, unparsed | [Plotting](plotting.md) |
 | [`figure_size`](../fn/figure_size.html) | Sets canvas size either from `w`, `h` (numbers, raw units) or from a named journal-column preset string (e.g. `"ieee1"`) | [Plotting](plotting.md) |
 | [`file_exists`](../fn/file_exists.html) | Whether `path` (a `Str`) exists and is a regular file / a directory | [File I/O](file-io.md) |
+| [`file_history`](../fn/file_history.html) | The saved versions of `path`, newest first, as a table with columns `version` (the id), `saved` (UTC time) and `bytes` | [File I/O](file-io.md) |
 | [`file_size`](../fn/file_size.html) | Reports a file's size without opening it | [File I/O](file-io.md) |
+| [`file_versioning`](../fn/file_versioning.html) | Turns file history on (`true`) or off (`false`) for the rest of the run; with no argument, changes nothing | [File I/O](file-io.md) |
 | [`fill_between`](../fn/fill_between.html) | A filled band between two curves: `x`, `y_lo`, `y_hi` are equal-length numeric Vecs giving the lower and upper boundary at each `x`, e.g. a confidence interval | [Plotting](plotting.md) |
 | [`fill_missing`](../fn/fill_missing.html) | `x` with the missing samples patched, same length, so a `Signal` keeps its `Fs` | [Noise](noise.md) |
 | [`filter`](../fn/filter.html) | Returns a `Table` containing only the rows where `mask` is `true` | [Collections & strings](collections-strings.md) |
@@ -878,6 +880,7 @@ program, and a misspelled call suggests the nearest match.
 | [`read_uint64`](../fn/read_uint64.html) | Reads an unsigned 64-bit integer from `f` (file handle, opened readable) | [File I/O](file-io.md) |
 | [`read_until`](../fn/read_until.html) | Reads from `f` (file handle, opened readable) up to and including the next occurrence of `delimiter` (string), consuming it | [File I/O](file-io.md) |
 | [`read_values`](../fn/read_values.html) | Reads `n` (number, count) typed values from an already-open handle | [File I/O](file-io.md) |
+| [`read_version`](../fn/read_version.html) | The content of one saved version of `path` as a `Str` | [File I/O](file-io.md) |
 | [`real`](../fn/real.html) | Real component of a `Complex`/`CVec`/`CMat` (identity — `x` passed through unchanged — when `x` is already real) | [Core maths](core-math.md) |
 | [`recall`](../fn/recall.html) | Classification metrics on a length-`N` vector of true labels `actual` and a length-`N` vector of predicted labels `predicted`, each returning a single number macro-averaged over every class.. | [Statistics & ML](statistics-ml.md) |
 | [`rect`](../fn/rect.html) | Draws an axis-aligned rectangle | [Plotting](plotting.md) |
@@ -895,8 +898,8 @@ program, and a misspelled call suggests the nearest match.
 | [`regions`](../fn/regions.html) | Added in v0.2.4. The signal's regions as a list of records with `start`, `end` and `label`, in start order | [Signal processing](signal-processing.md) |
 | [`relu`](../fn/relu.html) | Elementwise activation applied to a number, vector, or matrix `x` of any shape — `relu` clips negative values to zero, `sigmoid` squashes to `(0, 1)` | [Statistics & ML](statistics-ml.md) |
 | [`remove`](../fn/remove.html) | Two overloads, picked by the type of the second argument: `text` (`Str`) deletes every occurrence of it; `start` (number, 0-based index) with optional `count` (number of characters,.. | [Collections & strings](collections-strings.md) |
-| [`remove_dir`](../fn/remove_dir.html) | Deletes the directory `path`. Refuses a non-empty directory unless `recursive=true` — this check applies whether or not `recycle_bin` is set, since "may I remove a whole tree" and "should.. | [File I/O](file-io.md) |
-| [`remove_file`](../fn/remove_file.html) | Deletes `path` (a `Str`). Errors if it does not exist or is not a regular file, rather than silently doing nothing | [File I/O](file-io.md) |
+| [`remove_dir`](../fn/remove_dir.html) | Deletes the directory `path`, to the Recycle Bin/Trash by default and outright with `permanent=true`, as `remove_file` | [File I/O](file-io.md) |
+| [`remove_file`](../fn/remove_file.html) | Deletes `path` (a `Str`) to the OS Recycle Bin/Trash by default, so it can be recovered; `permanent=true` deletes it outright (*default changed in v0.4.5*; the older `recycle_bin=false`.. | [File I/O](file-io.md) |
 | [`remove_nan`](../fn/remove_nan.html) | `x` with the missing samples dropped | [Noise](noise.md) |
 | [`remove_noise`](../fn/remove_noise.html) | `x` is a length-N number vector or `Signal`. `method="wiener"` (default): a local adaptive Wiener filter — for each sample, compares the local variance in a `window`-wide neighborhood.. | [Noise](noise.md) |
 | [`remove_outliers`](../fn/remove_outliers.html) | The same criterion, with the flagged samples dropped | [Noise](noise.md) |
@@ -912,6 +915,7 @@ program, and a misspelled call suggests the nearest match.
 | [`resistor`](../fn/resistor.html) | `R` | [Signal processing](signal-processing.md) |
 | [`resize`](../fn/resize.html) | Returns a new `Image` of exactly `width` x `height` pixels | [Images](images.md) |
 | [`restart`](../fn/restart.html) | Returns a number: the elapsed time up to this call (the completed "lap"), then resets the object to zero and immediately starts it running again — a one-call lap/checkpoint pattern for.. | [REPL & diagnostics](repl-diagnostics.md) |
+| [`restore_version`](../fn/restore_version.html) | Writes that version back to `path`, first keeping the current content as a new version, so a restore can itself be undone | [File I/O](file-io.md) |
 | [`return_loss`](../fn/return_loss.html) | Returns `-20 log10 \|Γ\|` in dB, positive for a passive load — the engineering convention in which "20 dB return loss" means well matched | [Signal processing](signal-processing.md) |
 | [`reverse`](../fn/reverse.html) | Unicode-aware character reversal for a `Str` (same type back); element-order reversal for a `List`/`Vec`/`Mask` (same type and shape back) | [Collections & strings](collections-strings.md) |
 | [`rewind`](../fn/rewind.html) | Resets `f`'s (file handle, opened readable) read cursor to the beginning — exactly `seek(f, 0)` | [File I/O](file-io.md) |
@@ -1085,7 +1089,7 @@ program, and a misspelled call suggests the nearest match.
 | [`tcp_send`](../fn/tcp_send.html) | Neither call frames the message for you — TCP is a stream, so a length prefix or delimiter is yours to add if you need distinct messages | [Concurrency](concurrency.md) |
 | [`tell`](../fn/tell.html) | Reports `f`'s (file handle, opened readable) current read position | [File I/O](file-io.md) |
 | [`tex`](../fn/tex.html) | Not figure export — converts a single Qu value `x` (number, Vec, Mat, or complex) to a LaTeX math-mode string (e.g. a matrix becomes a `bmatrix` environment) and returns it as a string | [Plotting](plotting.md) |
-| [`text`](../fn/text.html) | Plain text label `text` (string) placed at `(x, y)` (numbers, data units), no marker dot | [Plotting](plotting.md) |
+| [`text`](../fn/text.html) | Plain text label `text` (string) placed at `(x, y)` (numbers, data units), no marker dot -- by default just up and to the right of the point | [Plotting](plotting.md) |
 | [`thd`](../fn/thd.html) | Returns a single number, dB below the fundamental | [Signal processing](signal-processing.md) |
 | [`thd_n`](../fn/thd_n.html) | Returns a single number, dB below the fundamental: harmonics *and* noise together against the signal (`-sinad_db`, the same `noise_power` `sinad` already totals over every non-excitation.. | [Signal processing](signal-processing.md) |
 | [`theme`](../fn/theme.html) | Sets the whole-figure visual theme from `name` (string): one of `"default"`, `"publication"`, `"bw"`, `"minimal"`, `"grey"`, `"classic"` | [Plotting](plotting.md) |

@@ -9,8 +9,8 @@
 //! `mkdir`/`file_exists`/`dir_exists`/`make_file`/`tmp_file`/`list_dir`), and
 //! **type casts** (`to_int`/`to_float`/`to_bool`).
 //!
-//! **§ fileops (2026-09-16)**: `remove_file`/`remove_dir` (with an optional
-//! `recycle_bin=true` — the one thing `std::fs::remove_*` genuinely cannot
+//! **§ fileops (2026-09-16)**: `remove_file`/`remove_dir` (to the Recycle
+//! Bin by default since 2026-10-01, `permanent=true` to delete outright — the one thing `std::fs::remove_*` genuinely cannot
 //! do, hence the `trash` crate dependency, see this crate's `Cargo.toml`),
 //! `rename_file`/`move_file`/`copy_file`/`create_file` (all four sharing an
 //! `on_exists="error"|"overwrite"|"skip"` collision policy). `mkdir`/
@@ -824,27 +824,44 @@ fn check_collision(target: &str, policy: &str, caller: &str) -> R<bool> {
     }
 }
 
-/// `remove_file(path, [recycle_bin=false])` — deletes a file. Errors
-/// clearly if `path` doesn't exist or isn't a regular file (checked up
-/// front, matching `cd`'s own "check first, don't just surface the raw OS
-/// error" convention) rather than leaving that to `remove`/`trash::delete`'s
-/// own error text. `recycle_bin=true` sends it to the OS Recycle Bin/Trash
-/// (via the `trash` crate — see this crate's `Cargo.toml` for why that
-/// needs a crate at all) instead of a permanent delete; default `false`
-/// keeps the previously-only-available behavior as the default, since a
-/// script that has always run permanent-delete should not silently start
-/// leaving recoverable copies behind after this builtin was added.
+/// Whether a `remove_file`/`remove_dir` call deletes outright. Since
+/// 2026-10-01 the default is the OS Recycle Bin/Trash: a deleted file is
+/// recoverable unless the caller says `permanent=true`. The older
+/// `recycle_bin=` spelling still works (`recycle_bin=false` is
+/// `permanent=true`); giving both with opposite meanings is an error rather
+/// than one silently winning.
+pub(crate) fn remove_is_permanent(style: &[(String, Value)]) -> R<bool> {
+    let permanent = style_entry(style, "permanent").map(|(_, v)| truthy(v));
+    let recycle = style_entry(style, "recycle_bin").map(|(_, v)| truthy(v));
+    match (permanent, recycle) {
+        (Some(p), Some(r)) if p == r => e(format!(
+            "permanent={p} and recycle_bin={r} contradict each other -- give one of them"
+        )),
+        (Some(p), _) => Ok(p),
+        (None, Some(r)) => Ok(!r),
+        (None, None) => Ok(false),
+    }
+}
+
+/// `remove_file(path, [permanent=false])` — deletes a file: to the OS
+/// Recycle Bin/Trash by default (via the `trash` crate), outright with
+/// `permanent=true`. Errors clearly if `path` doesn't exist or isn't a
+/// regular file (checked up front, matching `cd`'s own "check first, don't
+/// just surface the raw OS error" convention). When the trash cannot take
+/// it (no trash on this system or volume), that is an error naming
+/// `permanent=true`, never a silent fall back to a permanent delete.
 fn remove_file(args: &[Value], style: &[(String, Value)]) -> R<Value> {
     let path = text_arg(args, 0)?;
     if !std::path::Path::new(&path).is_file() {
         return e(format!("remove_file: `{path}` does not exist or is not a file"));
     }
-    let recycle = style_entry(style, "recycle_bin")
-        .map(|(_, v)| truthy(v))
-        .unwrap_or(false);
+    let recycle = !remove_is_permanent(style).map_err(|m| EvalError { msg: format!("remove_file: {}", m.msg) })?;
     if recycle {
         trash::delete(&path).map_err(|err| EvalError {
-            msg: format!("remove_file: could not send `{path}` to the Recycle Bin: {err}"),
+            msg: format!(
+                "remove_file: could not send `{path}` to the Recycle Bin: {err} -- nothing was deleted; \
+                 pass permanent=true to delete it outright"
+            ),
         })?;
     } else {
         std::fs::remove_file(&path).map_err(|err| EvalError {
@@ -854,7 +871,7 @@ fn remove_file(args: &[Value], style: &[(String, Value)]) -> R<Value> {
     Ok(Value::Nothing)
 }
 
-/// `remove_dir(path, [recursive=false], [recycle_bin=false])` — deletes a
+/// `remove_dir(path, [recursive=false], [permanent=false])` — deletes a
 /// directory. `recursive` gates whether a NON-EMPTY directory may be
 /// removed at all: default `false` means this only succeeds on an already-
 /// empty directory, checked explicitly (via `read_dir` returning nothing)
@@ -871,9 +888,7 @@ fn remove_dir(args: &[Value], style: &[(String, Value)]) -> R<Value> {
     let recursive = style_entry(style, "recursive")
         .map(|(_, v)| truthy(v))
         .unwrap_or(false);
-    let recycle = style_entry(style, "recycle_bin")
-        .map(|(_, v)| truthy(v))
-        .unwrap_or(false);
+    let recycle = !remove_is_permanent(style).map_err(|m| EvalError { msg: format!("remove_dir: {}", m.msg) })?;
     if !recursive {
         let non_empty = std::fs::read_dir(&path)
             .map_err(|err| EvalError {
@@ -889,7 +904,10 @@ fn remove_dir(args: &[Value], style: &[(String, Value)]) -> R<Value> {
     }
     if recycle {
         trash::delete(&path).map_err(|err| EvalError {
-            msg: format!("remove_dir: could not send `{path}` to the Recycle Bin: {err}"),
+            msg: format!(
+                "remove_dir: could not send `{path}` to the Recycle Bin: {err} -- nothing was deleted; \
+                 pass permanent=true to delete it outright"
+            ),
         })?;
     } else if recursive {
         std::fs::remove_dir_all(&path).map_err(|err| EvalError {

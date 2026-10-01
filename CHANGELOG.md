@@ -10,6 +10,32 @@ changes are called out.
 
 ## [Unreleased]
 
+**Changed: `remove_file`/`remove_dir` send to the Recycle Bin/Trash by
+default.** A deleted file can be recovered unless the call says
+`permanent=true` (the old `recycle_bin=false` still means permanent;
+contradicting the two is an error). Where no trash is available, the call
+fails naming `permanent=true` instead of deleting for good.
+
+File history: `file_versioning(true)` (or `QU_FILE_HISTORY=1`) keeps the
+current content of every file a builtin is about to overwrite --
+`write_text`, `write_csv`, `save`, `savefig`, `fopen("w"/"a")`, Office
+`save_as`, overwriting copies/moves, permanent deletes and more -- in a
+`.qu-versions/` folder beside it, the same store Qu Studio's editor
+already keeps, so either sees the other's versions. `file_history(path)`
+lists them, `read_version(path, v)` reads one, `restore_version(path, v)`
+puts one back (undoably). 50 versions per file; files over 100 MB are not
+copied.
+
+`text(x, y, s, rotate=, align=)`: a label tilted (degrees, anticlockwise)
+and anchored exactly at its point by the given edge -- gene names at 45
+degrees over their arrows, labels at computed positions. `d[key]` reads a
+dict (a missing key is an error listing the keys; `get` stays the
+forgiving form). Named y ticks (`yticklabels`) widen the left margin
+instead of running off the canvas. New catalog example
+`qu_genome_synteny.qu`: a gggenomes-style synteny map (gene arrows,
+homology ribbons with inversions, a transposon with its GC content) in
+about 100 lines of plain Qu.
+
 ## [0.4.4] - 2026-09-29
 
 Every family on the distribution-relationships chart, under MATLAB's names:

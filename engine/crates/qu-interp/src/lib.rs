@@ -181,6 +181,7 @@ pub mod surgery_ops;
 pub mod text_ops;
 pub mod file_meta_ops;
 pub mod fs_ops;
+pub mod file_history;
 pub mod json_ops;
 pub mod path_ops;
 
@@ -4408,6 +4409,9 @@ pub struct Interp {
     /// `check_sandbox`'s own doc comment for the exact v1 deny list and why
     /// it lives there rather than scattered across individual match arms.
     sandboxed: bool,
+    /// `file_versioning(true)` / `QU_FILE_HISTORY=1`: keep a version of
+    /// every file a builtin is about to overwrite -- see `file_history.rs`.
+    file_history: bool,
     /// Deprecated builtin names already warned about in this run, so a
     /// call inside a loop warns once rather than ten thousand times and
     /// buries the output it is trying to draw attention to.
@@ -6366,6 +6370,7 @@ impl Interp {
             next_llm_id: 0,
             index_len_stack: Vec::new(),
             sandboxed: false,
+            file_history: file_history::enabled_from_env(),
             profiling: false,
             profile_stats: HashMap::new(),
             source: String::new(),
@@ -11857,6 +11862,34 @@ impl Interp {
                     }
                 }
             }
+            // `d[key]` -- what every reader from Python, MATLAB's
+            // containers.Map or R's named lists writes first. A missing key
+            // is an error naming the keys there are (`get(d, key)` stays
+            // the forgiving form that returns `none`).
+            Value::Dict(pairs) => {
+                if indices.len() != 1 {
+                    return e("a dict takes a single index: the key");
+                }
+                let Idx::Expr(ex) = &indices[0] else {
+                    return e("a dict is indexed by a key, not a slice");
+                };
+                let key = match self.eval(ex)? {
+                    Value::Str(s) => s,
+                    Value::Num(n) => fmt_num(n),
+                    other => {
+                        return e(format!("a dict is indexed by a string or number key, found {}", other.type_name()))
+                    }
+                };
+                match pairs.iter().find(|(k, _)| *k == key) {
+                    Some((_, v)) => Ok(v.clone()),
+                    None => {
+                        let mut known: Vec<&str> = pairs.iter().map(|(k, _)| k.as_str()).collect();
+                        known.truncate(12);
+                        let more = if pairs.len() > 12 { format!(", ... ({} keys)", pairs.len()) } else { String::new() };
+                        e(format!("dict has no key `{key}` -- it has: {}{more} (`get(d, key)` returns none instead)", known.join(", ")))
+                    }
+                }
+            }
             other => e(format!("cannot index a {}", other.type_name())),
         }
     }
@@ -16627,6 +16660,8 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             "remove_file",
             "remove_dir",
             "rename_file",
+            // writes a file back from its history
+            "restore_version",
             "move_file",
             "copy_file",
             "create_file",
@@ -17008,6 +17043,23 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         // guard at the top is the smallest possible footprint here).
         if self.sandboxed {
             self.check_sandbox(f, &args)?;
+        }
+        // § file history: keep the current version of a file this call is
+        // about to overwrite. A version that cannot be kept stops the
+        // write -- history was asked for, so losing it silently is worse.
+        if self.file_history {
+            if let Some(target) = file_history::target_of(f, &args, &style) {
+                match file_history::snapshot(&target) {
+                    Ok(None) => {}
+                    Ok(Some(note)) => self.warn_once("file_history_size", &note),
+                    Err(err) => {
+                        return e(format!(
+                            "{f}: file history is on and the current `{target}` could not be kept ({err}) -- \
+                             nothing was written; file_versioning(false) turns history off"
+                        ))
+                    }
+                }
+            }
         }
         // elementwise math (scalar or vector)
         let e1 = |g: fn(f64) -> f64, a: &Value| map1(a.clone(), g);
@@ -32979,6 +33031,11 @@ self.eval_grad(loss, wrt)
             // unifrnd/binornd/poissrnd/... -- the samplers of every family in
             // `distributions.rs`, drawn from this interpreter's RNG so
             // `seed(n)` and `seed=` govern them like `rand`.
+            // file_versioning / file_history / read_version / restore_version
+            f if file_history::NAMES.contains(&f) => {
+                let all = arg_all(&args);
+                file_history::call(f, &all, &mut self.file_history)
+            }
             f if distributions::RND_NAMES.contains(&f) => {
                 let mut local;
                 let rng: &mut Rng = match seed {
@@ -34968,7 +35025,7 @@ self.eval_grad(loss, wrt)
                             y: rmax * 1.13 * a.sin(),
                             text: format!("{deg:.0}\u{00B0}"),
                             color: Some("#5a5a5a".into()),
-                            arrow_to: None, marker: false, italic: false, size: None,
+                            arrow_to: None, marker: false, italic: false, size: None, ..Default::default()
                         });
                     }
                     // The radial scale, read along one spoke. Zero is not
@@ -34980,7 +35037,7 @@ self.eval_grad(loss, wrt)
                             y: rr,
                             text: plotting::format_tick(rr),
                             color: Some("#5a5a5a".into()),
-                            arrow_to: None, marker: false, italic: false, size: None,
+                            arrow_to: None, marker: false, italic: false, size: None, ..Default::default()
                         });
                     }
                     let panel = self.figure.current_panel_mut();
@@ -40126,10 +40183,18 @@ self.eval_grad(loss, wrt)
                 let y = arg_get(&args, 1).ok_or_else(|| EvalError { msg: format!("{f}(x, y, text) needs 3 arguments") })?
                     .as_num().map_err(|msg| EvalError { msg })?;
                 let text = text_arg(&args, 2)?;
+                let align = match style_str(&style, "align") {
+                    None => None,
+                    Some(a) => Some(plotting::parse_align(&a).ok_or_else(|| EvalError {
+                        msg: format!("{f}: align= is \"left\", \"center\" or \"right\", got \"{a}\""),
+                    })?),
+                };
                 self.figure.current_panel_mut().callouts.push(plotting::Callout {
                     x, y, text, arrow_to: None, marker: f == "annotate",
                     color: style_str(&style, "color"), size: style_num(&style, "size"),
                     italic: style_entry(&style, "italic").is_some_and(|(_, v)| truthy(v)),
+                    rotate: style_num(&style, "rotate").unwrap_or(0.0),
+                    align,
                 });
                 // Returned so the label can be referred to afterwards --
                 // `note = text(...)`, then `rule.color = note.color`. A
@@ -40145,6 +40210,7 @@ self.eval_grad(loss, wrt)
                     x: x0, y: y0, text, arrow_to: Some((x1, y1)), marker: false,
                     color: style_str(&style, "color"), size: style_num(&style, "size"),
                     italic: style_entry(&style, "italic").is_some_and(|(_, v)| truthy(v)),
+                    ..Default::default()
                 });
                 Ok(Value::Nothing)
             }
@@ -40160,6 +40226,7 @@ self.eval_grad(loss, wrt)
                     x, y, text, arrow_to: None, marker: true,
                     color: style_str(&style, "color"), size: style_num(&style, "size"),
                     italic: false,
+                    ..Default::default()
                 });
                 Ok(Value::Nothing)
             }
@@ -45390,27 +45457,27 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
     "expcdf", "expfit", "expinv", "explain", "explore", "expm1", "exponential", "exppdf", "exprnd",
     "expstat", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
-    "figure", "figure_background", "figure_size", "file_exists", "file_info", "file_size",
-    "fill_between", "fill_missing", "filter", "filter_ba", "filter_init", "filter_next", "filtfilt",
-    "find", "find_clipping", "find_edges", "find_hex", "find_missing", "find_outliers",
-    "find_peaks", "find_pulses", "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1",
-    "firls", "first", "fit", "fit_scaler", "flatten", "flip", "fliplr", "flipud", "floor", "fold",
-    "fontfamily", "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz",
-    "frnd", "fstat", "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv",
-    "gamma", "gampdf", "gamrnd", "gamstat", "gaussian_process", "generate", "geocdf", "geofit",
-    "geoinv", "geopdf", "geornd", "geostat", "gerischer", "get", "get_bit", "getenv", "glob",
-    "gmm_model", "goertzel", "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad",
-    "gradient_boosting_model", "graph", "grayscale", "grep", "grid", "gridworld_env",
-    "group_by_agg", "group_delay", "groupbar", "gru_cell", "gru_forward", "gru_init", "hamming",
-    "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge", "has_key",
-    "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode", "hex_encode",
-    "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram", "hit_miss", "hline",
-    "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get", "huffman_decode",
-    "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf", "hygernd",
-    "hygestat", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im", "imadjust",
-    "imag", "image", "image_from_matrix", "image_new", "image_regions", "imagesc", "imbothat",
-    "imclose", "imdilate", "imequalize", "imerode", "imfilter", "imhist", "imnoise", "imopen",
-    "impedance", "impedance_from_reflection", "impulse", "imrotate", "imscale", "imshow",
+    "figure", "figure_background", "figure_size", "file_exists", "file_history", "file_info",
+    "file_size", "file_versioning", "fill_between", "fill_missing", "filter", "filter_ba",
+    "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
+    "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
+    "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit", "fit_scaler",
+    "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily", "fontsize", "fopen",
+    "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat", "fuzzy_pid_init",
+    "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf", "gamrnd", "gamstat",
+    "gaussian_process", "generate", "geocdf", "geofit", "geoinv", "geopdf", "geornd", "geostat",
+    "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel", "goertzel_freq",
+    "gpu_matmul", "gpu_probe_info", "grad", "gradient_boosting_model", "graph", "grayscale", "grep",
+    "grid", "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell", "gru_forward",
+    "gru_init", "hamming", "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge",
+    "has_key", "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode",
+    "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram",
+    "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
+    "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf",
+    "hygernd", "hygestat", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
+    "imadjust", "imag", "image", "image_from_matrix", "image_new", "image_regions", "imagesc",
+    "imbothat", "imclose", "imdilate", "imequalize", "imerode", "imfilter", "imhist", "imnoise",
+    "imopen", "impedance", "impedance_from_reflection", "impulse", "imrotate", "imscale", "imshow",
     "imtophat", "imtranslate", "imwarp", "inch", "indent", "index", "index_of", "indexof",
     "inductor", "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr", "irfft",
@@ -45460,18 +45527,18 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "read_bin", "read_bit", "read_byte", "read_bytes", "read_char", "read_chars", "read_csv",
     "read_double", "read_float", "read_input", "read_int", "read_int16", "read_int32", "read_int64",
     "read_line", "read_mat", "read_struct", "read_structs", "read_uint16", "read_uint32",
-    "read_uint64", "read_until", "read_values", "real", "recall", "rect", "rectangle", "reduce",
-    "reflection_coefficient", "regex_count", "regex_find", "regex_find_all", "regex_groups",
-    "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu", "remove",
-    "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
+    "read_uint64", "read_until", "read_values", "read_version", "real", "recall", "rect",
+    "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find", "regex_find_all",
+    "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu",
+    "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
     "remove_small_blobs", "rename_file", "repeat_str", "replace", "replace_bytes",
     "replace_outliers", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
-    "resistor", "resize", "restart", "return_loss", "reverse", "reverse_bytes", "rewind", "rfe",
-    "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time", "rising_edges",
-    "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse", "rmsprop",
-    "robust_scale", "roc_auc", "rolling_max", "rolling_mean", "rolling_min", "rolling_rms",
-    "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim", "run_for",
-    "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save", "save_all",
+    "resistor", "resize", "restart", "restore_version", "return_loss", "reverse", "reverse_bytes",
+    "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time",
+    "rising_edges", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
+    "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean", "rolling_min",
+    "rolling_rms", "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
+    "run_for", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save", "save_all",
     "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
     "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score", "sech", "seed",
     "seek", "select", "semaphore", "semaphore_acquire", "semaphore_available", "semaphore_release",
@@ -73398,6 +73465,53 @@ end for");
     }
 
     #[test]
+    fn dict_index_reads_a_value_and_names_the_keys_when_missing() {
+        let it = run("d = dict((\"MCP\", \"NA\"), (\"#d9622b\", \"#e2d6bd\"))\nc = d[\"MCP\"]\nk = \"N\" + \"A\"\nn = d[k]");
+        assert!(matches!(it.get("c"), Some(Value::Str(s)) if s == "#d9622b"));
+        assert!(matches!(it.get("n"), Some(Value::Str(s)) if s == "#e2d6bd"));
+        let err = run_err("d = dict((\"a\", \"b\"), (1, 2))\nx = d[\"z\"]");
+        assert!(err.msg.contains("no key `z`") && err.msg.contains("a, b"), "{}", err.msg);
+    }
+
+    #[test]
+    fn text_rotate_and_align_place_the_label_exactly() {
+        let path = std::env::temp_dir().join(format!("qu_text_rot_{}.svg", std::process::id()));
+        let p = path.to_string_lossy().replace('\\', "/");
+        run(&format!(
+            "figure()\nplot([0, 10], [0, 10])\ntext(5, 5, \"tilted\", rotate = 45, align = \"left\")\n\
+             text(5, 5, \"plain\")\nsavefig(\"{p}\")"
+        ));
+        let svg = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let tilted = svg.lines().find(|l| l.contains(">tilted<")).expect("tilted label drawn");
+        // anticlockwise as displayed = a negative SVG rotation, anchored at
+        // its start, with no offset from the point
+        assert!(tilted.contains("rotate(-45 ") && tilted.contains("text-anchor=\"start\""), "{tilted}");
+        let plain = svg.lines().find(|l| l.contains(">plain<")).unwrap();
+        assert!(!plain.contains("rotate("), "{plain}");
+        let x_of = |l: &str| l.split("x=\"").nth(1).unwrap().split('"').next().unwrap().parse::<f64>().unwrap();
+        assert!((x_of(plain) - x_of(tilted) - 6.0).abs() < 0.01, "default keeps its 6px offset; align= places exactly");
+        assert!(run_err("text(1, 1, \"x\", align = \"diagonal\")").msg.contains("align="));
+    }
+
+    #[test]
+    fn long_named_y_ticks_stay_on_the_canvas() {
+        let path = std::env::temp_dir().join(format!("qu_ytick_w_{}.svg", std::process::id()));
+        let p = path.to_string_lossy().replace('\\', "/");
+        run(&format!(
+            "figure()\nplot([0, 1], [1, 3])\nyticks([1, 2, 3])\nyticklabels(\"RCC970_016B_long_name\", \"b\", \"c\")\nsavefig(\"{p}\")"
+        ));
+        let svg = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let line = svg.lines().find(|l| l.contains(">RCC970_016B_long_name<")).unwrap();
+        let x: f64 = line.split("x=\"").nth(1).unwrap().split('"').next().unwrap().parse().unwrap();
+        let size: f64 = line.split("font-size=\"").nth(1).unwrap().split('"').next().unwrap().parse().unwrap();
+        // right-anchored at x: its left edge is x minus its width (~0.6 em
+        // per character is a generous bound for this sans face)
+        assert!(x - 0.6 * size * 21.0 > 0.0, "label starts off-canvas: x = {x}, size = {size}");
+    }
+
+    #[test]
     fn mask_arithmetic_reads_as_zero_one() {
         let it = run(
             "x = [1, 2, 3]\na = (x <= 2) * 1\nb = (x <= 2) + (x >= 2)\n\
@@ -84879,12 +84993,98 @@ sb = size(b)");
     // recycle-bin and on_exists collision-policy support ----
 
     #[test]
-    fn remove_file_deletes_permanently_by_default() {
+    fn remove_file_permanent_true_deletes_outright() {
         let path = file_test_path("qu_fo_remove_test.txt");
         std::fs::write(&path, b"gone soon").unwrap();
         let lit = qu_path_literal(&path);
-        let _ = run(&format!("remove_file(\"{lit}\")")).out;
+        let _ = run(&format!("remove_file(\"{lit}\", permanent=true)")).out;
         assert!(!path.exists(), "remove_file should have deleted the file");
+    }
+
+    /// Since 2026-10-01 the default is the Recycle Bin. Where the trash can
+    /// be listed (Linux, Windows) the test proves the file is IN it -- the
+    /// only thing that tells a trash apart from a permanent delete -- and
+    /// then purges it, so running the suite does not fill a real trash.
+    #[test]
+    fn remove_file_sends_to_the_recycle_bin_by_default() {
+        let name = format!("qu_fo_trash_default_{}.txt", std::process::id());
+        let path = file_test_path(&name);
+        std::fs::write(&path, b"recoverable").unwrap();
+        let lit = qu_path_literal(&path);
+        let mut it = Interp::new();
+        match it.run(&format!("remove_file(\"{lit}\")")) {
+            Ok(()) => {}
+            // A machine with no usable trash must say so, not delete.
+            Err(err) => {
+                assert!(err.msg.contains("permanent=true") && path.exists(), "{}", err.msg);
+                let _ = std::fs::remove_file(&path);
+                return;
+            }
+        }
+        assert!(!path.exists(), "the file left its original path");
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
+        {
+            let items: Vec<_> = trash::os_limited::list().unwrap().into_iter().filter(|i| i.name == name.as_str()).collect();
+            assert_eq!(items.len(), 1, "the file is in the trash, not deleted");
+            let _ = trash::os_limited::purge_all(items);
+        }
+    }
+
+    #[test]
+    fn remove_file_rejects_contradicting_permanent_and_recycle_bin() {
+        let path = file_test_path("qu_fo_remove_contra.txt");
+        std::fs::write(&path, b"x").unwrap();
+        let lit = qu_path_literal(&path);
+        let err = run_err(&format!("remove_file(\"{lit}\", permanent=true, recycle_bin=true)"));
+        assert!(err.msg.contains("contradict") && path.exists(), "{}", err.msg);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn file_history_keeps_versions_only_when_on_and_restores_them() {
+        let dir = file_test_path("qu_fh_dir");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("notes.txt");
+        let lit = qu_path_literal(&f);
+        // off by default: overwriting keeps nothing
+        run(&format!("write_text(\"{lit}\", \"v0\")\nwrite_text(\"{lit}\", \"v1\")"));
+        assert!(!dir.join(".qu-versions").exists(), "history is opt-in");
+        let it = run(&format!(
+            "was = file_versioning(true)\nwrite_text(\"{lit}\", \"v2\")\nwrite_text(\"{lit}\", \"v3\")\n\
+             h = file_history(\"{lit}\")\nn = nrow(h)\nlast = read_version(\"{lit}\", 1)\nfirst = read_version(\"{lit}\", 2)\n\
+             restore_version(\"{lit}\", 2)\nnow = read_all_text(\"{lit}\")\nn2 = nrow(file_history(\"{lit}\"))\n\
+             f = fopen(\"{lit}\", \"w\")\nclose(f)\nn3 = nrow(file_history(\"{lit}\"))"
+        ));
+        assert!(matches!(it.get("was"), Some(Value::Bool(false))));
+        assert!(matches!(it.get("n"), Some(Value::Num(x)) if *x == 2.0), "{:?}", it.get("n"));
+        assert!(matches!(it.get("last"), Some(Value::Str(s)) if s == "v2"), "newest version = what v3 replaced");
+        assert!(matches!(it.get("first"), Some(Value::Str(s)) if s == "v1"));
+        assert!(matches!(it.get("now"), Some(Value::Str(s)) if s == "v1"), "restored");
+        assert!(matches!(it.get("n2"), Some(Value::Num(x)) if *x == 3.0), "the restore kept what it replaced");
+        assert!(matches!(it.get("n3"), Some(Value::Num(x)) if *x == 4.0), "fopen(\"w\") truncation is versioned");
+        // Studio's layout: <dir>/.qu-versions/<name>/<nanoseconds>.qu
+        let snaps = std::fs::read_dir(dir.join(".qu-versions").join("notes.txt")).unwrap().count();
+        assert_eq!(snaps, 4);
+        let err = run_err(&format!("x = read_version(\"{lit}\", 9)"));
+        assert!(err.msg.contains("4 saved version"), "{}", err.msg);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_permanent_delete_under_history_keeps_a_version() {
+        let dir = file_test_path("qu_fh_del");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("data.csv");
+        std::fs::write(&f, b"a,b\n1,2\n").unwrap();
+        let lit = qu_path_literal(&f);
+        let it = run(&format!(
+            "file_versioning(true)\nremove_file(\"{lit}\", permanent=true)\nback = read_version(\"{lit}\", 1)\nrestore_version(\"{lit}\", 1)"
+        ));
+        assert!(matches!(it.get("back"), Some(Value::Str(s)) if s == "a,b\n1,2\n"));
+        assert_eq!(std::fs::read(&f).unwrap(), b"a,b\n1,2\n", "restored after a permanent delete");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -84939,7 +85139,7 @@ sb = size(b)");
         std::fs::create_dir_all(dir.join("sub")).unwrap();
         std::fs::write(dir.join("sub").join("f.txt"), b"x").unwrap();
         let lit = qu_path_literal(&dir);
-        let _ = run(&format!("remove_dir(\"{lit}\", recursive=true)")).out;
+        let _ = run(&format!("remove_dir(\"{lit}\", recursive=true, permanent=true)")).out;
         assert!(!dir.exists(), "remove_dir with recursive=true should remove the whole tree");
     }
 
@@ -85049,6 +85249,7 @@ sb = size(b)");
         for call in [
             "remove_file(\"x\")",
             "remove_dir(\"x\")",
+            "restore_version(\"x\", 1)",
             "rename_file(\"x\", \"y\")",
             "move_file(\"x\", \"y\")",
             "copy_file(\"x\", \"y\")",

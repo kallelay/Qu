@@ -101,6 +101,7 @@ After those six, pick whatever below matches what you actually want to do.
 | [`qu_line_styles.qu`](qu_line_styles.qu) | Every line style. |
 | [`qu_markers.qu`](qu_markers.qu) | Every marker, at the size a figure actually uses. |
 | [`qu_twin_axis_reference.qu`](qu_twin_axis_reference.qu) | A two-panel figure of the shape journals print. |
+| [`qu_genome_synteny.qu`](qu_genome_synteny.qu) | A gggenomes-style synteny map: gene arrows, homology ribbons, a GC track. |
 | [`qu_layers_schematic.qu`](qu_layers_schematic.qu) | Describe a symbol once, place it forty times. |
 | [`qu_image_blobs.qu`](qu_image_blobs.qu) | Morphological cleanup and blob labelling. |
 | [`qu_starry_night.qu`](qu_starry_night.qu) | An animated Starry Night, drawn entirely in Qu. |

@@ -500,7 +500,7 @@ pub enum ArtistKind {
     Shape,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Callout {
     pub x: f64,
     pub y: f64,
@@ -524,6 +524,15 @@ pub struct Callout {
     /// under half the size of the smallest other text on the figure. Same
     /// bug the legend had before its text was tied to the type scale.
     pub size: Option<f64>,
+    /// `rotate=` (degrees, anticlockwise as displayed). A label laid along
+    /// a feature -- a gene name over its arrow, a tick-dense category --
+    /// often has to tilt to fit.
+    pub rotate: f64,
+    /// `align=` ("left"/"center"/"right"). Given, the text is anchored
+    /// EXACTLY at `(x, y)` by that edge (and rotates about it), instead of
+    /// the default small up-and-right offset from the point -- what a label
+    /// placed on a computed position needs.
+    pub align: Option<Anchor>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -5287,6 +5296,15 @@ pub fn build_draw_ops_with_geometry(
         // Right and bottom get their totals from their stacks below.
         let (mut margin_left, mut margin_top) =
             (MARGIN_LEFT * tick_scale, MARGIN_TOP * title_scale);
+        // Named y ticks (`yticklabels("RCC970_016B", ...)`) can be far wider
+        // than the numbers MARGIN_LEFT is sized for, and were drawn off the
+        // canvas edge. Widen by what the widest exceeds a typical number.
+        if let Some(labels) = &panel.ytick_labels {
+            let metrics = face_metrics(&fig.font_family);
+            let widest = labels.iter().map(|l| measure_text(l, fig.tick_size, metrics)).fold(0.0f64, f64::max);
+            let typical = measure_text("-0.00", fig.tick_size, metrics);
+            margin_left += (widest - typical).max(0.0);
+        }
         let (mut margin_right, mut margin_bottom);
         // The right and bottom sides as ORDERED STACKS, not just totals.
         // A total says how far the plot must shrink; it does not say where
@@ -7322,7 +7340,10 @@ pub fn build_draw_ops_with_geometry(
                     let oy = if dy > 0.0 { -6.0 } else { note_size * 0.85 };
                     (ox, oy, anchor)
                 }
-                None => (6.0, -6.0, Anchor::Start),
+                None => match callout.align {
+                    Some(a) => (0.0, 0.0, a),
+                    None => (6.0, -6.0, Anchor::Start),
+                },
             };
             ops.push(DrawOp::Text {
                 italic: callout.italic,
@@ -7331,7 +7352,9 @@ pub fn build_draw_ops_with_geometry(
                 text: callout.text.clone(),
                 size: note_size,
                 anchor,
-                rotate: 0.0,
+                // DrawOp angles are clockwise on screen (ylabel is -90); `rotate=` is
+                // anticlockwise as displayed, like `ellipse`/`stamp`.
+                rotate: -callout.rotate,
                 color: callout.color.clone().unwrap_or_else(|| text_ink.clone()),
             });
         }
@@ -12026,7 +12049,7 @@ mod tests {
         fig.current_panel_mut().callouts.push(Callout {
             italic: false,
             x: 0.5, y: 0.5, text: "noise floor".into(), arrow_to: None, marker: false,
-            color: Some("#C0392B".into()), size: None,
+            color: Some("#C0392B".into()), size: None, ..Default::default()
         });
         let ops = build_draw_ops(&fig, 900.0, 600.0);
         let note = ops.iter().find_map(|op| match op {

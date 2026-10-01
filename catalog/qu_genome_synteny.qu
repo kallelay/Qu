@@ -1,0 +1,164 @@
+# qu_genome_synteny.qu -- a gggenomes-style synteny plot, in plain Qu.
+#
+# The R package gggenomes (an extension of ggplot2) is the usual answer for
+# this figure: genomes as rows of gene arrows coloured by function, grey
+# ribbons linking homologous genes in neighbouring genomes -- twisted where
+# one copy is inverted -- and a feature track with its GC content. This
+# draws the same figure from polygon/text primitives: about 100 lines of
+# drawing, no plotting package.
+#
+# The data are synthetic, shaped like gggenomes' own `emale` example
+# (six virophage genomes, a Ngaro transposon in three of them, an
+# inversion in Cflag_017B).
+#
+# Exercises:
+#   polygon(fill=, alpha=, color=, width=)   text(rotate=, align=)
+#   dict lookup d[key]                       fill_between / yticklabels
+#   functions returning (starts, ends)       hold on
+
+# ---- data -----------------------------------------------------------------
+# Gene families: name (function) and length in bp.
+fam_name = ("NA", "pri-hel", "pri-hel", "NA", "NA", "MV12", "NA", "MCP", "MCP", "NA",
+            "ATPase", "NA", "NA", "MV13_2", "NA", "NA", "MV19", "MV19", "NA", "NA",
+            "NA", "NA", "NA")
+fam_len  = [700, 1500, 1300, 600, 900, 800, 500, 1600, 900, 700,
+            1200, 600, 800, 1000, 500, 700, 900, 800, 600, 700,
+            1400, 1100, 1500]
+
+# Each genome: its gene order (family ids, negative = reverse strand), and
+# whether families 21-23 -- the Ngaro transposon -- sit in it.
+genomes = ("RCC970_016B", "E4-10_086", "Cflag_017B", "BVI_069", "BVI_008A", "E4-10_112")
+orders = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 20],
+          [1, 2, 3, 4, -6, -5, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20],
+          [1, 2, 3, 4, 5, 6, 7, 21, 22, 23, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20],
+          [1, 2, 3, 21, 22, 23, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+          [1, 2, 21, 22, 23, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20])
+
+colors = dict(("pri-hel", "MCP", "MV12", "MV13_2", "MV19", "ATPase", "NA"),
+              ("#E8A33D", "#D9622B", "#6C5FB5", "#C2378B", "#5BA33B", "#1F9E89", "#E2D6BD"))
+
+GAP = 180      # bp between genes
+H = 0.13       # half-height of a gene arrow, in rows
+
+# ---- layout: where every gene lands ---------------------------------------
+# For genome g and family f: start, end, strand -- found again by `place`.
+function place(order)
+    s = []
+    e = []
+    x = 300
+    for k = 0 to length(order) - 1
+        f = abs(order[k])
+        s = append(s, x)
+        e = append(e, x + fam_len[f - 1])
+        x = x + fam_len[f - 1] + GAP
+    end for
+    return (s, e)
+end function
+
+function index_of_fam(order, f)
+    for k = 0 to length(order) - 1
+        if abs(order[k]) == f
+            return k
+        end if
+    end for
+    return -1
+end function
+
+# ---- drawing --------------------------------------------------------------
+function gene(s, e, y, strand, fill)
+    head = min(160, 0.45 * (e - s))
+    if strand > 0
+        polygon([s, e - head, e, e - head, s], [y - H, y - H, y, y + H, y + H],
+                fill = fill, alpha = 1.0, color = "#3a3a3a", width = 0.6)
+    else
+        polygon([e, s + head, s, s + head, e], [y - H, y - H, y, y + H, y + H],
+                fill = fill, alpha = 1.0, color = "#3a3a3a", width = 0.6)
+    end if
+end function
+
+function ribbon(s1, e1, y1, s2, e2, y2, flipped)
+    # top edge on the upper genome's arrows, bottom on the lower one's;
+    # an inversion swaps the bottom corners, which twists the band
+    if flipped
+        polygon([s1, e1, s2, e2], [y1 - H, y1 - H, y2 + H, y2 + H], fill = "#9fb3aa", alpha = 0.45)
+    else
+        polygon([s1, e1, e2, s2], [y1 - H, y1 - H, y2 + H, y2 + H], fill = "#9fb3aa", alpha = 0.45)
+    end if
+end function
+
+function box_(x0, y0, x1, y1, a)
+    polygon([x0, x1, x1, x0], [y0, y0, y1, y1], fill = "#8c8c8c", alpha = a)
+end function
+
+figure()
+figure_size(1100, 620)
+hold on
+n = length(genomes)
+rows = []
+for g = 0 to n - 1
+    rows = append(rows, n - g)
+end for
+
+# links first, so genes sit on top of them
+for g = 0 to n - 2
+    a = orders[g]
+    b = orders[g + 1]
+    pa = place(a)
+    pb = place(b)
+    for k = 0 to length(a) - 1
+        j = index_of_fam(b, abs(a[k]))
+        if j >= 0
+            ribbon(pa[0][k], pa[1][k], rows[g], pb[0][j], pb[1][j], rows[g + 1], a[k] * b[j] < 0)
+        end if
+    end for
+end for
+
+for g = 0 to n - 1
+    o = orders[g]
+    p = place(o)
+    y = rows[g]
+    plot([0, p[1][length(o) - 1] + 300], [y, y], color = "#666666", width = 1.2)
+    for k = 0 to length(o) - 1
+        f = abs(o[k])
+        name = fam_name[f - 1]
+        gene(p[0][k], p[1][k], y, o[k], colors[name])
+        if name != "NA"
+            text((p[0][k] + p[1][k]) / 2, y + H + 0.03, name, rotate = 45, align = "left", size = 9)
+        end if
+    end for
+    # the transposon: a bar over families 21-23, and its GC content below
+    t = index_of_fam(o, 21)
+    if t >= 0
+        ts = p[0][t] - 100
+        te = p[1][t + 2] + 100
+        box_(ts, y - H - 0.035, te, y - H - 0.015, 1.0)
+        text(ts + 150, y + H + 0.03, "Ngaro-transposon", size = 9, align = "left")
+        x = linspace(ts, te, 120)
+        gc = 0.07 + 0.05 * sin(x / 230) .* cos(x / 610)
+        fill_between(x, y - H - 0.06 - gc, y - H - 0.06 + 0 * x, color = "#8c8c8c", alpha = 0.8)
+    end if
+end for
+
+# ---- axes and legend -------------------------------------------------------
+yticks(rows)
+yticklabels("RCC970_016B", "E4-10_086", "Cflag_017B", "BVI_069", "BVI_008A", "E4-10_112")
+xticks([0, 10000, 20000])
+xticklabels("0", "10k", "20k")
+xlim(-200, 33500)
+ylim(0.4, n + 0.75)
+grid off
+box off
+
+types = ("ATPase", "MCP", "MV12", "MV13_2", "MV19", "pri-hel", "NA")
+text(28200, n + 0.3, "Genes", size = 12, align = "left")
+for i = 0 to length(types) - 1
+    yy = n - 0.05 - 0.32 * i
+    gene(28300, 29300, yy, 1, colors[types[i]])
+    text(29600, yy, types[i], size = 10, align = "left")
+end for
+text(28200, n - 2.55, "linetype", size = 12, align = "left")
+box_(28300, n - 2.95, 29300, n - 2.75, 0.8)
+text(29600, n - 2.85, "GC-content", size = 10, align = "left")
+
+savefig("catalog/qu_genome_synteny.svg")

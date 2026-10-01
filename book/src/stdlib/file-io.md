@@ -341,12 +341,44 @@ entry and decide.
 | `mkdir` | `mkdir(path)` | Creates the directory `path` (a `Str`), **including any missing parents** — `mkdir -p`, not bare `mkdir`. Idempotent: a directory that already exists is success, not an error, because "make sure this exists" is what callers actually want. Returns `Nothing`. |
 | `make_file` | `make_file(path)` | Creates an empty file at `path` (a `Str`), **truncating it if it is already there** — the same promise `fopen(path, "w")` makes, so the two agree. Returns `Nothing`. |
 | `tmp_file` | `tmp_file()` | Takes no arguments. Creates a new empty file under the OS temp directory with a name nothing else will collide with (process id, nanosecond clock, and a counter — any one alone has a plausible collision window). Returns a `Str`: its path, not an open handle, so it composes with `fopen` like any other path. |
-| `remove_file` | `remove_file(path, [recycle_bin=false])` | Deletes `path` (a `Str`). Errors if it does not exist or is not a regular file, rather than silently doing nothing. `recycle_bin=true` sends it to the OS Recycle Bin/Trash instead of deleting it permanently — default `false` keeps a script's existing behavior unchanged. Returns `Nothing`. |
-| `remove_dir` | `remove_dir(path, [recursive=false], [recycle_bin=false])` | Deletes the directory `path`. Refuses a **non-empty** directory unless `recursive=true` — this check applies whether or not `recycle_bin` is set, since "may I remove a whole tree" and "should this be recoverable" are different questions. Returns `Nothing`. |
+| `remove_file` | `remove_file(path, [permanent=false])` | Deletes `path` (a `Str`) **to the OS Recycle Bin/Trash** by default, so it can be recovered; `permanent=true` deletes it outright (*default changed in v0.4.5*; the older `recycle_bin=false` still means permanent). Errors if it does not exist or is not a regular file, rather than silently doing nothing; on a system or volume with no trash it is an error naming `permanent=true`, never a silent permanent delete. With file history on, a permanent delete keeps a version first. Returns `Nothing`. |
+| `remove_dir` | `remove_dir(path, [recursive=false], [permanent=false])` | Deletes the directory `path`, to the Recycle Bin/Trash by default and outright with `permanent=true`, as `remove_file`. Refuses a **non-empty** directory unless `recursive=true` — this check applies either way, since "may I remove a whole tree" and "should this be recoverable" are different questions. Returns `Nothing`. |
 | `rename_file` | `rename_file(old, new, [on_exists="error"])` | Renames `old` to `new` (both `Str`), generally within the same filesystem. `on_exists` controls what happens if `new` already exists: `"error"` (default) refuses; `"overwrite"` replaces it; `"skip"` does nothing and returns `false` instead of erroring. Returns `true` if the rename happened, `false` if skipped. Unlike `move_file`, does **not** fall back to copy+delete across drives — a cross-drive `rename_file` fails with a clear error instead of silently becoming a slower, different operation. |
 | `move_file` | `move_file(src, dst, [on_exists="error"])` | Moves `src` to `dst`, falling back to copy-then-remove-the-original when a plain rename fails (e.g. across drives) — the `on_exists` collision check happens first either way, so the fallback can never overwrite something the fast path would have refused. Same `on_exists` values and return convention as `rename_file`. |
 | `copy_file` | `copy_file(src, dst, [on_exists="error"])` | Copies `src` to `dst`, leaving the original in place. Same `on_exists` values and return convention as `rename_file`/`move_file`. |
 | `create_file` | `create_file(path, [on_exists="error"])` | `make_file` with a collision policy: `"error"` (default) refuses if `path` already exists, `"overwrite"` truncates it like `make_file` does unconditionally, `"skip"` does nothing and returns `false`. `make_file` itself is unchanged — this is the builtin for callers who need to say what should happen on collision, not a replacement for it. |
+
+### File history
+
+With history on, every builtin that is about to overwrite a file --
+`write_text`, `append_text`, `write_csv`, `save`, `savefig`,
+`write_report`, `save_image`, `save_model`, the Office `save_as`/`to_pdf`,
+`fopen` in `"w"`/`"a"` mode, `make_file`, a `copy_file`/`move_file`/`rename_file`/`create_file` with
+`on_exists="overwrite"`, a permanent `remove_file` -- first keeps a copy of
+what is there, in a `.qu-versions/<file name>/` folder beside it. It is
+the same store Qu Studio's editor keeps on every save, so versions made by
+a script show in Studio's history panel and the other way round. The 50
+newest versions of each file are kept; files over 100 MB are not copied
+(a note says so once). History is off by default; `file_versioning(true)`
+turns it on for the run, or set `QU_FILE_HISTORY=1` in the environment.
+*Added in v0.4.5.*
+
+| Function | Signature | Description |
+|---|---|---|
+| `file_versioning` | `file_versioning([on])` | Turns file history on (`true`) or off (`false`) for the rest of the run; with no argument, changes nothing. Returns the previous setting as a `Bool`. |
+| `file_history` | `file_history(path)` | The saved versions of `path`, newest first, as a table with columns `version` (the id), `saved` (UTC time) and `bytes`. Empty when there are none. Reading history works whether or not it is on. |
+| `read_version` | `read_version(path, version)` | The content of one saved version of `path` as a `Str`. `version` is an id from `file_history` or a position: `1` is the most recent, `2` the one before. |
+| `restore_version` | `restore_version(path, version)` | Writes that version back to `path`, first keeping the current content as a new version, so a restore can itself be undone. Refused under `--sandbox`. Returns `Nothing`. |
+
+```qu,ignore
+file_versioning(true)
+write_text("notes.txt", "first draft")
+write_text("notes.txt", "second draft")    # "first draft" is kept
+print(file_history("notes.txt"))
+print(read_version("notes.txt", 1))        # first draft
+restore_version("notes.txt", 1)            # back to the first draft
+```
+
 
 All six above are disabled in sandboxed execution (see `sandbox_mode`), the same as `touch` and `write_csv` — each is capable of destroying or overwriting a file the script did not create, `recycle_bin=true` or not.
 
