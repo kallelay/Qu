@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-10-01
+
 Installers: both Windows setups (command line and Qu Studio) have a
 Components page -- **Jupyter kernel** (on: `qu-jupyter.exe`, registered as
 the "Qu" kernel for JupyterLab/Notebook/VS Code, unregistered on
