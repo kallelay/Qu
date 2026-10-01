@@ -21,6 +21,10 @@ Jupyter (Qu)** (says how to get Jupyter if it is missing) and **Qu
 Documentation** in the Start menu, optionally on the desktop. Silent
 switches `/WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP`. The
 release archives now carry `qu-jupyter`, `docs/` and `editors/` too.
+
+Fixed: the Qu Studio installer never actually put `qu` on the PATH (its
+in-process registry edit silently did nothing, 0.4.4 and 0.4.5 included).
+It now uses the same `path-helper.ps1` as the command-line installer.
 `qu-jupyter install --system` and `qu-jupyter uninstall` are new.
 
 ## [0.4.5] - 2026-10-01

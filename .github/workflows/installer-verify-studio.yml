@@ -70,7 +70,7 @@ jobs:
           # the optional components' payloads, as release.yml stages them
           X="$RUNNER_TEMP/qu-studio-extras"
           mkdir -p "$X"
-          cp "engine/target/$TARGET/release/qu-jupyter.exe" installer/windows/qu-jupyter-start.cmd "$X/"
+          cp "engine/target/$TARGET/release/qu-jupyter.exe" installer/windows/qu-jupyter-start.cmd installer/windows/path-helper.ps1 "$X/"
           cp -r website "$X/docs"
           echo "QU_STUDIO_EXTRAS=$(cygpath -w "$X")" >> "$GITHUB_ENV"
 

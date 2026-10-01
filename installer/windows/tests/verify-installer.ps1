@@ -254,7 +254,10 @@ try {
         Assert (Test-Path (Join-Path $desk 'Qu CLI (REPL).lnk')) '/DESKTOP: Qu CLI (REPL) on the desktop'
         $probe = Join-Path $work 'help_probe.qu'
         Set-Content -Path $probe -Value 'help("plot")' -Encoding ascii
-        $h = Invoke-FreshShell "`"$dDir\qu.exe`" `"$probe`""
+        # Run directly, not through Invoke-FreshShell: cmd /c strips the
+        # outer quotes of a line that starts and ends with one.
+        $hOut = (& (Join-Path $dDir 'qu.exe') $probe 2>&1 | Out-String).Trim()
+        $h = [pscustomobject]@{ Out = $hOut }
         Assert ($h.Out -match [regex]::Escape((Join-Path $dDir 'docs\fn\plot.html'))) "help() points at the local docs (got: $($h.Out))"
         Uninstall $dDir 'User'
         Assert (-not (Test-Path (Join-Path $dDir 'docs'))) 'uninstall removed docs\'

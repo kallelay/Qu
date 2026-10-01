@@ -418,7 +418,7 @@ jobs:
             X="$RUNNER_TEMP/qu-studio-extras"
             mkdir -p "$X"
             cp "engine/target/${{ matrix.target }}/release/qu-jupyter.exe" "$X/"
-            cp installer/windows/qu-jupyter-start.cmd "$X/"
+            cp installer/windows/qu-jupyter-start.cmd installer/windows/path-helper.ps1 "$X/"
             cp -r website "$X/docs"
             echo "QU_STUDIO_EXTRAS=$(cygpath -w "$X")" >> "$GITHUB_ENV"
           fi

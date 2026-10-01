@@ -815,236 +815,51 @@ FunctionEnd
 ; =====================================================================
 ; QU ADDITIONS -- everything below this line is Qu's, not Tauri's.
 ; =====================================================================
+
+; Build-time payloads staged by release.yml (absent in a plain local build:
+; each component below is then simply not compiled in).
+!define QU_EXTRAS "$%QU_STUDIO_EXTRAS%"
+!if /FileExists "${QU_EXTRAS}\qu-jupyter.exe"
+  !define QU_HAVE_JUPYTER
+!endif
+!if /FileExists "${QU_EXTRAS}\docs\index.html"
+  !define QU_HAVE_DOCS
+!endif
+!if /FileExists "${QU_EXTRAS}\path-helper.ps1"
+  !define QU_HAVE_PATH_HELPER
+!endif
 ;
 ; ---------------------------------------------------------------------
 ; PATH (current user only: HKCU\Environment\Path, no elevation needed)
 ; ---------------------------------------------------------------------
 ;
-; Why this does not use ReadRegStr / StrCpy / WriteRegExpandStr: NSIS
-; strings are capped at NSIS_MAX_STRLEN (1024 characters in the NSIS
-; build Tauri downloads). A PATH longer than that would be read back
-; TRUNCATED and written back truncated -- silently destroying the user's
-; PATH. So the value is read, searched, edited and written entirely in
-; heap memory through the Win32 API (System plug-in); the only NSIS
-; strings involved are $INSTDIR-sized needles.
+; Edited by installer/windows/path-helper.ps1 -- the same script, with the
+; same tests, the CLI installer uses -- never with NSIS string code: NSIS
+; strings stop at 1024 characters and a longer PATH would be written back
+; truncated. release.yml stages the script in $%QU_STUDIO_EXTRAS%; it is
+; installed next to qu.exe so the uninstaller can run it too.
 ;
-; The algorithm, on plain strings (X = $INSTDIR, P = current value):
-;   add:    if ";"+P+";" contains ";X;" or ";X\;" (case-insensitive)
-;             -> no change (never duplicate)
-;           else if P == ""       -> "X"
-;           else if P ends in ";" -> P + "X;"
-;           else                  -> P + ";X"
-;   remove: W = ";"+P+";"; while W contains ";X;" or ";X\;" (case-
-;           insensitive), cut the "X;" / "X\;" part out (keeping the
-;           leading ";"); result = W minus its first and last character.
-;           Result "" -> the value is deleted.
-; add-then-remove returns P exactly, whether or not P ended in ";".
-; The value's registry type is preserved (a new value is REG_EXPAND_SZ).
-;
-; The *_CORE macros are pure string functions (no registry, no side
-; effects) so they can be unit-tested outside an installer; the markers
-; below delimit what the test harness extracts. Keep them intact.
-;
-; CORE contract: in $0 = pointer to NUL-terminated UTF-16 string P;
-; out $1 = pointer to a new System::Alloc'd result, or 0 when P needs no
-; change. Clobbers $2-$9. Uses $INSTDIR as X.
+; (Until 0.4.6 this was done in-process through the System plug-in. It
+; never changed PATH on a real Windows install -- installer-verify-studio
+; failed on it from its first run -- and logged nothing a silent install
+; shows, so it was replaced rather than debugged further.)
 
-; >>> QU_PATH_CORE_BEGIN
-!macro QU_PATH_WRAP_CORE
-  ; $5 = new buffer holding ";" + P + ";"   ($2 = lstrlenW(P))
-  System::Call 'kernel32::lstrlenW(p r0) i .r2'
-  IntOp $4 $2 + 3
-  IntOp $4 $4 * 2
-  System::Alloc $4
-  Pop $5
-  StrCpy $9 ";"
-  System::Call 'kernel32::lstrcpyW(p r5, w r9)'
-  System::Call 'kernel32::lstrcatW(p r5, p r0)'
-  System::Call 'kernel32::lstrcatW(p r5, w r9)'
-!macroend
-
-!macro QU_PATH_ADD_CORE
-  StrCpy $1 0
-  !insertmacro QU_PATH_WRAP_CORE
-  StrCpy $9 ";$INSTDIR;"
-  System::Call 'shlwapi::StrStrIW(p r5, w r9) p .r6'
-  ${If} $6 = 0
-    StrCpy $9 ";$INSTDIR\;"
-    System::Call 'shlwapi::StrStrIW(p r5, w r9) p .r6'
-  ${EndIf}
-  System::Free $5
-  ${If} $6 = 0
-    StrLen $3 $INSTDIR
-    IntOp $4 $2 + $3
-    IntOp $4 $4 + 2
-    IntOp $4 $4 * 2
-    System::Alloc $4
-    Pop $1
-    ${If} $2 = 0
-      StrCpy $9 "$INSTDIR"
-      System::Call 'kernel32::lstrcpyW(p r1, w r9)'
-    ${Else}
-      System::Call 'kernel32::lstrcpyW(p r1, p r0)'
-      ; $8 = last character of P
-      IntOp $7 $2 - 1
-      IntOp $7 $7 * 2
-      IntPtrOp $7 $0 + $7
-      System::Call '*$7(&i2 .r8)'
-      ${If} $8 = 59 ; ';'
-        StrCpy $9 "$INSTDIR;"
-      ${Else}
-        StrCpy $9 ";$INSTDIR"
-      ${EndIf}
-      System::Call 'kernel32::lstrcatW(p r1, w r9)'
-    ${EndIf}
-  ${EndIf}
-!macroend
-
-!macro QU_PATH_REMOVE_CORE
-  StrCpy $1 0
-  !insertmacro QU_PATH_WRAP_CORE
-  StrCpy $3 0                  ; number of entries cut
-  StrCpy $9 ";$INSTDIR;"
-  ${Do}
-    System::Call 'shlwapi::StrStrIW(p r5, w r9) p .r6'
-    ${If} $6 = 0
-      ${If} $9 == ";$INSTDIR;"
-        StrCpy $9 ";$INSTDIR\;"
-        ${Continue}
-      ${EndIf}
-      ${Break}
-    ${EndIf}
-    ; cut len($9)-1 characters starting just after the matched ';'
-    StrLen $7 $9
-    IntOp $7 $7 - 1
-    IntOp $7 $7 * 2
-    IntPtrOp $6 $6 + 2          ; destination: first char of X
-    IntPtrOp $8 $6 + $7         ; source: char after the cut
-    System::Call 'kernel32::lstrlenW(p r8) i .r4'
-    IntOp $4 $4 + 1
-    IntOp $4 $4 * 2
-    System::Call 'kernel32::RtlMoveMemory(p r6, p r8, i r4)'
-    IntOp $3 $3 + 1
-  ${Loop}
-  ${If} $3 = 0
-    System::Free $5
+!macro QU_FIND_POWERSHELL
+  ; 64-bit PowerShell from this 32-bit installer (SysNative bypasses the
+  ; WOW64 redirect); otherwise whatever System32 resolves to.
+  ${If} ${FileExists} "$WINDIR\SysNative\WindowsPowerShell\v1.0\powershell.exe"
+    StrCpy $R8 "$WINDIR\SysNative\WindowsPowerShell\v1.0\powershell.exe"
   ${Else}
-    ; drop the trailing ';' we added, then copy out from after the leading one
-    System::Call 'kernel32::lstrlenW(p r5) i .r4'
-    IntOp $7 $4 - 1
-    IntOp $7 $7 * 2
-    IntPtrOp $7 $5 + $7
-    System::Call '*$7(&i2 0)'
-    IntOp $4 $4 * 2
-    System::Alloc $4
-    Pop $1
-    IntPtrOp $7 $5 + 2
-    System::Call 'kernel32::lstrcpyW(p r1, p r7)'
-    System::Free $5
+    StrCpy $R8 "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
   ${EndIf}
 !macroend
-; <<< QU_PATH_CORE_END
 
-; Registry wrapper around a CORE macro. Opens HKCU\Environment, reads
-; Path into a heap buffer of exactly the size the registry reports, runs
-; the core, writes back only if something changed, broadcasts
-; WM_SETTINGCHANGE. Any failure (odd value type, API error) leaves the
-; value untouched and just logs -- the install itself never fails on this.
-!macro QU_PATH_EDIT CORE
-  Push $0
-  Push $1
-  Push $2
-  Push $3
-  Push $4
-  Push $5
-  Push $6
-  Push $7
-  Push $8
-  Push $9
-  Push $R0
-  Push $R1
-  Push $R2
-  Push $R3
-
-  StrCpy $R3 "" ; status message
-  ; KEY_QUERY_VALUE | KEY_SET_VALUE = 3; HKEY_CURRENT_USER = 0x80000001
-  System::Call 'advapi32::RegOpenKeyExW(p 0x80000001, w "Environment", i 0, i 3, *p .R0) i .R2'
-  ${If} $R2 <> 0
-    StrCpy $R3 "cannot open HKCU\Environment (error $R2)"
-    Goto qu_path_edit_done
-  ${EndIf}
-
-  StrCpy $R1 0 ; value type
-  StrCpy $4 0  ; byte size
-  System::Call 'advapi32::RegQueryValueExW(p R0, w "Path", p 0, *i 0 .R1, p 0, *i 0 .r4) i .R2'
-  ${If} $R2 = 2 ; ERROR_FILE_NOT_FOUND: no per-user PATH yet
-    StrCpy $R1 2 ; REG_EXPAND_SZ
-    StrCpy $4 0
-  ${ElseIf} $R2 <> 0
-    StrCpy $R3 "cannot read Path (error $R2)"
-    Goto qu_path_edit_close
-  ${ElseIf} $R1 <> 1 ; REG_SZ
-  ${AndIf} $R1 <> 2  ; REG_EXPAND_SZ
-    StrCpy $R3 "Path has unexpected registry type $R1, left alone"
-    Goto qu_path_edit_close
-  ${EndIf}
-
-  ; +4 bytes: registry strings are not guaranteed NUL-terminated;
-  ; System::Alloc zero-fills, so the buffer always ends in NUL.
-  IntOp $3 $4 + 4
-  System::Alloc $3
-  Pop $0
-  ${If} $4 <> 0
-    System::Call 'advapi32::RegQueryValueExW(p R0, w "Path", p 0, p 0, p r0, *i r4 .r4) i .R2'
-    ${If} $R2 <> 0
-      System::Free $0
-      StrCpy $R3 "cannot read Path (error $R2)"
-      Goto qu_path_edit_close
-    ${EndIf}
-  ${EndIf}
-
-  !insertmacro ${CORE}
-
-  ${If} $1 = 0
-    StrCpy $R3 "already correct, unchanged"
-  ${Else}
-    System::Call 'kernel32::lstrlenW(p r1) i .r4'
-    ${If} $4 = 0
-      System::Call 'advapi32::RegDeleteValueW(p R0, w "Path") i .R2'
-    ${Else}
-      IntOp $4 $4 + 1
-      IntOp $4 $4 * 2
-      System::Call 'advapi32::RegSetValueExW(p R0, w "Path", i 0, i R1, p r1, i r4) i .R2'
-    ${EndIf}
-    System::Free $1
-    ${If} $R2 = 0
-      StrCpy $R3 "updated"
-      SendMessage 0xFFFF 0x001A 0 "STR:Environment" /TIMEOUT=5000 ; HWND_BROADCAST, WM_SETTINGCHANGE
-    ${Else}
-      StrCpy $R3 "cannot write Path (error $R2)"
-    ${EndIf}
-  ${EndIf}
-  System::Free $0
-
-  qu_path_edit_close:
-  System::Call 'advapi32::RegCloseKey(p R0)'
-  qu_path_edit_done:
-  DetailPrint "Qu: user PATH entry $INSTDIR: $R3"
-
-  Pop $R3
-  Pop $R2
-  Pop $R1
-  Pop $R0
-  Pop $9
-  Pop $8
-  Pop $7
-  Pop $6
-  Pop $5
-  Pop $4
-  Pop $3
-  Pop $2
-  Pop $1
-  Pop $0
+; Exit code in $R9: 0 changed, 10 nothing to do, anything else failed.
+!macro QU_RUN_PATH_HELPER ACTION
+  !insertmacro QU_FIND_POWERSHELL
+  nsExec::ExecToLog '"$R8" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\path-helper.ps1" -Action ${ACTION} -Dir "$INSTDIR" -Scope User'
+  Pop $R9
+  DetailPrint "Qu: user PATH ${ACTION} $INSTDIR: helper exit code $R9"
 !macroend
 
 ; ---------------------------------------------------------------------
@@ -1072,7 +887,17 @@ FunctionEnd
 ; become the bodies of NSIS_HOOK_POSTINSTALL / NSIS_HOOK_PREUNINSTALL.
 ; ---------------------------------------------------------------------
 Function QuPostInstall
-  !insertmacro QU_PATH_EDIT QU_PATH_ADD_CORE
+  !ifdef QU_HAVE_PATH_HELPER
+    SetOutPath "$INSTDIR"
+    File "${QU_EXTRAS}\path-helper.ps1"
+    !insertmacro QU_RUN_PATH_HELPER Add
+    ${If} $R9 != 0
+    ${AndIf} $R9 != 10
+      MessageBox MB_ICONEXCLAMATION "Qu Studio was installed, but adding qu to the PATH failed ($R9). Add $INSTDIR to your PATH manually." /SD IDOK
+    ${EndIf}
+  !else
+    DetailPrint "Qu: built without path-helper.ps1 (QU_STUDIO_EXTRAS); PATH left unchanged"
+  !endif
 FunctionEnd
 
 ; ---------------------------------------------------------------------
@@ -1081,13 +906,6 @@ FunctionEnd
 ; in $INSTDIR. What was installed is recorded under the uninstall key, and
 ; the uninstaller removes exactly that.
 ; ---------------------------------------------------------------------
-!define QU_EXTRAS "$%QU_STUDIO_EXTRAS%"
-!if /FileExists "${QU_EXTRAS}\qu-jupyter.exe"
-  !define QU_HAVE_JUPYTER
-!endif
-!if /FileExists "${QU_EXTRAS}\docs\index.html"
-  !define QU_HAVE_DOCS
-!endif
 
 !macro QU_KERNEL_ACTION ACTION
   StrCpy $R6 ""
@@ -1227,7 +1045,10 @@ Function QuComponentDefaults
 FunctionEnd
 
 Function un.QuPreUninstall
-  !insertmacro QU_PATH_EDIT QU_PATH_REMOVE_CORE
+  ${If} ${FileExists} "$INSTDIR\path-helper.ps1"
+    !insertmacro QU_RUN_PATH_HELPER Remove
+    Delete "$INSTDIR\path-helper.ps1"
+  ${EndIf}
   ; Optional components: exactly what the install recorded.
   ReadRegDWORD $R0 SHCTX "${UNINSTKEY}" "QuJupyter"
   ${If} $R0 == 1
