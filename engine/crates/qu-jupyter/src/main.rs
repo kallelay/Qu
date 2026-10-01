@@ -1,9 +1,13 @@
 //! `qu-jupyter` — a Jupyter kernel for Qu.
 //!
 //! Usage:
-//!   qu-jupyter install [--prefix <dir>]   register the "Qu" kernelspec so
+//!   qu-jupyter install [--prefix <dir>] [--system]
+//!                                         register the "Qu" kernelspec so
 //!                                         Jupyter and VS Code's Jupyter
 //!                                         extension can find and launch it
+//!                                         (`--system`: for every user)
+//!   qu-jupyter uninstall [--prefix <dir>] [--system]
+//!                                         remove that kernelspec again
 //!   qu-jupyter -f <connection_file.json>  run as a kernel (this is how
 //!                                         Jupyter itself launches it, per
 //!                                         the argv recorded by `install`;
@@ -22,8 +26,9 @@ use std::path::PathBuf;
 fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    if args.first().map(String::as_str) == Some("install") {
+    if let Some(cmd @ ("install" | "uninstall")) = args.first().map(String::as_str) {
         let mut prefix = None;
+        let mut system = false;
         let mut i = 1;
         while i < args.len() {
             match args[i].as_str() {
@@ -32,11 +37,17 @@ fn main() -> Result<(), String> {
                     let path = args.get(i).ok_or("--prefix needs a directory argument")?;
                     prefix = Some(PathBuf::from(path));
                 }
-                other => return Err(format!("qu-jupyter install: unrecognized argument `{other}`")),
+                "--system" => system = true,
+                "--user" => system = false,
+                other => return Err(format!("qu-jupyter {cmd}: unrecognized argument `{other}`")),
             }
             i += 1;
         }
-        return install::run(install::InstallOptions { prefix });
+        if prefix.is_some() && system {
+            return Err(format!("qu-jupyter {cmd}: --prefix and --system name two different places -- give one"));
+        }
+        let opts = install::InstallOptions { prefix, system };
+        return if cmd == "install" { install::run(opts) } else { install::uninstall(opts) };
     }
 
     let connection_file = parse_connection_file_arg(&args)?;
@@ -66,7 +77,7 @@ fn parse_connection_file_arg(args: &[String]) -> Result<PathBuf, String> {
         i += 1;
     }
     Err(
-        "usage: qu-jupyter -f <connection_file.json>  (or: qu-jupyter install [--prefix <dir>])"
+        "usage: qu-jupyter -f <connection_file.json>  (or: qu-jupyter install|uninstall [--prefix <dir>] [--system])"
             .to_string(),
     )
 }

@@ -73,6 +73,10 @@ jobs:
           $src = Join-Path $env:RUNNER_TEMP 'qu-src'
           New-Item -ItemType Directory -Force $src | Out-Null
           Copy-Item "engine\target\${{ matrix.target }}\release\qu.exe", README.md, LICENSE, NOTICE $src
+          # the optional components' payloads, as release.yml stages them
+          Copy-Item "engine\target\${{ matrix.target }}\release\qu-jupyter.exe" $src
+          Copy-Item -Recurse website (Join-Path $src 'docs')
+          Copy-Item -Recurse editors (Join-Path $src 'editors')
           $mk = (Get-Command makensis -ErrorAction SilentlyContinue).Source
           if (-not $mk) {
             foreach ($p in "${env:ProgramFiles(x86)}\NSIS\makensis.exe", "$env:ProgramFiles\NSIS\makensis.exe") {
@@ -110,5 +114,8 @@ jobs:
       - name: Install / reinstall / uninstall against the real registry
         shell: pwsh
         run: |
-          & installer\windows\tests\verify-installer.ps1 -Setup $env:QU_SETUP -Version $env:QU_VERSION
+          # Built from this commit -> it has the optional components. A
+          # published tag is checked for them from v0.4.6 on.
+          $components = ('${{ inputs.tag }}' -eq '') -or ([version]$env:QU_VERSION -ge [version]'0.4.6')
+          & installer\windows\tests\verify-installer.ps1 -Setup $env:QU_SETUP -Version $env:QU_VERSION -ExpectComponents:$components
           if ($LASTEXITCODE -ne 0) { exit 1 }

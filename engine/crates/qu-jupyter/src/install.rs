@@ -13,6 +13,48 @@ pub struct InstallOptions {
     /// — `--prefix` below is the escape hatch for anything else (a venv, a
     /// shared install) without needing a second code path later.
     pub prefix: Option<PathBuf>,
+    /// `--system`: the machine-wide kernels directory Jupyter searches for
+    /// every user (what an all-users installer registers into).
+    pub system: bool,
+}
+
+/// `<kernels dir>/qu` for these options.
+fn kernel_dir(opts: &InstallOptions) -> Result<PathBuf, String> {
+    let kernels_dir = match &opts.prefix {
+        Some(prefix) => prefix.join("share").join("jupyter").join("kernels"),
+        None if opts.system => system_jupyter_data_dir()?.join("kernels"),
+        None => user_jupyter_data_dir()?.join("kernels"),
+    };
+    Ok(kernels_dir.join("qu"))
+}
+
+/// `qu-jupyter uninstall` -- removes the kernelspec `install` wrote (only
+/// its `kernel.json` and the then-empty `qu` folder, never anything else a
+/// user put there). Nothing to remove is not an error: an uninstaller runs
+/// this unconditionally.
+pub fn uninstall(opts: InstallOptions) -> Result<(), String> {
+    let dest = kernel_dir(&opts)?;
+    let kernel_json = dest.join("kernel.json");
+    if !kernel_json.exists() {
+        println!("No Qu kernelspec at {} -- nothing to remove", dest.display());
+        return Ok(());
+    }
+    std::fs::remove_file(&kernel_json).map_err(|e| format!("removing {}: {e}", kernel_json.display()))?;
+    let _ = std::fs::remove_dir(&dest);
+    println!("Removed the Qu kernelspec from {}", dest.display());
+    Ok(())
+}
+
+/// Jupyter's machine-wide data directory (`jupyter --paths`, the system
+/// entry): `%PROGRAMDATA%\jupyter` on Windows, `/usr/local/share/jupyter`
+/// elsewhere.
+fn system_jupyter_data_dir() -> Result<PathBuf, String> {
+    if cfg!(target_os = "windows") {
+        let pd = std::env::var("PROGRAMDATA").map_err(|_| "%PROGRAMDATA% is not set".to_string())?;
+        Ok(PathBuf::from(pd).join("jupyter"))
+    } else {
+        Ok(PathBuf::from("/usr/local/share/jupyter"))
+    }
 }
 
 pub fn run(opts: InstallOptions) -> Result<(), String> {
@@ -22,11 +64,7 @@ pub fn run(opts: InstallOptions) -> Result<(), String> {
     // (including, empirically, VS Code's Jupyter extension) mishandle.
     let exe = std::env::current_exe().map_err(|e| format!("locating this executable: {e}"))?;
 
-    let kernels_dir = match &opts.prefix {
-        Some(prefix) => prefix.join("share").join("jupyter").join("kernels"),
-        None => user_jupyter_data_dir()?.join("kernels"),
-    };
-    let dest = kernels_dir.join("qu");
+    let dest = kernel_dir(&opts)?;
     std::fs::create_dir_all(&dest).map_err(|e| format!("creating {}: {e}", dest.display()))?;
 
     let kernel_json = serde_json::json!({

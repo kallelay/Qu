@@ -10,6 +10,19 @@ changes are called out.
 
 ## [Unreleased]
 
+Installers: both Windows setups (command line and Qu Studio) have a
+Components page -- **Jupyter kernel** (on: `qu-jupyter.exe`, registered as
+the "Qu" kernel for JupyterLab/Notebook/VS Code, unregistered on
+uninstall), **offline documentation** (off: the site in `docs\`, which
+`help(name)` then points at), **editor plugins** (VS Code, Sublime Text,
+Notepad++, each preselected only when that editor is installed; now
+removable on uninstall), and shortcuts: **Qu CLI (REPL)**, **Start
+Jupyter (Qu)** (says how to get Jupyter if it is missing) and **Qu
+Documentation** in the Start menu, optionally on the desktop. Silent
+switches `/WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP`. The
+release archives now carry `qu-jupyter`, `docs/` and `editors/` too.
+`qu-jupyter install --system` and `qu-jupyter uninstall` are new.
+
 ## [0.4.5] - 2026-10-01
 
 **Fixed: Qu Studio 0.4.4 opened to a blank dark window.** Two copies of

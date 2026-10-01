@@ -4,12 +4,17 @@
 # ONLY on a throwaway CI machine (.github/workflows/installer-verify-cli.yml).
 # Never run it on a machine whose PATH you care about.
 #
-#   pwsh -File installer\windows\tests\verify-installer.ps1 -Setup <setup.exe> -Version <x.y.z>
+#   pwsh -File installer\windows\tests\verify-installer.ps1 -Setup <setup.exe> -Version <x.y.z> [-ExpectComponents]
+#
+# -ExpectComponents: the installer was built with its optional payloads
+# (qu-jupyter.exe, docs\, editors\ in SRCDIR -- what release.yml stages),
+# so also check the Jupyter kernel, documentation and shortcut components.
 
 param(
     [Parameter(Mandatory)] [string]$Setup,
     [Parameter(Mandatory)] [string]$Version,
-    [switch]$SkipMachine
+    [switch]$SkipMachine,
+    [switch]$ExpectComponents
 )
 
 $ErrorActionPreference = 'Stop'
@@ -212,6 +217,49 @@ try {
     Test-UserCycle 'default directory (no /D=)' `
         ([pscustomobject]@{ Exists = $true; Value = 'C:\a'; Kind = 'ExpandString' }) `
         ''
+
+    if ($ExpectComponents) {
+        Write-Host "`n== optional components, defaults (Jupyter on, docs off, Start menu on)"
+        $cDir = Join-Path $work 'Components'
+        $kernel = Join-Path $env:APPDATA 'jupyter\kernels\qu\kernel.json'
+        $sm = Join-Path ([Environment]::GetFolderPath('Programs')) 'Qu'
+        $desk = [Environment]::GetFolderPath('Desktop')
+        if (Test-Path $kernel) { Remove-Item $kernel }
+        Install @('/S', "/D=$cDir")
+        Assert (Test-Path (Join-Path $cDir 'qu-jupyter.exe')) 'qu-jupyter.exe installed'
+        Assert (Test-Path $kernel) "Qu kernelspec registered at $kernel"
+        if (Test-Path $kernel) {
+            $argv0 = (Get-Content $kernel -Raw | ConvertFrom-Json).argv[0]
+            Assert ($argv0 -ieq (Join-Path $cDir 'qu-jupyter.exe')) "kernelspec launches the installed qu-jupyter.exe (got $argv0)"
+        }
+        Assert (-not (Test-Path (Join-Path $cDir 'docs'))) 'documentation not installed by default'
+        Assert (Test-Path (Join-Path $sm 'Qu CLI (REPL).lnk')) 'Start menu: Qu CLI (REPL)'
+        Assert (Test-Path (Join-Path $sm 'Start Jupyter (Qu).lnk')) 'Start menu: Start Jupyter (Qu)'
+        Assert (-not (Test-Path (Join-Path $sm 'Qu Documentation.lnk'))) 'no documentation shortcut without the docs'
+        Assert (-not (Test-Path (Join-Path $desk 'Qu CLI (REPL).lnk'))) 'no desktop shortcut by default'
+        Uninstall $cDir 'User'
+        Assert (-not (Test-Path $kernel)) 'uninstall removed the kernelspec'
+        Assert (-not (Test-Path (Join-Path $cDir 'qu-jupyter.exe'))) 'uninstall removed qu-jupyter.exe'
+        Assert (-not (Test-Path $sm)) 'uninstall removed the Start menu folder'
+
+        Write-Host "`n== optional components: /WITHDOCS /NOJUPYTER /DESKTOP"
+        $dDir = Join-Path $work 'Docs'
+        Install @('/S', '/WITHDOCS', '/NOJUPYTER', '/DESKTOP', "/D=$dDir")
+        Assert (Test-Path (Join-Path $dDir 'docs\index.html')) 'documentation installed (docs\index.html)'
+        Assert (Test-Path (Join-Path $dDir 'docs\fn\plot.html')) 'function reference pages installed'
+        Assert (-not (Test-Path (Join-Path $dDir 'qu-jupyter.exe'))) '/NOJUPYTER: no qu-jupyter.exe'
+        Assert (-not (Test-Path $kernel)) '/NOJUPYTER: no kernelspec'
+        Assert (Test-Path (Join-Path $sm 'Qu Documentation.lnk')) 'Start menu: Qu Documentation'
+        Assert (-not (Test-Path (Join-Path $sm 'Start Jupyter (Qu).lnk'))) 'no Jupyter shortcut without the kernel'
+        Assert (Test-Path (Join-Path $desk 'Qu CLI (REPL).lnk')) '/DESKTOP: Qu CLI (REPL) on the desktop'
+        $probe = Join-Path $work 'help_probe.qu'
+        Set-Content -Path $probe -Value 'help("plot")' -Encoding ascii
+        $h = Invoke-FreshShell "`"$dDir\qu.exe`" `"$probe`""
+        Assert ($h.Out -match [regex]::Escape((Join-Path $dDir 'docs\fn\plot.html'))) "help() points at the local docs (got: $($h.Out))"
+        Uninstall $dDir 'User'
+        Assert (-not (Test-Path (Join-Path $dDir 'docs'))) 'uninstall removed docs\'
+        Assert (-not (Test-Path (Join-Path $desk 'Qu CLI (REPL).lnk'))) 'uninstall removed the desktop shortcut'
+    }
 
     if (-not $SkipMachine) {
         Write-Host "`n== machine-wide (/ALLUSERS)"

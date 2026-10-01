@@ -110,6 +110,31 @@ fn repl_runs_its_script_and_streams_it() {
 }
 
 #[test]
+fn help_points_at_installed_offline_docs_when_present() {
+    // The installers' "Offline documentation" component puts the site in
+    // docs/ beside qu(.exe); help(name) then names the local page, and the
+    // published one otherwise.
+    let dir = std::env::temp_dir().join(format!("qu_local_docs_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("docs").join("fn")).unwrap();
+    let exe = dir.join(if cfg!(windows) { "qu.exe" } else { "qu" });
+    std::fs::copy(qu_bin(), &exe).unwrap();
+    let script = dir.join("h.qu");
+    std::fs::write(&script, "help(\"plot\")\n").unwrap();
+    let out = |e: &std::path::Path| {
+        let o = Command::new(e).arg("run").arg(&script).output().unwrap();
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    let online = out(&exe);
+    assert!(online.contains("https://kallelay.github.io/Qu/fn/plot.html"), "{online}");
+    let page = dir.join("docs").join("fn").join("plot.html");
+    std::fs::write(&page, "<html></html>").unwrap();
+    let local = out(&exe);
+    assert!(local.contains(&page.display().to_string()), "{local}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn asking_for_help_still_succeeds() {
     // The other half of the property. Printing the banner is correct for
     // no arguments and for an explicit request -- the fix must not turn

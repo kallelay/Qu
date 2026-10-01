@@ -31,6 +31,13 @@ your user Jupyter data directory (`%APPDATA%\jupyter\kernels\qu` on Windows,
 on Linux — `$JUPYTER_DATA_DIR` overrides on any platform). Use
 `--prefix <dir>` to install into `<dir>/share/jupyter/kernels/qu` instead
 (a venv, a shared install).
+`--system` registers it for every user instead (`%PROGRAMDATA%\jupyter\
+kernels\qu` on Windows, `/usr/local/share/jupyter/kernels/qu` elsewhere).
+`qu-jupyter uninstall` (same options) removes it again.
+
+The release archives ship `qu-jupyter` next to `qu`, and both Windows setups
+(command line and Qu Studio) install and register it as their default-on
+"Jupyter kernel" component, with a **Start Jupyter (Qu)** shortcut.
 
 Re-run after every `qu-jupyter` rebuild you want notebooks to pick up — the
 kernelspec's `argv` is an absolute path to the binary at install time, not a

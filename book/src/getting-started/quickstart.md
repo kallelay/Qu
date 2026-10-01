@@ -26,9 +26,22 @@ ordinary terminal depends on which package you installed:
 | Command-line `.zip` / `.tar.gz` | No — unpack it and put the folder on `PATH` yourself. |
 | Command-line `.deb` | Yes — installs `qu` into `/usr/bin`. |
 
-The Windows setup also copies the Qu syntax integration into VS Code,
-Sublime Text and Notepad++ when it finds that editor's per-user settings
-folder (skipped silently otherwise; see `editors/` for manual installs).
+Both Windows setups (from 0.4.6) have a **Components** page:
+
+| Component | Default | What it does |
+|---|---|---|
+| Jupyter kernel | on | installs `qu-jupyter.exe` and registers the "Qu" kernel, so it appears in JupyterLab, Notebook and VS Code's Jupyter extension (Jupyter itself: `pip install jupyterlab`); the uninstaller unregisters it |
+| Offline documentation | off | the whole reference and guides (~25 MB) in `docs\` beside `qu.exe`; `help(name)` then names the local page |
+| Editor plugins | per editor | VS Code, Sublime Text and Notepad++ syntax and run commands -- each ticked only if that editor is installed |
+| Start menu shortcuts | on | a **Qu** folder (Qu Studio's own folder for the Studio setup) with **Qu CLI (REPL)**, **Start Jupyter (Qu)** and **Qu Documentation** |
+| Desktop shortcuts | off | Qu CLI (REPL) and Start Jupyter (Qu) on the desktop (Studio: alongside its own desktop shortcut) |
+
+For a silent install the same choices are switches: `/WITHDOCS`,
+`/NOJUPYTER`, `/NOPLUGINS`, `/NOSHORTCUTS`, `/DESKTOP` (the last two are the
+command-line setup's; Studio follows its own shortcut options). The `.zip`
+and `.tar.gz` archives carry the same pieces -- `qu-jupyter`, `docs/`,
+`editors/` -- for a manual setup: `qu-jupyter install` registers the kernel
+(`--system` for every user, `qu-jupyter uninstall` to remove it).
 
 **On Windows, from a release** (releases after 0.4.4): download
 `qu-<version>-windows-x86_64-setup.exe` (or `-arm64-setup.exe` for
@@ -41,6 +54,7 @@ was. Open a **new** terminal and `qu --version` works. Switches:
 qu-<version>-windows-x86_64-setup.exe /S                  silent, per-user
 qu-<version>-windows-x86_64-setup.exe /S /D=C:\Tools\Qu   silent, chosen folder (/D= must be last)
 qu-<version>-windows-x86_64-setup.exe /ALLUSERS           machine-wide (Program Files, system PATH; asks for admin)
+qu-<version>-windows-x86_64-setup.exe /S /WITHDOCS /DESKTOP   silent, with offline docs and desktop shortcuts
 ```
 
 To uninstall, use *Settings → Apps* ("Qu … (command line)"), or run

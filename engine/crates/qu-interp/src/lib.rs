@@ -20163,10 +20163,23 @@ self.eval_grad(loss, wrt)
                     // no `website/` or `catalog/` folder beside it, so the old
                     // "website/fn/x.html" / "catalog/" pointers led nowhere for
                     // anyone but a developer in a checkout.
-                    let _ = writeln!(
-                        self.out,
-                        "  full reference: https://kallelay.github.io/Qu/fn/{name}.html"
-                    );
+                    // The installers' optional "Offline documentation"
+                    // puts the site in docs\ beside qu(.exe): prefer it.
+                    let local = std::env::current_exe().ok().and_then(|exe| {
+                        let page = exe.parent()?.join("docs").join("fn").join(format!("{name}.html"));
+                        page.is_file().then_some(page)
+                    });
+                    match local {
+                        Some(page) => {
+                            let _ = writeln!(self.out, "  full reference: {}", page.display());
+                        }
+                        None => {
+                            let _ = writeln!(
+                                self.out,
+                                "  full reference: https://kallelay.github.io/Qu/fn/{name}.html"
+                            );
+                        }
+                    }
                     let _ = writeln!(
                         self.out,
                         "  worked examples: https://github.com/kallelay/Qu/tree/main/catalog -- search it for `{name}(`."

@@ -67,6 +67,12 @@ jobs:
           cargo build --release --locked --target "$TARGET" --manifest-path engine/Cargo.toml
           mkdir -p qu-studio-tauri/src-tauri/binaries
           cp "engine/target/$TARGET/release/qu.exe" "qu-studio-tauri/src-tauri/binaries/qu-$TARGET.exe"
+          # the optional components' payloads, as release.yml stages them
+          X="$RUNNER_TEMP/qu-studio-extras"
+          mkdir -p "$X"
+          cp "engine/target/$TARGET/release/qu-jupyter.exe" installer/windows/qu-jupyter-start.cmd "$X/"
+          cp -r website "$X/docs"
+          echo "QU_STUDIO_EXTRAS=$(cygpath -w "$X")" >> "$GITHUB_ENV"
 
       # Same as release.yml (see the long comment there for why two
       # explicit installs with a retry).
@@ -187,6 +193,19 @@ jobs:
             $after = Get-UserPath; Show 'after install' $after
             Assert (Test-Path (Join-Path $dir 'qu.exe')) "qu.exe sidecar installed at $dir\qu.exe"
             Assert (Test-Path (Join-Path $dir '_up_\_up_\editors\vscode-qu\package.json')) "editor resources at the path the installer's QU_EDITORS_DIR assumes"
+            # optional components at their defaults: Jupyter on, docs off
+            $kernel = Join-Path $env:APPDATA 'jupyter\kernels\qu\kernel.json'
+            Assert (Test-Path (Join-Path $dir 'qu-jupyter.exe')) "qu-jupyter.exe installed"
+            Assert (Test-Path $kernel) "Qu kernelspec registered"
+            if (Test-Path $kernel) {
+              $argv0 = (Get-Content $kernel -Raw | ConvertFrom-Json).argv[0]
+              Assert ($argv0 -ieq (Join-Path $dir 'qu-jupyter.exe')) "kernelspec launches the installed qu-jupyter.exe (got $argv0)"
+            }
+            Assert (-not (Test-Path (Join-Path $dir 'docs'))) "documentation not installed by default"
+            $sm = Join-Path ([Environment]::GetFolderPath('Programs')) 'Qu Studio'
+            Get-ChildItem $sm -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    start menu: $($_.Name)" }
+            Assert (Test-Path (Join-Path $sm 'Qu CLI (REPL).lnk')) "Start menu: Qu CLI (REPL) next to Qu Studio"
+            Assert (Test-Path (Join-Path $sm 'Start Jupyter (Qu).lnk')) "Start menu: Start Jupyter (Qu)"
 
             if (-not $before.Exists -or $before.Value -eq '') { $expected = $dir }
             elseif ($before.Value.EndsWith(';')) { $expected = $before.Value + $dir + ';' }
@@ -208,6 +227,8 @@ jobs:
             Assert-SamePath $again $after "second install leaves PATH unchanged (idempotent)"
 
             Run-Uninstall
+            Assert (-not (Test-Path $kernel)) "uninstall removed the kernelspec"
+            Assert (-not (Test-Path (Join-Path $sm 'Qu CLI (REPL).lnk'))) "uninstall removed the Qu CLI (REPL) shortcut"
             $restored = Get-UserPath; Show 'after uninstall' $restored
             if (-not $before.Exists -or $before.Value -eq '') {
               Assert ((-not $restored.Exists) -or $restored.Value -eq '') "PATH restored to empty/absent"

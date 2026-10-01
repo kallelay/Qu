@@ -5,8 +5,22 @@
 ;            [/DOUTDIR=<output dir>] installer\windows\qu.nsi
 ; Produces qu-<VERSION>-windows-<ARCH>-setup.exe. ARCH is x86_64 or arm64.
 ;
+; Optional components (Components page; defaults in brackets), each built
+; only when its files are in SRCDIR -- the release stages all of them:
+;   Jupyter kernel [on]        SRCDIR\qu-jupyter.exe; registers the "Qu"
+;                              kernelspec (qu-jupyter install [--system])
+;   Offline documentation [off] SRCDIR\docs\ (the website, ~25 MB)
+;   Editor plugins             SRCDIR\editors\; VS Code, Sublime Text,
+;                              Notepad++ -- each on only if that editor's
+;                              config folder exists
+;   Start menu shortcuts [on]  Qu CLI (REPL), Start Jupyter (Qu), Qu
+;                              Documentation, Uninstall
+;   Desktop shortcuts [off]
+;
 ; Runtime switches:
 ;   /S           silent
+;   /WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP
+;                choose components without the page (for /S installs)
 ;   /D=<dir>     install directory (must be last, NSIS rule)
 ;   /ALLUSERS    machine-wide: Program Files, HKLM PATH, HKLM uninstall
 ;                entry; relaunches itself elevated if needed
@@ -86,6 +100,21 @@ VIAddVersionKey "LegalCopyright" "(c) 2026 ${PUBLISHER}"
 !include "FileFunc.nsh"
 !include "WinMessages.nsh"
 !include "x64.nsh"
+!include "Sections.nsh"
+
+; What this build can offer (see the header).
+!if /FileExists "${SRCDIR}\qu-jupyter.exe"
+  !define HAVE_JUPYTER
+!endif
+!if /FileExists "${SRCDIR}\docs\index.html"
+  !define HAVE_DOCS
+!endif
+!if /FileExists "${SRCDIR}\editors\vscode-qu\package.json"
+  !define HAVE_EDITORS
+  ; the folder name VS Code expects: <publisher-less name>-<version>
+  !searchparse /file "${SRCDIR}\editors\vscode-qu\package.json" `"version": "` VSCODE_EXT_VER `"`
+!endif
+!define SM_DIR "$SMPROGRAMS\Qu"
 
 Var AllUsers     ; 1 = machine-wide
 Var PathAdded    ; 1 = this install owns a PATH entry (persisted in install.ini)
@@ -94,6 +123,7 @@ Var PsExe
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_TEXT "The qu command is on your PATH. Open a new terminal and run:$\r$\n$\r$\n    qu --version"
 !insertmacro MUI_PAGE_LICENSE "${SRCDIR}\LICENSE"
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -231,9 +261,12 @@ Function .onInit
       StrCpy $INSTDIR $R2
     ${EndIf}
   ${EndIf}
+
+  Call QuComponentDefaults
 FunctionEnd
 
-Section "Qu" SecMain
+Section "Qu command line (required)" SecMain
+  SectionIn RO
   SetOutPath "$INSTDIR"
   File "${SRCDIR}\qu.exe"
   File "${SRCDIR}\LICENSE"
@@ -275,6 +308,165 @@ Section "Qu" SecMain
 SectionEnd
 
 
+!ifdef HAVE_JUPYTER
+Section "Jupyter kernel (Qu in JupyterLab, Notebook, VS Code)" SecJupyter
+  SetOutPath "$INSTDIR"
+  File "${SRCDIR}\qu-jupyter.exe"
+  File "qu-jupyter-start.cmd"
+  ${If} $AllUsers == 1
+    nsExec::ExecToLog '"$INSTDIR\qu-jupyter.exe" install --system'
+  ${Else}
+    nsExec::ExecToLog '"$INSTDIR\qu-jupyter.exe" install'
+  ${EndIf}
+  Pop $0
+  ${If} $0 == 0
+    WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "Jupyter" 1
+  ${Else}
+    DetailPrint "Registering the Jupyter kernel failed (exit code $0)"
+    MessageBox MB_ICONEXCLAMATION "Qu was installed, but registering its Jupyter kernel failed ($0). Run:$\r$\n    qu-jupyter install" /SD IDOK
+  ${EndIf}
+SectionEnd
+!endif
+
+!ifdef HAVE_DOCS
+Section /o "Offline documentation (about 25 MB)" SecDocs
+  SetOutPath "$INSTDIR\docs"
+  File /r "${SRCDIR}\docs\*.*"
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "Docs" 1
+SectionEnd
+!endif
+
+!ifdef HAVE_EDITORS
+; Per-user editor folders, whatever the install scope: an editor reads its
+; plugins from the profile of whoever runs it.
+SectionGroup "Editor plugins" SecPlugins
+  Section "VS Code" SecVSCode
+    SetShellVarContext current
+    StrCpy $R5 "$PROFILE\.vscode\extensions\qu-language-${VSCODE_EXT_VER}"
+    SetOutPath $R5
+    File /r "${SRCDIR}\editors\vscode-qu\*.*"
+    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "VSCode" $R5
+    !insertmacro SET_SCOPE_CONTEXT
+  SectionEnd
+  Section "Sublime Text" SecSublime
+    SetShellVarContext current
+    ${If} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
+    ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
+      StrCpy $R5 "$APPDATA\Sublime Text 3\Packages\Qu"
+    ${Else}
+      StrCpy $R5 "$APPDATA\Sublime Text\Packages\Qu"
+    ${EndIf}
+    SetOutPath $R5
+    File "${SRCDIR}\editors\sublime-qu\Qu.sublime-syntax"
+    File "${SRCDIR}\editors\sublime-qu\Qu.sublime-build"
+    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Sublime" $R5
+    !insertmacro SET_SCOPE_CONTEXT
+  SectionEnd
+  Section "Notepad++" SecNpp
+    SetShellVarContext current
+    SetOutPath "$APPDATA\Notepad++\userDefineLangs"
+    File "${SRCDIR}\editors\notepadpp-qu\Qu.udl.xml"
+    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Notepadpp" "$APPDATA\Notepad++\userDefineLangs\Qu.udl.xml"
+    !insertmacro SET_SCOPE_CONTEXT
+  SectionEnd
+SectionGroupEnd
+!endif
+
+Section "Start menu shortcuts" SecStartMenu
+  CreateDirectory "${SM_DIR}"
+  ; qu.exe is a console program: the shortcut opens a console in the REPL
+  CreateShortCut "${SM_DIR}\Qu CLI (REPL).lnk" "$INSTDIR\qu.exe" "repl" "$INSTDIR\qu.exe" 0 SW_SHOWNORMAL "" "Qu's interactive prompt"
+  !ifdef HAVE_JUPYTER
+    ${If} ${SectionIsSelected} ${SecJupyter}
+      CreateShortCut "${SM_DIR}\Start Jupyter (Qu).lnk" "$INSTDIR\qu-jupyter-start.cmd" "" "$INSTDIR\qu.exe" 0 SW_SHOWNORMAL "" "JupyterLab with the Qu kernel"
+    ${EndIf}
+  !endif
+  !ifdef HAVE_DOCS
+    ${If} ${SectionIsSelected} ${SecDocs}
+      CreateShortCut "${SM_DIR}\Qu Documentation.lnk" "$INSTDIR\docs\index.html"
+    ${EndIf}
+  !endif
+  CreateShortCut "${SM_DIR}\Uninstall Qu.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "StartMenu" 1
+SectionEnd
+
+Section /o "Desktop shortcuts" SecDesktop
+  CreateShortCut "$DESKTOP\Qu CLI (REPL).lnk" "$INSTDIR\qu.exe" "repl" "$INSTDIR\qu.exe" 0
+  !ifdef HAVE_JUPYTER
+    ${If} ${SectionIsSelected} ${SecJupyter}
+      CreateShortCut "$DESKTOP\Start Jupyter (Qu).lnk" "$INSTDIR\qu-jupyter-start.cmd" "" "$INSTDIR\qu.exe" 0
+    ${EndIf}
+  !endif
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "Desktop" 1
+SectionEnd
+
+; After the sections: their ${Sec...} ids exist only from here on.
+Function QuComponentDefaults
+  ; Component defaults: plugins only for editors that are here; the
+  ; command-line switches override the page for scripted installs.
+  !ifdef HAVE_EDITORS
+    ${IfNot} ${FileExists} "$PROFILE\.vscode\*.*"
+      !insertmacro UnselectSection ${SecVSCode}
+    ${EndIf}
+    ${IfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
+    ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
+      !insertmacro UnselectSection ${SecSublime}
+    ${EndIf}
+    ${IfNot} ${FileExists} "$APPDATA\Notepad++\*.*"
+      !insertmacro UnselectSection ${SecNpp}
+    ${EndIf}
+  !endif
+  ${GetParameters} $R0
+  !ifdef HAVE_DOCS
+    ClearErrors
+    ${GetOptions} $R0 "/WITHDOCS" $R1
+    ${IfNot} ${Errors}
+      !insertmacro SelectSection ${SecDocs}
+    ${EndIf}
+  !endif
+  !ifdef HAVE_JUPYTER
+    ClearErrors
+    ${GetOptions} $R0 "/NOJUPYTER" $R1
+    ${IfNot} ${Errors}
+      !insertmacro UnselectSection ${SecJupyter}
+    ${EndIf}
+  !endif
+  !ifdef HAVE_EDITORS
+    ClearErrors
+    ${GetOptions} $R0 "/NOPLUGINS" $R1
+    ${IfNot} ${Errors}
+      !insertmacro UnselectSection ${SecVSCode}
+      !insertmacro UnselectSection ${SecSublime}
+      !insertmacro UnselectSection ${SecNpp}
+    ${EndIf}
+  !endif
+  ClearErrors
+  ${GetOptions} $R0 "/NOSHORTCUTS" $R1
+  ${IfNot} ${Errors}
+    !insertmacro UnselectSection ${SecStartMenu}
+  ${EndIf}
+  ClearErrors
+  ${GetOptions} $R0 "/DESKTOP" $R1
+  ${IfNot} ${Errors}
+    !insertmacro SelectSection ${SecDesktop}
+  ${EndIf}
+FunctionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "qu.exe, on your PATH."
+  !ifdef HAVE_JUPYTER
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecJupyter} "qu-jupyter.exe, registered as the $\"Qu$\" kernel for JupyterLab, Notebook and VS Code's Jupyter extension. Jupyter itself is installed separately (pip install jupyterlab)."
+  !endif
+  !ifdef HAVE_DOCS
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "The full reference and guides as local HTML. help(name) then opens the local page."
+  !endif
+  !ifdef HAVE_EDITORS
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecPlugins} "Syntax highlighting and run commands for Qu files. Each is preselected only if that editor is installed."
+  !endif
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecStartMenu} "Start menu: Qu CLI (REPL), Start Jupyter (Qu), Qu Documentation."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "Qu CLI (REPL) and Start Jupyter (Qu) on the desktop."
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
 ; ---- uninstaller --------------------------------------------------------
 
 Function un.onInit
@@ -307,6 +499,46 @@ Section "Uninstall"
   ${Else}
     DetailPrint "This install did not add the PATH entry; PATH left unchanged"
   ${EndIf}
+
+  ; Optional components, from what install.ini says was installed.
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Install" "Jupyter"
+  ${If} $R0 == 1
+  ${AndIf} ${FileExists} "$INSTDIR\qu-jupyter.exe"
+    ${If} $AllUsers == 1
+      nsExec::ExecToLog '"$INSTDIR\qu-jupyter.exe" uninstall --system'
+    ${Else}
+      nsExec::ExecToLog '"$INSTDIR\qu-jupyter.exe" uninstall'
+    ${EndIf}
+    Pop $0
+  ${EndIf}
+  Delete "$INSTDIR\qu-jupyter.exe"
+  Delete "$INSTDIR\qu-jupyter-start.cmd"
+  ; docs\ is this installer's own folder, never one the user chose
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Install" "Docs"
+  ${If} $R0 == 1
+    RMDir /r "$INSTDIR\docs"
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "VSCode"
+  ${If} $R0 != ""
+    RMDir /r $R0
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "Sublime"
+  ${If} $R0 != ""
+    Delete "$R0\Qu.sublime-syntax"
+    Delete "$R0\Qu.sublime-build"
+    RMDir $R0
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "Notepadpp"
+  ${If} $R0 != ""
+    Delete $R0
+  ${EndIf}
+  Delete "${SM_DIR}\Qu CLI (REPL).lnk"
+  Delete "${SM_DIR}\Start Jupyter (Qu).lnk"
+  Delete "${SM_DIR}\Qu Documentation.lnk"
+  Delete "${SM_DIR}\Uninstall Qu.lnk"
+  RMDir "${SM_DIR}"
+  Delete "$DESKTOP\Qu CLI (REPL).lnk"
+  Delete "$DESKTOP\Start Jupyter (Qu).lnk"
 
   ; Only the files this installer put there -- never a recursive delete of
   ; a directory the user chose, which could hold their own files.

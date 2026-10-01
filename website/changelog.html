@@ -32,6 +32,7 @@
 <p class="sub">Notable changes to Qu. Dates are when the work landed, not when it was released.</p>
 <p class="sub">The format follows <a href="https://keepachangelog.com/">Keep a Changelog</a>, and versions follow <a href="https://semver.org/">semantic versioning</a> once 1.0 is reached; before that, minor versions may break things, and breaking changes are called out.</p>
 <h2 style="margin-top:44px">[Unreleased]</h2>
+<p class="sub">Installers: both Windows setups (command line and Qu Studio) have a Components page -- <strong>Jupyter kernel</strong> (on: <code>qu-jupyter.exe</code>, registered as the "Qu" kernel for JupyterLab/Notebook/VS Code, unregistered on uninstall), <strong>offline documentation</strong> (off: the site in <code>docs\</code>, which <code>help(name)</code> then points at), <strong>editor plugins</strong> (VS Code, Sublime Text, Notepad++, each preselected only when that editor is installed; now removable on uninstall), and shortcuts: <strong>Qu CLI (REPL)</strong>, <strong>Start Jupyter (Qu)</strong> (says how to get Jupyter if it is missing) and <strong>Qu Documentation</strong> in the Start menu, optionally on the desktop. Silent switches <code>/WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP</code>. The release archives now carry <code>qu-jupyter</code>, <code>docs/</code> and <code>editors/</code> too. <code>qu-jupyter install --system</code> and <code>qu-jupyter uninstall</code> are new.</p>
 <h2 style="margin-top:44px">[0.4.5] - 2026-10-01</h2>
 <p class="sub"><strong>Fixed: Qu Studio 0.4.4 opened to a blank dark window.</strong> Two copies of React ended up in the bundle (the shared UI components resolved their own React after the Vite 8 upgrade), which crashes React as the app mounts. Studio's build now dedupes React, and CI and the release workflow render the built frontend in a headless browser and fail unless the app mounts. The status bar shows the real version instead of a fixed "v0.1.0".</p>
 <p class="sub">The command line: <code>qu script.qu [args]</code> runs the script (as <code>qu run</code>); options may come before the command (<code>qu --live repl x.qu</code>, <code>qu --sandbox x.qu</code>); <code>qu repl x.qu</code> streams the script's output -- and every line typed at the prompt -- as it is printed instead of after it finishes. <code>help(name)</code> links to the published reference and the catalog on GitHub instead of repository paths an installed <code>qu</code> does not have.</p>
@@ -156,7 +157,7 @@
 </div></section>
 
 <footer><div class="wrap">
-  <div>Qu 0.4.4 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div>Qu 0.4.5 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
   <div><a href="index.html">Home</a> &nbsp; <a href="learn.html">Learn</a> &nbsp; <a href="docs.html">Docs</a></div>
 </div></footer>
 <script src="assets/site.js"></script>
