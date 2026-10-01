@@ -12,6 +12,12 @@ changes are called out.
 
 ## [0.4.6] - 2026-10-01
 
+**Changed: `rgb()` channels are 0..255 unless the call says otherwise.**
+0.4.5 guessed 0..1 fractions when every channel was in 0..1 and one was
+not whole; that guess is gone. `rgb(0.5, 0.75, 1.0)` is bytes again
+(#010101); write `rgb(0.5, 0.75, 1.0, scale=1)` -- or `scale="normalized"`
+-- for fractions. A bare vector `color = [r, g, b]` is 0..255 too.
+
 Installers: both Windows setups (command line and Qu Studio) have a
 Components page -- **Jupyter kernel** (on: `qu-jupyter.exe`, registered as
 the "Qu" kernel for JupyterLab/Notebook/VS Code, unregistered on

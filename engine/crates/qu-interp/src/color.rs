@@ -158,12 +158,13 @@ pub fn from_channels(vals: &[f64]) -> Result<String, String> {
     if vals.len() != 3 && vals.len() != 4 {
         return Err(format!("a colour vector has 3 numbers (r, g, b) or 4 (with alpha), found {}", vals.len()));
     }
-    let fractional = vals[..3].iter().all(|v| (0.0..=1.0).contains(v)) && vals[..3].iter().any(|v| v.fract() != 0.0);
+    // 0..255 bytes, as rgb() reads them by default; an alpha <= 1 is an
+    // opacity. For 0..1 fractions use rgb(r, g, b, scale=1).
     let mut chan = [255u8; 4];
     for (i, &v) in vals.iter().enumerate() {
-        let scaled = if (i == 3 && v <= 1.0) || (i < 3 && fractional) { v * 255.0 } else { v };
+        let scaled = if i == 3 && v <= 1.0 { v * 255.0 } else { v };
         if !(0.0..=255.0).contains(&scaled) {
-            return Err(format!("colour channel {} is {v}, outside 0..1 / 0..255", i + 1));
+            return Err(format!("colour channel {} is {v}, outside 0..255 (for 0..1 fractions use rgb(r, g, b, scale=1))", i + 1));
         }
         chan[i] = scaled.round() as u8;
     }

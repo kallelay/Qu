@@ -29313,18 +29313,22 @@ self.eval_grad(loss, wrt)
                         .as_num()
                         .map_err(|m| EvalError { msg: m })?;
                 }
-                // Colour channels as MATLAB/matplotlib fractions in 0..1 or as
-                // 0..255 bytes. `rgb(0.5, 0.75, 1.0)` used to round to
-                // #010101 -- silently near-black. Fractions are inferred when
-                // every channel is in 0..1 and one is not a whole number;
-                // `scale=1`/`scale=255` says so outright (needed for
-                // fractional white, rgb(1, 1, 1, scale=1), which would
-                // otherwise read as bytes).
-                let fractional = match style_num(&style, "scale") {
-                    Some(sc) if sc == 1.0 => true,
-                    Some(sc) if sc == 255.0 => false,
-                    Some(sc) => return e(format!("{f}: scale= is 1 (fractions) or 255 (bytes), got {sc}")),
-                    None => vals[..3].iter().all(|v| (0.0..=1.0).contains(v)) && vals[..3].iter().any(|v| v.fract() != 0.0),
+                // Channels are 0..255 bytes -- always, unless the call says
+                // `scale=1` (or `scale="normalized"`) for 0..1 fractions.
+                // No guessing from the values: rgb(0.5, 0.75, 1.0) means
+                // bytes, like every other rgb() call.
+                let fractional = match style_entry(&style, "scale").map(|(_, v)| v) {
+                    None => false,
+                    Some(Value::Num(sc)) if *sc == 1.0 => true,
+                    Some(Value::Num(sc)) if *sc == 255.0 => false,
+                    Some(Value::Str(sc)) if sc == "normalized" => true,
+                    Some(Value::Str(sc)) if sc == "byte" || sc == "bytes" => false,
+                    Some(other) => {
+                        return e(format!(
+                            "{f}: scale= is 255 (bytes, the default) or 1 / \"normalized\" (0..1 fractions), got {}",
+                            display_value(other)
+                        ))
+                    }
                 };
                 let mut chan = [255u8; 4];
                 for i in 0..want {
@@ -73529,20 +73533,24 @@ end for");
 
     #[test]
     fn rgb_reads_fractions_and_bytes_and_vectors_are_colours() {
-        let it = run("a = rgb(0.5, 0.75, 1.0)\nb = rgb(128, 192, 255)\nc = rgb(1, 1, 1)\nd = rgb(1, 1, 1, scale = 1)\ne = rgba(0.5, 0.75, 1.0, 0.5)");
+        let it = run("a = rgb(0.5, 0.75, 1.0)\nb = rgb(128, 192, 255)\nc = rgb(1, 1, 1)\nd = rgb(1, 1, 1, scale = 1)\n\
+                      e = rgba(128, 191, 255, 0.5)\nf = rgb(0.5, 0.75, 1.0, scale = \"normalized\")\ng = rgb(128, 192, 255, scale = 255)");
         let s = |k: &str| match it.get(k) { Some(Value::Str(s)) => s.clone(), o => panic!("{k}: {o:?}") };
-        assert_eq!(s("a"), "#80bfff", "fractions, not near-black #010101");
+        assert_eq!(s("a"), "#010101", "0..255 by default -- no guessing fractions from the values");
         assert_eq!(s("b"), "#80c0ff");
-        assert_eq!(s("c"), "#010101", "whole numbers stay bytes");
+        assert_eq!(s("c"), "#010101");
         assert_eq!(s("d"), "#ffffff");
-        assert_eq!(s("e"), "#80bfff80");
+        assert_eq!(s("e"), "#80bfff80", "alpha <= 1 is an opacity");
+        assert_eq!(s("f"), "#80bfff");
+        assert_eq!(s("g"), "#80c0ff");
+        assert!(run_err("x = rgb(1, 2, 3, scale = 100)").msg.contains("scale="));
         let path = std::env::temp_dir().join(format!("qu_vec_color_{}.svg", std::process::id()));
         let p = path.to_string_lossy().replace('\\', "/");
-        run(&format!("figure()\nplot([0, 1], [0, 1], color = [0.5, 0.75, 1.0])\nsavefig(\"{p}\")"));
+        run(&format!("figure()\nplot([0, 1], [0, 1], color = [128, 191, 255])\nsavefig(\"{p}\")"));
         let svg = std::fs::read_to_string(&path).unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(svg.contains("stroke=\"#80bfff\""), "a vector colour resolves to hex");
-        assert!(!svg.contains("[0.5"), "never written into the SVG verbatim");
+        assert!(!svg.contains("[128"), "never written into the SVG verbatim");
         assert!(run_err("plot([0, 1], [0, 1], color = [0.2, 0.4])").msg.contains("3 numbers"));
         assert!(run_err("plot([0, 1], [0, 1], color = (1, 2, 3))").msg.contains("expected a colour"));
     }
