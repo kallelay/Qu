@@ -1,0 +1,46 @@
+name: Edit release notes
+
+# Replaces one passage of a published release's notes, e.g. to correct a
+# claim after the fact. Dispatch-only. `find` must occur exactly once.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.4.5)"
+        required: true
+      find:
+        description: "Exact text to replace (must occur exactly once)"
+        required: true
+      replace:
+        description: "Replacement text"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Edit the notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          FIND: ${{ inputs.find }}
+          REPLACE: ${{ inputs.replace }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases/tags/$TAG" > release.json
+          python3 - <<'PY'
+          import json, os
+          rel = json.load(open("release.json"))
+          body, find = rel["body"] or "", os.environ["FIND"]
+          n = body.count(find)
+          if n != 1:
+              raise SystemExit(f"'find' occurs {n} times in the {os.environ['TAG']} notes; expected exactly 1")
+          json.dump({"body": body.replace(find, os.environ["REPLACE"])}, open("patch.json", "w"))
+          PY
+          id=$(python3 -c 'import json; print(json.load(open("release.json"))["id"])')
+          gh api -X PATCH "repos/$REPO/releases/$id" --input patch.json --jq '"edited \(.tag_name): \(.html_url)"'
