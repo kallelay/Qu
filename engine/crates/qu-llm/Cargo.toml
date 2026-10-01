@@ -25,7 +25,7 @@ candle-transformers = "0.11"
 # Keeping `onig`/`progressbar`, the other two upstream defaults, since
 # `onig` affects actual pretokenizer *behavior* (not just training speed)
 # and `progressbar` is a real (if cosmetic) download-progress feature.
-tokenizers = { version = "0.22", default-features = false, features = ["onig", "progressbar"] }
+tokenizers = { version = "0.23", default-features = false, features = ["onig", "progressbar"] }
 # Both files a known model needs (the GGUF weights and `tokenizer.json`)
 # are fetched with a plain blocking `ureq` GET -- see `lib.rs`'s
 # `download_to`. This used to be `hf-hub` 0.3 for the model file, with
