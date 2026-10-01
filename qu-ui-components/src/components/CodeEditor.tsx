@@ -456,7 +456,22 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         typeKeywords: QU_LANGUAGE_CONFIG.typeKeywords,
         tokenizer: {
           root: [
-            [/[a-z_$][\w$]*/, {
+            // A `'` straight after a value -- a name, a number, `)` `]` `}`
+            // or another `'` -- is the (conjugate) transpose, as qu-lexer's
+            // `ends_expr` decides it: `X_b' * errors` is not a string
+            // opener. Matching the value and its quotes as one rule is what
+            // gives Monarch that context; without it everything after
+            // `X_b'` was coloured as a string, across lines.
+            [/([a-zA-Z_$][\w$]*)('+)/, [{
+              cases: {
+                '@keywords': 'keyword',
+                '@typeKeywords': 'type',
+                '@default': 'identifier'
+              }
+            }, 'operator']],
+            [/([)\]}])('+)/, ['@brackets', 'operator']],
+            [/(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?i?)('+)/, ['number', 'operator']],
+            [/[a-zA-Z_$][\w$]*/, {
               cases: {
                 '@keywords': 'keyword',
                 '@typeKeywords': 'type',

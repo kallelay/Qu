@@ -242,9 +242,12 @@ try {
         Assert (-not (Test-Path (Join-Path $cDir 'qu-jupyter.exe'))) 'uninstall removed qu-jupyter.exe'
         Assert (-not (Test-Path $sm)) 'uninstall removed the Start menu folder'
 
-        Write-Host "`n== optional components: /WITHDOCS /NOJUPYTER /DESKTOP"
+        Write-Host "`n== optional components: /WITHDOCS /NOJUPYTER /DESKTOP /NOPATH"
         $dDir = Join-Path $work 'Docs'
-        Install @('/S', '/WITHDOCS', '/NOJUPYTER', '/DESKTOP', "/D=$dDir")
+        $pathBefore = Get-RawPath 'User'
+        Install @('/S', '/WITHDOCS', '/NOJUPYTER', '/DESKTOP', '/NOPATH', "/D=$dDir")
+        $pathAfter = Get-RawPath 'User'
+        Assert (($pathAfter.Exists -eq $pathBefore.Exists) -and ($pathAfter.Value -ceq $pathBefore.Value)) '/NOPATH: user PATH untouched'
         Assert (Test-Path (Join-Path $dDir 'docs\index.html')) 'documentation installed (docs\index.html)'
         Assert (Test-Path (Join-Path $dDir 'docs\fn\plot.html')) 'function reference pages installed'
         Assert (-not (Test-Path (Join-Path $dDir 'qu-jupyter.exe'))) '/NOJUPYTER: no qu-jupyter.exe'

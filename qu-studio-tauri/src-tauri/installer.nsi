@@ -21,7 +21,7 @@
 ;      payloads come from $%QU_STUDIO_EXTRAS% at build time (release.yml
 ;      stages qu-jupyter.exe, qu-jupyter-start.cmd and docs\ there); a
 ;      build without it simply has no such components.
-;      Silent switches: /WITHDOCS /NOJUPYTER /NOPLUGINS.
+;      Silent switches: /WITHDOCS /NOJUPYTER /NOPLUGINS /NOPATH.
 ;
 ; Tauri 2 migration note: Tauri 2 has `bundle.windows.nsis.installerHooks`
 ; (NSIS_HOOK_POSTINSTALL / NSIS_HOOK_PREUNINSTALL). The migration should
@@ -887,17 +887,7 @@ FunctionEnd
 ; become the bodies of NSIS_HOOK_POSTINSTALL / NSIS_HOOK_PREUNINSTALL.
 ; ---------------------------------------------------------------------
 Function QuPostInstall
-  !ifdef QU_HAVE_PATH_HELPER
-    SetOutPath "$INSTDIR"
-    File "${QU_EXTRAS}\path-helper.ps1"
-    !insertmacro QU_RUN_PATH_HELPER Add
-    ${If} $R9 != 0
-    ${AndIf} $R9 != 10
-      MessageBox MB_ICONEXCLAMATION "Qu Studio was installed, but adding qu to the PATH failed ($R9). Add $INSTDIR to your PATH manually." /SD IDOK
-    ${EndIf}
-  !else
-    DetailPrint "Qu: built without path-helper.ps1 (QU_STUDIO_EXTRAS); PATH left unchanged"
-  !endif
+  ; PATH moved to the optional "Add qu to the PATH" section below (0.4.6).
 FunctionEnd
 
 ; ---------------------------------------------------------------------
@@ -919,6 +909,21 @@ FunctionEnd
   nsExec::ExecToLog '"$INSTDIR\qu-jupyter.exe" ${ACTION}$R6'
   Pop $R7
 !macroend
+
+!ifdef QU_HAVE_PATH_HELPER
+; On by default; unticked (or /NOPATH) leaves PATH alone.
+Section "Add qu to the PATH" SecQuPath
+  SetOutPath "$INSTDIR"
+  File "${QU_EXTRAS}\path-helper.ps1"
+  !insertmacro QU_RUN_PATH_HELPER Add
+  ${If} $R9 != 0
+  ${AndIf} $R9 != 10
+    MessageBox MB_ICONEXCLAMATION "Qu Studio was installed, but adding qu to the PATH failed ($R9). Add $INSTDIR to your PATH manually." /SD IDOK
+  ${EndIf}
+SectionEnd
+!else
+  !warning "QU_STUDIO_EXTRAS has no path-helper.ps1: this installer will not offer to put qu on the PATH"
+!endif
 
 !ifdef QU_HAVE_JUPYTER
 Section "Jupyter kernel (Qu in JupyterLab, Notebook, VS Code)" SecQuJupyter
@@ -1000,6 +1005,9 @@ Section -QuShortcuts
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !ifdef QU_HAVE_PATH_HELPER
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecQuPath} "Lets any new terminal run the bundled qu command by name. Only this one entry is added to your user PATH; uninstalling removes it."
+  !endif
   !ifdef QU_HAVE_JUPYTER
     !insertmacro MUI_DESCRIPTION_TEXT ${SecQuJupyter} "qu-jupyter.exe, registered as the $\"Qu$\" kernel for JupyterLab, Notebook and VS Code's Jupyter extension, and a Start Jupyter (Qu) shortcut. Jupyter itself is installed separately (pip install jupyterlab)."
   !endif
@@ -1033,6 +1041,13 @@ Function QuComponentDefaults
     ${GetOptions} $R0 "/NOJUPYTER" $R1
     ${IfNot} ${Errors}
       !insertmacro UnselectSection ${SecQuJupyter}
+    ${EndIf}
+  !endif
+  !ifdef QU_HAVE_PATH_HELPER
+    ClearErrors
+    ${GetOptions} $R0 "/NOPATH" $R1
+    ${IfNot} ${Errors}
+      !insertmacro UnselectSection ${SecQuPath}
     ${EndIf}
   !endif
   ClearErrors

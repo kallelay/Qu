@@ -20,7 +20,7 @@ ordinary terminal depends on which package you installed:
 
 | Package | `qu` on your `PATH` afterwards? |
 |---|---|
-| Qu Studio Windows setup (`Qu Studio_<version>_x64-setup.exe`) | **Yes** — adds its install folder (which holds the bundled `qu.exe`) to *your user's* `PATH`; the uninstaller removes exactly that entry. Open a new terminal afterwards. |
+| Qu Studio Windows setup (`Qu Studio_<version>_x64-setup.exe`) | **Yes, from 0.4.6** (earlier setups claimed to but did not) — adds its install folder (which holds the bundled `qu.exe`) to *your user's* `PATH`; the uninstaller removes exactly that entry. Open a new terminal afterwards. |
 | Qu Studio `.msi`, macOS `.dmg`, Linux `.AppImage` / `.deb` / `.rpm` | **No** — `qu` is bundled for Studio's own use only. Install the command-line build too, or add the folder yourself. |
 | Command-line Windows setup (`qu-<version>-windows-<arch>-setup.exe`) | **Yes** — see below; adds `qu` to your user `PATH`, no admin needed. |
 | Command-line `.zip` / `.tar.gz` | No — unpack it and put the folder on `PATH` yourself. |
@@ -30,13 +30,14 @@ Both Windows setups (from 0.4.6) have a **Components** page:
 
 | Component | Default | What it does |
 |---|---|---|
+| Add qu to the PATH | on | adds just the install folder to your user `PATH` (the rest of it is left exactly as it was); untick it to run `qu` by its full path or from the Start menu instead |
 | Jupyter kernel | on | installs `qu-jupyter.exe` and registers the "Qu" kernel, so it appears in JupyterLab, Notebook and VS Code's Jupyter extension (Jupyter itself: `pip install jupyterlab`); the uninstaller unregisters it |
 | Offline documentation | off | the whole reference and guides (~25 MB) in `docs\` beside `qu.exe`; `help(name)` then names the local page |
 | Editor plugins | per editor | VS Code, Sublime Text and Notepad++ syntax and run commands -- each ticked only if that editor is installed |
 | Start menu shortcuts | on | a **Qu** folder (Qu Studio's own folder for the Studio setup) with **Qu CLI (REPL)**, **Start Jupyter (Qu)** and **Qu Documentation** |
 | Desktop shortcuts | off | Qu CLI (REPL) and Start Jupyter (Qu) on the desktop (Studio: alongside its own desktop shortcut) |
 
-For a silent install the same choices are switches: `/WITHDOCS`,
+For a silent install the same choices are switches: `/NOPATH`, `/WITHDOCS`,
 `/NOJUPYTER`, `/NOPLUGINS`, `/NOSHORTCUTS`, `/DESKTOP` (the last two are the
 command-line setup's; Studio follows its own shortcut options). The `.zip`
 and `.tar.gz` archives carry the same pieces -- `qu-jupyter`, `docs/`,

@@ -19,12 +19,20 @@ Notepad++, each preselected only when that editor is installed; now
 removable on uninstall), and shortcuts: **Qu CLI (REPL)**, **Start
 Jupyter (Qu)** (says how to get Jupyter if it is missing) and **Qu
 Documentation** in the Start menu, optionally on the desktop. Silent
-switches `/WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP`. The
+switches `/WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP`. Adding
+`qu` to the PATH is a component too (on; untick it, or `/NOPATH`). The
 release archives now carry `qu-jupyter`, `docs/` and `editors/` too.
 
 Fixed: the Qu Studio installer never actually put `qu` on the PATH (its
 in-process registry edit silently did nothing, 0.4.4 and 0.4.5 included).
 It now uses the same `path-helper.ps1` as the command-line installer.
+
+Fixed in Qu Studio: the **Interactive** tab opened to a black window (0.4.5):
+`react-plotly.js` is CommonJS, and under Vite 8 its default import was the
+module object, which crashed React. The CI smoke test now opens every
+top-level tab. The editor coloured everything after a transpose (`X_b' *
+errors`) as a string, to the end of the file: a `'` right after a name,
+number or closing bracket is now highlighted as the operator it is.
 `qu-jupyter install --system` and `qu-jupyter uninstall` are new.
 
 ## [0.4.5] - 2026-10-01

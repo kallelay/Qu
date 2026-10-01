@@ -1,6 +1,6 @@
 /// <reference path="../types/react-plotly.d.ts" />
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import Plot from "react-plotly.js";
+import PlotModule from "react-plotly.js";
 import Plotly from "plotly.js/dist/plotly";
 import {
   Download,
@@ -31,6 +31,12 @@ import type {
   LayerDesign,
 } from "../utils/figureDesign";
 import "./inspector.css";
+
+// react-plotly.js is CommonJS (`exports.default = Plot`, `__esModule`). Under
+// Vite 8 (rolldown) the default import is the module object, not the
+// component, and rendering it crashed React -- Studio's Interactive tab
+// opened to a black window. Accept either shape.
+const Plot = ((PlotModule as unknown as { default?: typeof PlotModule }).default ?? PlotModule) as typeof PlotModule;
 
 export type PlotType =
   | "line"

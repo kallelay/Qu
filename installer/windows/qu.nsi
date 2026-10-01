@@ -19,7 +19,7 @@
 ;
 ; Runtime switches:
 ;   /S           silent
-;   /WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP
+;   /WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP /NOPATH
 ;                choose components without the page (for /S installs)
 ;   /D=<dir>     install directory (must be last, NSIS rule)
 ;   /ALLUSERS    machine-wide: Program Files, HKLM PATH, HKLM uninstall
@@ -121,7 +121,7 @@ Var PathAdded    ; 1 = this install owns a PATH entry (persisted in install.ini)
 Var PsExe
 
 !define MUI_ABORTWARNING
-!define MUI_FINISHPAGE_TEXT "The qu command is on your PATH. Open a new terminal and run:$\r$\n$\r$\n    qu --version"
+!define MUI_FINISHPAGE_TEXT "Qu is installed. If you kept $\"Add qu to the PATH$\", open a new terminal and run:$\r$\n$\r$\n    qu --version"
 !insertmacro MUI_PAGE_LICENSE "${SRCDIR}\LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
@@ -281,6 +281,23 @@ Section "Qu command line (required)" SecMain
   ${If} $PathAdded != 1
     StrCpy $PathAdded 0
   ${EndIf}
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "PathAdded" $PathAdded
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "AllUsers" $AllUsers
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "Version" "${VERSION}"
+
+  ${GetSize} "$INSTDIR" "/S=0K" $R2 $R3 $R4
+  ${If} $AllUsers == 1
+    StrCpy $R1 " /ALLUSERS"
+    !insertmacro WRITE_ARP HKLM
+  ${Else}
+    StrCpy $R1 ""
+    !insertmacro WRITE_ARP HKCU
+  ${EndIf}
+SectionEnd
+
+; On by default; unticked (or /NOPATH) leaves PATH alone and qu runs by its
+; full path or from the Start-menu shortcut.
+Section "Add qu to the PATH" SecPath
   DetailPrint "Adding $INSTDIR to the PATH"
   !insertmacro RUN_PATH_HELPER Add
   ${If} $0 == 0
@@ -293,18 +310,7 @@ Section "Qu command line (required)" SecMain
     SetErrorLevel 3
   ${EndIf}
   WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "PathAdded" $PathAdded
-  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "AllUsers" $AllUsers
-  WriteINIStr "$INSTDIR\${STATE_FILE}" "Install" "Version" "${VERSION}"
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
-
-  ${GetSize} "$INSTDIR" "/S=0K" $R2 $R3 $R4
-  ${If} $AllUsers == 1
-    StrCpy $R1 " /ALLUSERS"
-    !insertmacro WRITE_ARP HKLM
-  ${Else}
-    StrCpy $R1 ""
-    !insertmacro WRITE_ARP HKCU
-  ${EndIf}
 SectionEnd
 
 
@@ -441,6 +447,11 @@ Function QuComponentDefaults
     ${EndIf}
   !endif
   ClearErrors
+  ${GetOptions} $R0 "/NOPATH" $R1
+  ${IfNot} ${Errors}
+    !insertmacro UnselectSection ${SecPath}
+  ${EndIf}
+  ClearErrors
   ${GetOptions} $R0 "/NOSHORTCUTS" $R1
   ${IfNot} ${Errors}
     !insertmacro UnselectSection ${SecStartMenu}
@@ -453,7 +464,8 @@ Function QuComponentDefaults
 FunctionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "qu.exe, on your PATH."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "qu.exe, its licence files and the uninstaller."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecPath} "Lets any new terminal run qu by name. Only this one entry is added; the rest of PATH is left exactly as it is, and uninstalling removes it."
   !ifdef HAVE_JUPYTER
     !insertmacro MUI_DESCRIPTION_TEXT ${SecJupyter} "qu-jupyter.exe, registered as the $\"Qu$\" kernel for JupyterLab, Notebook and VS Code's Jupyter extension. Jupyter itself is installed separately (pip install jupyterlab)."
   !endif
