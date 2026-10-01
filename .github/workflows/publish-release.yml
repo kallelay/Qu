@@ -1,0 +1,43 @@
+name: Publish release
+
+# Publishes a draft release that release.yml created. Dispatch-only.
+# The tag is created at `sha` (the commit the draft was built from), not
+# at whatever main points to now.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of the draft release to publish (e.g. v0.4.5)"
+        required: true
+      sha:
+        description: "Commit the tag should point at (the commit release.yml built)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.draft and .tag_name == \"$TAG\") | .id")
+          n=$(printf '%s\n' "$ids" | grep -c . || true)
+          if [ "$n" != 1 ]; then
+            echo "expected exactly one draft release tagged $TAG, found $n" >&2
+            exit 1
+          fi
+          gh api -X PATCH "repos/$REPO/releases/$ids" \
+            -F draft=false -f target_commitish="$SHA" -f make_latest=true \
+            --jq '"published \(.tag_name) at \(.target_commitish): \(.html_url)"'
+          git_sha=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq .object.sha)
+          echo "tag $TAG -> $git_sha"
+          [ "$git_sha" = "$SHA" ]
