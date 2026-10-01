@@ -20159,13 +20159,17 @@ self.eval_grad(loss, wrt)
                     if !related.is_empty() {
                         let _ = writeln!(self.out, "  related: {}", related.join(", "));
                     }
+                    // Links, not repo paths: an installed `qu` or Qu Studio has
+                    // no `website/` or `catalog/` folder beside it, so the old
+                    // "website/fn/x.html" / "catalog/" pointers led nowhere for
+                    // anyone but a developer in a checkout.
                     let _ = writeln!(
                         self.out,
-                        "  full reference: website/fn/{name}.html"
+                        "  full reference: https://kallelay.github.io/Qu/fn/{name}.html"
                     );
                     let _ = writeln!(
                         self.out,
-                        "  worked examples live in catalog/ -- search it for `{name}(`."
+                        "  worked examples: https://github.com/kallelay/Qu/tree/main/catalog -- search it for `{name}(`."
                     );
                 } else if verb.is_none() {
                     let hints = similar_builtins(&name);
@@ -29287,18 +29291,35 @@ self.eval_grad(loss, wrt)
             }
             "rgb" | "rgba" => {
                 let want = if f == "rgb" { 3 } else { 4 };
-                let mut chan = [255u8; 4];
-                for i in 0..want {
-                    let v = arg_get(&args, i)
+                let mut vals = [0.0f64; 4];
+                for (i, slot) in vals.iter_mut().enumerate().take(want) {
+                    *slot = arg_get(&args, i)
                         .ok_or_else(|| EvalError {
                             msg: format!("{f}: needs {want} channels, found {i}"),
                         })?
                         .as_num()
                         .map_err(|m| EvalError { msg: m })?;
+                }
+                // Colour channels as MATLAB/matplotlib fractions in 0..1 or as
+                // 0..255 bytes. `rgb(0.5, 0.75, 1.0)` used to round to
+                // #010101 -- silently near-black. Fractions are inferred when
+                // every channel is in 0..1 and one is not a whole number;
+                // `scale=1`/`scale=255` says so outright (needed for
+                // fractional white, rgb(1, 1, 1, scale=1), which would
+                // otherwise read as bytes).
+                let fractional = match style_num(&style, "scale") {
+                    Some(sc) if sc == 1.0 => true,
+                    Some(sc) if sc == 255.0 => false,
+                    Some(sc) => return e(format!("{f}: scale= is 1 (fractions) or 255 (bytes), got {sc}")),
+                    None => vals[..3].iter().all(|v| (0.0..=1.0).contains(v)) && vals[..3].iter().any(|v| v.fract() != 0.0),
+                };
+                let mut chan = [255u8; 4];
+                for i in 0..want {
+                    let v = vals[i];
                     // The alpha channel is an opacity in 0..1 when written
                     // that way, the CSS convention, and a 0..255 byte when
                     // written like the other three.
-                    let scaled = if i == 3 && v <= 1.0 { v * 255.0 } else { v };
+                    let scaled = if (i == 3 && v <= 1.0) || (i < 3 && fractional) { v * 255.0 } else { v };
                     if !(0.0..=255.0).contains(&scaled) {
                         return e(format!(
                             "{f}: channel {} is {v}, outside 0..255", i + 1
@@ -44211,6 +44232,34 @@ fn style_str(style: &[(String, Value)], key: &str) -> Option<String> {
                 }
             };
         }
+        // `color = [0.5, 0.75, 1.0]`: used to reach the SVG verbatim as
+        // stroke="[0.5, 0.75, 1]", which no renderer understands -- the
+        // line came out black or not at all, with no error.
+        let fail = |msg: String| {
+            COLOR_ERROR.with(|c| {
+                if let Ok(mut slot) = c.try_borrow_mut() {
+                    slot.get_or_insert(format!("{key}=: {msg}"));
+                }
+            });
+        };
+        return match v {
+            Value::Vec(xs) => match color::from_channels(xs) {
+                Ok(hex) => Some(hex),
+                Err(msg) => {
+                    fail(msg);
+                    Some(display_value(v))
+                }
+            },
+            // `fill=true` and friends are flags on some builtins, not colours
+            Value::Bool(_) | Value::Num(_) => Some(display_value(v)),
+            other => {
+                fail(format!(
+                    "expected a colour -- a name (\"royalblue\"), hex (\"#4169e1\"), rgb(65, 105, 225) or [r, g, b] -- found {}",
+                    other.type_name()
+                ));
+                Some(display_value(v))
+            }
+        };
     }
     Some(display_value(v))
 }
@@ -73463,6 +73512,26 @@ end for");
         assert!(matches!(it.get("l1"), Some(Value::Bool(true))));
         assert!(matches!(it.get("l0"), Some(Value::Bool(false))));
         assert!(matches!(it.get("n1"), Some(Value::Bool(true))));
+    }
+
+    #[test]
+    fn rgb_reads_fractions_and_bytes_and_vectors_are_colours() {
+        let it = run("a = rgb(0.5, 0.75, 1.0)\nb = rgb(128, 192, 255)\nc = rgb(1, 1, 1)\nd = rgb(1, 1, 1, scale = 1)\ne = rgba(0.5, 0.75, 1.0, 0.5)");
+        let s = |k: &str| match it.get(k) { Some(Value::Str(s)) => s.clone(), o => panic!("{k}: {o:?}") };
+        assert_eq!(s("a"), "#80bfff", "fractions, not near-black #010101");
+        assert_eq!(s("b"), "#80c0ff");
+        assert_eq!(s("c"), "#010101", "whole numbers stay bytes");
+        assert_eq!(s("d"), "#ffffff");
+        assert_eq!(s("e"), "#80bfff80");
+        let path = std::env::temp_dir().join(format!("qu_vec_color_{}.svg", std::process::id()));
+        let p = path.to_string_lossy().replace('\\', "/");
+        run(&format!("figure()\nplot([0, 1], [0, 1], color = [0.5, 0.75, 1.0])\nsavefig(\"{p}\")"));
+        let svg = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(svg.contains("stroke=\"#80bfff\""), "a vector colour resolves to hex");
+        assert!(!svg.contains("[0.5"), "never written into the SVG verbatim");
+        assert!(run_err("plot([0, 1], [0, 1], color = [0.2, 0.4])").msg.contains("3 numbers"));
+        assert!(run_err("plot([0, 1], [0, 1], color = (1, 2, 3))").msg.contains("expected a colour"));
     }
 
     #[test]

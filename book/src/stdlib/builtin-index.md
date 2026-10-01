@@ -921,8 +921,8 @@ program, and a misspelled call suggests the nearest match.
 | [`rewind`](../fn/rewind.html) | Resets `f`'s (file handle, opened readable) read cursor to the beginning — exactly `seek(f, 0)` | [File I/O](file-io.md) |
 | [`rfe`](../fn/rfe.html) | Recursive feature elimination on an `N`-row, `D`-column `X` and length-`N` `y`, down to an integer target `n_features`: repeatedly drops the weakest-scoring remaining column and refits | [Statistics & ML](statistics-ml.md) |
 | [`rfft`](../fn/rfft.html) | Real-optimized half-spectrum FFT | [Signal processing](signal-processing.md) |
-| [`rgb`](../fn/rgb.html) | Builds a colour from channel numbers: `r`, `g`, `b` (and, for `rgba`, a fourth channel `a`) — a fractional 0–1 fourth channel is an opacity, a whole number 0–255 is a byte value like the.. | [Plotting](plotting.md) |
-| [`rgba`](../fn/rgba.html) | Builds a colour from channel numbers: `r`, `g`, `b` (and, for `rgba`, a fourth channel `a`) — a fractional 0–1 fourth channel is an opacity, a whole number 0–255 is a byte value like the.. | [Plotting](plotting.md) |
+| [`rgb`](../fn/rgb.html) | Builds a colour from channel numbers: `r`, `g`, `b` (and, for `rgba`, a fourth channel `a`) | [Plotting](plotting.md) |
+| [`rgba`](../fn/rgba.html) | Builds a colour from channel numbers: `r`, `g`, `b` (and, for `rgba`, a fourth channel `a`) | [Plotting](plotting.md) |
 | [`ridge`](../fn/ridge.html) | Tikhonov-regularized (L2) least squares on an `N`-row, `D`-column feature matrix `X` and a length-`N` target vector `y`, with regularization strength `alpha` (a non-negative number; plain.. | [Statistics & ML](statistics-ml.md) |
 | [`ridge_model`](../fn/ridge_model.html) | The same fit as `ols_model` on an `N`-row, `D`-column `X` and a length-`N` `y`, but with L2 regularization strength `alpha` (a non-negative number) shrinking the coefficients toward zero;.. | [Statistics & ML](statistics-ml.md) |
 | [`right`](../fn/right.html) | The last `n` characters of a string | [Collections & strings](collections-strings.md) |

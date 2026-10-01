@@ -2763,7 +2763,7 @@ function App() {
           {executionState.elapsed_ms != null && !executionState.isRunning && (
             <span>{executionState.elapsed_ms.toFixed(2)} ms</span>
           )}
-          <span>Qu Studio v0.1.0</span>
+          <span>Qu Studio v{__APP_VERSION__}</span>
         </div>
       </div>
 

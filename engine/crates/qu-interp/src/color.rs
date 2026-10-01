@@ -149,6 +149,27 @@ pub fn resolve(input: &str) -> Result<String, String> {
 }
 
 /// `#rrggbb` from three channels.
+/// A colour given as numbers -- `color = [0.5, 0.75, 1.0]`, MATLAB's own
+/// spelling, or `[128, 192, 255]`: 3 channels, or 4 with alpha. Fractions
+/// when every colour channel is in 0..1 and one is not a whole number
+/// (the same rule as the `rgb` builtin), 0..255 bytes otherwise; alpha is
+/// an opacity in 0..1 or a byte.
+pub fn from_channels(vals: &[f64]) -> Result<String, String> {
+    if vals.len() != 3 && vals.len() != 4 {
+        return Err(format!("a colour vector has 3 numbers (r, g, b) or 4 (with alpha), found {}", vals.len()));
+    }
+    let fractional = vals[..3].iter().all(|v| (0.0..=1.0).contains(v)) && vals[..3].iter().any(|v| v.fract() != 0.0);
+    let mut chan = [255u8; 4];
+    for (i, &v) in vals.iter().enumerate() {
+        let scaled = if (i == 3 && v <= 1.0) || (i < 3 && fractional) { v * 255.0 } else { v };
+        if !(0.0..=255.0).contains(&scaled) {
+            return Err(format!("colour channel {} is {v}, outside 0..1 / 0..255", i + 1));
+        }
+        chan[i] = scaled.round() as u8;
+    }
+    Ok(if vals.len() == 4 { from_rgba(chan[0], chan[1], chan[2], chan[3]) } else { from_rgb(chan[0], chan[1], chan[2]) })
+}
+
 pub fn from_rgb(r: u8, g: u8, b: u8) -> String {
     format!("#{r:02x}{g:02x}{b:02x}")
 }

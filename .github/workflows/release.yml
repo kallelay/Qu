@@ -447,6 +447,18 @@ jobs:
           echo "install failed 3 times" >&2
           exit 1
 
+      # Render the built frontend before packaging it: an installer whose UI
+      # crashes at mount (0.4.4: a blank window) must not reach a release.
+      # One leg is enough -- the bundle is the same on every platform.
+      - name: Smoke-render the frontend
+        if: runner.os == 'Linux'
+        working-directory: qu-studio-tauri
+        run: |
+          npx vite build
+          npm install --no-save --no-audit --no-fund playwright@1.56
+          npx playwright install --with-deps chromium
+          node scripts/smoke-render.mjs
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

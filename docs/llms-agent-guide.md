@@ -236,23 +236,23 @@ tic(1)
 # examples.
 ```
 
-**There is currently no way to ask a builtin for its signature from inside
-Qu.** `help(name)` gives the name, related names, and a pointer to
-`catalog/`; it does not state parameters, for any builtin. `apropos(name)`
-finds names. Neither answers "what are the arguments, in what order".
-
-For that, read the function's page in the book, or — usually faster — find
-a real call:
+**`help(name)` states the signature and what the builtin does** (since the
+builtin reference was generated from the book; before that it did not,
+and this section said so):
 
 ```qu
-print(help("read_csv"))
-#   read_csv is a Qu builtin.
+help("read_csv")
+#   read_csv(path, [headers=true], [sep=","], [decimal="."])
+#   Reads a CSV file into a `Table`.
 #   related: read, re
-#   worked examples live in catalog/ -- search it for `read_csv(`.
+#   full reference: https://kallelay.github.io/Qu/fn/read_csv.html
+#   worked examples: https://github.com/kallelay/Qu/tree/main/catalog -- search it for `read_csv(`.
 ```
 
-That last line is the honest route: `catalog/` is full of working scripts,
-and a real call answers the question a signature would.
+The two last lines are links, not repo paths, so they work from an
+installed `qu` too. A builtin the book does not document yet still prints
+only "`name` is a Qu builtin." -- for those, a real call in `catalog/` is
+the honest route.
 
 This entry is here twice over. The error message first suggested
 `available("tic")` — a **serial port** builtin, so following it produced a

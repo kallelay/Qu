@@ -197,6 +197,7 @@ fn run() -> ExitCode {
         }
     }
 
+    let args = normalize_args(args);
     let cmd = args.first().map(String::as_str).unwrap_or("help");
 
     let result = match cmd {
@@ -494,6 +495,58 @@ fn run_embedded_bundle(
 /// file or pipe it is buffered, and `flush()`, `sleep`, `read_input` and
 /// the end of the run push it out. Unbuffered, 300k `print`s into a pipe
 /// took 1.26s against 0.19s.
+const COMMANDS: &[&str] = &[
+    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp",
+    "version", "help",
+];
+
+/// Two everyday spellings that used to be "unknown command":
+///
+/// * `qu script.qu [args]` -- a script with no command means `run`, the
+///   way `python script.py` does. (A path that is not a `.qu` file and
+///   does not exist is still an unknown command, so a typo of a command
+///   name is not silently "run".)
+/// * options BEFORE the command, `qu --live repl x.qu`, `qu --sandbox
+///   x.qu` -- moved after it, where each command reads its options.
+///
+/// Options are recognised by their leading `--`; a run option that takes a
+/// value (`--max-time 5`) travels with its value.
+fn normalize_args(args: Vec<String>) -> Vec<String> {
+    const TAKES_VALUE: &[&str] = &[
+        "--max-time", "--max-memory", "--report", "--profile-output", "--emit-figure", "--emit-vars",
+        "--emit-data", "--emit-ui", "--ui-values", "-o",
+    ];
+    let is_script = |a: &str| a.ends_with(".qu") || std::path::Path::new(a).is_file();
+    let mut lead = Vec::new();
+    let mut i = 0;
+    while i < args.len() && args[i].starts_with('-') && !matches!(args[i].as_str(), "--help" | "-h" | "--version" | "-V" | "--") {
+        lead.push(args[i].clone());
+        if TAKES_VALUE.contains(&args[i].as_str()) && i + 1 < args.len() {
+            lead.push(args[i + 1].clone());
+            i += 1;
+        }
+        i += 1;
+    }
+    let rest = &args[i..];
+    let Some(first) = rest.first() else {
+        return args;
+    };
+    let mut out = Vec::new();
+    if COMMANDS.contains(&first.as_str()) || matches!(first.as_str(), "--help" | "-h" | "--version" | "-V") {
+        out.push(first.clone());
+        out.extend(lead);
+        out.extend(rest[1..].iter().cloned());
+    } else if !first.starts_with('-') && is_script(first) {
+        out.push("run".to_string());
+        out.extend(lead);
+        out.extend(rest.iter().cloned());
+    } else {
+        // leave it for the "unknown command" message to name
+        return args;
+    }
+    out
+}
+
 fn stream_stdout(it: &mut qu_interp::Interp, per_write: bool) {
     use std::io::IsTerminal;
     let per_write = per_write || io::stdout().is_terminal();
@@ -1581,7 +1634,22 @@ fn print_repl_help() {
 }
 
 fn cmd_repl(args: &[String]) -> Result<(), String> {
+    // `--live` is accepted (it is what a `qu run --live` habit types) and
+    // changes nothing: the REPL streams output as it is printed anyway.
+    let mut file: Option<&String> = None;
+    for a in args {
+        match a.as_str() {
+            "--live" => {}
+            flag if flag.starts_with("--") => return Err(format!("repl: unknown option `{flag}`")),
+            _ if file.is_none() => file = Some(a),
+            extra => return Err(format!("repl: takes one script, got a second one `{extra}`")),
+        }
+    }
     let mut it = qu_interp::Interp::new();
+    // Output appears AS IT IS PRINTED -- a script's progress lines, a loop
+    // with `sleep` -- not when the statement (or the startup script)
+    // finishes, which is what `qu repl x.qu` did through 0.4.4.
+    stream_stdout(&mut it, true);
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
     let mut buf = String::new();
@@ -1597,13 +1665,12 @@ fn cmd_repl(args: &[String]) -> Result<(), String> {
     // -- same as `qu run` -- rather than silently dropping into an empty
     // REPL, since a half-run script's partial bindings would be a confusing
     // starting point, not a useful one.
-    if let Some(path) = args.first() {
+    if let Some(path) = file {
         let src = read_file(Some(path.as_str()))?;
         it.set_script_path(std::path::Path::new(path));
-        it.run(&src).map_err(|e| e.to_string())?;
-        print!("{}", it.out);
-        it.out.clear();
-        io::stdout().flush().ok();
+        let r = it.run(&src);
+        it.drain_out(true);
+        r.map_err(|e| e.to_string())?;
     }
 
     print!("qu> ");
@@ -1639,6 +1706,7 @@ fn cmd_repl(args: &[String]) -> Result<(), String> {
                 "vars" | "whos" => print_vars(&it),
                 "clear" => {
                     it = qu_interp::Interp::new();
+                    stream_stdout(&mut it, true);
                     buf.clear();
                     println!("  (session cleared)");
                 }
@@ -1675,10 +1743,11 @@ fn cmd_repl(args: &[String]) -> Result<(), String> {
         }
 
         let src = std::mem::take(&mut buf);
-        let before = it.out.len();
-        match it.run_repl_line(&src) {
+        let result = it.run_repl_line(&src);
+        // whatever the line printed before it finished or failed
+        it.drain_out(true);
+        match result {
             Ok(echo) => {
-                print!("{}", &it.out[before..]);
                 if let Some((name, v)) = echo {
                     println!("{name} = {}", qu_interp::display_value(&v));
                 }
@@ -1878,6 +1947,7 @@ fn print_help() {
     print!(
         "commands:\n  \
          run <file.qu>     parse + execute a script\n  \
+         <file.qu> [args]  the same as `run <file.qu>` (options may come first: `qu --live x.qu`)\n  \
          run <file.qu> [--max-time <s>] [--max-memory <MB>]   hard resource caps; kills the\n  \
                            process with a clear message identifying which limit was hit\n  \
          run <file.qu> --sandbox   deny network/process/file-write builtins at call time\n  \

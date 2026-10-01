@@ -71,7 +71,7 @@ jobs:
           "$BIN" run smoke.qu
 
   studio:
-    name: Qu Studio (typecheck)
+    name: Qu Studio (typecheck, smoke render)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +95,18 @@ jobs:
       - name: Typecheck
         working-directory: qu-studio-tauri
         run: npx tsc --noEmit
+
+      # Load the BUILT frontend in a real browser and fail unless the app
+      # mounts. 0.4.4 shipped opening to a blank window (two Reacts in the
+      # bundle) because nothing between `vite build` and the installer ever
+      # rendered the page -- typecheck and build both passed.
+      - name: Build and smoke-render
+        working-directory: qu-studio-tauri
+        run: |
+          npx vite build
+          npm install --no-save --no-audit --no-fund playwright@1.56
+          npx playwright install --with-deps chromium
+          node scripts/smoke-render.mjs
 
   links:
     name: Doc links

@@ -10,6 +10,28 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-10-01
+
+**Fixed: Qu Studio 0.4.4 opened to a blank dark window.** Two copies of
+React ended up in the bundle (the shared UI components resolved their own
+React after the Vite 8 upgrade), which crashes React as the app mounts.
+Studio's build now dedupes React, and CI and the release workflow render
+the built frontend in a headless browser and fail unless the app mounts.
+The status bar shows the real version instead of a fixed "v0.1.0".
+
+The command line: `qu script.qu [args]` runs the script (as `qu run`);
+options may come before the command (`qu --live repl x.qu`, `qu --sandbox
+x.qu`); `qu repl x.qu` streams the script's output -- and every line typed
+at the prompt -- as it is printed instead of after it finishes. `help(name)`
+links to the published reference and the catalog on GitHub instead of
+repository paths an installed `qu` does not have.
+
+Colours: `rgb(0.5, 0.75, 1.0)` reads MATLAB-style fractions (it rounded to
+near-black #010101), `scale=1`/`scale=255` says which outright, and a bare
+vector `color = [0.5, 0.75, 1.0]` is a colour -- it reached the SVG verbatim
+and drew black. A non-colour value for `color=` is an error that says what
+is accepted.
+
 **Changed: `remove_file`/`remove_dir` send to the Recycle Bin/Trash by
 default.** A deleted file can be recovered unless the call says
 `permanent=true` (the old `recycle_bin=false` still means permanent;
