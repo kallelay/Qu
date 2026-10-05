@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0%20%2F%20CC--BY--SA--4.0-blue"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.4.6-informational">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.7-informational">
   <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C000%2B%20passing-brightgreen">
 </p>
 
@@ -222,7 +222,7 @@ language is organised against.
 
 ## Status
 
-Version 0.4.6, and honest about what that means: one implementation, a
+Version 0.4.7, and honest about what that means: one implementation, a
 small number of users, and a specification that is ahead of the engine in
 places. The numerical core is checked against reference implementations —
 several ports reproduce NumPy, SciPy and MATLAB results exactly — and the

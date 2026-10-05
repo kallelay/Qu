@@ -127,10 +127,12 @@
 //! same core can later be driven from a WASM/browser front-end.
 
 mod diary;
+mod fmt_cmd;
 mod gui;
 mod mcp;
 mod report;
 mod resource;
+mod test_cmd;
 
 use std::io::{self, BufRead, Write};
 use std::process::ExitCode;
@@ -210,6 +212,8 @@ fn run() -> ExitCode {
         "eval" => cmd_eval(eval_source(&args[1..]).as_deref()),
         "diary" => cmd_diary(&args[1..]),
         "docs" => cmd_docs(&args[1..]),
+        "test" => test_cmd::cmd_test(&args[1..]),
+        "fmt" => fmt_cmd::cmd_fmt(&args[1..]),
         "repl" => cmd_repl(&args[1..]),
         "kernel" => cmd_kernel(),
         "mcp" => mcp::cmd_mcp(&args[1..]),
@@ -496,7 +500,7 @@ fn run_embedded_bundle(
 /// the end of the run push it out. Unbuffered, 300k `print`s into a pipe
 /// took 1.26s against 0.19s.
 const COMMANDS: &[&str] = &[
-    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp",
+    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp", "test", "fmt",
     "version", "help",
 ];
 
@@ -1991,6 +1995,11 @@ fn print_help() {
          mcp [--allow-write] [--timeout <s>] [--memory <MB>] [--root <dir>]\n  \
                            Model Context Protocol server on stdin/stdout, so an\n  \
                            assistant can run Qu instead of guessing at it\n  \
+         test [paths] [--filter <s>] [--fail-fast] [--json]   run every top-level test_*() function\n  \
+                           (fresh interpreter per file; a file with none runs as a script);\n  \
+                           exit 1 on any failure, 2 if no tests were found\n  \
+         fmt [paths] [--check] [--stdin]   conservative lexer-driven formatter (indentation, spacing,\n  \
+                           trailing whitespace); --check exits 1 listing files that would change\n  \
          version           print version\n"
     );
 }

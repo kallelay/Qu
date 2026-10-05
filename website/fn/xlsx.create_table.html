@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xlsx.create_table — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>xlsx.create_table</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>xlsx.create_table(wb, sheet, range, name, [header=true], [style="medium2"], [stripes=true], [total=])</code></pre>
+<p class="fnnote">Input: wb, sheet, range, name, header, style, stripes, total &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Turns <code>range</code> into an Excel Table named <code>name</code> (letters, digits, <code>_</code> and <code>.</code>, starting with a letter or <code>_</code>, not a cell address like <code>A1</code>; unique in the workbook): banded rows, filter buttons, structured references. <code>range</code> includes the header row; header cells that are empty, numeric or repeated are rewritten as unique text (<code>Column3</code>, <code>Sales2</code>) so the cells and the table agree; <code>header=false</code> for data only. <code>style</code> is <code>"light1"</code>-<code>"light21"</code>, <code>"medium1"</code>-<code>"medium28"</code>, <code>"dark1"</code>-<code>"dark11"</code> (or Excel's <code>TableStyleMedium2</code>), or <code>"none"</code>. <code>total=true</code> (or <code>"sum"</code>, <code>"average"</code>, <code>"count"</code>, <code>"min"</code>, <code>"max"</code>) adds a totals row just BELOW <code>range</code> (it must be empty): the label <code>Total</code> under the first column and a <code>SUBTOTAL</code> formula under every column holding only numbers (stored, not evaluated). A table may not overlap another table, the sheet's autofilter or a merged range.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>xlsx.create_table(wb, sheet, range, name, [header=true], [style="medium2"], [stripes=true], [total=])</code></td><td><div class="ioitem"><code>wb</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>sheet</code> <span class="iotype">&mdash;</span><span class="iodesc">A table may not overlap another table, the sheet's autofilter or a merged range.</span></div>
+<div class="ioitem"><code>range</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>range</code> includes the header row.</span></div>
+<div class="ioitem"><code>name</code> <span class="iotype">Table</span><span class="iodesc">Turns <code>range</code> into an Excel Table named <code>name</code> (letters, digits, <code>_</code> and <code>.</code>, starting with a letter or <code>_</code>, not a cell address like <code>A1</code>.</span></div>
+<div class="ioitem"><code>header</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iodesc">header cells that are empty, numeric or repeated are rewritten as unique text (<code>Column3</code>, <code>Sales2</code>) so the cells and the table agree.</span></div>
+<div class="ioitem"><code>style</code> <span class="iotype">optional (default <code>"medium2"</code>)</span><span class="iodesc"><code>style</code> is <code>"light1"</code>-<code>"light21"</code>, <code>"medium1"</code>-<code>"medium28"</code>, <code>"dark1"</code>-<code>"dark11"</code> (or Excel's <code>TableStyleMedium2</code>), or <code>"none"</code>.</span></div>
+<div class="ioitem"><code>stripes</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>total</code> <span class="iotype">number, optional</span><span class="iodesc"><code>total=true</code> (or <code>"sum"</code>, <code>"average"</code>, <code>"count"</code>, <code>"min"</code>, <code>"max"</code>) adds a totals row just BELOW <code>range</code> (it must be empty): the label <code>Total</code> under the first column and a <code>SUBTOTAL</code> formula under every column holding only numbers (stored, not evaluated).</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

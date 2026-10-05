@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pptx.add_chart — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pptx.add_chart</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>pptx.add_chart(p, i, kind, y, [x=], [names=], [colors=], [title=], [x_title=], [y_title=], [at=], [width=160], [height=90], [lines=], [markers=], [legend=], [x_min=], [x_max=], [y_min=], [y_max=], [x_log=false], [y_log=false], [equal_axes=false], [shape_name=])</code></pre>
+<p class="fnnote">Input: p, i, kind, y, x, names, colors, title, x_title, y_title, at, width, height, lines, markers, legend, x_min, x_max, y_min, y_max, x_log, y_log, equal_axes, shape_name &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Adds a native, scalable PowerPoint chart to slide <code>i</code> from numbers given directly (a vector or a table column such as <code>data.z</code>); returns the new shape's id. <code>kind</code> is <code>"scatter"</code> (XY, both axes numeric), <code>"line"</code>, <code>"bar"</code> (vertical) or <code>"barh"</code> (horizontal). <code>y</code> is a vector for one series, or several series as a parenthesised list <code>(a, b)</code> of vectors or a matrix with one column per series (a bracketed <code>[[..], [..]]</code> is flattened by Qu itself into one vector, so give <code>names=</code> to catch that). <code>x=</code> is one vector shared by all series (x values for scatter, categories for line/bar -- a list of strings gives text labels) or a list with one per series. <code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette). <code>at=[x, y]</code> is the top-left corner (millimetres or lengths; default: centred on the slide); <code>width</code>/<code>height</code> in millimetres or lengths. Scatter draws markers only (<code>lines=true</code> joins them), line charts lines only. Axis limits, log scales and <code>equal_axes=true</code> (one unit the same length along both axes) are scatter-only. A legend appears when there are several series or names. The numbers are stored in the chart as cached literals, not in an embedded workbook: it renders everywhere with exactly the data given, but PowerPoint's "Edit Data" has no sheet to open -- build a chart that must stay editable with <code>xlsx.add_chart</code>. Only the slide, its relationships, <code>[Content_Types].xml</code> and the new chart part change. *Added in v0.4.7*</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>pptx.add_chart(p, i, kind, y, [x=], [names=], [colors=], [title=], [x_title=], [y_title=], [at=], [width=160], [height=90], [lines=], [markers=], [legend=], [x_min=], [x_max=], [y_min=], [y_max=], [x_log=false], [y_log=false], [equal_axes=false], [shape_name=])</code></td><td><div class="ioitem"><code>p</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>i</code> <span class="iotype">number or vector</span><span class="iodesc">Adds a native, scalable PowerPoint chart to slide <code>i</code> from numbers given directly (a vector or a table column such as <code>data.z</code>).</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"scatter"</code> (XY, both axes numeric), <code>"line"</code>, <code>"bar"</code> (vertical) or <code>"barh"</code> (horizontal).</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">vector or matrix</span><span class="iodesc"><code>y</code> is a vector for one series, or several series as a parenthesised list <code>(a, b)</code> of vectors or a matrix with one column per series (a bracketed <code>[[..], [..]]</code> is flattened by Qu itself into one vector, so give <code>names=</code> to catch that).</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector or string, optional</span><span class="iodesc"><code>x=</code> is one vector shared by all series (x values for scatter, categories for line/bar -- a list of strings gives text labels) or a list with one per series.</span></div>
+<div class="ioitem"><code>names</code> <span class="iotype">optional</span><span class="iodesc"><code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette).</span></div>
+<div class="ioitem"><code>colors</code> <span class="iotype">optional</span><span class="iodesc"><code>names=</code>/<code>colors=</code> go one per series (colours by name or <code>#rrggbb</code>, default Qu's plot palette).</span></div>
+<div class="ioitem"><code>title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>at</code> <span class="iotype">optional</span><span class="iodesc"><code>at=[x, y]</code> is the top-left corner (millimetres or lengths.</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">optional (default <code>160</code>)</span><span class="iodesc"><code>width</code>/<code>height</code> in millimetres or lengths.</span></div>
+<div class="ioitem"><code>height</code> <span class="iotype">optional (default <code>90</code>)</span><span class="iodesc"><code>width</code>/<code>height</code> in millimetres or lengths.</span></div>
+<div class="ioitem"><code>lines</code> <span class="iotype">optional</span><span class="iodesc">Scatter draws markers only (<code>lines=true</code> joins them), line charts lines only.</span></div>
+<div class="ioitem"><code>markers</code> <span class="iotype">optional</span><span class="iodesc">Scatter draws markers only (<code>lines=true</code> joins them), line charts lines only.</span></div>
+<div class="ioitem"><code>legend</code> <span class="iotype">optional</span><span class="iodesc">A legend appears when there are several series or names.</span></div>
+<div class="ioitem"><code>x_min</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_max</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_min</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_max</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_log</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_log</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>equal_axes</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Axis limits, log scales and <code>equal_axes=true</code> (one unit the same length along both axes) are scatter-only.</span></div>
+<div class="ioitem"><code>shape_name</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>The numbers are stored in the chart as cached literals, not in an embedded workbook: it renders everywhere with exactly the data given, but PowerPoint's "Edit Data" has no sheet to open -- build a chart that must stay editable with <code>xlsx.add_chart</code>. Only the slide, its relationships, <code>[Content_Types].xml</code> and the new chart part change. *Added in v0.4.7*.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

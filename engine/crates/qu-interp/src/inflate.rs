@@ -182,8 +182,16 @@ const CODE_LENGTH_ORDER: [usize; 19] =
 
 /// Decompress a raw DEFLATE stream (no zlib or gzip wrapper).
 pub fn inflate(input: &[u8]) -> Result<Vec<u8>, String> {
+    inflate_capped(input, usize::MAX)
+}
+
+/// Like [`inflate`], but fails once the output would exceed `cap` bytes, so
+/// a hostile stream (a "zip bomb") cannot make the reader allocate without
+/// bound. Used by the `.npz` and HDF5 readers, which take untrusted files.
+pub fn inflate_capped(input: &[u8], cap: usize) -> Result<Vec<u8>, String> {
     let mut r = BitReader::new(input);
-    let mut out: Vec<u8> = Vec::with_capacity(input.len() * 4);
+    let mut out: Vec<u8> =
+        Vec::with_capacity(input.len().saturating_mul(4).min(cap).min(1 << 26));
     loop {
         let is_final = r.take(1)? == 1;
         match r.take(2)? {
@@ -195,6 +203,9 @@ pub fn inflate(input: &[u8]) -> Result<Vec<u8>, String> {
                 let nlen = u16::from_le_bytes([hdr[2], hdr[3]]);
                 if len != !nlen {
                     return Err("stored block length does not match its complement".into());
+                }
+                if out.len().saturating_add(len as usize) > cap {
+                    return Err(format!("decompressed data exceeds the {cap}-byte limit"));
                 }
                 r.take_bytes(len as usize, &mut out)?;
             }
@@ -214,7 +225,7 @@ pub fn inflate(input: &[u8]) -> Result<Vec<u8>, String> {
                 }
                 let lit = Huffman::new(&lit_lengths)?;
                 let dist = Huffman::new(&[5u8; 30])?;
-                inflate_block(&mut r, &mut out, &lit, &dist)?;
+                inflate_block(&mut r, &mut out, &lit, &dist, cap)?;
             }
             2 => {
                 let hlit = r.take(5)? as usize + 257;
@@ -269,7 +280,7 @@ pub fn inflate(input: &[u8]) -> Result<Vec<u8>, String> {
 
                 let lit = Huffman::new(&lengths[..hlit])?;
                 let dist = Huffman::new(&lengths[hlit..])?;
-                inflate_block(&mut r, &mut out, &lit, &dist)?;
+                inflate_block(&mut r, &mut out, &lit, &dist, cap)?;
             }
             _ => return Err("reserved DEFLATE block type 3".into()),
         }
@@ -285,8 +296,12 @@ fn inflate_block(
     out: &mut Vec<u8>,
     lit: &Huffman,
     dist: &Huffman,
+    cap: usize,
 ) -> Result<(), String> {
     loop {
+        if out.len() > cap {
+            return Err(format!("decompressed data exceeds the {cap}-byte limit"));
+        }
         let sym = lit.decode(r)?;
         match sym {
             0..=255 => out.push(sym as u8),
@@ -330,6 +345,11 @@ fn adler32(data: &[u8]) -> u32 {
 /// Decompress a zlib stream (RFC 1950): 2-byte header, DEFLATE data,
 /// Adler-32 trailer.
 pub fn zlib_decompress(input: &[u8]) -> Result<Vec<u8>, String> {
+    zlib_decompress_capped(input, usize::MAX)
+}
+
+/// [`zlib_decompress`] with an output-size limit (see [`inflate_capped`]).
+pub fn zlib_decompress_capped(input: &[u8], cap: usize) -> Result<Vec<u8>, String> {
     if input.len() < 6 {
         return Err("zlib stream is too short to contain a header and checksum".into());
     }
@@ -349,7 +369,7 @@ pub fn zlib_decompress(input: &[u8]) -> Result<Vec<u8>, String> {
         // which nothing writing a .mat file does.
         return Err("zlib stream needs a preset dictionary, which is not supported".into());
     }
-    let out = inflate(&input[2..])?;
+    let out = inflate_capped(&input[2..], cap)?;
 
     // The trailer is the last four bytes of the *stream*, which is not
     // necessarily the last four bytes of `input` -- a .mat element is

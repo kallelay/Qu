@@ -83,6 +83,11 @@ pub mod rans;
 pub mod comms;
 /// MATLAB Level 5 `.mat` reader.
 pub mod matfile;
+/// NumPy `.npy`/`.npz` reader and writer.
+pub mod npy;
+/// Pure-Rust read-only HDF5 reader (also MATLAB v7.3 `.mat`).
+pub mod hdf5;
+mod interop_ops;
 /// Contour lines and filled bands from a scalar field on a grid.
 pub mod contour;
 
@@ -175,6 +180,7 @@ pub mod distributions;
 pub(crate) mod fit_stats;
 pub mod multivariate;
 pub mod native_ops;
+pub mod sparse_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
 pub mod office_ops;
 pub mod surgery_ops;
@@ -366,6 +372,9 @@ pub mod llm_bridge;
 /// `claude/dispatch-cost-breakdown` lane -- see its own module doc comment.
 /// Inert unless the environment variable is set.
 pub mod dprof;
+
+/// `trapz`/`cumtrapz`/`simpson`/`quad`/`ode45`/`ode23`/`ode_stiff`/`rk4`.
+pub mod integrate;
 
 /// Shared native/WASM numerical semantics. Interpreter builtins migrate to
 /// these functions instead of growing a second implementation.
@@ -3970,6 +3979,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
+    ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -15461,6 +15471,8 @@ impl Interp {
             // reading uses `quick-xml`, already an always-on dependency
             // for `xml_ops`), so there is nothing for a flag to buy back.
             ("svg", true),
+            // Pure Rust, no dependency: always compiled in, like `svg`.
+            ("sparse", true),
             ("pdf", cfg!(feature = "pdf")),
             ("docx", cfg!(feature = "docx")),
             ("pptx", cfg!(feature = "pptx")),
@@ -16815,6 +16827,8 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             "xlsx::save_as",
             "xlsx::to_pdf",
             "write_csv",
+            "write_npy",
+            "write_npz",
             "touch",
             // § signal-wav (2026-09-18): the dispatch name is qualified,
             // which is how a module function has to be spelled here.
@@ -21661,6 +21675,11 @@ self.eval_grad(loss, wrt)
             // `import svg` + a bare `rect(...)` is deliberately the
             // "ambiguous, qualify it" error `open_module_name` raises --
             // exactly as `image` already collides on `regions`/`blur`.
+            // `import sparse`: CSR matrices as immutable values, see
+            // `sparse_ops.rs`.
+            f if f.strip_prefix("sparse::").is_some_and(|n| sparse_ops::NAMES.contains(&n)) => {
+                self.sparse_call(f, &args, seed, &style)
+            }
             "svg::rect" | "svg::circle" | "svg::line" | "svg::path" | "svg::text" => {
                 svg_io::svg_call(f, arg_all(&args), &style)
             }
@@ -30999,6 +31018,7 @@ self.eval_grad(loss, wrt)
             // method: robust root finding (guaranteed convergence given a
             // bracket `[a,b]` where `f` changes sign), no derivative
             // needed. The "something better than plain bisection" choice.
+            "trapz" | "cumtrapz" | "simpson" | "quad" | "quad_info" | "ode45" | "ode23" | "ode_stiff" | "rk4" => self.integrate_builtin(f, &args, &style),
             "fzero" => {
                 let fn_name = text_arg(&args, 0)?;
                 if !self.has_user_fn(&fn_name) {
@@ -36347,11 +36367,21 @@ self.eval_grad(loss, wrt)
                 let bytes = std::fs::read(&path).map_err(|err| EvalError {
                     msg: format!("read_mat: could not read `{path}`: {err}"),
                 })?;
-                let vars = matfile::read_mat(&bytes)
-                    .map_err(|msg| EvalError { msg: format!("read_mat: `{path}`: {msg}") })?;
+                // v7.3 files are HDF5 containers: read them through the
+                // pure-Rust HDF5 reader (`hdf5.rs`) instead of refusing.
+                let vars = if hdf5::is_mat_v73(&bytes) {
+                    hdf5::read_mat_v73(&bytes)
+                } else {
+                    matfile::read_mat(&bytes)
+                }
+                .map_err(|msg| EvalError { msg: format!("read_mat: `{path}`: {msg}") })?;
                 Ok(Value::Record(Arc::new(
                     vars.into_iter().map(|(k, v)| (k, mat_to_value(&v))).collect(),
                 )))
+            }
+            // NumPy / HDF5 interop -- see `interop_ops.rs`.
+            "read_npy" | "write_npy" | "read_npz" | "write_npz" | "h5read" | "h5info" => {
+                interop_ops::call(f, &args).map_err(|msg| EvalError { msg })
             }
             "write_csv" => {
                 let Value::Table(t) = arg0(&args)? else {
@@ -45711,7 +45741,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov", "coverage", "cpe",
     "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop",
     "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
-    "cumsum", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt", "daily_profile", "db", "db2mag",
+    "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt", "daily_profile", "db", "db2mag",
     "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin", "dec2hex", "decode_can", "decode_i2c",
     "decode_spi", "decode_uart", "dedent", "delay", "delta_e", "dense", "dense_layer", "describe",
     "det", "detect_saturation", "detrend", "device_used", "dft", "diag", "diagram_pipeline", "dict",
@@ -45736,7 +45766,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel", "goertzel_freq",
     "gpu_matmul", "gpu_probe_info", "grad", "gradient_boosting_model", "graph", "grayscale", "grep",
     "grid", "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell", "gru_forward",
-    "gru_init", "hamming", "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge",
+    "gru_init", "h5info", "h5read", "hamming", "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge",
     "has_key", "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode",
     "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram",
     "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
@@ -45771,7 +45801,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "native_call", "nbincdf", "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes",
     "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor", "norm", "normal",
     "normalize", "normcdf", "normfit", "norminv", "normpdf", "normrnd", "normstat", "now", "nrow",
-    "numel", "nyquist", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord", "otsu",
+    "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord", "otsu",
     "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right", "palette", "panel",
     "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml", "particle_filter",
     "particle_filter_init", "path_absolute", "path_extension", "path_join", "path_name",
@@ -45787,13 +45817,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "processor", "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
     "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
     "pump_watches", "push", "push_back", "push_front", "pwd", "pwl", "pwm", "python_exec", "pzplot",
-    "q_learning", "qam_demodulate", "qam_modulate", "qda_model", "qr", "quantile",
+    "q_learning", "qam_demodulate", "qam_modulate", "qda_model", "qr", "quad", "quad_info", "quantile",
     "quantile_normalize", "queue", "quick_mlp", "r2", "raincloud", "rand", "randi", "randn",
     "random_forest_model", "random_walk", "range", "range_decode", "range_encode", "rank",
     "rans_decode", "rans_encode", "re", "read", "read_all", "read_all_text", "read_array",
     "read_bin", "read_bit", "read_byte", "read_bytes", "read_char", "read_chars", "read_csv",
     "read_double", "read_float", "read_input", "read_int", "read_int16", "read_int32", "read_int64",
-    "read_line", "read_mat", "read_struct", "read_structs", "read_uint16", "read_uint32",
+    "read_line", "read_mat", "read_npy", "read_npz", "read_struct", "read_structs", "read_uint16", "read_uint32",
     "read_uint64", "read_until", "read_values", "read_version", "real", "recall", "rect",
     "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find", "regex_find_all",
     "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu",
@@ -45802,7 +45832,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "replace_outliers", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
     "resistor", "resize", "restart", "restore_version", "return_loss", "reverse", "reverse_bytes",
     "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time",
-    "rising_edges", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
+    "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
     "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean", "rolling_min",
     "rolling_rms", "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
     "run_for", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save", "save_all",
@@ -45812,7 +45842,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
     "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
     "shape", "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign", "signal",
-    "signal_slice_time", "signal_unit", "similar", "simple_cnn", "simple_rnn_classifier",
+    "signal_slice_time", "signal_unit", "similar", "simple_cnn", "simple_rnn_classifier", "simpson",
     "simulate", "sin", "sinad", "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness",
     "sleep", "slice_at", "smc_init", "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box",
     "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
@@ -45829,7 +45859,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower",
     "touch", "toupper", "tpdf", "trace", "track", "train_loop", "train_test_split",
     "train_val_test_split", "transfer_function", "transform", "transformer_block", "transpose",
-    "tree_model", "triangle", "trim", "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase",
+    "trapz", "tree_model", "triangle", "trim", "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase",
     "ui_button", "ui_checkbox", "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot",
     "unidcdf", "unidinv", "unidpdf", "unidrnd", "unidstat", "unifcdf", "unifinv", "unifit",
     "uniform", "unifpdf", "unifrnd", "unifstat", "unique", "unit_scale", "unpack", "unsetenv",
@@ -45839,7 +45869,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "wblpdf", "wblrnd", "wblstat", "welch", "where", "wigner_ville", "word_wrap", "worker_done",
     "wrap", "write", "write_array", "write_bin", "write_bit", "write_byte", "write_char",
     "write_csv", "write_double", "write_float", "write_int", "write_int16", "write_int32",
-    "write_int64", "write_line", "write_report", "write_text", "write_uint16", "write_uint32",
+    "write_int64", "write_line", "write_npy", "write_npz", "write_report", "write_text", "write_uint16", "write_uint32",
     "write_uint64", "writeline", "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json",
     "xmlify", "xor", "xscale", "xspan", "xticklabels", "xticks", "ybreak", "ylabel", "ylim",
     "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like", "zip", "zlib_decompress",

@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1207 builtins, 1119 described.** The rest are
+**1222 builtins, 1134 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -225,6 +225,7 @@ program, and a misspelled call suggests the nearest match.
 | [`csvify`](../fn/csvify.html) | Converts `table` (Table) to CSV text — exactly `write_csv`'s own formatting (`Table::to_csv`), just returned as a string instead of written to a file | [File I/O](file-io.md) |
 | [`ctranspose`](../fn/ctranspose.html) | Conjugate transpose (Hermitian): transpose plus elementwise complex conjugation | [Core maths](core-math.md) |
 | [`cumsum`](../fn/cumsum.html) | Returns the running sum, same type/length as `x`; a `Signal` input stays a `Signal` with the same `Fs` | [Collections & strings](collections-strings.md) |
+| [`cumtrapz`](../fn/cumtrapz.html) | Running trapezoid integral: the result has the shape of `y`, starts at 0, and its last element equals `trapz` | [Signal processing](signal-processing.md) |
 | [`cur_dir`](../fn/cur_dir.html) | `cur_dir` says what it gives back and `pwd` is what anyone who has used a shell types first, so both spellings exist rather than one being renamed out from under existing scripts | [File I/O](file-io.md) |
 | [`curve_fit`](../fn/curve_fit.html) | Returns a `Model` (kind `"curve_fit"`) with fields `params` (a length-P vector), `cost` (a number, residual sum of squares), `converged` (a boolean) | [Signal processing](signal-processing.md) |
 | [`cut`](../fn/cut.html) | Returns a new `Signal` at the SAME `Fs`, shorter than `sig` | [Signal processing](signal-processing.md) |
@@ -443,6 +444,8 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`h5info`](../fn/h5info.html) | Lists what is inside an HDF5 file | [File I/O](file-io.md) |
+| [`h5read`](../fn/h5read.html) | Reads one dataset from an HDF5 file with a built-in pure-Rust reader (no HDF5 library needed) | [File I/O](file-io.md) |
 | [`hamming`](../fn/hamming.html) | Returns a length-`n` real vector | [Signal processing](signal-processing.md) |
 | [`hamming74_decode`](../fn/hamming74_decode.html) | Computes each block's syndrome, flips the bit it names, and recovers the data | [Signal processing](signal-processing.md) |
 | [`hamming74_encode`](../fn/hamming74_encode.html) | Hamming(7,4) systematic encoder, 7 bits out per 4 in, laid out `[p1, p2, d1, p4, d2, d3, d4]` with the parity bits at the power-of-two positions — the layout that makes a nonzero syndrome.. | [Signal processing](signal-processing.md) |
@@ -726,6 +729,9 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`ode23`](../fn/ode23.html) | Bogacki-Shampine 3(2), the cheaper low-order pair: better than `ode45` at loose tolerances or when `f` is not smooth | [Signal processing](signal-processing.md) |
+| [`ode45`](../fn/ode45.html) | Dormand-Prince 5(4) with adaptive step size and the 4th-order continuous extension, for non-stiff problems | [Signal processing](signal-processing.md) |
+| [`ode_stiff`](../fn/ode_stiff.html) | Stiff solver: the Shampine-Reichelt Rosenbrock 2(3) pair (MATLAB's `ode23s`), A-stable, with a forward-difference Jacobian recomputed after every accepted step (n + 1 extra evaluations of.. | [Signal processing](signal-processing.md) |
 | [`ols_model`](../fn/ols_model.html) | Fits ordinary least squares with an automatic intercept on an `N`-row, `D`-column feature matrix `X` and a length-`N` target vector `y` | [Statistics & ML](statistics-ml.md) |
 | [`ones`](../fn/ones.html) | A vector or matrix of ones, with the same one-argument-vs-two-argument shape rules as `zeros` above | [Core maths](core-math.md) |
 | [`ones_like`](../fn/ones_like.html) | A vector or matrix of the same shape as `x` (a `Vec` or `Mat`), filled with one or zero respectively — the shape is read directly from `x`, so it cannot fall out of step with it | [Core maths](core-math.md) |
@@ -831,6 +837,8 @@ program, and a misspelled call suggests the nearest match.
 | [`qam_modulate`](../fn/qam_modulate.html) | Maps each group of `log2(order)` bits to one point of the standard Gray-coded square constellation — the first half of the group labels the in-phase level, the second half the quadrature one | [Signal processing](signal-processing.md) |
 | [`qda_model`](../fn/qda_model.html) | Quadratic discriminant analysis: like `lda_model` but each class has its own covariance, so the boundaries are quadratic | [Statistics & ML](statistics-ml.md) |
 | [`qr`](../fn/qr.html) | Thin QR decomposition of `A` (`r×c` `Mat`), `A = Q·R` | [Core maths](core-math.md) |
+| [`quad`](../fn/quad.html) | Adaptive Gauss-Kronrod (G7K15, QUADPACK's rule and error scaling) integral of `f(x)` over `[a, b]`; `f` takes and returns a number | [Signal processing](signal-processing.md) |
+| [`quad_info`](../fn/quad_info.html) | `quad` returning a record `{value, error, nfev, intervals, status}` instead of failing: `error` is the estimated absolute error, `nfev` the number of evaluations of `f`, `status` is `"ok"`,.. | [Signal processing](signal-processing.md) |
 | [`quantile`](../fn/quantile.html) | Linear-interpolation quantile (NumPy's default `interpolation="linear"` method) | [Core maths](core-math.md) |
 | [`quantile_normalize`](../fn/quantile_normalize.html) | Rank-based scaling of `X` (vector, matrix column-wise, or table per numeric column): each value is replaced by its rank against its own column, rescaled uniform onto `[0, 1]` | [Statistics & ML](statistics-ml.md) |
 | [`queue`](../fn/queue.html) | Creates an empty deferred-job list | [Concurrency](concurrency.md) |
@@ -873,6 +881,8 @@ program, and a misspelled call suggests the nearest match.
 | [`read_int64`](../fn/read_int64.html) | Reads a signed 64-bit integer from `f` (file handle, opened readable) | [File I/O](file-io.md) |
 | [`read_line`](../fn/read_line.html) | Reads one line from `f` (file handle, opened readable) | [File I/O](file-io.md) |
 | [`read_mat`](../fn/read_mat.html) | Reads a MATLAB `.mat` file (via the `matfile` crate) without needing a MATLAB installation | [File I/O](file-io.md) |
+| [`read_npy`](../fn/read_npy.html) | Reads a NumPy `.npy` file (format versions 1-3, little- or big-endian, C or Fortran order) without NumPy | [File I/O](file-io.md) |
+| [`read_npz`](../fn/read_npz.html) | Reads a NumPy `.npz` archive (stored or DEFLATE members, CRC-checked) as a record with one field per array, named without the `.npy` suffix; each array is converted as `read_npy` does | [File I/O](file-io.md) |
 | [`read_struct`](../fn/read_struct.html) | Reads one fixed-width binary record from `f` (file handle, opened readable) | [File I/O](file-io.md) |
 | [`read_structs`](../fn/read_structs.html) | Reads up to `n` (number) fixed-width binary records from `f` (file handle, opened readable), using the same `fields` layout `read_struct` takes | [File I/O](file-io.md) |
 | [`read_uint16`](../fn/read_uint16.html) | Reads an unsigned 16-bit integer from `f` (file handle, opened readable) | [File I/O](file-io.md) |
@@ -928,6 +938,7 @@ program, and a misspelled call suggests the nearest match.
 | [`right`](../fn/right.html) | The last `n` characters of a string | [Collections & strings](collections-strings.md) |
 | [`rise_time`](../fn/rise_time.html) | Returns a single number: the transition time of the first complete rising (resp | [Signal processing](signal-processing.md) |
 | [`rising_edges`](../fn/rising_edges.html) | Returns a vector of the interpolated crossing positions of one polarity only — seconds for a `Signal`, samples otherwise (the same convention `find_pulses`'s `widths` field uses) | [Signal processing](signal-processing.md) |
+| [`rk4`](../fn/rk4.html) | Classical fixed-step Runge-Kutta of order 4 with step `h > 0`; the last step is shortened to land exactly on `tf`, and every step is reported | [Signal processing](signal-processing.md) |
 | [`rlkk_extrapolate`](../fn/rlkk_extrapolate.html) | Returns a single length-M `CVec`, not a model | [Signal processing](signal-processing.md) |
 | [`rlkk_reconstruct`](../fn/rlkk_reconstruct.html) | Returns a `Model` (kind `"rlkk"`) with fields `z` (a length-N `CVec`, the reconstructed spectrum) and `gamma` (a length-M real vector, the fitted DRT coefficients) | [Signal processing](signal-processing.md) |
 | [`rlkk_validate`](../fn/rlkk_validate.html) | Returns a `Model` (kind `"rlkk_validation"`) with fields `valid` (a boolean, true iff every point's percent residual is under `threshold`), `residuals` (a length-N real vector, percent),.. | [Signal processing](signal-processing.md) |
@@ -1000,6 +1011,7 @@ program, and a misspelled call suggests the nearest match.
 | [`signal_unit`](../fn/signal_unit.html) | Added in v0.2.4. With one argument, reads the sample unit (`Nothing` if unset) | [Signal processing](signal-processing.md) |
 | [`simple_cnn`](../fn/simple_cnn.html) | Builds an untrained conv → relu → maxpool → dense image classifier: `[height, width]` a 2-element vector giving the image size, `n_classes` a positive integer, and an optional integer.. | [Statistics & ML](statistics-ml.md) |
 | [`simple_rnn_classifier`](../fn/simple_rnn_classifier.html) | Builds an untrained GRU-backed sequence classifier: `input_size`/`hidden_size`/`n_classes` positive integers (features per timestep, hidden width, and number of classes), plus an optional.. | [Statistics & ML](statistics-ml.md) |
+| [`simpson`](../fn/simpson.html) | Composite Simpson's rule on sampled data, with the same `x`/matrix conventions as `trapz` | [Signal processing](signal-processing.md) |
 | [`simulate`](../fn/simulate.html) | Draws one random trajectory from a `markov_chain` `chain`, starting at its `initial_state`, for an integer `n_steps` transitions (with an optional integer `seed=`) | [Statistics & ML](statistics-ml.md) |
 | [`sin`](../fn/sin.html) | Standard trigonometric functions, computed elementwise | [Core maths](core-math.md) |
 | [`sinad`](../fn/sinad.html) | With no excitation named, the largest non-DC FFT bin is taken as the fundamental (the single-tone case); `tones=`/`freqs=` (a vector, Hz, needs `fs=`/`rate=` too) or `bins=` (a vector of.. | [Signal processing](signal-processing.md) |
@@ -1125,6 +1137,7 @@ program, and a misspelled call suggests the nearest match.
 | [`transform`](../fn/transform.html) | Applies a fitted scaler Record `scaler`'s stored parameters to a new matrix/vector/table `newX` with the same columns it was fitted on | [Statistics & ML](statistics-ml.md) |
 | [`transformer_block`](../fn/transformer_block.html) | One transformer block on an `(N, D)` input `x`: multi-head self-attention plus a two-layer feed-forward network, each wrapped in a residual connection and a `layer_norm` | [Statistics & ML](statistics-ml.md) |
 | [`transpose`](../fn/transpose.html) | Matrix/vector transpose: swaps rows and columns | [Core maths](core-math.md) |
+| [`trapz`](../fn/trapz.html) | Trapezoid-rule integral of the samples `y` against `x` (unit spacing when `x` is omitted), summed with compensated (Neumaier) summation | [Signal processing](signal-processing.md) |
 | [`tree_model`](../fn/tree_model.html) | One CART decision tree on an `N`-row, `D`-column matrix `X` and a length-`N` target `y`, with `max_depth` (integer, default 20) limiting tree depth, `min_samples_split` (integer, default 2).. | [Statistics & ML](statistics-ml.md) |
 | [`triangle`](../fn/triangle.html) | Each generates one period-repeating waveform: `freq` (number, Hz), `fs` (number, sample rate in Hz), `n` (integer, sample count) are all scalars, in that order | [Plotting](plotting.md) |
 | [`trim`](../fn/trim.html) | Strips characters from both ends of a string | [Collections & strings](collections-strings.md) |
@@ -1217,6 +1230,8 @@ program, and a misspelled call suggests the nearest match.
 | [`write_int32`](../fn/write_int32.html) | Writes `n` (number) to `f` (file handle, opened writable/appendable) as a signed 32-bit integer | [File I/O](file-io.md) |
 | [`write_int64`](../fn/write_int64.html) | Writes `n` (number) to `f` (file handle, opened writable/appendable) as a signed 64-bit integer | [File I/O](file-io.md) |
 | [`write_line`](../fn/write_line.html) | Writes `s` (string) to `f` (file handle, opened writable/appendable) plus a trailing `\n` | [File I/O](file-io.md) |
+| [`write_npy`](../fn/write_npy.html) | Writes a number, bool, vector, matrix or complex form of those as a version-1 `.npy` file NumPy can load: `float64`, `bool` or `complex128`, C order, bit-exact (NaN, infinities and `-0.0`.. | [File I/O](file-io.md) |
+| [`write_npz`](../fn/write_npz.html) | Writes the fields of a record as an uncompressed `.npz` (what `numpy.savez` makes); each field is stored as `write_npy` would store it | [File I/O](file-io.md) |
 | [`write_report`](../fn/write_report.html) | Writes a standalone HTML report to `path` (string) — every figure, table, and printed line the script has produced up to this point in execution, bundled into one file with nothing linked.. | [File I/O](file-io.md) |
 | [`write_text`](../fn/write_text.html) | Writes the whole string to a file, overwriting it | [Collections & strings](collections-strings.md) |
 | [`write_uint16`](../fn/write_uint16.html) | Writes `n` (number) to `f` (file handle, opened writable/appendable) as an unsigned 16-bit integer | [File I/O](file-io.md) |
@@ -1484,6 +1499,24 @@ leaves the qualified one available too.
 | [`svg.line`](../fn/svg.line.html) | A straight segment from (`x1`, `y1`) to (`x2`, `y2`) | [Images](images.md) |
 | [`svg.path`](../fn/svg.path.html) | An arbitrary path from the SVG path-data string `d` | [Images](images.md) |
 | [`svg.text`](../fn/svg.text.html) | A text run anchored at (`x`, `y`) — which in SVG is the *baseline start*, not the top-left corner | [Images](images.md) |
+| [`sparse.from_triplets`](../fn/sparse.from_triplets.html) | not described in a chapter yet | |
+| [`sparse.from_dense`](../fn/sparse.from_dense.html) | not described in a chapter yet | |
+| [`sparse.eye`](../fn/sparse.eye.html) | not described in a chapter yet | |
+| [`sparse.diag`](../fn/sparse.diag.html) | not described in a chapter yet | |
+| [`sparse.random`](../fn/sparse.random.html) | not described in a chapter yet | |
+| [`sparse.size`](../fn/sparse.size.html) | not described in a chapter yet | |
+| [`sparse.nnz`](../fn/sparse.nnz.html) | not described in a chapter yet | |
+| [`sparse.density`](../fn/sparse.density.html) | not described in a chapter yet | |
+| [`sparse.to_dense`](../fn/sparse.to_dense.html) | not described in a chapter yet | |
+| [`sparse.get`](../fn/sparse.get.html) | not described in a chapter yet | |
+| [`sparse.triplets`](../fn/sparse.triplets.html) | not described in a chapter yet | |
+| [`sparse.transpose`](../fn/sparse.transpose.html) | not described in a chapter yet | |
+| [`sparse.add`](../fn/sparse.add.html) | not described in a chapter yet | |
+| [`sparse.sub`](../fn/sparse.sub.html) | not described in a chapter yet | |
+| [`sparse.scale`](../fn/sparse.scale.html) | not described in a chapter yet | |
+| [`sparse.mul`](../fn/sparse.mul.html) | not described in a chapter yet | |
+| [`sparse.hadamard`](../fn/sparse.hadamard.html) | not described in a chapter yet | |
+| [`sparse.solve`](../fn/sparse.solve.html) | not described in a chapter yet | |
 
 ## Not yet described
 

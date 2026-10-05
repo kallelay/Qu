@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pptx.add_shape — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pptx.add_shape</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>pptx.add_shape(p, i, kind, x=, y=, w=, h=, [fill=], [stroke=], [stroke_width=1.5], [dash=], [radius=], [text=], [size=], [bold=], [italic=], [color=], [font=], [align="center"], [name=])</code></pre>
+<p class="fnnote">Input: p, i, kind, x, y, w, h, fill, stroke, stroke_width, dash, radius, text, size, bold, italic, color, font, align, name &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Adds a shape to slide <code>i</code> and returns its id. <code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides. Positions are millimetres from the top-left corner or lengths. <code>fill=</code> and <code>stroke=</code> take a colour name or <code>#rrggbb</code>, or <code>"none"</code>; the default is Qu's palette blue with no outline (an unfilled shape and every line get a dark outline, or they would be invisible). <code>stroke_width</code> is in points, <code>dash</code> is <code>"solid"</code>, <code>"dash"</code>, <code>"dot"</code> or <code>"dashdot"</code>, <code>radius</code> (rounded rectangles) is the corner as a fraction of the shorter side, 0 to 0.5. <code>text=</code> puts text inside (newlines start paragraphs; <code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it; the colour defaults to black or white, whichever reads on the fill). Colours are written explicitly rather than taken from the theme, so the shape looks the same in any deck. Nothing on the master, the layouts or the slide's animation timing is touched. *Added in v0.4.7*</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>pptx.add_shape(p, i, kind, x=, y=, w=, h=, [fill=], [stroke=], [stroke_width=1.5], [dash=], [radius=], [text=], [size=], [bold=], [italic=], [color=], [font=], [align="center"], [name=])</code></td><td><div class="ioitem"><code>p</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>i</code> <span class="iotype">&mdash;</span><span class="iodesc">Adds a shape to slide <code>i</code> and returns its id.</span></div>
+<div class="ioitem"><code>kind</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>w</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>h</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>fill</code> <span class="iotype">optional</span><span class="iodesc"><code>fill=</code> and <code>stroke=</code> take a colour name or <code>#rrggbb</code>, or <code>"none"</code>.</span></div>
+<div class="ioitem"><code>stroke</code> <span class="iotype">optional</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>stroke_width</code> <span class="iotype">optional (default <code>1.5</code>)</span><span class="iodesc"><code>stroke_width</code> is in points, <code>dash</code> is <code>"solid"</code>, <code>"dash"</code>, <code>"dot"</code> or <code>"dashdot"</code>, <code>radius</code> (rounded rectangles) is the corner as a fraction of the shorter side, 0 to 0.5.</span></div>
+<div class="ioitem"><code>dash</code> <span class="iotype">optional</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+<div class="ioitem"><code>radius</code> <span class="iotype">optional</span><span class="iodesc"><code>stroke_width</code> is in points, <code>dash</code> is <code>"solid"</code>, <code>"dash"</code>, <code>"dot"</code> or <code>"dashdot"</code>, <code>radius</code> (rounded rectangles) is the corner as a fraction of the shorter side, 0 to 0.5.</span></div>
+<div class="ioitem"><code>text</code> <span class="iotype">optional</span><span class="iodesc"><code>text=</code> puts text inside (newlines start paragraphs.</span></div>
+<div class="ioitem"><code>size</code> <span class="iotype">optional</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>bold</code> <span class="iotype">optional</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>italic</code> <span class="iotype">optional</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">optional</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>font</code> <span class="iotype">optional</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>align</code> <span class="iotype">optional (default <code>"center"</code>)</span><span class="iodesc"><code>size</code>, <code>bold</code>, <code>italic</code>, <code>color</code>, <code>font</code>, <code>align</code> format it.</span></div>
+<div class="ioitem"><code>name</code> <span class="iotype">optional</span><span class="iodesc"><code>kind</code> is <code>"rect"</code>, <code>"ellipse"</code> (<code>"oval"</code>) or <code>"rounded_rect"</code> -- placed by <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code> -- or <code>"line"</code> / <code>"arrow"</code> (an arrowhead at the end), placed from <code>(x=, y=)</code> to <code>(x2=, y2=)</code> with only <code>stroke=</code>, <code>stroke_width=</code>, <code>dash=</code> and <code>name=</code> besides.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Positions are millimetres from the top-left corner or lengths. Colours are written explicitly rather than taken from the theme, so the shape looks the same in any deck. Nothing on the master, the layouts or the slide's animation timing is touched. *Added in v0.4.7*.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

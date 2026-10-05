@@ -327,7 +327,9 @@ pub fn read_mat(bytes: &[u8]) -> Result<Vec<(String, MatValue)>, String> {
     if header.contains("7.3") {
         return Err(
             "this is a MATLAB v7.3 file, which is an HDF5 container, not a Level 5 .mat file -- \
-             re-save it from MATLAB with `save(..., '-v7')`, or read it through the HDF5 path"
+             `read_mat` reads it through the HDF5 reader when it can; to inspect it by hand use \
+             `h5info(path)` and `h5read(path, dataset)`, or re-save it from MATLAB with \
+             `save(..., '-v7')`"
                 .into(),
         );
     }

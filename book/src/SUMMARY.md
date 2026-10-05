@@ -23,6 +23,7 @@
 - [Core Math & Linear Algebra](stdlib/core-math.md)
 - [Signal Processing & Filters](stdlib/signal-processing.md)
 - [Compressed Sensing](stdlib/compressed-sensing.md)
+- [Sparse Matrices](stdlib/sparse.md)
 - [Noise, Interference & Distortion](stdlib/noise.md)
 - [Statistics & Machine Learning](stdlib/statistics-ml.md)
 - [Plotting](stdlib/plotting.md)

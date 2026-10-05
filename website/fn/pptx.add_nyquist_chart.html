@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pptx.add_nyquist_chart — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pptx.add_nyquist_chart</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig">result = <code>pptx.add_nyquist_chart(p, i, re, im, [negate=true], [name=], [color=], [title=], [x_title="Z' / Ω"], [y_title="-Z'' / Ω"], [at=], [width=150], [height=110], [lines=false], [markers=], [legend=], [shape_name=])</code></pre>
+<p class="fnnote">Input: p, i, re, im, negate, name, color, title, x_title, y_title, at, width, height, lines, markers, legend, shape_name &middot; Output: result</p>
+<h2>What it is</h2>
+<p>A Nyquist plot for impedance spectroscopy on slide <code>i</code>: Z' along x, -Z'' up, both axes on the SAME scale with square gridlines, so a semicircle stays round. Give Z' and Z'' as two vectors, or call <code>pptx.add_nyquist_chart(p, i, Z, ...)</code> with one complex vector (its real part against minus its imaginary part). With <code>negate=true</code> (Z'' as measured, negative for a capacitive arc) <code>-Z''</code> is plotted; <code>negate=false</code> plots <code>im</code> as given. The axis limits follow the data.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = pptx.add_nyquist_chart(p, i, re, im, [negate=true], [name=], [color=], [title=], [x_title="Z' / Ω"], [y_title="-Z'' / Ω"], [at=], [width=150], [height=110], [lines=false], [markers=], [legend=], [shape_name=])</code></td><td><div class="ioitem"><code>p</code> <span class="iotype">vector</span><span class="iodesc">Give Z' and Z'' as two vectors, or call <code>pptx.add_nyquist_chart(p, i, Z, ...)</code> with one complex vector (its real part against minus its imaginary part).</span></div>
+<div class="ioitem"><code>i</code> <span class="iotype">&mdash;</span><span class="iodesc">A Nyquist plot for impedance spectroscopy on slide <code>i</code>: Z' along x, -Z'' up, both axes on the SAME scale with square gridlines, so a semicircle stays round.</span></div>
+<div class="ioitem"><code>re</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>im</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>negate=false</code> plots <code>im</code> as given.</span></div>
+<div class="ioitem"><code>negate</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iodesc"><code>negate=false</code> plots <code>im</code> as given.</span></div>
+<div class="ioitem"><code>name</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>title</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>x_title</code> <span class="iotype">optional (default <code>"Z' / Ω"</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y_title</code> <span class="iotype">optional (default <code>"-Z'' / Ω"</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>at</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">optional (default <code>150</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>height</code> <span class="iotype">optional (default <code>110</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>lines</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>markers</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>legend</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>shape_name</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns the new shape's id. Data are cached literals, as for <code>pptx.add_chart</code>. *Added in v0.4.7*</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

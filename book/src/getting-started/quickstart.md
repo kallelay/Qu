@@ -128,6 +128,69 @@ the error and exits with status 1 rather than giving you a prompt. This
 is the quickest way to load your data and setup once, then try things
 against it.
 
+### `qu test` -- run your tests (*new in v0.4.7*)
+
+```bash
+qu test                       # ./tests/**/*.qu plus test_*.qu / *_test.qu here
+qu test path/to/dir file.qu   # explicit files; directories are searched recursively
+qu test --filter sum          # only test functions whose name contains "sum"
+qu test --fail-fast           # stop at the first failure
+qu test --json                # one JSON document on stdout, for CI tooling
+```
+
+A **test** is a top-level function with no parameters whose name starts
+with `test_`. It passes if it returns and fails if it raises an error.
+Qu has no `assert` builtin; the idiom is `error(...)`:
+
+```qu
+function test_sum()
+  if sum([1, 2, 3]) != 6
+    error("sum([1,2,3]) was not 6")
+  end if
+end function
+```
+
+Each file runs in a **fresh interpreter**, so one file cannot leak
+variables or functions into the next. Within a file, the top-level code
+runs first (fixtures, helpers), then each `test_` function in source
+order. A file that defines no `test_` function is run as a **script** and
+passes if it finishes without an error.
+
+Every test prints `PASS`/`FAIL` with `file:line` and its name and time; a
+failure also shows the error, where it happened (`at file:LINE in
+test_x()` and the call chain) and whatever the test printed. The last line
+is `test result: N passed, M failed`. The exit status is **0** if
+everything passed, **1** if anything failed and **2** if no tests were
+found.
+
+### `qu fmt` -- tidy source files (*new in v0.4.7*)
+
+```bash
+qu fmt                  # reformat every .qu under the current directory, in place
+qu fmt src/ tool.qu     # specific files or directories
+qu fmt --check          # change nothing; list files that would change; exit 1 if any
+qu fmt --stdin          # read source on stdin, write the formatted text to stdout
+```
+
+The formatter is deliberately conservative. It works from the token
+stream, so comments, strings, raw strings and `{...}` interpolations are
+copied byte for byte, and it only changes whitespace:
+
+- indentation by block, four spaces per level (`else`/`elseif`/`catch`
+  sit at their block's level; `case` is indented one level inside
+  `select case`); a line continued inside brackets or after an operator
+  moves together with its statement;
+- trailing whitespace removed, exactly one final newline, trailing blank
+  lines dropped;
+- one space after each comma, and one space around `== != <= >= := += -=
+  *= /= ^= |>` and around a statement-level `=`. Nothing else is
+  respaced: `f(x=1)`, `a-b`, `x'` stay as written.
+
+Line endings are kept per line (a `\r\n` file stays `\r\n`). Lines inside
+a multi-line string literal are never touched. `qu fmt` is idempotent and
+checks its own output (same tokens, only whitespace changed) before it
+writes a file, refusing with exit status 2 if that ever fails.
+
 ### `qu run` flags for running untrusted or unattended scripts
 
 `qu run <file.qu>` takes a few flags for running a script you don't fully
