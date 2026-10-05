@@ -494,7 +494,7 @@ identical after editing). Finding: LibreOffice does not rebuild a TOC when
 it opens a .docx (dirty flag, `updateFields` and Word's `w:sdt` wrapper
 all tried), so the field carries an "update fields" line as its result.
 
-**DOCX editing of existing content (v0.4.6, `qu-docx/src/editing.rs`, branch
+**DOCX editing of existing content (v0.4.7, `qu-docx/src/editing.rs`, branch
 `claude/office-docx-editing`).** Tables: `add_row` (copies the neighbour's
 cell layout, never the header flag or a header's bold, extends a vertical
 merge when inserted inside one), `add_column` (keeps the table's width by
@@ -527,8 +527,8 @@ verification in real Microsoft Office, and formula evaluation (formulas
 are stored and calculated by Excel/LibreOffice on open). Built since this
 roadmap was written: Excel and PowerPoint charts (including Nyquist),
 conditional formatting and data validation, xlsx sheet operations and
-tables (v0.4.6), docx table/text/footnote/tracked-change editing (v0.4.6),
-and pptx shapes (v0.4.6).
+tables (v0.4.7), docx table/text/footnote/tracked-change editing (v0.4.7),
+and pptx shapes (v0.4.7).
 
 **PPTX shapes, notes, links and theme (v0.4.5, branch
 `claude/office-pptx-shapes`).** `set_notes` now writes notes on a slide
@@ -552,7 +552,7 @@ assert the exact set of parts each edit changes, with an unknown
 lane: charts (the xlsx lane owns the chart-XML writer), animations,
 master/layout editing, shapes nested inside groups.
 
-**PPTX charts and shape creation (v0.4.6, branch
+**PPTX charts and shape creation (v0.4.7, branch
 `claude/office-pptx-charts-shapes`).** `add_chart` / `add_nyquist_chart`
 reuse `qu_ooxml::chart` (scatter, line, bar, barh; titles, axis titles,
 limits, log axes, `equal_axes`). A chart is a `ppt/charts/chartN.xml`

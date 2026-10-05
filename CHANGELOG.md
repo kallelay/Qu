@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- `import xlsx` gains `copy_sheet`, `hide_sheet`, `clear`, `move_range`, `sort_range`, `autofilter`, `create_table`, `add_comment` and `add_image` (PNG/JPEG/GIF). Charts saved earlier survive every operation. Formulas pointing into moved cells are not rewritten; `autofilter` only switches filtering on.
+- `import pptx` gains `add_chart` (scatter/line/bar/barh), `add_nyquist_chart` (equal axes, square grid), `add_shape`, `rotate_shape` and `align_shapes`. Chart data is cached literals, not an embedded workbook; use `xlsx.add_chart` for an editable chart. `delete_shape` now removes a chart part when its frame was the last reference, and `duplicate_slide` gives the copy its own chart part.
+- `import docx` edits what a document already says: tables (`add_row`, `add_column`, `merge_cells`, `split_cell`), character formatting of a matched span of text (`format_text` -- runs are cut at the span's edges, inside links and tracked insertions too), `line_spacing`, `move_paragraph`, footnote creation (`add_footnote`, which builds the footnotes part and note styles when the document has none) and tracked changes (`track_insert`, `track_delete`, written as `w:ins`/`w:del` with author and date; `accept_changes` now also removes a paragraph whose mark was tracked-deleted). Fixed on the way: cutting a run in two (`add_link`/`add_comment` on part of a run) gave its right half a second `w:rPr`, which Word rejects.
+
 ## [0.4.6] - 2026-10-01
 
 **Changed: `rgb()` channels are 0..255 unless the call says otherwise.**
@@ -116,8 +120,6 @@ and set (`theme_colors`, `theme_fonts`, `set_theme_colors`,
 `set_theme_fonts`). Each edit rewrites only the parts it touches.
 
 - `import docx` edits document structure: hyperlinks (`add_link`, `links`), comment creation (`add_comment`), bookmarks and cross-references (`add_bookmark`, `bookmarks`, `add_cross_ref`), fields (`add_field`, `fields`, `add_toc` -- a dirty TOC field Word builds on open; no invented entries), headers/footers per section with `#page`/`#pages` fields (`set_header`, `set_footer`, `header_text`, `footer_text`), page setup and sections (`sections`, `page_setup`, `add_section_break`), and bulleted/numbered lists (`add_list_item`, `set_list`) -- each creating the styles/settings/numbering/comments/header part when the document has none, and leaving every other part byte for byte.
-
-- `import docx` edits what a document already says: tables (`add_row`, `add_column`, `merge_cells`, `split_cell`), character formatting of a matched span of text (`format_text` -- runs are cut at the span's edges, inside links and tracked insertions too), `line_spacing`, `move_paragraph`, footnote creation (`add_footnote`, which builds the footnotes part and note styles when the document has none) and tracked changes (`track_insert`, `track_delete`, written as `w:ins`/`w:del` with author and date; `accept_changes` now also removes a paragraph whose mark was tracked-deleted). Fixed on the way: cutting a run in two (`add_link`/`add_comment` on part of a run) gave its right half a second `w:rPr`, which Word rejects.
 
 - **xlsx: charts, conditional formatting, data validation.** `xlsx.add_chart` (scatter/line/bar/barh from cell ranges, titles, axis titles and limits, log axes, placement and size), `xlsx.add_nyquist_chart` (Z' vs -Z'' with equal axis scaling for impedance spectroscopy), `xlsx.conditional_format` (comparisons, between, text contains), `xlsx.color_scale`, `xlsx.add_validation` (lists from values or cells, whole/decimal ranges, custom formulas, prompt and error messages). Written into the saved package part by part (the DrawingML chart writer lives in `qu-ooxml` for reuse); a workbook whose cells were not edited now keeps every untouched part byte for byte, and one opened and saved with no edit at all is written back unchanged.
 
