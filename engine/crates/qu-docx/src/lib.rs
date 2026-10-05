@@ -15,7 +15,9 @@
 use qu_ooxml::xml::{Doc, Element, Node};
 use qu_ooxml::{replace_in_paragraph, Package, WORD};
 
+mod editing;
 mod structure;
+pub use editing::{RunFormat, Spacing};
 pub use structure::{page_size_named, page_size_names, SectionInfo};
 
 const NS_W: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -987,7 +989,16 @@ fn resolve_revisions(root: &mut Element, accept: bool) -> usize {
                             if matches!(e.name.as_str(), "w:moveFromRangeStart" | "w:moveFromRangeEnd" | "w:moveToRangeStart" | "w:moveToRangeEnd") {
                                 continue;
                             }
+                            // A paragraph whose mark is a tracked deletion goes
+                            // away on accept when nothing else is left in it
+                            // (Word would join it to the next one).
+                            let mark_deleted = accept
+                                && e.name == "w:p"
+                                && e.child("w:pPr").is_some_and(|p| p.child("w:sectPr").is_none() && p.child("w:rPr").is_some_and(|r| r.child("w:del").is_some()));
                             content(&mut e, accept, count);
+                            if mark_deleted && e.children.iter().all(|n| matches!(n, Node::Text(t) if t.trim().is_empty()) || matches!(n, Node::Elem(c) if c.name == "w:pPr")) {
+                                continue;
+                            }
                             out.push(Node::Elem(e));
                         }
                     }

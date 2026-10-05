@@ -61,7 +61,7 @@ pub enum Order {
 
 /// The shape a top-level `p:spTree` child describes: itself, or for an
 /// `mc:AlternateContent` the first shape of its first branch.
-fn shape_elem(e: &Element) -> Option<&Element> {
+pub(crate) fn shape_elem(e: &Element) -> Option<&Element> {
     if SHAPE_TAGS.contains(&e.name.as_str()) {
         return Some(e);
     }
@@ -74,7 +74,7 @@ fn shape_elem(e: &Element) -> Option<&Element> {
 /// Every shape element a top-level node stands for: itself, or each
 /// branch's shape of an `mc:AlternateContent` (an edit must reach both, or
 /// the fallback a reader picks shows the old state).
-fn shape_elems_mut(e: &mut Element) -> Vec<&mut Element> {
+pub(crate) fn shape_elems_mut(e: &mut Element) -> Vec<&mut Element> {
     if SHAPE_TAGS.contains(&e.name.as_str()) {
         return vec![e];
     }
@@ -88,21 +88,21 @@ fn nv(shape: &Element) -> Option<&Element> {
     shape.elems().find(|c| c.name.starts_with("p:nv"))
 }
 
-fn shape_id(shape: &Element) -> Option<u64> {
+pub(crate) fn shape_id(shape: &Element) -> Option<u64> {
     nv(shape)?.child("p:cNvPr")?.attr("id")?.parse().ok()
 }
 
-fn shape_name(shape: &Element) -> String {
+pub(crate) fn shape_name(shape: &Element) -> String {
     nv(shape).and_then(|n| n.child("p:cNvPr")).and_then(|c| c.attr("name")).unwrap_or("").to_string()
 }
 
 /// (type, idx) of a placeholder, type defaulting to `body` as the schema says.
-fn ph_key(shape: &Element) -> Option<(String, Option<String>)> {
+pub(crate) fn ph_key(shape: &Element) -> Option<(String, Option<String>)> {
     let ph = nv(shape)?.child("p:nvPr")?.child("p:ph")?;
     Some((ph.attr("type").unwrap_or("body").to_string(), ph.attr("idx").map(String::from)))
 }
 
-fn kind_of(shape: &Element) -> &'static str {
+pub(crate) fn kind_of(shape: &Element) -> &'static str {
     match shape.name.as_str() {
         "p:sp" if ph_key(shape).is_some() => "placeholder",
         "p:sp" if nv(shape).and_then(|n| n.child("p:cNvSpPr")).and_then(|c| c.attr("txBox")) == Some("1") => "text",
@@ -124,7 +124,7 @@ fn kind_of(shape: &Element) -> &'static str {
     }
 }
 
-fn xfrm_of(shape: &Element) -> Option<&Element> {
+pub(crate) fn xfrm_of(shape: &Element) -> Option<&Element> {
     match shape.name.as_str() {
         "p:graphicFrame" => shape.child("p:xfrm"),
         "p:grpSp" => shape.child("p:grpSpPr")?.child("a:xfrm"),
@@ -132,7 +132,7 @@ fn xfrm_of(shape: &Element) -> Option<&Element> {
     }
 }
 
-fn rect_of_xfrm(x: &Element) -> Option<Rect> {
+pub(crate) fn rect_of_xfrm(x: &Element) -> Option<Rect> {
     let num = |e: Option<&Element>, k: &str| -> Option<f64> { e?.attr(k)?.parse::<f64>().ok().map(|v| v / EMU_PER_MM) };
     let (off, ext) = (x.child("a:off"), x.child("a:ext"));
     Some(Rect { x: num(off, "x")?, y: num(off, "y")?, w: num(ext, "cx")?, h: num(ext, "cy")? })
@@ -294,7 +294,7 @@ fn link_in_paragraph(p: &mut Element, needle: &str, rid: &str) -> usize {
     matches.len()
 }
 
-fn hex_color(c: &str, what: &str) -> Result<String, String> {
+pub(crate) fn hex_color(c: &str, what: &str) -> Result<String, String> {
     let h = c.trim_start_matches('#');
     if h.len() != 6 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(format!("{what}=\"{c}\" -- use #rrggbb"));
@@ -307,7 +307,7 @@ fn hex_color(c: &str, what: &str) -> Result<String, String> {
 impl Presentation {
     /// Parse slide `i`, let `f` edit its shape tree, and write the slide
     /// back only if `f` succeeded. `f` gets the next free shape id.
-    fn with_tree<T>(&mut self, i: usize, f: impl FnOnce(&mut Element, u64) -> Result<T, String>) -> Result<(T, String, Doc), String> {
+    pub(crate) fn with_tree<T>(&mut self, i: usize, f: impl FnOnce(&mut Element, u64) -> Result<T, String>) -> Result<(T, String, Doc), String> {
         let part = self.slide_part(i)?;
         let mut d = self.pkg.get_xml(&part)?;
         let next_id = d.root.find_all("p:cNvPr").iter().filter_map(|c| c.attr("id")?.parse::<u64>().ok()).max().unwrap_or(1) + 1;
@@ -317,7 +317,7 @@ impl Presentation {
         Ok((out, part, d))
     }
 
-    fn slide_doc(&self, i: usize) -> Result<(String, Doc), String> {
+    pub(crate) fn slide_doc(&self, i: usize) -> Result<(String, Doc), String> {
         let part = self.slide_part(i)?;
         let d = self.pkg.get_xml(&part)?;
         Ok((part, d))
@@ -330,7 +330,7 @@ impl Presentation {
 
     /// The rectangle a placeholder inherits from the slide's layout, then
     /// the layout's master.
-    fn inherited_rect(&self, slide: &str, key: &(String, Option<String>)) -> Result<Option<Rect>, String> {
+    pub(crate) fn inherited_rect(&self, slide: &str, key: &(String, Option<String>)) -> Result<Option<Rect>, String> {
         let Some(layout) = self.rel_target(slide, "/slideLayout")? else { return Ok(None) };
         let ld = self.pkg.get_xml(&layout)?;
         if let Some(r) = find_ph(&ld.root, key, false).and_then(xfrm_of).and_then(rect_of_xfrm) {
@@ -372,7 +372,7 @@ impl Presentation {
     }
 
     /// Index into the shape tree's children of the shape `r` names.
-    fn locate(tree: &Element, r: &ShapeRef) -> Result<usize, String> {
+    pub(crate) fn locate(tree: &Element, r: &ShapeRef) -> Result<usize, String> {
         let all: Vec<(usize, u64, String)> = tree
             .children
             .iter()
@@ -494,6 +494,19 @@ impl Presentation {
                     // content-type map only if it had its own Override.
                     if self.pkg.override_type(&media).is_some() {
                         self.pkg.remove_override(&media)?;
+                    }
+                }
+            } else if !rel.external && rel.rel_type == qu_ooxml::chart::REL_CHART {
+                let chart = resolve_target(&part, &rel.target);
+                if !self.part_is_referenced(&chart)? {
+                    // The chart and whatever only it used (an embedded
+                    // workbook, chart style and colour parts).
+                    let owned: Vec<String> = self.pkg.rels(&chart)?.into_iter().filter(|r| !r.external).map(|r| resolve_target(&chart, &r.target)).collect();
+                    self.remove_part(&chart)?;
+                    for o in owned {
+                        if self.pkg.has(&o) && !self.part_is_referenced(&o)? {
+                            self.remove_part(&o)?;
+                        }
                     }
                 }
             }
@@ -813,7 +826,7 @@ fn rel_url(rels: &[qu_ooxml::Rel], rid: &str) -> String {
     rels.iter().find(|r| r.id == rid).map(|r| r.target.clone()).unwrap_or_default()
 }
 
-fn set_xfrm(s: &mut Element, r: Rect) -> Result<(), String> {
+pub(crate) fn set_xfrm(s: &mut Element, r: Rect) -> Result<(), String> {
     let x = match s.name.as_str() {
         "p:graphicFrame" => {
             if s.child("p:xfrm").is_none() {

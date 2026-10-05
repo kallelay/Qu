@@ -28,6 +28,8 @@ pub const DOCX_NAMES: &[&str] = &[
     "set_cell", "comments", "footnotes", "endnotes", "info", "set_info", "accept_changes", "reject_changes", "to_markdown", "to_latex",
     "to_pdf", "links", "add_link", "add_comment", "bookmarks", "add_bookmark", "add_cross_ref", "fields", "add_field", "add_toc",
     "sections", "page_setup", "add_section_break", "header_text", "footer_text", "set_header", "set_footer", "add_list_item", "set_list",
+    "add_column", "add_footnote", "add_row", "format_text", "line_spacing", "merge_cells", "move_paragraph", "split_cell", "track_delete",
+    "track_insert",
 ];
 
 pub const PPTX_NAMES: &[&str] = &[
@@ -35,14 +37,15 @@ pub const PPTX_NAMES: &[&str] = &[
     "replace_text", "layouts", "add_slide", "delete_slide", "move_slide", "duplicate_slide", "hide_slide", "unhide_slide", "add_text",
     "add_image", "add_table", "to_markdown", "to_pdf", "set_notes", "shapes", "set_shape_text", "delete_shape", "move_shape", "resize_shape",
     "set_slide_title", "bring_to_front", "send_to_back", "set_link", "links", "theme_colors", "theme_fonts", "set_theme_colors",
-    "set_theme_fonts",
+    "set_theme_fonts", "add_chart", "add_nyquist_chart", "add_shape", "align_shapes", "rotate_shape",
 ];
 
 pub const XLSX_NAMES: &[&str] = &[
     "new", "open", "save_as", "discard", "get_cell", "set_cell", "formula", "set_formula", "fill_formula", "get_range", "set_range",
     "used_range", "add_sheet", "rename_sheet", "delete_sheet", "insert_rows", "delete_rows", "insert_columns", "delete_columns",
     "column_width", "row_height", "format_cells", "merge", "freeze_panes", "define_name", "to_pdf", "add_chart", "add_nyquist_chart",
-    "conditional_format", "color_scale", "add_validation",
+    "conditional_format", "color_scale", "add_validation", "copy_sheet", "hide_sheet", "clear", "move_range", "sort_range", "autofilter",
+    "create_table", "add_comment", "add_image",
 ];
 
 const LENGTH: Dim = Dim([0, 1, 0, 0, 0, 0, 0]);
@@ -89,6 +92,28 @@ fn kw_index(style: &[(String, Value)], key: &str, f: &str) -> R<Option<usize>> {
     match style_entry(style, key) {
         None => Ok(None),
         Some((_, v)) => v.as_index().map(Some).map_err(|m| EvalError { msg: format!("{f}: `{key}=`: {m}") }),
+    }
+}
+
+#[cfg(feature = "docx")]
+/// A number keyword; anything but a number is an error, not ignored.
+fn kw_num(style: &[(String, Value)], key: &str, f: &str) -> R<Option<f64>> {
+    match style_entry(style, key) {
+        None => Ok(None),
+        Some((_, Value::Num(n))) if n.is_finite() => Ok(Some(*n)),
+        Some((_, v)) => e(format!("{f}: `{key}=` takes a number, found {}", v.type_name())),
+    }
+}
+
+#[cfg(feature = "docx")]
+/// The row/column values of `add_row`/`add_column`: a list or vector, one
+/// item per cell, or nothing for a blank row/column.
+fn cell_values(args: &[Value], i: usize, f: &str) -> R<Vec<String>> {
+    match arg_get(args, i) {
+        None | Some(Value::Nothing) => Ok(Vec::new()),
+        Some(Value::List(items)) => Ok(items.iter().map(cell_text).collect()),
+        Some(Value::Vec(xs)) => Ok(xs.iter().map(|x| display_value(&Value::Num(*x))).collect()),
+        Some(other) => e(format!("{f}: the values come as a list, one per cell, found {}", other.type_name())),
     }
 }
 
@@ -515,6 +540,89 @@ impl Interp {
                         }
                         Ok(Value::Nothing)
                     }
+                    // ---- editing existing content: tables, formatting, notes, revisions
+                    "add_row" | "add_column" => {
+                        let t = index_arg(args, 1, f, "table index")?;
+                        let values = cell_values(args, 2, f)?;
+                        let at = kw_index(style, "at", f)?;
+                        if name == "add_row" {
+                            d.add_row(t, &values, at).map_err(err)?;
+                        } else {
+                            d.add_column(t, &values, at).map_err(err)?;
+                        }
+                        Ok(Value::Nothing)
+                    }
+                    "merge_cells" => {
+                        let t = index_arg(args, 1, f, "table index")?;
+                        let (r1, c1) = (index_arg(args, 2, f, "first row")?, index_arg(args, 3, f, "first column")?);
+                        let (r2, c2) = (index_arg(args, 4, f, "last row")?, index_arg(args, 5, f, "last column")?);
+                        d.merge_cells(t, r1, c1, r2, c2).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "split_cell" => {
+                        let t = index_arg(args, 1, f, "table index")?;
+                        let (row, col) = (index_arg(args, 2, f, "row")?, index_arg(args, 3, f, "column")?);
+                        let cols = kw_index(style, "cols", f)?;
+                        d.split_cell(t, row, col, cols).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "format_text" => {
+                        let i = index_arg(args, 1, f, "paragraph index")?;
+                        let on = kw_text(style, "on", f)?;
+                        let all = kw_bool(style, "all").unwrap_or(false);
+                        let fmt = qu_docx::RunFormat {
+                            bold: kw_bool(style, "bold"),
+                            italic: kw_bool(style, "italic"),
+                            underline: kw_bool(style, "underline"),
+                            strike: kw_bool(style, "strike"),
+                            size: kw_num(style, "size", f)?,
+                            color: kw_text(style, "color", f)?,
+                            font: kw_text(style, "font", f)?,
+                        };
+                        Ok(Value::Num(d.format_text(i, on.as_deref(), all, &fmt).map_err(err)? as f64))
+                    }
+                    "line_spacing" => {
+                        let i = index_arg(args, 1, f, "paragraph index")?;
+                        let to = kw_index(style, "to", f)?;
+                        let sp = qu_docx::Spacing {
+                            lines: kw_num(style, "lines", f)?,
+                            exactly: kw_num(style, "exactly", f)?,
+                            at_least: kw_num(style, "at_least", f)?,
+                            before: kw_num(style, "before", f)?,
+                            after: kw_num(style, "after", f)?,
+                        };
+                        Ok(Value::Num(d.line_spacing(i, to, &sp).map_err(err)? as f64))
+                    }
+                    "move_paragraph" => {
+                        let (from, to) = (index_arg(args, 1, f, "paragraph to move")?, index_arg(args, 2, f, "target position")?);
+                        d.move_paragraph(from, to).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "add_footnote" => {
+                        let i = index_arg(args, 1, f, "paragraph index")?;
+                        let text = text_arg(args, 2)?;
+                        let on = kw_text(style, "on", f)?;
+                        d.add_footnote(i, &text, on.as_deref()).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "track_insert" => {
+                        let i = index_arg(args, 1, f, "paragraph index")?;
+                        let text = text_arg(args, 2)?;
+                        let after = kw_text(style, "after", f)?;
+                        let before = kw_text(style, "before", f)?;
+                        let author = kw_text(style, "author", f)?.unwrap_or_else(|| "Qu".into());
+                        let date = kw_text(style, "date", f)?;
+                        d.track_insert(i, &text, after.as_deref(), before.as_deref(), &author, date.as_deref()).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "track_delete" => {
+                        let i = index_arg(args, 1, f, "paragraph index")?;
+                        let on = kw_text(style, "on", f)?;
+                        let all = kw_bool(style, "all").unwrap_or(false);
+                        let author = kw_text(style, "author", f)?.unwrap_or_else(|| "Qu".into());
+                        let date = kw_text(style, "date", f)?;
+                        Ok(Value::Num(d.track_delete(i, on.as_deref(), all, &author, date.as_deref()).map_err(err)? as f64))
+                    }
                     other => e(format!("docx.{other} is not a docx function")),
                 }
             }
@@ -750,6 +858,110 @@ impl Interp {
                         p.set_theme_fonts(major.as_deref(), minor.as_deref()).map_err(err)?;
                         Ok(Value::Nothing)
                     }
+                    "add_chart" => {
+                        let i = slide(1)?;
+                        let kind = qu_pptx::chart_kind(&text_arg(args, 2)?).map_err(err)?;
+                        let ys = chart_y(arg_get(args, 3).ok_or_else(|| err("needs the y values (a vector, or a list of vectors for several series)".into()))?, f)?;
+                        let xs = match style_entry(style, "x") {
+                            Some((_, v)) => chart_x(v, f)?,
+                            None => Vec::new(),
+                        };
+                        let mut o = pptx_chart_options(style, f, false)?;
+                        if let Some((_, n)) = style_entry(style, "names") {
+                            o.names = match n {
+                                Value::List(items) => items.iter().map(cell_text).collect(),
+                                other => vec![cell_text(other)],
+                            };
+                        }
+                        if let Some((_, c)) = style_entry(style, "colors") {
+                            o.colors = match c {
+                                Value::List(items) => items.iter().map(|c| color_hex(&cell_text(c), f, "colors=")).collect::<R<_>>()?,
+                                other => vec![color_hex(&cell_text(other), f, "colors=")?],
+                            };
+                        }
+                        Ok(Value::Num(p.add_chart(i, kind, &xs, &ys, &o).map_err(err)? as f64))
+                    }
+                    "add_nyquist_chart" => {
+                        let i = slide(1)?;
+                        // Either Z' and Z'' as two vectors, or one complex vector.
+                        let (re, im) = match arg_get(args, 2) {
+                            Some(z @ (Value::CVec(_) | Value::Complex(_) | Value::Spectrum(..))) => {
+                                let zs = z.as_complex_flat().map_err(|m| err(m))?;
+                                (zs.iter().map(|c| c.re).collect::<Vec<f64>>(), zs.iter().map(|c| c.im).collect::<Vec<f64>>())
+                            }
+                            Some(re) => {
+                                let im = arg_get(args, 3).ok_or_else(|| err("needs Z' and Z'' (two vectors), or one complex vector".into()))?;
+                                (chart_vec(re, f, "Z'")?, chart_vec(im, f, "Z''")?)
+                            }
+                            None => return e(format!("{f}: needs Z' and Z'' (two vectors), or one complex vector")),
+                        };
+                        let mut o = pptx_chart_options(style, f, true)?;
+                        if let Some(n) = style_str(style, "name") {
+                            o.names = vec![n];
+                        }
+                        if let Some(c) = color_kw(style, "color", f)? {
+                            o.colors = vec![c];
+                        }
+                        let negate = kw_bool(style, "negate").unwrap_or(true);
+                        Ok(Value::Num(p.add_nyquist_chart(i, &re, &im, negate, &o).map_err(err)? as f64))
+                    }
+                    "add_shape" => {
+                        use qu_pptx::{Geometry, ShapeKind, ShapeStyle};
+                        let i = slide(1)?;
+                        let kind = ShapeKind::parse(&text_arg(args, 2)?).map_err(err)?;
+                        let need = |k: &str| -> R<f64> { mm_kw(style, k, f)?.ok_or_else(|| err(format!("{k}= is required for a {}", if kind.is_line() { "line or arrow: give x=, y=, x2=, y2=" } else { "rect, ellipse or rounded_rect: give x=, y=, w=, h=" }))) };
+                        let geom = if kind.is_line() {
+                            Geometry::Segment { x1: need("x")?, y1: need("y")?, x2: need("x2")?, y2: need("y2")? }
+                        } else {
+                            Geometry::Frame(Rect { x: need("x")?, y: need("y")?, w: need("w")?, h: need("h")? })
+                        };
+                        let paint = |key: &str| -> R<Option<String>> {
+                            match style_entry(style, key) {
+                                None => Ok(None),
+                                Some((_, Value::Str(s))) if s.eq_ignore_ascii_case("none") => Ok(Some("none".into())),
+                                Some((_, Value::Str(s))) => color_hex(s, f, &format!("{key}=:")).map(Some),
+                                Some((_, v)) => e(format!("{f}: {key}= takes a colour such as \"#1F77B4\" or \"red\" (or \"none\"), found {}", v.type_name())),
+                            }
+                        };
+                        let mut st = ShapeStyle { stroke: paint("stroke")?, stroke_pt: style_num(style, "stroke_width"), dash: style_str(style, "dash"), name: style_str(style, "name"), ..Default::default() };
+                        if !kind.is_line() {
+                            st.fill = paint("fill")?;
+                            if kind == ShapeKind::RoundedRect {
+                                st.radius = style_num(style, "radius");
+                            }
+                            st.text = style_entry(style, "text").map(|(_, v)| cell_text(v));
+                            if st.text.is_some() {
+                                st.text_fmt = TextFormat {
+                                    size: style_num(style, "size"),
+                                    bold: kw_bool(style, "bold").unwrap_or(false),
+                                    italic: kw_bool(style, "italic").unwrap_or(false),
+                                    color: color_kw(style, "color", f)?,
+                                    font: style_str(style, "font"),
+                                    align: style_str(style, "align"),
+                                };
+                            }
+                        }
+                        Ok(Value::Num(p.add_shape(i, kind, geom, &st).map_err(err)? as f64))
+                    }
+                    "rotate_shape" => {
+                        let (i, s) = (slide(1)?, shape_ref(args, 2, f)?);
+                        let deg = arg_get(args, 3).ok_or_else(|| err("missing the angle in degrees (clockwise)".into()))?.as_num().map_err(|m| err(format!("angle: {m}")))?;
+                        p.rotate_shape(i, &s, deg).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "align_shapes" => {
+                        use qu_pptx::{Align, AlignTo};
+                        let i = slide(1)?;
+                        let shapes = shape_refs(arg_get(args, 2), f)?;
+                        let how = Align::parse(&text_arg(args, 3)?).map_err(err)?;
+                        let to = match style_str(style, "to").as_deref() {
+                            None | Some("selection") | Some("shapes") => AlignTo::Selection,
+                            Some("slide") => AlignTo::Slide,
+                            Some(other) => return e(format!("{f}: to=\"{other}\" -- use \"selection\" (line the shapes up with each other) or \"slide\"")),
+                        };
+                        p.align_shapes(i, &shapes, how, to).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
                     other => e(format!("pptx.{other} is not a pptx function")),
                 }
             }
@@ -760,7 +972,8 @@ impl Interp {
 
     #[cfg(feature = "xlsx")]
     fn workbook_call(&mut self, name: &str, f: &str, args: &[Value], style: &[(String, Value)]) -> R<Value> {
-        use qu_xlsx::workbook::{CellFormat, CellValue, Workbook};
+        use qu_xlsx::surgical::TotalFn;
+        use qu_xlsx::workbook::{CellFormat, CellValue, ClearWhat, SheetVisibility, SortKey, Workbook};
         let err = |msg: String| EvalError { msg: format!("{f}: {msg}") };
         match name {
             "new" => Ok(self.office_store("xlsx", Workbook::new(), "")),
@@ -1096,6 +1309,105 @@ impl Interp {
                         .map_err(err)?;
                         Ok(Value::Nothing)
                     }
+                    "copy_sheet" => {
+                        let s = sheet(wb, 1)?;
+                        wb.copy_sheet(&s, &text_arg(args, 2)?).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "hide_sheet" => {
+                        let s = sheet(wb, 1)?;
+                        // `state=` or a third positional word.
+                        let state = style_str(style, "state").or_else(|| arg_get(args, 2).map(cell_text)).unwrap_or_else(|| "hidden".into());
+                        wb.set_sheet_visibility(&s, SheetVisibility::parse(&state).map_err(err)?).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "clear" => {
+                        let s = sheet(wb, 1)?;
+                        let what = ClearWhat::parse(&style_str(style, "what").unwrap_or_else(|| "all".into())).map_err(err)?;
+                        Ok(Value::Num(wb.clear(&s, &text_arg(args, 2)?, what).map_err(err)? as f64))
+                    }
+                    "move_range" => {
+                        let s = sheet(wb, 1)?;
+                        let to_sheet = match style_entry(style, "to_sheet") {
+                            None => None,
+                            Some((_, Value::Num(n))) => Some(wb.sheet_names().get(*n as usize).cloned().ok_or_else(|| err(format!("to_sheet {n} does not exist")))?),
+                            Some((_, v)) => Some(cell_text(v)),
+                        };
+                        let copy = kw_bool(style, "copy").unwrap_or(false);
+                        let n = wb.move_range(&s, &text_arg(args, 2)?, &text_arg(args, 3)?, to_sheet.as_deref(), copy).map_err(err)?;
+                        Ok(Value::Num(n as f64))
+                    }
+                    "sort_range" => {
+                        let s = sheet(wb, 1)?;
+                        let range = text_arg(args, 2)?;
+                        let by = style_entry(style, "by").map(|(_, v)| v.clone()).or_else(|| arg_get(args, 3).cloned()).ok_or_else(|| err("needs the column to sort by: by=\"C\" (a sheet column) or by=1 (first column of the range)".into()))?;
+                        let key = |v: &Value| -> R<SortKey> {
+                            match v {
+                                Value::Num(n) if *n >= 1.0 && n.fract() == 0.0 => Ok(SortKey::Position(*n as u32)),
+                                Value::Str(l) => Ok(SortKey::Letter(l.trim().to_ascii_uppercase())),
+                                other => e(format!("{f}: by= takes a column letter like \"C\" or a position like 2 (or a list of them), found {}", display_value(other))),
+                            }
+                        };
+                        // `[2, 1]` and `[true, false]` are numeric vectors in Qu, `["A", "B"]` a list.
+                        let keys: Vec<SortKey> = match &by {
+                            Value::List(items) => items.iter().map(key).collect::<R<_>>()?,
+                            Value::Vec(xs) => xs.iter().map(|x| key(&Value::Num(*x))).collect::<R<_>>()?,
+                            one => vec![key(one)?],
+                        };
+                        let flags: Option<Vec<bool>> = match style_entry(style, "desc") {
+                            None => None,
+                            Some((_, Value::List(items))) => Some(items.iter().map(truthy).collect()),
+                            Some((_, Value::Vec(xs))) => Some(xs.iter().map(|x| *x != 0.0).collect()),
+                            Some((_, v)) => Some(vec![truthy(v)]),
+                        };
+                        let desc: Vec<bool> = match flags {
+                            None => vec![false; keys.len()],
+                            Some(fl) if fl.len() == 1 => vec![fl[0]; keys.len()],
+                            Some(fl) if fl.len() == keys.len() => fl,
+                            Some(fl) => return e(format!("{f}: {} sort keys but {} desc= flags", keys.len(), fl.len())),
+                        };
+                        let header = kw_bool(style, "header").unwrap_or(false);
+                        let keyed: Vec<(SortKey, bool)> = keys.into_iter().zip(desc).collect();
+                        wb.sort_range(&s, &range, &keyed, header).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "autofilter" => {
+                        let s = sheet(wb, 1)?;
+                        if kw_bool(style, "remove").unwrap_or(false) {
+                            wb.autofilter(&s, None).map_err(err)?;
+                        } else {
+                            wb.autofilter(&s, Some(&text_arg(args, 2)?)).map_err(err)?;
+                        }
+                        Ok(Value::Nothing)
+                    }
+                    "create_table" => {
+                        let s = sheet(wb, 1)?;
+                        let total = match style_entry(style, "total") {
+                            None | Some((_, Value::Bool(false))) | Some((_, Value::Nothing)) => None,
+                            Some((_, Value::Bool(true))) => Some(TotalFn::Sum),
+                            Some((_, Value::Str(t))) => Some(TotalFn::parse(t).map_err(err)?),
+                            Some((_, v)) => return e(format!("{f}: total= takes true, or sum/average/count/min/max, found {}", v.type_name())),
+                        };
+                        let header = kw_bool(style, "header").unwrap_or(true);
+                        let stripes = kw_bool(style, "stripes").unwrap_or(true);
+                        let tstyle = style_str(style, "style");
+                        wb.create_table(&s, &text_arg(args, 2)?, &text_arg(args, 3)?, header, tstyle.as_deref(), stripes, total).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "add_comment" => {
+                        let s = sheet(wb, 1)?;
+                        let author = style_str(style, "author");
+                        wb.add_comment(&s, &text_arg(args, 2)?, &text_arg(args, 3)?, author.as_deref()).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
+                    "add_image" => {
+                        let s = sheet(wb, 1)?;
+                        let (w, h) = (mm_kw(style, "width", f)?, mm_kw(style, "height", f)?);
+                        let (at, alt) = (style_str(style, "at"), style_str(style, "alt"));
+                        let bytes = read_bytes(arg_get(args, 2).ok_or_else(|| err("needs an image path (PNG or JPEG)".into()))?, f)?;
+                        wb.add_image(&s, bytes, at.as_deref(), w, h, alt.as_deref()).map_err(err)?;
+                        Ok(Value::Nothing)
+                    }
                     other => e(format!("xlsx.{other} is not an xlsx workbook function")),
                 }
             }
@@ -1115,6 +1427,122 @@ fn shape_ref(args: &[Value], i: usize, f: &str) -> R<qu_pptx::ShapeRef> {
     }
 }
 
+/// Several shapes: a list (or vector) of ids and/or names, or just one.
+#[cfg(feature = "pptx")]
+fn shape_refs(v: Option<&Value>, f: &str) -> R<Vec<qu_pptx::ShapeRef>> {
+    match v {
+        Some(Value::List(items)) => items.iter().enumerate().map(|(k, it)| shape_ref(std::slice::from_ref(it), 0, f).map_err(|m| EvalError { msg: format!("{} (item {})", m.msg, k + 1) })).collect(),
+        Some(Value::Vec(ids)) => ids.iter().map(|n| shape_ref(&[Value::Num(*n)], 0, f)).collect(),
+        Some(one) => Ok(vec![shape_ref(std::slice::from_ref(one), 0, f)?]),
+        None => e(format!("{f}: missing the shapes -- a list of ids or names, as pptx.shapes lists them")),
+    }
+}
+
+/// One series of numbers: a vector, a signal, or a list of numbers.
+#[cfg(feature = "pptx")]
+fn chart_vec(v: &Value, f: &str, what: &str) -> R<Vec<f64>> {
+    match v {
+        Value::List(items) => items
+            .iter()
+            .map(|i| match i {
+                Value::Num(n) => Ok(*n),
+                other => e(format!("{f}: {what} takes numbers, found {} in the list", other.type_name())),
+            })
+            .collect(),
+        Value::Vec(_) | Value::Signal(..) | Value::Num(_) => v.as_flat().map_err(|m| EvalError { msg: format!("{f}: {what}: {m}") }),
+        other => e(format!("{f}: {what} takes a vector of numbers, found {}", other.type_name())),
+    }
+}
+
+/// Whether a list entry is itself a data series (so the list is several).
+#[cfg(feature = "pptx")]
+fn is_series(v: &Value) -> bool {
+    matches!(v, Value::Vec(_) | Value::Signal(..) | Value::List(_))
+}
+
+/// `y`: one vector, a list of vectors, or a matrix (one series per column).
+#[cfg(feature = "pptx")]
+fn chart_y(v: &Value, f: &str) -> R<Vec<Vec<f64>>> {
+    match v {
+        Value::Mat(m) if m.shape().1 > 1 && m.shape().0 > 1 => {
+            let (r, c) = m.shape();
+            Ok((0..c).map(|j| (0..r).map(|i| m.get(i, j).unwrap_or(f64::NAN)).collect()).collect())
+        }
+        Value::List(items) if items.iter().any(is_series) => items.iter().map(|i| chart_vec(i, f, "y")).collect(),
+        other => Ok(vec![match other {
+            Value::Mat(m) => m.as_slice().to_vec(),
+            o => chart_vec(o, f, "y")?,
+        }]),
+    }
+}
+
+/// `x=`: numbers or text labels shared by every series, or a list with one
+/// of those per series.
+#[cfg(feature = "pptx")]
+fn chart_x(v: &Value, f: &str) -> R<Vec<qu_pptx::ChartX>> {
+    use qu_pptx::ChartX;
+    let one = |v: &Value| -> R<ChartX> {
+        match v {
+            Value::List(items) if !items.is_empty() && items.iter().all(|i| matches!(i, Value::Str(_))) => Ok(ChartX::Labels(items.iter().map(cell_text).collect())),
+            other => Ok(ChartX::Numbers(chart_vec(other, f, "x=")?)),
+        }
+    };
+    match v {
+        Value::List(items) if items.iter().any(is_series) => items.iter().map(one).collect(),
+        other => Ok(vec![one(other)?]),
+    }
+}
+
+/// `[x, y]` in millimetres or lengths: a two-element vector or list.
+#[cfg(feature = "pptx")]
+fn point_kw(style: &[(String, Value)], key: &str, f: &str) -> R<Option<(f64, f64)>> {
+    let Some((_, v)) = style_entry(style, key) else { return Ok(None) };
+    let what = format!("{f}: `{key}=`");
+    match v {
+        Value::Vec(xs) if xs.len() == 2 => Ok(Some((xs[0], xs[1]))),
+        Value::List(xs) if xs.len() == 2 => Ok(Some((mm_value(&xs[0], &what)?, mm_value(&xs[1], &what)?))),
+        Value::Quantity(inner, UnitTag::Dim(d, _)) if *d == LENGTH => match &**inner {
+            Value::Vec(xs) if xs.len() == 2 => Ok(Some((xs[0] * 1000.0, xs[1] * 1000.0))),
+            _ => e(format!("{what} takes [x, y], the chart's top-left corner")),
+        },
+        other => e(format!("{what} takes [x, y], the chart's top-left corner, found {}", other.type_name())),
+    }
+}
+
+/// The keywords `add_chart` and `add_nyquist_chart` share on a slide. A
+/// Nyquist chart computes its own axis limits, so those are not read for it
+/// (giving them is then an unread-keyword error rather than ignored).
+#[cfg(feature = "pptx")]
+fn pptx_chart_options(style: &[(String, Value)], f: &str, nyquist: bool) -> R<qu_pptx::ChartOptions> {
+    let num = |key: &str| -> R<Option<f64>> {
+        match style_entry(style, key) {
+            None => Ok(None),
+            Some((_, v)) => v.as_num().map(Some).map_err(|_| EvalError { msg: format!("{f}: {key}= must be a number, found {}", v.type_name()) }),
+        }
+    };
+    let mut o = qu_pptx::ChartOptions::default();
+    o.title = style_str(style, "title");
+    o.x_title = style_str(style, "x_title");
+    o.y_title = style_str(style, "y_title");
+    o.at = point_kw(style, "at", f)?;
+    o.width_mm = mm_kw(style, "width", f)?;
+    o.height_mm = mm_kw(style, "height", f)?;
+    o.lines = kw_bool(style, "lines");
+    o.markers = kw_bool(style, "markers");
+    o.legend = kw_bool(style, "legend");
+    o.name = style_str(style, "shape_name");
+    if !nyquist {
+        o.x_min = num("x_min")?;
+        o.x_max = num("x_max")?;
+        o.y_min = num("y_min")?;
+        o.y_max = num("y_max")?;
+        o.x_log = kw_bool(style, "x_log").unwrap_or(false);
+        o.y_log = kw_bool(style, "y_log").unwrap_or(false);
+        o.equal_axes = kw_bool(style, "equal_axes").unwrap_or(false);
+    }
+    Ok(o)
+}
+
 /// A range argument: one string, or a list of them (one per series).
 #[cfg(feature = "xlsx")]
 fn str_list(v: &Value, f: &str, what: &str) -> R<Vec<String>> {
@@ -1132,12 +1560,12 @@ fn str_list(v: &Value, f: &str, what: &str) -> R<Vec<String>> {
 }
 
 /// A colour by name (`"red"`), `#rgb` or `#rrggbb`, as everywhere else in Qu.
-#[cfg(feature = "xlsx")]
+#[cfg(any(feature = "xlsx", feature = "pptx"))]
 fn color_hex(c: &str, f: &str, what: &str) -> R<String> {
     crate::color::resolve(c).map_err(|m| EvalError { msg: format!("{f}: {what} {m}") })
 }
 
-#[cfg(feature = "xlsx")]
+#[cfg(any(feature = "xlsx", feature = "pptx"))]
 fn color_kw(style: &[(String, Value)], key: &str, f: &str) -> R<Option<String>> {
     match style_entry(style, key) {
         None => Ok(None),

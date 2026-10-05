@@ -315,6 +315,122 @@ fn pptx_shape_edits_check_their_arguments() {
 }
 
 #[test]
+fn pptx_charts_and_shapes_through_the_language() {
+    let (a, pdf) = (tmp("charts.pptx"), tmp("charts.pdf"));
+    let it = run(&format!(
+        r##"
+import pptx
+p = pptx.new()
+pptx.add_slide(p, layout="Title Only", title="Impedance")
+t = linspace(0, pi, 21)
+re = 60 - 50*cos(t)
+im = -50*sin(t)
+d = table(f=[1, 10, 100, 1000], z=[100, 80, 40, 30])
+c1 = pptx.add_nyquist_chart(p, 0, re, im, title="Nyquist", at=[15 mm, 45 mm], width=150, height=110)
+c2 = pptx.add_chart(p, 0, "scatter", d.z, x=d.f, x_log=true, title="|Z|", x_title="f / Hz", y_title="|Z| / ohm", at=[175, 45], width=150, height=70)
+c3 = pptx.add_chart(p, 0, "bar", [30, 70, 12], x=["Rs", "Rct", "W"], names="fit", colors="red", at=[175, 120], width=150, height=55)
+c4 = pptx.add_chart(p, 0, "line", ([1, 2, 3], [3, 2, 1]), names=["a", "b"], shape_name="two lines", at=[15, 160], width=60, height=30)
+b = pptx.add_shape(p, 0, "rounded_rect", x=15, y=165, w=40, h=14, fill="#1F77B4", text="Rs", bold=true, radius=0.3, name="Rs box")
+ar = pptx.add_shape(p, 0, "arrow", x=57, y=172, x2=85, y2=172, stroke="red", stroke_width=2, dash="dash")
+e = pptx.add_shape(p, 0, "ellipse", x=88, y=163, w=30, h=18, fill="none", stroke="#D62728", text="CPE", size=14)
+pptx.rotate_shape(p, 0, e, 20)
+pptx.align_shapes(p, 0, [b, e], "middle")
+pptx.align_shapes(p, 0, [c2], "right", to="slide")
+pptx.align_shapes(p, 0, ["Rs box"], "left", to="slide")
+pptx.save_as(p, "{a}")
+q = pptx.open("{a}")
+sh = pptx.shapes(q, 0)
+n = len(sh)
+"##
+    ));
+    assert_eq!(num(&it, "n"), 1.0 + 4.0 + 3.0, "title + 4 charts + 3 shapes");
+    // Fresh ids, in call order.
+    let ids: Vec<f64> = ["c1", "c2", "c3", "c4", "b", "ar", "e"].iter().map(|k| num(&it, k)).collect();
+    assert!(ids.windows(2).all(|w| w[1] == w[0] + 1.0), "{ids:?}");
+
+    let q = qu_pptx::Presentation::open(&a).unwrap();
+    let shapes = q.shapes(0).unwrap();
+    let kinds: Vec<&str> = shapes.iter().map(|s| s.kind.as_str()).collect();
+    assert_eq!(kinds, ["placeholder", "chart", "chart", "chart", "chart", "shape", "connector", "shape"]);
+    assert_eq!(shapes[4].name, "two lines");
+    assert_eq!(shapes[5].name, "Rs box");
+    // align right to the slide: chart 2's right edge at the slide's (338.67 mm).
+    let c2 = shapes[2].rect.unwrap();
+    assert!((c2.x + c2.w - 338.667).abs() < 0.01, "{c2:?}");
+    // align left to the slide by NAME.
+    assert!(shapes[5].rect.unwrap().x.abs() < 1e-6);
+    // `middle`: the Rs box and the (rotated) ellipse share a centre line.
+    let (rb, re_) = (shapes[5].rect.unwrap(), shapes[7].rect.unwrap());
+    assert!(((rb.y + rb.h / 2.0) - (re_.y + re_.h / 2.0)).abs() < 0.01);
+    // The arrow is flat: red, 2 pt, dashed, with a head.
+    let slide = qu_ooxml::Package::open(&a).unwrap().get_str("ppt/slides/slide1.xml").unwrap();
+    assert!(slide.contains("prst=\"straightConnector1\"") && slide.contains("w=\"25400\"") && slide.contains("prstDash val=\"dash\"") && slide.contains("tailEnd type=\"triangle\""));
+    assert!(slide.contains("FF0000"), "stroke=\"red\" resolved to hex");
+
+    if qu_ooxml_present() {
+        run(&format!("import pptx\nq = pptx.open(\"{a}\")\npptx.to_pdf(q, \"{pdf}\")"));
+        let bytes = std::fs::read(&pdf).unwrap();
+        assert!(bytes.starts_with(b"%PDF") && bytes.len() > 20_000, "{} bytes", bytes.len());
+    } else {
+        eprintln!("SKIP pdf render: LibreOffice not found");
+    }
+}
+
+#[test]
+fn pptx_nyquist_takes_one_complex_vector() {
+    let it = run(
+        r##"
+import pptx
+p = pptx.new()
+pptx.add_slide(p, layout="Blank")
+t = linspace(0, pi, 21)
+Z = (60 - 50*cos(t)) + (-50*sin(t))*1i
+id = pptx.add_nyquist_chart(p, 0, Z, color="blue", name="cell")
+plain = pptx.add_nyquist_chart(p, 0, 60 - 50*cos(t), 50*sin(t), negate=false, shape_name="plain")
+"##,
+    );
+    assert_eq!(num(&it, "id"), 2.0);
+    assert_eq!(num(&it, "plain"), 3.0);
+}
+
+#[test]
+fn pptx_chart_and_shape_arguments_are_checked() {
+    let base = "import pptx\np = pptx.new()\npptx.add_slide(p, layout=\"Blank\")\n";
+    let e = |s: &str| err(&format!("{base}{s}"));
+    assert!(e("pptx.add_chart(p, 0, \"pie\", [1, 2])").contains("scatter"));
+    assert!(e("pptx.add_chart(p, 0, \"scatter\", [1, 2, 3], x=[1, 2])").contains("x values"));
+    assert!(e("pptx.add_chart(p, 0, \"scatter\", [1, 2, 3], titel=\"x\")").contains("titel"), "a misspelt keyword is unread");
+    assert!(e("pptx.add_chart(p, 0, \"line\", [1, 2, 3], x_log=true)").contains("scatter"));
+    assert!(e("pptx.add_chart(p, 0, \"line\", [1, 2, 3], width=5)").contains("20 to 2000"));
+    assert!(e("pptx.add_chart(p, 0, \"line\", [1, 2, 3], at=[1, 2, 3])").contains("[x, y]"));
+    assert!(e("pptx.add_chart(p, 0, \"line\", \"abc\")").contains("vector of numbers"));
+    assert!(e("pptx.add_chart(p, 3, \"line\", [1, 2])").contains("does not exist"));
+    assert!(e("pptx.add_chart(p, 0, \"line\", [1, 2], colors=\"nope\")").contains("colors="));
+    assert!(e("pptx.add_nyquist_chart(p, 0, [1, 2, 3])").contains("Z'"));
+    assert!(e("pptx.add_nyquist_chart(p, 0, [1, 2, 3], [1, 2])").contains("Z''"));
+    assert!(e("pptx.add_nyquist_chart(p, 0, [1, 2, 3], [1, 2, 3], x_log=true)").contains("x_log"), "a Nyquist chart sets its own axes");
+    assert!(e("pptx.add_shape(p, 0, \"hexagon\", x=0, y=0, w=1, h=1)").contains("rounded_rect"));
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5)").contains("h= is required"));
+    assert!(e("pptx.add_shape(p, 0, \"line\", x=0, y=0, w=5, h=5)").contains("x2="));
+    assert!(e("pptx.add_shape(p, 0, \"line\", x=0, y=0, x2=5, y2=5, fill=\"red\")").contains("fill"), "a line has no fill: unread");
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5, size=12)").contains("size"), "size= without text= is unread");
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5, radius=0.2)").contains("radius"));
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5, fill=\"notacolour\")").contains("fill="));
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=3 s, y=0, w=5, h=5)").contains("length"));
+    assert!(e("pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5, dash=\"wavy\")").contains("dash"));
+    assert!(e("pptx.rotate_shape(p, 0, 99, 10)").contains("no shape id 99"));
+    assert!(e("pptx.rotate_shape(p, 0, 2)").contains("angle"));
+    assert!(e("c = pptx.add_chart(p, 0, \"line\", [1, 2])\npptx.rotate_shape(p, 0, c, 10)").contains("cannot be rotated"));
+    assert!(e("a = pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5)\npptx.align_shapes(p, 0, [a], \"left\")").contains("two or more"));
+    assert!(e("a = pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5)\npptx.align_shapes(p, 0, [a], \"left\", to=\"page\")").contains("slide"));
+    assert!(e("a = pptx.add_shape(p, 0, \"rect\", x=0, y=0, w=5, h=5)\npptx.align_shapes(p, 0, [a], \"diagonal\", to=\"slide\")").contains("middle"));
+    // A refused call leaves the deck without the half-made chart.
+    let it = run(&format!("{base}try\n  pptx.add_chart(p, 0, \"line\", [1, 2], y_log=true, y_min=-1)\ncatch ex\n  msg = ex.message\nend\nn = len(pptx.shapes(p, 0))"));
+    assert_eq!(num(&it, "n"), 0.0);
+}
+
+
+#[test]
 fn xlsx_workbook_edit_in_place() {
     let (a, b) = (tmp("a.xlsx"), tmp("b.xlsx"));
     let it = run(&format!(
@@ -416,6 +532,89 @@ fn xlsx_chart_arguments_are_checked() {
     assert!(msg.contains("save_as"), "{msg}");
 }
 
+/// Sheet operations, Tables, notes and pictures through the language; the
+/// package-level known answers live in qu-xlsx's `sheet_ops` tests. A chart
+/// is saved first and every operation then runs on the reopened file.
+#[test]
+fn xlsx_sheet_ops_tables_notes_and_pictures() {
+    let (a, b, img) = (tmp("so_a.xlsx"), tmp("so_b.xlsx"), tmp("so.png"));
+    png(&img);
+    let it = run(&format!(
+        r##"
+import xlsx
+wb = xlsx.new()
+xlsx.set_range(wb, "Sheet1", "A1", table(name=["delta", "Alpha", "charlie", "echo"], value=[3, 10, 1, 7]))
+xlsx.add_chart(wb, "Sheet1", "bar", "B2:B5", x="A2:A5")
+xlsx.add_sheet(wb, "Notes")
+xlsx.save_as(wb, "{a}")
+w = xlsx.open("{a}")
+xlsx.sort_range(w, "Sheet1", "A1:B5", by="B", desc=true, header=true)
+first = xlsx.get_cell(w, "Sheet1", "A2")
+last = xlsx.get_cell(w, "Sheet1", "A5")
+n_moved = xlsx.move_range(w, "Sheet1", "A1:B5", "D1", to_sheet="Notes", copy=true)
+n_cleared = xlsx.clear(w, "Notes", "E2:E3", what="contents")
+xlsx.create_table(w, "Sheet1", "A1:B5", "Readings", style="light9", total="average")
+avg = xlsx.formula(w, "Sheet1", "B6")
+xlsx.autofilter(w, "Notes", "D1:E5")
+xlsx.add_comment(w, "Sheet1", "B2", "the largest reading", author="Ahmed")
+xlsx.add_image(w, "Notes", "{img}", at="H2", width=40 mm, alt="four by two")
+xlsx.copy_sheet(w, "Sheet1", "Sheet1 copy")
+xlsx.hide_sheet(w, "Notes", state="very_hidden")
+xlsx.hide_sheet(w, "Sheet1 copy")
+xlsx.save_as(w, "{b}")
+names = xlsx.sheets("{b}")
+"##
+    ));
+    assert_eq!(text(&it, "first"), "Alpha");
+    assert_eq!(text(&it, "last"), "charlie");
+    assert_eq!(num(&it, "n_moved"), 10.0);
+    assert_eq!(num(&it, "n_cleared"), 2.0);
+    assert_eq!(text(&it, "avg"), "SUBTOTAL(101,B2:B5)");
+    let pkg = qu_ooxml::Package::open(&b).unwrap();
+    let t = pkg.names().into_iter().filter(|n| n.starts_with("xl/tables/")).collect::<Vec<_>>();
+    assert_eq!(t.len(), 2, "the table and its copy: {:?}", pkg.names());
+    assert!(pkg.names().iter().any(|n| n.starts_with("xl/comments")) && pkg.names().iter().any(|n| n.starts_with("xl/media/image1.png")));
+    let charts = pkg.names().into_iter().filter(|n| n.starts_with("xl/charts/chart")).count();
+    assert_eq!(charts, 2, "the chart saved earlier, and the copied sheet's");
+    let wbx = pkg.get_str("xl/workbook.xml").unwrap();
+    assert!(wbx.contains("veryHidden") && wbx.contains("state=\"hidden\""), "{wbx}");
+}
+
+#[test]
+fn xlsx_sheet_ops_check_their_arguments() {
+    let pre = "import xlsx\nw = xlsx.new()\nxlsx.set_range(w, \"Sheet1\", \"A1\", table(a=[3, 1, 2], b=[1, 2, 3]))\n";
+    for (call, needle) in [
+        ("xlsx.sort_range(w, \"Sheet1\", \"A1:B3\")", "column to sort by"),
+        ("xlsx.sort_range(w, \"Sheet1\", \"A1:B3\", by=\"A\", descending=true)", "descending"),
+        ("xlsx.sort_range(w, \"Sheet1\", \"A1:B3\", by=[\"A\", \"B\"], desc=[true, false, true])", "2 sort keys"),
+        ("xlsx.sort_range(w, \"Sheet1\", \"A1:B3\", by=0)", "column letter"),
+        ("xlsx.clear(w, \"Sheet1\", \"A1\", what=\"everything\")", "all, contents or formats"),
+        ("xlsx.move_range(w, \"Sheet1\", \"A1:B3\", \"A1\")", "already there"),
+        ("xlsx.hide_sheet(w, \"Sheet1\")", "at least one visible"),
+        ("xlsx.hide_sheet(w, \"Sheet1\", state=\"gone\")", "hidden, very_hidden or visible"),
+        ("xlsx.copy_sheet(w, \"Sheet1\", \"Sheet1\")", "already has a sheet"),
+        ("xlsx.copy_sheet(w, \"Sheet1\", \"a/b\")", "does not allow"),
+        ("xlsx.autofilter(w, \"Sheet1\", \"A1\")", "single cell"),
+        ("xlsx.create_table(w, \"Sheet1\", \"A1:B3\", \"my table\")", "no spaces"),
+        ("xlsx.create_table(w, \"Sheet1\", \"A1:B3\", \"T\", total=\"median\")", "sum, average"),
+        ("xlsx.create_table(w, \"Sheet1\", \"A1:B3\", \"Tbl\", colour=\"red\")", "colour"),
+        ("xlsx.add_comment(w, \"Sheet1\", \"A1\", \"\")", "empty"),
+        ("xlsx.add_comment(w, \"Sheet1\", \"A1\", \"x\", writer=\"me\")", "writer"),
+        ("xlsx.add_image(w, \"Sheet1\", \"no_such_file.png\")", "could not read"),
+        ("xlsx.add_image(w, \"Sheet1\")", "image path"),
+    ] {
+        let mut it = Interp::new();
+        let msg = it.run(&format!("{pre}{call}")).err().unwrap_or_else(|| panic!("{call} should have failed")).to_string();
+        assert!(msg.contains(needle), "{call}\n  expected `{needle}`, got: {msg}");
+    }
+    // Editing in memory is allowed in the sandbox; only writing the file is not.
+    let mut it = Interp::new();
+    it.set_sandboxed(true);
+    it.run(&format!("{pre}xlsx.sort_range(w, \"Sheet1\", \"A1:B3\", by=\"A\", header=true)\nxlsx.create_table(w, \"Sheet1\", \"A1:B3\", \"Tbl\")\nxlsx.add_comment(w, \"Sheet1\", \"A1\", \"hi\")\nxlsx.copy_sheet(w, \"Sheet1\", \"Two\")")).unwrap();
+    let msg = it.run(&format!("xlsx.save_as(w, \"{}\")", tmp("sb2.xlsx"))).unwrap_err().to_string();
+    assert!(msg.contains("save_as"), "{msg}");
+}
+
 #[test]
 fn handles_and_arguments_are_checked() {
     assert!(err("import docx\nd = docx.new()\ndocx.discard(d)\ndocx.full_text(d)").contains("discarded"));
@@ -451,6 +650,118 @@ fn to_pdf_uses_libreoffice_or_says_it_is_missing() {
         }
         false => assert!(r.unwrap_err().to_string().contains("LibreOffice")),
     }
+}
+
+#[test]
+fn docx_edit_tables_formatting_notes_and_revisions() {
+    let (a, b) = (tmp("e1.docx"), tmp("e2.docx"));
+    let it = run(&format!(
+        r##"
+import docx
+doc = docx.new()
+docx.add_paragraph(doc, "Revenue rose in Q3 across all regions.")
+docx.add_paragraph(doc, "Second paragraph")
+docx.add_table(doc, [["Region", "Q2", "Q3"], ["EU", "1", "2"], ["US", "3", "4"]], header=true)
+docx.add_row(doc, 0, ["APAC", 5, 6])
+docx.add_column(doc, 0, ["Q4", 7, 8, 9], at=3)
+docx.merge_cells(doc, 0, 1, 1, 1, 2)
+merged = docx.tables(doc)[0][1][1]
+merged_cells = len(docx.tables(doc)[0][1])
+docx.split_cell(doc, 0, 1, 1)
+split_cells = len(docx.tables(doc)[0][1])
+split_text = docx.tables(doc)[0][1][1]
+docx.split_cell(doc, 0, 2, 3, cols=2)
+cut_cells = len(docx.tables(doc)[0][2])
+spans = docx.format_text(doc, 0, bold=true, color="#c00000", size=13, on="Q3")
+docx.format_text(doc, 0, italic=true, underline=true, font="Georgia")
+n_lines = docx.line_spacing(doc, 0, to=1, lines=1.5, after=6)
+docx.move_paragraph(doc, 1, 0)
+docx.add_footnote(doc, 1, "Source: ministry of finance.", on="Revenue")
+docx.track_insert(doc, 1, "strongly ", before="rose", author="Ahmed", date="2026-10-01T09:00:00Z")
+ndel = docx.track_delete(doc, 1, on=" across all regions", author="Ahmed", date="2026-10-01T09:01:00Z")
+docx.track_delete(doc, 0, author="Ahmed")
+docx.save_as(doc, "{a}")
+d = docx.open("{a}")
+paras = docx.paragraphs(d)
+p0 = paras[0]
+p1 = paras[1]
+notes = docx.footnotes(d)
+rows = len(docx.tables(d)[0])
+cell = docx.tables(d)[0][3][3]
+nacc = docx.accept_changes(d)
+after = docx.paragraphs(d)
+na = len(after)
+p_acc = after[0]
+docx.save_as(d, "{b}")
+"##
+    ));
+    assert_eq!(text(&it, "merged"), "1\n2", "merged cell texts follow one paragraph each");
+    assert_eq!((num(&it, "merged_cells"), num(&it, "split_cells"), num(&it, "cut_cells")), (3.0, 4.0, 5.0));
+    assert_eq!(text(&it, "split_text"), "1\n2", "split keeps the text in the top-left cell");
+    assert_eq!(num(&it, "spans"), 1.0);
+    assert_eq!(num(&it, "n_lines"), 2.0);
+    assert_eq!(num(&it, "ndel"), 1.0);
+    assert_eq!(text(&it, "p0"), "", "a tracked paragraph deletion hides the paragraph's text");
+    assert_eq!(text(&it, "p1"), "Revenue strongly rose in Q3.");
+    assert_eq!(it.get("notes").map(|v| format!("{v:?}")).unwrap().contains("Source: ministry of finance."), true);
+    assert_eq!(num(&it, "rows"), 4.0);
+    assert_eq!(text(&it, "cell"), "9");
+    assert_eq!(num(&it, "nacc"), 4.0, "two insertion/deletion marks, the paragraph deletion and its mark's text");
+    assert_eq!(num(&it, "na"), 2.0, "the deleted paragraph is gone after accepting; what is left is the text and the empty paragraph after the table");
+    assert_eq!(text(&it, "p_acc"), "Revenue strongly rose in Q3.");
+}
+
+#[test]
+fn docx_edit_arguments_are_checked() {
+    let pre = "import docx\nd = docx.new()\ndocx.add_paragraph(d, \"hello world\")\ndocx.add_table(d, [[\"a\", \"b\"], [\"c\", \"d\"]])\n";
+    let bad = |tail: &str| err(&format!("{pre}{tail}"));
+    assert!(bad("docx.add_row(d, 0, bogus=1)").contains("bogus"), "unread keyword is an error");
+    assert!(bad("docx.add_row(d, 0, [1, 2, 3])").contains("3 values for a row of 2"));
+    assert!(bad("docx.add_row(d, 0, \"x\")").contains("list"));
+    assert!(bad("docx.add_row(d, 3)").contains("table 3"));
+    assert!(bad("docx.add_column(d, 0, at=7)").contains("cannot insert at column 7"));
+    assert!(bad("docx.merge_cells(d, 0, 0, 0, 0, 0)").contains("single cell"));
+    assert!(bad("docx.merge_cells(d, 0, 0, 0, 5, 5)").contains("does not exist"));
+    assert!(bad("docx.merge_cells(d, 0, 0, 0, 1)").contains("missing"));
+    assert!(bad("docx.split_cell(d, 0, 0, 0)").contains("not merged"));
+    assert!(bad("docx.format_text(d, 0)").contains("nothing to apply"));
+    assert!(bad("docx.format_text(d, 0, bold=true, size=\"big\")").contains("takes a number"));
+    assert!(bad("docx.format_text(d, 0, bold=true, color=\"red\")").contains("#rrggbb"));
+    assert!(bad("docx.format_text(d, 0, bold=true, on=\"absent\")").contains("does not contain"));
+    assert!(bad("docx.format_text(d, 0, bold=true, bolt=true)").contains("bolt"));
+    assert!(bad("docx.line_spacing(d, 0)").contains("nothing to set"));
+    assert!(bad("docx.line_spacing(d, 0, lines=2, exactly=20)").contains("not several"));
+    assert!(bad("docx.move_paragraph(d, 0, 5)").contains("cannot move"));
+    assert!(bad("docx.add_footnote(d, 0, \"\")").contains("empty"));
+    assert!(bad("docx.track_insert(d, 0, \"x\", after=\"hello\", before=\"world\")").contains("not both"));
+    assert!(bad("docx.track_delete(d, 0, on=\"zzz\")").contains("does not contain"));
+    assert!(bad("docx.track_delete(d, 0, author=3)").contains("string"));
+}
+
+#[test]
+fn docx_edits_render_in_libreoffice_when_it_is_installed() {
+    let Some(_) = qu_ooxml::find_office() else {
+        eprintln!("skipping: no LibreOffice on this machine");
+        return;
+    };
+    let out = tmp("edited.pdf");
+    let it = run(&format!(
+        r##"
+import docx
+doc = docx.new()
+docx.add_paragraph(doc, "Revenue rose in Q3 across all regions.")
+docx.add_table(doc, [["Region", "Q2"], ["EU", "1"]], header=true)
+docx.add_row(doc, 0, ["US", 2])
+docx.add_column(doc, 0, ["Q3", 3, 4])
+docx.merge_cells(doc, 0, 1, 0, 1, 1)
+docx.format_text(doc, 0, bold=true, on="Q3")
+docx.add_footnote(doc, 0, "Source: ministry of finance.", on="Revenue")
+docx.track_insert(doc, 0, "strongly ", before="rose", author="Ahmed")
+n = docx.to_pdf(doc, "{out}")
+"##
+    ));
+    assert!(num(&it, "n") > 1000.0);
+    assert!(std::fs::read(&out).unwrap().starts_with(b"%PDF"));
 }
 
 fn qu_ooxml_present() -> bool {

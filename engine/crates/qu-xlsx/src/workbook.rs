@@ -432,6 +432,557 @@ impl Workbook {
     }
 }
 
+/// What `clear` removes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ClearWhat {
+    /// Values and formulas; the cell keeps its formatting.
+    Contents,
+    /// Formatting; the cell keeps its value.
+    Formats,
+    All,
+}
+
+impl ClearWhat {
+    pub fn parse(s: &str) -> Result<ClearWhat, String> {
+        match s {
+            "all" => Ok(ClearWhat::All),
+            "contents" | "values" => Ok(ClearWhat::Contents),
+            "formats" | "formatting" => Ok(ClearWhat::Formats),
+            other => Err(format!("what=\"{other}\" -- use all, contents or formats")),
+        }
+    }
+}
+
+/// A sheet's visibility.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SheetVisibility {
+    Visible,
+    Hidden,
+    /// Hidden, and absent from Excel's own Unhide list (only reachable from
+    /// the VBA editor, or by `xlsx.hide_sheet(..., state="visible")`).
+    VeryHidden,
+}
+
+impl SheetVisibility {
+    pub fn parse(s: &str) -> Result<SheetVisibility, String> {
+        match s {
+            "visible" => Ok(SheetVisibility::Visible),
+            "hidden" => Ok(SheetVisibility::Hidden),
+            "very_hidden" | "veryhidden" | "very hidden" => Ok(SheetVisibility::VeryHidden),
+            other => Err(format!("state=\"{other}\" -- use hidden, very_hidden or visible")),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            SheetVisibility::Visible => "visible",
+            SheetVisibility::Hidden => "hidden",
+            SheetVisibility::VeryHidden => "very_hidden",
+        }
+    }
+}
+
+/// A cell lifted off the sheet: its value or formula and its formatting.
+struct Held {
+    value: umya::CellValue,
+    formula: Option<String>,
+    style: umya::Style,
+}
+
+impl Held {
+    fn of(cell: &umya::Cell) -> Held {
+        Held { value: cell.cell_value().clone(), formula: Some(cell.formula().to_string()).filter(|f| !f.is_empty()), style: cell.style().clone() }
+    }
+
+    /// Put it at (col, row); relative references in a formula move by
+    /// (`dc`, `dr`) -- zero for a move, the distance for a copy or a sort.
+    fn place(&self, ws: &mut umya::Worksheet, (col, row): (u32, u32), dc: i64, dr: i64) {
+        let cell = ws.cell_mut((col, row));
+        match &self.formula {
+            Some(f) => {
+                cell.set_formula(if dc == 0 && dr == 0 { f.clone() } else { shift_refs(f, dc, dr) });
+            }
+            None => {
+                cell.set_cell_value(self.value.clone());
+            }
+        }
+        cell.set_style(self.style.clone());
+    }
+}
+
+/// How two sort keys order. Excel ascending: numbers, then text (case
+/// blind), then TRUE/FALSE; empty cells last in either direction.
+fn key_cmp(a: &CellValue, b: &CellValue, desc: bool) -> std::cmp::Ordering {
+    use std::cmp::Ordering::*;
+    let rank = |v: &CellValue| match v {
+        CellValue::Num(_) => 0,
+        CellValue::Str(_) => 1,
+        CellValue::Bool(_) => 2,
+        CellValue::Empty => 3,
+    };
+    match (a, b) {
+        (CellValue::Empty, CellValue::Empty) => Equal,
+        (CellValue::Empty, _) => Greater,
+        (_, CellValue::Empty) => Less,
+        _ => {
+            let ord = rank(a).cmp(&rank(b)).then_with(|| match (a, b) {
+                (CellValue::Num(x), CellValue::Num(y)) => x.partial_cmp(y).unwrap_or(Equal),
+                (CellValue::Str(x), CellValue::Str(y)) => x.to_lowercase().cmp(&y.to_lowercase()).then_with(|| x.cmp(y)),
+                (CellValue::Bool(x), CellValue::Bool(y)) => x.cmp(y),
+                _ => Equal,
+            });
+            if desc {
+                ord.reverse()
+            } else {
+                ord
+            }
+        }
+    }
+}
+
+impl Workbook {
+    fn check_sheet_title(name: &str) -> Result<(), String> {
+        if name.is_empty() || name.chars().count() > 31 {
+            return Err(format!("sheet name \"{name}\" -- 1 to 31 characters"));
+        }
+        if let Some(c) = name.chars().find(|c| "[]:*?/\\".contains(*c)) {
+            return Err(format!("sheet name \"{name}\" contains `{c}`, which Excel does not allow"));
+        }
+        if name.starts_with('\'') || name.ends_with('\'') {
+            return Err(format!("sheet name \"{name}\" may not start or end with an apostrophe"));
+        }
+        Ok(())
+    }
+
+    /// Every table name in the workbook (saved or pending), lower-cased.
+    fn table_names(&self) -> Vec<String> {
+        let mut out: Vec<String> = self.book.sheet_collection().iter().flat_map(|ws| ws.tables().iter().flat_map(|t| [t.name().to_lowercase(), t.display_name().to_lowercase()])).collect();
+        out.extend(self.pending.iter().filter_map(|p| if let Pending::Table(t) = p { Some(t.name.to_lowercase()) } else { None }));
+        out
+    }
+
+    /// A copy of `source` as a new sheet named `new_name`, appended after
+    /// the last sheet: cells, formulas, formatting, merges, column widths,
+    /// freeze panes, conditional formats, validations, and whatever
+    /// charts, comments, images and tables the sheet carries (a copied
+    /// table is renamed `Name_2`, as table names are unique).
+    pub fn copy_sheet(&mut self, source: &str, new_name: &str) -> Result<(), String> {
+        Self::check_sheet_title(new_name)?;
+        if self.sheet_names().iter().any(|n| n.eq_ignore_ascii_case(new_name)) {
+            return Err(format!("the workbook already has a sheet named `{new_name}`"));
+        }
+        let mut ws = self.sheet(source)?.clone();
+        ws.set_name(new_name);
+        ws.set_state(umya::SheetStateValues::Visible);
+        // Two selected tabs would put Excel in group-edit mode.
+        for v in ws.sheet_views_mut().sheet_view_list_mut() {
+            v.set_tab_selected(false);
+        }
+        let mut taken = self.table_names();
+        for t in ws.tables_mut() {
+            let stem = t.name().to_string();
+            let fresh = (2..).map(|n| format!("{stem}_{n}")).find(|c| !taken.contains(&c.to_lowercase())).unwrap();
+            taken.push(fresh.to_lowercase());
+            t.set_name(&fresh);
+            t.set_display_name(&fresh);
+        }
+        self.model_dirty = true;
+        self.book.add_sheet(ws).map_err(err("copy_sheet"))?;
+        let copies: Vec<Pending> = {
+            let mut pool = taken.clone();
+            let mut rename = |old: &str| -> String {
+                let stem = old.to_string();
+                let fresh = (2..).map(|n| format!("{stem}_{n}")).find(|c| !pool.contains(&c.to_lowercase())).unwrap();
+                pool.push(fresh.to_lowercase());
+                fresh
+            };
+            self.pending.iter().filter(|p| p.sheet() == source).map(|p| p.copy_to_sheet(source, new_name, &mut rename)).collect()
+        };
+        self.pending.extend(copies);
+        Ok(())
+    }
+
+    pub fn sheet_state(&self, name: &str) -> Result<SheetVisibility, String> {
+        Ok(match self.sheet(name)?.state() {
+            umya::SheetStateValues::Visible => SheetVisibility::Visible,
+            umya::SheetStateValues::Hidden => SheetVisibility::Hidden,
+            umya::SheetStateValues::VeryHidden => SheetVisibility::VeryHidden,
+        })
+    }
+
+    /// Hide a sheet (Excel's Hide, or the VBA-only "very hidden"), or show
+    /// it again. A workbook needs one visible sheet.
+    pub fn set_sheet_visibility(&mut self, name: &str, state: SheetVisibility) -> Result<(), String> {
+        let names = self.sheet_names();
+        let idx = names.iter().position(|n| n == name).ok_or_else(|| format!("no sheet named `{name}` -- the workbook has: {}", names.join(", ")))?;
+        if state != SheetVisibility::Visible {
+            let other_visible = names.iter().enumerate().any(|(i, n)| i != idx && self.sheet_state(n).map(|s| s == SheetVisibility::Visible).unwrap_or(false));
+            if !other_visible {
+                return Err(format!("cannot hide `{name}` -- a workbook needs at least one visible sheet"));
+            }
+        }
+        self.model_dirty = true;
+        self.book.sheet_mut(idx).map_err(err("hide_sheet"))?.set_state(match state {
+            SheetVisibility::Visible => umya::SheetStateValues::Visible,
+            SheetVisibility::Hidden => umya::SheetStateValues::Hidden,
+            SheetVisibility::VeryHidden => umya::SheetStateValues::VeryHidden,
+        });
+        if state != SheetVisibility::Visible {
+            // The tab the workbook opens on must not be a hidden one.
+            let active = self.book.workbook_view().active_tab() as usize;
+            if active == idx {
+                let first = (0..names.len()).find(|i| *i != idx && self.sheet_state(&names[*i]).map(|s| s == SheetVisibility::Visible).unwrap_or(false)).unwrap_or(0);
+                self.book.set_active_sheet(first as u32);
+                for (i, n) in names.iter().enumerate() {
+                    for v in self.sheet_mut(n)?.sheet_views_mut().sheet_view_list_mut() {
+                        v.set_tab_selected(i == first);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// (col, row) of every stored cell inside the rectangle.
+    fn stored_in(ws: &umya::Worksheet, (c1, r1, c2, r2): (u32, u32, u32, u32)) -> Vec<(u32, u32)> {
+        ws.cells()
+            .into_iter()
+            .map(|c| (c.coordinate().col_num(), c.coordinate().row_num()))
+            .filter(|(c, r)| (c1..=c2).contains(c) && (r1..=r2).contains(r))
+            .collect()
+    }
+
+    /// Refuse a rectangle that cuts through a merged range.
+    fn check_merges(ws: &umya::Worksheet, (c1, r1, c2, r2): (u32, u32, u32, u32), what: &str) -> Result<(), String> {
+        for m in ws.merge_cells() {
+            let (mc1, mr1, mc2, mr2) = parse_range(&m.range())?;
+            let overlap = mc1 <= c2 && mc2 >= c1 && mr1 <= r2 && mr2 >= r1;
+            let inside = mc1 >= c1 && mc2 <= c2 && mr1 >= r1 && mr2 <= r2;
+            if overlap && !inside {
+                return Err(format!("{what}: the range cuts through the merged cells {} -- unmerge them or include them whole", m.range()));
+            }
+            if overlap && what.starts_with("sort") {
+                return Err(format!("{what}: the range holds merged cells ({}) -- Excel cannot sort those either", m.range()));
+            }
+        }
+        Ok(())
+    }
+
+    /// Empty a range: its values and formulas, its formatting, or both.
+    /// Returns how many stored cells it touched.
+    pub fn clear(&mut self, sheet: &str, range: &str, what: ClearWhat) -> Result<usize, String> {
+        let rect = parse_range(range)?;
+        let ws = self.sheet_mut(sheet)?;
+        let hit = Self::stored_in(ws, rect);
+        for (c, r) in &hit {
+            match what {
+                ClearWhat::All => {
+                    ws.remove_cell((*c, *r));
+                }
+                ClearWhat::Contents => {
+                    ws.cell_mut((*c, *r)).set_blank();
+                }
+                ClearWhat::Formats => {
+                    ws.cell_mut((*c, *r)).set_style(umya::Style::default());
+                }
+            }
+        }
+        Ok(hit.len())
+    }
+
+    /// Move a range so that its top-left corner lands on `to`, on
+    /// `to_sheet` (default: the same sheet), overwriting what is there.
+    /// With `copy`, the source stays and relative references in copied
+    /// formulas shift, as in a paste; a move keeps formulas as they are.
+    /// Formulas elsewhere that point into the moved cells are not rewritten.
+    pub fn move_range(&mut self, sheet: &str, range: &str, to: &str, to_sheet: Option<&str>, copy: bool) -> Result<usize, String> {
+        let (c1, r1, c2, r2) = parse_range(range)?;
+        let (tc, tr) = parse_cell(to)?;
+        let (w, h) = (c2 - c1, r2 - r1);
+        let dest_sheet = to_sheet.unwrap_or(sheet).to_string();
+        if tc + w > 16384 || tr + h > 1_048_576 {
+            return Err(format!("moving {range} to {to} runs off the sheet (XFD1048576)"));
+        }
+        if dest_sheet == sheet && (tc, tr) == (c1, r1) {
+            return Err("the range is already there".into());
+        }
+        let dest = (tc, tr, tc + w, tr + h);
+        Self::check_merges(self.sheet(sheet)?, (c1, r1, c2, r2), "move_range")?;
+        Self::check_merges(self.sheet(&dest_sheet)?, dest, "move_range")?;
+        let held: Vec<((u32, u32), Held)> = {
+            let ws = self.sheet(sheet)?;
+            Self::stored_in(ws, (c1, r1, c2, r2)).into_iter().filter_map(|(c, r)| ws.cell((c, r)).map(|cell| ((c, r), Held::of(cell)))).collect()
+        };
+        if !copy {
+            let ws = self.sheet_mut(sheet)?;
+            for ((c, r), _) in &held {
+                ws.remove_cell((*c, *r));
+            }
+        }
+        let ws = self.sheet_mut(&dest_sheet)?;
+        for (c, r) in Self::stored_in(ws, dest) {
+            ws.remove_cell((c, r));
+        }
+        let (dc, dr) = (tc as i64 - c1 as i64, tr as i64 - r1 as i64);
+        for ((c, r), cell) in &held {
+            cell.place(ws, ((*c as i64 + dc) as u32, (*r as i64 + dr) as u32), if copy { dc } else { 0 }, if copy { dr } else { 0 });
+        }
+        Ok(held.len())
+    }
+
+    /// Sort the rows of `range` by one or more key columns. A key is a
+    /// column letter on the sheet (`"C"`) or a 1-based position inside the
+    /// range, with its own direction. Whole rows move -- values, formulas
+    /// (relative references follow the row, as in Excel), formatting. With
+    /// `header` the first row stays on top. The sort is stable.
+    pub fn sort_range(&mut self, sheet: &str, range: &str, keys: &[(SortKey, bool)], header: bool) -> Result<(), String> {
+        let (c1, r1, c2, r2) = parse_range(range)?;
+        let first = if header { r1 + 1 } else { r1 };
+        if first > r2 {
+            return Err(format!("`{range}` has no rows to sort{}", if header { " below the header" } else { "" }));
+        }
+        if keys.is_empty() {
+            return Err("sort_range needs a key column (by=)".into());
+        }
+        let mut cols = Vec::new();
+        for (k, desc) in keys {
+            let col = match k {
+                SortKey::Letter(l) => parse_cell(&format!("{l}1"))?.0,
+                SortKey::Position(n) => {
+                    if *n == 0 || c1 + n - 1 > c2 {
+                        return Err(format!("key {n} is outside `{range}`, which has {} columns", c2 - c1 + 1));
+                    }
+                    c1 + n - 1
+                }
+            };
+            if !(c1..=c2).contains(&col) {
+                return Err(format!("key column {} is outside `{range}`", column_letters(col)));
+            }
+            cols.push((col, *desc));
+        }
+        Self::check_merges(self.sheet(sheet)?, (c1, r1, c2, r2), "sort_range")?;
+        let ws = self.sheet(sheet)?;
+        let mut order: Vec<(u32, Vec<CellValue>)> = Vec::new();
+        for r in first..=r2 {
+            let mut vals = Vec::new();
+            for (col, _) in &cols {
+                let cell = ws.cell((*col, r));
+                if let Some(cell) = cell {
+                    if !cell.formula().is_empty() && cell.value().is_empty() {
+                        return Err(format!("{}{r} is a formula with no stored value -- nothing to sort by until Excel has calculated it", column_letters(*col)));
+                    }
+                }
+                vals.push(cell_value(cell));
+            }
+            order.push((r, vals));
+        }
+        order.sort_by(|a, b| {
+            for (i, (_, desc)) in cols.iter().enumerate() {
+                let o = key_cmp(&a.1[i], &b.1[i], *desc);
+                if o != std::cmp::Ordering::Equal {
+                    return o;
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
+        if order.iter().enumerate().all(|(i, (r, _))| *r == first + i as u32) {
+            return Ok(());
+        }
+        let mut rows: Vec<(u32, Vec<Option<Held>>)> = Vec::new();
+        for (old, _) in &order {
+            rows.push((*old, (c1..=c2).map(|c| ws.cell((c, *old)).map(Held::of)).collect()));
+        }
+        let ws = self.sheet_mut(sheet)?;
+        for (i, (old, cells)) in rows.iter().enumerate() {
+            let new = first + i as u32;
+            for (j, held) in cells.iter().enumerate() {
+                let col = c1 + j as u32;
+                ws.remove_cell((col, new));
+                if let Some(h) = held {
+                    h.place(ws, (col, new), 0, new as i64 - *old as i64);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Put filter buttons on the header row of `range` (`None` removes
+    /// them). The filter is switched on, not applied: no row is hidden.
+    pub fn autofilter(&mut self, sheet: &str, range: Option<&str>) -> Result<(), String> {
+        let Some(range) = range else {
+            self.sheet_mut(sheet)?.remove_auto_filter();
+            return Ok(());
+        };
+        let (c1, r1, c2, r2) = parse_range(range)?;
+        let a1 = format!("{}{}:{}{}", column_letters(c1), r1, column_letters(c2), r2);
+        if (c1, r1) == (c2, r2) {
+            return Err(format!("`{range}` is a single cell -- give the header row and the data below it, e.g. A1:D20"));
+        }
+        self.sheet_mut(sheet)?.set_auto_filter(a1);
+        Ok(())
+    }
+
+    /// The range of the sheet's autofilter, if it has one.
+    pub fn autofilter_range(&self, sheet: &str) -> Result<Option<String>, String> {
+        Ok(self.sheet(sheet)?.auto_filter().map(|f| f.range().range()))
+    }
+
+    /// Turn `range` into an Excel Table named `name`: banded rows, filter
+    /// buttons on the header row, structured references. `range` includes
+    /// the header row (unless `header` is false). With `total` a totals row
+    /// is written just below `range` (it must be empty): the label `Total`
+    /// in the first column and a `SUBTOTAL` of that kind under every
+    /// column that holds only numbers.
+    pub fn create_table(&mut self, sheet: &str, range: &str, name: &str, header: bool, style: Option<&str>, stripes: bool, total: Option<surgical::TotalFn>) -> Result<(), String> {
+        let rng = self.sheet_range(range, sheet)?;
+        if rng.sheet != sheet {
+            return Err("the range must be on the sheet the table goes on (give it without a sheet name)".into());
+        }
+        surgical::check_table_name(name)?;
+        if self.table_names().contains(&name.to_lowercase()) {
+            return Err(format!("the workbook already has a table named `{name}`"));
+        }
+        let style = match style {
+            Some(s) => surgical::table_style(s)?,
+            None => Some("TableStyleMedium2".to_string()),
+        };
+        let min_rows = if header { 2 } else { 1 };
+        if rng.r2 - rng.r1 + 1 < min_rows {
+            return Err(format!("`{range}` is too short for a table -- it needs a header row and at least one data row (header=false for data only)"));
+        }
+        let ws = self.sheet(sheet)?;
+        let rect = (rng.c1, rng.r1, rng.c2, rng.r2 + u32::from(total.is_some()));
+        Self::check_merges(ws, rect, "create_table")?;
+        // Overlap with another table.
+        let mut others: Vec<(u32, u32, u32, u32)> = ws.tables().iter().map(|t| (t.area().0.col_num(), t.area().0.row_num(), t.area().1.col_num(), t.area().1.row_num())).collect();
+        for p in &self.pending {
+            if let Pending::Table(t) = p {
+                if t.range.sheet == sheet {
+                    others.push((t.range.c1, t.range.r1, t.range.c2, t.range.r2 + u32::from(t.total.is_some())));
+                }
+            }
+        }
+        if others.iter().any(|(a, b, c, d)| *a <= rect.2 && *c >= rect.0 && *b <= rect.3 && *d >= rect.1) {
+            return Err(format!("`{range}` overlaps a table that is already there"));
+        }
+        if let Some(a) = ws.auto_filter() {
+            let (a1, b1, a2, b2) = parse_range(&a.range().range())?;
+            if a1 <= rect.2 && a2 >= rect.0 && b1 <= rect.3 && b2 >= rect.1 {
+                return Err(format!("`{range}` overlaps the sheet's autofilter -- a table has its own filter buttons; remove it with xlsx.autofilter(.., remove=true)"));
+            }
+        }
+        // Which columns are all numbers (they get a total), and is the
+        // totals row free?
+        let first_data = if header { rng.r1 + 1 } else { rng.r1 };
+        let mut total_cols = Vec::new();
+        if total.is_some() {
+            for c in rng.c1..=rng.c2 {
+                let below = ws.cell((c, rng.r2 + 1));
+                if below.is_some_and(|x| !x.value().is_empty() || !x.formula().is_empty()) {
+                    return Err(format!("{}{} is not empty -- the totals row goes right below the range", column_letters(c), rng.r2 + 1));
+                }
+                let vals: Vec<CellValue> = (first_data..=rng.r2).map(|r| cell_value(ws.cell((c, r)))).collect();
+                if vals.iter().any(|v| matches!(v, CellValue::Num(_))) && vals.iter().all(|v| matches!(v, CellValue::Num(_) | CellValue::Empty)) {
+                    total_cols.push((c - rng.c1) as usize);
+                }
+            }
+        }
+        // Header cells must be unique text: write what the table will call
+        // its columns, so the cells and the table agree.
+        let mut names: Vec<String> = Vec::new();
+        if header {
+            for c in rng.c1..=rng.c2 {
+                names.push(match cell_value(ws.cell((c, rng.r1))) {
+                    CellValue::Empty => String::new(),
+                    CellValue::Str(s) => s,
+                    CellValue::Num(x) => format!("{x}"),
+                    CellValue::Bool(b) => (if b { "TRUE" } else { "FALSE" }).to_string(),
+                });
+            }
+            surgical::normalize_headers(&mut names);
+            for (i, n) in names.iter().enumerate() {
+                let a1 = format!("{}{}", column_letters(rng.c1 + i as u32), rng.r1);
+                if self.get(sheet, &a1)? != CellValue::Str(n.clone()) {
+                    self.set(sheet, &a1, &CellValue::Str(n.clone()))?;
+                }
+            }
+        }
+        if let Some(f) = total {
+            let r = rng.r2 + 1;
+            for c in rng.c1..=rng.c2 {
+                let col = column_letters(c);
+                if total_cols.contains(&((c - rng.c1) as usize)) {
+                    self.set_formula(sheet, &format!("{col}{r}"), &format!("SUBTOTAL({},{col}{first_data}:{col}{})", f.subtotal(), rng.r2))?;
+                } else if c == rng.c1 {
+                    self.set(sheet, &format!("{col}{r}"), &CellValue::Str("Total".into()))?;
+                }
+            }
+        }
+        self.pending.push(Pending::Table(surgical::TableReq { range: rng, name: name.to_string(), header, style, stripes, total, total_cols }));
+        Ok(())
+    }
+
+    /// Attach a note to a cell (it shows when the cell is hovered). A
+    /// second note on the same cell replaces the first.
+    pub fn add_comment(&mut self, sheet: &str, cell: &str, text: &str, author: Option<&str>) -> Result<(), String> {
+        self.sheet(sheet)?;
+        let cell = parse_cell(cell)?;
+        if text.is_empty() {
+            return Err("the note is empty".into());
+        }
+        if text.chars().count() > 32767 {
+            return Err("a note holds at most 32767 characters".into());
+        }
+        if text.chars().any(|c| c.is_control() && c != '\n' && c != '\t' && c != '\r') {
+            return Err("the note contains control characters".into());
+        }
+        let author = author.unwrap_or("Qu").to_string();
+        if author.is_empty() || author.chars().count() > 52 {
+            return Err("author= takes 1 to 52 characters".into());
+        }
+        self.pending.push(Pending::Comment(surgical::CommentReq { sheet: sheet.to_string(), cell, text: text.replace("\r\n", "\n").replace('\r', "\n"), author }));
+        Ok(())
+    }
+
+    /// Place a PNG, JPEG or GIF with its top-left corner at `at`
+    /// (default: the free spot `add_chart` uses). With neither size given it
+    /// is shown at its pixel size at 96 dpi, scaled down to at most 160 mm
+    /// wide; with one, the other follows the aspect ratio.
+    pub fn add_image(&mut self, sheet: &str, bytes: Vec<u8>, at: Option<&str>, width_mm: Option<f64>, height_mm: Option<f64>, alt: Option<&str>) -> Result<(), String> {
+        self.sheet(sheet)?;
+        let (pw, ph, _, _) = qu_ooxml::image_info(&bytes)?;
+        if pw == 0 || ph == 0 {
+            return Err("the image has no pixels".into());
+        }
+        let native = (pw as f64 * 25.4 / 96.0, ph as f64 * 25.4 / 96.0);
+        let (w, h) = match (width_mm, height_mm) {
+            (Some(w), Some(h)) => (w, h),
+            (Some(w), None) => (w, w * native.1 / native.0),
+            (None, Some(h)) => (h * native.0 / native.1, h),
+            (None, None) => {
+                let k = (160.0 / native.0).min(1.0);
+                (native.0 * k, native.1 * k)
+            }
+        };
+        if !(1.0..=2000.0).contains(&w) || !(1.0..=2000.0).contains(&h) {
+            return Err(format!("image size {w:.1} x {h:.1} mm -- each side must be 1 to 2000 mm"));
+        }
+        let at = match at {
+            Some(a) => parse_cell(a)?,
+            None => self.free_anchor(sheet)?,
+        };
+        self.pending.push(Pending::Image(surgical::ImageReq { sheet: sheet.to_string(), bytes, at, width_mm: w, height_mm: h, alt: alt.map(String::from) }));
+        Ok(())
+    }
+}
+
+/// A sort key: a sheet column letter, or a 1-based column inside the range.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SortKey {
+    Letter(String),
+    Position(u32),
+}
+
 /// What `add_chart` is asked for, before the ranges are checked.
 #[derive(Clone, Debug)]
 pub struct ChartOptions {

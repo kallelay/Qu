@@ -494,11 +494,41 @@ identical after editing). Finding: LibreOffice does not rebuild a TOC when
 it opens a .docx (dirty flag, `updateFields` and Word's `w:sdt` wrapper
 all tried), so the field carries an "update fields" line as its result.
 
-**Not built yet** (from the roadmap above): charts (Excel XY/Nyquist
-convenience charts, PowerPoint charts), conditional formatting and data
-validation, pivot tables, PPTX animations and slide-master/layout
-editing, and formula evaluation (formulas are stored and calculated by
-Excel/LibreOffice on open).
+**DOCX editing of existing content (v0.4.6, `qu-docx/src/editing.rs`, branch
+`claude/office-docx-editing`).** Tables: `add_row` (copies the neighbour's
+cell layout, never the header flag or a header's bold, extends a vertical
+merge when inserted inside one), `add_column` (keeps the table's width by
+shrinking `tblGrid`/`tcW`, widens a spanning cell instead of cutting it),
+`merge_cells`/`split_cell` (grid coordinates; `gridSpan` for horizontal,
+`vMerge restart/continue` for vertical; ranges that cut a merged cell are
+refused before anything changes; `split_cell(cols=N)` cuts a plain cell by
+adding grid columns the other rows span). `format_text` cuts runs at the
+span's edges *wherever they sit* (inside a hyperlink or a tracked
+insertion too -- unlike `add_link`/`add_comment`, which need the span
+between a paragraph's own children), switches properties on or explicitly
+off (`w:val="0"`), and writes `w:rPr` children in schema order.
+`add_footnote` builds the footnotes part (separator notes, `w:footnotePr`
+in settings, FootnoteText/FootnoteReference styles) when absent.
+`track_insert`/`track_delete` write `w:ins`/`w:del` with author and date,
+refuse text inside a field's result or another tracked insertion, nest a
+deletion of inserted text as `ins > del`, and a whole-paragraph deletion
+also marks the paragraph mark; `accept_changes` was taught to drop such a
+paragraph. Bug found and fixed on the way: `split_run` gave the right half
+of a cut run a second `w:rPr` (add_link/add_comment on part of a run).
+Validated by LibreOffice (PDF render: struck deletions, underlined
+insertion, footnote at the page foot, merged cell, formatted span) and
+python-docx, on a python-docx-written file and the same file round-tripped
+through LibreOffice; parts other than document/styles/settings/rels/content
+types byte-identical. Not opened in Microsoft Word.
+
+**Not built yet** (from the roadmap above): pivot tables, PPTX
+animations and slide-master/layout editing, layout-accurate TOC fill,
+verification in real Microsoft Office, and formula evaluation (formulas
+are stored and calculated by Excel/LibreOffice on open). Built since this
+roadmap was written: Excel and PowerPoint charts (including Nyquist),
+conditional formatting and data validation, xlsx sheet operations and
+tables (v0.4.6), docx table/text/footnote/tracked-change editing (v0.4.6),
+and pptx shapes (v0.4.6).
 
 **PPTX shapes, notes, links and theme (v0.4.5, branch
 `claude/office-pptx-shapes`).** `set_notes` now writes notes on a slide
@@ -521,3 +551,29 @@ assert the exact set of parts each edit changes, with an unknown
 `customXml` part and the other slides byte-identical. Still out of this
 lane: charts (the xlsx lane owns the chart-XML writer), animations,
 master/layout editing, shapes nested inside groups.
+
+**PPTX charts and shape creation (v0.4.6, branch
+`claude/office-pptx-charts-shapes`).** `add_chart` / `add_nyquist_chart`
+reuse `qu_ooxml::chart` (scatter, line, bar, barh; titles, axis titles,
+limits, log axes, `equal_axes`). A chart is a `ppt/charts/chartN.xml`
+part (content-type override), a slide relationship and a `p:graphicFrame`.
+DECISION: the data are cached literals (`c:numLit`/`c:strLit`), not
+references into an embedded workbook -- the chart renders with exactly the
+numbers given, but PowerPoint's "Edit Data" has no sheet behind it; a
+chart that must stay editable is an `xlsx.add_chart`. `add_shape` writes
+rect/ellipse/rounded rect (`p:sp`) and line/arrow (`p:cxnSp`, flips for a
+backwards segment) with explicit fill and outline and no `p:style`, so the
+colours do not depend on the deck's theme; `rotate_shape` sets `a:xfrm
+rot` (refused on graphic frames, which PowerPoint cannot rotate);
+`align_shapes` aligns to the selection's bounding box or the slide using
+the box a rotated shape fills. Add/rotate/align rewrite only the one slide
+(plus, for a chart, its rels, the content-type map and the new chart part);
+master, layouts, theme and `p:timing` are untouched (tested). Two
+consequences for older operations: `delete_shape` now removes a chart part
+(and an embedded workbook / style parts only it used) when its frame was
+the last reference, and `duplicate_slide` gives the copy its own chart
+part instead of sharing one. `delete_slide` still leaves a deleted slide's
+media and chart parts behind as unreferenced orphans. Validated with
+python-pptx (chart type, series values, geometry, autoshape type,
+rotation) and a LibreOffice PDF render (a Nyquist semicircle is round).
+Not opened in Microsoft PowerPoint.

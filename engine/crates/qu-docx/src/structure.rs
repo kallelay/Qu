@@ -17,8 +17,8 @@
 
 use super::*;
 
-const REL_BASE: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-const CT_BASE: &str = "application/vnd.openxmlformats-officedocument.wordprocessingml";
+pub(crate) const REL_BASE: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+pub(crate) const CT_BASE: &str = "application/vnd.openxmlformats-officedocument.wordprocessingml";
 
 /// `CT_SectPr` child order (header and footer references share rank 0).
 const SECT_ORDER: &[&str] = &[
@@ -28,7 +28,7 @@ const SECT_ORDER: &[&str] = &[
 ];
 
 /// `CT_PPr` child order.
-const PPR_ORDER: &[&str] = &[
+pub(crate) const PPR_ORDER: &[&str] = &[
     "w:pStyle", "w:keepNext", "w:keepLines", "w:pageBreakBefore", "w:framePr", "w:widowControl", "w:numPr", "w:suppressLineNumbers",
     "w:pBdr", "w:shd", "w:tabs", "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap", "w:overflowPunct", "w:topLinePunct",
     "w:autoSpaceDE", "w:autoSpaceDN", "w:bidi", "w:adjustRightInd", "w:snapToGrid", "w:spacing", "w:ind", "w:contextualSpacing",
@@ -37,7 +37,7 @@ const PPR_ORDER: &[&str] = &[
 ];
 
 /// `CT_Settings` child order.
-const SETTINGS_ORDER: &[&str] = &[
+pub(crate) const SETTINGS_ORDER: &[&str] = &[
     "w:writeProtection", "w:view", "w:zoom", "w:removePersonalInformation", "w:removeDateAndTime", "w:doNotDisplayPageBoundaries",
     "w:displayBackgroundShape", "w:printPostScriptOverText", "w:printFractionalCharacterWidth", "w:printFormsData",
     "w:embedTrueTypeFonts", "w:embedSystemFonts", "w:saveSubsetFonts", "w:saveFormsData", "w:mirrorMargins",
@@ -799,7 +799,7 @@ impl Document {
 
     // ------------------------------------------------------------ internals
 
-    fn para_at(&mut self, slot: usize) -> &mut Element {
+    pub(crate) fn para_at(&mut self, slot: usize) -> &mut Element {
         match &mut self.body_mut().children[slot] {
             Node::Elem(p) => p,
             _ => unreachable!("slots point at paragraphs"),
@@ -814,7 +814,7 @@ impl Document {
 
     /// The id of the character style whose (lower-case) name is `name`,
     /// created from `make(id)` when the document lacks it.
-    fn ensure_char_style(&mut self, name: &str, id: &str, make: fn(&str) -> Element) -> Result<String, String> {
+    pub(crate) fn ensure_char_style(&mut self, name: &str, id: &str, make: fn(&str) -> Element) -> Result<String, String> {
         if let Some((sid, _)) = self.style_names().into_iter().find(|(_, n)| n == name) {
             return Ok(sid);
         }
@@ -833,7 +833,7 @@ impl Document {
     }
 
     /// Edit `word/settings.xml`, creating it when the document has none.
-    fn with_settings(&mut self, f: impl FnOnce(&mut Element)) -> Result<(), String> {
+    pub(crate) fn with_settings(&mut self, f: impl FnOnce(&mut Element)) -> Result<(), String> {
         let part = match self.related_part("/settings") {
             Some(p) => p,
             None => {
@@ -896,7 +896,7 @@ fn rank(order: &[&str], name: &str) -> Option<usize> {
 
 /// Insert `el` among `parent`'s children where `order` (a schema
 /// sequence) puts it: before the first child that must come after it.
-fn insert_ordered(parent: &mut Element, el: Element, order: &[&str]) {
+pub(crate) fn insert_ordered(parent: &mut Element, el: Element, order: &[&str]) {
     let r = rank(order, &el.name).unwrap_or(usize::MAX);
     let pos = parent
         .children
@@ -969,7 +969,7 @@ fn story_runs(text: &str, rpr: Option<Element>) -> Vec<Element> {
 }
 
 /// Displayed length (characters) of one child of a paragraph or a run.
-fn child_len(x: &Element) -> usize {
+pub(crate) fn child_len(x: &Element) -> usize {
     match x.name.as_str() {
         "w:pPr" | "w:rPr" | "w:p" | "w:delText" | "w:instrText" => 0,
         "w:t" => x.text().chars().count(),
@@ -979,7 +979,7 @@ fn child_len(x: &Element) -> usize {
     }
 }
 
-fn text_elem(s: &str) -> Element {
+pub(crate) fn text_elem(s: &str) -> Element {
     let mut t = Element::new("w:t").with_text(s);
     if s.starts_with(char::is_whitespace) || s.ends_with(char::is_whitespace) {
         t.set_attr("xml:space", "preserve");
@@ -989,7 +989,7 @@ fn text_elem(s: &str) -> Element {
 
 /// Split run `r` after `k` displayed characters, both halves keeping its
 /// properties.
-fn split_run(r: &Element, k: usize) -> Result<(Element, Element), String> {
+pub(crate) fn split_run(r: &Element, k: usize) -> Result<(Element, Element), String> {
     let mut left = Element { name: r.name.clone(), attrs: r.attrs.clone(), children: Vec::new() };
     let mut right = left.clone();
     let mut acc = 0;
@@ -1062,7 +1062,7 @@ fn split_at(p: &mut Element, off: usize) -> Result<(), String> {
 /// content (`on = None`), or exactly the first occurrence of `on` --
 /// splitting runs at the edges so the range is whole children. `None`
 /// for a paragraph with no content at all.
-fn isolate(p: &mut Element, on: Option<&str>) -> Result<Option<(usize, usize)>, String> {
+pub(crate) fn isolate(p: &mut Element, on: Option<&str>) -> Result<Option<(usize, usize)>, String> {
     let Some(needle) = on else {
         let content = |n: &Node| matches!(n, Node::Elem(e) if e.name != "w:pPr");
         let first = p.children.iter().position(content);
@@ -1098,7 +1098,7 @@ fn isolate(p: &mut Element, on: Option<&str>) -> Result<Option<(usize, usize)>, 
 }
 
 /// The text one paragraph child contributes (matches `child_len`).
-fn para_display_text_of(x: &Element) -> String {
+pub(crate) fn para_display_text_of(x: &Element) -> String {
     match x.name.as_str() {
         "w:t" => x.text(),
         "w:tab" => "\t".into(),
@@ -1145,7 +1145,7 @@ fn abstract_num(id: &str, name: &str, bullet: bool) -> Element {
 }
 
 /// Now, UTC, as ISO 8601 (`2026-09-30T12:34:56Z`).
-fn now_iso() -> String {
+pub(crate) fn now_iso() -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
     iso_from_unix(secs)
 }

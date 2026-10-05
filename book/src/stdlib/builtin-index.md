@@ -1278,40 +1278,94 @@ leaves the qualified one available too.
 | [`codec.encode_wav`](../fn/codec.encode_wav.html) | The same encoder as `codec.write_wav`, returning the file's bytes as a `Vec` of whole numbers 0-255 instead of writing them — the exact inverse of what `codec.decode_wav` accepts, so a.. | [File I/O](file-io.md) |
 | [`codec.flac_info`](../fn/codec.flac_info.html) | Reads a FLAC file's header without decoding any audio, which is how to check a file is what you expect before paying for the samples | [File I/O](file-io.md) |
 | [`codec.write_wav`](../fn/codec.write_wav.html) | Writes audio out as a WAV file | [File I/O](file-io.md) |
-| [`xlsx.read`](../fn/xlsx.read.html) | Reads one worksheet of a workbook into a `Table`, the same type `read_csv` produces, so everything that consumes a CSV consumes a spreadsheet unchanged | [File I/O](file-io.md) |
-| [`xlsx.sheets`](../fn/xlsx.sheets.html) | Names a workbook's worksheets without reading any of them, so a program can find out what it is holding before deciding what to load | [File I/O](file-io.md) |
-| [`xlsx.write`](../fn/xlsx.write.html) | Writes a `Table` out as a one-worksheet workbook | [File I/O](file-io.md) |
+| [`xlsx.add_chart`](../fn/xlsx.add_chart.html) | Adds a native Excel chart that refers to the cells, so it follows later edits in Excel/LibreOffice | [File I/O](file-io.md) |
+| [`xlsx.add_comment`](../fn/xlsx.add_comment.html) | Attaches a note to a cell (the red corner; the text shows on hover) | [File I/O](file-io.md) |
+| [`xlsx.add_image`](../fn/xlsx.add_image.html) | Places a PNG, JPEG or GIF with its top-left corner at cell `at` (default: two columns right of the used range, row 2, like `add_chart`) | [File I/O](file-io.md) |
+| [`xlsx.add_nyquist_chart`](../fn/xlsx.add_nyquist_chart.html) | A Nyquist plot for impedance spectroscopy: Z' (range `re`) along x, -Z'' up, the axes on the SAME scale with square gridlines, so a semicircle stays round | [File I/O](file-io.md) |
+| [`xlsx.add_sheet`](../fn/xlsx.add_sheet.html) | Adds an empty sheet. `xlsx.rename_sheet(wb, sheet, new)` and `xlsx.delete_sheet(wb, sheet)` rename and remove (the last sheet cannot be removed) | [File I/O](file-io.md) |
+| [`xlsx.add_validation`](../fn/xlsx.add_validation.html) | Restricts what can be typed into `range` | [File I/O](file-io.md) |
+| [`xlsx.autofilter`](../fn/xlsx.autofilter.html) | Puts filter buttons on the header row of `range` (header row plus the data below it) | [File I/O](file-io.md) |
+| [`xlsx.clear`](../fn/xlsx.clear.html) | Empties a range: `what="contents"` removes values and formulas and keeps the formatting, `"formats"` removes the formatting and keeps the values, `"all"` both | [File I/O](file-io.md) |
+| [`xlsx.color_scale`](../fn/xlsx.color_scale.html) | Colours every cell of `range` on a scale from its lowest value (`low`) to its highest (`high`); with `mid=` a three-colour scale centred on the 50th percentile | [File I/O](file-io.md) |
+| [`xlsx.column_width`](../fn/xlsx.column_width.html) | Column width in Excel's character units (0-255); `xlsx.row_height(wb, sheet, row, points)` sets a row's height | [File I/O](file-io.md) |
+| [`xlsx.conditional_format`](../fn/xlsx.conditional_format.html) | Highlights the cells of `range` that satisfy `rule`: `"greater_than"`, `"less_than"`, `"greater_equal"`, `"less_equal"`, `"equal"`, `"not_equal"`, `"between"`/`"not_between"` (two values,.. | [File I/O](file-io.md) |
+| [`xlsx.copy_sheet`](../fn/xlsx.copy_sheet.html) | Copies a sheet to a new one named `new_name`, appended after the last sheet: cells, formulas, formatting, merges, column widths, freeze panes, conditional formats, validations, and the.. | [File I/O](file-io.md) |
+| [`xlsx.create_table`](../fn/xlsx.create_table.html) | Turns `range` into an Excel Table named `name` (letters, digits, `_` and `.`, starting with a letter or `_`, not a cell address like `A1`; unique in the workbook): banded rows, filter.. | [File I/O](file-io.md) |
+| [`xlsx.define_name`](../fn/xlsx.define_name.html) | A workbook-level defined name, e.g. `xlsx.define_name(wb, "Frequency", "Data!$A$2:$A$100")` | [File I/O](file-io.md) |
+| [`xlsx.delete_columns`](../fn/xlsx.delete_columns.html) | not described in a chapter yet | |
+| [`xlsx.delete_rows`](../fn/xlsx.delete_rows.html) | not described in a chapter yet | |
+| [`xlsx.delete_sheet`](../fn/xlsx.delete_sheet.html) | not described in a chapter yet | |
+| [`xlsx.discard`](../fn/xlsx.discard.html) | Releases the handle early; handles otherwise live until the run ends | [File I/O](file-io.md) |
+| [`xlsx.fill_formula`](../fn/xlsx.fill_formula.html) | Stores `formula` in every cell of `range`, shifting its relative references from the range's first cell the way Excel's fill-down does (`$`-anchored parts, string literals and quoted sheet.. | [File I/O](file-io.md) |
+| [`xlsx.format_cells`](../fn/xlsx.format_cells.html) | Formats every cell of `range`: colours as `#rrggbb`, `number_format` in Excel's own codes (`0.00`, `0.00E+00`, `yyyy-mm-dd`), `align` left/center/right | [File I/O](file-io.md) |
+| [`xlsx.formula`](../fn/xlsx.formula.html) | The formula in a cell without its leading `=`, or `none` | [File I/O](file-io.md) |
+| [`xlsx.freeze_panes`](../fn/xlsx.freeze_panes.html) | Freezes the rows above and the columns left of `cell`: `"A2"` keeps the header row in view, `"B2"` the header row and first column | [File I/O](file-io.md) |
+| [`xlsx.get_cell`](../fn/xlsx.get_cell.html) | The value of one cell, `cell` as Excel shows it (`"B3"`); `sheet` is a name or a 0-based index | [File I/O](file-io.md) |
+| [`xlsx.get_range`](../fn/xlsx.get_range.html) | A rectangular range (`"A1:C20"`) as a list of rows of cell values; with `numeric=true`, a matrix with `NaN` for anything that is not a number | [File I/O](file-io.md) |
+| [`xlsx.hide_sheet`](../fn/xlsx.hide_sheet.html) | Hides a sheet: `state="hidden"` (Excel's Hide; the user can Unhide it), `"very_hidden"` (not in Excel's Unhide list -- only reachable from the VBA editor or by calling this again) or.. | [File I/O](file-io.md) |
+| [`xlsx.insert_columns`](../fn/xlsx.insert_columns.html) | not described in a chapter yet | |
+| [`xlsx.insert_rows`](../fn/xlsx.insert_rows.html) | Inserts `n` rows before 1-based `row`, shifting references | [File I/O](file-io.md) |
+| [`xlsx.merge`](../fn/xlsx.merge.html) | Merges a range into one cell | [File I/O](file-io.md) |
+| [`xlsx.move_range`](../fn/xlsx.move_range.html) | Moves `range` so its top-left corner lands on cell `to` (on `to_sheet`, default the same sheet), taking values, formulas and formatting and overwriting what was there; blanks in the source.. | [File I/O](file-io.md) |
 | [`xlsx.new`](../fn/xlsx.new.html) | A new workbook with one empty sheet, `Sheet1` | [File I/O](file-io.md) |
 | [`xlsx.open`](../fn/xlsx.open.html) | Opens an existing workbook for editing in place and returns a handle (a small `Model`); every `xlsx.*` edit below changes the workbook behind it until `xlsx.save_as` | [File I/O](file-io.md) |
-| [`xlsx.save_as`](../fn/xlsx.save_as.html) | Writes the workbook to `path` (overwriting) | [File I/O](file-io.md) |
-| [`xlsx.discard`](../fn/xlsx.discard.html) | Releases the handle early; handles otherwise live until the run ends | [File I/O](file-io.md) |
-| [`xlsx.get_cell`](../fn/xlsx.get_cell.html) | The value of one cell, `cell` as Excel shows it (`"B3"`); `sheet` is a name or a 0-based index | [File I/O](file-io.md) |
-| [`xlsx.set_cell`](../fn/xlsx.set_cell.html) | Sets one cell to a number, string, boolean, or `none` (empty) | [File I/O](file-io.md) |
-| [`xlsx.formula`](../fn/xlsx.formula.html) | The formula in a cell without its leading `=`, or `none` | [File I/O](file-io.md) |
-| [`xlsx.set_formula`](../fn/xlsx.set_formula.html) | Stores a formula (the `=` is optional) | [File I/O](file-io.md) |
-| [`xlsx.fill_formula`](../fn/xlsx.fill_formula.html) | Stores `formula` in every cell of `range`, shifting its relative references from the range's first cell the way Excel's fill-down does (`$`-anchored parts, string literals and quoted sheet.. | [File I/O](file-io.md) |
-| [`xlsx.get_range`](../fn/xlsx.get_range.html) | A rectangular range (`"A1:C20"`) as a list of rows of cell values; with `numeric=true`, a matrix with `NaN` for anything that is not a number | [File I/O](file-io.md) |
-| [`xlsx.set_range`](../fn/xlsx.set_range.html) | Writes a `Table` (its column names first, unless `header=false`), a matrix, a vector (one column) or a list of rows, with its top-left corner at `anchor` | [File I/O](file-io.md) |
-| [`xlsx.used_range`](../fn/xlsx.used_range.html) | The smallest range covering every non-empty cell, e.g. `"A1:D20"`, or `none` for an empty sheet | [File I/O](file-io.md) |
-| [`xlsx.add_sheet`](../fn/xlsx.add_sheet.html) | Adds an empty sheet. `xlsx.rename_sheet(wb, sheet, new)` and `xlsx.delete_sheet(wb, sheet)` rename and remove (the last sheet cannot be removed) | [File I/O](file-io.md) |
+| [`xlsx.read`](../fn/xlsx.read.html) | Reads one worksheet of a workbook into a `Table`, the same type `read_csv` produces, so everything that consumes a CSV consumes a spreadsheet unchanged | [File I/O](file-io.md) |
 | [`xlsx.rename_sheet`](../fn/xlsx.rename_sheet.html) | not described in a chapter yet | |
-| [`xlsx.delete_sheet`](../fn/xlsx.delete_sheet.html) | not described in a chapter yet | |
-| [`xlsx.insert_rows`](../fn/xlsx.insert_rows.html) | Inserts `n` rows before 1-based `row`, shifting references | [File I/O](file-io.md) |
-| [`xlsx.delete_rows`](../fn/xlsx.delete_rows.html) | not described in a chapter yet | |
-| [`xlsx.insert_columns`](../fn/xlsx.insert_columns.html) | not described in a chapter yet | |
-| [`xlsx.delete_columns`](../fn/xlsx.delete_columns.html) | not described in a chapter yet | |
-| [`xlsx.column_width`](../fn/xlsx.column_width.html) | Column width in Excel's character units (0-255); `xlsx.row_height(wb, sheet, row, points)` sets a row's height | [File I/O](file-io.md) |
 | [`xlsx.row_height`](../fn/xlsx.row_height.html) | not described in a chapter yet | |
-| [`xlsx.format_cells`](../fn/xlsx.format_cells.html) | Formats every cell of `range`: colours as `#rrggbb`, `number_format` in Excel's own codes (`0.00`, `0.00E+00`, `yyyy-mm-dd`), `align` left/center/right | [File I/O](file-io.md) |
-| [`xlsx.merge`](../fn/xlsx.merge.html) | Merges a range into one cell | [File I/O](file-io.md) |
-| [`xlsx.freeze_panes`](../fn/xlsx.freeze_panes.html) | Freezes the rows above and the columns left of `cell`: `"A2"` keeps the header row in view, `"B2"` the header row and first column | [File I/O](file-io.md) |
-| [`xlsx.define_name`](../fn/xlsx.define_name.html) | A workbook-level defined name, e.g. `xlsx.define_name(wb, "Frequency", "Data!$A$2:$A$100")` | [File I/O](file-io.md) |
+| [`xlsx.save_as`](../fn/xlsx.save_as.html) | Writes the workbook to `path` (overwriting) | [File I/O](file-io.md) |
+| [`xlsx.set_cell`](../fn/xlsx.set_cell.html) | Sets one cell to a number, string, boolean, or `none` (empty) | [File I/O](file-io.md) |
+| [`xlsx.set_formula`](../fn/xlsx.set_formula.html) | Stores a formula (the `=` is optional) | [File I/O](file-io.md) |
+| [`xlsx.set_range`](../fn/xlsx.set_range.html) | Writes a `Table` (its column names first, unless `header=false`), a matrix, a vector (one column) or a list of rows, with its top-left corner at `anchor` | [File I/O](file-io.md) |
+| [`xlsx.sheets`](../fn/xlsx.sheets.html) | Names a workbook's worksheets without reading any of them, so a program can find out what it is holding before deciding what to load | [File I/O](file-io.md) |
+| [`xlsx.sort_range`](../fn/xlsx.sort_range.html) | Sorts the rows of `range` by one or more key columns: `by="C"` is a column of the sheet, `by=2` the second column of the range, a list (`by=["B", "A"]`) breaks ties by the next key, and.. | [File I/O](file-io.md) |
 | [`xlsx.to_pdf`](../fn/xlsx.to_pdf.html) | Converts the workbook to PDF through LibreOffice (see `docx.to_pdf`) | [File I/O](file-io.md) |
-| [`xlsx.add_chart`](../fn/xlsx.add_chart.html) | Adds a native Excel chart that refers to the cells, so it follows later edits in Excel/LibreOffice | [File I/O](file-io.md) |
-| [`xlsx.add_nyquist_chart`](../fn/xlsx.add_nyquist_chart.html) | A Nyquist plot for impedance spectroscopy: Z' (range `re`) along x, -Z'' up, the axes on the SAME scale with square gridlines, so a semicircle stays round | [File I/O](file-io.md) |
-| [`xlsx.conditional_format`](../fn/xlsx.conditional_format.html) | Highlights the cells of `range` that satisfy `rule`: `"greater_than"`, `"less_than"`, `"greater_equal"`, `"less_equal"`, `"equal"`, `"not_equal"`, `"between"`/`"not_between"` (two values,.. | [File I/O](file-io.md) |
-| [`xlsx.color_scale`](../fn/xlsx.color_scale.html) | Colours every cell of `range` on a scale from its lowest value (`low`) to its highest (`high`); with `mid=` a three-colour scale centred on the 50th percentile | [File I/O](file-io.md) |
-| [`xlsx.add_validation`](../fn/xlsx.add_validation.html) | Restricts what can be typed into `range` | [File I/O](file-io.md) |
+| [`xlsx.used_range`](../fn/xlsx.used_range.html) | The smallest range covering every non-empty cell, e.g. `"A1:D20"`, or `none` for an empty sheet | [File I/O](file-io.md) |
+| [`xlsx.write`](../fn/xlsx.write.html) | Writes a `Table` out as a one-worksheet workbook | [File I/O](file-io.md) |
+| [`pptx.new`](../fn/pptx.new.html) | A new, empty 16:9 presentation with four layouts: Title Slide, Title and Content, Title Only, Blank | [File I/O](file-io.md) |
+| [`pptx.open`](../fn/pptx.open.html) | Opens a presentation for reading and editing and returns a handle -- surgical editing, as `docx.open` | [File I/O](file-io.md) |
+| [`pptx.save_as`](../fn/pptx.save_as.html) | Writes the presentation. Refused under `--sandbox` | [File I/O](file-io.md) |
+| [`pptx.discard`](../fn/pptx.discard.html) | not described in a chapter yet | |
+| [`pptx.info`](../fn/pptx.info.html) | Document properties plus `slides`, `width_mm`, `height_mm` and `layouts` | [File I/O](file-io.md) |
+| [`pptx.set_info`](../fn/pptx.set_info.html) | not described in a chapter yet | |
+| [`pptx.slide_count`](../fn/pptx.slide_count.html) | The number of slides. `pptx.slides(p)` returns every slide's text; `pptx.slide_text(p, i)` one slide's (a line per paragraph, tables included); `pptx.slide_title(p, i)` its title.. | [File I/O](file-io.md) |
+| [`pptx.slides`](../fn/pptx.slides.html) | not described in a chapter yet | |
+| [`pptx.slide_text`](../fn/pptx.slide_text.html) | not described in a chapter yet | |
+| [`pptx.slide_title`](../fn/pptx.slide_title.html) | not described in a chapter yet | |
+| [`pptx.notes`](../fn/pptx.notes.html) | not described in a chapter yet | |
+| [`pptx.find_text`](../fn/pptx.find_text.html) | Indices of the slides containing `text` | [File I/O](file-io.md) |
+| [`pptx.replace_text`](../fn/pptx.replace_text.html) | Replaces across every slide (and the speaker notes unless `notes=false`), across formatting runs, keeping each match's formatting | [File I/O](file-io.md) |
+| [`pptx.layouts`](../fn/pptx.layouts.html) | The layout names `add_slide` can use | [File I/O](file-io.md) |
+| [`pptx.add_slide`](../fn/pptx.add_slide.html) | Adds a slide from a layout (by name, case-insensitive, or index; default Title and Content), filling its title placeholder and its body placeholder (`body` a string, one bullet per line, or.. | [File I/O](file-io.md) |
+| [`pptx.delete_slide`](../fn/pptx.delete_slide.html) | Deletes a slide with its notes, and removes it from any section | [File I/O](file-io.md) |
+| [`pptx.move_slide`](../fn/pptx.move_slide.html) | not described in a chapter yet | |
+| [`pptx.duplicate_slide`](../fn/pptx.duplicate_slide.html) | not described in a chapter yet | |
+| [`pptx.hide_slide`](../fn/pptx.hide_slide.html) | not described in a chapter yet | |
+| [`pptx.unhide_slide`](../fn/pptx.unhide_slide.html) | not described in a chapter yet | |
+| [`pptx.add_text`](../fn/pptx.add_text.html) | Adds a text box to slide `i`. Positions are millimetres from the top-left corner or lengths (`20 mm`); `size` in points | [File I/O](file-io.md) |
+| [`pptx.add_image`](../fn/pptx.add_image.html) | Adds a PNG/JPEG/GIF; give one of `w`/`h` and the other follows the aspect ratio, neither and it is centred at 96 dpi | [File I/O](file-io.md) |
+| [`pptx.add_table`](../fn/pptx.add_table.html) | Adds a table (from a `Table`, matrix or list of rows) in PowerPoint's built-in Medium Style 2 | [File I/O](file-io.md) |
+| [`pptx.to_markdown`](../fn/pptx.to_markdown.html) | One `## Slide N: title` section per slide, the other text as bullets and the notes as a quote | [File I/O](file-io.md) |
+| [`pptx.to_pdf`](../fn/pptx.to_pdf.html) | Converts to PDF through LibreOffice, as `docx.to_pdf` | [File I/O](file-io.md) |
+| [`pptx.set_notes`](../fn/pptx.set_notes.html) | Sets slide `i`'s speaker notes (newlines start paragraphs) | [File I/O](file-io.md) |
+| [`pptx.shapes`](../fn/pptx.shapes.html) | The slide's top-level shapes, back to front, as records with `id`, `name`, `kind` (`text`, `placeholder`, `shape`, `picture`, `table`, `chart`, `graphic`, `group`, `connector`),.. | [File I/O](file-io.md) |
+| [`pptx.set_shape_text`](../fn/pptx.set_shape_text.html) | Replaces a text box's, placeholder's or shape's text, one paragraph per line, keeping the first run's formatting | [File I/O](file-io.md) |
+| [`pptx.delete_shape`](../fn/pptx.delete_shape.html) | Deletes a shape; a relationship only it used goes too, and an image no other part uses is removed from the package | [File I/O](file-io.md) |
+| [`pptx.move_shape`](../fn/pptx.move_shape.html) | Moves a shape (mm or lengths); `pptx.resize_shape(p, i, shape, [w=], [h=])` resizes it | [File I/O](file-io.md) |
+| [`pptx.resize_shape`](../fn/pptx.resize_shape.html) | not described in a chapter yet | |
+| [`pptx.set_slide_title`](../fn/pptx.set_slide_title.html) | Sets the slide's title placeholder text, adding the title placeholder from the slide's layout if the slide has none | [File I/O](file-io.md) |
+| [`pptx.bring_to_front`](../fn/pptx.bring_to_front.html) | Draws the shape on top of the others; `pptx.send_to_back(p, i, shape)` behind them | [File I/O](file-io.md) |
+| [`pptx.send_to_back`](../fn/pptx.send_to_back.html) | not described in a chapter yet | |
+| [`pptx.set_link`](../fn/pptx.set_link.html) | Makes every occurrence of `text` in the shape a hyperlink to `url` (splitting a run where the match is only part of it; the pieces keep its formatting), or without `text=` all of the.. | [File I/O](file-io.md) |
+| [`pptx.links`](../fn/pptx.links.html) | not described in a chapter yet | |
+| [`pptx.theme_colors`](../fn/pptx.theme_colors.html) | The theme's colour scheme as a record of `#RRGGBB` strings: `dk1`, `lt1`, `dk2`, `lt2`, `accent1`...`accent6`, `hlink`, `folHlink` | [File I/O](file-io.md) |
+| [`pptx.theme_fonts`](../fn/pptx.theme_fonts.html) | not described in a chapter yet | |
+| [`pptx.set_theme_colors`](../fn/pptx.set_theme_colors.html) | Sets colour-scheme slots (`"#RRGGBB"`); `pptx.set_theme_fonts(p, [major=], [minor=])` sets the heading/body typefaces | [File I/O](file-io.md) |
+| [`pptx.set_theme_fonts`](../fn/pptx.set_theme_fonts.html) | not described in a chapter yet | |
+| [`pptx.add_chart`](../fn/pptx.add_chart.html) | Adds a native, scalable PowerPoint chart to slide `i` from numbers given directly (a vector or a table column such as `data.z`); returns the new shape's id | [File I/O](file-io.md) |
+| [`pptx.add_nyquist_chart`](../fn/pptx.add_nyquist_chart.html) | A Nyquist plot for impedance spectroscopy on slide `i`: Z' along x, -Z'' up, both axes on the SAME scale with square gridlines, so a semicircle stays round | [File I/O](file-io.md) |
+| [`pptx.add_shape`](../fn/pptx.add_shape.html) | Adds a shape to slide `i` and returns its id | [File I/O](file-io.md) |
+| [`pptx.align_shapes`](../fn/pptx.align_shapes.html) | Lines `shapes` (a list of ids and/or names) up: `how` is `"left"`, `"right"`, `"top"`, `"bottom"`, `"center"` (horizontally) or `"middle"` (vertically) | [File I/O](file-io.md) |
+| [`pptx.rotate_shape`](../fn/pptx.rotate_shape.html) | Sets the shape's rotation to `degrees` clockwise (0 or 360 clears it; a negative angle turns it the other way) | [File I/O](file-io.md) |
 | [`docx.new`](../fn/docx.new.html) | A new, empty A4 document with Normal, Title and Heading 1-3 styles | [File I/O](file-io.md) |
 | [`docx.open`](../fn/docx.open.html) | Opens a Word document for reading and editing and returns a handle | [File I/O](file-io.md) |
 | [`docx.save_as`](../fn/docx.save_as.html) | Writes the document (overwriting) | [File I/O](file-io.md) |
@@ -1359,46 +1413,16 @@ leaves the qualified one available too.
 | [`docx.set_footer`](../fn/docx.set_footer.html) | not described in a chapter yet | |
 | [`docx.add_list_item`](../fn/docx.add_list_item.html) | Appends a bulleted (`kind="bullet"`) or numbered (`kind="number"`) list paragraph at nesting `level` 0-8, creating the document's numbering definitions when it has none | [File I/O](file-io.md) |
 | [`docx.set_list`](../fn/docx.set_list.html) | Makes existing body paragraph `i` a list item, or plain again with `kind="none"` | [File I/O](file-io.md) |
-| [`pptx.new`](../fn/pptx.new.html) | A new, empty 16:9 presentation with four layouts: Title Slide, Title and Content, Title Only, Blank | [File I/O](file-io.md) |
-| [`pptx.open`](../fn/pptx.open.html) | Opens a presentation for reading and editing and returns a handle -- surgical editing, as `docx.open` | [File I/O](file-io.md) |
-| [`pptx.save_as`](../fn/pptx.save_as.html) | Writes the presentation. Refused under `--sandbox` | [File I/O](file-io.md) |
-| [`pptx.discard`](../fn/pptx.discard.html) | not described in a chapter yet | |
-| [`pptx.info`](../fn/pptx.info.html) | Document properties plus `slides`, `width_mm`, `height_mm` and `layouts` | [File I/O](file-io.md) |
-| [`pptx.set_info`](../fn/pptx.set_info.html) | not described in a chapter yet | |
-| [`pptx.slide_count`](../fn/pptx.slide_count.html) | The number of slides. `pptx.slides(p)` returns every slide's text; `pptx.slide_text(p, i)` one slide's (a line per paragraph, tables included); `pptx.slide_title(p, i)` its title.. | [File I/O](file-io.md) |
-| [`pptx.slides`](../fn/pptx.slides.html) | not described in a chapter yet | |
-| [`pptx.slide_text`](../fn/pptx.slide_text.html) | not described in a chapter yet | |
-| [`pptx.slide_title`](../fn/pptx.slide_title.html) | not described in a chapter yet | |
-| [`pptx.notes`](../fn/pptx.notes.html) | not described in a chapter yet | |
-| [`pptx.find_text`](../fn/pptx.find_text.html) | Indices of the slides containing `text` | [File I/O](file-io.md) |
-| [`pptx.replace_text`](../fn/pptx.replace_text.html) | Replaces across every slide (and the speaker notes unless `notes=false`), across formatting runs, keeping each match's formatting | [File I/O](file-io.md) |
-| [`pptx.layouts`](../fn/pptx.layouts.html) | The layout names `add_slide` can use | [File I/O](file-io.md) |
-| [`pptx.add_slide`](../fn/pptx.add_slide.html) | Adds a slide from a layout (by name, case-insensitive, or index; default Title and Content), filling its title placeholder and its body placeholder (`body` a string, one bullet per line, or.. | [File I/O](file-io.md) |
-| [`pptx.delete_slide`](../fn/pptx.delete_slide.html) | Deletes a slide with its notes, and removes it from any section | [File I/O](file-io.md) |
-| [`pptx.move_slide`](../fn/pptx.move_slide.html) | not described in a chapter yet | |
-| [`pptx.duplicate_slide`](../fn/pptx.duplicate_slide.html) | not described in a chapter yet | |
-| [`pptx.hide_slide`](../fn/pptx.hide_slide.html) | not described in a chapter yet | |
-| [`pptx.unhide_slide`](../fn/pptx.unhide_slide.html) | not described in a chapter yet | |
-| [`pptx.add_text`](../fn/pptx.add_text.html) | Adds a text box to slide `i`. Positions are millimetres from the top-left corner or lengths (`20 mm`); `size` in points | [File I/O](file-io.md) |
-| [`pptx.add_image`](../fn/pptx.add_image.html) | Adds a PNG/JPEG/GIF; give one of `w`/`h` and the other follows the aspect ratio, neither and it is centred at 96 dpi | [File I/O](file-io.md) |
-| [`pptx.add_table`](../fn/pptx.add_table.html) | Adds a table (from a `Table`, matrix or list of rows) in PowerPoint's built-in Medium Style 2 | [File I/O](file-io.md) |
-| [`pptx.to_markdown`](../fn/pptx.to_markdown.html) | One `## Slide N: title` section per slide, the other text as bullets and the notes as a quote | [File I/O](file-io.md) |
-| [`pptx.to_pdf`](../fn/pptx.to_pdf.html) | Converts to PDF through LibreOffice, as `docx.to_pdf` | [File I/O](file-io.md) |
-| [`pptx.set_notes`](../fn/pptx.set_notes.html) | Sets slide `i`'s speaker notes (newlines start paragraphs) | [File I/O](file-io.md) |
-| [`pptx.shapes`](../fn/pptx.shapes.html) | The slide's top-level shapes, back to front, as records with `id`, `name`, `kind` (`text`, `placeholder`, `shape`, `picture`, `table`, `chart`, `graphic`, `group`, `connector`),.. | [File I/O](file-io.md) |
-| [`pptx.set_shape_text`](../fn/pptx.set_shape_text.html) | Replaces a text box's, placeholder's or shape's text, one paragraph per line, keeping the first run's formatting | [File I/O](file-io.md) |
-| [`pptx.delete_shape`](../fn/pptx.delete_shape.html) | Deletes a shape; a relationship only it used goes too, and an image no other part uses is removed from the package | [File I/O](file-io.md) |
-| [`pptx.move_shape`](../fn/pptx.move_shape.html) | Moves a shape (mm or lengths); `pptx.resize_shape(p, i, shape, [w=], [h=])` resizes it | [File I/O](file-io.md) |
-| [`pptx.resize_shape`](../fn/pptx.resize_shape.html) | not described in a chapter yet | |
-| [`pptx.set_slide_title`](../fn/pptx.set_slide_title.html) | Sets the slide's title placeholder text, adding the title placeholder from the slide's layout if the slide has none | [File I/O](file-io.md) |
-| [`pptx.bring_to_front`](../fn/pptx.bring_to_front.html) | Draws the shape on top of the others; `pptx.send_to_back(p, i, shape)` behind them | [File I/O](file-io.md) |
-| [`pptx.send_to_back`](../fn/pptx.send_to_back.html) | not described in a chapter yet | |
-| [`pptx.set_link`](../fn/pptx.set_link.html) | Makes every occurrence of `text` in the shape a hyperlink to `url` (splitting a run where the match is only part of it; the pieces keep its formatting), or without `text=` all of the.. | [File I/O](file-io.md) |
-| [`pptx.links`](../fn/pptx.links.html) | not described in a chapter yet | |
-| [`pptx.theme_colors`](../fn/pptx.theme_colors.html) | The theme's colour scheme as a record of `#RRGGBB` strings: `dk1`, `lt1`, `dk2`, `lt2`, `accent1`...`accent6`, `hlink`, `folHlink` | [File I/O](file-io.md) |
-| [`pptx.theme_fonts`](../fn/pptx.theme_fonts.html) | not described in a chapter yet | |
-| [`pptx.set_theme_colors`](../fn/pptx.set_theme_colors.html) | Sets colour-scheme slots (`"#RRGGBB"`); `pptx.set_theme_fonts(p, [major=], [minor=])` sets the heading/body typefaces | [File I/O](file-io.md) |
-| [`pptx.set_theme_fonts`](../fn/pptx.set_theme_fonts.html) | not described in a chapter yet | |
+| [`docx.add_column`](../fn/docx.add_column.html) | Inserts a column so it becomes grid column `at` (default: appended), with one value per row | [File I/O](file-io.md) |
+| [`docx.add_footnote`](../fn/docx.add_footnote.html) | Creates a footnote with `text` (`\n` starts a new paragraph in it) anchored after the first occurrence of `on` in body paragraph `i`, or at the end of the paragraph | [File I/O](file-io.md) |
+| [`docx.add_row`](../fn/docx.add_row.html) | Inserts a row into body table `table` (0-based) so it becomes row `at` (default: appended) | [File I/O](file-io.md) |
+| [`docx.format_text`](../fn/docx.format_text.html) | Formats existing text in body paragraph `i`: the first occurrence of `on`, every occurrence with `all=true`, or the whole paragraph when `on` is omitted | [File I/O](file-io.md) |
+| [`docx.line_spacing`](../fn/docx.line_spacing.html) | Sets spacing for body paragraphs `i` through `to` (default: just `i`) | [File I/O](file-io.md) |
+| [`docx.merge_cells`](../fn/docx.merge_cells.html) | Merges the rectangle of cells from (`row1`,`col1`) to (`row2`,`col2`), inclusive and 0-based, into one cell (a column span across, a vertical merge down) | [File I/O](file-io.md) |
+| [`docx.move_paragraph`](../fn/docx.move_paragraph.html) | Moves body paragraph `from` so that it becomes body paragraph `to` (as numbered after the move) | [File I/O](file-io.md) |
+| [`docx.split_cell`](../fn/docx.split_cell.html) | Undoes a merge: the merged cell containing grid cell (`row`,`col`) becomes its individual cells again, the text staying in the top-left one | [File I/O](file-io.md) |
+| [`docx.track_delete`](../fn/docx.track_delete.html) | Marks text in body paragraph `i` as a tracked deletion (`w:del`, the text kept as `w:delText`): the first occurrence of `on`, every occurrence with `all=true`, or all of the paragraph --.. | [File I/O](file-io.md) |
+| [`docx.track_insert`](../fn/docx.track_insert.html) | Inserts `text` into body paragraph `i` as a tracked insertion (`w:ins` by `author`, ISO 8601 `date`, default now): directly after the first occurrence of `after`, directly before the first.. | [File I/O](file-io.md) |
 | [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page | [File I/O](file-io.md) |
 | [`pdf.add_attachment`](../fn/pdf.add_attachment.html) | Embeds a file under `filename` | [File I/O](file-io.md) |
 | [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |

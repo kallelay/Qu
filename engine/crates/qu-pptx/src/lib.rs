@@ -10,8 +10,14 @@
 //! Slides are numbered from 0 in presentation order (the order of
 //! `p:sldIdLst`, which is what PowerPoint shows, not the part file names).
 
+mod charts;
+#[cfg(test)]
+mod create_tests;
 mod edit;
+mod shapes;
+pub use charts::{chart_kind, ChartKind, ChartOptions, ChartX};
 pub use edit::{Order, ShapeInfo, ShapeRef, THEME_SLOTS};
+pub use shapes::{Align, AlignTo, Geometry, ShapeKind, ShapeStyle};
 
 use qu_ooxml::xml::{Doc, Element, Node};
 use qu_ooxml::{mm_to_emu, relative_target, replace_in_paragraph, resolve_target, Package, DRAWING};
@@ -247,11 +253,56 @@ impl Presentation {
             let mut d = qu_ooxml::xml::parse(&String::from_utf8_lossy(bytes))?;
             // A notes slide and comments belong to one slide only.
             d.root.children.retain(|n| !matches!(n, Node::Elem(e) if e.attr("Type").is_some_and(|t| t.ends_with("/notesSlide") || t.ends_with("/comments"))));
+            // A chart belongs to one slide: the copy gets a chart of its own
+            // (PowerPoint objects to two slides sharing one chart part).
+            for n in d.root.children.iter_mut() {
+                if let Node::Elem(rel) = n {
+                    if rel.attr("Type").is_some_and(|t| t.ends_with("/chart")) && rel.attr("TargetMode") != Some("External") {
+                        let from = resolve_target(&src, rel.attr("Target").unwrap_or(""));
+                        if self.pkg.has(&from) {
+                            let to = self.clone_part(&from, 0)?;
+                            rel.set_attr("Target", &relative_target(&dst, &to));
+                        }
+                    }
+                }
+            }
             self.pkg.set_xml(&qu_ooxml::rels_path(&dst), &d);
         }
         self.pkg.add_override(&dst, CT_SLIDE)?;
         self.insert_slide_ref(&dst, Some(i + 1))?;
         Ok(i + 1)
+    }
+
+    /// Copy `part` and the internal parts it points at (a chart's embedded
+    /// workbook, its style and colour parts) under fresh names, with the
+    /// same content types and the copy's relationships re-pointed at the
+    /// copied children. Returns the copy's name.
+    fn clone_part(&mut self, part: &str, depth: usize) -> Result<String, String> {
+        let (stem, ext) = part.rsplit_once('.').ok_or_else(|| format!("part `{part}` has no extension"))?;
+        let prefix = stem.trim_end_matches(|c: char| c.is_ascii_digit());
+        let to = self.pkg.next_name(prefix, &format!(".{ext}"));
+        self.pkg.set(&to, self.pkg.get(part).unwrap_or_default().to_vec());
+        if let Some(ct) = self.pkg.override_type(part) {
+            self.pkg.add_override(&to, &ct)?;
+        }
+        let rp = qu_ooxml::rels_path(part);
+        if depth < 3 && self.pkg.has(&rp) {
+            let mut d = self.pkg.get_xml(&rp)?;
+            for n in d.root.children.iter_mut() {
+                if let Node::Elem(rel) = n {
+                    if rel.attr("TargetMode") == Some("External") {
+                        continue;
+                    }
+                    let child = resolve_target(part, rel.attr("Target").unwrap_or(""));
+                    if self.pkg.has(&child) {
+                        let copy = self.clone_part(&child, depth + 1)?;
+                        rel.set_attr("Target", &relative_target(&to, &copy));
+                    }
+                }
+            }
+            self.pkg.set_xml(&qu_ooxml::rels_path(&to), &d);
+        }
+        Ok(to)
     }
 
     /// Hide (`true`) or show slide `i` in the slide show.
