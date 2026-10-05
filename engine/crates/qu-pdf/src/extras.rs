@@ -540,7 +540,7 @@ fn resolve_cs(doc: &Document, o: &Object, depth: usize) -> Result<Cs, String> {
                         Cs::Indexed { .. } => return Err("an Indexed colour space cannot be based on another".into()),
                     };
                     let mut palette = Vec::new();
-                    for i in 0..=(hival.max(0) as usize) {
+                    for i in 0..=(hival.clamp(0, 255) as usize) { // the spec caps hival at 255; an unbounded one is a memory bomb
                         let e = lookup.get(i * n..(i + 1) * n).unwrap_or(&[0; 3][..n]);
                         palette.push(if n == 1 { [e[0]; 3] } else { [e[0], e[1], e[2]] });
                     }
@@ -643,7 +643,14 @@ pub fn extract_image(bytes: &[u8], page: u32, index: usize) -> Result<ExtractedI
         resolve_cs(&doc, o, 0).map_err(|e| format!("extract_image: image {name}: {e}"))?
     };
     let fail = |e: String| format!("extract_image: image {name}: {e}");
-    let mut rgb = Vec::with_capacity(w * h * 3);
+    // /BitsPerComponent is untrusted: a negative value cast to usize is huge.
+    if ![1, 2, 4, 8, 16].contains(&bits) {
+        return Err(fail(format!("unsupported /BitsPerComponent {bits}")));
+    }
+    // Reserve only what the stream could actually fill; /Width x /Height are
+    // claims, and 300M pixels * 3 bytes would be reserved before `unpack`
+    // notices the data is 10 bytes long.
+    let mut rgb = Vec::with_capacity((w * h * 3).min(data.len().saturating_mul(24)).min(1 << 26));
     match cs {
         Cs::Gray => {
             let g = unpack(&data, w, h, 1, bits, true).map_err(fail)?;
@@ -671,11 +678,12 @@ pub fn extract_image(bytes: &[u8], page: u32, index: usize) -> Result<ExtractedI
 
 // --------------------------------------------------------------------- HTML
 
-fn esc(s: &str) -> String {
+pub(crate) fn esc(s: &str) -> String {
     let mut o = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
             '&' => o.push_str("&amp;"),
+            '"' => o.push_str("&quot;"),
             '<' => o.push_str("&lt;"),
             '>' => o.push_str("&gt;"),
             other => o.push(other),

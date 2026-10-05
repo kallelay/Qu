@@ -4343,6 +4343,17 @@ pub struct Interp {
     /// isn't safely verifiable by inspection, and doesn't scale to
     /// hand-checking every site either.
     pending_error_stack: Option<Vec<String>>,
+    /// Call-site line of each frame in `call_stack` (the line that was
+    /// executing when that call was made), pushed/popped with it.
+    call_lines: Vec<u32>,
+    /// Where the first error out of a user-function call happened: its
+    /// message, the failing line, and the `(function, call-site line)`
+    /// frames outermost-first. Unlike `pending_error_stack` this is not
+    /// consumed by `try`; it is cleared when a `try` catches, an `unsafe`
+    /// block absorbs one, and at the start of a run. `error_trace` reads it
+    /// for the CLI (feedback item 9: runtime errors named no file, line or
+    /// function).
+    last_error_site: Option<(String, u32, Vec<(String, u32)>)>,
     /// The most recently executed `Stmt::SourceLine` marker's line number
     /// — "what line is currently running," read by `try/catch`'s
     /// exception record's `e.line`. `0` before any statement has run yet
@@ -6358,6 +6369,8 @@ impl Interp {
             watches: Vec::new(),
             call_stack: Vec::new(),
             pending_error_stack: None,
+            call_lines: Vec::new(),
+            last_error_site: None,
             current_line: 0,
             tape: Vec::new(),
             workers: HashMap::new(),
@@ -6898,6 +6911,7 @@ impl Interp {
         // `ui_values` is deliberately NOT cleared -- those come FROM the
         // host and must survive the re-run they triggered.
         self.ui_widgets.clear();
+        self.last_error_site = None;
 
         // See `source`'s own field doc comment for why this accumulates
         // (rather than overwrites) and why the cost is negligible.
@@ -7774,6 +7788,7 @@ impl Interp {
                         return Err(err);
                     }
                     let stack = self.pending_error_stack.take().unwrap_or_default();
+                    self.last_error_site = None;
                     if let Some(name) = catch_var {
                         let record = ModelHandle::new(
                             "exception",
@@ -8426,6 +8441,7 @@ impl Interp {
                         // must not leak a stale snapshot into a later,
                         // unrelated `try/catch`'s `e.stack`.
                         self.pending_error_stack = None;
+                        self.last_error_site = None;
                         failures += 1;
                         let _ = writeln!(self.out, "· unsafe: statement failed: {}", err.msg);
                     }
@@ -15949,6 +15965,8 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// bool check normally.
     fn call_tracked(&mut self, f: &str, run: impl FnOnce(&mut Self) -> R<Value>) -> R<Value> {
         self.call_stack.push(f.to_string());
+        let call_site_line = self.current_line;
+        self.call_lines.push(call_site_line);
         let start = self.profiling.then(std::time::Instant::now);
         let result = run(self);
         if let Some(start) = start {
@@ -15960,13 +15978,63 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             entry.0 += 1;
             entry.1 += elapsed;
         }
-        if result.is_err() && self.pending_error_stack.is_none() {
-            self.pending_error_stack = Some(self.call_stack.clone());
+        if let Err(e) = &result {
+            if self.pending_error_stack.is_none() {
+                self.pending_error_stack = Some(self.call_stack.clone());
+            }
+            if self.last_error_site.is_none() {
+                let frames = self
+                    .call_stack
+                    .iter()
+                    .cloned()
+                    .zip(self.call_lines.iter().copied())
+                    .collect();
+                self.last_error_site = Some((e.msg.clone(), self.current_line, frames));
+            }
+        } else {
+            // The call returned normally: the caller's statement is the one
+            // running again, so an error later in it reports ITS line, not
+            // the last line of the callee. (Not restored on `Err`: `e.line`
+            // in a `catch` keeps pointing at the failing line.)
+            self.current_line = call_site_line;
         }
         self.call_stack.pop();
+        self.call_lines.pop();
         result
     }
 
+    /// Where the error `msg` happened, for a CLI to print under it: the
+    /// failing line, the function it was in, and each call site up the
+    /// chain (feedback item 9). `None` when no line is known (parse errors
+    /// carry their own position). `file` is the script's name, shown as
+    /// `file:line`; line numbers inside an imported module are that
+    /// module's, so for those the file name can be wrong.
+    pub fn error_trace(&self, msg: &str, file: &str) -> Option<String> {
+        if msg.contains("parse error at ") {
+            return None;
+        }
+        let at = |line: u32| if file.is_empty() { format!("line {line}") } else { format!("{file}:{line}") };
+        let mut out = String::new();
+        match &self.last_error_site {
+            Some((m, line, frames)) if m == msg && !frames.is_empty() => {
+                let mut line_here = *line;
+                for i in (0..frames.len()).rev() {
+                    let (name, call_line) = &frames[i];
+                    let verb = if i + 1 == frames.len() { "at" } else { "called from" };
+                    out.push_str(&format!("  {verb} {} in {name}()\n", at(line_here)));
+                    line_here = *call_line;
+                }
+                out.push_str(&format!("  called from {} (top level)\n", at(line_here)));
+            }
+            _ => {
+                if self.current_line == 0 {
+                    return None;
+                }
+                out.push_str(&format!("  at {}\n", at(self.current_line)));
+            }
+        }
+        Some(out.trim_end().to_string())
+    }
     /// Soft-compile tier: `None` means "fall through to `call_user`/
     /// `call_block_fn` unchanged" — either `name` doesn't qualify (checked
     /// once, cached in `compiled_funcs`) or this particular call's

@@ -222,3 +222,11 @@ fn base64_and_crc() {
     assert_eq!(base64(b"M"), "TQ==");
     assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
 }
+
+#[test]
+fn html_escaping_covers_quotes_so_a_pdf_name_cannot_break_an_attribute() {
+    // Review finding: an image name from the PDF went into `alt="..."`
+    // with only & < > escaped; a `"` is an ordinary character in a PDF name.
+    assert_eq!(crate::extras::esc("Im\"onerror=\"x"), "Im&quot;onerror=&quot;x");
+    assert_eq!(crate::extras::esc("a<b>&c"), "a&lt;b&gt;&amp;c");
+}

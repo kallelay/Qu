@@ -10,6 +10,9 @@ changes are called out.
 
 ## [Unreleased]
 
+- Runtime errors now say where: `qu run` prints `at file.qu:LINE in function()` and each `called from` line up to the top level under the error message (the `try`/`catch` exception record is unchanged). Line numbers inside an imported module are that module's, shown with the main script's name.
+- Hardening from an independent review: `pdf.extract_image` caps an Indexed palette at 255 entries, validates `/BitsPerComponent` and no longer reserves memory from an unchecked `/Width x /Height`; `pdf.to_html` escapes `"` in image names; `docx.split_cell(cols=)` on a table with fewer grid columns than its rows use is an error instead of a panic.
+
 - Friendlier errors and `get` default (from Ahmed's feedback file): using `pdf.x(..)` without `import pdf` says to import it; a reserved word used as a name says it is reserved and lists the keywords; appending a string to a number vector (`o = []`) points at `lines("")`; `get(d, key, default)` now returns `default` for an absent key instead of ignoring the argument.
 - `import pdf` reads more of a PDF. `pdf.extract_text` gains `normalize=true` (ligatures expanded, whitespace collapsed, line-end hyphenation re-joined) and `lines=true` (a `List` of lines rebuilt from glyph positions instead of one `Str`; errors rather than guessing when a page's lines cannot be recovered). New `pdf.images` (lists embedded images), `pdf.extract_image` (JPEG and raw/Flate images to an `Image`; JBIG2, CCITT and JPX are refused by name) and `pdf.to_html` (page sections with paragraphs, optional inline images). Layout and fonts are not reproduced, and defaults of the existing call are unchanged. `pdf.render` already gives a page as an `Image`.
 

@@ -566,7 +566,7 @@ fn run_embedded_script(exe_path: &std::path::Path, script_bytes: Vec<u8>, script
     it.script_args = script_args;
     it.set_script_path(exe_path);
     stream_stdout(&mut it, false);
-    let result = it.run(&src).map_err(|e| e.to_string());
+    let result = run_traced(&mut it, &src, "");
     it.drain_out(true);
     result
 }
@@ -959,7 +959,7 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
         report_cells = cells;
         res
     } else {
-        it.run(&src).map_err(|e| e.to_string())
+        run_traced(&mut it, &src, path.unwrap_or(""))
     };
     let run_elapsed = run_start.elapsed();
     let peak_rss = monitor.stop_and_join();
@@ -1519,7 +1519,7 @@ fn cmd_eval(src: Option<&str>) -> Result<(), String> {
     // Streams like `qu run`, so a one-liner that errors half way still
     // shows what it printed before the error.
     stream_stdout(&mut it, false);
-    let result = it.run(src).map_err(|e| e.to_string());
+    let result = run_traced(&mut it, src, "");
     it.drain_out(true);
     result
 }
@@ -2182,5 +2182,21 @@ mod tests {
         // rather than corrupting a directory name.
         assert_eq!(numbered_path("out.d/fig", 2), "out.d/fig_2");
         assert_eq!(numbered_path("fig", 2), "fig_2");
+    }
+}
+
+/// `Interp::run`, with the failing line, function and call chain appended
+/// under the error message (feedback item 9). `file` is shown as
+/// `file:line`; empty means just `line N`.
+fn run_traced(it: &mut qu_interp::Interp, src: &str, file: &str) -> Result<(), String> {
+    match it.run(src) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            Err(match it.error_trace(&e.msg, file) {
+                Some(trace) => format!("{msg}\n{trace}"),
+                None => msg,
+            })
+        }
     }
 }

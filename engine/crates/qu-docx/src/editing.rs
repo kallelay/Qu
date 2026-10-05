@@ -439,7 +439,7 @@ impl Document {
                 if top != bottom || span != 1 || here.vm != Vm::No {
                     return Err("that cell is merged -- split_cell without cols= undoes the merge first".into());
                 }
-                if widths.is_empty() || tbl.child("w:tblGrid").is_none() {
+                if widths.is_empty() || st >= widths.len() || tbl.child("w:tblGrid").is_none() {
                     return Err(format!("table {t} has no column grid to divide"));
                 }
                 for r in 0..rows.len() {
@@ -469,7 +469,9 @@ impl Document {
                 }
                 let grid = tbl.child_mut("w:tblGrid").unwrap();
                 let col_pos: Vec<usize> = grid.children.iter().enumerate().filter(|(_, x)| matches!(x, Node::Elem(e) if e.name == "w:gridCol")).map(|(i, _)| i).collect();
-                let at = col_pos[st];
+                let Some(&at) = col_pos.get(st) else {
+                    return Err(format!("table {t} has fewer grid columns than its rows use (column {st}) -- not supported"));
+                };
                 let Node::Elem(proto) = grid.children[at].clone() else { unreachable!() };
                 let new: Vec<Node> = parts
                     .iter()
