@@ -403,10 +403,13 @@ pub fn dict_get(args: &[Value]) -> R<Value> {
     let key = dict_key(args.get(1).ok_or_else(|| EvalError {
         msg: "get(d, key) needs a key".into(),
     })?)?;
+    // `get(d, key, default)`: the optional third argument is what an absent
+    // key gives back (it used to be accepted and silently ignored).
+    let default = args.get(2).cloned().unwrap_or(Value::Nothing);
     Ok(d.iter()
         .find(|(k, _)| *k == key)
         .map(|(_, v)| v.clone())
-        .unwrap_or(Value::Nothing))
+        .unwrap_or(default))
 }
 
 /// `set(d, key, value)` — returns a NEW dict with `key` bound to `value`

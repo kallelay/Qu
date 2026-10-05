@@ -3523,6 +3523,11 @@ impl Parser {
             }
             Tok::Op("[") => self.matrix_literal(),
             Tok::Op("{") => self.record_literal(),
+            Tok::Keyword(k) => self.err(format!(
+                "`{k}` is a reserved word (keywords: {}) and cannot be used as a name or value here; \
+                 pick another identifier",
+                qu_lexer::KEYWORDS.join(", ")
+            )),
             other => self.err(format!("unexpected {:?} in expression", other)),
         }
     }

@@ -3967,7 +3967,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("xlsx", &["add_chart", "add_comment", "add_image", "add_nyquist_chart", "add_sheet", "add_validation", "autofilter", "clear", "color_scale", "column_width", "conditional_format", "copy_sheet", "create_table", "define_name", "delete_columns", "delete_rows", "delete_sheet", "discard", "fill_formula", "format_cells", "formula", "freeze_panes", "get_cell", "get_range", "hide_sheet", "insert_columns", "insert_rows", "merge", "move_range", "new", "open", "read", "rename_sheet", "row_height", "save_as", "set_cell", "set_formula", "set_range", "sheets", "sort_range", "to_pdf", "used_range", "write"]),
     ("pptx", &["new", "open", "save_as", "discard", "info", "set_info", "slide_count", "slides", "slide_text", "slide_title", "notes", "find_text", "replace_text", "layouts", "add_slide", "delete_slide", "move_slide", "duplicate_slide", "hide_slide", "unhide_slide", "add_text", "add_image", "add_table", "to_markdown", "to_pdf", "set_notes", "shapes", "set_shape_text", "delete_shape", "move_shape", "resize_shape", "set_slide_title", "bring_to_front", "send_to_back", "set_link", "links", "theme_colors", "theme_fonts", "set_theme_colors", "set_theme_fonts", "add_chart", "add_nyquist_chart", "add_shape", "align_shapes", "rotate_shape"]),
     ("docx", &["new", "open", "save_as", "discard", "full_text", "paragraphs", "headings", "find_text", "replace_text", "set_paragraph", "insert_paragraph", "remove_paragraph", "add_heading", "add_paragraph", "add_page_break", "add_table", "add_image", "tables", "set_cell", "comments", "footnotes", "endnotes", "info", "set_info", "accept_changes", "reject_changes", "to_markdown", "to_latex", "to_pdf", "links", "add_link", "add_comment", "bookmarks", "add_bookmark", "add_cross_ref", "fields", "add_field", "add_toc", "sections", "page_setup", "add_section_break", "header_text", "footer_text", "set_header", "set_footer", "add_list_item", "set_list", "add_column", "add_footnote", "add_row", "format_text", "line_spacing", "merge_cells", "move_paragraph", "split_cell", "track_delete", "track_insert"]),
-    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_pages", "extract_text", "find_text", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "write_merge", "write_pages"]),
+    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
 ];
@@ -9396,6 +9396,12 @@ impl Interp {
                             body: None,
                             captured: Vec::new(),
                         })))
+                    } else if MODULE_EXPORTS.iter().any(|(ns, _)| *ns == n.as_str()) {
+                        // `pdf.page_count(..)` without `import pdf` used to say
+                        // only "`pdf` is not defined" (feedback item 7).
+                        e(format!(
+                            "`{n}` is a module and is not imported -- write `import {n}` first"
+                        ))
                     } else {
                         e(format!("`{n}` is not defined"))
                     }
@@ -10636,7 +10642,12 @@ impl Interp {
                     Ok(n) => n,
                     Err(m) => {
                         self.var_set(name, Value::Vec(arc));
-                        return Err(EvalError { msg: m });
+                        return Err(EvalError {
+                            msg: format!(
+                                "append: {m} -- `[]` and `[1, 2]` are vectors of numbers; \
+                                 to build a list of strings or mixed values start from `lines(\"\")`"
+                            ),
+                        });
                     }
                 };
                 Arc::make_mut(&mut arc).push(num);
@@ -14268,9 +14279,110 @@ impl Interp {
                         None => None,
                     },
                 };
+                let normalize = pdf_bool_kw(style, "normalize", short)?;
+                let lines = pdf_bool_kw(style, "lines", short)?;
+                if lines {
+                    let found = qu_pdf::page_lines(&bytes, pages.as_deref())
+                        .map_err(|msg| EvalError { msg })?;
+                    // Group by page so a hyphen at the foot of one page is
+                    // never joined to the head of the next.
+                    let mut out: Vec<Value> = Vec::new();
+                    let mut i = 0;
+                    while i < found.len() {
+                        let page = found[i].page;
+                        let mut j = i;
+                        let mut texts: Vec<String> = Vec::new();
+                        while j < found.len() && found[j].page == page {
+                            texts.push(found[j].text.clone());
+                            j += 1;
+                        }
+                        if normalize {
+                            texts = qu_pdf::normalize_lines(texts);
+                        }
+                        out.extend(texts.into_iter().map(Value::Str));
+                        i = j;
+                    }
+                    return Ok(Value::List(Arc::new(out)));
+                }
                 let text = qu_pdf::extract_text(&bytes, pages.as_deref())
                     .map_err(|msg| EvalError { msg })?;
-                Ok(Value::Str(text))
+                Ok(Value::Str(if normalize { qu_pdf::normalize_text(&text) } else { text }))
+            }
+            // `pdf.images(src, [pages])` -- the embedded image XObjects.
+            "pdf::images" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let pages = match arg_get(args, 1) {
+                    Some(v) => Some(pdf_page_list(v, short)?),
+                    None => match style_entry(style, "page") {
+                        Some((_, v)) => Some(pdf_page_list(v, short)?),
+                        None => None,
+                    },
+                };
+                let rows = qu_pdf::images(&bytes, pages.as_deref()).map_err(|msg| EvalError { msg })?;
+                Ok(Value::List(Arc::new(
+                    rows.into_iter()
+                        .map(|r| {
+                            Value::Record(Arc::new(vec![
+                                ("page".into(), Value::Num(r.page as f64)),
+                                ("index".into(), Value::Num(r.index as f64)),
+                                ("name".into(), Value::Str(r.name)),
+                                ("width".into(), Value::Num(r.width as f64)),
+                                ("height".into(), Value::Num(r.height as f64)),
+                                ("bits".into(), Value::Num(r.bits as f64)),
+                                ("colorspace".into(), Value::Str(r.colorspace)),
+                                ("filter".into(), Value::Str(r.filter)),
+                                ("bytes".into(), Value::Num(r.bytes as f64)),
+                            ]))
+                        })
+                        .collect(),
+                )))
+            }
+            // `pdf.extract_image(src, page, index)` -> Image.
+            "pdf::extract_image" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                mark_arg_read(1);
+                mark_arg_read(2);
+                let (Some(page_v), Some(index_v)) = (args.get(1), args.get(2)) else {
+                    return e(format!(
+                        "{short}(src, page, index): needs a page number and an image index -- \
+                         list them with pdf.images(src)"
+                    ));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let index = pdf_one_page(index_v, short).map_err(|er| EvalError {
+                    msg: format!(
+                        "{} (this is the image index, the `index` field of pdf.images, counted from 1)",
+                        er.msg
+                    ),
+                })?;
+                match qu_pdf::extract_image(&bytes, page, index as usize).map_err(|msg| EvalError { msg })? {
+                    qu_pdf::ExtractedImage::Jpeg(j) => {
+                        let img = image::decode_jpeg(&j).map_err(|msg| EvalError {
+                            msg: format!("{short}: page {page} image {index}: {msg}"),
+                        })?;
+                        Ok(Value::Image(Arc::new(img)))
+                    }
+                    qu_pdf::ExtractedImage::Rgb { width, height, rgb } => {
+                        let img = image::Image::new(width, height, rgb)
+                            .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
+                        Ok(Value::Image(Arc::new(img)))
+                    }
+                }
+            }
+            // `pdf.to_html(src, [pages], [images=false])` -> Str.
+            "pdf::to_html" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let pages = match arg_get(args, 1) {
+                    Some(v) => Some(pdf_page_list(v, short)?),
+                    None => match style_entry(style, "page") {
+                        Some((_, v)) => Some(pdf_page_list(v, short)?),
+                        None => None,
+                    },
+                };
+                let with_images = pdf_bool_kw(style, "images", short)?;
+                let html = qu_pdf::to_html(&bytes, pages.as_deref(), with_images)
+                    .map_err(|msg| EvalError { msg })?;
+                Ok(Value::Str(html))
             }
             "pdf::extract_pages" | "pdf::write_pages" => {
                 let to_file = f == "pdf::write_pages";
@@ -21231,7 +21343,14 @@ self.eval_grad(loss, wrt)
                 Value::Vec(xs) => {
                     let v = arg_get(&args, 1).ok_or_else(|| EvalError {
                         msg: "append(collection, value) needs a value".into(),
-                    })?.as_num().map_err(|m| EvalError { msg: m })?;
+                    })?.as_num().map_err(|m| EvalError {
+                        // `[]` is a vector of numbers; a script that starts a
+                        // list of strings from it needs to be told (feedback 1).
+                        msg: format!(
+                            "append: {m} -- `[]` and `[1, 2]` are vectors of numbers; \
+                             to build a list of strings or mixed values start from `lines(\"\")`"
+                        ),
+                    })?;
                     let mut out = xs.as_ref().clone();
                     out.push(v);
                     Ok(Value::Vec(Arc::new(out)))
@@ -21408,6 +21527,9 @@ self.eval_grad(loss, wrt)
             "pdf::extract_pages"
             | "pdf::render"
             | "pdf::extract_text"
+            | "pdf::images"
+            | "pdf::extract_image"
+            | "pdf::to_html"
             | "pdf::find_text"
             | "pdf::info"
             | "pdf::merge"
@@ -44737,6 +44859,17 @@ fn pdf_required_num(args: &[Value], idx: usize, short: &str, name: &str) -> R<f6
         None => e(format!(
             "{short}: needs {name} -- a crop rectangle is x0, y0, x1, y1"
         )),
+    }
+}
+
+/// A `true`/`false` keyword (default `false`); anything else is an error
+/// naming the function and the keyword, rather than being read as truthy.
+#[cfg(feature = "pdf")]
+fn pdf_bool_kw(style: &[(String, Value)], key: &str, short: &str) -> R<bool> {
+    match style_entry(style, key) {
+        None => Ok(false),
+        Some((_, Value::Bool(b))) => Ok(*b),
+        Some((_, other)) => e(format!("{short}: {key}= is true or false, found {}", other.type_name())),
     }
 }
 

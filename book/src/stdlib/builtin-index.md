@@ -417,7 +417,7 @@ program, and a misspelled call suggests the nearest match.
 | [`geornd`](../fn/geornd.html) | Random draws from the geometric distribution | [Statistics & ML](statistics-ml.md) |
 | [`geostat`](../fn/geostat.html) | Mean and variance of the geometric distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`gerischer`](../fn/gerischer.html) | `Zg/sqrt(k + jw)` — a coupled chemical reaction | [Signal processing](signal-processing.md) |
-| [`get`](../fn/get.html) | `get` returns the stored value (any type) or `none` if `key` is absent | [Collections & strings](collections-strings.md) |
+| [`get`](../fn/get.html) | `get` returns the stored value (any type) or `default` (`none` when you give none) if `key` is absent -- the optional third argument is new in v0.4.7; before it was accepted and ignored | [Collections & strings](collections-strings.md) |
 | [`getenv`](../fn/getenv.html) | Reads one environment variable | [File I/O](file-io.md) |
 | [`glob`](../fn/glob.html) | Every file matching a whole-path wildcard, as full paths, sorted — never a directory, which is what makes the content and size filters mean something on every entry | [File I/O](file-io.md) |
 | [`gmm_model`](../fn/gmm_model.html) | Gaussian mixture model with `k` components fitted by EM on an `N`-row, `D`-column matrix `X`, warm-started from a k-means run (optional integer `seed=`, and `max_iter` capping the EM.. | [Statistics & ML](statistics-ml.md) |
@@ -983,7 +983,7 @@ program, and a misspelled call suggests the nearest match.
 | [`serial_open`](../fn/serial_open.html) | Opens a real OS serial port. `port` (string) is the OS device name, e.g. `"COM3"` on Windows or `"/dev/ttyUSB0"` on Linux/macOS | [Concurrency](concurrency.md) |
 | [`serial_ports`](../fn/serial_ports.html) | Lists the short names of every serial device the OS currently reports (e.g. `"COM3"` on Windows, `"/dev/ttyUSB0"` on Linux/macOS) | [Concurrency](concurrency.md) |
 | [`series`](../fn/series.html) | Two or more circuits in series; impedances add | [Signal processing](signal-processing.md) |
-| [`set`](../fn/set.html) | `get` returns the stored value (any type) or `none` if `key` is absent | [Collections & strings](collections-strings.md) |
+| [`set`](../fn/set.html) | `get` returns the stored value (any type) or `default` (`none` when you give none) if `key` is absent -- the optional third argument is new in v0.4.7; before it was accepted and ignored | [Collections & strings](collections-strings.md) |
 | [`set_metadata`](../fn/set_metadata.html) | Added in v0.2.4. Writes one field of the named schema: `channel`, `comment`, `experiment`, `gain`, `instrument`, `offset`, `operator`, `sample`, `sampling_rate`, `sensor`, `start_time`,.. | [Signal processing](signal-processing.md) |
 | [`set_start_time`](../fn/set_start_time.html) | Added in v0.2.4. Dates the signal: sets the time of sample 0 in seconds | [Signal processing](signal-processing.md) |
 | [`sfdr`](../fn/sfdr.html) | With no excitation named, the largest non-DC FFT bin is taken as the fundamental (the single-tone case); `tones=`/`freqs=` (a vector, Hz, needs `fs=`/`rate=` too) or `bins=` (a vector of.. | [Signal processing](signal-processing.md) |
@@ -1435,9 +1435,11 @@ leaves the qualified one available too.
 | [`pdf.delete_page`](../fn/pdf.delete_page.html) | Removes `page`. Every other page's own resources, fonts and content are untouched | [File I/O](file-io.md) |
 | [`pdf.duplicate_page`](../fn/pdf.duplicate_page.html) | Inserts a copy of `page` immediately after it | [File I/O](file-io.md) |
 | [`pdf.extract_attachment`](../fn/pdf.extract_attachment.html) | The raw bytes of the first embedded file named `filename`; a name that is not there is a named error | [File I/O](file-io.md) |
+| [`pdf.extract_image`](../fn/pdf.extract_image.html) | Decodes image number `index` (from `pdf.images`) of page `page` to an `Image` | [File I/O](file-io.md) |
 | [`pdf.extract_pages`](../fn/pdf.extract_pages.html) | A new PDF holding just the pages asked for | [File I/O](file-io.md) |
 | [`pdf.extract_text`](../fn/pdf.extract_text.html) | Text reconstructed from a PDF's content streams | [File I/O](file-io.md) |
 | [`pdf.find_text`](../fn/pdf.find_text.html) | Searches every page's `pdf.extract_text` output for `query` (built on that function, not a separate reconstruction — the same warning below applies: a page `extract_text` cannot read is a.. | [File I/O](file-io.md) |
+| [`pdf.images`](../fn/pdf.images.html) | Lists the embedded images (image XObjects) of the pages asked for, default every page, as a `List` of `Record`s: `page` (`Num`), `index` (`Num`, from 1 within the page -- the number.. | [File I/O](file-io.md) |
 | [`pdf.info`](../fn/pdf.info.html) | Reads what a PDF says about itself, without extracting any content | [File I/O](file-io.md) |
 | [`pdf.media_box`](../fn/pdf.media_box.html) | The page's `/MediaBox` -- the boundary a PDF prints on, in PDF points (1/72 inch) | [File I/O](file-io.md) |
 | [`pdf.merge`](../fn/pdf.merge.html) | Joins several PDFs into one, in list order, keeping every page | [File I/O](file-io.md) |
@@ -1454,6 +1456,7 @@ leaves the qualified one available too.
 | [`pdf.strip_metadata`](../fn/pdf.strip_metadata.html) | Removes a PDF's `/Info` dictionary entirely, and its catalog's `/Metadata` XMP stream reference if it has one (the XMP stream's own contents are not parsed — only the reference to it is.. | [File I/O](file-io.md) |
 | [`pdf.structural_diff`](../fn/pdf.structural_diff.html) | A coarse, non-content comparison: page count, per-page `/MediaBox` size, whether each document has an outline (`/Outlines`) and each document's total annotation count | [File I/O](file-io.md) |
 | [`pdf.text_diff`](../fn/pdf.text_diff.html) | Page-by-page text diff of two documents, built entirely on `pdf.extract_text`/`pdf.page_count` | [File I/O](file-io.md) |
+| [`pdf.to_html`](../fn/pdf.to_html.html) | A simple HTML fragment for the pages asked for (default all): one `<section class="page" data-page="N">` per page holding one `<p>` per paragraph, text escaped (`&` `<` `>`) | [File I/O](file-io.md) |
 | [`pdf.write_merge`](../fn/pdf.write_merge.html) | Exactly `pdf.merge`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`pdf.write_pages`](../fn/pdf.write_pages.html) | Exactly `pdf.extract_pages`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`image.load`](../fn/image.load.html) | not described in a chapter yet | |

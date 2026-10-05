@@ -39,6 +39,9 @@ use std::io::Cursor;
 
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 
+mod extras;
+pub use extras::*;
+
 /// What a PDF says about itself, without extracting anything from it.
 ///
 /// Separate from any content operation because opening the object graph is
@@ -3400,3 +3403,6 @@ pub fn render(bytes: &[u8], page: u32, dpi: f64) -> Result<Rendered, String> {
     }
     Ok(Rendered { width: w, height: h, rgb })
 }
+
+#[cfg(test)]
+mod extras_tests;

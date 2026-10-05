@@ -30,3 +30,6 @@ lopdf = "0.45"
 # features off drops the `image` crate; the raw bitmap is enough.
 pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_latest", "thread_safe"] }
 
+
+# `pdf.to_html(images=true)` writes non-JPEG images as PNG; lopdf already pulls this in.
+flate2 = "1"
