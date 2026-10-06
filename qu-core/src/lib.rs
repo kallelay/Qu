@@ -25,6 +25,7 @@ pub mod cmatrix;
 /// ADMM), total variation, and the coherence diagnostics that say whether
 /// a sensing matrix is any good. See the module doc for how to choose.
 pub mod cs;
+pub mod dense_lu;
 pub mod decompose;
 /// Measurement diagnostics — clipping, converter saturation and structural
 /// integrity. Cheap checks on whether a record is worth analysing at all,

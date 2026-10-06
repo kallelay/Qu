@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+- Performance (measured in `docs/perf-0.4.9.md`, benchmarks in `benchmarks/perf-0.4.9/`): `inv` is now a blocked LU inverse when the matrix is clearly nonsingular (1000x1000: 1.25 s to 0.09 s; singular and borderline matrices still go through the SVD route and report exactly as before); `lu`, `det` and `solve` use a blocked LU on the SIMD matmul kernel (1000x1000: 2-2.4x faster); calling a user function no longer deep-copies the function's AST on every call (1.4x for a one-line function, 2x for a ~15-statement one, `quad` callbacks 4x); `sort`/`unique` of 65536+ values sort in parallel (1e7: 3-5x, results bit-identical); `filter_ba` with long coefficient vectors is about 2x faster (bit-identical); `M[i, j] = x` is about 1.4x faster; `read_npy` of float64 files is about 2.4x faster. Paired before/after numbers in `docs/perf-0.4.9.md`. Not fixed: `dict` is an association list (lookups and `set` are O(n)), sparse LU is ~6x slower than SuperLU, user-function calls are still ~0.5 us.
+
 ## [0.4.8] - 2026-10-06
 
 From Ahmed's feedback file and two internal audits: list element assignment, `extend`, `for` over a table, `r"""..."""` raw strings, error locations in Qu Studio and the kernel (`e.file`, `e.trace`), `qu run --dry-run` and `--watch`, a **security fix making `--sandbox` deny file writes**, and hardening of the file-format readers.

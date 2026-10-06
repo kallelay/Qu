@@ -1,0 +1,54 @@
+# perf-0.4.9: sparse Poisson benchmarks (separate file: `import sparse` makes
+# `solve`/`transpose` ambiguous with the dense builtins).
+import sparse
+
+function rep(name, dt)
+    print("BENCH {name} {dt}")
+end function
+
+m = 100
+nn = m * m
+ri = []
+ci = []
+vv = []
+for i = 0 to m - 1
+    for j = 0 to m - 1
+        k = i * m + j
+        ri = append(ri, k)
+        ci = append(ci, k)
+        vv = append(vv, 4.0)
+        if i > 0
+            ri = append(ri, k)
+            ci = append(ci, k - m)
+            vv = append(vv, -1.0)
+        end if
+        if i < m - 1
+            ri = append(ri, k)
+            ci = append(ci, k + m)
+            vv = append(vv, -1.0)
+        end if
+        if j > 0
+            ri = append(ri, k)
+            ci = append(ci, k - 1)
+            vv = append(vv, -1.0)
+        end if
+        if j < m - 1
+            ri = append(ri, k)
+            ci = append(ci, k + 1)
+            vv = append(vv, -1.0)
+        end if
+    end for
+end for
+tic()
+P = sparse.from_triplets(ri, ci, vv, nn, nn)
+rep("sparse_build_poisson100", toc())
+bb = ones(nn)
+tic()
+xs = sparse.solve(P, bb)
+rep("sparse_lu_poisson100", toc())
+tic()
+rcg = sparse.solve(P, bb, method="cg", tol=1e-10, maxiter=20000)
+rep("sparse_cg_poisson100", toc())
+tic()
+rcg = sparse.solve(P, bb, method="cg", precond="jacobi", tol=1e-10, maxiter=20000)
+rep("sparse_cgj_poisson100", toc())

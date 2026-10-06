@@ -1,0 +1,64 @@
+# Aggregates results/<tag>/{qu,py,py1}_<k>.txt written by run.sh.
+# Usage: qu run agg.qu -- <results dir>
+# Prints a markdown table: workload | Qu median (min-max) | Python median |
+# Python 1-thread-BLAS median | Qu/Py ratios. No baseline subtraction: every
+# workload is >= 1 ms, and the baseline_empty row (timer + call overhead,
+# ~20 us) shows the floor.
+dir = argv()[0]
+reps = to_int(trim(read_all_text("{dir}/reps.txt")))
+
+function load(prefix, k)
+    out = dict()
+    txt = read_all_text("{dir}/{prefix}_{k}.txt")
+    for ln in lines(txt)
+        p = split(ln, " ")
+        if len(p) == 3
+            out = set(out, p[1], to_float(p[2]))
+        end if
+    end for
+    return out
+end function
+
+function col(runs, nm)
+    v = []
+    for k = 0 to len(runs) - 1
+        if has_key(runs[k], nm)
+            v = append(v, get(runs[k], nm))
+        end if
+    end for
+    return v
+end function
+
+qus = ()
+pys = ()
+p1s = ()
+for k = 1 to reps
+    qus = append(qus, load("qu", k))
+    pys = append(pys, load("py", k))
+    p1s = append(p1s, load("py1", k))
+end for
+
+function flag(r)
+    if r > 2
+        return " **>2x slower**"
+    end if
+    if r < 0.5
+        return " (>2x faster)"
+    end if
+    return ""
+end function
+
+print("| workload | Qu median s | Qu min-max | Py median s | Py1 median s | Qu/Py | Qu/Py1 |")
+print("|---|---|---|---|---|---|---|")
+for nm in keys(qus[0])
+    qv = col(qus, nm)
+    pv = col(pys, nm)
+    p1 = col(p1s, nm)
+    if len(pv) == 0 or len(p1) == 0
+        print("| {nm} | {median(qv):.5f} | {min(qv):.5f}-{max(qv):.5f} | n/a | n/a | | |")
+    else
+        r = median(qv) / median(pv)
+        r1 = median(qv) / median(p1)
+        print("| {nm} | {median(qv):.5f} | {min(qv):.5f}-{max(qv):.5f} | {median(pv):.5f} | {median(p1):.5f} | {r:.2f} | {r1:.2f}{flag(r1)} |")
+    end if
+end for

@@ -369,6 +369,15 @@ pub fn read_npy(bytes: &[u8]) -> Result<NpyArray, String> {
             }
             NpyData::Complex(if h.fortran { fortran_to_c(&v, &h.shape) } else { v })
         }
+        // The overwhelmingly common file (`<f8`): a straight little-endian
+        // reinterpretation, no per-element dtype dispatch (v0.4.9).
+        Kind::Float if item == 8 && !dt.big => {
+            let v: Vec<f64> = body
+                .chunks_exact(8)
+                .map(|c| f64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]))
+                .collect();
+            NpyData::Real(if h.fortran { fortran_to_c(&v, &h.shape) } else { v })
+        }
         k => {
             let mut v = Vec::with_capacity(count);
             for c in body.chunks_exact(item) {

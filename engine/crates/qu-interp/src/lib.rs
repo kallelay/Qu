@@ -5862,8 +5862,8 @@ fn compile_fast_stmts(body: &[Stmt], locals: &[String]) -> Option<Vec<FastStmt>>
 /// here into one table instead of the old two-table split (§2).
 #[derive(Clone, Debug)]
 pub(crate) struct MethodEntry {
-    params: Vec<Param>,
-    body: MethodBody,
+    params: Arc<Vec<Param>>,
+    body: Arc<MethodBody>,
     /// § function memoization (2026-08-31): `true` iff this overload was
     /// declared `memoize function name(...) ... end function`. Consulted
     /// by `apply_seeded` before running the body — see `Interp::memo_cache`
@@ -8584,14 +8584,14 @@ impl Interp {
                 // exists — see `upsert_method`'s own doc comment.
                 self.upsert_method(
                     name,
-                    MethodEntry { params: params.clone(), body: MethodBody::Expr(body.clone()), memoize: false },
+                    MethodEntry { params: Arc::new(params.clone()), body: Arc::new(MethodBody::Expr(body.clone())), memoize: false },
                 );
                 Ok(())
             }
             Stmt::Function { name, params, body, memoize } => {
                 self.upsert_method(
                     name,
-                    MethodEntry { params: params.clone(), body: MethodBody::Block(body.clone()), memoize: *memoize },
+                    MethodEntry { params: Arc::new(params.clone()), body: Arc::new(MethodBody::Block(body.clone())), memoize: *memoize },
                 );
                 Ok(())
             }
@@ -10760,7 +10760,7 @@ impl Interp {
             Some(Value::Vec(mut arc)) => {
                 {
                     let v = Arc::make_mut(&mut arc);
-                    v.sort_by(f64::total_cmp);
+                    sort_f64_total(v);
                     if descending {
                         v.reverse();
                     }
@@ -11362,6 +11362,7 @@ impl Interp {
             _ => unreachable!("caller already checked Value::Mat"),
         };
         // Enumerate the (row, col) target cells in row-major visiting order.
+        let mut pre_rhs: Option<Value> = None;
         let cells: Vec<(usize, usize)> = match indices.len() {
             1 => {
                 // flat column-major addressing
@@ -11373,6 +11374,32 @@ impl Interp {
             2 => {
                 let rsel = self.resolve_sel(&indices[0], rows)?;
                 let csel = self.resolve_sel(&indices[1], cols)?;
+                // `M[i, j] = x` with plain `=`: the hot shape of every
+                // element-wise fill loop. Evaluate the right-hand side now
+                // (same order as the general path: row, column, value) and
+                // write the one cell directly, skipping the cell list and
+                // the replacement vector (v0.4.9).
+                if let (Sel::Scalar(r), Sel::Scalar(c), true) = (&rsel, &csel, op.is_empty()) {
+                    let (r, c) = (*r, *c);
+                    let rhs_v = self.eval(rhs)?;
+                    if let Value::Num(s) = rhs_v {
+                        let taken = self
+                            .var_take(name)
+                            .ok_or_else(|| EvalError { msg: format!("`{name}` is not defined") })?;
+                        return match taken {
+                            Value::Mat(mut arc) => {
+                                let res = Arc::make_mut(&mut arc).set(r, c, s);
+                                self.var_set(name, Value::Mat(arc));
+                                res.map_err(idx_err)
+                            }
+                            other => {
+                                self.var_set(name, other);
+                                e(format!("`{name}` changed type during index-assignment"))
+                            }
+                        };
+                    }
+                    pre_rhs = Some(rhs_v);
+                }
                 let rs = sel_to_vec(rsel);
                 let cs = sel_to_vec(csel);
                 let mut cells = Vec::with_capacity(rs.len() * cs.len());
@@ -11387,7 +11414,10 @@ impl Interp {
         };
 
         // Replacement values: a scalar broadcasts; otherwise the count must match.
-        let rhs_v = self.eval(rhs)?;
+        let rhs_v = match pre_rhs {
+            Some(v) => v,
+            None => self.eval(rhs)?,
+        };
         let repl_base: Vec<f64> = match &rhs_v {
             Value::Vec(v) => {
                 if v.len() != cells.len() {
@@ -15899,10 +15929,13 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// that matters (call-stack traces, `try`/`catch` error snapshots, ...),
     /// without duplicating the dispatch logic a second time.
     fn run_method_entry(&mut self, name: &str, entry: MethodEntry, argv: Vec<Value>) -> R<Value> {
-        match entry.body {
-            MethodBody::Expr(body) => self.call_tracked(name, move |s| s.call_user(&entry.params, &body, argv)),
-            MethodBody::Block(body) => self.call_tracked(name, move |s| s.call_block_fn(&entry.params, &body, argv)),
-        }
+        // `entry`'s params/body are `Arc`s, so the clone `resolve_method`
+        // hands out per call is two refcount bumps, not a deep copy of the
+        // function's whole AST (v0.4.9).
+        self.call_tracked(name, move |s| match &*entry.body {
+            MethodBody::Expr(body) => s.call_user(&entry.params, body, argv),
+            MethodBody::Block(body) => s.call_block_fn(&entry.params, body, argv),
+        })
     }
 
     /// § function memoization (2026-08-31): the shared "run this entry,
@@ -16134,7 +16167,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             let compiled = match self.methods.get(name).and_then(|v| v.first()) {
                 Some(entry) => {
                     let names: Vec<String> = entry.params.iter().map(|p| p.name.clone()).collect();
-                    match &entry.body {
+                    match &*entry.body {
                         MethodBody::Expr(body) => try_compile_expr_fn(&names, body),
                         MethodBody::Block(body) => try_compile_block_fn(&names, body),
                     }
@@ -20817,7 +20850,7 @@ self.eval_grad(loss, wrt)
                     let compiled = match self.methods.get(&name).and_then(|v| v.first()) {
                         Some(entry) => {
                             let names: Vec<String> = entry.params.iter().map(|p| p.name.clone()).collect();
-                            match &entry.body {
+                            match &*entry.body {
                                 MethodBody::Expr(body) => try_compile_expr_fn(&names, body),
                                 MethodBody::Block(body) => try_compile_block_fn(&names, body),
                             }
@@ -30433,12 +30466,32 @@ self.eval_grad(loss, wrt)
                 let n = bn.len().max(an.len());
                 let mut z = vec![0.0; n];
                 let mut y = Vec::with_capacity(x.len());
+                // Coefficients padded once to the state length so the
+                // per-sample update is a bounds-check-free slice loop
+                // (v0.4.9; was a `get(k + 1)` lookup per tap per sample).
+                // Same operations in the same order, so results are
+                // bit-identical.
+                let b0 = bn.first().copied().unwrap_or(0.0);
+                let mut bp = vec![0.0; n - 1];
+                let mut ap = vec![0.0; n - 1];
+                for k in 0..n - 1 {
+                    bp[k] = bn.get(k + 1).copied().unwrap_or(0.0);
+                    ap[k] = an.get(k + 1).copied().unwrap_or(0.0);
+                }
                 for &xi in &x {
-                    let yi = bn.first().copied().unwrap_or(0.0) * xi + z[0];
-                    for k in 0..n - 1 {
-                        let bk = bn.get(k + 1).copied().unwrap_or(0.0);
-                        let ak = an.get(k + 1).copied().unwrap_or(0.0);
-                        z[k] = bk * xi + z[k + 1] - ak * yi;
+                    let yi = b0 * xi + z[0];
+                    let (zh, zt) = z.split_at_mut(n - 1);
+                    // z[k] <- bp[k]*xi + z[k+1] - ap[k]*yi, k = 0..n-2; the
+                    // right-hand z[k+1] is the OLD value (still unwritten).
+                    if n > 1 {
+                        let m = n - 2;
+                        // Re-sliced to a common length so the optimiser can
+                        // see every index below is in range.
+                        let (bpm, apm, zhm) = (&bp[..m + 1], &ap[..m + 1], &mut zh[..m + 1]);
+                        for k in 0..m {
+                            zhm[k] = bpm[k] * xi + zhm[k + 1] - apm[k] * yi;
+                        }
+                        zhm[m] = bpm[m] * xi + zt[0] - apm[m] * yi;
                     }
                     y.push(yi);
                 }
@@ -34140,7 +34193,7 @@ self.eval_grad(loss, wrt)
             }
             "unique" => {
                 let mut xs = to_vec(arg0(&args)?)?;
-                xs.sort_by(f64::total_cmp);
+                sort_f64_total(&mut xs);
                 xs.dedup();
                 Ok(Value::Vec(Arc::new(xs)))
             }
@@ -34179,7 +34232,7 @@ self.eval_grad(loss, wrt)
                     }
                 }
                 let mut xs = to_vec(arg0(&args)?)?;
-                xs.sort_by(f64::total_cmp);
+                sort_f64_total(&mut xs);
                 if matches!(arg_get(&args, 1), Some(Value::Bool(true))) {
                     xs.reverse();
                 }
@@ -40997,8 +41050,8 @@ self.eval_grad(loss, wrt)
                         entries.len()
                     ));
                 }
-                let params = entries[0].params.clone();
-                let body = match &entries[0].body {
+                let params = (*entries[0].params).clone();
+                let body = match &*entries[0].body {
                     MethodBody::Expr(ex) => FnBody::Expr(Box::new(ex.clone())),
                     MethodBody::Block(stmts) => FnBody::Block(stmts.clone()),
                 };
@@ -41032,7 +41085,7 @@ self.eval_grad(loss, wrt)
                             entries.len()
                         ));
                     }
-                    match &entries[0].body {
+                    match &*entries[0].body {
                         MethodBody::Expr(ex) => Ok(ex.clone()),
                         MethodBody::Block(_) => e(format!(
                             "diagram_pipeline: `{name}` is a multi-statement function, not a single pipeline expression -- define it as `{name}() := data |> f() |> g()`"
@@ -47860,12 +47913,30 @@ fn do_imwarp(img: &Image, affine: &Affine3, style: &[(String, Value)], loose_def
 /// pseudo-inverse. Requires a square, full-rank matrix -- singular or
 /// non-square inputs get a clear error pointing at `pinv` instead of a
 /// silently wrong (or `Inf`-filled) answer.
+/// Sorts `xs` ascending by `f64::total_cmp`. Elements that compare equal
+/// under `total_cmp` are bit-identical (it orders `-0.0 < +0.0` and NaNs by
+/// payload), so an unstable sort yields exactly the bytes the stable
+/// `sort_by` did; large inputs go through rayon's parallel pdqsort.
+fn sort_f64_total(xs: &mut [f64]) {
+    const PAR_MIN: usize = 1 << 16;
+    if xs.len() >= PAR_MIN {
+        xs.par_sort_unstable_by(f64::total_cmp);
+    } else {
+        xs.sort_by(f64::total_cmp);
+    }
+}
+
 fn matrix_inverse(m: &Matrix) -> R<Value> {
     let (r, c) = m.shape();
     if r != c {
         return e(format!(
             "matrix must be square to invert (got {r}x{c}); use pinv(M) for the pseudoinverse"
         ));
+    }
+    // Blocked-LU fast path for the clearly-nonsingular case; singular and
+    // borderline matrices fall through to the SVD route below unchanged.
+    if let Some(inv) = numeric::linalg::fast_inverse(m) {
+        return Ok(mat_value(inv));
     }
     let result = numeric::linalg::pseudo_inverse(m, None).map_err(|le| EvalError {
         msg: le.to_string(),

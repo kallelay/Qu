@@ -175,19 +175,24 @@ fn try_lu_solve(coefficients: &Matrix, observations: &Matrix) -> Option<Matrix> 
     if rows != cols || rows == 0 || observations.rows() != rows {
         return None;
     }
-    let source = DMatrix::from_column_slice(rows, cols, coefficients.as_slice());
-    let rhs = DMatrix::from_column_slice(
-        observations.rows(),
-        observations.cols(),
-        observations.as_slice(),
-    );
-    let solution = source.lu().solve(&rhs)?;
-    let (sol_rows, sol_cols) = solution.shape();
-    Some(Matrix::from_col_major(
-        sol_rows,
-        sol_cols,
-        solution.as_slice().to_vec(),
-    ))
+    // Blocked LU (see `dense_lu`): same pivoting rule and the same
+    // "exact zero pivot -> decline" contract as nalgebra's `lu().solve`.
+    let f = crate::dense_lu::factor(coefficients.as_slice(), rows);
+    let x = f.solve(observations.as_slice(), observations.cols())?;
+    Some(Matrix::from_col_major(rows, observations.cols(), x))
+}
+
+/// Inverse of a square, finite matrix via the blocked LU when it is clearly
+/// nonsingular (see [`crate::dense_lu::inverse_if_well_conditioned`] for the
+/// exact guard); `None` means "ask [`pseudo_inverse`]", which keeps deciding
+/// every singular or borderline case exactly as it always did.
+pub fn fast_inverse(input: &Matrix) -> Option<Matrix> {
+    let (rows, cols) = input.shape();
+    if rows != cols || rows == 0 || input.as_slice().iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    crate::dense_lu::inverse_if_well_conditioned(input.as_slice(), rows)
+        .map(|inv| Matrix::from_col_major(rows, rows, inv))
 }
 
 /// Minimum-norm least-squares solution `x = pinv(A) * b`.
@@ -312,6 +317,35 @@ pub fn lu(input: &Matrix) -> Result<LuResult, LinalgError> {
         return Err(LinalgError::NonFiniteInput);
     }
     let (rows, cols) = input.shape();
+    if rows == cols {
+        // Square: the blocked LU in `dense_lu` (nalgebra stays for the
+        // rectangular case, where `L`/`U` are `m x k` / `k x n`).
+        let f = crate::dense_lu::factor(input.as_slice(), rows);
+        let n = rows;
+        let mut l = vec![0.0; n * n];
+        let mut u = vec![0.0; n * n];
+        for c in 0..n {
+            for r in 0..n {
+                let v = f.lu[r + c * n];
+                if r > c {
+                    l[r + c * n] = v;
+                } else {
+                    u[r + c * n] = v;
+                }
+            }
+            l[c + c * n] = 1.0;
+        }
+        let perm = f.permutation();
+        let mut p = vec![0.0; n * n];
+        for (r, &src) in perm.iter().enumerate() {
+            p[r + src * n] = 1.0;
+        }
+        return Ok(LuResult {
+            l: Matrix::from_col_major(n, n, l),
+            u: Matrix::from_col_major(n, n, u),
+            p: Matrix::from_col_major(n, n, p),
+        });
+    }
     let source = DMatrix::from_column_slice(rows, cols, input.as_slice());
     let decomposition = source.lu();
     let l = decomposition.l();
@@ -400,8 +434,7 @@ pub fn det(input: &Matrix) -> Result<f64, LinalgError> {
     if rows != cols {
         return Err(LinalgError::NotSquare { rows, cols });
     }
-    let source = DMatrix::from_column_slice(rows, cols, input.as_slice());
-    Ok(source.determinant())
+    Ok(crate::dense_lu::factor(input.as_slice(), rows).det())
 }
 
 #[cfg(test)]
