@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1223 builtins, 1135 described.** The rest are
+**1227 builtins, 1138 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -264,6 +264,7 @@ program, and a misspelled call suggests the nearest match.
 | [`diagram_pipeline`](../fn/diagram_pipeline.html) | Renders a `\|>` pipe chain as a left-to-right chain of labeled boxes, one per stage | [Plotting](plotting.md) |
 | [`dict`](../fn/dict.html) | Returns a `Dict`, insertion-ordered | [Collections & strings](collections-strings.md) |
 | [`diff`](../fn/diff.html) | Returns the first difference (`x[i+1] - x[i]`), length N-1, same base type as `x`; a `Signal` input stays a `Signal` with the same `Fs` | [Collections & strings](collections-strings.md) |
+| [`diff_lines`](../fn/diff_lines.html) | A line diff of two texts. `a` and `b` are each a `List` of strings, or one string that is split into lines (CRLF or LF) | [Collections & strings](collections-strings.md) |
 | [`dir`](../fn/dir.html) | The bare names inside `path` (a `Str`), sorted — `"a.qu"`, not `"tools/a.qu"` | [File I/O](file-io.md) |
 | [`dir_exists`](../fn/dir_exists.html) | Whether `path` (a `Str`) exists and is a regular file / a directory | [File I/O](file-io.md) |
 | [`disk`](../fn/disk.html) | Builds a disk-shaped structuring-element mask `Image`: a `(2*radius+1) x (2*radius+1)` binary mask, foreground wherever `dx*dx + dy*dy <= radius*radius` relative to its own center pixel | [Images](images.md) |
@@ -979,6 +980,7 @@ program, and a misspelled call suggests the nearest match.
 | [`scan`](../fn/scan.html) | scanf backwards: `"hello world 12".parse_as("hello world %d")` gives 12 | [Collections & strings](collections-strings.md) |
 | [`scatter`](../fn/scatter.html) | Same machinery as `plot` — `x`, `y` are equal-length Vecs of numbers — but defaults its marker to `"o"` (dots) instead of `"line"` | [Plotting](plotting.md) |
 | [`scatterfit`](../fn/scatterfit.html) | Draws a scatter of equal-length numeric Vecs `x`, `y` plus a `polyfit` trend line | [Plotting](plotting.md) |
+| [`sci`](../fn/sci.html) | Returns a `Str`. A value whose exponent is 0 prints as the bare mantissa (`1.50`), and a value that rounds up into the next power of ten carries into the exponent (`9.999e4` at 2 digits is.. | [Collections & strings](collections-strings.md) |
 | [`score`](../fn/score.html) | Scores a fitted model Record `model` against an `N`-row feature matrix `X` and, for a supervised kind, the matching length-`N` target vector `y` | [Statistics & ML](statistics-ml.md) |
 | [`sech`](../fn/sech.html) | The other three hyperbolics: `coth(x) = cosh(x)/sinh(x)`, `sech(x) = 1/cosh(x)`, `csch(x) = 1/sinh(x)` | [Core maths](core-math.md) |
 | [`seed`](../fn/seed.html) | Reseeds the shared random stream with integer `n`, so subsequent calls to `rand`/`randn`/etc | [Statistics & ML](statistics-ml.md) |
@@ -1049,6 +1051,7 @@ program, and a misspelled call suggests the nearest match.
 | [`spl`](../fn/spl.html) | Added in v0.2.4. Sound pressure level of a calibrated `Signal`: `20*log10(rms/reference)` using the calibration's own reference (20 µPa for pressure), AC-coupled | [Signal processing](signal-processing.md) |
 | [`splineplot`](../fn/splineplot.html) | Natural cubic spline through the control points `(x[i], y[i])` (equal-length numeric Vecs), resampled onto 200 points for a smooth line | [Plotting](plotting.md) |
 | [`split`](../fn/split.html) | `s` and `delim` are `Str`s; optional `limit` (number of pieces, default: unlimited) stops after that many pieces and leaves the remainder undivided as the last one — `split(line, ": ", 2)`.. | [Collections & strings](collections-strings.md) |
+| [`sprintf`](../fn/sprintf.html) | C/MATLAB-style formatting: `fmt` is a `Str` with conversions `%d %i %u` (integers), `%f` `%e` `%E` `%g` `%G` (reals), `%s` (any value as text), `%c`, `%x` `%X` `%o` and `%%`, each with.. | [Collections & strings](collections-strings.md) |
 | [`sqrt`](../fn/sqrt.html) | Elementwise square root. `x` is a scalar, `Vec`, or `Mat`/`Signal`; a negative element gives `NaN` (there is no automatic promotion to a complex result) | [Core maths](core-math.md) |
 | [`square`](../fn/square.html) | A bipolar (±1) periodic pulse train | [Plotting](plotting.md) |
 | [`stackbar`](../fn/stackbar.html) | Stacked bar chart: `x` (Vec, category positions) and `y` (Mat or list of Vecs, one row/series per stack segment) with the same `values=`/`hatch=` options as `bar` | [Plotting](plotting.md) |
@@ -1552,17 +1555,17 @@ backlog rather than a statement about the language.
 [`path_name`](../fn/path_name.html) [`path_normalize`](../fn/path_normalize.html)
 [`path_parent`](../fn/path_parent.html) [`path_relative_to`](../fn/path_relative_to.html)
 [`path_stem`](../fn/path_stem.html) [`pos_of`](../fn/pos_of.html) [`preciseTimer`](../fn/preciseTimer.html)
-[`process_is_running`](../fn/process_is_running.html) [`process_kill`](../fn/process_kill.html)
-[`process_pid`](../fn/process_pid.html) [`process_poll`](../fn/process_poll.html)
-[`process_read`](../fn/process_read.html) [`process_read_stderr`](../fn/process_read_stderr.html)
-[`process_spawn`](../fn/process_spawn.html) [`process_wait`](../fn/process_wait.html)
-[`r2`](../fn/r2.html) [`replace_bytes`](../fn/replace_bytes.html) [`residual_acf`](../fn/residual_acf.html)
-[`reverse_bytes`](../fn/reverse_bytes.html) [`roc_auc`](../fn/roc_auc.html)
-[`sample_to_time`](../fn/sample_to_time.html) [`set_bit`](../fn/set_bit.html)
-[`setenv`](../fn/setenv.html) [`sha256`](../fn/sha256.html) [`similar`](../fn/similar.html)
-[`slice_at`](../fn/slice_at.html) [`splice`](../fn/splice.html) [`split_time`](../fn/split_time.html)
-[`strip_ansi`](../fn/strip_ansi.html) [`swap_endian`](../fn/swap_endian.html)
-[`time_to_sample`](../fn/time_to_sample.html) [`timer`](../fn/timer.html)
-[`toggle_bit`](../fn/toggle_bit.html) [`unpack`](../fn/unpack.html) [`unsetenv`](../fn/unsetenv.html)
-[`word_wrap`](../fn/word_wrap.html)
+[`printf`](../fn/printf.html) [`process_is_running`](../fn/process_is_running.html)
+[`process_kill`](../fn/process_kill.html) [`process_pid`](../fn/process_pid.html)
+[`process_poll`](../fn/process_poll.html) [`process_read`](../fn/process_read.html)
+[`process_read_stderr`](../fn/process_read_stderr.html) [`process_spawn`](../fn/process_spawn.html)
+[`process_wait`](../fn/process_wait.html) [`r2`](../fn/r2.html) [`replace_bytes`](../fn/replace_bytes.html)
+[`residual_acf`](../fn/residual_acf.html) [`reverse_bytes`](../fn/reverse_bytes.html)
+[`roc_auc`](../fn/roc_auc.html) [`sample_to_time`](../fn/sample_to_time.html)
+[`set_bit`](../fn/set_bit.html) [`setenv`](../fn/setenv.html) [`sha256`](../fn/sha256.html)
+[`similar`](../fn/similar.html) [`slice_at`](../fn/slice_at.html) [`splice`](../fn/splice.html)
+[`split_time`](../fn/split_time.html) [`strip_ansi`](../fn/strip_ansi.html)
+[`swap_endian`](../fn/swap_endian.html) [`time_to_sample`](../fn/time_to_sample.html)
+[`timer`](../fn/timer.html) [`toggle_bit`](../fn/toggle_bit.html) [`unpack`](../fn/unpack.html)
+[`unsetenv`](../fn/unsetenv.html) [`word_wrap`](../fn/word_wrap.html)
 

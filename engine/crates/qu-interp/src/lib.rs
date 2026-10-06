@@ -375,6 +375,8 @@ pub mod dprof;
 
 /// `trapz`/`cumtrapz`/`simpson`/`quad`/`ode45`/`ode23`/`ode_stiff`/`rk4`.
 pub mod integrate;
+mod diff_ops;
+mod numfmt_ops;
 
 /// Shared native/WASM numerical semantics. Interpreter builtins migrate to
 /// these functions instead of growing a second implementation.
@@ -20723,6 +20725,22 @@ self.eval_grad(loss, wrt)
                 });
                 Ok(Value::Bool(self.ui_values.get(&id).map(truthy).unwrap_or(false)))
             }
+            // Scientific notation and printf-style formatting (numfmt_ops.rs):
+            // `sci(x, [digits=3], [style=])` -> "1.23 × 10⁻⁴⁵", `sprintf(fmt, ...)`
+            // -> string, `printf(fmt, ...)` -> printed with no newline added.
+            "sci" => numfmt_ops::sci(arg_all(&args), &style),
+            "sprintf" => numfmt_ops::sprintf(arg_all(&args)),
+            "printf" => {
+                let fmt = text_arg(&args, 0)?;
+                let text = numfmt_ops::format_printf(&fmt, &args[1..])?;
+                mark_all_args_read();
+                self.out.push_str(&text);
+                if let Some(cb) = self.on_print.as_mut() {
+                    cb(&text);
+                }
+                self.drain_out(false);
+                Ok(Value::Nothing)
+            }
             "print" | "disp" | "writeline" | "echo" => {
                 let parts: Vec<String> = arg_all(&args).iter().map(display_value).collect();
                 let mut line = parts.join(" ");
@@ -21536,9 +21554,8 @@ self.eval_grad(loss, wrt)
                     other => e(format!("insert: expected a list or vector, found {}", other.type_name())),
                 }
             }
-            // `append(collection, value)` — returns a NEW list/vector with
-            // `value` added at the end; the natural companion to
-            // `insert`/`remove`, same immutable-return convention.
+            // `diff_lines(a, b, [changed_only=])` -- a line diff of two texts (diff_ops.rs).
+            "diff_lines" => diff_ops::call(arg_all(&args), &style),
             // `extend(list, other)` -- a NEW list: `list`'s elements followed by
             // `other`'s (a list or a vector). `append(list, other)` NESTS `other`
             // as one element; this CONCATENATES (feedback item 2).
@@ -21559,6 +21576,9 @@ self.eval_grad(loss, wrt)
                 }
                 Ok(Value::List(Arc::new(out)))
             }
+            // `append(collection, value)` — returns a NEW list/vector with
+            // `value` added at the end; the natural companion to
+            // `insert`/`remove`, same immutable-return convention.
             "append" => match arg0(&args)? {
                 Value::Vec(xs) => {
                     let v = arg_get(&args, 1).ok_or_else(|| EvalError {
@@ -45919,7 +45939,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin", "dec2hex", "decode_can", "decode_i2c",
     "decode_spi", "decode_uart", "dedent", "delay", "delta_e", "dense", "dense_layer", "describe",
     "det", "detect_saturation", "detrend", "device_used", "dft", "diag", "diagram_pipeline", "dict",
-    "diff", "dir", "dir_exists", "disk", "disp", "distinct", "distort", "div", "dominant_frequency",
+    "diff", "diff_lines", "dir", "dir_exists", "disk", "disp", "distinct", "distort", "div", "dominant_frequency",
     "donut", "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line",
     "draw_rect", "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration",
     "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv",
@@ -45986,7 +46006,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "pmap", "point", "poisscdf", "poissfit", "poissinv", "poisson", "poisspdf", "poissrnd",
     "poisstat", "polarplot", "poles", "polyfit", "polygon", "polyval", "pool", "pop", "pop_back",
     "pop_front", "porous", "pos_of", "pow", "pow2db", "preciseTimer", "precision", "predict",
-    "print", "printtex", "process", "process_is_running", "process_kill", "process_pid",
+    "print", "printf", "printtex", "process", "process_is_running", "process_kill", "process_pid",
     "process_poll", "process_read", "process_read_stderr", "process_spawn", "process_wait",
     "processor", "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
     "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
@@ -46011,7 +46031,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "rolling_rms", "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
     "run_for", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save", "save_all",
     "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
-    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "score", "sech", "seed",
+    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci", "score", "sech", "seed",
     "seek", "select", "semaphore", "semaphore_acquire", "semaphore_available", "semaphore_release",
     "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
     "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
@@ -46022,7 +46042,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
     "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
     "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot",
-    "split", "split_time", "sqrt", "square", "stackbar", "stair", "stamp", "standardize", "start",
+    "split", "split_time", "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize", "start",
     "start_time", "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step", "stft",
     "stop", "stop_grad", "str", "stratified_split", "strip_ansi", "subplot", "substr", "subtract",
     "sum", "summary", "svd", "svm_model", "svr_model", "swap", "swap_endian", "sweep", "sysid",
@@ -61585,21 +61605,37 @@ fn format_spec(v: &Value, spec: Option<&str>) -> String {
     let Some(spec) = spec else {
         return display_value(v);
     };
-    // supported: .Nf  .Ne  .Ng  d  s
+    // supported: .Nf  .Ne  .NE  .Ng  .Nsci  .Ntex  d  s
     let num = v.as_num();
-    if spec.ends_with('f') || spec.ends_with('e') || spec.ends_with('g') {
+    // Typeset scientific notation: `{x:.2sci}` -> `1.23 × 10⁻⁴⁵` (Unicode
+    // superscripts, for titles and labels) and `{x:.2tex}` ->
+    // `1.23 \times 10^{-45}` (LaTeX/MathJax). N is the digits after the point,
+    // as for `e`; see `numfmt_ops`.
+    for (suffix, style) in [("sci", "unicode"), ("tex", "tex")] {
+        if let Some(digits) = spec.strip_suffix(suffix) {
+            if let Ok(x) = num {
+                let prec = digits.trim_start_matches('.').parse::<usize>().unwrap_or(2);
+                if let Ok(s) = numfmt_ops::format_sci(x, prec, style) {
+                    return s;
+                }
+            }
+        }
+    }
+    if spec.ends_with('f') || spec.ends_with('e') || spec.ends_with('E') || spec.ends_with('g') {
         if let Ok(x) = num {
             let prec = spec
                 .trim_start_matches('.')
-                .trim_end_matches(['f', 'e', 'g'])
+                .trim_end_matches(['f', 'e', 'E', 'g'])
                 .parse::<usize>()
                 .unwrap_or(2);
             // `g` without a precision is C's default of 6 significant digits
             // (the other two default to 2 decimals, as before).
-            let has_digits = spec.trim_start_matches('.').trim_end_matches(['f', 'e', 'g']).parse::<usize>().is_ok();
+            let has_digits = spec.trim_start_matches('.').trim_end_matches(['f', 'e', 'E', 'g']).parse::<usize>().is_ok();
             return match spec.chars().last().unwrap() {
                 'f' => format!("{x:.*}", prec),
-                'e' => format!("{x:.*e}", prec),
+                // C style: `1.235e+05`, exponent signed and at least two digits.
+                'e' => numfmt_ops::format_e(x, prec, false),
+                'E' => numfmt_ops::format_e(x, prec, true),
                 _ => format_g(x, if has_digits { prec } else { 6 }),
             };
         }

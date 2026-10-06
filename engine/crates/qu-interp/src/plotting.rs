@@ -2896,8 +2896,15 @@ fn data_extent(values: impl Iterator<Item = f64>, log: bool, pad: bool) -> (f64,
     if !lo.is_finite() || !hi.is_finite() {
         return (0.0, 1.0);
     }
-    if (hi - lo).abs() < 1e-15 {
-        let flat_pad = if pad { 1.0 } else { 0.5 };
+    // "Flat data" has to be judged against the data's own size. An absolute
+    // `1e-15` made every figure whose values all live below that (a rate of
+    // 1.2e-45, a capacitance in farads at 1e-20) look constant: the trace
+    // collapsed to a line on an axis padded to -1..1. The absolute test stays
+    // for ordinary magnitudes; below them it becomes relative.
+    let scale = lo.abs().max(hi.abs());
+    if (hi - lo).abs() <= (scale * 1e-12).min(1e-15) {
+        let base = if scale < 1e-6 && scale > 0.0 { scale } else { 1.0 };
+        let flat_pad = base * if pad { 1.0 } else { 0.5 };
         return (lo - flat_pad, hi + flat_pad);
     }
     if pad {
@@ -6429,7 +6436,7 @@ pub fn build_draw_ops_with_geometry(
                 Shape::Bubble { x, y, sizes, color } => {
                     let resolved = color.clone().unwrap_or_else(|| "#4c72b0".into());
                     let (smin, smax) = sizes.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(v), hi.max(v)));
-                    let span = if (smax - smin).abs() > 1e-12 { smax - smin } else { 1.0 };
+                    let span = if (smax - smin).abs() > smin.abs().max(smax.abs()) * 1e-12 { smax - smin } else { 1.0 };
                     for i in 0..x.len().min(y.len()).min(sizes.len()) {
                         let (px, py) = to_px(x[i], y[i]);
                         let t = (sizes[i] - smin) / span;
@@ -7758,7 +7765,7 @@ fn heatmap_ops(
     // the square-cell centring above may have moved down.
     let top = grid_top;
     let (vmin, vmax) = hm.values.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(v), hi.max(v)));
-    let span = if (vmax - vmin).abs() > 1e-12 { vmax - vmin } else { 1.0 };
+    let span = if (vmax - vmin).abs() > vmin.abs().max(vmax.abs()) * 1e-12 { vmax - vmin } else { 1.0 };
 
     let mut ops = Vec::new();
     for r in 0..hm.rows {
@@ -15096,6 +15103,25 @@ mod tests {
         write_pdf_op(&mut pdf, &op, DEFAULT_AXIS_LABEL_SIZE, None, None, None, None);
         assert!(!pdf.contains("inf") && !pdf.contains("NaN"), "non-finite tokens leaked into the PDF content stream: {pdf}");
         assert!(pdf.contains("0.00 10.00 m") && pdf.contains("4.00 30.00 l"), "got: {pdf}");
+    }
+
+    #[test]
+    fn data_extent_is_relative_for_data_far_below_one() {
+        // Used to treat any span under an absolute 1e-15 as "flat" and pad it
+        // to +-1, collapsing a figure whose data lives at 1e-45 into a line.
+        let (lo, hi) = data_extent([0.0, 1.2345e-43].into_iter(), false, true);
+        assert!(lo < 1e-44 && hi > 1.2e-43 && hi < 1e-42, "({lo}, {hi})");
+        let (lo, hi) = data_extent([2.0e-20, 3.0e-20].into_iter(), false, false);
+        assert_eq!((lo, hi), (2.0e-20, 3.0e-20));
+    }
+
+    #[test]
+    fn data_extent_still_pads_genuinely_constant_data() {
+        assert_eq!(data_extent([5.0, 5.0].into_iter(), false, true), (4.0, 6.0));
+        assert_eq!(data_extent([0.0, 0.0].into_iter(), false, true), (-1.0, 1.0));
+        // constant data at a tiny magnitude pads relative to itself, not by 1
+        let (lo, hi) = data_extent([1e-20, 1e-20].into_iter(), false, true);
+        assert!(lo > -2e-20 && hi < 3e-20 && lo < 1e-20 && hi > 1e-20, "({lo}, {hi})");
     }
 
     #[test]

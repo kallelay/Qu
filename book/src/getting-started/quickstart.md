@@ -651,3 +651,19 @@ processes or network calls; use `--sandbox` for those.
 `xs[i] = value` replaces one element of a list. `append(list, other)` adds
 `other` as ONE element (nesting); `extend(list, other)` adds its elements
 (concatenation). `for row in table` walks a table's rows as records.
+
+## Scientific notation and formatted numbers
+
+| You want | Write | Result |
+|---|---|---|
+| typeset, for titles and labels | `sci(1.2345e-45)` or `"{x:.2sci}"` | `1.23 × 10⁻⁴⁵` |
+| the same for LaTeX / MathJax | `sci(x, 3, style="tex")` or `"{x:.2tex}"` | `1.23 \times 10^{-45}` |
+| C's `%e` | `"{x:.3e}"` or `sprintf("%.3e", x)` | `1.235e+05` |
+| C's `%g` (significant digits) | `"{x:.3g}"` or `sprintf("%.3g", x)` | `1.23e-05` |
+| padded, aligned columns | `sprintf("%-10s %8.3f", name, v)` | `alpha        3.142` |
+
+`sprintf(fmt, ...)` returns the string and `printf(fmt, ...)` prints it with no
+newline added (write `\n` yourself), the way C does. Conversions: `%d %i %u %f
+%e %E %g %G %s %c %x %X %o %%` with the flags `- + space 0 #`, a width and a
+`.precision`. `sci(x)` counts *significant* digits (3 gives `1.23`), while
+`{x:.2sci}` counts digits after the point, like `{x:.2e}`.

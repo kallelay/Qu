@@ -10,6 +10,12 @@ changes are called out.
 
 ## [Unreleased]
 
+- Scientific notation and printf: `sci(x, [digits=3], [style=])` writes `1.23 × 10⁻⁴⁵` (or `style="tex"`: `1.23 \times 10^{-45}`), `"{x:.2sci}"` / `"{x:.2tex}"` do the same inside strings, `{x:.3e}` is now C-style (`1.235e+05`, was `1.235e5`) with `E` added, and `sprintf` / `printf` are new (`%d %i %u %f %e %E %g %G %s %c %x %X %o %%`, flags, width, precision, `*`, C length modifiers, MATLAB-style recycling over vector arguments).
+- Plots: a figure whose data all lives below 1e-15 (a rate of 1e-45, a capacitance of 1e-20 F) is no longer treated as flat data: it used to collapse to a line on an axis padded to -1..1. The flat-data test is now relative to the data's size; heatmap and bubble-size scaling got the same fix.
+
+- New `diff_lines(a, b, [changed_only=])`: a line diff of two lists of strings (or two strings), returning records `{op, old, new, text}` with 1-based line numbers (it was missing: `diff` is numeric only and `pdf.text_diff` is PDF only).
+- `exec`: the documentation now lists `env=` and `timeout=` (both already worked); a timed-out `exec` no longer lets `taskkill`/`kill` print their own output onto the console.
+
 - Performance (measured in `docs/perf-0.4.9.md`, benchmarks in `benchmarks/perf-0.4.9/`): `inv` is now a blocked LU inverse when the matrix is clearly nonsingular (1000x1000: 1.25 s to 0.09 s; singular and borderline matrices still go through the SVD route and report exactly as before); `lu`, `det` and `solve` use a blocked LU on the SIMD matmul kernel (1000x1000: 2-2.4x faster); calling a user function no longer deep-copies the function's AST on every call (1.4x for a one-line function, 2x for a ~15-statement one, `quad` callbacks 4x); `sort`/`unique` of 65536+ values sort in parallel (1e7: 3-5x, results bit-identical); `filter_ba` with long coefficient vectors is about 2x faster (bit-identical); `M[i, j] = x` is about 1.4x faster; `read_npy` of float64 files is about 2.4x faster. Paired before/after numbers in `docs/perf-0.4.9.md`. Not fixed: `dict` is an association list (lookups and `set` are O(n)), sparse LU is ~6x slower than SuperLU, user-function calls are still ~0.5 us.
 
 ## [0.4.8] - 2026-10-06

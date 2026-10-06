@@ -349,9 +349,9 @@ fn kill(args: &[Value]) -> R<Value> {
 /// for later if it turns out to matter in practice on that platform.
 fn kill_tree(pid: u32) -> bool {
     let status = if cfg!(windows) {
-        Command::new("taskkill").arg("/PID").arg(pid.to_string()).arg("/T").arg("/F").status()
+        Command::new("taskkill").arg("/PID").arg(pid.to_string()).arg("/T").arg("/F").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status()
     } else {
-        Command::new("kill").arg("-9").arg(pid.to_string()).status()
+        Command::new("kill").arg("-9").arg(pid.to_string()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status()
     };
     status.map(|s| s.success()).unwrap_or(false)
 }
