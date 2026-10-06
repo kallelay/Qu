@@ -369,6 +369,7 @@ pub static BUILTIN_DOCS: &[BuiltinDoc] = &[
     BuiltinDoc { name: "exppdf", signature: "exppdf(x, [mu=1])", summary: "Exponential probability density with mean `mu`", chapter: "statistics-ml" },
     BuiltinDoc { name: "exprnd", signature: "exprnd(mu, [rows], [cols], [seed=])", summary: "Random draws from the exponential distribution", chapter: "statistics-ml" },
     BuiltinDoc { name: "expstat", signature: "expstat([mu=1])", summary: "Mean and variance of the exponential distribution with these parameters, as a result with fields `.mean` and `.var`", chapter: "statistics-ml" },
+    BuiltinDoc { name: "extend", signature: "extend(list, other)", summary: "Returns a NEW `List` holding `list`'s elements followed by `other`'s: it CONCATENATES, where `append(list, other)` NESTS `other` as one element (so `append([\"a\"], [\"b\",\"c\"])` has length 2..", chapter: "collections-strings" },
     BuiltinDoc { name: "eye", signature: "eye(n)", summary: "The `n×n` identity matrix (ones on the diagonal, zeros elsewhere)", chapter: "core-math" },
     BuiltinDoc { name: "f1", signature: "f1(actual, predicted)", summary: "Classification metrics on a length-`N` vector of true labels `actual` and a length-`N` vector of predicted labels `predicted`, each returning a single number macro-averaged over every class..", chapter: "statistics-ml" },
     BuiltinDoc { name: "fall_time", signature: "rise_time(x, [low=0.1], [high=0.9], [base=], [top=])", summary: "Returns a single number: the transition time of the first complete rising (resp", chapter: "signal-processing" },

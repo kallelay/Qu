@@ -788,6 +788,9 @@ fn numbered_path(path: &str, n: usize) -> String {
 /// flag keeps its exact prior behavior (checked by the existing
 /// `cmd_run`/acceptance tests), so nothing changes for non-Studio callers.
 fn cmd_run(args: &[String]) -> Result<(), String> {
+    if args.iter().any(|a| a == "--watch") {
+        return watch_run(args);
+    }
     let mut path: Option<&str> = None;
     let mut emit_figure: Option<&str> = None;
     let mut emit_vars: Option<&str> = None;
@@ -795,6 +798,7 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
     let mut max_time: Option<f64> = None;
     let mut max_memory: Option<u64> = None;
     let mut sandbox = false;
+    let mut dry_run = false;
     let mut profile = false;
     let mut profile_output: Option<&str> = None;
     let mut report_path: Option<&str> = None;
@@ -852,6 +856,7 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
                 );
             }
             "--sandbox" => sandbox = true,
+            "--dry-run" => dry_run = true,
             "--profile" => profile = true,
             "--profile-output" => {
                 i += 1;
@@ -914,6 +919,9 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
 
     let mut it = qu_interp::Interp::new();
     it.script_args = script_args;
+    if dry_run {
+        it.set_dry_run(true);
+    }
     if sandbox {
         it.set_sandboxed(true);
     }
@@ -924,7 +932,10 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
     // one mode that still collects everything and prints it at the end.
     let streaming = report_path.is_none();
     if streaming {
-        stream_stdout(&mut it, live);
+        // With --max-time the run can be killed from another thread, which
+        // cannot reach this interpreter's buffer: stream unbuffered so the
+        // last lines are not lost with the kill (feedback item 17).
+        stream_stdout(&mut it, live || max_time.is_some());
         // `write_report` reports everything printed so far, which streaming
         // would otherwise have handed on and forgotten.
         it.keep_transcript = src.contains("write_report");
@@ -2206,6 +2217,67 @@ fn run_traced(it: &mut qu_interp::Interp, src: &str, file: &str) -> Result<(), S
                 Some(trace) => format!("{msg}\n{trace}"),
                 None => msg,
             })
+        }
+    }
+}
+
+/// `qu run --watch <file.qu> [flags]` -- run the script, then run it again
+/// every time the file is saved (feedback item 18: a script had to be
+/// restarted by hand after each edit). Each run is a child `qu run` with the
+/// same arguments minus `--watch`; a run still going when the file changes
+/// is stopped and restarted. Only the script file itself is watched, not the
+/// files it imports. Stops on Ctrl-C.
+fn watch_run(args: &[String]) -> Result<(), String> {
+    let rest: Vec<String> = args.iter().filter(|a| a.as_str() != "--watch").cloned().collect();
+    // the script is the first argument that is not a flag or a flag's value
+    let value_flags = [
+        "--emit-figure", "--emit-vars", "--emit-data", "--max-time", "--max-memory",
+        "--profile-output", "--report", "--emit-ui", "--ui-values",
+    ];
+    let mut script: Option<&String> = None;
+    let mut skip = false;
+    for a in &rest {
+        if skip {
+            skip = false;
+        } else if value_flags.contains(&a.as_str()) {
+            skip = true;
+        } else if !a.starts_with("--") && script.is_none() {
+            script = Some(a);
+        }
+    }
+    let script = script.ok_or("qu run --watch needs a script file")?.clone();
+    let exe = std::env::current_exe().map_err(|e| format!("cannot find the qu executable: {e}"))?;
+    let stamp = |p: &str| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    let mut last = stamp(&script);
+    if last.is_none() {
+        return Err(format!("cannot read {script}"));
+    }
+    loop {
+        eprintln!("--- qu: running {script} (watching for changes, Ctrl-C to stop)");
+        let mut child = std::process::Command::new(&exe)
+            .arg("run")
+            .args(&rest)
+            .spawn()
+            .map_err(|e| format!("cannot start a run: {e}"))?;
+        let mut finished = false;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            let now = stamp(&script);
+            if now != last {
+                last = now;
+                if !finished {
+                    let _ = child.kill();
+                }
+                let _ = child.wait();
+                eprintln!("--- qu: {script} changed");
+                break;
+            }
+            if !finished {
+                if let Ok(Some(status)) = child.try_wait() {
+                    finished = true;
+                    eprintln!("--- qu: finished ({status}); waiting for changes");
+                }
+            }
         }
     }
 }

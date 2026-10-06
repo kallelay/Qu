@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+- From Ahmed's feedback file: `xs[i] = v` assigns a list element; `extend(list, other)` concatenates lists (`append` nests); `for row in table` iterates rows as records (so `for o in parse_json(...)` works on a JSON array of objects); `r"""..."""` is a raw string that can contain quotes and braces; `e.file` and `e.trace` in a `catch`; `qu run --watch` re-runs on save; `qu run --dry-run` skips file-writing calls; `--max-time` runs now stream output unbuffered so the last lines survive the kill.
+
 ## [0.4.7] - 2026-10-06
 
 New: numerical integration and ODE solvers (`trapz`, `cumtrapz`, `simpson`, `quad`, `ode45`, `ode23`, `ode_stiff`, `rk4`), `import sparse`, NumPy and HDF5 readers, `qu test` and `qu fmt`, runtime errors with file:line and call chain, `pdf.images`/`extract_image`/`to_html`, and the second Office wave (xlsx sheet operations, pptx charts and shapes, docx editing).

@@ -50,3 +50,32 @@ fn a_caught_error_does_not_leave_a_stale_location_on_a_later_one() {
     assert!(text.contains("stale.qu:9"), "{text}");
     assert!(!text.contains("in f()"), "stale frame leaked: {text}");
 }
+
+#[test]
+fn a_caught_error_carries_file_and_trace() {
+    let src = "function f()\n  return sqrt(\"abc\")\nend\n\
+               try\n  f()\ncatch e\n  print(e.file)\n  print(e.trace)\nend\n";
+    let (code, text) = run_script("caught.qu", src);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("caught.qu"), "{text}");
+    assert!(text.contains("in f()"), "{text}");
+}
+
+#[test]
+fn dry_run_skips_file_writes_and_says_so() {
+    let dir = std::env::temp_dir().join(format!("qu_dryrun_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let target = dir.join("out.txt").to_string_lossy().replace('\\', "/");
+    let script = dir.join("w.qu");
+    std::fs::write(&script, format!("write_text(\"{target}\", \"hello\")\nprint(\"done\")\n")).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_qu"))
+        .args(["run", "--dry-run"])
+        .arg(&script)
+        .output()
+        .expect("spawn qu");
+    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert!(text.contains("dry-run: skipped write_text"), "{text}");
+    assert!(text.contains("done"), "{text}");
+    assert!(!std::path::Path::new(&target).exists(), "the file was written despite --dry-run");
+}

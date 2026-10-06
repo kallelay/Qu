@@ -604,3 +604,50 @@ real serial-port I/O.
   the interpreter's own builtin dispatch table.
 - **[The Specification](../language-reference/spec.md)** is the source of
   truth for anything this book and the spec ever disagree on.
+
+## Text with braces, quotes and backslashes
+
+An ordinary string treats `{...}` as interpolation, so JSON, CSS and JavaScript
+need one of these spellings:
+
+| You want | Write | Result |
+|---|---|---|
+| a literal `{` or `}` | `"config={{a:1}}"` | `config={a:1}` |
+| a backslash with no escape processing | `r"C:\temp\new"` | `C:\temp\new` |
+| text with braces AND double quotes (JSON, CSS) | `r"""[{"a":1},{"a":2}]"""` | the text exactly as written |
+| a double quote inside an ordinary string | `"say \"hi\""` | `say "hi"` |
+
+`r"..."` ends at the first `"`; `r"""..."""` (new in v0.4.8) ends at the next
+three quotes, so it can hold quotes, braces and backslashes. So
+`parse_json(r"""[{"a":1}]""")` works without escaping anything. (`r'...'` is not
+a raw string: after a variable `r`, `'` is the transpose.)
+
+## Where did my script fail?
+
+A runtime error from `qu run` names the file and line, the function it was in
+and every call up to the top level:
+
+```
+qu: runtime error: cannot apply a numeric operation to string
+  at nested.qu:2 in inner()
+  called from nested.qu:6 in outer()
+  called from nested.qu:8 (top level)
+```
+
+Inside `catch e`, `e.message` stays the bare message; `e.file` is the script,
+`e.line` the failing line, `e.stack` the function chain and `e.trace` the
+multi-line text above.
+
+`qu run --watch script.qu` runs the script again every time you save it (a run
+still going is stopped first; only the script file itself is watched, not the
+files it imports). `qu run --dry-run script.qu` runs it but skips every call
+that writes or deletes files (`write_text`, `write_csv`, `remove_file`, ...) and
+prints `dry-run: skipped write_text(path)` on stderr for each, so a script that
+publishes to a share can be rehearsed first. `--dry-run` does not stop
+processes or network calls; use `--sandbox` for those.
+
+## Lists
+
+`xs[i] = value` replaces one element of a list. `append(list, other)` adds
+`other` as ONE element (nesting); `extend(list, other)` adds its elements
+(concatenation). `for row in table` walks a table's rows as records.

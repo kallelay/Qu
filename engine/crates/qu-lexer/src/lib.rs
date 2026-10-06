@@ -302,6 +302,39 @@ pub fn lex(src: &str) -> Vec<Token> {
         // Only fires at a token boundary and only with the quote directly
         // after the `r`, so `rate` and `r = 1` still reach the identifier
         // branch below.
+        // `r"""..."""` -- a raw string that CAN contain `"` (and `{...}`, and
+        // backslashes): JSON, CSS and JS text, which `r"..."` cannot hold
+        // because it ends at the first `"`. Only fires on three quotes right
+        // after the `r`, so `r""` (empty raw string) is unchanged.
+        if c == 'r'
+            && lx.peek2() == Some('"')
+            && lx.peek3() == Some('"')
+            && lx.chars.get(lx.i + 3).map(|&(_, ch)| ch) == Some('"')
+        {
+            lx.bump(); // the `r`
+            lx.bump();
+            lx.bump();
+            lx.bump(); // the three opening quotes
+            let start = lx.byte_pos();
+            let mut end = start;
+            while let Some(ch) = lx.peek() {
+                if ch == '"' && lx.peek2() == Some('"') && lx.peek3() == Some('"') {
+                    end = lx.byte_pos();
+                    lx.bump();
+                    lx.bump();
+                    lx.bump();
+                    break;
+                }
+                lx.bump();
+                end = lx.byte_pos();
+            }
+            let tok = Tok::RawStr(lx.rest_str(start, end));
+            let span = lx.span(sb, sl, sc);
+            last_significant = Some(tok.clone());
+            out.push(Token { tok, span });
+            continue;
+        }
+
         if c == 'r' && lx.peek2() == Some('"') {
             lx.bump(); // the `r`
             let tok = lex_raw_string(&mut lx);
@@ -702,5 +735,22 @@ mod tests {
                 Tok::Eof,
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod triple_raw_tests {
+    use super::*;
+
+    #[test]
+    fn triple_quoted_raw_string_holds_quotes_and_braces() {
+        let toks: Vec<Tok> = lex("r\"\"\"{\"a\":1}\"\"\"").into_iter().map(|t| t.tok).collect();
+        assert_eq!(toks[0], Tok::RawStr("{\"a\":1}".into()));
+    }
+
+    #[test]
+    fn an_empty_raw_string_is_unchanged() {
+        let toks: Vec<Tok> = lex("r\"\"").into_iter().map(|t| t.tok).collect();
+        assert_eq!(toks[0], Tok::RawStr(String::new()));
     }
 }

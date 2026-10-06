@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1222 builtins, 1134 described.** The rest are
+**1223 builtins, 1135 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -333,6 +333,7 @@ program, and a misspelled call suggests the nearest match.
 | [`exppdf`](../fn/exppdf.html) | Exponential probability density with mean `mu` | [Statistics & ML](statistics-ml.md) |
 | [`exprnd`](../fn/exprnd.html) | Random draws from the exponential distribution | [Statistics & ML](statistics-ml.md) |
 | [`expstat`](../fn/expstat.html) | Mean and variance of the exponential distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
+| [`extend`](../fn/extend.html) | Returns a NEW `List` holding `list`'s elements followed by `other`'s: it CONCATENATES, where `append(list, other)` NESTS `other` as one element (so `append(["a"], ["b","c"])` has length 2.. | [Collections & strings](collections-strings.md) |
 | [`eye`](../fn/eye.html) | The `n×n` identity matrix (ones on the diagonal, zeros elsewhere) | [Core maths](core-math.md) |
 
 ## F

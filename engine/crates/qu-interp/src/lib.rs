@@ -4356,6 +4356,9 @@ pub struct Interp {
     /// Call-site line of each frame in `call_stack` (the line that was
     /// executing when that call was made), pushed/popped with it.
     call_lines: Vec<u32>,
+    /// The script file given to `set_script_path` (forward slashes), for
+    /// `e.file` and `e.trace` in a `catch`. Empty for `eval` and the REPL.
+    script_name: String,
     /// Where the first error out of a user-function call happened: its
     /// message, the failing line, and the `(function, call-site line)`
     /// frames outermost-first. Unlike `pending_error_stack` this is not
@@ -4430,6 +4433,8 @@ pub struct Interp {
     /// `check_sandbox`'s own doc comment for the exact v1 deny list and why
     /// it lives there rather than scattered across individual match arms.
     sandboxed: bool,
+    /// `qu run --dry-run`: file-writing builtins are reported and skipped.
+    dry_run: bool,
     /// `file_versioning(true)` / `QU_FILE_HISTORY=1`: keep a version of
     /// every file a builtin is about to overwrite -- see `file_history.rs`.
     file_history: bool,
@@ -6380,6 +6385,7 @@ impl Interp {
             call_stack: Vec::new(),
             pending_error_stack: None,
             call_lines: Vec::new(),
+            script_name: String::new(),
             last_error_site: None,
             current_line: 0,
             tape: Vec::new(),
@@ -6393,6 +6399,7 @@ impl Interp {
             next_llm_id: 0,
             index_len_stack: Vec::new(),
             sandboxed: false,
+            dry_run: false,
             file_history: file_history::enabled_from_env(),
             profiling: false,
             profile_stats: HashMap::new(),
@@ -6413,6 +6420,7 @@ impl Interp {
     /// meant and where it is. `eval` and the REPL never call this: with no
     /// file there is no directory but the working one.
     pub fn set_script_path(&mut self, path: &std::path::Path) {
+        self.script_name = path.to_string_lossy().replace('\\', "/");
         if let Some(dir) = path.parent() {
             let dir = if dir.as_os_str().is_empty() {
                 std::path::PathBuf::from(".")
@@ -6435,6 +6443,11 @@ impl Interp {
     ) {
         self.bundle_root = Some(root.to_path_buf());
         self.bundled_sources = sources;
+    }
+
+    /// `--dry-run`: skip (and report on stderr) every call that writes or deletes files.
+    pub fn set_dry_run(&mut self, on: bool) {
+        self.dry_run = on;
     }
 
     pub fn set_sandboxed(&mut self, on: bool) {
@@ -7797,6 +7810,7 @@ impl Interp {
                     if !has_catch {
                         return Err(err);
                     }
+                    let trace_text = self.error_trace(&err.msg, &self.script_name).unwrap_or_default();
                     let stack = self.pending_error_stack.take().unwrap_or_default();
                     self.last_error_site = None;
                     if let Some(name) = catch_var {
@@ -7807,6 +7821,8 @@ impl Interp {
                                 ("type".to_string(), Value::Str(classify_error_kind(&err.msg).to_string())),
                                 ("class".to_string(), Value::Str("error".to_string())),
                                 ("line".to_string(), Value::Num(self.current_line as f64)),
+                                ("file".to_string(), Value::Str(self.script_name.clone())),
+                                ("trace".to_string(), Value::Str(trace_text.clone())),
                                 (
                                     "stack".to_string(),
                                     Value::Str(if stack.is_empty() {
@@ -10913,6 +10929,7 @@ impl Interp {
             Some(Value::Mat(_)) => return self.exec_matrix_index_assign(name, indices, op, rhs),
             Some(Value::CVec(_)) => return self.exec_cvec_index_assign(name, indices, op, rhs),
             Some(Value::CMat(_)) => return self.exec_cmatrix_index_assign(name, indices, op, rhs),
+            Some(Value::List(_)) => return self.exec_list_index_assign(name, indices, op, rhs),
             Some(other) => {
                 return e(format!(
                     "cannot index-assign into `{name}` ({})",
@@ -11038,8 +11055,47 @@ impl Interp {
     }
 
     /// `Z[i] = c`, `Z[a:b] = zs`, `Z[mask] = zs` (and `op=` forms) on a
+    /// index-assign into `xs` (list)"). One position, plain `=` only: a list
+    /// holds any values, so a slice or `+=` has no single obvious meaning.
+    fn exec_list_index_assign(&mut self, name: &str, indices: &[Idx], op: &str, rhs: &Expr) -> R<()> {
+        if !op.is_empty() && op != "=" {
+            return e(format!("`{op}` is not supported on a list element -- write `{name}[i] = {name}[i] ...` instead"));
+        }
+        if indices.len() != 1 {
+            return e("a list takes one index: xs[i] = value");
+        }
+        let len = match self.var_get(name) {
+            Some(Value::List(xs)) => xs.len(),
+            _ => unreachable!("caller already checked Value::List"),
+        };
+        let positions = sel_to_vec(self.resolve_sel(&indices[0], len)?);
+        if positions.len() != 1 {
+            return e("a list element is assigned one position at a time: xs[i] = value");
+        }
+        let pos = positions[0];
+        let v = self.eval(rhs)?;
+        match self.var_take(name) {
+            Some(Value::List(mut arc)) => {
+                if pos >= arc.len() {
+                    let n = arc.len();
+                    self.var_set(name, Value::List(arc));
+                    return e(format!("index {} is out of range for a list of {n} elements", pos + 1));
+                }
+                Arc::make_mut(&mut arc)[pos] = v;
+                self.var_set(name, Value::List(arc));
+                Ok(())
+            }
+            Some(other) => {
+                self.var_set(name, other);
+                e(format!("`{name}` changed type while its element was being assigned"))
+            }
+            None => e(format!("`{name}` is not defined")),
+        }
+    }
+
     /// complex vector -- mirrors [`exec_index_assign`](Self::exec_index_assign)'s
     /// real-vector path but keeps values complex throughout.
+    /// `xs[i] = v` on a `List` (feedback item 16: it used to say "cannot
     fn exec_cvec_index_assign(
         &mut self,
         name: &str,
@@ -12142,6 +12198,9 @@ impl Interp {
             Value::Num(n) => Ok(ForIterable::Nums(vec![n])),
             Value::Signal(xs, _, _) => Ok(ForIterable::Nums(xs.to_vec())),
             Value::List(items) => Ok(ForIterable::Values(items.to_vec())),
+            // `for row in table` walks the rows as records (feedback item 14: a
+            // JSON array of objects parses to a Table, which could not be looped).
+            Value::Table(t) => Ok(ForIterable::Values((0..t.nrows()).map(|r| table_row_record(t.row_values(r))).collect())),
             v => e(format!("cannot iterate a {}", v.type_name())),
         }
     }
@@ -17235,6 +17294,29 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         // scattered across individual match arms below (this function is
         // actively being extended by other concurrent work; a one-line
         // guard at the top is the smallest possible footprint here).
+        //
+        // `qu run --dry-run` (feedback item 13): calls that WRITE or delete
+        // files are reported on stderr and skipped, so a script that
+        // publishes to a share can be rehearsed. Returns `none`. Reads, and
+        // everything that does not touch the filesystem, run normally.
+        if self.dry_run
+            && matches!(
+                f,
+                "write_text" | "append_text" | "append_all" | "write_csv" | "write_npy" | "write_npz"
+                    | "touch" | "remove_file" | "remove_dir" | "rename_file" | "move_file" | "copy_file"
+                    | "create_file" | "restore_version" | "codec::write_wav" | "pdf::write_merge"
+                    | "pdf::write_pages" | "docx::save_as" | "pptx::save_as" | "xlsx::save_as"
+            )
+        {
+            eprintln!(
+                "dry-run: skipped {f}({})",
+                args.first().map(display_value).unwrap_or_default()
+            );
+            // The skipped call never reads its arguments; without this the
+            // "N arguments given but F reads 0" check would fire.
+            mark_all_args_read();
+            return Ok(Value::Nothing);
+        }
         if self.sandboxed {
             self.check_sandbox(f, &args)?;
         }
@@ -21421,6 +21503,26 @@ self.eval_grad(loss, wrt)
             // `append(collection, value)` — returns a NEW list/vector with
             // `value` added at the end; the natural companion to
             // `insert`/`remove`, same immutable-return convention.
+            // `extend(list, other)` -- a NEW list: `list`'s elements followed by
+            // `other`'s (a list or a vector). `append(list, other)` NESTS `other`
+            // as one element; this CONCATENATES (feedback item 2).
+            "extend" => {
+                let base = match arg0(&args)? {
+                    Value::List(items) => items.as_ref().clone(),
+                    Value::Vec(xs) => xs.iter().map(|&x| Value::Num(x)).collect(),
+                    other => return e(format!("extend: expected a list or vector first, found {}", other.type_name())),
+                };
+                let more = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "extend(list, other) needs a second list or vector".into(),
+                })?;
+                let mut out = base;
+                match more {
+                    Value::List(items) => out.extend(items.iter().cloned()),
+                    Value::Vec(xs) => out.extend(xs.iter().map(|&x| Value::Num(x))),
+                    other => return e(format!("extend: expected a list or vector second, found {}", other.type_name())),
+                }
+                Ok(Value::List(Arc::new(out)))
+            }
             "append" => match arg0(&args)? {
                 Value::Vec(xs) => {
                     let v = arg_get(&args, 1).ok_or_else(|| EvalError {
@@ -45753,7 +45855,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
     "expcdf", "expfit", "expinv", "explain", "explore", "expm1", "exponential", "exppdf", "exprnd",
-    "expstat", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
+    "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
     "figure", "figure_background", "figure_size", "file_exists", "file_history", "file_info",
     "file_size", "file_versioning", "fill_between", "fill_missing", "filter", "filter_ba",
     "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
