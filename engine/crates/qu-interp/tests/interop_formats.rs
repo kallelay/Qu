@@ -1279,3 +1279,186 @@ fn mat_v73_truncated_is_an_error_not_a_panic() {
     }
     assert!(hdf5::read_mat_v73(&bytes[..600]).is_err());
 }
+
+// ======================================================= amplification caps
+//
+// Each file below is small but would, without the caps, make the reader
+// allocate or loop in proportion to a number the file merely *claims*.
+
+#[test]
+fn hdf5_vlen_strings_have_a_total_byte_cap() {
+    // 200 elements all pointing at one 2 MiB global-heap object: 400 MiB of
+    // strings from a ~2 MiB file.
+    let mut b = B::new(false);
+    let obj_len = 2usize << 20;
+    let mut objs = Vec::new();
+    p16(&mut objs, 1);
+    p16(&mut objs, 1);
+    p32(&mut objs, 0);
+    p64(&mut objs, obj_len as u64);
+    objs.extend_from_slice(&vec![b'x'; obj_len]);
+    pad8(&mut objs);
+    p16(&mut objs, 0);
+    pad8(&mut objs);
+    let mut g = b"GCOL".to_vec();
+    g.extend_from_slice(&[1, 0, 0, 0]);
+    p64(&mut g, (16 + objs.len()) as u64);
+    g.extend_from_slice(&objs);
+    let gaddr = b.put(&g);
+    let mut elems = Vec::new();
+    for _ in 0..200 {
+        p32(&mut elems, obj_len as u32);
+        p64(&mut elems, gaddr);
+        p32(&mut elems, 1);
+    }
+    let d = b.contiguous(dt_vlen_string(), &[200], &elems);
+    let root = b.group(&[("v", d)]);
+    let f = b.finish(root);
+    let t = std::time::Instant::now();
+    let e = h5(&f, "/v").unwrap_err();
+    assert!(e.contains("limit"), "{e}");
+    assert!(t.elapsed().as_secs() < 5);
+}
+
+#[test]
+fn hdf5_group_btree_cannot_reuse_one_symbol_node() {
+    let mut b = B::new(false);
+    let d = b.contiguous(dt_float(8, false), &[1], &f64s(&[1.0]));
+    let mut heap = vec![0u8; 8];
+    heap.extend_from_slice(b"d\0");
+    pad8(&mut heap);
+    let heap_data = b.put(&heap);
+    let mut hh = b"HEAP".to_vec();
+    hh.extend_from_slice(&[1, 0, 0, 0]);
+    p64(&mut hh, heap.len() as u64);
+    p64(&mut hh, 1);
+    p64(&mut hh, heap_data);
+    let heap_hdr = b.put(&hh);
+    let mut sn = b"SNOD".to_vec();
+    sn.extend_from_slice(&[1, 0]);
+    p16(&mut sn, 1);
+    p64(&mut sn, 8);
+    p64(&mut sn, d);
+    p32(&mut sn, 0);
+    p32(&mut sn, 0);
+    sn.extend_from_slice(&[0u8; 16]);
+    let snod = b.put(&sn);
+    // one leaf node whose 65535 children are all the same SNOD
+    let mut bt = b"TREE".to_vec();
+    bt.extend_from_slice(&[0, 0]);
+    p16(&mut bt, 65535);
+    p64(&mut bt, UNDEF);
+    p64(&mut bt, UNDEF);
+    p64(&mut bt, 0);
+    for _ in 0..65535 {
+        p64(&mut bt, snod);
+        p64(&mut bt, 8);
+    }
+    let btree = b.put(&bt);
+    let mut st = Vec::new();
+    p64(&mut st, btree);
+    p64(&mut st, heap_hdr);
+    let root = b.header(&[(0x11, st)]);
+    let f = b.finish(root);
+    let e = hdf5::h5info(&f).unwrap_err();
+    assert!(e.contains("one symbol table node"), "{e}");
+}
+
+#[test]
+fn hdf5_self_referencing_continuation_block_is_rejected() {
+    let mut b = B::new(false);
+    pad8(&mut b.buf);
+    let addr = b.buf.len() as u64;
+    let mut block = Vec::new();
+    for _ in 0..2 {
+        p16(&mut block, 0x10);
+        p16(&mut block, 16);
+        block.extend_from_slice(&[0, 0, 0, 0]);
+        p64(&mut block, addr);
+        p64(&mut block, 48);
+    }
+    assert_eq!(block.len(), 48);
+    b.put(&block);
+    let mut cont = Vec::new();
+    p64(&mut cont, addr);
+    p64(&mut cont, 48);
+    let d = b.header(&[(0x10, cont)]);
+    let root = b.group(&[("d", d)]);
+    let f = b.finish(root);
+    let e = hdf5::h5info(&f).unwrap_err();
+    assert!(e.contains("cycle or repeat"), "{e}");
+}
+
+#[test]
+fn hdf5_chunk_index_sharing_one_address_hits_the_decoded_byte_budget() {
+    // 64 MiB dataset in 512 KiB chunks; the index lists 4400 chunks (2.2 GiB
+    // of decoded data) that all share a single 512 KiB block.
+    let mut b = B::new(false);
+    let chunk_elems = 65536usize;
+    let shared = b.put(&vec![0u8; chunk_elems * 8]);
+    let n_chunks = 128usize;
+    let mut bt = b"TREE".to_vec();
+    bt.extend_from_slice(&[1, 0]);
+    p16(&mut bt, 4400);
+    p64(&mut bt, UNDEF);
+    p64(&mut bt, UNDEF);
+    for i in 0..4400usize {
+        p32(&mut bt, (chunk_elems * 8) as u32);
+        p32(&mut bt, 0);
+        p64(&mut bt, ((i % n_chunks) * chunk_elems) as u64);
+        p64(&mut bt, 0);
+        p64(&mut bt, shared);
+    }
+    p32(&mut bt, 0);
+    p32(&mut bt, 0);
+    p64(&mut bt, 0);
+    p64(&mut bt, 0);
+    let btree = b.put(&bt);
+    let d = b.dataset(
+        dt_float(8, false),
+        &[(n_chunks * chunk_elems) as u64],
+        layout_chunked(btree, &[chunk_elems as u32], 8),
+        vec![],
+    );
+    let root = b.group(&[("d", d)]);
+    let f = b.finish(root);
+    let t = std::time::Instant::now();
+    let e = h5(&f, "/d").unwrap_err();
+    assert!(e.contains("repeated or overlapping"), "{e}");
+    assert!(t.elapsed().as_secs() < 10);
+}
+
+#[test]
+fn npz_total_size_and_entry_count_are_capped() {
+    let member = npy_file(1, "<f8", false, "(1,)", &1.0f64.to_le_bytes());
+    // three members each claiming ~1 GiB: individually allowed, 3 GiB total
+    let one = zip_one("a.npy", &member, 8, 0, 1 << 30);
+    let entry_len = 46 + "a.npy".len();
+    let cd_at = one.len() - 22 - entry_len;
+    let mut z = Vec::new();
+    z.extend_from_slice(&one[..cd_at]);
+    let entry = &one[cd_at..one.len() - 22];
+    for _ in 0..3 {
+        z.extend_from_slice(entry);
+    }
+    let cd_size = (entry.len() * 3) as u32;
+    z.extend_from_slice(b"PK\x05\x06");
+    z.extend_from_slice(&[0, 0, 0, 0, 3, 0, 3, 0]);
+    z.extend_from_slice(&cd_size.to_le_bytes());
+    z.extend_from_slice(&(cd_at as u32).to_le_bytes());
+    z.extend_from_slice(&0u16.to_le_bytes());
+    let e = npy::read_npz(&z).unwrap_err();
+    assert!(e.contains("total limit"), "{e}");
+
+    // 5000 entries claimed, directory big enough to hold them
+    let mut z = vec![0u8; 5000 * 46];
+    z.extend_from_slice(b"PK\x05\x06");
+    z.extend_from_slice(&[0, 0, 0, 0]);
+    z.extend_from_slice(&5000u16.to_le_bytes());
+    z.extend_from_slice(&5000u16.to_le_bytes());
+    z.extend_from_slice(&((5000 * 46) as u32).to_le_bytes());
+    z.extend_from_slice(&0u32.to_le_bytes());
+    z.extend_from_slice(&0u16.to_le_bytes());
+    let e = npy::read_npz(&z).unwrap_err();
+    assert!(e.contains("limit is"), "{e}");
+}

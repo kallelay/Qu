@@ -788,7 +788,7 @@ fn numbered_path(path: &str, n: usize) -> String {
 /// flag keeps its exact prior behavior (checked by the existing
 /// `cmd_run`/acceptance tests), so nothing changes for non-Studio callers.
 fn cmd_run(args: &[String]) -> Result<(), String> {
-    if args.iter().any(|a| a == "--watch") {
+    if args.iter().take_while(|a| a.as_str() != "--").any(|a| a == "--watch") {
         return watch_run(args);
     }
     let mut path: Option<&str> = None;
@@ -1881,12 +1881,28 @@ fn cmd_kernel() -> Result<(), String> {
         match op {
             "run" => {
                 let code = req.get("code").and_then(|v| v.as_str()).unwrap_or("");
+                // An optional `file` names the script the cell/buffer came
+                // from, so a trace reads `script.qu:12` rather than `line 12`.
+                let file = req.get("file").and_then(|v| v.as_str()).unwrap_or("");
                 let before = it.out.len();
                 let run_result = it.run(code);
                 let output = it.out[before..].to_string();
                 let (success, error) = match &run_result {
                     Ok(()) => (true, None),
-                    Err(e) => (false, Some(e.to_string())),
+                    // Qu Studio's terminal and the Jupyter kernel report this
+                    // string as the error: it used to be the bare message, so a
+                    // failure in a 40-line function named no line or function
+                    // (feedback items 9 and 19).
+                    Err(e) => {
+                        let msg = e.to_string();
+                        (
+                            false,
+                            Some(match it.error_trace(&e.msg, file) {
+                                Some(trace) => format!("{msg}\n{trace}"),
+                                None => msg,
+                            }),
+                        )
+                    }
                 };
                 write_kernel_response(&stdout, &kernel_run_response(&it, success, output, error));
             }
@@ -1988,6 +2004,8 @@ fn print_help() {
          run <file.qu> [--max-time <s>] [--max-memory <MB>]   hard resource caps; kills the\n  \
                            process with a clear message identifying which limit was hit\n  \
          run <file.qu> --sandbox   deny network/process/file-write builtins at call time\n  \
+         run <file.qu> --dry-run   run, but skip (and report) calls that write or delete files\n  \
+         run <file.qu> --watch   run again every time the script file is saved\n  \
          run <file.qu> --profile [--profile-output <path>]   per-function time + peak RSS report\n  \
          run <file.qu> --report <path.html>   additive: also write a self-contained HTML report\n  \
                            (source + captured output + any figure, retro window-chrome styled)\n  \
@@ -2212,6 +2230,14 @@ fn run_traced(it: &mut qu_interp::Interp, src: &str, file: &str) -> Result<(), S
     match it.run(src) {
         Ok(()) => Ok(()),
         Err(e) => {
+            // A syntax error is not a runtime error and should name the file:
+            // `parse error at 3:1: ...` becomes `file.qu:3:1: parse error: ...`.
+            if let Some(rest) = e.msg.strip_prefix("parse error at ") {
+                if let Some((pos, what)) = rest.split_once(": ") {
+                    let at = if file.is_empty() { pos.to_string() } else { format!("{file}:{pos}") };
+                    return Err(format!("parse error at {at}: {what}"));
+                }
+            }
             let msg = e.to_string();
             Err(match it.error_trace(&e.msg, file) {
                 Some(trace) => format!("{msg}\n{trace}"),
@@ -2228,7 +2254,9 @@ fn run_traced(it: &mut qu_interp::Interp, src: &str, file: &str) -> Result<(), S
 /// is stopped and restarted. Only the script file itself is watched, not the
 /// files it imports. Stops on Ctrl-C.
 fn watch_run(args: &[String]) -> Result<(), String> {
-    let rest: Vec<String> = args.iter().filter(|a| a.as_str() != "--watch").cloned().collect();
+    // `--watch` is only a flag before a bare `--`; after it the arguments belong to the script
+    let dd = args.iter().position(|a| a == "--").unwrap_or(args.len());
+    let rest: Vec<String> = args.iter().enumerate().filter(|(i, a)| *i >= dd || a.as_str() != "--watch").map(|(_, a)| a.clone()).collect();
     // the script is the first argument that is not a flag or a flag's value
     let value_flags = [
         "--emit-figure", "--emit-vars", "--emit-data", "--max-time", "--max-memory",
@@ -2263,7 +2291,9 @@ fn watch_run(args: &[String]) -> Result<(), String> {
         loop {
             std::thread::sleep(std::time::Duration::from_millis(250));
             let now = stamp(&script);
-            if now != last {
+            // `None` is the instant an editor's atomic save (delete, then rename)
+            // has removed the file: not a change, wait for it to come back.
+            if now.is_some() && now != last {
                 last = now;
                 if !finished {
                     let _ = child.kill();

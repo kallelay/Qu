@@ -79,3 +79,40 @@ fn dry_run_skips_file_writes_and_says_so() {
     assert!(text.contains("done"), "{text}");
     assert!(!std::path::Path::new(&target).exists(), "the file was written despite --dry-run");
 }
+
+/// `qu kernel` is what Qu Studio's terminal and the Jupyter kernel talk to:
+/// its `error` string used to be the bare message (feedback item 19).
+#[test]
+fn the_kernel_run_op_reports_the_error_with_its_location() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::process::Stdio;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_qu"))
+        .arg("kernel")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn qu kernel");
+    let mut stdin = child.stdin.take().unwrap();
+    let mut out = BufReader::new(child.stdout.take().unwrap());
+    let code = "function f()\n  return sqrt(\"abc\")\nend\nx = f()\n";
+    let req = serde_json::json!({"op": "run", "code": code, "file": "cell.qu"});
+    writeln!(stdin, "{req}").unwrap();
+    stdin.flush().unwrap();
+    let mut line = String::new();
+    out.read_line(&mut line).unwrap();
+    drop(stdin);
+    let _ = child.wait();
+    let resp: serde_json::Value = serde_json::from_str(line.trim()).expect(&line);
+    assert_eq!(resp["success"], false, "{line}");
+    let err = resp["error"].as_str().unwrap_or("");
+    assert!(err.contains("cell.qu:2 in f()"), "{err}");
+    assert!(err.contains("cell.qu:4 (top level)"), "{err}");
+}
+
+#[test]
+fn a_syntax_error_is_labelled_a_parse_error_and_names_the_file() {
+    let (code, text) = run_script("bad.qu", "x = 1\ny = (2 +\n");
+    assert_eq!(code, 1, "{text}");
+    assert!(text.contains("parse error at") && text.contains("bad.qu:"), "{text}");
+    assert!(!text.contains("runtime error: parse error"), "{text}");
+}

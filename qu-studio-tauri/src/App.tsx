@@ -1228,7 +1228,11 @@ function App() {
           elapsed_ms: elapsed,
         });
         setLastError(response.error);
-        addTerminalLine(`❌ Error: ${response.error}`, 'error');
+        // The error now carries its location (`  at file:LINE in f()` /
+        // `  called from ...` lines): one terminal line each, so the trace
+        // keeps its shape instead of collapsing into one wrapped line.
+        const errorLines = String(response.error).split(/\r?\n/).filter((l) => l.trim() !== '');
+        errorLines.forEach((l, i) => addTerminalLine(i === 0 ? `❌ Error: ${l}` : l, 'error'));
       } else {
         setExecutionState({ 
           isRunning: false, 

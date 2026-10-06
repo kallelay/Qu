@@ -757,13 +757,37 @@ fn num_field(m: &ModelHandle, k: &str) -> usize {
 
 fn csr_arg(args: &[Value], idx: usize, f: &str) -> R<Csr> {
     match arg_get(args, idx) {
-        Some(Value::Model(m)) if m.kind == "sparse" => Ok(Csr {
-            m: num_field(m, "rows"),
-            n: num_field(m, "cols"),
-            indptr: vec_field(m, "indptr").into_iter().map(|x| x as usize).collect(),
-            indices: vec_field(m, "indices").into_iter().map(|x| x as usize).collect(),
-            data: vec_field(m, "data"),
-        }),
+        Some(Value::Model(m)) if m.kind == "sparse" => {
+            // A Model of this kind can come from anywhere (a forged or
+            // corrupted one included), and every kernel indexes by these
+            // arrays unchecked, so validate before trusting them.
+            let (rows, cols) = (num_field(m, "rows"), num_field(m, "cols"));
+            let (ip, ix, data) = (vec_field(m, "indptr"), vec_field(m, "indices"), vec_field(m, "data"));
+            let bad = |what: &str| e(format!("{f}: argument {} is a malformed sparse matrix ({what})", idx + 1));
+            let whole = |x: &f64| x.is_finite() && *x >= 0.0 && x.fract() == 0.0;
+            if ip.len() != rows.saturating_add(1) {
+                return bad("indptr length is not rows + 1");
+            }
+            if !ip.iter().all(whole) || !ix.iter().all(whole) {
+                return bad("indptr/indices must be non-negative integers");
+            }
+            if ip[0] != 0.0 || ip.windows(2).any(|w| w[0] > w[1]) {
+                return bad("indptr must start at 0 and never decrease");
+            }
+            if ip[rows] as usize != ix.len() || ix.len() != data.len() {
+                return bad("indptr's last entry, indices and data disagree in length");
+            }
+            if ix.iter().any(|&c| c as usize >= cols) {
+                return bad("a column index is out of range");
+            }
+            Ok(Csr {
+                m: rows,
+                n: cols,
+                indptr: ip.into_iter().map(|x| x as usize).collect(),
+                indices: ix.into_iter().map(|x| x as usize).collect(),
+                data,
+            })
+        }
         Some(other) => e(format!("{f}: argument {} must be a sparse matrix (from sparse.from_triplets, sparse.from_dense, ...), found {}", idx + 1, other.type_name())),
         None => e(format!("{f}: missing argument {} (a sparse matrix)", idx + 1)),
     }
@@ -1143,5 +1167,37 @@ mod tests {
         let a = Csr::from_triplets(2, 2, &[0, 1], &[1, 0], &[1.0, 1.0]).unwrap();
         let x = lu_factor(&a).unwrap().solve(&[3.0, 5.0]);
         assert!((x[0] - 5.0).abs() < 1e-12 && (x[1] - 3.0).abs() < 1e-12);
+    }
+
+    /// A forged `sparse` Model must be refused, not indexed out of bounds.
+    #[test]
+    fn forged_sparse_models_are_rejected_not_panicked_on() {
+        let forge = |rows: f64, cols: f64, ip: Vec<f64>, ix: Vec<f64>, d: Vec<f64>| {
+            let v = |x: Vec<f64>| Value::Vec(Arc::new(x));
+            Value::Model(Arc::new(ModelHandle::new(
+                "sparse",
+                vec![
+                    ("rows".into(), Value::Num(rows)),
+                    ("cols".into(), Value::Num(cols)),
+                    ("indptr".into(), v(ip)),
+                    ("indices".into(), v(ix)),
+                    ("data".into(), v(d)),
+                ],
+            )))
+        };
+        let ok = forge(2.0, 2.0, vec![0.0, 1.0, 2.0], vec![1.0, 0.0], vec![1.0, 1.0]);
+        assert!(csr_arg(&[ok], 0, "t").is_ok());
+        let cases = [
+            forge(2.0, 2.0, vec![0.0, 5.0, 2.0], vec![1.0, 0.0], vec![1.0, 1.0]), // decreasing
+            forge(2.0, 2.0, vec![0.0, 1.0, 9.0], vec![1.0, 0.0], vec![1.0, 1.0]), // past nnz
+            forge(2.0, 2.0, vec![0.0, 1.0], vec![1.0, 0.0], vec![1.0, 1.0]),      // short indptr
+            forge(2.0, 2.0, vec![0.0, 1.0, 2.0], vec![1.0, 7.0], vec![1.0, 1.0]), // column out of range
+            forge(1e18, 2.0, vec![0.0, 1.0, 2.0], vec![1.0, 0.0], vec![1.0, 1.0]), // huge rows
+            forge(2.0, 2.0, vec![0.0, 1.0, 2.0], vec![1.0, 0.0], vec![1.0]),      // data too short
+            forge(2.0, 2.0, vec![0.0, 1.0, 2.0], vec![-1.0, 0.0], vec![1.0, 1.0]), // negative index
+        ];
+        for (i, c) in cases.into_iter().enumerate() {
+            assert!(csr_arg(&[c], 0, "t").is_err(), "forged case {i} was accepted");
+        }
     }
 }

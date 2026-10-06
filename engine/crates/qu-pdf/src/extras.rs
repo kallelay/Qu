@@ -531,7 +531,7 @@ fn resolve_cs(doc: &Document, o: &Object, depth: usize) -> Result<Cs, String> {
                     let hival = a.get(2).and_then(|h| deref(doc, h).as_i64().ok()).ok_or("Indexed colour space without hival")?;
                     let lookup: Vec<u8> = match a.get(3).map(|l| deref(doc, l)) {
                         Some(Object::String(b, _)) => b.clone(),
-                        Some(Object::Stream(s)) => s.decompressed_content().map_err(|e| e.to_string())?,
+                        Some(Object::Stream(s)) => s.decompressed_content_with_limit(MAX_LOOKUP_BYTES).map_err(|e| e.to_string())?,
                         _ => return Err("Indexed colour space without a lookup table".into()),
                     };
                     let n = match base {
@@ -624,8 +624,8 @@ pub fn extract_image(bytes: &[u8], page: u32, index: usize) -> Result<ExtractedI
         return Err(format!("extract_image: image {name} is {w}x{h}, too large to decode"));
     }
     let data = s
-        .decompressed_content()
-        .map_err(|e| format!("extract_image: image {name}: cannot decode its stream: {e}"))?;
+        .decompressed_content_with_limit(MAX_IMAGE_BYTES)
+        .map_err(|e| format!("extract_image: image {name}: cannot decode its stream (limit {} MiB): {e}", MAX_IMAGE_BYTES >> 20))?;
     let is_mask = matches!(s.dict.get(b"ImageMask").map(|o| deref(&doc, o)), Ok(Object::Boolean(true)));
     let bits = if is_mask { 1 } else { int_key(&doc, &s.dict, b"BitsPerComponent").unwrap_or(8) as usize };
     let decode: Vec<f64> = s
@@ -716,9 +716,23 @@ pub(crate) fn crc32(data: &[u8]) -> u32 {
     !c
 }
 
+/// Largest decompressed image stream `extract_image` will decode.
+pub const MAX_IMAGE_BYTES: usize = 1 << 30;
+/// Largest decompressed Indexed-colour lookup table (the spec's maximum is 768 bytes).
+const MAX_LOOKUP_BYTES: usize = 1 << 20;
+/// Largest raw RGB buffer `to_html` will re-encode as an inline PNG.
+pub const MAX_INLINE_PNG_RGB_BYTES: usize = 64 << 20;
+
 /// An RGB8 PNG, zlib-compressed.
 fn png_bytes(w: usize, h: usize, rgb: &[u8]) -> Result<Vec<u8>, String> {
     use std::io::Write;
+    if rgb.len() > MAX_INLINE_PNG_RGB_BYTES {
+        return Err(format!(
+            "image is {} bytes raw; only images up to {} MiB are inlined",
+            rgb.len(),
+            MAX_INLINE_PNG_RGB_BYTES >> 20
+        ));
+    }
     let mut raw = Vec::with_capacity((w * 3 + 1) * h);
     for row in rgb.chunks(w * 3) {
         raw.push(0);
@@ -789,11 +803,14 @@ pub fn to_html(bytes: &[u8], pages: Option<&[u32]>, with_images: bool) -> Result
                         info.index,
                         base64(&j)
                     )),
-                    Ok(ExtractedImage::Rgb { width, height, rgb }) => html.push_str(&format!(
-                        "<img alt=\"{alt}\" data-index=\"{}\" src=\"data:image/png;base64,{}\">\n",
-                        info.index,
-                        base64(&png_bytes(width, height, &rgb)?)
-                    )),
+                    Ok(ExtractedImage::Rgb { width, height, rgb }) => match png_bytes(width, height, &rgb) {
+                        Ok(png) => html.push_str(&format!(
+                            "<img alt=\"{alt}\" data-index=\"{}\" src=\"data:image/png;base64,{}\">\n",
+                            info.index,
+                            base64(&png)
+                        )),
+                        Err(e) => html.push_str(&format!("<!-- image {} skipped: {} -->\n", info.index, esc(&e.replace("--", "- -")))),
+                    },
                     Err(e) => html.push_str(&format!("<!-- image {} skipped: {} -->\n", info.index, esc(&e.replace("--", "- -")))),
                 }
             }

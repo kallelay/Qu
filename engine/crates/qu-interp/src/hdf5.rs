@@ -45,6 +45,8 @@ pub const MAX_DATA_BYTES: usize = 1 << 30;
 const MAX_OBJECTS: usize = 100_000;
 const MAX_DEPTH: usize = 64;
 const MAX_NODES: usize = 1_000_000;
+/// Largest total of decoded variable-length string bytes in one dataset.
+const MAX_TEXT_BYTES: usize = 256 << 20;
 const MAX_RANK: usize = 32;
 const MAX_NAME: usize = 4096;
 
@@ -310,6 +312,7 @@ impl<'a> Hdf5<'a> {
             let end = start.checked_add(hsize).filter(|&e| e <= self.b.len()).ok_or("object header runs past the end of the file")?;
             queue.push((start, end));
         }
+        let mut seen_blocks: HashSet<usize> = HashSet::new();
         let mut chunks = 0usize;
         while let Some((start, end)) = queue.pop() {
             chunks += 1;
@@ -331,6 +334,9 @@ impl<'a> Hdf5<'a> {
                     // continuation: offset, length
                     let off = self.addr(le(data, 0, self.so)?)?.ok_or("continuation block has an undefined address")?;
                     let len = le(data, self.so, self.sl)? as usize;
+                    if !seen_blocks.insert(off) {
+                        return Err("object header continuation blocks form a cycle or repeat".into());
+                    }
                     let cend = off.checked_add(len).filter(|&e| e <= self.b.len()).ok_or("continuation block runs past the end of the file")?;
                     if v2 {
                         if self.rd(off, 4)? != b"OCHK" {
@@ -457,10 +463,15 @@ impl<'a> Hdf5<'a> {
 
         let mut stack = vec![(btree, 0usize)];
         let mut nodes = 0usize;
+        let mut seen_nodes: HashSet<usize> = HashSet::new();
+        let mut seen_snods: HashSet<usize> = HashSet::new();
         while let Some((node, depth)) = stack.pop() {
             nodes += 1;
             if nodes > MAX_NODES || depth > MAX_DEPTH {
                 return Err("group B-tree is too deep or cyclic".into());
+            }
+            if !seen_nodes.insert(node) {
+                return Err("group B-tree revisits a node (cycle or shared node)".into());
             }
             if self.rd(node, 4)? != b"TREE" {
                 return Err("bad group B-tree node signature".into());
@@ -478,6 +489,9 @@ impl<'a> Hdf5<'a> {
                 if level > 0 {
                     stack.push((child, depth + 1));
                 } else {
+                    if !seen_snods.insert(child) {
+                        return Err("group B-tree points several entries at one symbol table node".into());
+                    }
                     self.snod(child, hbytes, out)?;
                 }
             }
@@ -490,6 +504,9 @@ impl<'a> Hdf5<'a> {
             return Err("bad symbol table node signature".into());
         }
         let n = self.uint(at + 6, 2)? as usize;
+        if out.len().saturating_add(n) > MAX_OBJECTS {
+            return Err("group has too many members to list".into());
+        }
         let esz = 2 * self.so + 8 + 16;
         for i in 0..n {
             let e = at + 8 + i * esz;
@@ -867,7 +884,14 @@ impl<'a> Hdf5<'a> {
                 }
                 let mut chunks = Vec::new();
                 self.chunk_btree(*btree, rank, &mut chunks)?;
+                let mut budget = 0usize;
                 for (offs, size, mask, addr) in chunks {
+                    // Total decoded bytes over all chunks: entries may share
+                    // one address, so count every placement, not every file byte.
+                    budget = budget.saturating_add(cbytes);
+                    if budget > 2 * MAX_DATA_BYTES {
+                        return Err("chunk index asks for more decompressed data than the limit allows (repeated or overlapping chunks)".into());
+                    }
                     let raw = self.rd(addr, size)?;
                     let data = self.unfilter(raw, &ds.filters, mask, cbytes, elem)?;
                     place_chunk(&mut out, &ds.shape, &cdims, &offs, &data, elem)?;
@@ -984,6 +1008,7 @@ impl<'a> Hdf5<'a> {
         match &ds.ty {
             H5Type::VlenStr => {
                 let mut heaps: HashMap<usize, HashMap<u16, (usize, usize)>> = HashMap::new();
+                let mut total_text = 0usize;
                 let mut out = Vec::with_capacity(n);
                 for i in 0..n {
                     let e = &raw[i * elem..(i + 1) * elem];
@@ -1006,6 +1031,13 @@ impl<'a> Hdf5<'a> {
                         .get(&idx)
                         .ok_or("variable-length string refers to a missing global heap object")?;
                     let size = size.min(len);
+                    total_text = total_text.saturating_add(size);
+                    if total_text > MAX_TEXT_BYTES {
+                        return Err(format!(
+                            "variable-length strings total more than the {} MiB limit",
+                            MAX_TEXT_BYTES >> 20
+                        ));
+                    }
                     out.push(String::from_utf8_lossy(&self.b[start..start + size]).into_owned());
                 }
                 Ok(H5Value::Text { shape: ds.shape, data: out })

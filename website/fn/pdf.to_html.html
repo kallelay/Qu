@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf.to_html — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pdf.to_html</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>pdf.to_html(src, [pages], [page=], [images=false])</code></pre>
+<p class="fnnote">Input: src, pages, page, images &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>A simple HTML fragment for the pages asked for (default all): one <code>&lt;section class="page" data-page="N"&gt;</code> per page holding one <code>&lt;p&gt;</code> per paragraph, text escaped (<code>&amp;</code> <code>&lt;</code> <code>&gt;</code>). A new paragraph starts where the gap between two lines exceeds 1.6 times the font size; a paragraph's lines are joined with spaces and line-end hyphenation is repaired (as <code>normalize=true</code>). <strong>Layout and fonts are not reproduced</strong>: no sizes, colours, columns, tables, links or positions, and no headings are recognised -- it is the recovered text in page order (the same limits as <code>pdf.extract_text(lines=true)</code> apply, including the error for a page whose lines cannot be recovered). With <code>images=true</code> each page's images follow its text as <code>&lt;img&gt;</code> data URIs (JPEG kept as stored, other images re-encoded as PNG; an image that cannot be decoded becomes an HTML comment naming why); their position on the page is not recovered, and the HTML can get large.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>pdf.to_html(src, [pages], [page=], [images=false])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>pages</code> <span class="iotype">optional</span><span class="iodesc">A simple HTML fragment for the pages asked for (default all): one <code>&lt;section class="page" data-page="N"&gt;</code> per page holding one <code>&lt;p&gt;</code> per paragraph, text escaped (<code>&amp;</code> <code>&lt;</code> <code>&gt;</code>).</span></div>
+<div class="ioitem"><code>page</code> <span class="iotype">optional</span><span class="iodesc">A simple HTML fragment for the pages asked for (default all): one <code>&lt;section class="page" data-page="N"&gt;</code> per page holding one <code>&lt;p&gt;</code> per paragraph, text escaped (<code>&amp;</code> <code>&lt;</code> <code>&gt;</code>).</span></div>
+<div class="ioitem"><code>images</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">With <code>images=true</code> each page's images follow its text as <code>&lt;img&gt;</code> data URIs (JPEG kept as stored, other images re-encoded as PNG.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>A new paragraph starts where the gap between two lines exceeds 1.6 times the font size; a paragraph's lines are joined with spaces and line-end hyphenation is repaired (as <code>normalize=true</code>).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>pdf.to_html(src, [pages], [images=false])</code> -&gt; Str.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

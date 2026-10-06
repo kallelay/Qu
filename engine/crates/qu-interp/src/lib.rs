@@ -11079,7 +11079,7 @@ impl Interp {
                 if pos >= arc.len() {
                     let n = arc.len();
                     self.var_set(name, Value::List(arc));
-                    return e(format!("index {} is out of range for a list of {n} elements", pos + 1));
+                    return e(format!("index {pos} is outside 0..{} for a list of {n} elements", n.saturating_sub(1)));
                 }
                 Arc::make_mut(&mut arc)[pos] = v;
                 self.var_set(name, Value::List(arc));
@@ -16946,7 +16946,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             "process_kill",
             "process_pid",
         ];
-        if DENY_ALWAYS.contains(&f) {
+        if DENY_ALWAYS.contains(&f) || (self.sandboxed && is_file_writer(f)) {
             return e(format!("sandbox: '{f}' is disabled in sandboxed execution"));
         }
         if f == "fopen" || f == "StreamFile" {
@@ -17299,18 +17299,21 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         // files are reported on stderr and skipped, so a script that
         // publishes to a share can be rehearsed. Returns `none`. Reads, and
         // everything that does not touch the filesystem, run normally.
-        if self.dry_run
-            && matches!(
-                f,
-                "write_text" | "append_text" | "append_all" | "write_csv" | "write_npy" | "write_npz"
-                    | "touch" | "remove_file" | "remove_dir" | "rename_file" | "move_file" | "copy_file"
-                    | "create_file" | "restore_version" | "codec::write_wav" | "pdf::write_merge"
-                    | "pdf::write_pages" | "docx::save_as" | "pptx::save_as" | "xlsx::save_as"
-            )
-        {
+        if self.dry_run && (f == "fopen" || f == "StreamFile") {
+            let mode = args.get(1).map(display_value).unwrap_or_else(|| "r".to_string());
+            if matches!(mode.as_str(), "w" | "a" | "wb" | "ab") {
+                return e(format!(
+                    "--dry-run: '{f}' in write mode (\"{mode}\") cannot be rehearsed: a file handle cannot be faked"
+                ));
+            }
+        }
+        if self.dry_run && is_file_writer(f) {
+            // Name the PATH being written: for `docx::save_as(doc, path)` it
+            // is the second argument, and the first is a document handle.
+            let path_at = file_history::WRITERS.iter().find(|(n, _)| *n == f).map(|(_, i)| *i).unwrap_or(0);
             eprintln!(
                 "dry-run: skipped {f}({})",
-                args.first().map(display_value).unwrap_or_default()
+                args.get(path_at).map(display_value).unwrap_or_default()
             );
             // The skipped call never reads its arguments; without this the
             // "N arguments given but F reads 0" check would fire.
@@ -42082,6 +42085,22 @@ fn table_rows_value(t: &Table, rows: &[usize]) -> Value {
     }
 }
 
+/// Every builtin that writes, moves or deletes a file by path. One list for
+/// both `--sandbox` (which denies them) and `--dry-run` (which reports and
+/// skips them): `file_history::WRITERS` plus the writers it does not version
+/// (`write_npy`, `mkdir`, `touch`, ...). A new file-writing builtin belongs
+/// here, or a "rehearsal" or a "sandboxed" run will quietly still write.
+/// `fopen`/`StreamFile` in a write mode are handled separately: a handle
+/// cannot be faked.
+fn is_file_writer(f: &str) -> bool {
+    file_history::WRITERS.iter().any(|(n, _)| *n == f)
+        || matches!(
+            f,
+            "write_npy" | "write_npz" | "touch" | "remove_dir" | "restore_version" | "mkdir"
+                | "write_array" | "bytes_write"
+        )
+}
+
 fn arg0(args: &[Value]) -> R<&Value> {
     mark_arg_read(0);
     args.first().ok_or_else(|| EvalError {
@@ -52847,6 +52866,18 @@ fn general_json_to_value(j: &serde_json::Value) -> Value {
             if !same_shape {
                 return list_of(items);
             }
+            // A table column holds only numbers or only strings. A column
+            // with a nested array/object, a bool, a null, or a mix used to
+            // be flattened into text (`["x","y"]` became the string
+            // `["x","y"]`) -- the data silently altered. Such an array is a
+            // list of records instead, which keeps every field as it was.
+            let columns_are_plain = first_keys.iter().all(|key| {
+                let cells = items.iter().map(|it| &it[key.as_str()]);
+                cells.clone().all(|c| c.is_number()) || cells.clone().all(|c| c.is_string())
+            });
+            if !columns_are_plain {
+                return list_of(items);
+            }
             let mut columns: Vec<(String, table::Column)> = Vec::with_capacity(first_keys.len());
             for key in &first_keys {
                 let cells: Vec<&J> = items.iter().map(|it| &it[key.as_str()]).collect();
@@ -61448,6 +61479,37 @@ fn split_spec(inner: &str) -> (String, Option<String>) {
     (inner.to_string(), None)
 }
 
+/// C's `%.{prec}g`: `prec` significant digits (0 counts as 1), scientific
+/// notation when the decimal exponent is below -4 or at least `prec`, fixed
+/// otherwise, trailing zeros dropped. `{x:.3g}` used to print `0.000` for
+/// 1.2345e-5 because it was formatted like `f`.
+fn format_g(x: f64, prec: usize) -> String {
+    if !x.is_finite() {
+        return display_value(&Value::Num(x));
+    }
+    if x == 0.0 {
+        return "0".to_string();
+    }
+    let p = prec.max(1);
+    // exponent after rounding to `p` significant digits
+    let sci = format!("{:.*e}", p - 1, x);
+    let (mant, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
+    let exp: i32 = exp.parse().unwrap_or(0);
+    let strip = |s: &str| -> String {
+        if s.contains('.') {
+            s.trim_end_matches('0').trim_end_matches('.').to_string()
+        } else {
+            s.to_string()
+        }
+    };
+    if exp < -4 || exp >= p as i32 {
+        format!("{}e{}{:02}", strip(mant), if exp < 0 { '-' } else { '+' }, exp.abs())
+    } else {
+        let decimals = (p as i32 - 1 - exp).max(0) as usize;
+        strip(&format!("{x:.decimals$}"))
+    }
+}
+
 fn format_spec(v: &Value, spec: Option<&str>) -> String {
     let Some(spec) = spec else {
         return display_value(v);
@@ -61461,10 +61523,13 @@ fn format_spec(v: &Value, spec: Option<&str>) -> String {
                 .trim_end_matches(['f', 'e', 'g'])
                 .parse::<usize>()
                 .unwrap_or(2);
+            // `g` without a precision is C's default of 6 significant digits
+            // (the other two default to 2 decimals, as before).
+            let has_digits = spec.trim_start_matches('.').trim_end_matches(['f', 'e', 'g']).parse::<usize>().is_ok();
             return match spec.chars().last().unwrap() {
                 'f' => format!("{x:.*}", prec),
                 'e' => format!("{x:.*e}", prec),
-                _ => format!("{x:.*}", prec),
+                _ => format_g(x, if has_digits { prec } else { 6 }),
             };
         }
     }

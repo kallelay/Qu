@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rk4 — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>rk4</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>rk4(f, tspan, y0, h)</code></pre>
+<p class="fnnote">Input: f, tspan, y0, h &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Classical fixed-step Runge-Kutta of order 4 with step <code>h &gt; 0</code>; the last step is shortened to land exactly on <code>tf</code>, and every step is reported.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = rk4(f, tspan, y0, h)</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>tspan</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>y0</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>h</code> <span class="iotype">&mdash;</span><span class="iodesc">Classical fixed-step Runge-Kutta of order 4 with step <code>h &gt; 0</code>.</span></div>
+</td><td><div class="ioitem"><code>ode45</code> <span class="iotype">&mdash;</span><span class="iodesc">no <code>rejected</code>; no error control and no events, so <code>rtol=</code>/<code>events=</code> are errors</span></div>
+</td><td>Returns <code>{t, y, steps, nfev, status}</code> like <code>ode45</code> (no <code>rejected</code>; no error control and no events, so <code>rtol=</code>/<code>events=</code> are errors). <code>status</code> is <code>"nonfinite"</code> if the state overflows. Use it when you need a fixed grid or a known cost; there is no check that <code>h</code> is small enough for stability.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>and general minimization. Only a user-defined function (by name, the same convention <code>pmap</code>/<code>spawn</code> use) can be the target of any of these — not a builtin. <code>fzero(f, a, b, [tol=1e-10], [max_iter=100])</code> — Brent's method: robust root finding (guaranteed convergence given a bracket <code>[a,b]</code> where <code>f</code> changes sign), no derivative needed. The "something better than plain bisection" choice.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

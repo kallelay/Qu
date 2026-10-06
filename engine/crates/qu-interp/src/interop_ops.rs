@@ -25,6 +25,15 @@ fn path_arg<'a>(f: &str, args: &'a [Value], i: usize) -> R<&'a str> {
 }
 
 fn read_file(f: &str, path: &str) -> R<Vec<u8>> {
+    if let Ok(md) = std::fs::metadata(path) {
+        if md.len() > npy::MAX_INPUT_FILE_BYTES {
+            return Err(format!(
+                "{f}: `{path}` is {} bytes; files over {} GiB are refused",
+                md.len(),
+                npy::MAX_INPUT_FILE_BYTES >> 30
+            ));
+        }
+    }
     std::fs::read(path).map_err(|e| format!("{f}: could not read `{path}`: {e}"))
 }
 

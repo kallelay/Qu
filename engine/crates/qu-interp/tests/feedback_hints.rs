@@ -92,3 +92,44 @@ fn a_triple_quoted_raw_string_keeps_quotes_braces_and_backslashes() {
     // {"k": "v\n"} with the backslash-n left as two characters: 12 characters
     assert_eq!(num(&it, "n"), 12.0);
 }
+
+#[test]
+fn json_objects_with_nested_values_stay_records_not_flattened_text() {
+    // Audit finding: an array of objects became a table whose nested
+    // `["x","y"]` field was turned into the STRING `["x","y"]`.
+    let mut it = Interp::new();
+    it.run(
+        "d = parse_json(r\"\"\"[{\"t\":[\"x\",\"y\"],\"n\":1},{\"t\":[\"z\"],\"n\":2}]\"\"\")\nfirst = d[0]\nk = length(first.t)\nn = first.n",
+    )
+    .unwrap();
+    assert_eq!(num(&it, "k"), 2.0, "the nested list must still be a list of two");
+    assert_eq!(num(&it, "n"), 1.0);
+}
+
+#[test]
+fn flat_json_rows_still_become_a_table() {
+    let mut it = Interp::new();
+    it.run("d = parse_json(r\"\"\"[{\"a\":1,\"b\":\"x\"},{\"a\":2,\"b\":\"y\"}]\"\"\")\nt = type(d)").unwrap();
+    assert!(matches!(it.get("t"), Some(Value::Str(s)) if s.as_str() == "table"));
+}
+
+#[test]
+fn the_g_format_follows_c_significant_digits_rules() {
+    let mut it = Interp::new();
+    it.run(
+        "x = 0.000012345\na = \"{x:.3g}\"\nb = \"{x:g}\"\nc = \"{123456.789:.3g}\"\nd = \"{0.5:.3g}\"\ne2 = \"{1234.5:.6g}\"",
+    )
+    .unwrap();
+    let s = |n: &str| match it.get(n) { Some(Value::Str(v)) => v.clone(), o => panic!("{n}: {o:?}") };
+    assert_eq!(s("a"), "1.23e-05");
+    assert_eq!(s("b"), "1.2345e-05");
+    assert_eq!(s("c"), "1.23e+05");
+    assert_eq!(s("d"), "0.5");
+    assert_eq!(s("e2"), "1234.5");
+}
+
+#[test]
+fn list_assignment_out_of_range_uses_the_same_zero_based_wording_as_reads() {
+    let m = err("y = split(\"a|b|c\", \"|\")\ny[3] = \"q\"");
+    assert!(m.contains("index 3 is outside 0..2"), "{m}");
+}

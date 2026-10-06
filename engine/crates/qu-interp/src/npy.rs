@@ -20,6 +20,12 @@ use crate::inflate::inflate_capped;
 /// Largest single array this reader will materialise, in bytes. Qu's
 /// numbers are `f64`, so this is also roughly the memory a read can cost.
 pub const MAX_ARRAY_BYTES: usize = 1 << 30;
+/// Largest total uncompressed size over all members of one `.npz`.
+pub const MAX_NPZ_TOTAL_BYTES: u64 = 2 << 30;
+/// Most members accepted in one `.npz`.
+pub const MAX_NPZ_ENTRIES: u64 = 4096;
+/// Largest input file (`.npy`, `.npz`, HDF5) the readers will load whole.
+pub const MAX_INPUT_FILE_BYTES: u64 = 2 << 30;
 /// Largest header dictionary accepted. NumPy's own writer emits well under
 /// 1 KiB; the format's v2/v3 length field could claim 4 GiB.
 const MAX_HEADER_BYTES: usize = 1 << 20;
@@ -510,6 +516,33 @@ pub fn read_zip(bytes: &[u8]) -> Result<Vec<ZipMember>, String> {
     if entries > cd_size / 46 {
         return Err("zip entry count is inconsistent with its central directory".into());
     }
+    if entries > MAX_NPZ_ENTRIES {
+        return Err(format!("archive has {entries} entries; the limit is {MAX_NPZ_ENTRIES}"));
+    }
+    // Pre-pass over the directory: add up the claimed sizes before decoding
+    // anything, so members that share a deflate stream cannot each pass a
+    // per-member check and only then blow the total.
+    {
+        let (mut q, mut sum) = (cd_off as usize, 0u64);
+        for _ in 0..entries {
+            if q + 46 > cd_end as usize || &bytes[q..q + 4] != b"PK\x01\x02" {
+                break; // the main loop reports the corruption
+            }
+            sum = sum.saturating_add(u32_at(bytes, q + 24)? as u64);
+            if sum > MAX_NPZ_TOTAL_BYTES {
+                return Err(format!(
+                    "archive would expand to more than the {} GiB total limit",
+                    MAX_NPZ_TOTAL_BYTES >> 30
+                ));
+            }
+            let adv = 46
+                + u16_at(bytes, q + 28)? as usize
+                + u16_at(bytes, q + 30)? as usize
+                + u16_at(bytes, q + 32)? as usize;
+            q += adv;
+        }
+    }
+    let mut total_uncompressed = 0u64;
     let mut out = Vec::new();
     let mut p = cd_off as usize;
     let cd_end = cd_end as usize;
@@ -560,6 +593,13 @@ pub fn read_zip(bytes: &[u8]) -> Result<Vec<ZipMember>, String> {
 
         if flags & 1 != 0 {
             return Err(format!("zip member `{name}` is encrypted"));
+        }
+        total_uncompressed = total_uncompressed.saturating_add(usize_);
+        if total_uncompressed > MAX_NPZ_TOTAL_BYTES {
+            return Err(format!(
+                "archive would expand to more than the {} GiB total limit",
+                MAX_NPZ_TOTAL_BYTES >> 30
+            ));
         }
         if usize_ > MAX_ARRAY_BYTES as u64 + (1 << 20) {
             return Err(format!("zip member `{name}` claims {usize_} bytes, over the size limit"));
