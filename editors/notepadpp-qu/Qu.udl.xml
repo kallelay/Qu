@@ -1,5 +1,10 @@
 <!--//
 Notepad++ User Defined Language (UDL) export for Qu (.qu).
+Qu editor plugin 0.2.0 (0.2.0: `none` was missing from the constants; number+unit
+literals are styled as numbers; the keyword lists are now checked against the
+lexer by `qu editors check`).
+Limits of the UDL engine: no r"""...""" raw strings (they look like ordinary
+strings), no transpose-vs-string distinction for `'`.
 
 Keyword groups are kept in sync with the canonical Monaco grammar in
 qu-ui-components/src/components/CodeEditor.tsx (QU_LANGUAGE_CONFIG), plus
@@ -27,7 +32,7 @@ interpolation distinctly from the rest of the string: the whole string
             <Keywords name="Numbers, extras1">e E</Keywords>
             <Keywords name="Numbers, extras2"></Keywords>
             <Keywords name="Numbers, suffix1">i j</Keywords>
-            <Keywords name="Numbers, suffix2"></Keywords>
+            <Keywords name="Numbers, suffix2">Hz kHz MHz GHz ms us ns mV kV mA uA mOhm kOhm MOhm Ohm ohm kohm Mohm uF nF pF mH uH mW kW dBm dB degC degF deg rad cycles samples MiB GiB KiB km cm mm um nm kWh Ws As J C V A F H W s k M G m u p a</Keywords>
             <Keywords name="Numbers, range"></Keywords>
             <Keywords name="Operators1">:= == != &lt;= &gt;= += -= *= /= .= ** .* ./ .\ |&gt; -&gt; &amp;&amp; || ?? = &lt; &gt; + - * / \ ^ ! &amp; | ~ @ ? [ ] ( ) { } , ; : .</Keywords>
             <Keywords name="Operators2"></Keywords>
@@ -43,7 +48,7 @@ interpolation distinctly from the rest of the string: the whole string
             <Keywords name="Keywords1">and as break by case cases catch continue do each else elseif elsewhere end for from if in loop mod not on or otherwise repeat return select skip step then to try until use using where while with</Keywords>
             <Keywords name="Keywords2">after animate assert async await backend base circuit class collect compile compose const constant data def device dimension distributed ease elemental enum error every export finetune fit flag frame function global hold implements import inherits input inline interface layer let local method mesh model module namespace new node optional override param parallel project property pure read render reserve release restore run scene3d schedule set signal simd simulate sketch spawn spectrum stencil sub swap table train tune type unit unsafe vectorize view warn watch window</Keywords>
             <Keywords name="Keywords3">bool int int64 uint uint64 float float64 double complex complex128 string str array vector matrix tensor record list figure frame logical integer</Keywords>
-            <Keywords name="Keywords4">true false</Keywords>
+            <Keywords name="Keywords4">true false none</Keywords>
             <Keywords name="Keywords5"></Keywords>
             <Keywords name="Keywords6"></Keywords>
             <Keywords name="Keywords7"></Keywords>

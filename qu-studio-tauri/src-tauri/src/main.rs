@@ -16,6 +16,8 @@ mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
 mod repl_bridge;
 use repl_bridge::{repl_close, repl_restart, repl_run, ReplState};
+mod startup;
+use startup::{get_startup_file, open_in_system, StartupFile};
 use llm_bridge::{
     llm_chat, llm_complete, llm_fix_error, llm_transform_code, get_llm_provider_config,
     set_llm_provider_config, test_llm_provider,
@@ -1221,8 +1223,43 @@ fn main() {
         .manage(gui_bridge::GuiState::default())
         .manage(seriplot::SeriPlotState::default())
         .manage(ReplState::default())
+        .manage(StartupFile::default())
+        .setup(|app| {
+            use tauri::Manager;
+            // `Qu Studio.exe "<path>"`: park the validated path for the
+            // frontend's one-shot `get_startup_file` poll, and arm the
+            // fallback emitter (see startup.rs for the whole contract).
+            if let Some(raw) = startup::pick_startup_arg(std::env::args()) {
+                match startup::validate_open_path(&raw) {
+                    Ok(p) => {
+                        let state = app.state::<StartupFile>();
+                        state.set(p);
+                        let handle = app.handle();
+                        std::thread::spawn(move || {
+                            // Give the frontend up to ~8 s to claim it; if
+                            // it never does, push the event instead.
+                            for _ in 0..32 {
+                                std::thread::sleep(std::time::Duration::from_millis(250));
+                                let st = handle.state::<StartupFile>();
+                                if st.is_claimed() {
+                                    return;
+                                }
+                            }
+                            let st = handle.state::<StartupFile>();
+                            if let Some(p) = st.peek() {
+                                let _ = handle.emit_all("qu-open-file", p);
+                            }
+                        });
+                    }
+                    Err(e) => app.state::<StartupFile>().set_error(e),
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
+            get_startup_file,
+            open_in_system,
             execute_code,
             repl_run,
             repl_restart,

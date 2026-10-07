@@ -127,6 +127,14 @@
 //! same core can later be driven from a WASM/browser front-end.
 
 mod diary;
+mod editors_assets;
+mod editors_check;
+mod editors_cmd;
+mod editors_detect;
+mod editors_install;
+mod editors_jupyter;
+#[cfg(test)]
+mod editors_tests;
 mod fmt_cmd;
 mod gui;
 mod mcp;
@@ -214,6 +222,7 @@ fn run() -> ExitCode {
         "docs" => cmd_docs(&args[1..]),
         "test" => test_cmd::cmd_test(&args[1..]),
         "fmt" => fmt_cmd::cmd_fmt(&args[1..]),
+        "editors" => editors_cmd::cmd_editors(&args[1..]),
         "repl" => cmd_repl(&args[1..]),
         "kernel" => cmd_kernel(),
         "mcp" => mcp::cmd_mcp(&args[1..]),
@@ -500,7 +509,7 @@ fn run_embedded_bundle(
 /// the end of the run push it out. Unbuffered, 300k `print`s into a pipe
 /// took 1.26s against 0.19s.
 const COMMANDS: &[&str] = &[
-    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp", "test", "fmt",
+    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp", "test", "fmt", "editors",
     "version", "help",
 ];
 
@@ -2029,6 +2038,8 @@ fn print_help() {
                            exit 1 on any failure, 2 if no tests were found\n  \
          fmt [paths] [--check] [--stdin]   conservative lexer-driven formatter (indentation, spacing,\n  \
                            trailing whitespace); --check exits 1 listing files that would change\n  \
+         editors detect|status|install|uninstall|check   editor plugins (VS Code, VSCodium, Cursor, Windsurf,\n  \
+                           Notepad++, Sublime, Vim, Neovim) and the Jupyter kernel; `qu editors --help`\n  \
          version           print version\n"
     );
 }

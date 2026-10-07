@@ -153,6 +153,7 @@ export interface CodeEditorProps extends Omit<EditorProps, 'language' | 'theme' 
    * for the AI transform feature, and what range to hand back to
    * `replaceRangeRequest` once the user accepts a suggestion.
    */
+  onCursorPositionChange?: (line: number, column: number) => void;
   onSelectionChange?: (
     selection: {
       text: string;
@@ -391,6 +392,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   insertRequest,
   replaceRangeRequest,
   onSelectionChange,
+  onCursorPositionChange,
   onCheckSyntax,
   showLineNumbers = true,
   showMinimap = true,
@@ -412,6 +414,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const onInlineCompleteRef = useRef(onInlineComplete);
   const autoTriggerInlineCompleteRef = useRef(autoTriggerInlineComplete);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const onCursorPositionChangeRef = useRef(onCursorPositionChange);
   const selectionDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const middleDragMouseDownRef = useRef<{ dispose: () => void } | null>(null);
   const middleDragMouseMoveRef = useRef<{ dispose: () => void } | null>(null);
@@ -436,6 +439,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
   }, [onSelectionChange]);
+
+  useEffect(() => {
+    onCursorPositionChangeRef.current = onCursorPositionChange;
+  }, [onCursorPositionChange]);
 
   // Cells are recomputed from `value` on every change -- parsing is a
   // single linear scan, cheap enough to not bother memo-guarding beyond
@@ -1043,6 +1050,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     // (which can't actually happen, but `null` is the unambiguous signal
     // either way).
     selectionDisposableRef.current = editor.onDidChangeCursorSelection((e: any) => {
+      // The caret (the selection's moving end), for the status bar's
+      // "Ln, Col" -- which sat at "Ln 1, Col 1" forever before this.
+      if (e.selection) {
+        onCursorPositionChangeRef.current?.(e.selection.positionLineNumber, e.selection.positionColumn);
+      }
       const handler = onSelectionChangeRef.current;
       if (!handler) return;
       const selection = e.selection;

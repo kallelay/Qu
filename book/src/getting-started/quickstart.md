@@ -191,6 +191,42 @@ a multi-line string literal are never touched. `qu fmt` is idempotent and
 checks its own output (same tokens, only whitespace changed) before it
 writes a file, refusing with exit status 2 if that ever fails.
 
+### Editor plugins -- `qu editors` (*new in v0.4.9*)
+
+Highlighting, "run this file" and live syntax errors for Qu are available for
+VS Code, VSCodium, Cursor, Windsurf, Notepad++, Sublime Text, Vim and Neovim,
+and the Qu kernel for Jupyter. The `qu` binary carries the plugin files and
+installs them itself; nothing else is needed.
+
+```bash
+qu editors detect                 # which editors qu finds, how, and where each plugin goes
+qu editors install                # install into every detected editor
+qu editors install --editor vscode,nvim --dry-run   # only these; print, change nothing
+qu editors status                 # installed? version? is qu itself on PATH?
+qu editors check                  # validate the plugin files; exit 0 only if healthy
+qu editors uninstall              # remove exactly what install wrote
+```
+
+`detect` looks in the Windows registry, `PATH` and the usual folders (and
+finds portable copies by their `data/`, `Data/` or `doLocalConf.xml` folder),
+and `qu editors detect vscode` exits 0 if VS Code is found and 1 if not, so a
+script can branch on it. `install --editor all` writes to every default
+location even for editors that are not installed. Files you edited are saved
+as `.bak` before they are replaced, and `--dry-run` prints what would happen.
+Restart the editor afterwards.
+
+The editor extension runs `qu`, so it must find it: the VS Code setting
+`qu.executablePath` (default `qu`) is a bare name looked up on `PATH` or a full
+path. `qu editors status` says whether `qu` is on `PATH` and prints the path to
+use when it is not. In VS Code, **Qu: Run File** (Ctrl+Alt+Q) runs the file and
+turns the `at file.qu:LINE in f()` lines of a runtime error into entries in the
+Problems panel. Notebooks in VS Code also need Microsoft's Jupyter extension;
+`status` prints the command (`code --install-extension ms-toolsai.jupyter`)
+but never runs it. `qu editors install --editor jupyter` registers the Qu
+kernelspec using the `qu-jupyter` binary that ships next to `qu`, and `check`
+verifies that kernel can start. JetBrains, Zed, Helix and Emacs are not
+supported yet (see `editors/README.md`).
+
 ### `qu run` flags for running untrusted or unattended scripts
 
 `qu run <file.qu>` takes a few flags for running a script you don't fully
@@ -592,6 +628,70 @@ shared-nothing loop/pipeline-stage equivalents for "apply this to every
 element"; `mutex`/`semaphore` opt in to real shared state when you need it.
 See Book 3 §4 and §5 for timers (`every`/`after`), `parallel for`, and
 real serial-port I/O.
+
+## Opening .qu files
+
+A `.qu` file is a "Qu script". The installers register the type so that the
+usual desktop gestures work:
+
+- **Windows.** The Qu Studio installer registers the type for your user
+  account only (no administrator needed): double-click opens the file in
+  Qu Studio, and right-click offers *Edit with Qu Studio* and *Open with*.
+  Skip it with `/NOASSOC`, or untick *Open .qu files with Qu Studio* on the
+  Components page. The command-line installer registers the type too, but
+  its double-click opens the file in a text editor, and *Run with Qu* is a
+  separate right-click entry. Uninstalling removes exactly what was added.
+- **macOS.** Qu Studio declares the type, so Finder offers *Open With >
+  Qu Studio*. To make it the default: select a `.qu` file, *Get Info >
+  Open with*, choose Qu Studio, *Change All*.
+- **Linux.** The `.deb` and `.rpm` install a MIME definition
+  (`application/x-qu-script`, `*.qu`) and a desktop entry that accepts
+  files, so file managers list Qu Studio for `.qu` files; set it as the
+  default from the file's *Properties > Open With*. An AppImage does not
+  install anything by itself; tools such as AppImageLauncher integrate it.
+
+**Making Qu Studio the default.** The installers never take over a `.qu`
+association another program already holds. Windows protects that choice
+(it is signed per user, and no installer may overwrite it), so if `.qu`
+already opens elsewhere, do it once yourself: right-click a `.qu` file,
+*Open with > Choose another app > Qu Studio > Always*. If nothing handled
+`.qu` before, the Studio installer makes itself the default.
+
+**Double-click never runs a script.** A script can do whatever you can,
+so opening a file only opens it. To run one, use *Run with Qu* from the
+right-click menu (Windows command-line install), Qu Studio's run
+command, or `qu run file.qu`.
+
+## Qu Studio: opening files
+
+Qu Studio opens files three ways, and every way adds a tab (or focuses the
+tab that already holds the file) -- opening never replaces what you are
+editing.
+
+- **From the command line or a file association.** Pass a path as the
+  first argument: `"Qu Studio.exe" "C:\work\my script.qu"` on Windows,
+  `qu-studio ~/work/script.qu` on Linux and macOS. Paths with spaces and
+  non-ASCII characters are fine. A path that does not exist, or is a
+  folder, shows a message instead of opening. Each launch opens its own
+  window; there is no single-instance hand-off yet. macOS "Open With" and
+  dock drops are not supported in this release (they need a newer Tauri).
+- **Drag and drop.** Drop one or more files onto the window; a dashed
+  "Drop to open" target appears while you hover. `.qu` files (and plain
+  text such as `.txt`, `.md`, `.csv`) open in the editor, `.svg` and
+  `.pdf` open in a viewer. Anything else is ignored with a message naming
+  the file.
+- **The Open button (Ctrl+O)** and the file tree route by extension the same
+  way.
+
+The **SVG viewer** draws the file with scripts, `foreignObject` and event
+handlers removed (an SVG can never run code in Studio). Scroll to zoom,
+drag to pan, **Fit** (key `0`) fits the window, **100%** (key `1`) shows
+actual size, and **View source** opens the SVG as text in the editor.
+
+The **PDF viewer** uses the web view's built-in PDF support (Windows and
+macOS). On Linux the web view has none, so the pane shows a notice with
+an **Open in system viewer** button instead. Files over 200 MB (viewers)
+or 50 MB (text) are refused with a message.
 
 ## Where to go from here
 

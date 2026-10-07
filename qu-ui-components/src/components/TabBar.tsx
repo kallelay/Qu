@@ -52,7 +52,9 @@ export const TabBar: React.FC<TabBarProps> = ({
           )}
           onClick={() => onTabClick?.(tab.id)}
         >
-          <span>{tab.name}</span>
+          {/* Long names truncate (full name in the tooltip) instead of
+              pushing the strip into a horizontal scroll. */}
+          <span className="truncate max-w-[220px]" title={tab.name}>{tab.name}</span>
           {/* The dirty dot used to sit BETWEEN the name and the close
               button and stayed put when the close button faded in, so
               the row reflowed under the pointer on hover. It now shares

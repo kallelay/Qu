@@ -18,6 +18,10 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.line.number-sign.cell.qu markup.heading.cell.qu",
+          "match": "^\\s*#%%.*$"
+        },
+        {
           "name": "comment.line.number-sign.qu",
           "match": "#.*$"
         }
@@ -25,6 +29,16 @@
     },
     "strings": {
       "patterns": [
+        {
+          "name": "string.quoted.other.raw.triple.qu",
+          "begin": "\\br\"\"\"",
+          "end": "\"\"\""
+        },
+        {
+          "name": "string.quoted.other.raw.qu",
+          "begin": "\\br\"",
+          "end": "\""
+        },
         {
           "name": "string.quoted.double.qu",
           "begin": "\"",
@@ -36,7 +50,7 @@
         },
         {
           "name": "string.quoted.single.qu",
-          "begin": "'",
+          "begin": "(?<![\\w)\\]}'])'",
           "end": "'",
           "patterns": [
             { "include": "#string-escape" },
@@ -82,11 +96,15 @@
         },
         {
           "name": "constant.numeric.qu",
-          "match": "\\b\\d[\\d_]*(\\.[\\d_]+)?([eE][+-]?\\d+)?[ij]?\\b"
+          "match": "(?<![\\w.])(\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?[ij]?)(?:(Hz|kHz|MHz|GHz|ms|us|ns|mV|kV|mA|uA|mOhm|kOhm|MOhm|Ohm|ohm|kohm|Mohm|uF|nF|pF|mH|uH|mW|kW|dBm|dB|degC|degF|deg|rad|cycles|samples|MiB|GiB|KiB|km|cm|mm|um|nm|kWh|Ws|As|J|C|V|A|F|H|W|s|k|M|G|m|u|p|a)\\b)?",
+          "captures": {
+            "1": { "name": "constant.numeric.qu" },
+            "2": { "name": "keyword.other.unit.qu" }
+          }
         },
         {
           "name": "constant.numeric.qu",
-          "match": "(?<![\\w.])\\.\\d[\\d_]*([eE][+-]?\\d+)?[ij]?\\b"
+          "match": "(?<![\\w.])\\.\\d[\\d_]*(?:[eE][+-]?\\d+)?[ij]?\\b"
         }
       ]
     },

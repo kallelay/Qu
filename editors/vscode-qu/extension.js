@@ -1,4 +1,5 @@
 // Qu Language extension — run support + inline diagnostics.
+// Qu editor plugin 0.2.0
 //
 // Plain CommonJS, no build step: `package.json` points `main` straight at
 // this file, so there's nothing to compile/bundle for either the "copy the
@@ -40,6 +41,8 @@ const DIAGNOSTIC_DEBOUNCE_MS = 400;
 let outputChannel;
 /** @type {vscode.DiagnosticCollection} */
 let diagnosticCollection;
+/** @type {vscode.DiagnosticCollection} runtime-error frames from the last `qu run` */
+let runDiagnosticCollection;
 /** @type {Map<string, NodeJS.Timeout>} */
 const debounceTimers = new Map();
 /** @type {string} set once in activate(); needed to locate the bundled scripts/ dir */
@@ -49,7 +52,8 @@ function activate(context) {
     extensionPath = context.extensionPath;
     outputChannel = vscode.window.createOutputChannel('Qu');
     diagnosticCollection = vscode.languages.createDiagnosticCollection('qu');
-    context.subscriptions.push(outputChannel, diagnosticCollection);
+    runDiagnosticCollection = vscode.languages.createDiagnosticCollection('qu-run');
+    context.subscriptions.push(outputChannel, diagnosticCollection, runDiagnosticCollection);
 
     context.subscriptions.push(vscode.commands.registerCommand('qu.runFile', runFile));
     context.subscriptions.push(vscode.commands.registerCommand('qu.htmlDiff', htmlDiffWithFile));
@@ -122,16 +126,71 @@ async function runFile() {
         return;
     }
 
-    child.stdout.on('data', (d) => outputChannel.append(d.toString()));
-    child.stderr.on('data', (d) => outputChannel.append(d.toString()));
+    runDiagnosticCollection.clear();
+    let captured = '';
+    const onData = (d) => {
+        const s = d.toString();
+        captured += s;
+        outputChannel.append(s);
+    };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
     child.on('error', (err) => {
         outputChannel.appendLine(`[qu run failed to start: ${err.message}]`);
         reportMissingExecutable();
     });
     child.on('close', (code) => {
         outputChannel.appendLine(`--- qu exited with code ${code} ---`);
+        if (code !== 0) publishTraceDiagnostics(captured, filePath);
         appendVarsDumpIfPresent(varsPath);
     });
+}
+
+/**
+ * `qu run` prints, under a runtime error,
+ *     at file.qu:12 in f()
+ *     called from file.qu:30 (top level)
+ * Turn those lines into Problems-panel entries: the `at` frame is an error
+ * carrying the error message, each `called from` frame an information entry.
+ * Only frames in the script that was run are mapped (a frame in an imported
+ * module names that module's line under the main script's name).
+ */
+function parseTrace(text) {
+    const lines = text.split(/\r?\n/);
+    const frames = [];
+    let message = '';
+    const re = /^\s+(at|called from)\s+(.+?):(\d+)(?:\s+in\s+(\S+\(\))|\s+\(top level\))?\s*$/;
+    for (const line of lines) {
+        const m = re.exec(line);
+        if (m) {
+            frames.push({ kind: m[1], file: m[2], line: parseInt(m[3], 10), fn: m[4] || '' });
+        } else if (frames.length === 0 && line.trim()) {
+            message = line.trim().replace(/^qu:\s*/, '');
+        }
+    }
+    return { message, frames };
+}
+
+function publishTraceDiagnostics(text, scriptPath) {
+    const { message, frames } = parseTrace(text);
+    if (frames.length === 0) return;
+    const uri = vscode.Uri.file(scriptPath);
+    const base = path.basename(scriptPath);
+    const diagnostics = [];
+    for (const f of frames) {
+        if (path.basename(f.file) !== base) continue;
+        const line = Math.max(0, f.line - 1);
+        const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+        const isAt = f.kind === 'at';
+        const d = new vscode.Diagnostic(
+            range,
+            isAt ? message || 'runtime error' : `called from here${f.fn ? ` (in ${f.fn})` : ''}`,
+            isAt ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Information
+        );
+        d.source = 'qu run';
+        diagnostics.push(d);
+    }
+    if (diagnostics.length) runDiagnosticCollection.set(uri, diagnostics);
 }
 
 /** Best-effort: read+delete the `--emit-vars` JSON temp file and print it. */
@@ -270,7 +329,10 @@ function scheduleCheck(document) {
  */
 function checkDocument(document) {
     const quPath = resolveQuExecutable();
-    if (!quPath) return; // stay quiet here; `qu.runFile` is what surfaces the missing-executable error
+    if (!quPath) {
+        reportMissingExecutable(); // shows its message once per session, not on every keystroke
+        return;
+    }
 
     const tmpFile = path.join(os.tmpdir(), `qu-vscode-check-${hashUri(document.uri)}.qu`);
     fs.writeFile(tmpFile, document.getText(), 'utf8', (writeErr) => {
@@ -317,11 +379,13 @@ function hashUri(uri) {
  * for the same problem.
  */
 function resolveQuExecutable() {
-    const configured = (vscode.workspace.getConfiguration('qu').get('executablePath') || '').trim();
-    if (configured) {
-        return fs.existsSync(configured) ? configured : null;
+    const configured = (vscode.workspace.getConfiguration('qu').get('executablePath') || '').trim() || 'qu';
+    // A bare name ("qu", the default) is looked up on PATH; anything with a
+    // path separator is taken literally.
+    if (!/[\\/]/.test(configured)) {
+        return findOnPath(configured);
     }
-    return findOnPath('qu');
+    return fs.existsSync(configured) ? configured : null;
 }
 
 function findOnPath(baseName) {
@@ -344,14 +408,37 @@ function findOnPath(baseName) {
     return null;
 }
 
+let warnedMissingExecutable = false;
+
+/**
+ * Tell the user, once per session, that `qu` cannot be started and what to do
+ * about it. Later failures only add a line to the Output channel, so a missing
+ * executable never turns into a stream of pop-ups (or a stack trace).
+ */
 function reportMissingExecutable() {
-    const configured = (vscode.workspace.getConfiguration('qu').get('executablePath') || '').trim();
-    const message = configured
+    const configured = (vscode.workspace.getConfiguration('qu').get('executablePath') || '').trim() || 'qu';
+    const message = /[\\/]/.test(configured)
         ? `Qu: the configured qu.executablePath ("${configured}") does not exist.`
-        : 'Qu: could not find a "qu"/"qu.exe" executable on PATH.';
-    vscode.window.showErrorMessage(message, 'Open Settings').then((choice) => {
+        : `Qu: could not find "${configured}" on PATH. Set qu.executablePath to the full path of qu (qu.exe), or put its folder on PATH. Running "qu editors status" in a terminal shows where qu is.`;
+    if (outputChannel) outputChannel.appendLine(`[${message}]`);
+    if (warnedMissingExecutable) return;
+    warnedMissingExecutable = true;
+    vscode.window.showErrorMessage(message, 'Locate qu...', 'Open Settings').then(async (choice) => {
         if (choice === 'Open Settings') {
             vscode.commands.executeCommand('workbench.action.openSettings', 'qu.executablePath');
+        } else if (choice === 'Locate qu...') {
+            const picked = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                openLabel: 'Use this qu',
+                title: 'Select the qu executable (qu.exe)',
+            });
+            if (picked && picked.length) {
+                await vscode.workspace
+                    .getConfiguration('qu')
+                    .update('executablePath', picked[0].fsPath, vscode.ConfigurationTarget.Global);
+                warnedMissingExecutable = false;
+                vscode.workspace.textDocuments.forEach(scheduleCheck);
+            }
         }
     });
 }

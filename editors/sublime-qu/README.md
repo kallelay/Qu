@@ -7,6 +7,14 @@ with Ctrl+B.
 
 ## Install
 
+Easiest (0.2.0 and later): `qu editors install --editor sublime`. It finds
+Sublime Text (registry, `PATH`, known folders, a portable `Data/` folder) and
+writes `Packages/User/Qu/Qu.sublime-syntax` and `Qu.sublime-build` for Sublime
+Text 4 and, if present, 3. `qu editors status` reports what is installed;
+`qu editors uninstall --editor sublime` removes only those two files. A file
+you edited (e.g. the `"path"` in the build file) is saved as `.bak` before it is
+replaced. Or by hand:
+
 1. Open Sublime Text's Packages folder: **Preferences > Browse Packages...**
 2. Create a `Qu` folder inside it and copy both `Qu.sublime-syntax` and
    `Qu.sublime-build` from this folder into it.

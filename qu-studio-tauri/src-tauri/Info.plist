@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Merged by the Tauri 1.x bundler into Qu Studio.app/Contents/Info.plist so
+  Finder offers "Open With > Qu Studio" for .qu files and knows the type's
+  name. LSHandlerRank is Alternate on purpose: Qu Studio is offered but does
+  not take over .qu from whatever the user already uses (Get Info > Open
+  with > Change All makes it the default). macOS hands the opened path to the
+  app as an Apple event (RunEvent::Opened), not as argv.
+-->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Qu script</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>qu</string>
+      </array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.qu.script</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>icon.icns</string>
+    </dict>
+  </array>
+  <key>UTImportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.qu.script</string>
+      <key>UTTypeDescription</key>
+      <string>Qu script</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+        <string>public.source-code</string>
+      </array>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>qu</string>
+        </array>
+        <key>public.mime-type</key>
+        <array>
+          <string>application/x-qu-script</string>
+        </array>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

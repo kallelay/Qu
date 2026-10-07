@@ -188,9 +188,96 @@ function Test-UserCycle([string]$Name, $Start, [string]$Dir, [bool]$ExpectAdd = 
     if ($ExpectAdd) { Assert-QuGone }
 }
 
+# ---- .qu file association (HKCU\Software\Classes) ------------------------
+function Open-Classes([bool]$Write = $false) {
+    $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser', 'Registry64')
+    return $base.OpenSubKey('Software\Classes', $Write)
+}
+# Value of a key under Software\Classes; $null if the key or value is absent.
+function Get-ClassValue([string]$SubKey, [string]$Name = '') {
+    $c = Open-Classes
+    try {
+        $k = $c.OpenSubKey($SubKey)
+        if ($null -eq $k) { return $null }
+        try { if ($k.GetValueNames() -notcontains $Name) { return $null } ; return [string]$k.GetValue($Name) } finally { $k.Close() }
+    } finally { $c.Close() }
+}
+function Test-ClassKey([string]$SubKey) {
+    $c = Open-Classes
+    try { $k = $c.OpenSubKey($SubKey); if ($null -eq $k) { return $false } ; $k.Close(); return $true } finally { $c.Close() }
+}
+function Remove-ClassKey([string]$SubKey) {
+    $c = Open-Classes $true
+    try { $c.DeleteSubKeyTree($SubKey, $false) } finally { $c.Close() }
+}
+function Set-ClassValue([string]$SubKey, [string]$Name, [string]$Value) {
+    $c = Open-Classes $true
+    try { $k = $c.CreateSubKey($SubKey); $k.SetValue($Name, $Value); $k.Close() } finally { $c.Close() }
+}
+function Assert-EditorsDetect([string]$Dir) {
+    # exit 0 (found) or 1 (not found) are both fine; a crash or a missing
+    # subcommand is not. The contract prints one line per editor.
+    $out = (& (Join-Path $Dir 'qu.exe') editors detect 2>&1 | Out-String)
+    $code = $LASTEXITCODE
+    Assert ($code -eq 0 -or $code -eq 1) "qu editors detect exits 0 or 1 (got $code)"
+    Assert ($out -match '(?i)vs ?code|vscode') "qu editors detect lists the editors (got: $($out.Trim()))"
+}
+
+function Test-Association {
+    Write-Host "`n== .qu file association"
+    $dir = Join-Path $work 'Assoc'
+    $qu = Join-Path $dir 'qu.exe'
+    $opts = @('/S', '/NOPATH', '/NOSHORTCUTS', '/NOJUPYTER', '/NOPLUGINS', "/D=$dir")
+    $bk = @{ Dot = (Get-ClassValue '.qu'); HadDot = (Test-ClassKey '.qu'); HadProg = (Test-ClassKey 'Qu.Script') }
+    try {
+        # A: another program already owns .qu -> never taken over, left intact
+        Remove-ClassKey '.qu'; Remove-ClassKey 'Qu.Script'; Remove-ClassKey 'Other.Script'
+        Set-ClassValue '.qu' '' 'Other.Script'
+        Set-ClassValue '.qu\OpenWithProgids' 'Other.Script' ''
+        Set-ClassValue 'Other.Script' '' 'Other script'
+        Set-ClassValue 'Other.Script\shell\open\command' '' '"C:\Other\other.exe" "%1"'
+        Install $opts
+        Assert ((Get-ClassValue '.qu') -ceq 'Other.Script') '.qu default still Other.Script (not hijacked)'
+        Assert ((Get-ClassValue 'Qu.Script') -ceq 'Qu script') 'ProgID Qu.Script named "Qu script"'
+        Assert ((Get-ClassValue 'Qu.Script' 'FriendlyTypeName') -ceq 'Qu script') 'FriendlyTypeName = Qu script'
+        Assert ((Get-ClassValue 'Qu.Script\DefaultIcon') -like '*qu.exe*') 'DefaultIcon set'
+        $open = Get-ClassValue 'Qu.Script\shell\open\command'
+        Assert ($open -like '*notepad.exe*' -and $open -notlike '*qu.exe*') "double-click verb opens an editor, does NOT run qu (got: $open)"
+        $run = Get-ClassValue 'Qu.Script\shell\run\command'
+        Assert ($run -like "*$qu*" -and $run -like '* run *') "explicit 'Run with Qu' verb runs 'qu run' (got: $run)"
+        Assert ($null -ne (Get-ClassValue '.qu\OpenWithProgids' 'Qu.Script')) 'listed under Open with (OpenWithProgids)'
+        Assert ($null -ne (Get-ClassValue '.qu\OpenWithProgids' 'Other.Script')) "the other program's OpenWithProgids entry kept"
+        Assert-EditorsDetect $dir
+        Uninstall $dir 'User'
+        Assert (-not (Test-ClassKey 'Qu.Script')) 'uninstall removed Qu.Script'
+        Assert ($null -eq (Get-ClassValue '.qu\OpenWithProgids' 'Qu.Script')) 'uninstall removed our OpenWithProgids value'
+        Assert ((Get-ClassValue '.qu') -ceq 'Other.Script') 'pre-existing .qu association untouched after uninstall'
+        Assert ($null -ne (Get-ClassValue '.qu\OpenWithProgids' 'Other.Script')) "other program's OpenWithProgids untouched after uninstall"
+        Assert ((Get-ClassValue 'Other.Script\shell\open\command') -ceq '"C:\Other\other.exe" "%1"') "other program's ProgID untouched after uninstall"
+
+        # B: nothing owns .qu -> becomes the default, and is fully removed
+        Remove-ClassKey '.qu'; Remove-ClassKey 'Other.Script'
+        Install $opts
+        Assert ((Get-ClassValue '.qu') -ceq 'Qu.Script') 'unowned .qu now defaults to Qu.Script'
+        Uninstall $dir 'User'
+        Assert (-not (Test-ClassKey '.qu')) 'uninstall removed the .qu key it created'
+        Assert (-not (Test-ClassKey 'Qu.Script')) 'uninstall removed Qu.Script'
+
+        # C: /NOASSOC writes nothing
+        Install ($opts[0..4] + '/NOASSOC' + $opts[5])   # /D= must stay last
+        Assert (-not (Test-ClassKey 'Qu.Script') -and -not (Test-ClassKey '.qu')) '/NOASSOC: no file association written'
+        Uninstall $dir 'User'
+    } finally {
+        Remove-ClassKey '.qu'; Remove-ClassKey 'Qu.Script'; Remove-ClassKey 'Other.Script'
+        if ($bk.HadDot) { Set-ClassValue '.qu' '' ([string]$bk.Dot) }
+    }
+}
+
 $origUser = Get-RawPath 'User'
 $origMachine = Get-RawPath 'Machine'
 try {
+    Test-Association
+
     Test-UserCycle 'plain REG_EXPAND_SZ with %vars%' `
         ([pscustomobject]@{ Exists = $true; Value = '%USERPROFILE%\bin;C:\tools'; Kind = 'ExpandString' }) `
         (Join-Path $work 'A')

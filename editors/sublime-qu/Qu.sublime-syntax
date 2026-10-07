@@ -2,6 +2,10 @@
 ---
 # Sublime Text syntax definition for Qu (.qu).
 #
+# Qu editor plugin 0.2.0
+# 0.2.0: r"..." / r"""...""" raw strings, #%% cell markers, number+unit
+# literals, and `A'` is transpose, not the start of a string.
+#
 # Keyword/type/operator lists are kept in sync with the canonical Monaco
 # grammar in qu-ui-components/src/components/CodeEditor.tsx
 # (QU_LANGUAGE_CONFIG), plus `layer` and `enum`, which are real Qu keywords
@@ -27,6 +31,8 @@ contexts:
     - include: operators
 
   comments:
+    - match: '^\s*#%%.*$'
+      scope: comment.line.number-sign.cell.qu markup.heading.cell.qu
     - match: '#'
       scope: punctuation.definition.comment.qu
       push: line-comment
@@ -37,12 +43,32 @@ contexts:
       pop: true
 
   strings:
+    - match: '\br"""'
+      scope: punctuation.definition.string.begin.qu
+      push: raw-triple-string
+    - match: '\br"'
+      scope: punctuation.definition.string.begin.qu
+      push: raw-string
     - match: '"'
       scope: punctuation.definition.string.begin.qu
       push: double-quoted-string
-    - match: "'"
+    # A `'` right after a value (name, number, `)`, `]`, `}`, `'`) is the
+    # transpose operator, not the start of a string -- same rule as the lexer.
+    - match: "(?<![\\w)\\]}'])'"
       scope: punctuation.definition.string.begin.qu
       push: single-quoted-string
+
+  raw-triple-string:
+    - meta_scope: string.quoted.other.raw.triple.qu
+    - match: '"""'
+      scope: punctuation.definition.string.end.qu
+      pop: true
+
+  raw-string:
+    - meta_scope: string.quoted.other.raw.qu
+    - match: '"'
+      scope: punctuation.definition.string.end.qu
+      pop: true
 
   double-quoted-string:
     - meta_scope: string.quoted.double.qu
@@ -81,9 +107,11 @@ contexts:
   numbers:
     - match: '\b0[xX][0-9a-fA-F_]+\b'
       scope: constant.numeric.hex.qu
-    - match: '\b\d[\d_]*(\.[\d_]+)?([eE][+-]?\d+)?[ij]?\b'
-      scope: constant.numeric.qu
-    - match: '(?<![\w.])\.\d[\d_]*([eE][+-]?\d+)?[ij]?\b'
+    - match: '(?<![\w.])(\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?[ij]?)(?:(Hz|kHz|MHz|GHz|ms|us|ns|mV|kV|mA|uA|mOhm|kOhm|MOhm|Ohm|ohm|kohm|Mohm|uF|nF|pF|mH|uH|mW|kW|dBm|dB|degC|degF|deg|rad|cycles|samples|MiB|GiB|KiB|km|cm|mm|um|nm|kWh|Ws|As|J|C|V|A|F|H|W|s|k|M|G|m|u|p|a)\b)?'
+      captures:
+        1: constant.numeric.qu
+        2: keyword.other.unit.qu
+    - match: '(?<![\w.])\.\d[\d_]*(?:[eE][+-]?\d+)?[ij]?\b'
       scope: constant.numeric.qu
 
   constants:

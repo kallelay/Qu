@@ -9,7 +9,21 @@ and Sublime Text grammars in `editors/`, this definition cannot color
 `{expr}` string interpolation differently from the rest of the string — the
 whole string, interpolation included, is styled as one block.
 
-## Import
+## Install with qu (0.2.0 and later)
+
+`qu editors install --editor notepadpp` copies `Qu.udl.xml` to
+`%APPDATA%\Notepad++\userDefineLangs\` (or to `userDefineLangs\` next to
+`notepad++.exe` for a portable install with `doLocalConf.xml`); restart
+Notepad++. An older `Qu.udl.xml` that differs is kept as `Qu.udl.xml.bak`.
+`qu editors status` shows the installed version; `qu editors uninstall
+--editor notepadpp` removes the file again.
+
+0.2.0 fixed a missing constant (`none` was not highlighted) and styles
+number+unit literals (`5mV`) as numbers. Known UDL limits: `r"""..."""` raw
+strings look like ordinary strings, and `A'` (transpose) is not told apart
+from a string start.
+
+## Import by hand
 
 1. Open Notepad++.
 2. Menu: **Language -> User Defined Language -> Import...**

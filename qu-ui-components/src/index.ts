@@ -84,3 +84,24 @@ export type { FigureFormat } from './utils/figureExport';
 export { assignedNamesInOrder, evalConstExpr, readFigureTarget, setFigureTarget, insertPlotCode } from './utils/scriptVars';
 export type { FigureTarget } from './utils/scriptVars';
 export type { SerialMode, SerialFrame, ImpedanceView } from './utils/serialPlots';
+
+// File open / drop / viewers (0.4.9): the file-type router, the SVG and
+// PDF viewers, the drop overlay and the toast stack.
+export { SvgViewer } from './components/SvgViewer';
+export type { SvgViewerProps } from './components/SvgViewer';
+export { PdfViewer, webviewCanShowPdf } from './components/PdfViewer';
+export type { PdfViewerProps } from './components/PdfViewer';
+export { DropOverlay, ToastStack } from './components/DropOverlay';
+export type { ToastItem } from './components/DropOverlay';
+export {
+  normalizePath,
+  baseName,
+  extOf,
+  classifyPath,
+  routeDroppedPaths,
+  sizeRefusal,
+  formatBytes,
+  MAX_VIEWER_BYTES,
+  MAX_TEXT_BYTES,
+} from './utils/fileRoute';
+export type { FileKind } from './utils/fileRoute';

@@ -17,7 +17,12 @@ name: Verify Studio installer (Windows NSIS)
 #   3. a second install over the first leaves PATH unchanged;
 #   4. silent uninstall restores PATH exactly (value absent if it was);
 #   5. 1-4 again with a >2000-char PATH (NSIS strings cap at 1024), with
-#      a >2000-char PATH ending in ';', and with no user PATH at all.
+#      a >2000-char PATH ending in ';', and with no user PATH at all;
+#   6. the .qu file association: HKCU\Software\Classes\Qu.Script and its
+#      open command point at the installed exe; a pre-existing unrelated
+#      .qu owner is not taken over and survives install + uninstall;
+#      uninstall removes everything it wrote; /NOASSOC writes nothing;
+#   7. `qu editors detect` runs from the installed sidecar (exit 0 or 1).
 #
 # Manual only. It builds the engine and Studio from scratch (~20 min).
 # Tauri 2 migration: the build step changes (tauri-cli 2, `bundle` config),
@@ -237,6 +242,100 @@ jobs:
             }
           }
 
+          # ---- .qu file association (HKCU\Software\Classes) ----------------
+          function Cls([string]$sub, [string]$name = '') {   # $null if absent
+            $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes')
+            try {
+              $k = $c.OpenSubKey($sub); if ($null -eq $k) { return $null }
+              try { if ($k.GetValueNames() -notcontains $name) { return $null }; return [string]$k.GetValue($name) } finally { $k.Close() }
+            } finally { $c.Close() }
+          }
+          function Cls-Exists([string]$sub) {
+            $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes')
+            try { $k = $c.OpenSubKey($sub); if ($null -eq $k) { return $false }; $k.Close(); return $true } finally { $c.Close() }
+          }
+          function Cls-Remove([string]$sub) {
+            $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes', $true)
+            try { $c.DeleteSubKeyTree($sub, $false) } finally { $c.Close() }
+          }
+          function Cls-Set([string]$sub, [string]$name, [string]$value) {
+            $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes', $true)
+            try { $k = $c.CreateSubKey($sub); $k.SetValue($name, $value); $k.Close() } finally { $c.Close() }
+          }
+          function Setup-With([string[]]$extra) {
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList (((@('/S') + $extra) -join ' ') + " /D=$dir") -Wait -PassThru
+            Assert ($p.ExitCode -eq 0) "setup.exe /S $extra exited 0 (got $($p.ExitCode))"
+          }
+          function Test-Assoc {
+            Write-Host "=== .qu file association ==="
+            Set-UserPath $null
+            if (Test-Path $dir) { throw "install dir already exists: $dir" }
+            $uk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Qu Studio'
+            $savedDot = Cls '.qu'
+            try {
+              # A: another program owns .qu -> must be left untouched
+              Cls-Remove '.qu'; Cls-Remove 'Qu.Script'; Cls-Remove 'Other.Script'
+              Cls-Set '.qu' '' 'Other.Script'
+              Cls-Set '.qu\OpenWithProgids' 'Other.Script' ''
+              Cls-Set 'Other.Script' '' 'Other script'
+              Cls-Set 'Other.Script\shell\open\command' '' '"C:\Other\other.exe" "%1"'
+              Setup-With @('/NOPLUGINS')
+              $exeName = (Get-ItemProperty $uk).MainBinaryName
+              Assert (-not [string]::IsNullOrEmpty($exeName)) "uninstall key records MainBinaryName ($exeName)"
+              $exe = Join-Path $dir $exeName
+              Assert (Test-Path $exe) "installed main exe exists: $exe"
+              Assert ((Cls '.qu') -ceq 'Other.Script') '.qu default still Other.Script (not hijacked)'
+              Assert ((Cls 'Qu.Script') -ceq 'Qu script') 'ProgID Qu.Script named "Qu script"'
+              Assert ((Cls 'Qu.Script' 'FriendlyTypeName') -ceq 'Qu script') 'FriendlyTypeName = Qu script'
+              Assert ((Cls 'Qu.Script\DefaultIcon') -like "*$exeName*") "DefaultIcon points at the exe's icon (got $(Cls 'Qu.Script\DefaultIcon'))"
+              $want = '"' + $exe + '" "%1"'
+              Assert ((Cls 'Qu.Script\shell\open\command') -ieq $want) "shell\open\command = $want"
+              Assert ((Cls 'Qu.Script\shell\edit\command') -ieq $want) 'shell\edit\command points at the exe'
+              Assert ($null -ne (Cls '.qu\OpenWithProgids' 'Qu.Script')) 'listed under Open with (OpenWithProgids)'
+              Assert ($null -ne (Cls ".qu\OpenWithProgids" 'Other.Script')) "other program's OpenWithProgids kept"
+              Assert ($null -ne (Cls "Applications\$exeName\SupportedTypes" '.qu')) 'Applications\<exe>\SupportedTypes lists .qu'
+              Assert ((Cls "Applications\$exeName\shell\open\command") -ieq $want) 'Applications\<exe> open command points at the exe'
+              Setup-With @('/NOPLUGINS')   # idempotent
+              Assert ((Cls 'Qu.Script\shell\open\command') -ieq $want) 'second install: same open command'
+              Run-Uninstall
+              Assert (-not (Cls-Exists 'Qu.Script')) 'uninstall removed Qu.Script'
+              Assert (-not (Cls-Exists "Applications\$exeName")) 'uninstall removed Applications\<exe>'
+              Assert ($null -eq (Cls '.qu\OpenWithProgids' 'Qu.Script')) 'uninstall removed our OpenWithProgids value'
+              Assert ((Cls '.qu') -ceq 'Other.Script') 'pre-existing .qu association untouched after uninstall'
+              Assert ($null -ne (Cls '.qu\OpenWithProgids' 'Other.Script')) "other program's OpenWithProgids untouched"
+              Assert ((Cls 'Other.Script\shell\open\command') -ceq '"C:\Other\other.exe" "%1"') "other program's ProgID untouched"
+
+              # B: nothing owns .qu -> default set, then fully removed
+              Cls-Remove '.qu'; Cls-Remove 'Other.Script'
+              Setup-With @('/NOPLUGINS')
+              Assert ((Cls '.qu') -ceq 'Qu.Script') 'unowned .qu defaults to Qu.Script'
+              Run-Uninstall
+              Assert (-not (Cls-Exists '.qu')) 'uninstall removed the .qu key it created'
+              Assert (-not (Cls-Exists 'Qu.Script')) 'uninstall removed Qu.Script'
+
+              # C: /NOASSOC writes nothing
+              Setup-With @('/NOPLUGINS', '/NOASSOC')
+              Assert (-not (Cls-Exists 'Qu.Script') -and -not (Cls-Exists '.qu')) '/NOASSOC: no association written'
+              Run-Uninstall
+            } finally {
+              Cls-Remove '.qu'; Cls-Remove 'Qu.Script'; Cls-Remove 'Other.Script'
+              if ($null -ne $savedDot) { Cls-Set '.qu' '' $savedDot }
+            }
+          }
+
+          # `qu editors detect` must run (0 found / 1 not found; a crash or a
+          # missing subcommand is not fine) from the installed sidecar.
+          function Test-EditorsDetect {
+            Write-Host "=== qu editors detect ==="
+            Set-UserPath $null
+            Setup-With @('/NOPLUGINS')
+            $out = (& (Join-Path $dir 'qu.exe') editors detect 2>&1 | Out-String)
+            $code = $LASTEXITCODE
+            Assert ($code -eq 0 -or $code -eq 1) "qu editors detect exits 0 or 1 (got $code)"
+            Assert ($out -match '(?i)vs ?code|vscode') "qu editors detect lists the editors (got: $($out.Trim()))"
+            Run-Uninstall
+          }
+
           $runnerOriginal = Get-UserPath
           Show 'runner original' $runnerOriginal
           $long = (1..70 | ForEach-Object { 'C:\Tools\qu-installer-long-path-test-entry-{0:d3}\bin' -f $_ }) -join ';'
@@ -246,6 +345,8 @@ jobs:
             Test-Scenario 'long PATH (>2000 chars)' ($long + ';%USERPROFILE%\bin')
             Test-Scenario 'long PATH ending in ;' ($long + ';')
             Test-Scenario 'no user PATH value' $null
+            Test-Assoc
+            Test-EditorsDetect
             Write-Host "ALL CHECKS PASSED"
           } finally {
             if ($runnerOriginal.Exists) {

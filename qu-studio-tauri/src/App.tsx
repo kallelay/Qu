@@ -20,6 +20,9 @@ import type { FileTab } from '@qu/ui-components';
 import { parseCells, getPrefixSource } from '@qu/ui-components';
 import { classifyStat, confirmChange, hasLocalEdits } from '@qu/ui-components';
 import type { DiskStat, DiskBaseline } from '@qu/ui-components';
+import { SvgViewer, PdfViewer, DropOverlay, ToastStack } from '@qu/ui-components';
+import type { ToastItem } from '@qu/ui-components';
+import { normalizePath, baseName, classifyPath, routeDroppedPaths, sizeRefusal } from '@qu/ui-components';
 import {
   Play, Square, Save, FolderOpen, FilePlus, Download, Upload,
   Bug, RotateCcw, Maximize2, Minimize2, ChevronRight, ChevronDown,
@@ -813,7 +816,10 @@ function App() {
   const setActiveFileId = useIDEStore((s) => s.setActiveFile);
 
   const currentTab: FileTab | null = tabs.find((t) => t.id === activeFileId) ?? null;
-  const code = currentTab?.content ?? '';
+  // A viewer tab (svg/pdf) has no editable program text: `code` stays empty
+  // so Run/Save/format paths can never treat a drawing as a script.
+  const isViewerTab = currentTab?.kind === 'svg' || currentTab?.kind === 'pdf';
+  const code = isViewerTab ? '' : currentTab?.content ?? '';
 
   const [replMode, setReplMode] = useState<ReplMode>(loadReplMode);
   useEffect(() => {
@@ -956,7 +962,9 @@ function App() {
    *  later one and leave the figure disagreeing with the code on screen.
    *  A run whose token is stale by the time it returns is discarded. */
   const runToken = useRef(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Starts closed in a narrow window: sidebar + inspector would otherwise
+  // leave the editor a ~190 px sliver at the 800 px minimum width.
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1000);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   // The most recent run's error output, kept around even after a LATER run
@@ -1538,6 +1546,9 @@ function App() {
   // deliberately ONE path, so the two can never drift apart.
   const handleSave = useCallback(async (forceDialog = false) => {
     if (!currentTab) return;
+    // Viewer tabs are read-only; saving one would write an empty buffer
+    // over the user's drawing/document.
+    if (currentTab.kind === 'svg' || currentTab.kind === 'pdf') return;
     let path = forceDialog ? null : currentTab.path;
     if (!path) {
       try {
@@ -1865,7 +1876,8 @@ function App() {
   bufferForDiskCheckRef.current = code;
 
   useEffect(() => {
-    const path = currentTab?.path;
+    // A PDF tab holds bytes, not text: `open_file` cannot re-read it.
+    const path = currentTab?.kind === 'pdf' ? null : currentTab?.path;
     // Outside a Tauri window there is no IPC to ask, and `invoke` would
     // log a failure per tick. An untitled buffer has no disk state yet.
     if (!path || typeof (window as any).__TAURI_IPC__ === 'undefined') return;
@@ -1895,7 +1907,7 @@ function App() {
       window.removeEventListener('focus', check);
       window.clearInterval(timer);
     };
-  }, [currentTab?.path, checkDiskForPath]);
+  }, [currentTab?.path, currentTab?.kind, checkDiskForPath]);
 
   // Take the on-disk version, discarding whatever is in the buffer. The
   // tab comes back clean because it now matches the file exactly.
@@ -1951,17 +1963,192 @@ function App() {
   // opens as a path-less tab, keyed by filename -- reopening the
   // same-named file focuses that tab rather than duplicating it, the same
   // "focus an existing tab" behavior as any other open path.
+  // ---- Open by path / drag-and-drop / viewers ----
+  // One funnel for every way a file reaches Studio: the command line
+  // (`get_startup_file` / `qu-open-file`), an OS file drop, the native
+  // Open dialog and the file tree. Routing is by extension (see
+  // `classifyPath`); opening ALWAYS adds or focuses a tab, never replaces
+  // one, so a dirty buffer can never be discarded by an open -- the only
+  // unsaved-changes prompt is the existing one on tab close.
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastSeq = useRef(0);
+  const pushToast = useCallback((kind: ToastItem['kind'], text: string) => {
+    const id = ++toastSeq.current;
+    setToasts((prev) => [...prev.slice(-3), { id, kind, text }]);
+  }, []);
+  const dismissToast = useCallback((id: number) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
+  const [dropActive, setDropActive] = useState(false);
+
+  /** Opens an in-memory file (an HTML5 `File`, no on-disk path). */
+  const openFileObject = useCallback(async (file: File): Promise<boolean> => {
+    const kind = classifyPath(file.name);
+    if (kind === 'unsupported') {
+      pushToast('warning', `Cannot open "${file.name}": only .qu, .svg and .pdf files (and plain text) are supported.`);
+      return false;
+    }
+    const refusal = sizeRefusal(file.name, kind, file.size);
+    if (refusal) { pushToast('error', refusal); return false; }
+    const id = `local:${file.name}`;
+    if (kind === 'pdf') {
+      storeOpenFile({ id, name: file.name, path: null, content: '', isDirty: false, language: 'pdf', kind: 'pdf', bytes: new Uint8Array(await file.arrayBuffer()) });
+    } else if (kind === 'svg') {
+      storeOpenFile({ id, name: file.name, path: null, content: await file.text(), isDirty: false, language: 'svg', kind: 'svg' });
+    } else {
+      openOrFocusTab({ id, name: file.name, path: null, content: await file.text() });
+    }
+    addTerminalLine(`Opened: ${file.name}`, 'success');
+    return true;
+  }, [pushToast, storeOpenFile, openOrFocusTab]);
+
+  /** Opens one on-disk file in the right place. Resolves true on success;
+   *  failures are reported with a toast naming the file. */
+  const openPath = useCallback(async (raw: string): Promise<boolean> => {
+    const path = normalizePath(raw);
+    const name = baseName(path);
+    const kind = classifyPath(path);
+    if (kind === 'unsupported') {
+      pushToast('warning', `Cannot open "${name}": only .qu, .svg and .pdf files (and plain text) are supported.`);
+      return false;
+    }
+    try {
+      const stat = await invoke<{ exists: boolean; len: number }>('file_stat', { path });
+      if (!stat.exists) { pushToast('error', `"${name}" does not exist.`); return false; }
+      const refusal = sizeRefusal(name, kind, stat.len);
+      if (refusal) { pushToast('error', refusal); return false; }
+      if (kind === 'pdf') {
+        const { readBinaryFile } = await import('@tauri-apps/api/fs');
+        const bytes = await readBinaryFile(path);
+        storeOpenFile({ id: path, name, path, content: '', isDirty: false, language: 'pdf', kind: 'pdf', bytes });
+      } else {
+        const content = await invoke<string>('open_file', { path });
+        if (kind === 'svg') {
+          storeOpenFile({ id: path, name, path, content, isDirty: false, language: 'svg', kind: 'svg' });
+        } else {
+          openOrFocusTab({ id: path, name, path, content });
+        }
+      }
+      addTerminalLine(`Opened: ${path}`, 'success');
+      return true;
+    } catch (error: any) {
+      pushToast('error', `Could not open "${name}": ${error?.message ?? error}`);
+      return false;
+    }
+  }, [pushToast, storeOpenFile, openOrFocusTab]);
+  const openPathRef = useRef(openPath);
+  openPathRef.current = openPath;
+  const openFileObjectRef = useRef(openFileObject);
+  openFileObjectRef.current = openFileObject;
+
+  /** A drop of several OS paths: open what is supported, toast the rest. */
+  const openDroppedPaths = useCallback(async (paths: string[]) => {
+    const { accepted, rejected } = routeDroppedPaths(paths);
+    for (const name of rejected) {
+      pushToast('warning', `Ignored "${name}": only .qu, .svg and .pdf files (and plain text) can be opened.`);
+    }
+    for (const a of accepted) await openPathRef.current(a.path);
+  }, [pushToast]);
+  const openDroppedPathsRef = useRef(openDroppedPaths);
+  openDroppedPathsRef.current = openDroppedPaths;
+
+  // Native (Tauri) side: file-drop events, `qu-open-file`, and the one-shot
+  // startup-file poll. Registered BEFORE the poll so nothing can be missed.
+  const lastNativeDrop = useRef(0);
+  useEffect(() => {
+    if (typeof (window as any).__TAURI_IPC__ === 'undefined') return;
+    let dead = false;
+    const unlisten: Array<() => void> = [];
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const add = async (name: string, cb: (payload: any) => void) => {
+          const u = await listen(name, (e) => cb(e.payload));
+          if (dead) u(); else unlisten.push(u);
+        };
+        await add('qu-open-file', (p) => { if (typeof p === 'string') void openPathRef.current(p); });
+        await add('tauri://file-drop-hover', () => setDropActive(true));
+        await add('tauri://file-drop-cancelled', () => setDropActive(false));
+        await add('tauri://file-drop', (p) => {
+          setDropActive(false);
+          lastNativeDrop.current = Date.now();
+          if (Array.isArray(p)) void openDroppedPathsRef.current(p as string[]);
+        });
+        const startup = await invoke<{ path: string | null; error: string | null } | null>('get_startup_file');
+        if (startup?.path) void openPathRef.current(startup.path);
+        else if (startup?.error) pushToast('error', `Could not open the file you launched Studio with: ${startup.error}`);
+      } catch (e) {
+        console.error('file-open wiring failed:', e);
+      }
+    })();
+    return () => { dead = true; unlisten.forEach((u) => u()); };
+  }, [pushToast]);
+
+  // Browser side: HTML5 drops of FILES (a plain browser tab during
+  // `npm run dev`, or a webview whose native drop handling is switched
+  // off). Text drags are left alone so Monaco keeps handling those itself.
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    const onEnter = (e: DragEvent) => { if (hasFiles(e)) { depth++; setDropActive(true); } };
+    const onOver = (e: DragEvent) => { if (hasFiles(e)) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; } };
+    const onLeave = (e: DragEvent) => { if (hasFiles(e)) { depth = Math.max(0, depth - 1); if (depth === 0) setDropActive(false); } };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDropActive(false);
+      // The native handler already took this drop (it fires first).
+      if (Date.now() - lastNativeDrop.current < 600) return;
+      void (async () => { for (const f of Array.from(e.dataTransfer!.files)) await openFileObjectRef.current(f); })();
+    };
+    window.addEventListener('dragenter', onEnter);
+    window.addEventListener('dragover', onOver);
+    window.addEventListener('dragleave', onLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onEnter);
+      window.removeEventListener('dragover', onOver);
+      window.removeEventListener('dragleave', onLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, []);
+
+  const openSvgSource = useCallback((tab: FileTab) => {
+    openOrFocusTab({ id: `source:${tab.id}`, name: `${tab.name} (source)`, path: tab.path, content: tab.content });
+  }, [openOrFocusTab]);
+
+  const openExternally = useCallback(async (path: string) => {
+    try { await invoke<void>('open_in_system', { path }); }
+    catch (error: any) { pushToast('error', `Could not launch the system viewer: ${error?.message ?? error}`); }
+  }, [pushToast]);
+
   const handleOpen = async () => {
+    // Native dialog first: it returns real paths, so the tab can be saved
+    // in place and svg/pdf route to their viewers. The HTML <input> below is
+    // only the plain-browser fallback (it never yields a path).
+    if (typeof (window as any).__TAURI_IPC__ !== 'undefined') {
+      try {
+        const { open } = await import('@tauri-apps/api/dialog');
+        const picked = await open({
+          multiple: true,
+          filters: [
+            { name: 'Qu files', extensions: ['qu', 'svg', 'pdf'] },
+            { name: 'Text', extensions: ['txt', 'md', 'csv', 'json', 'toml', 'log'] },
+          ],
+        });
+        const list = Array.isArray(picked) ? picked : picked ? [picked] : [];
+        for (const p of list) await openPath(p);
+        return;
+      } catch (error: any) {
+        addTerminalLine(`❌ Open dialog failed: ${error?.message ?? error}`, 'error');
+        return;
+      }
+    }
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.qu,.txt';
+    input.accept = '.qu,.txt,.svg,.pdf';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const text = await file.text();
-        openOrFocusTab({ id: `local:${file.name}`, name: file.name, path: null, content: text });
-        addTerminalLine(`✓ Loaded: ${file.name}`);
-      }
+      if (file) await openFileObject(file);
     };
     input.click();
   };
@@ -2007,6 +2194,8 @@ function App() {
   // FileTree itself).
   const handleFileTreeSelect = async (node: FileNode) => {
     if (node.type !== 'file') return;
+    const routed = classifyPath(node.path);
+    if (routed === 'svg' || routed === 'pdf') { await openPath(node.path); return; }
     try {
       const content = await invoke<string>('open_file', { path: node.path });
       openOrFocusTab({ id: node.path, name: node.name, path: node.path, content });
@@ -2268,10 +2457,10 @@ function App() {
     >
       {/* Top Bar */}
       <div
-        className="h-14 flex items-center justify-between px-4 border-b backdrop-blur-xl"
+        className="qu-topbar h-14 flex-shrink-0 flex items-center justify-between gap-3 px-4 border-b backdrop-blur-xl"
         style={{ background: 'var(--qu-shell-panel)', borderColor: 'var(--qu-border)' }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Wordmark. The tagline sat at the same weight as the mode tabs
               beside it and competed with them for the first read; it is
               the one thing on this bar nobody ever needs to act on, so it
@@ -2283,9 +2472,9 @@ function App() {
             >
               <Cpu size={18} className="text-white" />
             </div>
-            <div className="leading-tight">
-              <div className="font-semibold text-[15px] tracking-tight">Qu Studio</div>
-              <div className="text-[11px]" style={{ color: 'var(--qu-muted)' }}>
+            <div className="leading-tight qu-wordmark-text">
+              <div className="font-semibold text-[15px] tracking-tight whitespace-nowrap">Qu Studio</div>
+              <div className="qu-tagline text-[11px] whitespace-nowrap" style={{ color: 'var(--qu-muted)' }}>
                 Signal Processing &amp; ML IDE
               </div>
             </div>
@@ -2303,17 +2492,18 @@ function App() {
               tab cannot disagree with the other seven. `aria-selected` on
               a real tablist also gives the row the semantics it was
               already miming with colour alone. */}
-          <div className="flex items-center gap-0.5" role="tablist" aria-label="Workspace mode">
+          <div className="qu-modetabs flex items-center gap-0.5 min-w-0 overflow-x-auto" role="tablist" aria-label="Workspace mode">
             {MODE_TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 role="tab"
                 aria-selected={activeTab === id}
                 onClick={() => setActiveTab(id)}
-                className="qu-modetab"
+                className="qu-modetab flex-shrink-0"
+                title={label}
               >
                 <Icon size={14} />
-                {label}
+                <span className="qu-modetab-label">{label}</span>
               </button>
             ))}
           </div>
@@ -2329,7 +2519,7 @@ function App() {
             always available (palette, reference, theme). Grouping is the
             cheapest hierarchy available on a toolbar and it costs no
             space. */}
-        <div className="flex items-center gap-1.5">
+        <div className="qu-topbar-actions flex items-center gap-1.5 flex-shrink-0">
           {/* AI Assist: generate new code from a description (no selection)
               or transform the current selection (Task 3). Opens the small
               instruction bar below the top bar rather than a full modal --
@@ -2342,7 +2532,7 @@ function App() {
             className="qu-bar-button"
           >
             <Wand2 size={16} />
-            {selection ? 'Transform' : 'AI Assist'}
+            <span className="qu-bar-label">{selection ? 'Transform' : 'AI Assist'}</span>
           </button>
 
           {/* Run Button — hidden for the Designer tab, which owns its own
@@ -2481,7 +2671,7 @@ function App() {
         {/* Sidebar - Templates */}
         {sidebarOpen && (
           <div
-            className="w-72 flex-shrink-0 border-r overflow-y-auto"
+            className="qu-sidebar w-72 flex-shrink-0 border-r overflow-y-auto"
             style={{ background: 'var(--qu-shell-panel)', borderColor: 'var(--qu-border)' }}
           >
             {activeTab === 'code' && (
@@ -2650,6 +2840,23 @@ function App() {
             onTabClick={(id) => setActiveFileId(id)}
             onTabClose={(id) => closeTabWithGuard(id)}
           />
+          {currentTab?.kind === 'svg' ? (
+            <SvgViewer
+              key={currentTab.id}
+              svg={currentTab.content}
+              name={currentTab.name}
+              path={currentTab.path}
+              onViewSource={() => openSvgSource(currentTab)}
+            />
+          ) : currentTab?.kind === 'pdf' && currentTab.bytes ? (
+            <PdfViewer
+              key={currentTab.id}
+              data={currentTab.bytes}
+              name={currentTab.name}
+              path={currentTab.path}
+              onOpenExternal={currentTab.path ? () => openExternally(currentTab.path!) : undefined}
+            />
+          ) : (
           <CodeEditor
             value={code}
             onChange={(val) => activeFileId && updateFileContent(activeFileId, val)}
@@ -2661,6 +2868,9 @@ function App() {
             insertRequest={snippetInsertRequest}
             replaceRangeRequest={replaceRangeRequest}
             onSelectionChange={setSelection}
+            onCursorPositionChange={(line, column) =>
+              setCursorPosition((p) => (p.line === line && p.column === column ? p : { line, column }))
+            }
             theme={resolvedTheme as any}
             onInlineComplete={llmComplete}
             // Automatic (type-and-wait) triggering is OFF: measured
@@ -2672,6 +2882,7 @@ function App() {
             // via Ctrl+Alt+Space (see CodeEditor's own command binding).
             autoTriggerInlineComplete={false}
           />
+          )}
 
           {/* "Changed on disk" banner. Deliberately an inline strip in the
               same shape as the error banner below -- NOT a modal. An
@@ -2920,6 +3131,9 @@ function App() {
       {lastLlmBackendNote && (
         <LlmBackendToast note={lastLlmBackendNote} onDone={() => setLastLlmBackendNote(null)} theme={resolvedTheme as 'light' | 'dark'} />
       )}
+
+      <DropOverlay visible={dropActive} />
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
       <CommandPalette
         commands={paletteCommands}

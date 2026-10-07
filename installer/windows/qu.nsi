@@ -13,13 +13,17 @@
 ;   Editor plugins             SRCDIR\editors\; VS Code, Sublime Text,
 ;                              Notepad++ -- each on only if that editor's
 ;                              config folder exists
+;   .qu file type [on]         "Qu script" type + icon; double-click OPENS
+;                              the file in an editor (never runs it); a
+;                              right-click "Run with Qu" verb runs it
+;                              (see ASSOC_WRITE); /NOASSOC skips
 ;   Start menu shortcuts [on]  Qu CLI (REPL), Start Jupyter (Qu), Qu
 ;                              Documentation, Uninstall
 ;   Desktop shortcuts [off]
 ;
 ; Runtime switches:
 ;   /S           silent
-;   /WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP /NOPATH
+;   /WITHDOCS /NOJUPYTER /NOPLUGINS /NOSHORTCUTS /DESKTOP /NOPATH /NOASSOC
 ;                choose components without the page (for /S installs)
 ;   /D=<dir>     install directory (must be last, NSIS rule)
 ;   /ALLUSERS    machine-wide: Program Files, HKLM PATH, HKLM uninstall
@@ -213,6 +217,106 @@ Var PsExe
   WriteRegDWORD ${ROOT} "${UNINST_KEY}" "EstimatedSize"        $R2
 !macroend
 
+; .qu file association. SAFE BY DEFAULT: double-clicking a .qu file must
+; never execute it (a script can do anything the user can), so the default
+; verb "open" opens it in a text editor -- Notepad here; installing Qu
+; Studio replaces it with Qu Studio. Running is a separate, explicit
+; right-click verb, "Run with Qu" (qu run "<file>" in a console that stays
+; open). Same ProgID (Qu.Script) as the Studio installer, which owns the
+; `open`/`edit` verbs; this installer owns `run`, and writes `open` only
+; if none exists. Each uninstaller removes only the verbs that still point
+; at its own install, and the ProgID, the OpenWithProgids value and a
+; dangling .qu default only when nothing of the other installer is left.
+; The `.qu` default is set only if nothing owns .qu (no default value and,
+; per user, no Explorer UserChoice): no hijacking. /NOASSOC skips all.
+; ROOT is HKCU, or HKLM with /ALLUSERS.
+!define PROGID_KEY "Software\Classes\Qu.Script"
+
+!macro ASSOC_WRITE ROOT
+  ReadRegStr $R0 ${ROOT} "${PROGID_KEY}\shell\open\command" ""
+  ${If} $R0 == ""
+    WriteRegStr ${ROOT} "${PROGID_KEY}" "" "Qu script"
+    WriteRegStr ${ROOT} "${PROGID_KEY}" "FriendlyTypeName" "Qu script"
+    WriteRegStr ${ROOT} "${PROGID_KEY}\DefaultIcon" "" '"$INSTDIR\qu.exe",0'
+    WriteRegStr ${ROOT} "${PROGID_KEY}\shell" "" "open"
+    WriteRegStr ${ROOT} "${PROGID_KEY}\shell\open" "" "Open"
+    WriteRegStr ${ROOT} "${PROGID_KEY}\shell\open\command" "" '"$WINDIR\notepad.exe" "%1"'
+  ${EndIf}
+  WriteRegStr ${ROOT} "${PROGID_KEY}\shell\run" "" "Run with Qu"
+  WriteRegStr ${ROOT} "${PROGID_KEY}\shell\run" "Icon" '"$INSTDIR\qu.exe",0'
+  WriteRegStr ${ROOT} "${PROGID_KEY}\shell\run\command" "" '"$SYSDIR\cmd.exe" /k ""$INSTDIR\qu.exe" run "%1""'
+  WriteRegStr ${ROOT} "Software\Classes\.qu\OpenWithProgids" "Qu.Script" ""
+  ReadRegStr $R0 ${ROOT} "Software\Classes\.qu" ""
+  ReadRegStr $R1 HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.qu\UserChoice" "ProgId"
+  ${If} $R0 == ""
+  ${AndIf} $R1 == ""
+    WriteRegStr ${ROOT} "Software\Classes\.qu" "" "Qu.Script"
+    DetailPrint ".qu now opens in a text editor (Run with Qu is a right-click verb)"
+  ${Else}
+    DetailPrint ".qu is already owned by '$R0$R1'; default left alone"
+  ${EndIf}
+  WriteINIStr "$INSTDIR\${STATE_FILE}" "Assoc" "Run" 1
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0x1000, p 0, p 0)'
+!macroend
+
+!macro ASSOC_REMOVE ROOT
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Assoc" "Run"
+  ${If} $R0 == 1
+    ReadRegStr $R1 ${ROOT} "${PROGID_KEY}\shell\run\command" ""
+    ${If} $R1 == '"$SYSDIR\cmd.exe" /k ""$INSTDIR\qu.exe" run "%1""'
+      DeleteRegKey ${ROOT} "${PROGID_KEY}\shell\run"
+    ${EndIf}
+    ; ProgID still ours alone (Notepad open verb, nothing else): remove it
+    ReadRegStr $R1 ${ROOT} "${PROGID_KEY}\shell\open\command" ""
+    ${If} $R1 == '"$WINDIR\notepad.exe" "%1"'
+      DeleteRegKey ${ROOT} "${PROGID_KEY}"
+    ${EndIf}
+    ReadRegStr $R1 ${ROOT} "${PROGID_KEY}" ""
+    ${If} $R1 == ""
+      DeleteRegValue ${ROOT} "Software\Classes\.qu\OpenWithProgids" "Qu.Script"
+      DeleteRegKey /ifempty ${ROOT} "Software\Classes\.qu\OpenWithProgids"
+      ReadRegStr $R1 ${ROOT} "Software\Classes\.qu" ""
+      ${If} $R1 == "Qu.Script"
+        DeleteRegValue ${ROOT} "Software\Classes\.qu" ""
+      ${EndIf}
+      DeleteRegKey /ifempty ${ROOT} "Software\Classes\.qu"
+    ${EndIf}
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0x1000, p 0, p 0)'
+  ${EndIf}
+!macroend
+
+; Editor plugins: `qu editors install --editor <name>` (the engine finds the
+; editor's real data directory: App Paths / Uninstall keys, PATH, known
+; folders) first; the plain file copy of the section is the fallback when
+; qu.exe lacks the subcommand or cannot find the editor, so this never
+; fails the install. Only DetailPrint. $R7 = 0 when the CLI did the work.
+!macro EDITOR_VIA_CLI NAME
+  StrCpy $R7 "skipped"
+  ${If} ${FileExists} "$INSTDIR\qu.exe"
+    nsExec::ExecToLog '"$INSTDIR\qu.exe" editors install --editor ${NAME}'
+    Pop $R7
+    DetailPrint "qu editors install --editor ${NAME}: exit code $R7 (non-zero: falling back to a file copy)"
+  ${EndIf}
+!macroend
+
+; Component default from the machine: App Paths (HKCU then HKLM: the
+; editor's own installer wrote it, wherever it was put) or a config folder;
+; the found location shows in the component name.
+!macro DETECT_EDITOR SEC LABEL EXE DIR1 DIR2
+  ReadRegStr $R2 HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+  ${If} $R2 == ""
+    ReadRegStr $R2 HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+  ${EndIf}
+  ${If} $R2 != ""
+    SectionSetText ${SEC} "${LABEL} ($R2)"
+  ${Else}
+    ${IfNot} ${FileExists} "${DIR1}\*.*"
+    ${AndIfNot} ${FileExists} "${DIR2}\*.*"
+      !insertmacro UnselectSection ${SEC}
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 ; ---- installer ----------------------------------------------------------
 
 Function .onInit
@@ -313,6 +417,17 @@ Section "Add qu to the PATH" SecPath
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
 SectionEnd
 
+; On by default (/NOASSOC skips). Registers the .qu type ("Qu script", icon)
+; and the verbs described at ASSOC_WRITE: double-click OPENS in an editor,
+; "Run with Qu" is a right-click verb. Never executes on double-click.
+Section "Register .qu files (Open in an editor; Run with Qu on right-click)" SecAssoc
+  ${If} $AllUsers == 1
+    !insertmacro ASSOC_WRITE HKLM
+  ${Else}
+    !insertmacro ASSOC_WRITE HKCU
+  ${EndIf}
+SectionEnd
+
 
 !ifdef HAVE_JUPYTER
 Section "Jupyter kernel (Qu in JupyterLab, Notebook, VS Code)" SecJupyter
@@ -346,33 +461,56 @@ SectionEnd
 ; Per-user editor folders, whatever the install scope: an editor reads its
 ; plugins from the profile of whoever runs it.
 SectionGroup "Editor plugins" SecPlugins
-  Section "VS Code" SecVSCode
+  ; Plugins the CLI installs are not removed on uninstall (the installer
+  ; does not know where it put them); the fallback copies are.
+  !macro VSCODE_FAMILY NAME DIR INIKEY
     SetShellVarContext current
-    StrCpy $R5 "$PROFILE\.vscode\extensions\qu-language-${VSCODE_EXT_VER}"
-    SetOutPath $R5
-    File /r "${SRCDIR}\editors\vscode-qu\*.*"
-    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "VSCode" $R5
+    !insertmacro EDITOR_VIA_CLI ${NAME}
+    ${If} $R7 != 0
+      StrCpy $R5 "$PROFILE\${DIR}\extensions\qu-language-${VSCODE_EXT_VER}"
+      SetOutPath $R5
+      File /r "${SRCDIR}\editors\vscode-qu\*.*"
+      WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "${INIKEY}" $R5
+    ${EndIf}
     !insertmacro SET_SCOPE_CONTEXT
+  !macroend
+  Section "VS Code" SecVSCode
+    !insertmacro VSCODE_FAMILY vscode ".vscode" "VSCode"
+  SectionEnd
+  Section "VSCodium" SecVSCodium
+    !insertmacro VSCODE_FAMILY vscodium ".vscode-oss" "VSCodium"
+  SectionEnd
+  Section "Cursor" SecCursor
+    !insertmacro VSCODE_FAMILY cursor ".cursor" "Cursor"
+  SectionEnd
+  Section "Windsurf" SecWindsurf
+    !insertmacro VSCODE_FAMILY windsurf ".windsurf" "Windsurf"
   SectionEnd
   Section "Sublime Text" SecSublime
     SetShellVarContext current
-    ${If} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
-    ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
-      StrCpy $R5 "$APPDATA\Sublime Text 3\Packages\Qu"
-    ${Else}
-      StrCpy $R5 "$APPDATA\Sublime Text\Packages\Qu"
+    !insertmacro EDITOR_VIA_CLI sublime
+    ${If} $R7 != 0
+      ${If} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
+      ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
+        StrCpy $R5 "$APPDATA\Sublime Text 3\Packages\Qu"
+      ${Else}
+        StrCpy $R5 "$APPDATA\Sublime Text\Packages\Qu"
+      ${EndIf}
+      SetOutPath $R5
+      File "${SRCDIR}\editors\sublime-qu\Qu.sublime-syntax"
+      File "${SRCDIR}\editors\sublime-qu\Qu.sublime-build"
+      WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Sublime" $R5
     ${EndIf}
-    SetOutPath $R5
-    File "${SRCDIR}\editors\sublime-qu\Qu.sublime-syntax"
-    File "${SRCDIR}\editors\sublime-qu\Qu.sublime-build"
-    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Sublime" $R5
     !insertmacro SET_SCOPE_CONTEXT
   SectionEnd
   Section "Notepad++" SecNpp
     SetShellVarContext current
-    SetOutPath "$APPDATA\Notepad++\userDefineLangs"
-    File "${SRCDIR}\editors\notepadpp-qu\Qu.udl.xml"
-    WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Notepadpp" "$APPDATA\Notepad++\userDefineLangs\Qu.udl.xml"
+    !insertmacro EDITOR_VIA_CLI notepadpp
+    ${If} $R7 != 0
+      SetOutPath "$APPDATA\Notepad++\userDefineLangs"
+      File "${SRCDIR}\editors\notepadpp-qu\Qu.udl.xml"
+      WriteINIStr "$INSTDIR\${STATE_FILE}" "Plugins" "Notepadpp" "$APPDATA\Notepad++\userDefineLangs\Qu.udl.xml"
+    ${EndIf}
     !insertmacro SET_SCOPE_CONTEXT
   SectionEnd
 SectionGroupEnd
@@ -411,17 +549,19 @@ Function QuComponentDefaults
   ; Component defaults: plugins only for editors that are here; the
   ; command-line switches override the page for scripted installs.
   !ifdef HAVE_EDITORS
-    ${IfNot} ${FileExists} "$PROFILE\.vscode\*.*"
-      !insertmacro UnselectSection ${SecVSCode}
-    ${EndIf}
-    ${IfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
-    ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
-      !insertmacro UnselectSection ${SecSublime}
-    ${EndIf}
-    ${IfNot} ${FileExists} "$APPDATA\Notepad++\*.*"
-      !insertmacro UnselectSection ${SecNpp}
-    ${EndIf}
+    !insertmacro DETECT_EDITOR ${SecVSCode} "VS Code" "Code.exe" "$PROFILE\.vscode" "$APPDATA\Code"
+    !insertmacro DETECT_EDITOR ${SecVSCodium} "VSCodium" "codium.exe" "$PROFILE\.vscode-oss" "$APPDATA\VSCodium"
+    !insertmacro DETECT_EDITOR ${SecCursor} "Cursor" "cursor.exe" "$PROFILE\.cursor" "$APPDATA\Cursor"
+    !insertmacro DETECT_EDITOR ${SecWindsurf} "Windsurf" "windsurf.exe" "$PROFILE\.windsurf" "$APPDATA\Windsurf"
+    !insertmacro DETECT_EDITOR ${SecSublime} "Sublime Text" "sublime_text.exe" "$APPDATA\Sublime Text\Packages" "$APPDATA\Sublime Text 3\Packages"
+    !insertmacro DETECT_EDITOR ${SecNpp} "Notepad++" "notepad++.exe" "$APPDATA\Notepad++" "$APPDATA\Notepad++"
   !endif
+  ClearErrors
+  ${GetParameters} $R0
+  ${GetOptions} $R0 "/NOASSOC" $R1
+  ${IfNot} ${Errors}
+    !insertmacro UnselectSection ${SecAssoc}
+  ${EndIf}
   ${GetParameters} $R0
   !ifdef HAVE_DOCS
     ClearErrors
@@ -442,6 +582,9 @@ Function QuComponentDefaults
     ${GetOptions} $R0 "/NOPLUGINS" $R1
     ${IfNot} ${Errors}
       !insertmacro UnselectSection ${SecVSCode}
+      !insertmacro UnselectSection ${SecVSCodium}
+      !insertmacro UnselectSection ${SecCursor}
+      !insertmacro UnselectSection ${SecWindsurf}
       !insertmacro UnselectSection ${SecSublime}
       !insertmacro UnselectSection ${SecNpp}
     ${EndIf}
@@ -465,6 +608,7 @@ FunctionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "qu.exe, its licence files and the uninstaller."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecAssoc} "Gives .qu files the name $\"Qu script$\" and an icon. Double-clicking OPENS the file in a text editor (Qu Studio if you install it, else Notepad); it never runs it. Right-click, Run with Qu, runs it. An existing .qu default is not taken over."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPath} "Lets any new terminal run qu by name. Only this one entry is added; the rest of PATH is left exactly as it is, and uninstalling removes it."
   !ifdef HAVE_JUPYTER
     !insertmacro MUI_DESCRIPTION_TEXT ${SecJupyter} "qu-jupyter.exe, registered as the $\"Qu$\" kernel for JupyterLab, Notebook and VS Code's Jupyter extension. Jupyter itself is installed separately (pip install jupyterlab)."
@@ -530,7 +674,24 @@ Section "Uninstall"
   ${If} $R0 == 1
     RMDir /r "$INSTDIR\docs"
   ${EndIf}
+  ${If} $AllUsers == 1
+    !insertmacro ASSOC_REMOVE HKLM
+  ${Else}
+    !insertmacro ASSOC_REMOVE HKCU
+  ${EndIf}
   ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "VSCode"
+  ${If} $R0 != ""
+    RMDir /r $R0
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "VSCodium"
+  ${If} $R0 != ""
+    RMDir /r $R0
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "Cursor"
+  ${If} $R0 != ""
+    RMDir /r $R0
+  ${EndIf}
+  ReadINIStr $R0 "$INSTDIR\${STATE_FILE}" "Plugins" "Windsurf"
   ${If} $R0 != ""
     RMDir /r $R0
   ${EndIf}

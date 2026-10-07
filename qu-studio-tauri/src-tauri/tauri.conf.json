@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "Qu Studio",
-    "version": "0.4.8"
+    "version": "0.4.9"
   },
   "tauri": {
     "allowlist": {
@@ -62,7 +62,17 @@
       "category": "DeveloperTool",
       "copyright": "",
       "deb": {
-        "depends": []
+        "depends": [],
+        "desktopTemplate": "linux/qu-studio.desktop",
+        "files": {
+          "/usr/share/mime/packages/qu-script.xml": "linux/qu-script.xml"
+        }
+      },
+      "rpm": {
+        "desktopTemplate": "linux/qu-studio.desktop",
+        "files": {
+          "/usr/share/mime/packages/qu-script.xml": "linux/qu-script.xml"
+        }
       },
       "externalBin": ["binaries/qu"],
       "icon": [

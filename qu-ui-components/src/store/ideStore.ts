@@ -11,6 +11,11 @@ export interface FileTab {
   content: string;
   isDirty: boolean;
   language: string;
+  /** How the tab is shown. Absent/'text' = the code editor; 'svg' and
+   *  'pdf' = a read-only viewer (an svg tab keeps its source in `content`,
+   *  a pdf tab keeps its bytes in `bytes`). */
+  kind?: 'text' | 'svg' | 'pdf';
+  bytes?: Uint8Array;
 }
 
 export interface IDEState {

@@ -479,3 +479,55 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ---- Narrow windows (the app's minWidth is 800) ----------------------
+ * Measured at 800 px before this block: the top bar's content was 1177 px
+ * wide (Run and the icon cluster fell off the right edge) and sidebar +
+ * inspector left the editor 192 px. Everything below only applies under
+ * the width where it was needed, so 1400 px looks exactly as before. */
+.qu-topbar { overflow-x: auto; scrollbar-width: none; }
+.qu-topbar::-webkit-scrollbar { display: none; }
+.qu-modetabs { scrollbar-width: none; }
+.qu-modetabs::-webkit-scrollbar { display: none; }
+@media (max-width: 1100px) {
+  .qu-tagline { display: none; }
+  .qu-sidebar { width: 232px; }
+  .qu-modetab { padding: 6px 9px; }
+}
+@media (max-width: 1000px) {
+  /* Labels collapse to icons (the title attribute keeps the name), except
+     on the active tab, so the current mode is always spelled out. */
+  .qu-modetab:not([aria-selected="true"]) .qu-modetab-label { display: none; }
+  .qu-bar-label { display: none; }
+  .qu-workspace-inspector { width: 300px; }
+}
+@media (max-width: 760px) {
+  .qu-workspace-inspector { display: none; }
+  .qu-wordmark-text { display: none; }
+}
+
+/* ---- Motion ------------------------------------------------------------
+ * Interactive controls: 150 ms ease-out on colour/opacity/transform only.
+ * Dragging a splitter or panel edge must never be eased, or the pane lags
+ * the pointer: any element inside a `[data-resizing]` / `.is-resizing`
+ * subtree has its transitions switched off. */
+.qu-bar-icon:active:not(:disabled),
+.qu-bar-button:active:not(:disabled),
+.qu-modetab:active { transform: scale(0.97); }
+.qu-bar-icon,
+.qu-bar-button,
+.qu-modetab {
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
+}
+[data-resizing] *,
+.is-resizing * { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .qu-bar-icon,
+  .qu-bar-button,
+  .qu-modetab { transform: none !important; }
+}

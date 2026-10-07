@@ -9,7 +9,10 @@
     //   (b) replace "qu" in "cmd" with the executable's full path.
     // See this folder's README.md for details and platform-specific notes.
     "cmd": ["qu", "run", "$file"],
-    "file_regex": "^qu: parse error at (\\d+):(\\d+): (.*)$",
+    // Qu editor plugin 0.2.0
+    // `qu run` prints `  at file.qu:LINE in f()` / `  called from file.qu:LINE ...`
+    // under a runtime error; this makes each of those lines clickable.
+    "file_regex": "^\\s+(?:at|called from) (.+?):(\\d+)()(.*)$",
     "selector": "source.qu",
     "working_dir": "$file_path",
 
@@ -23,6 +26,7 @@
         },
         {
             "name": "Parse (check syntax only)",
+            "file_regex": "^qu: parse error at (\\d+):(\\d+): (.*)$",
             "cmd": ["qu", "parse", "$file"]
         }
     ]

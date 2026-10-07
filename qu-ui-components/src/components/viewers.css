@@ -1,0 +1,186 @@
+/* SVG/PDF viewers, drop overlay and toasts. Colours come from the shared
+ * token set in inspector.css, so every rule follows light/dark. Motion is
+ * 150-250 ms ease-out on transform/opacity only. */
+@import './inspector.css';
+
+.qu-viewer {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--qu-bg);
+  color: var(--qu-text);
+  animation: qu-fade-in 180ms ease-out;
+}
+.qu-viewer-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--qu-border);
+  background: var(--qu-surface);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow-x: auto;
+}
+.qu-viewer-name {
+  flex: 1 1 auto;
+  min-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.qu-viewer-zoom {
+  font-size: 12px;
+  color: var(--qu-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+  white-space: nowrap;
+}
+.qu-viewer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--qu-border);
+  background: var(--qu-bg);
+  color: var(--qu-text);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 150ms ease-out, transform 150ms ease-out;
+}
+.qu-viewer-btn:hover { background: var(--qu-hover); }
+.qu-viewer-btn:active { transform: scale(0.97); }
+.qu-viewer-btn:focus-visible { outline: 2px solid var(--qu-accent); outline-offset: 1px; }
+.qu-viewer-btn-primary {
+  background: var(--qu-accent-solid);
+  border-color: var(--qu-accent-solid);
+  color: #fff;
+}
+.qu-viewer-btn-primary:hover { background: var(--qu-accent-solid-hover); }
+
+.qu-viewer-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+  /* A faint checkerboard so transparent SVGs read as transparent. */
+  background-color: var(--qu-bg);
+  background-image:
+    linear-gradient(45deg, var(--qu-surface) 25%, transparent 25%, transparent 75%, var(--qu-surface) 75%),
+    linear-gradient(45deg, var(--qu-surface) 25%, transparent 25%, transparent 75%, var(--qu-surface) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+.qu-viewer-stage[data-dragging] { cursor: grabbing; }
+.qu-viewer-stage:focus-visible { box-shadow: inset 0 0 0 2px var(--qu-accent); }
+.qu-viewer-stage-pdf { cursor: default; background-image: none; touch-action: auto; }
+.qu-viewer-content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  user-select: none;
+}
+.qu-viewer-content[data-animate] { transition: transform 200ms ease-out; }
+.qu-viewer-content > svg { width: 100%; height: 100%; display: block; }
+.qu-viewer-embed { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.qu-viewer-empty,
+.qu-viewer-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--qu-muted);
+  font-size: 13px;
+}
+.qu-viewer-fallback strong { color: var(--qu-text); font-size: 15px; }
+.qu-viewer-fallback p { max-width: 420px; margin: 0; }
+
+/* ---- Drop overlay ---------------------------------------------------- */
+.qu-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--qu-bg) 70%, transparent);
+  backdrop-filter: blur(2px);
+  animation: qu-fade-in 150ms ease-out;
+}
+.qu-drop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 56px;
+  border: 2px dashed var(--qu-accent);
+  border-radius: 16px;
+  background: var(--qu-accent-soft);
+  color: var(--qu-text);
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  animation: qu-pop-in 200ms ease-out;
+}
+.qu-drop-card strong { font-size: 16px; }
+.qu-drop-card span { font-size: 12px; color: var(--qu-muted); }
+
+/* ---- Toasts ----------------------------------------------------------- */
+.qu-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 40px;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.qu-toast {
+  pointer-events: auto;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--qu-border);
+  background: var(--qu-surface);
+  color: var(--qu-text);
+  font-size: 12.5px;
+  line-height: 1.4;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  overflow-wrap: anywhere;
+  animation: qu-toast-in 200ms ease-out;
+}
+.qu-toast[data-kind="warning"] { border-left: 3px solid var(--qu-warning); }
+.qu-toast[data-kind="error"] { border-left: 3px solid var(--qu-danger); }
+.qu-toast[data-kind="info"] { border-left: 3px solid var(--qu-accent); }
+
+@keyframes qu-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qu-pop-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes qu-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .qu-viewer,
+  .qu-drop-overlay,
+  .qu-drop-card,
+  .qu-toast { animation: none !important; }
+  .qu-viewer-content[data-animate],
+  .qu-viewer-btn { transition: none !important; }
+}

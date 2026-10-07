@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider } from '@qu/ui-components';
+import { MotionConfig } from 'framer-motion';
 import App from './App';
 import { GuiRunnerWindow } from './GuiRunnerWindow';
 import './index.css';
@@ -16,7 +17,11 @@ const isGuiRunner = new URLSearchParams(window.location.search).get('guiRunner')
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="dark">
-      {isGuiRunner ? <GuiRunnerWindow /> : <App />}
+      {/* ease-out by default; prefers-reduced-motion makes every
+          framer-motion transform/layout animation instant. */}
+      <MotionConfig reducedMotion="user" transition={{ ease: 'easeOut' }}>
+        {isGuiRunner ? <GuiRunnerWindow /> : <App />}
+      </MotionConfig>
     </ThemeProvider>
   </React.StrictMode>
 );
