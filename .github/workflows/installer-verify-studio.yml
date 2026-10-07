@@ -245,6 +245,7 @@ jobs:
           # ---- .qu file association (HKCU\Software\Classes) ----------------
           function Cls([string]$sub, [string]$name = '') {   # $null if absent
             $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes')
+            if ($null -eq $c) { return $null }   # a fresh profile may have no Classes key at all
             try {
               $k = $c.OpenSubKey($sub); if ($null -eq $k) { return $null }
               try { if ($k.GetValueNames() -notcontains $name) { return $null }; return [string]$k.GetValue($name) } finally { $k.Close() }
@@ -252,14 +253,17 @@ jobs:
           }
           function Cls-Exists([string]$sub) {
             $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes')
+            if ($null -eq $c) { return $false }
             try { $k = $c.OpenSubKey($sub); if ($null -eq $k) { return $false }; $k.Close(); return $true } finally { $c.Close() }
           }
           function Cls-Remove([string]$sub) {
             $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes', $true)
+            if ($null -eq $c) { return }
             try { $c.DeleteSubKeyTree($sub, $false) } finally { $c.Close() }
           }
           function Cls-Set([string]$sub, [string]$name, [string]$value) {
-            $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes', $true)
+            # CreateSubKey: opens it, or creates it when the profile has none yet
+            $c = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Classes')
             try { $k = $c.CreateSubKey($sub); $k.SetValue($name, $value); $k.Close() } finally { $c.Close() }
           }
           function Setup-With([string[]]$extra) {
@@ -348,6 +352,13 @@ jobs:
             Test-Assoc
             Test-EditorsDetect
             Write-Host "ALL CHECKS PASSED"
+          } catch {
+            # The runner's console cannot render an ErrorRecord ("Exception
+            # setting CursorPosition: The handle is invalid"), which hid the
+            # real assertion text. Print it plainly, then fail.
+            Write-Host "FAILED: $($_.Exception.Message)"
+            Write-Host $_.ScriptStackTrace
+            exit 1
           } finally {
             if ($runnerOriginal.Exists) {
               $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
