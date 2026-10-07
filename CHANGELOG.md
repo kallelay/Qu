@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+- `qu.exe` and `qu-jupyter.exe` now carry Windows version information (product, company, description, file version), an icon and a manifest (they had none, which makes antivirus engines more suspicious of an unsigned program); Qu Studio's copyright field is filled in. Releases also get GitHub build-provenance attestations, a Sigstore-signed `SHA256SUMS`, and `SHA256SUMS-studio-<platform>` for the Studio installers (each step is optional: a failure never blocks a release). New docs/code-signing.md: how to verify a download, the code-signing policy, and what is needed from the project owner to obtain a signing certificate.
+
 ## [0.4.9] - 2026-10-07
 
 Qu Studio opens `.qu`, `.svg` and `.pdf` files by double-click, by path and by drag and drop; `.qu` is a registered file type on Windows, Linux and macOS; `qu editors` detects and installs the plugins for VS Code, VSCodium, Cursor, Windsurf, Notepad++, Sublime Text, Vim/Neovim and the Jupyter kernel; `sci`, `sprintf`, `printf`, `diff_lines`; much faster `inv`/`solve`/`lu`, `sort` and function calls; and plots of very small values no longer collapse.

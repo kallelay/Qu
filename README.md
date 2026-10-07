@@ -200,6 +200,15 @@ cannot claim a feature that doesn't exist.
 [`catalog/`](catalog/) holds around a hundred worked scripts, each one a
 complete program that runs.
 
+### Windows warnings and checking a download
+
+The Windows executables are **not yet code-signed**, so SmartScreen may warn about them and
+some antivirus engines flag new unsigned programs. Every release lists SHA-256 checksums
+(`SHA256SUMS`), and releases from the one after 0.4.9 also carry build-provenance
+attestations and a Sigstore-signed checksum file, so you can check that a download was built
+by this repository's workflow. How to verify, what Qu does on your machine, the signing
+policy and how to report a false positive: [docs/code-signing.md](docs/code-signing.md).
+
 ## Design commitments
 
 These are the things Qu will not trade away, stated so you can hold it to

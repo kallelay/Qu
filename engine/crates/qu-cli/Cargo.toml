@@ -19,6 +19,10 @@ qu-interp = { path = "../qu-interp" }
 # depends on this exact version, so the CLI adds nothing to the build.
 serde_json = { version = "1", features = ["preserve_order"] }
 
+[build-dependencies]
+# Windows version information, icon and manifest for the executable (see build.rs)
+winresource = "0.1"
+
 # Forwards qu-interp's own `gpu` feature (off by default — see its own
 # Cargo.toml for why) so it's actually reachable from the `qu` binary
 # itself: without this, `cargo build -p qu-cli --features gpu` fails
