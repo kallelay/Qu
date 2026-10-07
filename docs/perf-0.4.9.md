@@ -313,3 +313,30 @@ wall-clock flake did not trigger). New tests:
 Side finding for the `qu fmt` owner: a file ending in a blank line with CRLF
 endings makes `qu fmt` fail with the token-stream error instead of trimming
 the line.
+
+## Addendum: `dict` (fixed after the first write-up)
+
+The first version of this document listed `dict` as the largest unfixed cliff: it was an
+association list, so `get` was a linear scan and every `set` copied the whole dict (5000
+`set` + `get` took ~370x longer than Python; 100,000 inserts did not finish in two
+minutes).
+
+`Value::Dict` is now `Arc<DictData>` (`src/dict_data.rs`): insertion-ordered pairs plus a
+lazily built hash index (only for dicts over 16 entries). `get` uses the index. The
+statement `d = set(d, k, v)` takes the dict out of its variable, so it is uniquely owned and
+`Arc::make_mut` updates it in place, keeping the index current (`try_selfrebind_set` in
+`lib.rs`, modelled on the existing `append` fast path; it is skipped when the script
+defines its own `set`). Any other `set` call still returns a copy, as documented.
+`dict(keys, values)` no longer does a linear duplicate check per key.
+
+Measured on the same machine (one run each, `D:\qu-project\qu-audit-0.4.8\dict_bench.qu`):
+
+| workload | before | after |
+|---|---|---|
+| 100,000 `d = set(d, "k"+str(i), i)` | > 120 s (did not finish) | 0.18 s |
+| 100,000 `get(d, "k"+str(i))` | (quadratic) | 0.21 s |
+
+The remaining per-operation cost (~2 us) is the interpreter loop and the string
+concatenation for the key, not the dict. Tests: `tests/dict_scale.rs` (aliases never see an
+in-place update, a user-defined `set` is respected, key order, number-key normalisation,
+records keep their type) and the unit tests in `dict_data.rs`.

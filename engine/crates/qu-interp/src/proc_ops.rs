@@ -303,7 +303,8 @@ fn exec(args: &[Value], style: &[(String, Value)]) -> R<Value> {
 /// needs no `str` at the call site" convention.
 fn env_pairs(v: &Value, who: &str) -> R<Vec<(String, String)>> {
     match v {
-        Value::Dict(pairs) | Value::Record(pairs) => {
+        Value::Dict(_) | Value::Record(_) => {
+            let pairs = v.pair_slice().unwrap_or(&[]);
             Ok(pairs.iter().map(|(k, val)| (k.clone(), display_value(val))).collect())
         }
         other => e(format!(

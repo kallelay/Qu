@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+- `dict` is fast at any size: `get` uses a hash index (built once a dict has more than 16 entries) and `d = set(d, k, v)` updates a dict nobody else holds in place instead of copying every key and value, so n inserts are O(n), not O(n^2): 100,000 inserts took over two minutes and did not finish, now 0.18 s, and 100,000 lookups take 0.21 s. `dict(keys, values)` is linear too. Behaviour is unchanged: key order, number-key normalisation, "first position, last value" for repeated keys, and an alias of the dict never sees the update (`e = d; d = set(d, ...)` leaves `e` alone); a script that defines its own `set` is not bypassed.
+
 - `qu.exe` and `qu-jupyter.exe` now carry Windows version information (product, company, description, file version), an icon and a manifest (they had none, which makes antivirus engines more suspicious of an unsigned program); Qu Studio's copyright field is filled in. Releases also get GitHub build-provenance attestations, a Sigstore-signed `SHA256SUMS`, and `SHA256SUMS-studio-<platform>` for the Studio installers (each step is optional: a failure never blocks a release). New docs/code-signing.md: how to verify a download, the code-signing policy, and what is needed from the project owner to obtain a signing certificate.
 
 ## [0.4.9] - 2026-10-07

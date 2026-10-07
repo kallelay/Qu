@@ -85,7 +85,7 @@ fn simple_to_value(j: &serde_json::Value) -> Value {
         J::String(s) => Value::Str(s.clone()),
         J::Array(items) => Value::List(std::sync::Arc::new(items.iter().map(simple_to_value).collect())),
         J::Object(map) => Value::Dict(std::sync::Arc::new(
-            map.iter().map(|(k, v)| (k.clone(), simple_to_value(v))).collect(),
+            map.iter().map(|(k, v)| (k.clone(), simple_to_value(v))).collect::<Vec<_>>().into(),
         )),
     }
 }
@@ -108,7 +108,8 @@ fn value_to_json(v: &Value) -> R<serde_json::Value> {
             }
             J::Array(out)
         }
-        Value::Dict(pairs) | Value::Record(pairs) => {
+        Value::Dict(_) | Value::Record(_) => {
+            let pairs = v.pair_slice().unwrap_or(&[]);
             let mut map = serde_json::Map::with_capacity(pairs.len());
             for (k, val) in pairs.iter() {
                 map.insert(k.clone(), value_to_json(val)?);

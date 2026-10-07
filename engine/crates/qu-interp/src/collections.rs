@@ -302,7 +302,7 @@ pub fn apply_named(interp: &mut Interp, args: &[Value]) -> R<Value> {
 /// hashable-key system: any other value type (bool, list, dict, ...) has
 /// no sensible canonical key spelling and is rejected outright rather than
 /// silently coerced.
-fn dict_key(v: &Value) -> R<String> {
+pub(crate) fn dict_key(v: &Value) -> R<String> {
     match v {
         Value::Str(s) => Ok(s.clone()),
         Value::Num(n) => Ok(fmt_num(*n)),
@@ -329,12 +329,12 @@ fn dict_key(v: &Value) -> R<String> {
 /// Writing keeps the variant it was given (see `rebuild`), because the two
 /// are not interchangeable everywhere yet -- `.field` access is a record's
 /// alone -- and quietly handing back the other one would lose that.
-fn as_pairs(v: &Value, who: &str) -> R<Arc<Vec<(String, Value)>>> {
-    match v {
-        Value::Dict(pairs) | Value::Record(pairs) => Ok(pairs.clone()),
-        other => e(format!(
+fn as_pairs<'a>(v: &'a Value, who: &str) -> R<&'a [(String, Value)]> {
+    match v.pair_slice() {
+        Some(pairs) => Ok(pairs),
+        None => e(format!(
             "{who}: expected a dict or a record, found {}",
-            other.type_name()
+            v.type_name()
         )),
     }
 }
@@ -343,7 +343,7 @@ fn as_pairs(v: &Value, who: &str) -> R<Arc<Vec<(String, Value)>>> {
 fn rebuild(like: &Value, pairs: Vec<(String, Value)>) -> Value {
     match like {
         Value::Record(_) => Value::Record(Arc::new(pairs)),
-        _ => Value::Dict(Arc::new(pairs)),
+        _ => Value::Dict(Arc::new(pairs.into())),
     }
 }
 
@@ -364,7 +364,7 @@ fn rebuild(like: &Value, pairs: Vec<(String, Value)>) -> Value {
 /// ordinary "last write wins" dict semantics.
 pub fn dict_new(args: &[Value]) -> R<Value> {
     if args.is_empty() {
-        return Ok(Value::Dict(Arc::new(Vec::new())));
+        return Ok(Value::Dict(Arc::new(crate::dict_data::DictData::default())));
     }
     if args.len() != 2 {
         return e("dict(...) needs 0 arguments (empty dict) or 2 (keys, values)");
@@ -382,15 +382,14 @@ pub fn dict_new(args: &[Value]) -> R<Value> {
             values.len()
         ));
     }
-    let mut pairs: Vec<(String, Value)> = Vec::with_capacity(keys.len());
+    // `DictData::set` keeps a repeated key's FIRST position and takes its
+    // LAST value, and (unlike the old linear duplicate check) is O(1) per key
+    // once the dict is big, so `dict(keys, values)` is no longer quadratic.
+    let mut data = crate::dict_data::DictData::default();
     for (k, v) in keys.into_iter().zip(values.into_iter()) {
-        let key = dict_key(&k)?;
-        match pairs.iter_mut().find(|(existing, _)| *existing == key) {
-            Some((_, slot)) => *slot = v,
-            None => pairs.push((key, v)),
-        }
+        data.set(dict_key(&k)?, v);
     }
-    Ok(Value::Dict(Arc::new(pairs)))
+    Ok(Value::Dict(Arc::new(data)))
 }
 
 /// `get(d, key)` — looks up `key` (string or number, normalized the same
@@ -399,17 +398,21 @@ pub fn dict_new(args: &[Value]) -> R<Value> {
 /// thrown error — composes with `??` the same way (`get(d, "x") ?? 0`)
 /// instead of forcing every lookup through `try`/`catch`.
 pub fn dict_get(args: &[Value]) -> R<Value> {
-    let d = as_pairs(arg0(args)?, "get")?;
+    let like = arg0(args)?;
+    let d = as_pairs(like, "get")?;
     let key = dict_key(args.get(1).ok_or_else(|| EvalError {
         msg: "get(d, key) needs a key".into(),
     })?)?;
     // `get(d, key, default)`: the optional third argument is what an absent
     // key gives back (it used to be accepted and silently ignored).
     let default = args.get(2).cloned().unwrap_or(Value::Nothing);
-    Ok(d.iter()
-        .find(|(k, _)| *k == key)
-        .map(|(_, v)| v.clone())
-        .unwrap_or(default))
+    // A `Dict` looks the key up through its hash index (O(1) once it has more
+    // than a handful of entries); a `Record` is small by nature and scanned.
+    let found = match like {
+        Value::Dict(data) => data.get(&key),
+        _ => d.iter().find(|(k, _)| *k == key).map(|(_, v)| v),
+    };
+    Ok(found.cloned().unwrap_or(default))
 }
 
 /// `set(d, key, value)` — returns a NEW dict with `key` bound to `value`
@@ -426,7 +429,15 @@ pub fn dict_set(args: &[Value]) -> R<Value> {
     let value = args.get(2).cloned().ok_or_else(|| EvalError {
         msg: "set(d, key, value) needs a value".into(),
     })?;
-    let mut pairs = d.as_ref().clone();
+    // A dict is copied once (O(n)) and updated through its index. The
+    // statement form `d = set(d, k, v)` skips even that copy: see
+    // `Interp::try_selfrebind_set` in lib.rs.
+    if let Value::Dict(data) = like {
+        let mut data = data.clone();
+        Arc::make_mut(&mut data).set(key, value);
+        return Ok(Value::Dict(data));
+    }
+    let mut pairs = d.to_vec();
     match pairs.iter_mut().find(|(k, _)| *k == key) {
         Some((_, slot)) => *slot = value,
         None => pairs.push((key, value)),

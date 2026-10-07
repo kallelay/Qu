@@ -787,7 +787,7 @@ fn xml_node_to_value(n: &XmlNode) -> R<Value> {
             Value::List(Arc::new(items?))
         }
         "record" => Value::Record(Arc::new(xml_node_to_fields(n)?)),
-        "dict" => Value::Dict(Arc::new(xml_node_to_fields(n)?)),
+        "dict" => Value::Dict(Arc::new(xml_node_to_fields(n)?.into())),
         "nothing" => Value::Nothing,
         "enum_val" => Value::EnumVal(Arc::new((n.attr("enum")?.to_string(), n.attr("variant")?.to_string()))),
         "enum_type" => Value::EnumType(Arc::new(n.attr("name")?.to_string())),

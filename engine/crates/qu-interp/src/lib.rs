@@ -376,6 +376,7 @@ pub mod dprof;
 /// `trapz`/`cumtrapz`/`simpson`/`quad`/`ode45`/`ode23`/`ode_stiff`/`rk4`.
 pub mod integrate;
 mod diff_ops;
+pub mod dict_data;
 mod numfmt_ops;
 
 /// Shared native/WASM numerical semantics. Interpreter builtins migrate to
@@ -870,7 +871,7 @@ pub enum Value {
     /// this same night, and duplicating it here risks a second, competing
     /// convention. Deferred, not forgotten — `get`/`set` are the only
     /// access path for now.
-    Dict(Arc<Vec<(String, Value)>>),
+    Dict(Arc<dict_data::DictData>),
     /// A unit-tracked quantity (design doc `docs/design/physical-units.md`,
     /// phase 1, 2026-08-27): a plain f64 magnitude riding with a `UnitTag`
     /// that is checked at the point of use instead of being silently
@@ -2131,6 +2132,16 @@ fn file_endian(style: &[(String, Value)]) -> R<bool> {
 }
 
 impl Value {
+    /// The `(key, value)` pairs of a `Dict` or a `Record` (the two share one
+    /// read-only shape); `None` for anything else.
+    pub fn pair_slice(&self) -> Option<&[(String, Value)]> {
+        match self {
+            Value::Dict(d) => Some(&d[..]),
+            Value::Record(r) => Some(&r[..]),
+            _ => None,
+        }
+    }
+
     pub fn type_name(&self) -> &'static str {
         match self {
             Value::Num(_) => "number",
@@ -8105,6 +8116,9 @@ impl Interp {
                     if self.try_selfrebind_append(name, rhs)?.is_some() {
                         return Ok(());
                     }
+                    if self.try_selfrebind_set(name, rhs)?.is_some() {
+                        return Ok(());
+                    }
                     if self.try_selfrebind_concat(name, rhs)?.is_some() {
                         return Ok(());
                     }
@@ -10637,6 +10651,60 @@ impl Interp {
             }
             _ => false,
         }
+    }
+
+    /// `d = set(d, key, value)` with `d` a `Dict` nobody else holds: update the
+    /// dictionary where it lives instead of building a copy.
+    ///
+    /// `set` is documented as returning a NEW dict, and that is still what the
+    /// script observes: the statement rebinds `d`, and `d`'s old value is
+    /// unreachable afterwards. The ordinary call path, though, evaluates its
+    /// arguments first, which leaves the dict with two owners (the variable and
+    /// the argument), so every `set` copied every key and value: n inserts cost
+    /// O(n^2), and 1e5 of them did not finish. Taking the dict out of its
+    /// variable first makes it uniquely owned, so `Arc::make_mut` updates it
+    /// in place and its hash index stays valid.
+    ///
+    /// Declined (falls through to the ordinary call) unless the callee is the
+    /// builtin `set` (a script that defines its own `set` is left alone), the
+    /// first argument is the assigned variable itself, and that variable holds
+    /// a `Dict`. Evaluation order is the ordinary one: key, then value.
+    fn try_selfrebind_set(&mut self, name: &str, rhs: &Expr) -> R<Option<()>> {
+        let Expr::Call { callee, args } = rhs else {
+            return Ok(None);
+        };
+        let Expr::Name(fname) = callee.as_ref() else {
+            return Ok(None);
+        };
+        if fname != "set" || args.len() != 3 || self.has_user_fn("set") {
+            return Ok(None);
+        }
+        let (Arg::Pos(first), Arg::Pos(key_expr), Arg::Pos(value_expr)) = (&args[0], &args[1], &args[2]) else {
+            return Ok(None);
+        };
+        if !matches!(first, Expr::Name(n) if n == name) {
+            return Ok(None);
+        }
+        if !matches!(self.var_get(name), Some(Value::Dict(_))) {
+            return Ok(None);
+        }
+        let key_value = self.eval(key_expr)?;
+        let value = self.eval(value_expr)?;
+        let key = collections::dict_key(&key_value)?;
+        match self.var_take(name) {
+            Some(Value::Dict(mut arc)) => {
+                Arc::make_mut(&mut arc).set(key, value);
+                self.var_set(name, Value::Dict(arc));
+            }
+            // The key or value expression reassigned `name` to something that
+            // is not a dict: do what the ordinary call would have done.
+            Some(other) => {
+                let result = collections::dict_set(&[other, key_value, value])?;
+                self.var_set(name, result);
+            }
+            None => return e(format!("`{name}` is not defined")),
+        }
+        Ok(Some(()))
     }
 
     fn try_selfrebind_append(&mut self, name: &str, rhs: &Expr) -> R<Option<()>> {
@@ -52830,7 +52898,7 @@ fn json_to_value(j: &serde_json::Value) -> R<Value> {
                 })?;
                 pairs.push((k, json_to_value(v)?));
             }
-            Value::Dict(Arc::new(pairs))
+            Value::Dict(Arc::new(pairs.into()))
         }
         "nothing" => Value::Nothing,
         "enum_val" => {
@@ -61304,7 +61372,12 @@ fn value_unchanged(a: &Value, b: &Value) -> bool {
         (Value::Quantity(x, tx), Value::Quantity(y, ty)) => {
             tx == ty && value_unchanged(x, y)
         }
-        (Value::Record(x), Value::Record(y)) | (Value::Dict(x), Value::Dict(y)) => {
+        (Value::Record(x), Value::Record(y)) => {
+            Arc::ptr_eq(x, y)
+                || (x.len() == y.len()
+                    && x.iter().zip(y.iter()).all(|(p, q)| p.0 == q.0 && value_unchanged(&p.1, &q.1)))
+        }
+        (Value::Dict(x), Value::Dict(y)) => {
             Arc::ptr_eq(x, y)
                 || (x.len() == y.len()
                     && x.iter().zip(y.iter()).all(|(p, q)| p.0 == q.0 && value_unchanged(&p.1, &q.1)))
