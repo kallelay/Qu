@@ -243,7 +243,7 @@ jobs:
           }
 
           # ---- .qu file association (HKCU\Software\Classes) ----------------
-          function Cls([string]$sub, [string]$name = '') {   # $null if absent
+          function ClsVal([string]$sub, [string]$name = '') {   # $null if absent
             $c = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Classes')
             if ($null -eq $c) { return $null }   # a fresh profile may have no Classes key at all
             try {
@@ -275,7 +275,7 @@ jobs:
             Set-UserPath $null
             if (Test-Path $dir) { throw "install dir already exists: $dir" }
             $uk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Qu Studio'
-            $savedDot = Cls '.qu'
+            $savedDot = ClsVal '.qu'
             try {
               # A: another program owns .qu -> must be left untouched
               Cls-Remove '.qu'; Cls-Remove 'Qu.Script'; Cls-Remove 'Other.Script'
@@ -288,31 +288,31 @@ jobs:
               Assert (-not [string]::IsNullOrEmpty($exeName)) "uninstall key records MainBinaryName ($exeName)"
               $exe = Join-Path $dir $exeName
               Assert (Test-Path $exe) "installed main exe exists: $exe"
-              Assert ((Cls '.qu') -ceq 'Other.Script') '.qu default still Other.Script (not hijacked)'
-              Assert ((Cls 'Qu.Script') -ceq 'Qu script') 'ProgID Qu.Script named "Qu script"'
-              Assert ((Cls 'Qu.Script' 'FriendlyTypeName') -ceq 'Qu script') 'FriendlyTypeName = Qu script'
-              Assert ((Cls 'Qu.Script\DefaultIcon') -like "*$exeName*") "DefaultIcon points at the exe's icon (got $(Cls 'Qu.Script\DefaultIcon'))"
+              Assert ((ClsVal '.qu') -ceq 'Other.Script') '.qu default still Other.Script (not hijacked)'
+              Assert ((ClsVal 'Qu.Script') -ceq 'Qu script') 'ProgID Qu.Script named "Qu script"'
+              Assert ((ClsVal 'Qu.Script' 'FriendlyTypeName') -ceq 'Qu script') 'FriendlyTypeName = Qu script'
+              Assert ((ClsVal 'Qu.Script\DefaultIcon') -like "*$exeName*") "DefaultIcon points at the exe's icon (got $(ClsVal 'Qu.Script\DefaultIcon'))"
               $want = '"' + $exe + '" "%1"'
-              Assert ((Cls 'Qu.Script\shell\open\command') -ieq $want) "shell\open\command = $want"
-              Assert ((Cls 'Qu.Script\shell\edit\command') -ieq $want) 'shell\edit\command points at the exe'
-              Assert ($null -ne (Cls '.qu\OpenWithProgids' 'Qu.Script')) 'listed under Open with (OpenWithProgids)'
-              Assert ($null -ne (Cls ".qu\OpenWithProgids" 'Other.Script')) "other program's OpenWithProgids kept"
-              Assert ($null -ne (Cls "Applications\$exeName\SupportedTypes" '.qu')) 'Applications\<exe>\SupportedTypes lists .qu'
-              Assert ((Cls "Applications\$exeName\shell\open\command") -ieq $want) 'Applications\<exe> open command points at the exe'
+              Assert ((ClsVal 'Qu.Script\shell\open\command') -ieq $want) "shell\open\command = $want"
+              Assert ((ClsVal 'Qu.Script\shell\edit\command') -ieq $want) 'shell\edit\command points at the exe'
+              Assert ($null -ne (ClsVal '.qu\OpenWithProgids' 'Qu.Script')) 'listed under Open with (OpenWithProgids)'
+              Assert ($null -ne (ClsVal ".qu\OpenWithProgids" 'Other.Script')) "other program's OpenWithProgids kept"
+              Assert ($null -ne (ClsVal "Applications\$exeName\SupportedTypes" '.qu')) 'Applications\<exe>\SupportedTypes lists .qu'
+              Assert ((ClsVal "Applications\$exeName\shell\open\command") -ieq $want) 'Applications\<exe> open command points at the exe'
               Setup-With @('/NOPLUGINS')   # idempotent
-              Assert ((Cls 'Qu.Script\shell\open\command') -ieq $want) 'second install: same open command'
+              Assert ((ClsVal 'Qu.Script\shell\open\command') -ieq $want) 'second install: same open command'
               Run-Uninstall
               Assert (-not (Cls-Exists 'Qu.Script')) 'uninstall removed Qu.Script'
               Assert (-not (Cls-Exists "Applications\$exeName")) 'uninstall removed Applications\<exe>'
-              Assert ($null -eq (Cls '.qu\OpenWithProgids' 'Qu.Script')) 'uninstall removed our OpenWithProgids value'
-              Assert ((Cls '.qu') -ceq 'Other.Script') 'pre-existing .qu association untouched after uninstall'
-              Assert ($null -ne (Cls '.qu\OpenWithProgids' 'Other.Script')) "other program's OpenWithProgids untouched"
-              Assert ((Cls 'Other.Script\shell\open\command') -ceq '"C:\Other\other.exe" "%1"') "other program's ProgID untouched"
+              Assert ($null -eq (ClsVal '.qu\OpenWithProgids' 'Qu.Script')) 'uninstall removed our OpenWithProgids value'
+              Assert ((ClsVal '.qu') -ceq 'Other.Script') 'pre-existing .qu association untouched after uninstall'
+              Assert ($null -ne (ClsVal '.qu\OpenWithProgids' 'Other.Script')) "other program's OpenWithProgids untouched"
+              Assert ((ClsVal 'Other.Script\shell\open\command') -ceq '"C:\Other\other.exe" "%1"') "other program's ProgID untouched"
 
               # B: nothing owns .qu -> default set, then fully removed
               Cls-Remove '.qu'; Cls-Remove 'Other.Script'
               Setup-With @('/NOPLUGINS')
-              Assert ((Cls '.qu') -ceq 'Qu.Script') 'unowned .qu defaults to Qu.Script'
+              Assert ((ClsVal '.qu') -ceq 'Qu.Script') 'unowned .qu defaults to Qu.Script'
               Run-Uninstall
               Assert (-not (Cls-Exists '.qu')) 'uninstall removed the .qu key it created'
               Assert (-not (Cls-Exists 'Qu.Script')) 'uninstall removed Qu.Script'
